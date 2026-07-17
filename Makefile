@@ -9,8 +9,9 @@ up:
 down:
 	$(COMPOSE) down
 
+# -p 1: DB test packages share one database and must not run in parallel
 test:
-	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./... -count=1
+	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... -count=1
 
 lint:
 	cd backend && golangci-lint run
