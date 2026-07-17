@@ -1,2 +1,8 @@
 # Reference material (onless.uz skrinshotlari) — hozircha treklanmaydi
 Снимок*
+
+# Go
+backend/bin/
+backend/seed/sample/
+backend/var/
+.env
