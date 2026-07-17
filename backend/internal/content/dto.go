@@ -1,0 +1,74 @@
+package content
+
+import "encoding/json"
+
+type CategoryDTO struct {
+	Code      string `json:"code"`
+	Name      string `json:"name"`
+	SortOrder int32  `json:"sort_order"`
+}
+
+type VariantListItemDTO struct {
+	Number        int32 `json:"number"`
+	QuestionCount int32 `json:"question_count"`
+}
+
+type AnswerDTO struct {
+	ID       string  `json:"id"`
+	Position int16   `json:"position"`
+	Text     string  `json:"text"`
+	ImageURL *string `json:"image_url"`
+}
+
+type QuestionDTO struct {
+	ID           string      `json:"id"`
+	Position     int16       `json:"position,omitempty"`
+	CategoryCode string      `json:"category_code"`
+	Text         string      `json:"text"`
+	ImageURL     *string     `json:"image_url"`
+	Answers      []AnswerDTO `json:"answers"`
+}
+
+type VariantDetailDTO struct {
+	Number    int32         `json:"number"`
+	Questions []QuestionDTO `json:"questions"`
+}
+
+type SignListItemDTO struct {
+	Code          string  `json:"code"`
+	GroupCode     string  `json:"group_code"`
+	Name          string  `json:"name"`
+	ImageURL      *string `json:"image_url"`
+	QuestionCount int32   `json:"question_count"`
+}
+
+type SignDetailDTO struct {
+	Code        string   `json:"code"`
+	GroupCode   string   `json:"group_code"`
+	Name        string   `json:"name"`
+	Description string   `json:"description"`
+	ImageURL    *string  `json:"image_url"`
+	QuestionIDs []string `json:"question_ids"`
+}
+
+type SignChipDTO struct {
+	Code     string  `json:"code"`
+	Name     string  `json:"name"`
+	ImageURL *string `json:"image_url"`
+}
+
+type ExplanationDTO struct {
+	LegalRefs json.RawMessage `json:"legal_refs"`
+	Blocks    json.RawMessage `json:"blocks"`
+}
+
+type QuestionDetailDTO struct {
+	QuestionDTO
+	Signs       []SignChipDTO   `json:"signs"`
+	Explanation *ExplanationDTO `json:"explanation"`
+}
+
+type LocaleMeta struct {
+	Locale   string `json:"locale"`
+	Fallback bool   `json:"fallback"`
+}

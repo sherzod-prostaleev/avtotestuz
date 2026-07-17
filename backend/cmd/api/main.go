@@ -12,6 +12,8 @@ import (
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/config"
+	"avtotest.uz/backend/internal/db"
+	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/server"
 )
 
@@ -26,7 +28,16 @@ func main() {
 	}
 	defer func() { _ = logger.Sync() }()
 
-	h := server.New(cfg, server.Deps{})
+	if err := db.Migrate(cfg.DatabaseURL); err != nil {
+		logger.Fatal("migrate", zap.Error(err))
+	}
+	pool, err := db.NewPool(context.Background(), cfg.DatabaseURL)
+	if err != nil {
+		logger.Fatal("db", zap.Error(err))
+	}
+	defer pool.Close()
+
+	h := server.New(cfg, server.Deps{Queries: sqlc.New(pool)})
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           h,

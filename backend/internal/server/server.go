@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/cors"
 
 	"avtotest.uz/backend/internal/config"
+	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
 )
@@ -19,7 +20,9 @@ type Deps struct {
 
 func New(cfg config.Config, deps Deps) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, middleware.RealIP, middleware.Recoverer)
+	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
+	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
+	r.Use(middleware.RequestID, middleware.Recoverer)
 	if cfg.Env == "dev" {
 		r.Use(middleware.Logger)
 	}
@@ -33,8 +36,12 @@ func New(cfg config.Config, deps Deps) http.Handler {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
-	// Content routes are mounted in Plan01/T10 when deps.Queries != nil.
-	_ = deps
+	if deps.Queries != nil {
+		ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
+		r.Route("/api/v1", func(api chi.Router) {
+			ch.Routes(api)
+		})
+	}
 
 	return r
 }
