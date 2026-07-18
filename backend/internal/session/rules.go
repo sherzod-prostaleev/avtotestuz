@@ -8,10 +8,6 @@ const (
 	ExamQuestionCount = 20
 	ExamTimeLimitSec  = 25 * 60
 	ExamErrorsAllowed = 2
-
-	// MistakeClearAfter consecutive correct answers in mistakes-mode remove
-	// a question from the bank.
-	MistakeClearAfter = 2
 )
 
 // IsVariantUnlocked reports whether a variant is unlocked. The first variant
@@ -50,10 +46,4 @@ func EvaluateExam(correct, wrong, total int, timedOut, tooManyErrors bool) ExamO
 // wrong answer — the real exam ends on the 3rd mistake.
 func ShouldStopExam(wrongSoFar int) bool {
 	return wrongSoFar > ExamErrorsAllowed
-}
-
-// MistakeCleared reports whether repsAfterThisAnswer consecutive correct
-// answers (in mistakes-mode) are enough to remove the question from the bank.
-func MistakeCleared(repsAfterThisAnswer int) bool {
-	return repsAfterThisAnswer >= MistakeClearAfter
 }

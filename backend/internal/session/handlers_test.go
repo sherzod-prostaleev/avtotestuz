@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/fixture"
 	"avtotest.uz/backend/internal/importer"
+	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -41,7 +42,7 @@ func setupServer(t *testing.T) (*httptest.Server, string, *sqlc.Queries) {
 		t.Fatal(err)
 	}
 
-	svc := session.NewService(q, billing.Service{Q: q})
+	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q))
 	r := chi.NewRouter()
 	h := &session.Handler{Svc: svc}
 	h.Routes(r.With(auth.Required([]byte(handlerSecret))))

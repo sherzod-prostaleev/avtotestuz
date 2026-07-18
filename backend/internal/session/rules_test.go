@@ -57,12 +57,3 @@ func TestEvaluateExamTimeUpFail(t *testing.T) {
 		t.Fatalf("time up with only 10 answered should fail: %+v", out)
 	}
 }
-
-func TestMistakeCleared(t *testing.T) {
-	if MistakeCleared(1) {
-		t.Fatal("1 consecutive correct must not clear yet")
-	}
-	if !MistakeCleared(2) {
-		t.Fatal("2 consecutive correct must clear")
-	}
-}

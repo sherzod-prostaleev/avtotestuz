@@ -12,6 +12,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/i18n"
+	"avtotest.uz/backend/internal/learning"
 )
 
 var (
@@ -24,12 +25,13 @@ var (
 )
 
 type Service struct {
-	Q       *sqlc.Queries
-	Billing billing.Service
+	Q        *sqlc.Queries
+	Billing  billing.Service
+	Learning *learning.Service
 }
 
-func NewService(q *sqlc.Queries, b billing.Service) *Service {
-	return &Service{Q: q, Billing: b}
+func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service) *Service {
+	return &Service{Q: q, Billing: b, Learning: l}
 }
 
 func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req StartRequest) (SessionView, error) {
@@ -219,23 +221,12 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		return AnswerResult{}, err
 	}
 
-	if row.Mode == "mistakes" {
-		if ans.IsCorrect {
-			if _, err := s.Q.MarkQuestionCorrectInMistakesMode(ctx, sqlc.MarkQuestionCorrectInMistakesModeParams{
-				ClearAfter: int32(MistakeClearAfter), ProfileID: profileID, QuestionID: questionID,
-			}); err != nil {
-				return AnswerResult{}, err
-			}
-		} else {
-			if _, err := s.Q.MarkQuestionWrong(ctx, sqlc.MarkQuestionWrongParams{ProfileID: profileID, QuestionID: questionID}); err != nil {
-				return AnswerResult{}, err
-			}
-		}
-	} else if !ans.IsCorrect {
-		// Any wrong answer, in any mode, feeds the mistake bank.
-		if _, err := s.Q.MarkQuestionWrong(ctx, sqlc.MarkQuestionWrongParams{ProfileID: profileID, QuestionID: questionID}); err != nil {
-			return AnswerResult{}, err
-		}
+	rating := learning.Good
+	if !ans.IsCorrect {
+		rating = learning.Again
+	}
+	if _, err := s.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
+		return AnswerResult{}, err
 	}
 
 	if row.Mode == "exam" {

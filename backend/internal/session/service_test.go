@@ -11,6 +11,7 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/fixture"
 	"avtotest.uz/backend/internal/importer"
+	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -24,7 +25,7 @@ func seed(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
 		t.Fatalf("seed: %v", err)
 	}
 	q := sqlc.New(pool)
-	svc := session.NewService(q, billing.Service{Q: q})
+	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q))
 	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{
 		Phone: "+998901234567",
 	})

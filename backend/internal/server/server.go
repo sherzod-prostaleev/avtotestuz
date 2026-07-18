@@ -69,10 +69,11 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries})}
+				learningSvc := learning.NewService(deps.Queries)
+				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc)}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-				lh := &learning.Handler{Svc: learning.NewService(deps.Queries)}
+				lh := &learning.Handler{Svc: learningSvc}
 				lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
