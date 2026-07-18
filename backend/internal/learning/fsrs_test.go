@@ -16,9 +16,9 @@ func approxEqual(t *testing.T, name string, got, want, tol float64) {
 func TestReviewFirstTimeInitialValues(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	cases := []struct {
-		rating   Rating
-		wantS    float64
-		wantD    float64
+		rating Rating
+		wantS  float64
+		wantD  float64
 	}{
 		{Again, 0.40255, 7.1949},
 		{Hard, 1.18385, 6.4883},
