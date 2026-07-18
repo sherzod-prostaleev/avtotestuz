@@ -14,6 +14,7 @@ import (
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/db"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/server"
 )
 
@@ -37,7 +38,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	h := server.New(cfg, server.Deps{Queries: sqlc.New(pool)})
+	redisClient, err := redisx.New(cfg.RedisURL)
+	if err != nil {
+		logger.Fatal("redis", zap.Error(err))
+	}
+	defer func() { _ = redisClient.Close() }()
+
+	h := server.New(cfg, server.Deps{
+		Queries: sqlc.New(pool),
+		Pool:    pool,
+		Redis:   redisClient,
+		Log:     logger,
+	})
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           h,

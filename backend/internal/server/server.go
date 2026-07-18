@@ -7,7 +7,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -16,6 +20,9 @@ import (
 
 type Deps struct {
 	Queries *sqlc.Queries
+	Pool    *pgxpool.Pool
+	Redis   *redis.Client
+	Log     *zap.Logger
 }
 
 func New(cfg config.Config, deps Deps) http.Handler {
@@ -37,9 +44,24 @@ func New(cfg config.Config, deps Deps) http.Handler {
 	})
 
 	if deps.Queries != nil {
-		ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
 		r.Route("/api/v1", func(api chi.Router) {
+			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
 			ch.Routes(api)
+
+			if deps.Pool != nil && deps.Redis != nil {
+				log := deps.Log
+				if log == nil {
+					log = zap.NewNop()
+				}
+				sender, err := auth.SenderFor(cfg, log)
+				if err != nil {
+					log.Fatal("otp sender", zap.Error(err))
+				}
+				svc := auth.NewService(deps.Queries, deps.Pool, auth.Limiter{R: deps.Redis},
+					sender, []byte(cfg.JWTSecret), cfg.Env)
+				ah := &auth.Handler{Svc: svc}
+				ah.Routes(api)
+			}
 		})
 	}
 
