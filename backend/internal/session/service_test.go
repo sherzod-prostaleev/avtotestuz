@@ -185,7 +185,7 @@ func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
 	}
 }
 
-func TestSubmitAnswerExamModeWithholdsFeedback(t *testing.T) {
+func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
 	_, svc, profileID := seed(t)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
 	if err != nil {
@@ -199,6 +199,29 @@ func TestSubmitAnswerExamModeWithholdsFeedback(t *testing.T) {
 		t.Fatalf("err=%v want ErrInvalidAnswer", err)
 	}
 	_ = res
+}
+
+func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID)
+	if err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+	if !res.Recorded {
+		t.Fatalf("expected Recorded=true, got %+v", res)
+	}
+	if res.Correct != nil {
+		t.Fatalf("exam mode must withhold Correct, got %+v", res)
+	}
+	if res.CorrectAnswerID != nil {
+		t.Fatalf("exam mode must withhold CorrectAnswerID, got %+v", res)
+	}
 }
 
 func TestSubmitAnswerRejectsDuplicateAndWrongQuestionPair(t *testing.T) {
@@ -244,6 +267,12 @@ func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
 		if err != nil {
 			t.Fatalf("submit %d: %v", i, err)
 		}
+		if res.Correct != nil {
+			t.Fatalf("exam mode must withhold Correct, i=%d got %+v", i, res)
+		}
+		if res.CorrectAnswerID != nil {
+			t.Fatalf("exam mode must withhold CorrectAnswerID, i=%d got %+v", i, res)
+		}
 		if i < 2 {
 			if res.Stopped {
 				t.Fatalf("must not stop before the 3rd mistake, i=%d", i)
@@ -253,5 +282,22 @@ func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
 				t.Fatalf("expected stop on 3rd mistake, got %+v", res)
 			}
 		}
+	}
+}
+
+func TestSubmitAnswerOwnershipIsEnforced(t *testing.T) {
+	q, svc, profileAID := seed(t)
+	view := startVariantSession(t, q, svc, profileAID)
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+
+	profileB, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{
+		Phone: "+998907654321",
+	})
+	if err != nil {
+		t.Fatalf("create second profile: %v", err)
+	}
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileB.ID, view.ID, view.QuestionIDs[0], correctID); err != session.ErrNotFound {
+		t.Fatalf("err=%v want ErrNotFound", err)
 	}
 }
