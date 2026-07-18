@@ -57,7 +57,7 @@ func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, otpRequestResponse{Channel: res.Channel, DebugCode: res.DebugCode})
+	httpx.Data(w, http.StatusOK, otpRequestResponse(res))
 }
 
 type otpVerifyBody struct {
