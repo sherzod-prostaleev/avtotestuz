@@ -51,7 +51,7 @@ func (h *Handler) logBatch(w http.ResponseWriter, r *http.Request) {
 
 	evs := make([]Event, len(body.Events))
 	for i, e := range body.Events {
-		evs[i] = Event{Name: e.Name, Props: e.Props, TS: e.TS}
+		evs[i] = Event(e)
 	}
 
 	if err := h.Svc.LogBatch(r.Context(), claims.ProfileID, evs); err != nil {
