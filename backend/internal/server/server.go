@@ -20,6 +20,7 @@ import (
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/learning"
+	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/session"
 )
 
@@ -79,6 +80,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				eh := &explanation.Handler{Svc: explanation.NewService(deps.Queries, explanation.TemplateDraftGenerator{})}
 				eh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				ph := &progress.Handler{Svc: progress.NewService(deps.Queries)}
+				ph.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
