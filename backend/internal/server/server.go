@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/learning"
@@ -84,6 +85,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				ph := &progress.Handler{Svc: progressSvc}
 				ph.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				evh := &events.Handler{Svc: events.NewService(deps.Queries)}
+				evh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
