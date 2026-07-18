@@ -195,6 +195,63 @@ func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyR
 	}, nil
 }
 
+// Refresh rotates a refresh token: the presented raw token is single-use.
+// Presenting an already-rotated (revoked) token is treated as a compromise
+// signal and revokes every refresh token belonging to that profile.
+func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
+	rt, err := s.Q.GetRefreshToken(ctx, HashToken(raw))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Tokens{}, ErrInvalidRefresh
+		}
+		return Tokens{}, err
+	}
+	if rt.RevokedAt.Valid {
+		if err := s.Q.RevokeAllRefreshTokens(ctx, rt.ProfileID); err != nil {
+			return Tokens{}, err
+		}
+		return Tokens{}, ErrReusedRefresh
+	}
+	if time.Now().After(rt.ExpiresAt.Time) {
+		return Tokens{}, ErrInvalidRefresh
+	}
+
+	profile, err := s.Q.GetProfileByID(ctx, rt.ProfileID)
+	if err != nil {
+		return Tokens{}, err
+	}
+	if err := s.Q.RevokeRefreshToken(ctx, rt.ID); err != nil {
+		return Tokens{}, err
+	}
+
+	access, err := IssueAccess(s.Secret, profile.ID, profile.Role, s.AccessTTL)
+	if err != nil {
+		return Tokens{}, err
+	}
+	newRaw := NewRefreshToken()
+	if err := s.Q.CreateRefreshToken(ctx, sqlc.CreateRefreshTokenParams{
+		ProfileID: profile.ID,
+		TokenHash: HashToken(newRaw),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(s.RefreshTTL), Valid: true},
+	}); err != nil {
+		return Tokens{}, err
+	}
+
+	return Tokens{Access: access, Refresh: newRaw}, nil
+}
+
+// Logout deletes the refresh token if present; missing tokens are a no-op.
+func (s *Service) Logout(ctx context.Context, raw string) error {
+	rt, err := s.Q.GetRefreshToken(ctx, HashToken(raw))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	return s.Q.DeleteRefreshToken(ctx, rt.ID)
+}
+
 func createProfileWithReferral(ctx context.Context, q *sqlc.Queries, phone string) (sqlc.Profile, error) {
 	const maxRetries = 5
 	for i := 0; i < maxRetries; i++ {

@@ -114,6 +114,62 @@ func TestVerifyOTPExpiredCode(t *testing.T) {
 	}
 }
 
+func TestRefreshRotationAndReuseDetection(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	verifyRes, err := svc.VerifyOTP(ctx, testPhone, sender.last)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	oldRefresh := verifyRes.Refresh
+
+	rotated, err := svc.Refresh(ctx, oldRefresh)
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if rotated.Access == "" || rotated.Refresh == "" || rotated.Refresh == oldRefresh {
+		t.Fatalf("expected new distinct tokens: %+v", rotated)
+	}
+
+	if _, err := svc.Refresh(ctx, oldRefresh); !errors.Is(err, ErrReusedRefresh) {
+		t.Fatalf("reuse of old token: err=%v want ErrReusedRefresh", err)
+	}
+
+	// revoke-all proof: the token issued by the rotation above must now be revoked too
+	if _, err := svc.Refresh(ctx, rotated.Refresh); !errors.Is(err, ErrReusedRefresh) {
+		t.Fatalf("rotated token should have been revoked by revoke-all: err=%v want ErrReusedRefresh", err)
+	}
+}
+
+func TestLogoutThenRefreshFails(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	verifyRes, err := svc.VerifyOTP(ctx, testPhone, sender.last)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	if err := svc.Logout(ctx, verifyRes.Refresh); err != nil {
+		t.Fatalf("logout: %v", err)
+	}
+	if _, err := svc.Refresh(ctx, verifyRes.Refresh); !errors.Is(err, ErrInvalidRefresh) {
+		t.Fatalf("err=%v want ErrInvalidRefresh", err)
+	}
+	if err := svc.Logout(ctx, verifyRes.Refresh); err != nil {
+		t.Fatalf("logout on missing token should be a no-op: %v", err)
+	}
+}
+
 func TestRequestOTPCooldown(t *testing.T) {
 	pool := testdb.New(t)
 	svc, _ := newTestService(t, pool)

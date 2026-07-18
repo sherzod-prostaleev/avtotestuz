@@ -103,6 +103,15 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 	return err
 }
 
+const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
+DELETE FROM refresh_token WHERE id = $1
+`
+
+func (q *Queries) DeleteRefreshToken(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteRefreshToken, id)
+	return err
+}
+
 const getProfileByID = `-- name: GetProfileByID :one
 SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at FROM profile WHERE id = $1
 `

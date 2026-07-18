@@ -37,6 +37,9 @@ SELECT * FROM refresh_token WHERE token_hash = $1;
 -- name: RevokeRefreshToken :exec
 UPDATE refresh_token SET revoked_at = now() WHERE id = $1 AND revoked_at IS NULL;
 
+-- name: DeleteRefreshToken :exec
+DELETE FROM refresh_token WHERE id = $1;
+
 -- name: RevokeAllRefreshTokens :exec
 UPDATE refresh_token SET revoked_at = now() WHERE profile_id = $1 AND revoked_at IS NULL;
 
