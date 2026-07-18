@@ -18,6 +18,7 @@ import (
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/session"
 )
 
@@ -70,6 +71,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries})}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				lh := &learning.Handler{Svc: learning.NewService(deps.Queries)}
+				lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
