@@ -1011,8 +1011,12 @@ lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 - [ ] **Step 4: Run to verify it passes**
 
-Run: `cd backend && go build ./... && go test ./internal/learning/... ./internal/server/... -v`
-Expected: PASS. (`internal/session` is still expected to fail to build until Task 6 — do not attempt to fix it here.)
+`internal/server` imports `internal/session` (to mount its handler), which still doesn't compile until Task 6 — so `internal/server` transitively fails to build too, and `go build ./...` will still show the same known breakage. This is expected; do not attempt to fix `internal/session` here. Verify what CAN be verified in isolation:
+
+Run: `cd backend && go build ./internal/learning/... && go test ./internal/learning/... -p 1 -count=1 -v`
+Expected: PASS — this proves `handlers.go` itself is correct Go (it only imports `internal/learning`'s own package plus stdlib/chi/httpx/auth, none of which are broken).
+
+For the `server.go` edit specifically (which cannot be build-verified until Task 6), triple-check it by eye against the existing `session.Handler` mounting two lines above it in the same block — same structure, same `.With(auth.Required(...))` call, same indentation level — and note in your report that this snippet's compilation is confirmed at Task 6, not here.
 
 - [ ] **Step 5: Commit**
 
