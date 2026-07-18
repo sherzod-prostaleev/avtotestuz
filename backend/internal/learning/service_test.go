@@ -76,21 +76,29 @@ func TestRecordReviewUpdatesCategoryMastery(t *testing.T) {
 		t.Fatalf("mastery after 1 correct = %+v", m)
 	}
 
-	if _, err := svc.RecordReview(context.Background(), profileID, qids[1], learning.Again); err != nil {
-		t.Fatalf("review 2: %v", err)
-	}
-	catID2, err := q.GetQuestionCategoryID(context.Background(), qids[1])
+	// qids is variant 1's ordered question list (position 1..20 == fixture
+	// questions nmn-0001..nmn-0020, i.e. qids[i] is fixture question n=i+1).
+	// fixture.Sample assigns Category: cats[n%len(cats)] with len(cats)==4,
+	// so questions n and n+4 always share a category (same n%4). qids[0] is
+	// n=1 (cats[1%4]) and qids[4] is n=5 (cats[5%4]==cats[1%4]): guaranteed
+	// same category, unlike qids[0]/qids[1] (n=1 vs n=2, different n%4).
+	catID2, err := q.GetQuestionCategoryID(context.Background(), qids[4])
 	if err != nil {
 		t.Fatalf("category 2: %v", err)
 	}
-	if catID2 == catID {
-		m2, err := q.GetCategoryMastery(context.Background(), sqlc.GetCategoryMasteryParams{ProfileID: profileID, CategoryID: catID})
-		if err != nil {
-			t.Fatalf("mastery: %v", err)
-		}
-		if m2.Seen != 2 || m2.Correct != 1 {
-			t.Fatalf("mastery after 1 correct + 1 wrong (same category) = %+v", m2)
-		}
+	if catID2 != catID {
+		t.Fatalf("test fixture assumption broken: qids[0] and qids[4] must share a category (got %v vs %v)", catID, catID2)
+	}
+
+	if _, err := svc.RecordReview(context.Background(), profileID, qids[4], learning.Again); err != nil {
+		t.Fatalf("review 2: %v", err)
+	}
+	m2, err := q.GetCategoryMastery(context.Background(), sqlc.GetCategoryMasteryParams{ProfileID: profileID, CategoryID: catID})
+	if err != nil {
+		t.Fatalf("mastery: %v", err)
+	}
+	if m2.Seen != 2 || m2.Correct != 1 {
+		t.Fatalf("mastery after 1 correct + 1 wrong (same category) = %+v", m2)
 	}
 }
 
