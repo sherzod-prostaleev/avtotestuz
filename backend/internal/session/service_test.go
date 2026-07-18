@@ -12,6 +12,7 @@ import (
 	"avtotest.uz/backend/internal/fixture"
 	"avtotest.uz/backend/internal/importer"
 	"avtotest.uz/backend/internal/learning"
+	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -25,7 +26,7 @@ func seed(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
 		t.Fatalf("seed: %v", err)
 	}
 	q := sqlc.New(pool)
-	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q))
+	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
 	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{
 		Phone: "+998901234567",
 	})
@@ -33,6 +34,17 @@ func seed(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
 		t.Fatalf("create profile: %v", err)
 	}
 	return q, svc, profile.ID
+}
+
+// grantVIP grants profileID an active entitlement so VIP-gated modes (exam,
+// mistakes, variant 2+) can be exercised by tests that aren't specifically
+// testing the free-tier gate itself.
+func grantVIP(t *testing.T, q *sqlc.Queries, profileID uuid.UUID) {
+	t.Helper()
+	billingSvc := billing.Service{Q: q}
+	if _, err := billingSvc.GrantDays(context.Background(), profileID, 7, "admin", "test", uuid.NullUUID{}); err != nil {
+		t.Fatalf("grant vip: %v", err)
+	}
 }
 
 func TestStartSessionVariantMode(t *testing.T) {
@@ -56,7 +68,8 @@ func TestStartSessionVariantMode(t *testing.T) {
 }
 
 func TestStartSessionExamMode(t *testing.T) {
-	_, svc, profileID := seed(t)
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
 		Mode: "exam", Locale: "uz-Latn",
 	})
@@ -193,7 +206,8 @@ func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
 }
 
 func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
-	_, svc, profileID := seed(t)
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
@@ -210,6 +224,7 @@ func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
 
 func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
 	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
@@ -251,6 +266,7 @@ func TestSubmitAnswerRejectsDuplicateAndWrongQuestionPair(t *testing.T) {
 
 func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
 	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
@@ -379,6 +395,7 @@ func TestFinishSessionAbandonedWhenIncomplete(t *testing.T) {
 
 func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
 	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
@@ -452,5 +469,91 @@ func TestListVariantStatusesSequentialUnlock(t *testing.T) {
 	}
 	if !statuses[1].Unlocked {
 		t.Fatal("variant 2 must unlock after variant 1 hits the threshold")
+	}
+}
+
+func TestStartSessionVariantTwoRequiresVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != session.ErrRequiresVIP {
+		t.Fatalf("err=%v want ErrRequiresVIP", err)
+	}
+}
+
+func TestStartSessionVariantOneNeverRequiresVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	v1, err := q.GetVariantByNumber(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("get variant 1: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v1.ID, Locale: "uz-Latn",
+	}); err != nil {
+		t.Fatalf("variant 1 should always be accessible: %v", err)
+	}
+}
+
+func TestStartSessionExamRequiresVIP(t *testing.T) {
+	_, svc, profileID := seed(t)
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "uz-Latn",
+	}); err != session.ErrRequiresVIP {
+		t.Fatalf("err=%v want ErrRequiresVIP", err)
+	}
+}
+
+func TestStartSessionMistakesRequiresVIP(t *testing.T) {
+	_, svc, profileID := seed(t)
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "mistakes", Locale: "uz-Latn",
+	}); err != session.ErrRequiresVIP {
+		t.Fatalf("err=%v want ErrRequiresVIP", err)
+	}
+}
+
+func TestStartSessionPracticeNeverRequiresVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	if err != nil {
+		t.Fatalf("category: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 3,
+	}); err != nil {
+		t.Fatalf("practice should always be accessible (daily-limited, not VIP-gated): %v", err)
+	}
+}
+
+func TestStartSessionExamWorksForVIPProfile(t *testing.T) {
+	q, svc, profileID := seed(t)
+	billingSvc := billing.Service{Q: q}
+	if _, err := billingSvc.GrantDays(context.Background(), profileID, 7, "admin", "test", uuid.NullUUID{}); err != nil {
+		t.Fatalf("grant vip: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "uz-Latn",
+	}); err != nil {
+		t.Fatalf("VIP profile should be able to start exam: %v", err)
+	}
+}
+
+func TestSubmitAnswerBumpsStreak(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	streakView, err := svc.Progress.GetStreak(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("GetStreak: %v", err)
+	}
+	if streakView.Current != 1 || streakView.TodayDone != 1 {
+		t.Fatalf("expected streak bumped after answering, got %+v", streakView)
 	}
 }

@@ -72,7 +72,8 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				learningSvc := learning.NewService(deps.Queries)
-				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc)}
+				progressSvc := progress.NewService(deps.Queries)
+				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				lh := &learning.Handler{Svc: learningSvc}
@@ -81,7 +82,7 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				eh := &explanation.Handler{Svc: explanation.NewService(deps.Queries, explanation.TemplateDraftGenerator{})}
 				eh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-				ph := &progress.Handler{Svc: progress.NewService(deps.Queries)}
+				ph := &progress.Handler{Svc: progressSvc}
 				ph.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})

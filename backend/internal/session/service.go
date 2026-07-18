@@ -13,6 +13,7 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/i18n"
 	"avtotest.uz/backend/internal/learning"
+	"avtotest.uz/backend/internal/progress"
 )
 
 var (
@@ -22,16 +23,18 @@ var (
 	ErrAlreadyAnswered   = errors.New("question already answered in this session")
 	ErrInvalidAnswer     = errors.New("answer does not belong to question")
 	ErrSessionFinished   = errors.New("session already finished")
+	ErrRequiresVIP       = errors.New("active entitlement required")
 )
 
 type Service struct {
 	Q        *sqlc.Queries
 	Billing  billing.Service
 	Learning *learning.Service
+	Progress *progress.Service
 }
 
-func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service) *Service {
-	return &Service{Q: q, Billing: b, Learning: l}
+func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service, p *progress.Service) *Service {
+	return &Service{Q: q, Billing: b, Learning: l, Progress: p}
 }
 
 func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req StartRequest) (SessionView, error) {
@@ -56,10 +59,30 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		if req.VariantID == uuid.Nil {
 			return SessionView{}, ErrInvalidRequest
 		}
+		v, verr := s.Q.GetVariantByID(ctx, req.VariantID)
+		if verr != nil {
+			return SessionView{}, verr
+		}
+		if v.Number > 1 {
+			active, _, statusErr := s.Billing.Status(ctx, profileID)
+			if statusErr != nil {
+				return SessionView{}, statusErr
+			}
+			if !active {
+				return SessionView{}, ErrRequiresVIP
+			}
+		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
 
 	case "exam":
+		active, _, statusErr := s.Billing.Status(ctx, profileID)
+		if statusErr != nil {
+			return SessionView{}, statusErr
+		}
+		if !active {
+			return SessionView{}, ErrRequiresVIP
+		}
 		ids, err = s.Q.RandomQuestionIDs(ctx, int32(ExamQuestionCount))
 		if err == nil && len(ids) < ExamQuestionCount {
 			return SessionView{}, ErrInvalidRequest
@@ -88,6 +111,13 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		}
 
 	case "mistakes":
+		active, _, statusErr := s.Billing.Status(ctx, profileID)
+		if statusErr != nil {
+			return SessionView{}, statusErr
+		}
+		if !active {
+			return SessionView{}, ErrRequiresVIP
+		}
 		count := req.Count
 		if count <= 0 {
 			count = 10
@@ -226,6 +256,9 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		rating = learning.Again
 	}
 	if _, err := s.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
+		return AnswerResult{}, err
+	}
+	if _, err := s.Progress.RecordActivity(ctx, profileID); err != nil {
 		return AnswerResult{}, err
 	}
 

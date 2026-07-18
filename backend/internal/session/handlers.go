@@ -330,6 +330,8 @@ func writeSessionError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_answer", "answer does not belong to question")
 	case errors.Is(err, ErrSessionFinished):
 		httpx.Error(w, http.StatusConflict, "session_finished", "session already finished")
+	case errors.Is(err, ErrRequiresVIP):
+		httpx.Error(w, http.StatusPaymentRequired, "vip_required", "active entitlement required")
 	default:
 		httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
 	}
