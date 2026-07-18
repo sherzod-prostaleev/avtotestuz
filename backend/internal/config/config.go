@@ -13,6 +13,11 @@ type Config struct {
 	DatabaseURL  string
 	RedisURL     string
 	MediaBaseURL string // public base for image storage keys
+
+	JWTSecret            string
+	OTPChannel           string // sandbox | telegram | sms
+	TelegramGatewayToken string
+	TelegramGatewayURL   string
 }
 
 func Load() (Config, error) {
@@ -27,6 +32,11 @@ func Load() (Config, error) {
 		DatabaseURL:  getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
 		RedisURL:     getenv("REDIS_URL", "redis://localhost:6379/0"),
 		MediaBaseURL: getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
+
+		JWTSecret:            getenv("JWT_SECRET", "dev-secret-change-me"),
+		OTPChannel:           getenv("OTP_CHANNEL", "sandbox"),
+		TelegramGatewayToken: getenv("TELEGRAM_GATEWAY_TOKEN", ""),
+		TelegramGatewayURL:   getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 	}, nil
 }
 
