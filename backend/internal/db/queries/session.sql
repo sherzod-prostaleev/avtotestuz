@@ -103,3 +103,6 @@ RETURNING *;
 
 -- name: ListVariantProgressForProfile :many
 SELECT * FROM variant_progress WHERE profile_id = $1;
+
+-- name: GetVariantByID :one
+SELECT * FROM variant WHERE id = $1;

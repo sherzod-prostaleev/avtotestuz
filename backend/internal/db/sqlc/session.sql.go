@@ -258,6 +258,17 @@ func (q *Queries) GetSessionAnswer(ctx context.Context, arg GetSessionAnswerPara
 	return i, err
 }
 
+const getVariantByID = `-- name: GetVariantByID :one
+SELECT id, number, sort_order FROM variant WHERE id = $1
+`
+
+func (q *Queries) GetVariantByID(ctx context.Context, id uuid.UUID) (Variant, error) {
+	row := q.db.QueryRow(ctx, getVariantByID, id)
+	var i Variant
+	err := row.Scan(&i.ID, &i.Number, &i.SortOrder)
+	return i, err
+}
+
 const getVariantProgress = `-- name: GetVariantProgress :one
 SELECT profile_id, variant_id, best_correct, attempts, completed_at FROM variant_progress
 WHERE profile_id = $1 AND variant_id = $2
