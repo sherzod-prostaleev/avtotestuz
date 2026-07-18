@@ -130,12 +130,7 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 	}
 	cats := make([]categoryStatDTO, len(st.Categories))
 	for i, c := range st.Categories {
-		cats[i] = categoryStatDTO{
-			CategoryCode: c.CategoryCode,
-			Mastery:      c.Mastery,
-			Seen:         c.Seen,
-			Correct:      c.Correct,
-		}
+		cats[i] = categoryStatDTO(c)
 	}
 	httpx.Data(w, http.StatusOK, statsResponse{
 		Categories:   cats,
