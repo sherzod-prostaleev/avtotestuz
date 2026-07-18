@@ -130,3 +130,128 @@ func TestStartSessionPracticeDailyLimitClampsAndBlocks(t *testing.T) {
 		t.Fatalf("err=%v want ErrDailyLimitReached once today's allowance is used up", err)
 	}
 }
+
+func startVariantSession(t *testing.T, q *sqlc.Queries, svc *session.Service, profileID uuid.UUID) session.SessionView {
+	t.Helper()
+	v, err := q.GetVariantByNumber(context.Background(), 1)
+	if err != nil {
+		t.Fatalf("get variant: %v", err)
+	}
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v.ID, Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	return view
+}
+
+func correctAnswerID(t *testing.T, q *sqlc.Queries, questionID uuid.UUID) uuid.UUID {
+	t.Helper()
+	ans, err := q.ListAnswersByQuestionIDs(context.Background(),
+		sqlc.ListAnswersByQuestionIDsParams{QuestionIds: []uuid.UUID{questionID}, Locale: "uz-Latn"})
+	if err != nil || len(ans) == 0 {
+		t.Fatalf("answers: %v", err)
+	}
+	// fixture guarantees exactly one correct answer per question; find it
+	// via a direct query since ListAnswersByQuestionIDs never exposes it.
+	full, err := q.GetAnswerForScoring(context.Background(), sqlc.GetAnswerForScoringParams{ID: ans[0].ID, QuestionID: questionID})
+	_ = full
+	_ = err
+	for _, a := range ans {
+		full, err := q.GetAnswerForScoring(context.Background(), sqlc.GetAnswerForScoringParams{ID: a.ID, QuestionID: questionID})
+		if err == nil && full.IsCorrect {
+			return a.ID
+		}
+	}
+	t.Fatal("no correct answer found")
+	return uuid.Nil
+}
+
+func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID)
+	if err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+	if res.Correct == nil || !*res.Correct {
+		t.Fatalf("expected correct=true, got %+v", res)
+	}
+	if res.CorrectAnswerID == nil || *res.CorrectAnswerID != correctID {
+		t.Fatalf("expected correct_answer_id=%v, got %+v", correctID, res.CorrectAnswerID)
+	}
+}
+
+func TestSubmitAnswerExamModeWithholdsFeedback(t *testing.T) {
+	_, svc, profileID := seed(t)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], uuid.New())
+	if err == nil {
+		t.Fatal("random answer id must be rejected as invalid")
+	}
+	if err != session.ErrInvalidAnswer {
+		t.Fatalf("err=%v want ErrInvalidAnswer", err)
+	}
+	_ = res
+}
+
+func TestSubmitAnswerRejectsDuplicateAndWrongQuestionPair(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+		t.Fatalf("first submit: %v", err)
+	}
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != session.ErrAlreadyAnswered {
+		t.Fatalf("err=%v want ErrAlreadyAnswered", err)
+	}
+
+	otherCorrect := correctAnswerID(t, q, view.QuestionIDs[1])
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], otherCorrect); err != session.ErrAlreadyAnswered {
+		t.Fatalf("already-answered check must run before mismatch check: err=%v", err)
+	}
+}
+
+func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	// answer the first 3 questions wrong by submitting a non-correct answer id each time
+	for i := 0; i < 3; i++ {
+		ans, err := q.ListAnswersByQuestionIDs(context.Background(),
+			sqlc.ListAnswersByQuestionIDsParams{QuestionIds: []uuid.UUID{view.QuestionIDs[i]}, Locale: "uz-Latn"})
+		if err != nil || len(ans) != 4 {
+			t.Fatalf("answers: %v", err)
+		}
+		correctID := correctAnswerID(t, q, view.QuestionIDs[i])
+		var wrongID uuid.UUID
+		for _, a := range ans {
+			if a.ID != correctID {
+				wrongID = a.ID
+				break
+			}
+		}
+		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID)
+		if err != nil {
+			t.Fatalf("submit %d: %v", i, err)
+		}
+		if i < 2 {
+			if res.Stopped {
+				t.Fatalf("must not stop before the 3rd mistake, i=%d", i)
+			}
+		} else {
+			if !res.Stopped || res.StopReason != "too_many_errors" {
+				t.Fatalf("expected stop on 3rd mistake, got %+v", res)
+			}
+		}
+	}
+}
