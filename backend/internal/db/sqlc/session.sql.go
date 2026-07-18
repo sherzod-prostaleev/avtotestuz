@@ -317,8 +317,8 @@ func (q *Queries) InsertSessionAnswer(ctx context.Context, arg InsertSessionAnsw
 
 const listMistakeBankQuestionIDs = `-- name: ListMistakeBankQuestionIDs :many
 SELECT question_id FROM question_memory
-WHERE profile_id = $1 AND state = 0
-ORDER BY last_reviewed_at ASC NULLS FIRST
+WHERE profile_id = $1 AND lapses > 0 AND due_at <= now()
+ORDER BY due_at ASC
 LIMIT $2
 `
 
@@ -481,68 +481,6 @@ func (q *Queries) ListVariantQuestionIDsOrdered(ctx context.Context, variantID u
 		return nil, err
 	}
 	return items, nil
-}
-
-const markQuestionCorrectInMistakesMode = `-- name: MarkQuestionCorrectInMistakesMode :one
-UPDATE question_memory SET
-  reps = reps + 1,
-  state = CASE WHEN reps + 1 >= $1::int THEN 1 ELSE state END,
-  last_reviewed_at = now()
-WHERE profile_id = $2 AND question_id = $3
-RETURNING profile_id, question_id, stability, difficulty, due_at, last_reviewed_at, reps, lapses, state
-`
-
-type MarkQuestionCorrectInMistakesModeParams struct {
-	ClearAfter int32     `json:"clear_after"`
-	ProfileID  uuid.UUID `json:"profile_id"`
-	QuestionID uuid.UUID `json:"question_id"`
-}
-
-func (q *Queries) MarkQuestionCorrectInMistakesMode(ctx context.Context, arg MarkQuestionCorrectInMistakesModeParams) (QuestionMemory, error) {
-	row := q.db.QueryRow(ctx, markQuestionCorrectInMistakesMode, arg.ClearAfter, arg.ProfileID, arg.QuestionID)
-	var i QuestionMemory
-	err := row.Scan(
-		&i.ProfileID,
-		&i.QuestionID,
-		&i.Stability,
-		&i.Difficulty,
-		&i.DueAt,
-		&i.LastReviewedAt,
-		&i.Reps,
-		&i.Lapses,
-		&i.State,
-	)
-	return i, err
-}
-
-const markQuestionWrong = `-- name: MarkQuestionWrong :one
-INSERT INTO question_memory (profile_id, question_id, due_at, reps, lapses, state, last_reviewed_at)
-VALUES ($1, $2, now(), 0, 1, 0, now())
-ON CONFLICT (profile_id, question_id) DO UPDATE SET
-  lapses = question_memory.lapses + 1, reps = 0, state = 0, last_reviewed_at = now()
-RETURNING profile_id, question_id, stability, difficulty, due_at, last_reviewed_at, reps, lapses, state
-`
-
-type MarkQuestionWrongParams struct {
-	ProfileID  uuid.UUID `json:"profile_id"`
-	QuestionID uuid.UUID `json:"question_id"`
-}
-
-func (q *Queries) MarkQuestionWrong(ctx context.Context, arg MarkQuestionWrongParams) (QuestionMemory, error) {
-	row := q.db.QueryRow(ctx, markQuestionWrong, arg.ProfileID, arg.QuestionID)
-	var i QuestionMemory
-	err := row.Scan(
-		&i.ProfileID,
-		&i.QuestionID,
-		&i.Stability,
-		&i.Difficulty,
-		&i.DueAt,
-		&i.LastReviewedAt,
-		&i.Reps,
-		&i.Lapses,
-		&i.State,
-	)
-	return i, err
 }
 
 const randomQuestionIDs = `-- name: RandomQuestionIDs :many

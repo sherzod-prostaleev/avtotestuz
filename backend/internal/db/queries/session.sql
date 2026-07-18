@@ -26,8 +26,8 @@ LIMIT sqlc.arg(limit_count);
 
 -- name: ListMistakeBankQuestionIDs :many
 SELECT question_id FROM question_memory
-WHERE profile_id = sqlc.arg(profile_id) AND state = 0
-ORDER BY last_reviewed_at ASC NULLS FIRST
+WHERE profile_id = sqlc.arg(profile_id) AND lapses > 0 AND due_at <= now()
+ORDER BY due_at ASC
 LIMIT sqlc.arg(limit_count);
 
 -- name: GetAnswerForScoring :one
@@ -103,18 +103,3 @@ RETURNING *;
 
 -- name: ListVariantProgressForProfile :many
 SELECT * FROM variant_progress WHERE profile_id = $1;
-
--- name: MarkQuestionWrong :one
-INSERT INTO question_memory (profile_id, question_id, due_at, reps, lapses, state, last_reviewed_at)
-VALUES ($1, $2, now(), 0, 1, 0, now())
-ON CONFLICT (profile_id, question_id) DO UPDATE SET
-  lapses = question_memory.lapses + 1, reps = 0, state = 0, last_reviewed_at = now()
-RETURNING *;
-
--- name: MarkQuestionCorrectInMistakesMode :one
-UPDATE question_memory SET
-  reps = reps + 1,
-  state = CASE WHEN reps + 1 >= sqlc.arg(clear_after)::int THEN 1 ELSE state END,
-  last_reviewed_at = now()
-WHERE profile_id = sqlc.arg(profile_id) AND question_id = sqlc.arg(question_id)
-RETURNING *;
