@@ -18,6 +18,7 @@ import (
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/session"
 )
 
 type Deps struct {
@@ -66,6 +67,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries})}
+				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
