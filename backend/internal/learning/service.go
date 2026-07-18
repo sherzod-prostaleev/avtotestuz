@@ -3,6 +3,7 @@ package learning
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,15 @@ import (
 
 	"avtotest.uz/backend/internal/db/sqlc"
 )
+
+// defaultNextDueLimit is used by NextDue when the caller passes limit <= 0.
+const defaultNextDueLimit = 20
+
+// contentLocale is the locale used to fetch category code/name pairs for
+// Stats. Only Code is used from the result; the locale choice does not
+// affect correctness (Task 1's ListCategories falls back across locales
+// regardless).
+const contentLocale = "uz-Latn"
 
 // ErrInvalidRating is returned by RecordReview when the supplied rating is
 // not one of Again/Hard/Good/Easy.
@@ -112,4 +122,126 @@ func (s *Service) RecordReview(ctx context.Context, profileID, questionID uuid.U
 	}
 
 	return updated, nil
+}
+
+// NextDue returns up to limit question IDs that are due for review right
+// now, round-robin interleaved across categories in ascending due-urgency
+// (the category holding the single most-overdue item goes first in each
+// round). This avoids returning a long contiguous run of one category's
+// questions when several categories have due items.
+func (s *Service) NextDue(ctx context.Context, profileID uuid.UUID, limit int) ([]uuid.UUID, error) {
+	if limit <= 0 {
+		limit = defaultNextDueLimit
+	}
+
+	rows, err := s.Q.ListDueQuestions(ctx, sqlc.ListDueQuestionsParams{
+		ProfileID:  profileID,
+		LimitCount: int32(limit * 3),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Group by category, preserving first-appearance order (rows arrive
+	// ordered by due_at ASC, so the first-seen category is whichever holds
+	// the single most-overdue question).
+	var order []uuid.UUID
+	groups := make(map[uuid.UUID][]uuid.UUID)
+	for _, r := range rows {
+		if _, ok := groups[r.CategoryID]; !ok {
+			order = append(order, r.CategoryID)
+		}
+		groups[r.CategoryID] = append(groups[r.CategoryID], r.QuestionID)
+	}
+
+	result := make([]uuid.UUID, 0, limit)
+	for len(result) < limit {
+		progressedThisRound := false
+		for _, catID := range order {
+			if len(result) >= limit {
+				break
+			}
+			pending := groups[catID]
+			if len(pending) == 0 {
+				continue
+			}
+			result = append(result, pending[0])
+			groups[catID] = pending[1:]
+			progressedThisRound = true
+		}
+		if !progressedThisRound {
+			break // every category's group is exhausted
+		}
+	}
+
+	return result, nil
+}
+
+// Stats returns a profile's exam-readiness snapshot: per-category mastery
+// (including categories the profile has never touched, at mastery=0), an
+// overall readiness percentage weighted by each category's question count,
+// and the count of questions currently due for review.
+func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error) {
+	masteryRows, err := s.Q.ListCategoryMasteryForProfile(ctx, profileID)
+	if err != nil {
+		return Stats{}, err
+	}
+	masteryByCategory := make(map[uuid.UUID]sqlc.CategoryMastery, len(masteryRows))
+	for _, m := range masteryRows {
+		masteryByCategory[m.CategoryID] = m
+	}
+
+	countRows, err := s.Q.CountValidQuestionsByCategory(ctx)
+	if err != nil {
+		return Stats{}, err
+	}
+	countByCategory := make(map[uuid.UUID]int32, len(countRows))
+	for _, c := range countRows {
+		countByCategory[c.CategoryID] = c.QuestionCount
+	}
+
+	catInfo, err := s.Q.ListCategories(ctx, contentLocale)
+	if err != nil {
+		return Stats{}, err
+	}
+
+	categories := make([]CategoryStat, 0, len(catInfo))
+	var weightedMasterySum float64
+	var totalQuestionCount int64
+	for _, ci := range catInfo {
+		var mastery float64
+		var seen, correct int32
+		if m, ok := masteryByCategory[ci.ID]; ok {
+			mastery = float64(m.Mastery)
+			seen = m.Seen
+			correct = m.Correct
+		}
+		categories = append(categories, CategoryStat{
+			CategoryCode: ci.Code,
+			Mastery:      mastery,
+			Seen:         int(seen),
+			Correct:      int(correct),
+		})
+
+		if count := int64(countByCategory[ci.ID]); count > 0 {
+			weightedMasterySum += mastery * float64(count)
+			totalQuestionCount += count
+		}
+	}
+
+	readiness := 0
+	if totalQuestionCount > 0 {
+		readiness = int(math.Round(100 * weightedMasterySum / float64(totalQuestionCount)))
+	}
+
+	dueCount, err := s.Q.CountDueQuestions(ctx, profileID)
+	if err != nil {
+		return Stats{}, err
+	}
+
+	return Stats{
+		Categories:   categories,
+		ReadinessPct: readiness,
+		DueCount:     int(dueCount),
+	}, nil
 }

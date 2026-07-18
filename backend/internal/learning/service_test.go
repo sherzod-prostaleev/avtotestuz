@@ -3,8 +3,10 @@ package learning_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -15,6 +17,12 @@ import (
 )
 
 func seed(t *testing.T) (*sqlc.Queries, *learning.Service, uuid.UUID, []uuid.UUID) {
+	t.Helper()
+	q, svc, profileID, qids, _ := seedWithPool(t)
+	return q, svc, profileID, qids
+}
+
+func seedWithPool(t *testing.T) (*sqlc.Queries, *learning.Service, uuid.UUID, []uuid.UUID, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.New(t)
 	ds, images := fixture.Sample()
@@ -36,7 +44,21 @@ func seed(t *testing.T) (*sqlc.Queries, *learning.Service, uuid.UUID, []uuid.UUI
 		t.Fatalf("question ids: %v %d", err, len(qids))
 	}
 	svc := learning.NewService(q)
-	return q, svc, profile.ID, qids
+	return q, svc, profile.ID, qids, pool
+}
+
+// backdateDueAt forces question_memory.due_at to an explicit timestamp for
+// the given profile/question pair, so the row's "due now" status (and its
+// relative due-urgency ordering vs. other rows) is fully deterministic
+// without depending on FSRS's real interval math (which always schedules
+// >= 1 day out, even for an Again rating).
+func backdateDueAt(t *testing.T, pool *pgxpool.Pool, profileID, questionID uuid.UUID, at time.Time) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE question_memory SET due_at = $3 WHERE profile_id = $1 AND question_id = $2`,
+		profileID, questionID, at); err != nil {
+		t.Fatalf("backdate due_at: %v", err)
+	}
 }
 
 func TestRecordReviewFirstTimeCreatesRow(t *testing.T) {
@@ -131,5 +153,171 @@ func TestRecordReviewSecondTimeUsesStoredState(t *testing.T) {
 	}
 	if row.Reps != 2 {
 		t.Fatalf("stored reps = %d, want 2", row.Reps)
+	}
+}
+
+// TestNextDueInterleavesCategories verifies NextDue round-robins across
+// categories (by ascending due-urgency) instead of returning one category's
+// due items as a contiguous block.
+//
+// Determinism: qids is variant 1's ordered question list, where qids[i] is
+// fixture question n=i+1 and fixture.Sample assigns
+// Category: cats[n%len(cats)] with the 4-category cycle
+// {rules, priority, safety, signs} (n%4 == 1,2,3,0 respectively — see
+// TestRecordReviewUpdatesCategoryMastery for the same fixture assumption).
+// So among qids[:8] (n=1..8), each of the 4 categories appears exactly
+// twice, in first-appearance order n=1,2,3,4 (categories rules, priority,
+// safety, signs) and again at n=5,6,7,8 in the same order.
+//
+// We record a review for each of qids[:8] (creating question_memory rows)
+// then directly backdate due_at to explicit, strictly increasing
+// timestamps in n-order — all in the past, so ListDueQuestions' due_at ASC
+// ordering exactly reproduces n=1..8 order without depending on wall-clock
+// timing or DB tie-break behavior for equal timestamps. With that ordering,
+// a correct round-robin interleave produces the category sequence
+// rules, priority, safety, signs, rules, priority, safety, signs — i.e.
+// never two consecutive same-category entries, and all 4 categories
+// represented in the first 4 results.
+func TestNextDueInterleavesCategories(t *testing.T) {
+	q, svc, profileID, qids, pool := seedWithPool(t)
+	ctx := context.Background()
+
+	base := time.Now().Add(-time.Hour)
+	for i, qid := range qids[:8] {
+		if _, err := svc.RecordReview(ctx, profileID, qid, learning.Again); err != nil {
+			t.Fatalf("record review: %v", err)
+		}
+		// Strictly increasing due_at in n-order, all safely in the past.
+		backdateDueAt(t, pool, profileID, qid, base.Add(time.Duration(i)*time.Minute))
+	}
+
+	got, err := svc.NextDue(ctx, profileID, 8)
+	if err != nil {
+		t.Fatalf("NextDue: %v", err)
+	}
+	if len(got) != 8 {
+		t.Fatalf("NextDue returned %d ids, want 8", len(got))
+	}
+
+	cats := make([]uuid.UUID, len(got))
+	for i, qid := range got {
+		catID, err := q.GetQuestionCategoryID(ctx, qid)
+		if err != nil {
+			t.Fatalf("category for result %d: %v", i, err)
+		}
+		cats[i] = catID
+	}
+
+	distinct := map[uuid.UUID]bool{}
+	for _, c := range cats {
+		distinct[c] = true
+	}
+	if len(distinct) != 4 {
+		t.Fatalf("expected 4 distinct categories among due items, got %d", len(distinct))
+	}
+
+	// No two consecutive results share a category — proves genuine
+	// round-robin interleaving, not block-grouping by category.
+	for i := 1; i < len(cats); i++ {
+		if cats[i] == cats[i-1] {
+			t.Fatalf("consecutive same-category entries at positions %d,%d (category %v): %v", i-1, i, cats[i-1], cats)
+		}
+	}
+
+	// Every represented category appears at least once among the first
+	// 2*numCategoriesWithDueItems (= 8, i.e. all) results.
+	firstFour := map[uuid.UUID]bool{}
+	for _, c := range cats[:4] {
+		firstFour[c] = true
+	}
+	if len(firstFour) != 4 {
+		t.Fatalf("expected all 4 categories represented in the first 4 results, got %d: %v", len(firstFour), cats[:4])
+	}
+}
+
+func TestStatsReadinessWeightedByQuestionCount(t *testing.T) {
+	q, svc, profileID, qids := seed(t)
+	ctx := context.Background()
+
+	stats, err := svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats (fresh profile): %v", err)
+	}
+	if stats.ReadinessPct != 0 {
+		t.Fatalf("fresh profile readiness = %d, want 0", stats.ReadinessPct)
+	}
+	if len(stats.Categories) != 4 {
+		t.Fatalf("expected 4 categories (fixture), got %d", len(stats.Categories))
+	}
+
+	// answer all 10 questions in the "signs" category correctly (fixture:
+	// 40 questions / 4 categories = 10 each, round-robin assignment)
+	signsCatID, err := q.GetCategoryIDByCode(ctx, "signs")
+	if err != nil {
+		t.Fatalf("category lookup: %v", err)
+	}
+	answered := 0
+	for _, qid := range qids {
+		catID, err := q.GetQuestionCategoryID(ctx, qid)
+		if err != nil {
+			t.Fatalf("question category: %v", err)
+		}
+		if catID != signsCatID {
+			continue
+		}
+		if _, err := svc.RecordReview(ctx, profileID, qid, learning.Good); err != nil {
+			t.Fatalf("review: %v", err)
+		}
+		answered++
+	}
+	if answered == 0 {
+		t.Fatal("fixture must contain at least one 'signs' question reachable from variant 1")
+	}
+
+	stats, err = svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats (after reviews): %v", err)
+	}
+	if stats.ReadinessPct <= 0 {
+		t.Fatalf("readiness should be > 0 after mastering part of one category, got %d", stats.ReadinessPct)
+	}
+	if stats.ReadinessPct >= 100 {
+		t.Fatalf("readiness should be < 100 since only 1 of 4 categories was touched, got %d", stats.ReadinessPct)
+	}
+}
+
+func TestStatsDueCount(t *testing.T) {
+	_, svc, profileID, qids, pool := seedWithPool(t)
+	ctx := context.Background()
+	stats, err := svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.DueCount != 0 {
+		t.Fatalf("fresh profile due count = %d, want 0", stats.DueCount)
+	}
+	if _, err := svc.RecordReview(ctx, profileID, qids[0], learning.Again); err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	// an Again review schedules due_at >=1 day in the future (interval
+	// floor), so it is NOT immediately due yet — verify that directly.
+	stats, err = svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats after review: %v", err)
+	}
+	if stats.DueCount != 0 {
+		t.Fatalf("due count immediately after a real (non-backdated) review = %d, want 0", stats.DueCount)
+	}
+
+	// Positive case: backdate due_at into the past (same deterministic
+	// technique as TestNextDueInterleavesCategories) and confirm DueCount
+	// increments.
+	backdateDueAt(t, pool, profileID, qids[0], time.Now().Add(-time.Hour))
+	stats, err = svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats after backdate: %v", err)
+	}
+	if stats.DueCount != 1 {
+		t.Fatalf("due count after backdating one review's due_at into the past = %d, want 1", stats.DueCount)
 	}
 }
