@@ -11,7 +11,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
 
+	"avtotest.uz/backend/internal/account"
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -61,6 +63,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 					sender, []byte(cfg.JWTSecret), cfg.Env)
 				ah := &auth.Handler{Svc: svc}
 				ah.Routes(api)
+
+				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
+				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
