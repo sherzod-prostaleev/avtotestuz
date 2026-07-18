@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/session"
@@ -75,6 +76,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				lh := &learning.Handler{Svc: learningSvc}
 				lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				eh := &explanation.Handler{Svc: explanation.NewService(deps.Queries, explanation.TemplateDraftGenerator{})}
+				eh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 		})
 	}
