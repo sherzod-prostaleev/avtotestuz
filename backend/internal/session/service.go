@@ -11,6 +11,7 @@ import (
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/i18n"
 )
 
 var (
@@ -32,6 +33,12 @@ func NewService(q *sqlc.Queries, b billing.Service) *Service {
 }
 
 func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req StartRequest) (SessionView, error) {
+	if req.Locale == "" {
+		req.Locale = i18n.Default
+	} else if !i18n.Supported[req.Locale] {
+		return SessionView{}, ErrInvalidRequest
+	}
+
 	var (
 		ids           []uuid.UUID
 		timeLimit     pgtype.Int4

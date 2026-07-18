@@ -79,6 +79,15 @@ func TestStartSessionInvalidMode(t *testing.T) {
 	}
 }
 
+func TestStartSessionInvalidLocale(t *testing.T) {
+	_, svc, profileID := seed(t)
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "fr-FR",
+	}); err != session.ErrInvalidRequest {
+		t.Fatalf("err=%v want ErrInvalidRequest", err)
+	}
+}
+
 func TestStartSessionVariantRequiresVariantID(t *testing.T) {
 	_, svc, profileID := seed(t)
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
@@ -155,9 +164,6 @@ func correctAnswerID(t *testing.T, q *sqlc.Queries, questionID uuid.UUID) uuid.U
 	}
 	// fixture guarantees exactly one correct answer per question; find it
 	// via a direct query since ListAnswersByQuestionIDs never exposes it.
-	full, err := q.GetAnswerForScoring(context.Background(), sqlc.GetAnswerForScoringParams{ID: ans[0].ID, QuestionID: questionID})
-	_ = full
-	_ = err
 	for _, a := range ans {
 		full, err := q.GetAnswerForScoring(context.Background(), sqlc.GetAnswerForScoringParams{ID: a.ID, QuestionID: questionID})
 		if err == nil && full.IsCorrect {
