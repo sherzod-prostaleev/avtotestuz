@@ -301,3 +301,71 @@ func TestSubmitAnswerOwnershipIsEnforced(t *testing.T) {
 		t.Fatalf("err=%v want ErrNotFound", err)
 	}
 }
+
+func TestFinishSessionVariantModeUnlocksNextBilet(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	for _, qid := range view.QuestionIDs {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	res, err := svc.FinishSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+	if res.Status != "passed" || res.Score != 20 {
+		t.Fatalf("expected passed 20/20, got %+v", res)
+	}
+
+	v1, err := q.GetVariantByNumber(context.Background(), 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	progress, err := q.GetVariantProgress(context.Background(), sqlc.GetVariantProgressParams{ProfileID: profileID, VariantID: v1.ID})
+	if err != nil {
+		t.Fatalf("progress: %v", err)
+	}
+	if progress.BestCorrect != 20 || !progress.CompletedAt.Valid {
+		t.Fatalf("expected best_correct=20 and completed_at set, got %+v", progress)
+	}
+}
+
+func TestFinishSessionIsIdempotent(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	for _, qid := range view.QuestionIDs[:5] {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	first, err := svc.FinishSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("first finish: %v", err)
+	}
+	second, err := svc.FinishSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("second finish: %v", err)
+	}
+	if first != second {
+		t.Fatalf("finish must be idempotent: first=%+v second=%+v", first, second)
+	}
+}
+
+func TestFinishSessionAbandonedWhenIncomplete(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	res, err := svc.FinishSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+	if res.Status != "abandoned" {
+		t.Fatalf("expected abandoned with 1/20 answered, got %+v", res)
+	}
+}

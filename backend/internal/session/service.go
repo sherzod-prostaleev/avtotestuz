@@ -257,37 +257,113 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	return AnswerResult{Recorded: true, Correct: &correct, CorrectAnswerID: &correctID}, nil
 }
 
-// FinishResult is the minimal outcome shape finishInternal produces today.
-// Task 5's FinishSession will flesh this out with the full scoring payload
-// (correct/wrong counts, bilet unlock, variant/mistake-bank progress); Task 4
-// only needs enough to know the session was marked finished.
-type FinishResult struct {
-	Status        string
-	StoppedReason string
+// unlockThresholdConfigKey is the limit_config key holding the minimum
+// correct-answer count a variant-mode session must reach to unlock the next
+// bilet. Free and VIP tiers currently share the same value (10), so
+// FinishSession reads FreeValue without an extra billing lookup.
+const unlockThresholdConfigKey = "unlock_threshold_correct"
+
+// FinishSession finishes an in-progress session — computing its final
+// score/status, persisting it, and (for variant mode) upserting bilet-unlock
+// progress. It is idempotent: finishing an already-finished session returns
+// the stored result with no additional writes.
+func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.UUID) (FinishResult, error) {
+	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return FinishResult{}, ErrNotFound
+		}
+		return FinishResult{}, err
+	}
+	if row.ProfileID != profileID {
+		return FinishResult{}, ErrNotFound
+	}
+
+	timedOut := false
+	if row.Mode == "exam" && row.TimeLimitSec.Valid {
+		timedOut = time.Now().After(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32) * time.Second))
+	}
+	return s.finishInternal(ctx, row, false, timedOut)
 }
 
-// finishInternal marks an exam-mode session as finished. It is the shared
-// landing point for both SubmitAnswer's 3rd-mistake stop (this task) and
-// Task 5's public FinishSession (manual finish / time-up). Task 4 only
-// wires the tooManyErrors=true path; Task 5 extends this function with the
-// full pass/fail computation (EvaluateExam), idempotency guard for a
-// session that's already finished, and the variant/practice/mistakes
-// finish branches (variant progress upsert, bilet unlock, etc.) — the
-// timedOut parameter is already threaded through for that purpose even
-// though this task never sets it true.
+// finishInternal marks a session as finished. It is the shared landing point
+// for both SubmitAnswer's 3rd-mistake stop (tooManyErrors=true) and the
+// public FinishSession (manual finish / time-up, tooManyErrors=false). It is
+// idempotent — a session that's no longer "in_progress" is returned as-is,
+// with no further writes (in particular, no double bilet-unlock upsert).
 func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooManyErrors, timedOut bool) (FinishResult, error) {
-	_ = timedOut // reserved for Task 5's EvaluateExam branching
+	if row.Status != "in_progress" {
+		return FinishResult{
+			Status:        row.Status,
+			StoppedReason: row.StoppedReason.String,
+			Score:         int(row.Score.Int32),
+			Total:         int(row.Total),
+		}, nil
+	}
 
-	status := "failed"
-	reason := "too_many_errors"
+	counts, err := s.Q.CountSessionAnswers(ctx, row.ID)
+	if err != nil {
+		return FinishResult{}, err
+	}
+	totalAnswered := int(counts.TotalAnswered)
+	correctCount := int(counts.CorrectCount)
+
+	var status, reason string
+	switch row.Mode {
+	case "exam":
+		wrong := totalAnswered - correctCount
+		outcome := EvaluateExam(correctCount, wrong, int(row.Total), timedOut, tooManyErrors)
+		status = outcome.Status
+		reason = outcome.StoppedReason
+	default: // "variant", "practice", "mistakes"
+		status = "passed"
+		if totalAnswered < int(row.Total) {
+			status = "abandoned"
+		}
+		reason = "completed"
+		if status == "abandoned" {
+			reason = ""
+		}
+	}
+
+	stoppedReason := pgtype.Text{}
+	if reason != "" {
+		stoppedReason = pgtype.Text{String: reason, Valid: true}
+	}
 
 	updated, err := s.Q.FinishExamSession(ctx, sqlc.FinishExamSessionParams{
 		ID:            row.ID,
 		Status:        status,
-		StoppedReason: pgtype.Text{String: reason, Valid: true},
+		Score:         pgtype.Int4{Int32: int32(correctCount), Valid: true},
+		StoppedReason: stoppedReason,
 	})
 	if err != nil {
 		return FinishResult{}, err
 	}
-	return FinishResult{Status: updated.Status, StoppedReason: reason}, nil
+
+	if row.Mode == "variant" {
+		cfg, err := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
+		if err != nil {
+			return FinishResult{}, err
+		}
+		var completedAt pgtype.Timestamptz
+		if correctCount >= int(cfg.FreeValue) {
+			completedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
+		}
+		if _, err := s.Q.UpsertVariantProgress(ctx, sqlc.UpsertVariantProgressParams{
+			ProfileID:   row.ProfileID,
+			VariantID:   row.VariantID.UUID,
+			BestCorrect: int32(correctCount),
+			CompletedAt: completedAt,
+		}); err != nil {
+			return FinishResult{}, err
+		}
+	}
+
+	return FinishResult{
+		Status:        updated.Status,
+		StoppedReason: reason,
+		Score:         correctCount,
+		Total:         int(row.Total),
+	}, nil
 }

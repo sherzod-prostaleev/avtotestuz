@@ -34,3 +34,12 @@ type AnswerResult struct {
 	Stopped         bool       // true if this answer ended an exam (3rd mistake)
 	StopReason      string     // "too_many_errors" when Stopped
 }
+
+// FinishResult is the full outcome of finishing an exam session: its final
+// pass/fail/abandoned status, why it stopped, and the score achieved.
+type FinishResult struct {
+	Status        string // "passed" | "failed" | "abandoned"
+	StoppedReason string
+	Score         int
+	Total         int
+}
