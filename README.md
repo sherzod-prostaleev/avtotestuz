@@ -154,9 +154,13 @@ ko'rsatiladi.
 ### Endpointlar (Bearer talab qilinadi)
 
 - `GET /api/v1/learn/next` → `[question_id, ...]` — hozir due bo'lgan
-  savollar ro'yxati (`due_at <= now()`, ASC tartibda, kategoriyalar
-  aralashtirilgan holda — interleaving), zaif kategoriyalarga ustuvorlik
-  bilan.
+  savollar ro'yxati (`due_at <= now()`), kategoriyalar bo'yicha round-robin
+  interleaving qilingan holda: `due_at` bo'yicha ASC tartiblanadi va har
+  navbatda eng shoshilinch (eng ko'p kechikkan) savolga ega kategoriya
+  birinchi chiqadi. Bu alohida "zaif kategoriyaga ustuvorlik" mexanizmi
+  emas — sof `due_at` shoshilinchligiga asoslangan; amalda zaif
+  kategoriyalar ko'proq due savol to'plagani uchun tabiiy ravishda ko'proq
+  chiqadi, lekin bu aniq og'irlik bosqichi sifatida amalga oshirilmagan.
 - `POST /api/v1/learn/review {question_id, rating}` → `{stability,
   difficulty, due_at, reps, lapses}` — savolni sessiyadan tashqarida qo'lda
   baholash (`rating`: `1`=Again, `2`=Hard, `3`=Good, `4`=Easy). Yaroqsiz
@@ -166,8 +170,10 @@ ko'rsatiladi.
   bo'yicha mastery (0–1) va umumiy imtihonga tayyorlik foizi.
 
 Tayyorlik foizi (`readiness_pct`) — kategoriyalar bo'yicha og'irliklangan
-o'rtacha mastery (og'irlik — imtihon biletidagi shu kategoriyadan savollar
-soni), 0–100 oralig'ida butun songa yaxlitlangan.
+o'rtacha mastery (og'irlik — butun savollar bankidagi shu kategoriyaga
+tegishli barcha yaroqli (valid) savollar soni, muayyan imtihon
+bileti/variantining tarkibi emas), 0–100 oralig'ida butun songa
+yaxlitlangan.
 
 Eslatma: savol yangi ko'rilganda ham `due_at` kamida 1 kun keyinga
 rejalashtiriladi (FSRS interval formulasi natijasi hech qachon 1 kundan

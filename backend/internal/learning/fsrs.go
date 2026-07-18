@@ -47,6 +47,16 @@ type Card struct {
 // IsNew reports whether this card has never been reviewed.
 func (c Card) IsNew() bool { return c.LastReviewedAt.IsZero() }
 
+// needsReset reports whether c is either genuinely new or in a degenerate/
+// corrupted state (non-positive, NaN, or Inf Stability) that must not be fed
+// into the update formulas — e.g. stabilitySuccess's math.Pow(s, -w[9]) is
+// +Inf when s == 0, which poisons the result to NaN. Such cards are treated
+// like brand-new ones: scheduled from s0/d0 using only the current rating,
+// discarding whatever (possibly also corrupted) Difficulty was stored.
+func needsReset(c Card) bool {
+	return c.IsNew() || math.IsNaN(c.Stability) || math.IsInf(c.Stability, 0) || c.Stability <= 0
+}
+
 func clamp(x, lo, hi float64) float64 {
 	if x < lo {
 		return lo
@@ -104,7 +114,7 @@ func difficultyUpdate(d float64, g Rating) float64 {
 // targeting desiredRetention (e.g. DefaultDesiredRetention).
 func Review(c Card, rating Rating, now time.Time, desiredRetention float64) Card {
 	var newStability, newDifficulty float64
-	if c.IsNew() {
+	if needsReset(c) {
 		newStability = s0(rating)
 		newDifficulty = d0(rating)
 	} else {
@@ -116,6 +126,14 @@ func Review(c Card, rating Rating, now time.Time, desiredRetention float64) Card
 			newStability = stabilitySuccess(c.Stability, c.Difficulty, r, rating)
 		}
 		newDifficulty = difficultyUpdate(c.Difficulty, rating)
+	}
+
+	// Defense in depth: even with the needsReset guard above, clamp any
+	// NaN/Inf/non-positive result to a small positive floor before it can
+	// reach interval()/persist to the DB. Not expected to trigger in normal
+	// operation — this only guards against a deeper formula bug slipping in.
+	if math.IsNaN(newStability) || math.IsInf(newStability, 0) || newStability <= 0 {
+		newStability = 0.1
 	}
 
 	days := interval(desiredRetention, newStability)

@@ -117,3 +117,64 @@ func TestCardIsNew(t *testing.T) {
 		t.Fatal("Card with LastReviewedAt set must not be new")
 	}
 }
+
+// TestReviewHandlesZeroStabilityAsNew is a regression test for a real corrupted
+// row found in the dev DB: stability=NaN, difficulty=1, reps=1. That signature
+// proves the row entered Review() with Stability=0, Difficulty=0 (schema
+// defaults) despite LastReviewedAt being set (so NOT IsNew()), because
+// math.Pow(0, -w[9]) == +Inf, and 0 * (1+Inf) == NaN in stabilitySuccess.
+// Review() must treat such a degenerate card the same as a brand-new one.
+func TestReviewHandlesZeroStabilityAsNew(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	past := now.AddDate(0, 0, -3)
+	corrupt := Card{
+		Stability:      0,
+		Difficulty:     0,
+		LastReviewedAt: past,
+		Reps:           1,
+	}
+	if corrupt.IsNew() {
+		t.Fatal("test setup invalid: corrupt card must not be IsNew() (LastReviewedAt is set)")
+	}
+
+	got := Review(corrupt, Good, now, DefaultDesiredRetention)
+
+	if math.IsNaN(got.Stability) || math.IsInf(got.Stability, 0) || got.Stability <= 0 {
+		t.Fatalf("Stability = %v, want a valid positive value", got.Stability)
+	}
+
+	wantS := s0(Good)
+	approxEqual(t, "stability (reset path)", got.Stability, wantS, 1e-9)
+
+	wantD := d0(Good)
+	approxEqual(t, "difficulty (reset path)", got.Difficulty, wantD, 1e-9)
+}
+
+// TestReviewNeverProducesNaNOrInf checks, across every rating and both a
+// genuinely new card and a corrupted (Stability=0, previously-reviewed) card,
+// that Review() always yields a finite, positive Stability.
+func TestReviewNeverProducesNaNOrInf(t *testing.T) {
+	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	past := now.AddDate(0, 0, -3)
+
+	cards := map[string]Card{
+		"new":       {},
+		"corrupted": {Stability: 0, Difficulty: 0, LastReviewedAt: past, Reps: 1},
+	}
+	ratings := []Rating{Again, Hard, Good, Easy}
+
+	for name, card := range cards {
+		for _, rating := range ratings {
+			got := Review(card, rating, now, DefaultDesiredRetention)
+			if math.IsNaN(got.Stability) {
+				t.Errorf("card=%s rating=%v: Stability is NaN", name, rating)
+			}
+			if math.IsInf(got.Stability, 0) {
+				t.Errorf("card=%s rating=%v: Stability is Inf", name, rating)
+			}
+			if got.Stability <= 0 {
+				t.Errorf("card=%s rating=%v: Stability = %v, want > 0", name, rating, got.Stability)
+			}
+		}
+	}
+}
