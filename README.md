@@ -128,9 +128,49 @@ Birinchi bilet har doim ochiq. Keyingi har bir bilet oldingisi
 (`limit_config`da sozlanadi, default **10/20**, free va VIP uchun bir xil)
 ga yetgandagina ochiladi.
 
-### Xatolar banki (Leitner qoidasi)
+### Xatolar banki
 
-Har qanday rejimda noto'g'ri javob berilgan savol avtomatik xatolar
-bankiga tushadi. `mistakes`-rejimida savolga ketma-ket **2 marta** to'g'ri
-javob berilsa (`MistakeClearAfter`), savol bankdan olib tashlanadi; bitta
-xato ketma-ketlikni qaytadan boshlaydi.
+Har qanday rejimda berilgan har bir javob (to'g'ri yoki noto'g'ri) FSRS
+xotira jadvaliga (`question_memory`) yoziladi. `mistakes`-rejim endi fixed
+"ketma-ket 2 marta to'g'ri" qoidasi (Leitner, M1 Plan 03) o'rniga **haqiqiy
+FSRS rejalashtirishga** asoslanadi: bank — `lapses > 0 AND due_at <= now()`
+bo'lgan savollar to'plami (pastdagi "FSRS o'quv dvigateli" bo'limiga
+qarang). Savol bankdan FSRS `due_at` kelajakka siljigandan keyin (odatda
+keyingi muvaffaqiyatli review'dan so'ng) chiqadi — endi "ketma-ket 2 marta"
+degan qat'iy son yo'q, interval FSRS formulasi bilan hisoblanadi.
+
+## FSRS o'quv dvigateli (M1 Plan 04 holati)
+
+Har bir sessiya javobi (barcha 4 rejimda — `variant`, `exam`, `practice`,
+`mistakes`) FSRS-4.5 (Free Spaced Repetition Scheduler) algoritmiga
+uzatiladi: har bir savol uchun `stability` (xotirada necha kun turishi) va
+`difficulty` (savolning qiyinligi, 1–10) saqlanadi, va shu ikkisidan
+`due_at` — savol qachon **90% maqsadli eslab qolish ehtimoli**
+(`DefaultDesiredRetention = 0.9`)ga tushishi hisoblab chiqiladi. To'g'ri
+javob stability'ni oshiradi (interval uzayadi); noto'g'ri javob (`Again`)
+"lapse" hisoblanadi — stability qayta tiklanadi va savol tez orada qayta
+ko'rsatiladi.
+
+### Endpointlar (Bearer talab qilinadi)
+
+- `GET /api/v1/learn/next` → `[question_id, ...]` — hozir due bo'lgan
+  savollar ro'yxati (`due_at <= now()`, ASC tartibda, kategoriyalar
+  aralashtirilgan holda — interleaving), zaif kategoriyalarga ustuvorlik
+  bilan.
+- `POST /api/v1/learn/review {question_id, rating}` → `{stability,
+  difficulty, due_at, reps, lapses}` — savolni sessiyadan tashqarida qo'lda
+  baholash (`rating`: `1`=Again, `2`=Hard, `3`=Good, `4`=Easy). Yaroqsiz
+  `rating` — `invalid_rating` (400).
+- `GET /api/v1/me/stats` → `{categories:[{category_code, mastery, seen,
+  correct}], readiness_pct, due_count}` — har bir kontent-kategoriya
+  bo'yicha mastery (0–1) va umumiy imtihonga tayyorlik foizi.
+
+Tayyorlik foizi (`readiness_pct`) — kategoriyalar bo'yicha og'irliklangan
+o'rtacha mastery (og'irlik — imtihon biletidagi shu kategoriyadan savollar
+soni), 0–100 oralig'ida butun songa yaxlitlangan.
+
+Eslatma: savol yangi ko'rilganda ham `due_at` kamida 1 kun keyinga
+rejalashtiriladi (FSRS interval formulasi natijasi hech qachon 1 kundan
+kam bo'lmaydi) — shuning uchun bitta sessiyadan keyin darhol `learn/next`
+va `mistakes` banki odatda bo'sh (yoki deyarli bo'sh) qaytadi; bu kutilgan
+holat, xato emas.
