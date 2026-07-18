@@ -369,3 +369,81 @@ func TestFinishSessionAbandonedWhenIncomplete(t *testing.T) {
 		t.Fatalf("expected abandoned with 1/20 answered, got %+v", res)
 	}
 }
+
+func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if len(detail.Answers) != 1 || detail.Answers[0].Correct != nil {
+		t.Fatalf("in-progress exam must redact correctness: %+v", detail.Answers)
+	}
+
+	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+	detail, err = svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession after finish: %v", err)
+	}
+	if detail.Answers[0].Correct == nil {
+		t.Fatal("finished session must reveal correctness")
+	}
+}
+
+func TestGetSessionOwnershipIsEnforced(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	other, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998907654321"})
+	if err != nil {
+		t.Fatalf("create other profile: %v", err)
+	}
+	if _, err := svc.GetSession(context.Background(), other.ID, view.ID); err != session.ErrNotFound {
+		t.Fatalf("err=%v want ErrNotFound for another profile's session", err)
+	}
+}
+
+func TestListVariantStatusesSequentialUnlock(t *testing.T) {
+	q, svc, profileID := seed(t)
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if len(statuses) != 2 {
+		t.Fatalf("fixture has 2 variants, got %d", len(statuses))
+	}
+	if !statuses[0].Unlocked {
+		t.Fatal("variant 1 must always be unlocked")
+	}
+	if statuses[1].Unlocked {
+		t.Fatal("variant 2 must be locked before variant 1 is passed")
+	}
+
+	view := startVariantSession(t, q, svc, profileID)
+	for _, qid := range view.QuestionIDs {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
+		t.Fatalf("finish: %v", err)
+	}
+
+	statuses, err = svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if !statuses[1].Unlocked {
+		t.Fatal("variant 2 must unlock after variant 1 hits the threshold")
+	}
+}

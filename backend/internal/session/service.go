@@ -367,3 +367,161 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 		Total:         int(row.Total),
 	}, nil
 }
+
+// GetSession returns the resume/history view of a single session, scoped to
+// its owning profile (ErrNotFound otherwise, matching SubmitAnswer/
+// FinishSession). Per-answer correctness is redacted (Correct left nil) for
+// every answer while an exam-mode session is still in_progress; once the
+// session is no longer in_progress (any other status, any mode), full
+// correctness is reported for every answer.
+func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID) (SessionDetail, error) {
+	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionDetail{}, ErrNotFound
+		}
+		return SessionDetail{}, err
+	}
+	if row.ProfileID != profileID {
+		return SessionDetail{}, ErrNotFound
+	}
+
+	rows, err := s.Q.ListSessionAnswers(ctx, sessionID)
+	if err != nil {
+		return SessionDetail{}, err
+	}
+
+	redact := row.Mode == "exam" && row.Status == "in_progress"
+
+	answers := make([]AnsweredQuestion, 0, len(rows))
+	for _, a := range rows {
+		aq := AnsweredQuestion{
+			QuestionID: a.QuestionID,
+			Position:   int(a.Position),
+			Answered:   true,
+		}
+		if !redact {
+			correct := a.IsCorrect
+			aq.Correct = &correct
+		}
+		answers = append(answers, aq)
+	}
+
+	detail := SessionDetail{
+		SessionView: SessionView{
+			ID:        row.ID,
+			Mode:      row.Mode,
+			Total:     int(row.Total),
+			StartedAt: row.StartedAt.Time,
+		},
+		Status:        row.Status,
+		StoppedReason: row.StoppedReason.String,
+		Answers:       answers,
+	}
+	if row.TimeLimitSec.Valid {
+		v := int(row.TimeLimitSec.Int32)
+		detail.TimeLimitSec = &v
+	}
+	if row.Score.Valid {
+		v := int(row.Score.Int32)
+		detail.Score = &v
+	}
+	if row.FinishedAt.Valid {
+		t := row.FinishedAt.Time
+		detail.FinishedAt = &t
+	}
+	return detail, nil
+}
+
+// ListMySessions returns the profile's session history, most recent first,
+// capped at limit (defaulting to 20 when limit <= 0).
+func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit int) ([]SessionSummary, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	rows, err := s.Q.ListMySessions(ctx, sqlc.ListMySessionsParams{
+		ProfileID:  profileID,
+		LimitCount: int32(limit),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	summaries := make([]SessionSummary, 0, len(rows))
+	for _, row := range rows {
+		summary := SessionSummary{
+			ID:        row.ID,
+			Mode:      row.Mode,
+			Status:    row.Status,
+			Total:     int(row.Total),
+			StartedAt: row.StartedAt.Time,
+		}
+		if row.Score.Valid {
+			v := int(row.Score.Int32)
+			summary.Score = &v
+		}
+		if row.FinishedAt.Valid {
+			t := row.FinishedAt.Time
+			summary.FinishedAt = &t
+		}
+		summaries = append(summaries, summary)
+	}
+	return summaries, nil
+}
+
+// ListVariantStatuses returns every bilet variant, in number order, with the
+// profile's progress against it and whether it's unlocked. A variant is
+// unlocked if it's the first one, or if the *previous* variant's best_correct
+// meets the configured unlock threshold — computed via the pure
+// IsVariantUnlocked rule (rules.go), never reimplemented here.
+func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) ([]VariantStatus, error) {
+	variants, err := s.Q.ListVariants(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	progressRows, err := s.Q.ListVariantProgressForProfile(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	progressByVariant := make(map[uuid.UUID]sqlc.VariantProgress, len(progressRows))
+	for _, p := range progressRows {
+		progressByVariant[p.VariantID] = p
+	}
+
+	cfg, err := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
+	if err != nil {
+		return nil, err
+	}
+	threshold := int(cfg.FreeValue)
+
+	statuses := make([]VariantStatus, 0, len(variants))
+	prevBestCorrect := 0
+	for i, v := range variants {
+		variant, err := s.Q.GetVariantByNumber(ctx, v.Number)
+		if err != nil {
+			return nil, err
+		}
+
+		status := VariantStatus{
+			Number:        v.Number,
+			QuestionCount: int(v.QuestionCount),
+			Unlocked:      IsVariantUnlocked(i == 0, prevBestCorrect, threshold),
+		}
+
+		bestCorrect := 0
+		if p, ok := progressByVariant[variant.ID]; ok {
+			status.BestCorrect = int(p.BestCorrect)
+			status.Attempts = int(p.Attempts)
+			if p.CompletedAt.Valid {
+				t := p.CompletedAt.Time
+				status.CompletedAt = &t
+			}
+			bestCorrect = int(p.BestCorrect)
+		}
+		prevBestCorrect = bestCorrect
+
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
