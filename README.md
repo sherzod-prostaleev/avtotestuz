@@ -180,3 +180,101 @@ rejalashtiriladi (FSRS interval formulasi natijasi hech qachon 1 kundan
 kam bo'lmaydi) — shuning uchun bitta sessiyadan keyin darhol `learn/next`
 va `mistakes` banki odatda bo'sh (yoki deyarli bo'sh) qaytadi; bu kutilgan
 holat, xato emas.
+
+## Izohlar: AI-qoralama → tekshiruv → fikr-mulohaza (M1 Plan 05 holati)
+
+**MUHIM: AI-qoralama hozircha shablon (stub), haqiqiy LLM integratsiyasi
+EMAS.** `gendraft` savol matni/kategoriyasi/to'g'ri javobidan andozaviy
+matn yig'adi (`explanation.TemplateDraftGenerator`) — natijadagi har bir
+blok `[AI-QORALAMA]` prefiksi bilan belgilanadi, masalan:
+`"[AI-QORALAMA] MUHIM: to'g'ri javob — ..."`. Haqiqiy LLM chaqiruvi M1'da
+yo'q; ekspert tekshiruvidan o'tmagan (`status != "verified"`) izoh
+foydalanuvchiga hech qachon ko'rsatilmaydi.
+
+Oqim: admin `gendraft` bilan qoralama yaratadi (`status: "draft"`) → ekspert
+`verifyexplanation` bilan tasdiqlaydi (`status: "verified"`, `verified_by`,
+`verified_at` to'ldiriladi) → shundan keyingina izoh `GET
+/api/v1/questions/{id}` javobidagi `explanation` maydonida ko'rinadi
+(`GetVerifiedExplanation` — faqat verified holatdagilar qaytadi).
+Tasdiqlanmagan savolda `explanation: null` bo'ladi.
+
+CLI (admin-only, HTTP endpoint yo'q):
+
+```bash
+cd backend && go run ./cmd/gendraft -question <savol-uuid>
+# → "draft created for question <uuid>"
+
+cd backend && go run ./cmd/verifyexplanation -question <savol-uuid> -by <profil-uuid>
+# → "verified explanation for question <uuid>"
+# (draft mavjud bo'lmasa: "error: no draft exists — run gendraft first")
+```
+
+### Endpointlar (Bearer talab qilinadi)
+
+- `POST /api/v1/explanations/feedback {question_id, helpful}` →
+  `{ok: true}` — izoh foydali bo'lganmi degan fikr-mulohaza (faqat
+  izoh mavjud bo'lsa; aks holda `not_found`).
+
+Xato kodlari: `not_found` (404, savol uchun hali izoh yaratilmagan).
+
+## Saqlangan savollar (M1 Plan 05 holati)
+
+Foydalanuvchi istalgan savolni keyinroq qaytib ko'rish uchun
+"saqlanganlar" ro'yxatiga qo'sha oladi (rejim/sessiyadan mustaqil).
+
+### Endpointlar (Bearer talab qilinadi)
+
+- `POST /api/v1/me/saved {question_id}` → `{ok: true}`
+- `GET /api/v1/me/saved` → `[{question_id, created_at}]`
+- `DELETE /api/v1/me/saved/{question_id}` → `{ok: true}`
+
+## Kunlik streak (M1 Plan 05 holati)
+
+Har bir sessiya javobi (rejimdan qat'i nazar) kunlik streak'ni yangilaydi.
+Kun chegarasi **UTC** bo'yicha hisoblanadi (`todayUTC()`), lokal vaqt
+zonasi emas — shuning uchun kun almashinuvi atrofida (masalan
+`UTC+5`da soat 05:00 gacha) `last_active_date` kutilganidan bir kun orqada
+ko'rinishi mumkin, bu — belgilangan xulq-atvor, xato emas.
+
+- `GET /api/v1/me/streak` → `{current, best, today_done, daily_goal,
+  last_active_date}`
+  - `current` — uzluksiz faol kunlar soni (kecha yoki bugun javob
+    berilmasa `0`ga tushadi)
+  - `best` — eng uzun streak rekordi
+  - `today_done` — bugun (UTC) javob berilgan savollar soni
+  - `daily_goal` — kunlik maqsad (hozircha fixed qiymat; maqsadni
+    tahrirlash UI'i M3'da rejalashtirilgan)
+  - `last_active_date` — oxirgi faol kun (`"YYYY-MM-DD"`) yoki `null`
+    (hali hech qachon javob berilmagan)
+
+## Free-tier / VIP chegarasi (M1 Plan 05 holati)
+
+Bepul (entitlement talab qilinmaydi):
+
+- `variant` rejimi, **faqat 1-bilet** (`number == 1`)
+- `practice` rejimi (kunlik limit bilan — yuqoridagi "Sessiya" bo'limiga
+  qarang)
+
+VIP talab qilinadi (`entitlement` faol bo'lishi kerak):
+
+- `variant` rejimi, **2-bilet va undan keyingilari**
+- `exam` rejimi
+- `mistakes` rejimi
+
+Faol entitlement bo'lmasa, `POST /api/v1/sessions` xatosi: `402
+{"error":{"code":"vip_required","message":"active entitlement required"}}`.
+VIP berish — yuqoridagi "Auth" bo'limidagi `grantvip` CLI orqali.
+
+## Voqealar (events) logi (M1 Plan 05 holati)
+
+Klient tomonidan batch holida analitika voqealari yuboriladi (masalan,
+ekran ko'rilishi, tugma bosilishi).
+
+- `POST /api/v1/events {events:[{name, props?, ts?}, ...]}` →
+  `{ok: true, count: <n>}`
+  - Bir so'rovda **1–100 ta** voqea bo'lishi kerak; bo'sh yoki 100tadan
+    ortiq bo'lsa — `invalid_request` (400).
+  - `props` — ixtiyoriy erkin JSON obyekt; `ts` — ixtiyoriy (berilmasa
+    server vaqti — `now()` — ishlatiladi).
+
+Xato kodlari: `invalid_request` (400, bo'sh yoki 100tadan ortiq batch).
