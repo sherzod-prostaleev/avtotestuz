@@ -278,3 +278,89 @@ ekran ko'rilishi, tugma bosilishi).
     server vaqti — `now()` — ishlatiladi).
 
 Xato kodlari: `invalid_request` (400, bo'sh yoki 100tadan ortiq batch).
+
+## Flutter frontend (M1 Plan 06 holati)
+
+`app/` — Flutter web ilovasi (Dart paket nomi `avtotest_app`): loyiha
+skeleti, tarmoq qatlami (Dio + 401-refresh interceptor), dark-default
+Material 3 dizayn, i18n (uz-Latn/uz-Cyrl/ru), go_router (auth guard bilan),
+va telefon+OTP orqali to'liq auth oqimi (profil olish + home shell bilan).
+Arxitektura — feature-first Clean (`lib/app` router/theme/l10n, `lib/core`
+tarmoq/natija turlari, `lib/features/*` data/domain/presentation, `lib/
+shared/widgets`), holat boshqaruvi — Riverpod, modellar — freezed +
+json_serializable (generatsiya qilingan `*.freezed.dart`/`*.g.dart` fayllar
+committed — sqlc'nikiga o'xshash konventsiya).
+
+**MUHIM: bu — faqat fundament.** Auth (telefon+OTP), profil va home shell
+qurilgan; variantlar/imtihon/mashq/xatolar/izohlar/saqlanganlar/statistika
+ekranlari **hali yo'q** — bular M1 Plan 07'ning ishi. Home shell'dagi
+tegishli nav bo'limlari ataylab "tez orada" placeholder sifatida ko'rsatilgan
+(soxta ekranlar emas).
+
+### O'rnatish va ishga tushirish
+
+Flutter shu muhitda `~/.local/flutter`ga o'rnatilgan (stable 3.44.6, web
+qo'llab-quvvatlash yoqilgan, Chrome — `google-chrome-stable`). Har bir
+shell'da:
+
+```bash
+export PATH="$HOME/.local/flutter/bin:$PATH"
+export CHROME_EXECUTABLE=google-chrome-stable
+```
+
+```bash
+cd app
+flutter pub get
+flutter run -d chrome --dart-define=API_BASE_URL=http://localhost:8090/api/v1
+```
+
+(`API_BASE_URL` berilmasa, `main.dart`dagi standart qiymat —
+`http://localhost:8090/api/v1` — ishlatiladi, ya'ni yuqoridagi "Dev
+boshlash"dagi `PORT=8090` konventsiyasiga mos.)
+
+### Muhim muhit xususiyatlari (shu checkout uchun)
+
+Ushbu repo yo'li kirill harflar va bo'sh joy o'z ichiga oladi
+(`/home/sher/Рабочий стол/avtotest`), bu ikkita muhit xatosi/xususiyatiga
+olib keladi — kimdir shu checkout ustida ishlasa, buni bilishi kerak:
+
+- **`flutter analyze` o'rniga `dart analyze` ishlating.** `flutter analyze`
+  bu yo'lda qulaydi (`FormatException: Unterminated string`) — sabab:
+  analysis-server LSP handshake'ning `Content-Length` sarlavhasi UTF-16
+  code-unit soni bo'yicha hisoblanadi, UTF-8 bayt uzunligi emas, shuning
+  uchun workspace yo'lida kirill harflar bo'lsa sarlavha kam hisoblanib,
+  JSON payload kesiladi. `dart analyze` xuddi shu analyzer dvigatelidan
+  foydalanadi va bir xil signal beradi — shu sabab har doim shu
+  ishlatiladi. CI'ga ta'sir qilmaydi (GitHub Actions checkout yo'llari faqat
+  ASCII).
+- **`flutter test` o'rniga `flutter test --concurrency=1` ishlating.** Bare
+  `flutter test` (standart concurrency bilan) shu yo'lda birinchi fayldan
+  keyin sukut bilan noto'g'ri ishlaydi (testlarni kesib qo'yadi yoki
+  parallel workerlar orasida test nomlarini aralashtirib yuboradi) —
+  `--concurrency=1` esa toza, to'g'ri natija beradi. CI'ga ta'sir qilmaydi.
+
+```bash
+cd app
+dart analyze                      # 0 issues bo'lishi kerak
+flutter test --concurrency=1      # to'liq unit+widget test suite
+flutter build web                 # web build muvaffaqiyatli bo'lishi kerak
+```
+
+### Qo'llab-quvvatlanadigan tillar
+
+`uz-Latn` (standart/fallback), `uz-Cyrl`, `ru` — backend bilan bir xil uchta
+til (`kaa` hali yoqilmagan). Home shell'dagi til chiplari orqali
+almashtiriladi, tanlov `shared_preferences` orqali saqlanadi.
+
+### Live auth-flow tekshiruvi (M1 Plan 06 Task 9)
+
+`app/integration_test/auth_flow_test.dart` — haqiqiy backend'ga qarshi
+ishlaydigan, headless Chrome orqali haydaladigan avtomatik integratsiya
+testi (telefon kiritish → OTP so'rash → dev debug-kodni o'qish → noto'g'ri
+kod bilan xato ko'rish → to'g'ri kod bilan qayta urinish → HomeShell'da
+haqiqiy profil ma'lumotlarini ko'rish → til/mavzu almashtirish → chiqish).
+CI'ga ulanmagan (Plan 05 Task 10'ning bir martalik smoke-test odatiga mos) —
+Plan 08'da to'liq E2E CI keladi. Ishga tushirish uchun testning boshidagi
+izohga qarang (`chromedriver` alohida jarayon sifatida kerak bo'ladi —
+`flutter test -d chrome` va `flutter drive -d chrome` ikkalasi ham web uchun
+integration_test'ni ishlata olmaydi).

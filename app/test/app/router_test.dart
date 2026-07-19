@@ -26,6 +26,24 @@ class _FakeAuthController extends AuthController {
   void emit(AuthState newState) => state = newState;
 }
 
+/// A fake [AuthController] whose [requestOtp] actually transitions `state`
+/// to [AuthOtpRequested] (unlike `_FakeAuthController.emit`, which is driven
+/// manually from the test body) — needed to reproduce the real app's
+/// `PhoneEntryScreen.requestOtp()-then-navigate` sequence end to end,
+/// through the real router, rather than testing the screen and the router
+/// guard in isolation (which is exactly how the missing-navigation bug this
+/// test guards against slipped past every other test in this plan — it was
+/// only caught by Task 9's live smoke test against the real backend).
+class _RequestOtpFakeAuthController extends AuthController {
+  @override
+  AuthState build() => const AuthState.unauthenticated();
+
+  @override
+  Future<void> requestOtp(String phone) async {
+    state = AuthState.otpRequested(phone: phone);
+  }
+}
+
 /// A fake [ProfileController] so `HomeShell` (rendered at `/` once
 /// authenticated) never touches `profileApiProvider`'s real
 /// `UnimplementedError` default in these router-focused tests — these tests
@@ -220,4 +238,49 @@ void main() {
     // No redirect happened yet: still on the initial '/' location.
     expect(router.routerDelegate.currentConfiguration.uri.toString(), '/');
   });
+
+  testWidgets(
+    'entering a phone and submitting on PhoneEntryScreen (at /login) '
+    'actually navigates to /login/verify once requestOtp succeeds -- a '
+    'regression test for a bug Task 9\'s live smoke test caught: the '
+    'router\'s guard intentionally does not redirect away from /login* on '
+    'AuthOtpRequested (see the test above), so PhoneEntryScreen itself '
+    'must drive that navigation; it silently failed to for real until '
+    'this was fixed',
+    (tester) async {
+      final fake = _RequestOtpFakeAuthController();
+      final container = ProviderContainer(
+        overrides: [
+          authControllerProvider.overrideWith(() => fake),
+          profileControllerProvider.overrideWith(_FakeProfileController.new),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(routerProvider)..go('/login');
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('uz'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(PhoneEntryScreen), findsOneWidget);
+
+      await tester.enterText(find.byKey(const Key('phoneField')), '901112233');
+      await tester.tap(find.byKey(const Key('phoneSubmitButton')));
+      await tester.pumpAndSettle();
+
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/login/verify',
+      );
+      expect(find.byType(OtpVerifyScreen), findsOneWidget);
+    },
+  );
 }

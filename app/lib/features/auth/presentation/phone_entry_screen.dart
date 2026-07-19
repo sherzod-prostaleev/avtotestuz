@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/l10n/app_localizations.dart';
 import '../domain/auth_state.dart';
@@ -67,6 +68,20 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
     });
     try {
       await ref.read(authControllerProvider.notifier).requestOtp(phone);
+      // requestOtp only updates authControllerProvider's state — nothing
+      // about `/login` -> `/login/verify` is automatic: the router's
+      // guard (`_authRedirect` in `app/lib/app/router.dart`) deliberately
+      // does NOT redirect away from `/login*` while AuthOtpRequested
+      // (that's what lets OtpVerifyScreen itself stay put through its own
+      // requestOtp-triggered resends), so without this explicit
+      // navigation a successful OTP request would silently leave the user
+      // stuck on this screen. Found via Task 9's live smoke test against
+      // the real backend — no widget/unit test caught it because they
+      // exercise this screen and the router guard in isolation, never
+      // together with a real requestOtp state transition.
+      if (mounted && ref.read(authControllerProvider) is AuthOtpRequested) {
+        context.go('/login/verify');
+      }
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
