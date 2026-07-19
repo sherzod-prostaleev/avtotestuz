@@ -6,12 +6,13 @@
 // IMPORTANT: `flutter test integration_test/auth_flow_test.dart -d chrome`
 // does NOT work for this package on web in this Flutter version — it fails
 // immediately with "Web devices are not supported for integration tests
-// yet." `flutter drive -d chrome` also does not work: it connects DWDS
-// directly and hangs forever, because on web the `integration_test`
-// package's driver<->app result channel is carried over the WebDriver
-// connection (executing JS / reading the DOM), which only exists when an
-// external WebDriver-controlled browser is used — not when flutter_tools
-// launches Chrome itself via `-d chrome`.
+// yet." `flutter drive -d chrome` also does not work: it fails with
+// "Unable to start a WebDriver session" unless a WebDriver server is
+// already listening, because on web the `integration_test` package's
+// driver<->app result channel is carried over the WebDriver connection
+// (executing JS / reading the DOM), which only exists when an external
+// WebDriver-controlled browser is used — not when flutter_tools launches
+// Chrome itself via `-d chrome`.
 //
 // The command that actually works (confirmed during Task 9's live
 // verification):
