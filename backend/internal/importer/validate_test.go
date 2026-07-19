@@ -48,10 +48,18 @@ func TestValidDatasetNoIssues(t *testing.T) {
 }
 
 func TestAnswerInvariants(t *testing.T) {
+	// 1 answer is below the valid 2-5 range.
 	ds := baseDataset(1)
-	ds.Questions[0].Answers = ds.Questions[0].Answers[:3]
+	ds.Questions[0].Answers = ds.Questions[0].Answers[:1]
 	if !has(Validate(ds), "answers_count") {
-		t.Fatal("want answers_count")
+		t.Fatal("want answers_count for 1 answer")
+	}
+
+	// 6 answers is above the valid 2-5 range.
+	ds = baseDataset(1)
+	ds.Questions[0].Answers = makeAnswers(6, 0)
+	if !has(Validate(ds), "answers_count") {
+		t.Fatal("want answers_count for 6 answers")
 	}
 
 	ds = baseDataset(1)
@@ -66,6 +74,67 @@ func TestAnswerInvariants(t *testing.T) {
 	}
 	if !has(Validate(ds), "no_correct") {
 		t.Fatal("want no_correct")
+	}
+}
+
+// makeAnswers builds n answers with exactly one marked correct (at correctIdx).
+func makeAnswers(n, correctIdx int) []CanonAnswer {
+	texts := map[string]string{"uz-Latn": "S", "uz-Cyrl": "С", "ru": "В"}
+	var out []CanonAnswer
+	for i := 0; i < n; i++ {
+		out = append(out, CanonAnswer{Position: i + 1, Correct: i == correctIdx, Texts: texts})
+	}
+	return out
+}
+
+func TestAnswerCountRangeValid(t *testing.T) {
+	// The real source data has questions with 2, 3, 4, or 5 answers; each
+	// count must validate cleanly when exactly one answer is correct.
+	for _, n := range []int{2, 3, 5} {
+		ds := baseDataset(1)
+		ds.Questions[0].Answers = makeAnswers(n, 0)
+		if issues := Validate(ds); len(issues) != 0 {
+			t.Fatalf("n=%d: want clean, got %+v", n, issues)
+		}
+	}
+}
+
+func TestAnswerCountRangeInvalid(t *testing.T) {
+	for _, n := range []int{0, 1, 6} {
+		ds := baseDataset(1)
+		ds.Questions[0].Answers = makeAnswers(n, 0)
+		if !has(Validate(ds), "answers_count") {
+			t.Fatalf("n=%d: want answers_count", n)
+		}
+	}
+}
+
+func TestCorrectCountGatingAppliesToNon4Counts(t *testing.T) {
+	// Regression guard: the no_correct/multiple_correct checks must not be
+	// gated on len(answers)==4 — they must fire for any valid answer count.
+	for _, n := range []int{2, 3, 5} {
+		// zero correct
+		ds := baseDataset(1)
+		ds.Questions[0].Answers = makeAnswers(n, -1) // -1 -> none marked correct
+		issues := Validate(ds)
+		if !has(issues, "no_correct") {
+			t.Fatalf("n=%d, 0 correct: want no_correct, got %+v", n, issues)
+		}
+		if has(issues, "answers_count") {
+			t.Fatalf("n=%d, 0 correct: unexpected answers_count, got %+v", n, issues)
+		}
+
+		// two correct
+		ds = baseDataset(1)
+		ds.Questions[0].Answers = makeAnswers(n, 0)
+		ds.Questions[0].Answers[1].Correct = true
+		issues = Validate(ds)
+		if !has(issues, "multiple_correct") {
+			t.Fatalf("n=%d, 2 correct: want multiple_correct, got %+v", n, issues)
+		}
+		if has(issues, "answers_count") {
+			t.Fatalf("n=%d, 2 correct: unexpected answers_count, got %+v", n, issues)
+		}
 	}
 }
 
@@ -119,7 +188,7 @@ func TestVariantInvariants(t *testing.T) {
 
 	// quarantined question poisons its variant
 	ds = baseDataset(20)
-	ds.Questions[0].Answers = ds.Questions[0].Answers[:2]
+	ds.Questions[0].Answers = ds.Questions[0].Answers[:1] // 1 answer is below the valid 2-5 range
 	ids = ids[:0]
 	for _, q := range ds.Questions {
 		ids = append(ids, q.ExtID)

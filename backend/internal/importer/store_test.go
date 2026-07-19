@@ -58,7 +58,7 @@ func TestStoreSampleAndIdempotent(t *testing.T) {
 func TestStoreQuarantinesBroken(t *testing.T) {
 	pool := testdb.New(t)
 	ds, images := fixture.Sample()
-	ds.Questions[0].Answers = ds.Questions[0].Answers[:3] // break invariant → variant 1 poisoned
+	ds.Questions[0].Answers = ds.Questions[0].Answers[:1] // break invariant (below valid 2-5 range) → variant 1 poisoned
 	rep, err := importer.Store(context.Background(), pool, blob.NewLocalDir(t.TempDir()), ds,
 		importer.StoreOptions{MarkVerified: true, Images: images, Source: "fixture"})
 	if err != nil {

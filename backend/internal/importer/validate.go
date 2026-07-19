@@ -35,7 +35,8 @@ func Validate(ds Dataset) []Issue {
 			add("question", q.ExtID, "unknown_category", q.Category)
 			markBad(q.ExtID)
 		}
-		if len(q.Answers) != 4 {
+		validCount := len(q.Answers) >= 2 && len(q.Answers) <= 5
+		if !validCount {
 			add("question", q.ExtID, "answers_count", fmt.Sprintf("%d ta javob", len(q.Answers)))
 			markBad(q.ExtID)
 		}
@@ -52,7 +53,7 @@ func Validate(ds Dataset) []Issue {
 				}
 			}
 		}
-		if len(q.Answers) == 4 {
+		if validCount {
 			if correct == 0 {
 				add("question", q.ExtID, "no_correct", "")
 				markBad(q.ExtID)
