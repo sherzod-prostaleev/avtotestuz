@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -301,6 +302,146 @@ void main() {
       expect(tokenStorage.clearCalls, 0);
       expect(await tokenStorage.readAccess(), 'new-access');
       expect(await tokenStorage.readRefresh(), 'new-refresh');
+    });
+
+    test(
+        'two concurrent 401s share a single in-flight refresh; both '
+        'requests succeed via retry and onSessionExpired never fires',
+        () async {
+      final tokenStorage =
+          FakeTokenStorage(access: 'old-access', refresh: 'refresh-abc');
+      var refreshCallCount = 0;
+      var sessionExpiredCount = 0;
+      final mainCallPaths = <String>[];
+
+      // Completes once BOTH protected endpoints have hit the main adapter
+      // with their (expired-token) 401 — i.e. once both requests have
+      // genuinely reached the interceptor's error handling concurrently.
+      // Gating the refresh response on this (rather than on a fixed delay)
+      // deterministically proves the second 401 arrives *while* the first
+      // refresh is still in flight, instead of relying on timing.
+      final bothProtectedArrived = Completer<void>();
+
+      final mainAdapter = FakeAdapter((options) async {
+        mainCallPaths.add(options.path);
+        if (mainCallPaths.toSet().length == 2 &&
+            !bothProtectedArrived.isCompleted) {
+          bothProtectedArrived.complete();
+        }
+        return jsonResponseBody({
+          'error': {'code': 'unauthorized', 'message': 'token expired'},
+        }, 401);
+      });
+
+      final refreshAdapter = FakeAdapter((options) async {
+        if (options.path == '/auth/refresh') {
+          refreshCallCount++;
+          expect(options.data, {'refresh_token': 'refresh-abc'});
+          // Block until the second concurrent 401 has definitely arrived,
+          // proving both requests joined this one in-flight refresh rather
+          // than each kicking off their own.
+          await bothProtectedArrived.future;
+          return jsonResponseBody({
+            'data': {
+              'access_token': 'new-access',
+              'refresh_token': 'new-refresh',
+            },
+          }, 200);
+        }
+        // A retried original request.
+        expect(options.headers['Authorization'], 'Bearer new-access');
+        return jsonResponseBody({
+          'data': {'ok': true, 'path': options.path},
+        }, 200);
+      });
+
+      final refreshDio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = refreshAdapter;
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = mainAdapter;
+      dio.interceptors.add(AuthInterceptor(
+        tokenStorage: tokenStorage,
+        refreshDio: refreshDio,
+        onSessionExpired: () async {
+          sessionExpiredCount++;
+        },
+      ));
+
+      final results = await Future.wait([
+        dio.get<Map<String, dynamic>>('/protected1'),
+        dio.get<Map<String, dynamic>>('/protected2'),
+      ]);
+
+      expect(results[0].statusCode, 200);
+      expect(results[1].statusCode, 200);
+      expect(refreshCallCount, 1,
+          reason: '/auth/refresh must be called exactly once, not once per '
+              'concurrent 401');
+      expect(sessionExpiredCount, 0);
+      expect(await tokenStorage.readAccess(), 'new-access');
+      expect(await tokenStorage.readRefresh(), 'new-refresh');
+    });
+
+    test(
+        'two concurrent 401s share a single in-flight refresh; if it fails, '
+        'both requests reject and onSessionExpired fires exactly once',
+        () async {
+      final tokenStorage =
+          FakeTokenStorage(access: 'old-access', refresh: 'stale-refresh');
+      var refreshCallCount = 0;
+      var sessionExpiredCount = 0;
+      final mainCallPaths = <String>[];
+
+      final bothProtectedArrived = Completer<void>();
+
+      final mainAdapter = FakeAdapter((options) async {
+        mainCallPaths.add(options.path);
+        if (mainCallPaths.toSet().length == 2 &&
+            !bothProtectedArrived.isCompleted) {
+          bothProtectedArrived.complete();
+        }
+        return jsonResponseBody({
+          'error': {'code': 'unauthorized', 'message': 'token expired'},
+        }, 401);
+      });
+
+      final refreshAdapter = FakeAdapter((options) async {
+        refreshCallCount++;
+        await bothProtectedArrived.future;
+        return jsonResponseBody({
+          'error': {
+            'code': 'refresh_reused',
+            'message': 'refresh token already used; all sessions revoked',
+          },
+        }, 401);
+      });
+
+      final refreshDio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = refreshAdapter;
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = mainAdapter;
+      dio.interceptors.add(AuthInterceptor(
+        tokenStorage: tokenStorage,
+        refreshDio: refreshDio,
+        onSessionExpired: () async {
+          sessionExpiredCount++;
+        },
+      ));
+
+      final results = await Future.wait([
+        dio.get<Map<String, dynamic>>('/protected1'),
+        dio.get<Map<String, dynamic>>('/protected2'),
+      ].map((f) => f.then<Object?>((r) => r).catchError((Object e) => e)));
+
+      expect(results, everyElement(isA<DioException>()));
+      expect(refreshCallCount, 1,
+          reason: '/auth/refresh must be called exactly once, not once per '
+              'concurrent 401');
+      expect(sessionExpiredCount, 1,
+          reason: 'onSessionExpired must fire exactly once for the shared '
+              'refresh failure, not once per waiting caller');
+      expect(await tokenStorage.readAccess(), isNull);
+      expect(await tokenStorage.readRefresh(), isNull);
     });
 
     test('non-401 errors pass through unchanged without a refresh attempt',
