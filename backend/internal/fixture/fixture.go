@@ -93,12 +93,12 @@ func Sample() (importer.Dataset, importer.MapSource) {
 		LegalRefs: []map[string]string{{"code": "YHQ 0.0", "title": "[NAMUNA] modda"}},
 		Blocks: map[string][]map[string]any{
 			"uz-Latn": {
-				{"type": "important", "md": "[NAMUNA] Bu izoh namunasi — haqiqiy huquqiy tahlil emas."},
-				{"type": "answers", "items": []any{
-					map[string]any{"position": 1, "correct": false, "md": "[NAMUNA] 1 noto'g'ri"},
-					map[string]any{"position": 2, "correct": false, "md": "[NAMUNA] 2 noto'g'ri"},
-					map[string]any{"position": 3, "correct": false, "md": "[NAMUNA] 3 noto'g'ri"},
-					map[string]any{"position": 4, "correct": true, "md": "[NAMUNA] 4 to'g'ri"},
+				{"type": "muhim", "text": "[NAMUNA] Bu izoh namunasi — haqiqiy huquqiy tahlil emas."},
+				{"type": "answer_analysis", "items": []any{
+					map[string]any{"position": 1, "correct": false, "text": "[NAMUNA] 1 noto'g'ri"},
+					map[string]any{"position": 2, "correct": false, "text": "[NAMUNA] 2 noto'g'ri"},
+					map[string]any{"position": 3, "correct": false, "text": "[NAMUNA] 3 noto'g'ri"},
+					map[string]any{"position": 4, "correct": true, "text": "[NAMUNA] 4 to'g'ri"},
 				}},
 			},
 		},
