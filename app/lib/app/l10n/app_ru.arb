@@ -1,0 +1,10 @@
+{
+  "@@locale": "ru",
+  "appTitle": "АвтоТест",
+  "phoneLabel": "Номер телефона",
+  "continueButton": "Продолжить",
+  "otpLabel": "Код подтверждения",
+  "verifyButton": "Подтвердить",
+  "logout": "Выйти",
+  "errorGeneric": "Произошла ошибка"
+}

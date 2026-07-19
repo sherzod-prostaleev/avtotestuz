@@ -1,0 +1,31 @@
+{
+  "@@locale": "uz",
+  "appTitle": "AvtoTest",
+  "@appTitle": {
+    "description": "The application's title."
+  },
+  "phoneLabel": "Telefon raqami",
+  "@phoneLabel": {
+    "description": "Label for the phone number input field."
+  },
+  "continueButton": "Davom etish",
+  "@continueButton": {
+    "description": "Label for the button that submits the phone number and continues to OTP."
+  },
+  "otpLabel": "Tasdiqlash kodi",
+  "@otpLabel": {
+    "description": "Label for the OTP (one-time password) input field."
+  },
+  "verifyButton": "Tasdiqlash",
+  "@verifyButton": {
+    "description": "Label for the button that submits the OTP for verification."
+  },
+  "logout": "Chiqish",
+  "@logout": {
+    "description": "Label for the logout action."
+  },
+  "errorGeneric": "Xatolik yuz berdi",
+  "@errorGeneric": {
+    "description": "Generic fallback error message shown when a more specific one is unavailable."
+  }
+}

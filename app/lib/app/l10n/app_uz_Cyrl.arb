@@ -1,0 +1,10 @@
+{
+  "@@locale": "uz_Cyrl",
+  "appTitle": "АвтоТест",
+  "phoneLabel": "Телефон рақами",
+  "continueButton": "Давом этиш",
+  "otpLabel": "Тасдиқлаш коди",
+  "verifyButton": "Тасдиқлаш",
+  "logout": "Чиқиш",
+  "errorGeneric": "Хатолик юз берди"
+}
