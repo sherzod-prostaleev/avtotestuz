@@ -21,6 +21,13 @@ final themeModeProvider = NotifierProvider<ThemeModeNotifier, ThemeMode>(
 class ThemeModeNotifier extends Notifier<ThemeMode> {
   static const _prefsKey = 'theme_mode';
 
+  /// Set the instant [setThemeMode] is called, before any `await`. Guards
+  /// against [_hydrate] clobbering an explicit user choice with stale
+  /// persisted data if its async read resolves afterwards. This must be a
+  /// defended invariant of our own code, not an accident of the relative
+  /// timing of two competing `shared_preferences` reads.
+  bool _hasUserOverride = false;
+
   @override
   ThemeMode build() {
     _hydrate();
@@ -30,10 +37,15 @@ class ThemeModeNotifier extends Notifier<ThemeMode> {
   Future<void> _hydrate() async {
     final prefs = await SharedPreferences.getInstance();
     if (!ref.mounted) return;
+    // If the user already made an explicit choice by the time this async
+    // read resolves, that choice wins — never overwrite it with whatever
+    // was persisted from a prior session.
+    if (_hasUserOverride) return;
     state = _decode(prefs.getString(_prefsKey));
   }
 
   Future<void> setThemeMode(ThemeMode mode) async {
+    _hasUserOverride = true;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_prefsKey, _encode(mode));
     if (!ref.mounted) return;
