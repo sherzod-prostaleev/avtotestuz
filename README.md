@@ -9,10 +9,11 @@ Talablar: Docker (compose bilan), Go 1.22+ (`~/.local/go`ga o'rnatilgan bo'lsa,
 `export PATH=$HOME/.local/go/bin:$HOME/go/bin:$PATH`).
 
 ```bash
-make up      # Postgres + Redis + MinIO (compose)
-make seed    # [NAMUNA] sample kontentni import qiladi
-make run     # API :8080 (PORT env bilan o'zgartiriladi)
-make check   # lint + testlar
+make up        # Postgres + Redis + MinIO (compose)
+make seed      # [NAMUNA] sintetik namuna kontent (2 bilet, 40 savol, signlar katalogi)
+make seed-real # haqiqiy avtoimtihon kontenti (61 bilet, 1235 savol) — pastdagi "Kontent"ga qarang
+make run       # API :8080 (PORT env bilan o'zgartiriladi)
+make check     # lint + testlar
 ```
 
 Sinash: `curl "localhost:8080/api/v1/variants/1?locale=uz-Latn"`
@@ -24,6 +25,68 @@ Sinash: `curl "localhost:8080/api/v1/variants/1?locale=uz-Latn"`
 - Kontent importi: `backend/cmd/importer -data <dir> -verified`
   (canonical format: `data.json` + `images/`; barcha invariantlar tekshiriladi,
   buzilganlar quarantine bo'ladi — hech narsa taxmin qilinmaydi)
+
+## Kontent (ma'lumotlar)
+
+Ikki xil kontent to'plami mavjud. Importer **upsert** qiladi (jadvallarni
+o'zi tozalamaydi) — ikkalasi ham bilet raqamlari 1 va 2'ni ishlatgani uchun
+bir DB'da aralashtirilsa 1/2-biletlar bir-birini qoplaydi va yetim savollar
+qoladi; shu sababli dev DB'da **bittasini** toza holda ishlating.
+
+### Haqiqiy kontent — `avtoimtihon` (asosiy, `make seed-real`)
+
+Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
+(spec D5; jonli scrape emas). Manba: `aaa/src/data/questions.{uz-Latn,uz-Cyrl,ru}.json`
++ `aaa/public/quiz-images/*.webp`.
+
+- **1235 ta savol**, 3 tilda (uz-Latn / uz-Cyrl / ru), har biri **verified**.
+- Javob soni har xil: 2/3/4/5 (haqiqiy manba qanday bo'lsa shunday — 4'ga
+  majburlanmaydi). Shulardan 25 tasi to'g'ri javobi 5-o'rinda bo'lgan
+  5-javobli savol (DB CHECK `position 1..5` — migration 0006 bilan kengaytirilgan).
+- **61 ta bilet** (variant), har biri aynan 20 savol — ikki ketma-ket
+  manba-tiketni (10+10) juftlab hosil qilingan (rasmiy imtihon 20 savol
+  formatiga mos). Bu ataylab qilingan qaror.
+- **15 ta savol hech qaysi biletga tayinlanmagan** (toq tiket qoldig'i:
+  `avtoimtihon-1221..1235`) — ular baribir yaroqli, mustaqil savol sifatida
+  mavjud (mashq / xatolar banki / FSRS ularda ishlaydi), faqat raqamli
+  biletga kirmaydi.
+- **Kategoriya**: manbada kategoriya maydoni yo'q, shuning uchun hamma savol
+  bitta fallback kategoriya — `umumiy` ("Umumiy savollar") ostiga tushadi.
+  Halol cheklov: kategoriya darajasidagi FSRS mastery breakdown (`/me/stats`)
+  haqiqiy kategoriyalash qo'shilgunicha bitta bucketda ko'rinadi.
+- **Izohlar**: 1219 ta savolda izoh bor (manba `comment` matnidan). `LegalRefs`
+  bo'sh — manba matnida huquqiy iqtiboslar inline proza sifatida yozilgan,
+  strukturaviy maydonlarga ajratib olinmagan (halol gap, soxta iqtibos emas).
+- **Signlar katalogi bu importdan KELMAYDI** (manbada yo'l-belgi katalogi
+  yo'q, faqat sahna-fotolar). Signlar API'si dev'da bo'sh qaytadi (yoki agar
+  `make seed` alohida ishga tushirilgan bo'lsa, [NAMUNA] sign katalogi).
+- Import Report'i: `categories=1 signs=0 images=715 · questions valid=1235
+  quarantined=0 · variants stored=61 skipped=0` (`images` 715 — noyob
+  fayllar soni; content-hash bo'yicha byte-bir xillari birlashib DB'da 682
+  qatorga tushadi). 1 ta manba-rasm (`i120_9`) yo'q, u savol rasmsiz keladi.
+
+Regeneratsiya + import (`backend/`dan):
+
+```bash
+go run ./cmd/convertavtoimtihon -src "/home/sher/Рабочий стол/aaa" -out seed/avtoimtihon
+go run ./cmd/importer -data seed/avtoimtihon -verified
+# yoki repo ildizidan: make seed-real
+```
+
+Toza real-only dev DB uchun avval jadvallarni tozalab oling (bu ish
+qilinganida shunday qilingan) — aks holda mavjud [NAMUNA] fixture bilan
+aralashadi.
+
+### Sintetik namuna — `[NAMUNA]` fixture (`make seed`)
+
+Backend test suite'lari va tez smoke uchun sun'iy namuna: 2 bilet, 40 savol,
+4 kategoriya (`priority`/`rules`/`safety`/`signs`) va **4 signli katalog**
+(2 guruh). `cmd/genfixture` generatsiya qiladi. Signlar API'sini dev'da
+sinash uchun yagona ma'lumot manbai (haqiqiy import signlar bermaydi).
+
+Ikkala `seed/` katalogi ham (`seed/sample/`, `seed/avtoimtihon/`)
+gitignore'da — kod (converter + importer) va yuqoridagi regeneratsiya
+buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 
 ## API (M1 Plan 01 holati)
 

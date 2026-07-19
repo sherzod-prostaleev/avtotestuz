@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
-.PHONY: up down test lint generate seed run check
+.PHONY: up down test lint generate seed seed-real run check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -21,6 +21,13 @@ generate:
 
 seed:
 	cd backend && go run ./cmd/genfixture -out seed/sample && go run ./cmd/importer -data seed/sample -verified
+
+# Real, user-licensed avtoimtihon content (61 bilets, 1235 questions). Regenerates
+# the canonical dataset from the source tree, then imports it (upsert; truncate the
+# DB first for a clean real-only dev DB). Both seed/ dirs are gitignored.
+seed-real:
+	cd backend && go run ./cmd/convertavtoimtihon -src "$(AAA_SRC)" -out seed/avtoimtihon && go run ./cmd/importer -data seed/avtoimtihon -verified
+AAA_SRC ?= /home/sher/Рабочий стол/aaa
 
 run:
 	cd backend && go run ./cmd/api
