@@ -436,7 +436,9 @@ class AuthController extends Notifier<AuthState> {
 
 ### Task 8: Profile fetch + home shell + shared widgets
 
-**Files:** create `app/lib/features/profile/data/profile_api.dart`, `app/lib/features/profile/domain/profile.dart`, `app/lib/features/profile/presentation/profile_controller.dart`, `app/lib/features/home/presentation/home_shell.dart`, `app/lib/shared/widgets/empty_state.dart`, `app/lib/shared/widgets/primary_button.dart`, `app/lib/shared/widgets/app_card.dart`, and matching tests; modify `app/lib/app/router.dart` (add `/` → `HomeShell`, wrapping/replacing the Task 5 placeholder).
+**Files:** create `app/lib/features/profile/data/profile_api.dart`, `app/lib/features/profile/domain/profile.dart`, `app/lib/features/profile/presentation/profile_controller.dart`, `app/lib/features/home/presentation/home_shell.dart`, `app/lib/shared/widgets/empty_state.dart`, `app/lib/shared/widgets/primary_button.dart`, `app/lib/shared/widgets/app_card.dart`, and matching tests; modify `app/lib/app/router.dart` (add `/` → `HomeShell`, wrapping/replacing the Task 5 placeholder); modify `app/lib/main.dart` (real DI wiring for `ProfileApi`, see below — same gap-closing pattern as Task 7's `authRepositoryProvider` wiring).
+
+**Real DI wiring (same pattern as Task 7):** `ProfileApi` needs a `profileApiProvider` (or equivalent) overridden at the app root with a real instance. Reuse the SAME `Dio` instance already built in `main.dart` for `AuthApi` (from Task 7) — do not construct a second `Dio`/call `buildDio` again, that would mean two separate token/interceptor states drifting independently. Wire this alongside the existing `authRepositoryProvider` override in the same `ProviderContainer(overrides: [...])` list.
 
 **Interfaces (produced):**
 ```dart
