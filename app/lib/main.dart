@@ -8,8 +8,11 @@ import 'features/auth/data/auth_api.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
 import 'features/content/data/content_api.dart';
+import 'features/events/data/events_api.dart';
+import 'features/explanation/data/explanation_api.dart';
 import 'features/profile/data/profile_api.dart';
 import 'features/profile/presentation/profile_controller.dart';
+import 'features/session/data/session_api.dart';
 
 /// Default dev backend base URL — matches this plan's Global Constraints
 /// (`PORT=8090` convention) and Task 9's live-verification
@@ -70,11 +73,24 @@ void main() {
   // second `buildDio` call, per this plan's Global Constraints.
   final contentApi = ContentApi(dio);
 
+  // Real DI wiring for `sessionApiProvider`/`explanationApiProvider`/
+  // `eventsApiProvider` (Plan 07 Tasks 3/7/10) — consolidated here in one
+  // pass after all three landed, since they were dispatched in parallel and
+  // each deliberately skipped editing this file to avoid concurrent-edit
+  // collisions. All three reuse the SAME shared `dio` instance; no second
+  // `buildDio` call.
+  final sessionApi = SessionApi(dio);
+  final explanationApi = ExplanationApi(dio);
+  final eventsApi = EventsApi(dio);
+
   container = ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(authRepository),
       profileApiProvider.overrideWithValue(profileApi),
       contentApiProvider.overrideWithValue(contentApi),
+      sessionApiProvider.overrideWithValue(sessionApi),
+      explanationApiProvider.overrideWithValue(explanationApi),
+      eventsApiProvider.overrideWithValue(eventsApi),
     ],
   );
 
