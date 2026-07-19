@@ -24,13 +24,13 @@ O'zbekiston haydovchilik nazariy imtihoniga tayyorlaydigan **pullik onlayn makta
 | D4 | Boshlanish | M1 = Web o'quv yadro |
 | D5 | Data manbai | Foydalanuvchining ruxsat etilgan kontenti; import + validation (hash/checksum). Jonli scraping YO'Q (403/huquq) |
 | D6 | Tillar | uz-Latn, uz-Cyrl, ru (M1); kaa — model tayyor, tekshirilgan manba topilgach |
-| D7 | Test rejimlari | Bilet (20 savol, ketma-ket ochilish), Imtihon simulyatsiyasi, Mavzu/kategoriya mashqi, Xatolar banki |
+| D7 | Test rejimlari | Bilet (20 savol — real manba 10-savollik "ticket"lardan juftlab tuziladi, ketma-ket ochilish), Imtihon simulyatsiyasi, Mavzu/kategoriya mashqi, Xatolar banki |
 | D8 | Imtihon qoidasi | 20 savol / 25 daqiqa / ≤2 xato = o'tdi / 3-xatoda to'xtash (rasmiy qoida, manbalar §4) |
 | D9 | Learning engine | FSRS, weak-area fokus, interleaving, mastery map, Leitner, streak + kunlik maqsad |
 | D10 | Izohlar | AI-qoralama → ekspert tasdig'i (`draft→pending→verified`); faqat `verified` ko'rsatiladi |
 | D11 | Auth | Telefon raqam + Telegram orqali kod (asosiy), SMS zaxira (Eskiz/PlayMobile); JWT |
 | D12 | To'lovlar | Payme + Click (+ Uzcard/Humo) — **sandbox rejimda quriladi**, yuridik shaxs ochilgach production |
-| D13 | Free-tier | 1-bilet + kunlik cheklangan mashq + belgilar katalogi bepul; qolgani obuna. Limitlar admin-panelda sozlanadi |
+| D13 | Free-tier | 1-bilet + kunlik cheklangan mashq + belgilar katalogi bepul; qolgani obuna. Limitlar admin-panelda sozlanadi. M2'dan: mehmon-demo — 1-bilet ro'yxatdan o'tmasdan ham yechiladi (progress saqlash/sync uchun ro'yxat talab qilinadi; raqobatchilarda «darhol boshlash» standart, bu voronkaning kirish nuqtasi) |
 | D14 | Tariflar | Muddatli passlar (masalan 7/15/30/45/75 kun) — narxlar admin-panelda tahrirlanadi, onless'dan arzonroq pozitsiya |
 | D15 | O'sish | Referal dastur + promo-kodlar, anti-fraud bilan |
 | D16 | Strategik kanal | M5 = B2B avtomaktablar (guruh litsenziya, o'qituvchi dashboard) |
@@ -53,11 +53,24 @@ Skrinshotlardan aniqlangan (bizga etalon va «yutish nuqtalari»):
 
 **Bizning ustunliklarimiz (10x):** FSRS-based aqlli o'rganish + «imtihonga tayyorlik %» prognozi (ularda yo'q); har izohda YHQ modda-havolasi va verified-workflow; referal dasturi (ularda ko'rinmaydi); super-admin (kontent+narx+promo+foydalanuvchi+to'lov+analitika); investor-metrikalar kun 1'dan; B2B kanal; arzonroq halol narx; tezlik va sifat.
 
+### 3.1. avtoimtihon.uz funksional xaritasi (2026-07-19 sayt-tahlili)
+
+Real savol-to'plamimiz aynan shu saytning strukturasiga mos (prototip DB klassi `AvtoImtihonDatabase`), shuning uchun bu tahlil import-invariantlarga bevosita ta'sir qiladi:
+
+- **Model:** to'liq bepul, reklama bilan (Yandex Ads) monetizatsiya; akkauntsiz — butun progress brauzerda (localStorage/IndexedDB), qurilmalar aro sync yo'q (shu sabab «progressni tozalash» ogohlantirishlari).
+- **Kontent:** 124 bilet × 10 savol (jami 1235), javob variantlari 2–5 ta; har savolda oddiy matnli izoh (`comment`, aksariyati YHQ modda-havolali); savollarning ~58% rasmli.
+- **Rejimlar:** biletlar (raqam bo'yicha qidiruv + bajarilgan/jarayonda/boshlanmagan filtri), mashq (20 tasodifiy, xatoda to'xtamaydi), imtihon (20 savol/25 daq/≤2 xato/3-xatoda stop, vaqt tugash alerti), xatolar banki, tarix (sana/natija/ball/vaqt jadvali, tozalash).
+- **UI:** natija-ko'rikda har savol tahlili (sening javobing/to'g'ri javob/izoh), izohni ko'rsatish/yashirish, rasm-zoom, fullscreen, savol-navigator paneli, 3 til (uz-Latn/uz-Cyrl/ru), dark/light.
+- **Distributsiya:** PWA offline o'rnatish (Windows'da «desktop ilova» sifatida), Android/iOS «tez kunda»; Telegram kanal + Instagram; SEO sahifalar (qoidalar/jarimalar/maslahatlar).
+- **YO'Q (bizning ustunlik zonalari o'z kuchida):** belgilar katalogi, o'quv dvigateli/takrorlash, akkaunt/sync, statistika-tahlil, to'lov/premium kontent, verified-izoh sifat sikli.
+
 ---
 
 ## 4. Tekshirilgan faktlar
 
 Rasmiy nazariy imtihon: 20 savol, 25 daqiqa, o'tish 18/20 (≤2 xato), 3-xatoda to'xtash, natija 2 oy amal qiladi. Manbalar: osonprava.uz/uz/blog/nazariy-imtihon-qoidalari, yim.uz/savollar-va-javoblar, gov.uz/oz/advice/73/document/144. Bilet soni datadan olinadi (onless 63, avtoimtihon 124 — modelga qat'iy son yozilmaydi).
+
+**Real to'plam faktlari (2026-07-19, avtoimtihon-strukturali eksport tekshirildi):** 1235 savol, manbada 124 "ticket" × 10 savol (oxirgisi 5 ta), javob variantlari **2–5 ta** (taqsimot: 2→196, 3→638, 4→282, 5→119), 716 savol rasmli (`quiz-images/`, webp), 1219 savolda YHQ-havolali `comment` izohi, `correct_answer` 1-based indeks. **Qaror (tasdiqlangan):** bizning tizimda bilet hajmi qat'iy **20 savol** bo'lib qoladi (D7, rasmiy imtihon formatiga mos) — mapper ketma-ket ikkita 10-savollik "ticket"ni bitta 20-savollik biletga juftlaydi (61 to'liq bilet + 15 ta juftlanmagan qoldiq savol, alohida bilet raqamisiz, lekin mashq/xatolar/FSRS'da to'liq ishlatiladi). Javob soni esa — real imtihon ma'lumoti bo'lgani uchun — modelga qat'iy yozilmaydi, datadan (2–5).
 
 ---
 
@@ -65,12 +78,12 @@ Rasmiy nazariy imtihon: 20 savol, 25 daqiqa, o'tish 18/20 (≤2 xato), 3-xatoda 
 
 | M | Nomi | Tarkib |
 |---|---|---|
-| **M1** | O'quv yadro (web) | Auth (telefon+TG kod), kontent+belgilar import, 4 rejim, bilet-ochilish, imtihon simulyator UI (F1–F4), FSRS engine, izoh ko'rsatish + AI-draft, saqlanganlar, kunlik maqsad/streak, mastery stats, 3 til, free-limitlar, event-logging, entitlement modeli (M1'da VIP'ni ichki CLI/SQL orqali berish mumkin; boshqaruv paneli M3'da) |
-| **M2** | Monetizatsiya | Tariflar, Payme/Click adapterlar (sandbox→prod), promo + referal + anti-fraud, to'lovlar tarixi, cheklar, VIP-gating, GRAND MOCK, ommaviy SSG sayt (landing/narxlar/jarimalar/belgilar SEO) |
+| **M1** | O'quv yadro (web) | Auth (telefon+TG kod), kontent+belgilar import, 4 rejim, bilet-ochilish, imtihon simulyator UI (F1–F5), FSRS engine, izoh ko'rsatish + AI-draft, saqlanganlar, kunlik maqsad/streak, mastery stats, 3 til, free-limitlar, event-logging, entitlement modeli (M1'da VIP'ni ichki CLI/SQL orqali berish mumkin; boshqaruv paneli M3'da) |
+| **M2** | Monetizatsiya | Tariflar, Payme/Click adapterlar (sandbox→prod), promo + referal + anti-fraud, to'lovlar tarixi, cheklar, VIP-gating, GRAND MOCK, mehmon-demo rejimi (ro'yxatsiz 1-bilet, D13 — voronka kirish nuqtasi), ommaviy SSG sayt (landing/narxlar/jarimalar/belgilar SEO) |
 | **M3** | Super Admin | Kontent-studio + verify workflow + import/export, foydalanuvchilar, billing/refund/rekonsilyatsiya, narx/promo/limit boshqaruvi, izoh-sifat navbati, analitika (investor dashboard), RBAC, audit, broadcast, support-inbox |
 | **M4** | Growth | Battle Arena (real-time), Telegram bot (quiz, bildirishnoma), leaderboard, push/kampaniyalar |
 | **M5** | B2B | Avtomaktab tashkilotlari, guruh litsenziyalari, o'qituvchi dashboardi, guruh statistikasi |
-| **M6** | Multiplatforma | Flutter'dan Android/iOS/Windows/macOS/Linux buildlar, platforma sayqali |
+| **M6** | Multiplatforma | Flutter'dan Android/iOS/Windows/macOS/Linux buildlar, platforma sayqali, PWA o'rnatish (web A2HS install-banner — store'largacha distributsiya kanali; kontent server-driven qoladi, D3 o'zgarmaydi) |
 | **M7** | Miqyos/mustahkamlash | Load-test, monitoring/alerting, xavfsizlik auditi, DR/backup drill |
 
 Har milestone o'z spec → reja → implementatsiya siklida. Quyida platforma-arxitektura + M1 batafsil.
@@ -145,7 +158,7 @@ question_sign(question_id FK, sign_id FK, PK(question_id, sign_id))  -- savol↔
 explanation(id uuid PK, question_id FK UNIQUE, legal_refs jsonb, created_at)
 explanation_translation(explanation_id FK, locale,
      blocks jsonb,          -- tartiblangan bloklar: intro/muhim/eslatma/ogohlantirish/
-                            -- maslahat/javob-tahlili(har 4 javob)/xulosa; belgi-chip
+                            -- maslahat/javob-tahlili(har variant, 2–5)/xulosa; belgi-chip
                             -- havolalari sign.code orqali
      status,                -- 'draft'(AI) | 'pending' | 'verified'
      verified_by uuid NULL, verified_at NULL, source, PK(explanation_id, locale))
@@ -153,7 +166,7 @@ explanation_feedback(profile_id FK, explanation_id FK, helpful bool, created_at,
      PK(profile_id, explanation_id))    -- "Tushunarsiz" oqimi admin-navbatga
 ```
 
-**Invariantlar (import validation):** har savolda aynan 4 javob / aynan 1 to'g'ri; har bilet aynan 20 savol; M1 tillari verified; rasm sha256 mavjud; buzilgan yozuv `quarantined` — foydalanuvchiga chiqmaydi, taxminan to'ldirish YO'Q.
+**Invariantlar (import validation):** har savolda **2–5 javob** / aynan 1 to'g'ri (eski «aynan 4» invarianti real to'plamning ~77%'ini kvarantinga yuborardi — §4 taqsimotga qarab yumshatildi); har bilet aynan **20 savol** (o'zgarmadi — real manbaning 10-savollik "ticket"lari mapper tomonidan juftlab 20taga yetkaziladi, §4'ga qarang); M1 tillari verified; rasm sha256 mavjud; buzilgan yozuv `quarantined` — foydalanuvchiga chiqmaydi, taxminan to'ldirish YO'Q.
 
 ### 7.2. Profil, auth, obuna
 
@@ -204,7 +217,8 @@ session_answer(session_id FK, question_id FK, answer_id, is_correct, answered_at
 
 variant_progress(profile_id FK, variant_id FK, best_correct int, attempts int,
         completed_at NULL, PK(profile_id, variant_id))
-        -- ochilish qoidasi: N+1 ochiq ⇔ best_correct(N) ≥ unlock_threshold (default 10)
+        -- ochilish qoidasi: N+1 ochiq ⇔ best_correct(N) ≥ unlock_threshold (default 10 — bilet
+        -- 20 savolligicha qoladi, §4'ga qarang, shuning uchun bu qiym mos)
         -- GRAND MOCK ochiq ⇔ o'rtacha o'zlashtirish ≥ grand_mock_threshold (default 85%)
 
 question_memory(profile_id FK, question_id FK, stability real, difficulty real,
@@ -258,13 +272,13 @@ notification(id uuid PK, profile_id FK, kind, payload jsonb, channel, sent_at NU
 
 | Rejim | Savollar | Vaqt | Feedback | Qoida |
 |---|---|---|---|---|
-| Bilet | 20 (variantdan, tartibda) | yo'q | darhol + izoh | N+1 ochilishi: bilet N'da ≥10/20. Free: faqat 1-bilet |
+| Bilet | 20 (variantdan, tartibda — real manba 10-savollik "ticket"lardan juftlanadi) | yo'q | darhol + izoh | N+1 ochilishi: bilet N'da ≥10/20. Free: faqat 1-bilet |
 | Imtihon | 20 tasodifiy | 25 daq | oxirida | ≤2 xato o'tdi; 3-xatoda stop; vaqt tugasa avto-submit |
 | Mashq | kategoriya/belgi bo'yicha | yo'q | darhol + izoh | free-limit: kuniga N savol (config) |
 | Xatolar banki | xato qilinganlar | yo'q | darhol + izoh | Leitner: ketma-ket to'g'ri → chiqadi |
 | GRAND MOCK (M2) | 20 | 25 daq | oxirida | ochilish: o'rtacha o'zlashtirish ≥85% (config) |
 
-- **Imtihon UI (real parite):** F1–F4 javob klavishalari, 1–20 navigator (javob berilgan/berilmagan/belgilangan), test ichida til almashtirish, shrift +/−, fullscreen, savolni saqlash, «Ekspert tahlili» tugmasi (mashq rejimlarida).
+- **Imtihon UI (real parite):** F1–F5 javob klavishalari (savoldagi javob soniga dinamik mos — real to'plamda 2–5 variant), 1–20 navigator (javob berilgan/berilmagan/belgilangan), test ichida til almashtirish, shrift +/−, fullscreen, rasmni kattalashtirish (zoom — savollarning ~58% rasmli, mobilda majburiy ehtiyoj), savolni saqlash, «Ekspert tahlili» tugmasi (mashq rejimlarida hamda imtihon yakunidagi natija-ko'rikda har savol bo'yicha).
 - **Anti-cheat:** imtihonda savollar `is_correct`siz keladi; baholash faqat serverda; natija `finish`da.
 - **Uzilishga chidamlilik:** javoblar lokal navbatga yoziladi va qayta ulanishda sync; sessiya `resume` qilinadi.
 - **Kunlik maqsad + streak:** default 10 savol/kun (config), nazokatli premium ohang.
@@ -275,8 +289,9 @@ FSRS xotira modeli (har profil×savol), `GET /learn/next` — due savollar; weak
 
 ## 13. Ekspert tahlili (izohlar)
 
-- **Format:** tartiblangan bloklar (jsonb): kirish, MUHIM, ESLATMA, OGOHLANTIRISH, MASLAHAT, har-javob-tahlili (4ta, to'g'ri/noto'g'ri sababi), YHQ modda-havolalari, biriktirilgan belgilar (sign chiplar rasm bilan), misollar.
+- **Format:** tartiblangan bloklar (jsonb): kirish, MUHIM, ESLATMA, OGOHLANTIRISH, MASLAHAT, har-javob-tahlili (savoldagi har variant uchun — 2–5 ta, to'g'ri/noto'g'ri sababi), YHQ modda-havolalari, biriktirilgan belgilar (sign chiplar rasm bilan), misollar.
 - **Workflow:** AI-draft (import paytida yoki admin buyrug'i) → ekspert tahriri → `verified`. Foydalanuvchi faqat verified ko'radi.
+- **Draft-xomashyo (real to'plam):** importdagi mavjud `comment` maydoni (1219/1235 savolda, aksariyati YHQ modda-havolali) AI-draft uchun boshlang'ich manba — noldan generatsiya emas: mapper `comment`ni kirish-blok sifatida ko'chiradi, undagi YHQ havolalarini `legal_refs`ga ajratadi, AI faqat tuzilmalash/boyitish (bloklar, har-javob-tahlili) qiladi. Bu ekspert-verify hajmini ham keskin kamaytiradi.
 - **Sifat sikli:** «Foydali bo'ldimi?» ovozi; past-reyting izohlar admin qayta-ishlash navbatiga (M3 UI, model M1'da).
 
 ---
@@ -308,7 +323,7 @@ lib/
     results/  stats/  explanation/  signs/  saved/  billing/  referral/
     profile/  settings/
     (har biri: data/ domain/ presentation/)
-  shared/widgets/   # QuestionCard, AnswerOption(+F1-F4), CountdownTimer,
+  shared/widgets/   # QuestionCard, AnswerOption(+F1-F5, javob soniga dinamik), CountdownTimer,
                     # QuestionGrid, MasteryBar, ResultRing, SignChip,
                     # CalloutBlock, TariffCard, EmptyState
 ```
@@ -317,7 +332,7 @@ State: Riverpod. Modellar: freezed. Testlar: unit + widget + integration (to'liq
 
 ## 16. UI/UX konsepsiyasi
 
-Minimal-premium, Material 3 + «Apple-clean»; dark (default) + light; 60/120fps; responsive (mobil-web→desktop). Onless'dan sezilarli sayqalliroq: boy empty-state'lar, silliq mikro-animatsiyalar, aniq progress-vizualizatsiya (bilet grid + mastery ring), izoh-bloklarning chiroyli tipografiyasi. Accessibility: AA kontrast, katta tap-target, screen-reader, klaviatura navigatsiyasi (F1–F4 + strelkalar). Keyingi qadam: kodlashdan oldin interaktiv HTML mockup tasdiqlash uchun.
+Minimal-premium, Material 3 + «Apple-clean»; dark (default) + light; 60/120fps; responsive (mobil-web→desktop). Onless'dan sezilarli sayqalliroq: boy empty-state'lar, silliq mikro-animatsiyalar, aniq progress-vizualizatsiya (bilet grid + mastery ring), izoh-bloklarning chiroyli tipografiyasi. Accessibility: AA kontrast, katta tap-target, screen-reader, klaviatura navigatsiyasi (F1–F5 + strelkalar). Keyingi qadam: kodlashdan oldin interaktiv HTML mockup tasdiqlash uchun.
 
 ## 17. Ommaviy SSG sayt (M2)
 
@@ -339,7 +354,7 @@ JWT+rotating refresh (httpOnly), server-side baholash (anti-cheat), rate-limit (
 
 ## 21. Testlar
 
-Go: unit (scoring, FSRS, unlock-qoidalar, promo/referal hisob-kitob, webhook idempotentlik), integration (testcontainers: API+Postgres+Redis), provider-mock to'lov oqimi E2E. Flutter: unit (usecase/VM), widget (savol karta, taymer, F1–F4, izoh-bloklar), integration (to'liq imtihon + to'lov-sandbox oqimi). Import: invariant testlari. Performance: Lighthouse budget, k6 load (M7 to'liq). TDD — har feature test-first.
+Go: unit (scoring, FSRS, unlock-qoidalar, promo/referal hisob-kitob, webhook idempotentlik), integration (testcontainers: API+Postgres+Redis), provider-mock to'lov oqimi E2E. Flutter: unit (usecase/VM), widget (savol karta, taymer, F1–F5, izoh-bloklar), integration (to'liq imtihon + to'lov-sandbox oqimi). Import: invariant testlari. Performance: Lighthouse budget, k6 load (M7 to'liq). TDD — har feature test-first.
 
 ## 22. CI/CD va muhitlar
 
@@ -357,7 +372,7 @@ GitHub Actions: lint (golangci-lint, dart analyze) → test → build (Docker im
 6. Session/scoring (4 rejim + bilet-unlock + resume) + testlar
 7. FSRS learning engine + stats/tayyorlik % + testlar
 8. Flutter: theme/design-system, auth oqimi, home
-9. Imtihon simulyator UI (F1–F4, navigator, taymer) + bilet/mashq/xatolar oqimlari
+9. Imtihon simulyator UI (F1–F5, navigator, taymer) + bilet/mashq/xatolar oqimlari
 10. Izoh-render (bloklar) + AI-draft generator + saqlanganlar + streak
 11. Free-limit enforcement + entitlement tekshiruv + event-logging
 12. E2E + performance + staging deploy
@@ -365,7 +380,7 @@ GitHub Actions: lint (golangci-lint, dart analyze) → test → build (Docker im
 ## 24. Ochiq savollar
 
 - Qoraqalpoqcha kontent manbasi (topilgach `kaa` yoqiladi)
-- Real data eksport formati (kelgach import-mapper moslanadi)
+- Real data eksport formati — **hal bo'ldi (2026-07-19):** avtoimtihon-strukturali `questions.<locale>.json` (id, question, image, comment, answers[2–5], correct_answer 1-based, ticket "1".."124") + `quiz-images/*.webp` (~715 fayl); mapper shu formatga moslanadi, importer invariantlari yangilandi (§7.1)
 - Tarif raqamlari (admin-panelda kiritiladi; onless'dan arzon pozitsiya)
 - Yuridik shaxs muddati → production to'lov kalitlari
 - Battle real-time va Telegram-bot arxitekturasi (M4 spec'ida)
