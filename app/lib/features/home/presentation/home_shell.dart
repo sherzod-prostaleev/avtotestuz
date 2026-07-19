@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../app/l10n/app_localizations.dart';
 import '../../../app/locale/locale_provider.dart';
@@ -152,10 +153,12 @@ class _HomeBody extends ConsumerWidget {
             mainAxisSpacing: AppSpacing.sm,
             crossAxisSpacing: AppSpacing.sm,
             children: [
-              _ComingSoonNav(
+              AppCard(
                 key: const Key('navVariants'),
-                title: l10n.navVariantsLabel,
-                subtitle: l10n.comingSoon,
+                onTap: () => context.push('/variants'),
+                child: Center(
+                  child: Text(l10n.navVariantsLabel, textAlign: TextAlign.center),
+                ),
               ),
               _ComingSoonNav(
                 key: const Key('navPractice'),

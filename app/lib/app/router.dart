@@ -9,7 +9,9 @@ import '../features/auth/presentation/phone_entry_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/session/domain/session_models.dart';
 import '../features/session/presentation/session_controller.dart';
+import '../features/session/presentation/session_results_screen.dart';
 import '../features/session/presentation/session_screen.dart';
+import '../features/variants/presentation/variants_screen.dart';
 
 /// Adapts `authControllerProvider`'s Riverpod state stream into the plain
 /// [Listenable] that [GoRouter.refreshListenable] expects.
@@ -45,6 +47,10 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (context, state) => const HomeShell()),
       GoRoute(
+        path: '/variants',
+        builder: (context, state) => const VariantsScreen(),
+      ),
+      GoRoute(
         path: '/login',
         builder: (context, state) => const PhoneEntryScreen(),
       ),
@@ -70,9 +76,8 @@ final routerProvider = Provider<GoRouter>((ref) {
           return SessionScreen(request: request);
         },
       ),
-      // Results route the session screen navigates to on finish. Task 4 wires
-      // the minimal [SessionResultView]; Task 5 replaces this with the full
-      // results screen. The [SessionResult] is passed as `extra`.
+      // Results route the session screen navigates to on finish. The
+      // [SessionResult] is passed as `extra`.
       GoRoute(
         path: sessionResultRoute,
         builder: (context, state) {
@@ -82,7 +87,7 @@ final routerProvider = Provider<GoRouter>((ref) {
               message: 'Natija maʼlumoti topilmadi.',
             );
           }
-          return SessionResultView(result: result);
+          return SessionResultsScreen(result: result);
         },
       ),
     ],
