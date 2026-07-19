@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/fixture"
 	"avtotest.uz/backend/internal/importer"
@@ -52,6 +54,80 @@ func TestStoreSampleAndIdempotent(t *testing.T) {
 	_ = pool.QueryRow(ctx, "SELECT count(*) FROM answer").Scan(&aCount)
 	if qCount != 40 || aCount != 160 {
 		t.Fatalf("after re-run q=%d a=%d", qCount, aCount)
+	}
+}
+
+// TestStoreFiveAnswerCorrectAtPosition5 guards against a regression where a
+// question with 5 answers whose CORRECT answer sits at position 5 was
+// silently dropped by the importer (store.go rejected position>4, which the
+// validator already permits up to 5 answers). Dropping that answer would
+// have stored the question with zero correct answers — silent data
+// corruption on real licensed exam content.
+func TestStoreFiveAnswerCorrectAtPosition5(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	ds, images := fixture.Sample()
+	blobs := blob.NewLocalDir(t.TempDir())
+
+	texts := func(latn, cyrl, ru string) map[string]string {
+		return map[string]string{"uz-Latn": latn, "uz-Cyrl": cyrl, "ru": ru}
+	}
+
+	fiveAnswerQ := importer.CanonQuestion{
+		ExtID:    "test-5ans-correct-at-5",
+		Category: "signs",
+		Texts:    texts("Savol (5 javob)", "Савол (5 жавоб)", "Вопрос (5 ответов)"),
+		Answers: []importer.CanonAnswer{
+			{Position: 1, Correct: false, Texts: texts("Javob 1", "Жавоб 1", "Ответ 1")},
+			{Position: 2, Correct: false, Texts: texts("Javob 2", "Жавоб 2", "Ответ 2")},
+			{Position: 3, Correct: false, Texts: texts("Javob 3", "Жавоб 3", "Ответ 3")},
+			{Position: 4, Correct: false, Texts: texts("Javob 4", "Жавоб 4", "Ответ 4")},
+			{Position: 5, Correct: true, Texts: texts("Javob 5 (to'g'ri)", "Жавоб 5 (тўғри)", "Ответ 5 (правильный)")},
+		},
+	}
+	ds.Questions = append(ds.Questions, fiveAnswerQ)
+
+	rep, err := importer.Store(ctx, pool, blobs, ds, importer.StoreOptions{
+		MarkVerified: true, Images: images, Source: "fixture",
+	})
+	if err != nil {
+		t.Fatalf("store: %v\n%s", err, rep)
+	}
+	if rep.QuestionsQuarantined != 0 {
+		t.Fatalf("expected no quarantined questions, report: %+v", rep)
+	}
+
+	var answerCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM answer a JOIN question q ON q.id = a.question_id WHERE q.source_ext_id = $1`,
+		fiveAnswerQ.ExtID).Scan(&answerCount); err != nil {
+		t.Fatalf("count answers: %v", err)
+	}
+	if answerCount != 5 {
+		t.Fatalf("expected 5 answers stored, got %d — 5th answer was silently dropped", answerCount)
+	}
+
+	var pos5AnswerID uuid.UUID
+	var pos5Correct bool
+	if err := pool.QueryRow(ctx,
+		`SELECT a.id, a.is_correct FROM answer a JOIN question q ON q.id = a.question_id
+		 WHERE q.source_ext_id = $1 AND a.position = 5`,
+		fiveAnswerQ.ExtID).Scan(&pos5AnswerID, &pos5Correct); err != nil {
+		t.Fatalf("query position-5 answer: %v (5th answer missing from DB)", err)
+	}
+	if !pos5Correct {
+		t.Fatalf("position-5 answer should be marked correct in the answer row")
+	}
+
+	var correctAnswerID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`SELECT correct_answer_id FROM question WHERE source_ext_id = $1`,
+		fiveAnswerQ.ExtID).Scan(&correctAnswerID); err != nil {
+		t.Fatalf("query question.correct_answer_id: %v", err)
+	}
+	if correctAnswerID != pos5AnswerID {
+		t.Fatalf("question.correct_answer_id = %s, want position-5 answer %s (correct answer at position 5 not linked — question would have zero correct answers)",
+			correctAnswerID, pos5AnswerID)
 	}
 }
 

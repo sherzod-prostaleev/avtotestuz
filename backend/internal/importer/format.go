@@ -36,7 +36,7 @@ type CanonSign struct {
 }
 
 type CanonAnswer struct {
-	Position int               `json:"position"` // 1..4
+	Position int               `json:"position"` // 1..5
 	Correct  bool              `json:"correct"`
 	Texts    map[string]string `json:"texts"`
 	Image    string            `json:"image,omitempty"`

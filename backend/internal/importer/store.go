@@ -174,7 +174,7 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 			return rep, err
 		}
 		for _, a := range cq.Answers {
-			if a.Position < 1 || a.Position > 4 {
+			if a.Position < 1 || a.Position > 5 {
 				continue // invariant issue already recorded; DB CHECK would reject it
 			}
 			aImgID, err := putImage(a.Image)
