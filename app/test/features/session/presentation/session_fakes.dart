@@ -52,16 +52,21 @@ class FakeSessionApi implements SessionApi {
       score: 1,
       total: 1,
     ),
+    this.variantsResult = const [],
+    this.variantsFailure,
   });
 
   final SessionSummary? startResult;
   final Failure? startFailure;
   final AnswerResult Function(String questionId, String answerId)? answerFn;
   final SessionResult finishResult;
+  final List<VariantStatus> variantsResult;
+  final Failure? variantsFailure;
 
   final List<({String mode, String? variantId, String locale})> startCalls = [];
   final List<({String questionId, String answerId})> answerCalls = [];
   int finishCalls = 0;
+  int myVariantsCalls = 0;
 
   @override
   Future<Result<SessionSummary>> start({
@@ -103,8 +108,12 @@ class FakeSessionApi implements SessionApi {
       throw UnimplementedError();
 
   @override
-  Future<Result<List<VariantStatus>>> myVariants() =>
-      throw UnimplementedError();
+  Future<Result<List<VariantStatus>>> myVariants() async {
+    myVariantsCalls++;
+    final failure = variantsFailure;
+    if (failure != null) return Result.err(failure);
+    return Result.ok(variantsResult);
+  }
 }
 
 /// A fake [ContentApi] that answers `question(id)` from [fakeQuestion] (or a
