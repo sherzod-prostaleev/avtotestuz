@@ -7,6 +7,8 @@ import 'core/network/token_storage.dart';
 import 'features/auth/data/auth_api.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
+import 'features/profile/data/profile_api.dart';
+import 'features/profile/presentation/profile_controller.dart';
 
 /// Default dev backend base URL — matches this plan's Global Constraints
 /// (`PORT=8090` convention) and Task 9's live-verification
@@ -54,8 +56,19 @@ void main() {
     tokenStorage: tokenStorage,
   );
 
+  // Real DI wiring for `profileApiProvider` (Task 8's gap-closing note,
+  // same pattern as `authRepositoryProvider` above): reuses the SAME `dio`
+  // instance built above for `AuthApi` rather than calling `buildDio` a
+  // second time — a second `Dio` would mean two separate token/interceptor
+  // states (e.g. two independent refresh-token races) drifting
+  // independently of each other.
+  final profileApi = ProfileApi(dio);
+
   container = ProviderContainer(
-    overrides: [authRepositoryProvider.overrideWithValue(authRepository)],
+    overrides: [
+      authRepositoryProvider.overrideWithValue(authRepository),
+      profileApiProvider.overrideWithValue(profileApi),
+    ],
   );
 
   runApp(

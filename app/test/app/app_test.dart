@@ -2,6 +2,8 @@ import 'package:avtotest_app/app/app.dart';
 import 'package:avtotest_app/app/locale/locale_provider.dart';
 import 'package:avtotest_app/features/auth/domain/auth_state.dart';
 import 'package:avtotest_app/features/auth/presentation/auth_controller.dart';
+import 'package:avtotest_app/features/profile/domain/profile.dart';
+import 'package:avtotest_app/features/profile/presentation/profile_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -34,6 +36,33 @@ class _FixedAuthenticated extends AuthController {
   AuthState build() => const AuthState.authenticated();
 }
 
+/// A [ProfileController] override that resolves instantly with a fixed
+/// value, so pumping [AvtotestApp] here (with [_FixedAuthenticated], landing
+/// on the real `HomeShell` at `/`) never touches `profileApiProvider`'s
+/// no-default `UnimplementedError` seam — this app-root composition test
+/// only cares that theme/locale/router/DI wire together, not about profile
+/// data itself.
+class _FixedProfileController extends ProfileController {
+  @override
+  Future<({Profile profile, Entitlement entitlement})> build() async {
+    return (
+      profile: Profile(
+        id: 'p1',
+        phone: '+998901112233',
+        name: 'Test User',
+        region: 'Toshkent',
+        district: 'Chilonzor',
+        localePref: 'uz-Latn',
+        themePref: 'dark',
+        referralCode: '',
+        role: 'user',
+        createdAt: DateTime(2024, 1, 1),
+      ),
+      entitlement: const Entitlement(active: false),
+    );
+  }
+}
+
 void main() {
   setUp(() {
     // themeModeProvider also hydrates from shared_preferences on first
@@ -50,6 +79,7 @@ void main() {
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('uz'))),
           authControllerProvider.overrideWith(() => _FixedAuthenticated()),
+          profileControllerProvider.overrideWith(_FixedProfileController.new),
         ],
         child: const AvtotestApp(),
       ),
@@ -83,6 +113,7 @@ void main() {
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('ru'))),
           authControllerProvider.overrideWith(() => _FixedAuthenticated()),
+          profileControllerProvider.overrideWith(_FixedProfileController.new),
         ],
         child: const AvtotestApp(),
       ),
@@ -101,6 +132,7 @@ void main() {
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('uz'))),
           authControllerProvider.overrideWith(() => _FixedAuthenticated()),
+          profileControllerProvider.overrideWith(_FixedProfileController.new),
         ],
         child: const AvtotestApp(),
       ),

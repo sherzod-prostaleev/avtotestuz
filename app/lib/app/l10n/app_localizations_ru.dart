@@ -49,4 +49,34 @@ class AppLocalizationsRu extends AppLocalizations {
   String resendIn(int seconds) {
     return 'Повторная отправка через $secondsс';
   }
+
+  @override
+  String get comingSoon => 'Скоро';
+
+  @override
+  String get navVariantsLabel => 'Варианты';
+
+  @override
+  String get navPracticeLabel => 'Практика';
+
+  @override
+  String get navMistakesLabel => 'Работа над ошибками';
+
+  @override
+  String get navStatsLabel => 'Статистика';
+
+  @override
+  String get vipActiveLabel => 'VIP: активен';
+
+  @override
+  String get vipInactiveLabel => 'VIP: не активен';
+
+  @override
+  String get retryButton => 'Повторить';
+
+  @override
+  String get themeToggleTooltip => 'Сменить тему';
+
+  @override
+  String get profileLoadError => 'Не удалось загрузить данные профиля';
 }

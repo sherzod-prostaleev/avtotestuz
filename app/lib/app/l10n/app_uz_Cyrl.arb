@@ -11,5 +11,15 @@
   "devCodeCaption": "Dev код: {code}",
   "phoneConfirmationLabel": "Телефон: {phone}",
   "resendButton": "Қайта юбориш",
-  "resendIn": "Қайта юбориш ({seconds}с)"
+  "resendIn": "Қайта юбориш ({seconds}с)",
+  "comingSoon": "Тез орада",
+  "navVariantsLabel": "Вариантлар",
+  "navPracticeLabel": "Машқ қилиш",
+  "navMistakesLabel": "Хатолар устида ишлаш",
+  "navStatsLabel": "Статистика",
+  "vipActiveLabel": "VIP: фаол",
+  "vipInactiveLabel": "VIP: фаол эмас",
+  "retryButton": "Қайта уриниш",
+  "themeToggleTooltip": "Мавзуни алмаштириш",
+  "profileLoadError": "Профил маълумотларини юклаб бўлмади"
 }

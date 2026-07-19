@@ -6,7 +6,7 @@ import '../features/auth/domain/auth_state.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/otp_verify_screen.dart';
 import '../features/auth/presentation/phone_entry_screen.dart';
-import 'l10n/app_localizations.dart';
+import '../features/home/presentation/home_shell.dart';
 
 /// Adapts `authControllerProvider`'s Riverpod state stream into the plain
 /// [Listenable] that [GoRouter.refreshListenable] expects.
@@ -40,7 +40,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: refreshListenable,
     redirect: (context, state) => _authRedirect(ref, state),
     routes: [
-      GoRoute(path: '/', builder: (context, state) => const _PlaceholderHome()),
+      GoRoute(path: '/', builder: (context, state) => const HomeShell()),
       GoRoute(
         path: '/login',
         builder: (context, state) => const PhoneEntryScreen(),
@@ -84,20 +84,5 @@ String? _authRedirect(Ref ref, GoRouterState state) {
       return onLoginFlow ? null : '/login';
     case AuthAuthenticated():
       return onLoginFlow ? '/' : null;
-  }
-}
-
-/// Trivial placeholder home screen. Its only purpose is to render a
-/// localized string so widget tests can assert that theme/locale/router/DI
-/// actually compose, rather than merely "it compiles". Replaced by the real
-/// home shell in a later task.
-class _PlaceholderHome extends StatelessWidget {
-  const _PlaceholderHome();
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(child: Text(AppLocalizations.of(context)!.appTitle)),
-    );
   }
 }

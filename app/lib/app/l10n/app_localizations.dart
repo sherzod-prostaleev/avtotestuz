@@ -170,6 +170,66 @@ abstract class AppLocalizations {
   /// In uz, this message translates to:
   /// **'Qayta yuborish ({seconds}s)'**
   String resendIn(int seconds);
+
+  /// Honest placeholder label for not-yet-built nav sections (variants/practice/mistakes/stats).
+  ///
+  /// In uz, this message translates to:
+  /// **'Tez orada'**
+  String get comingSoon;
+
+  /// Home shell nav entry label for the (not yet built) exam variants section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Variantlar'**
+  String get navVariantsLabel;
+
+  /// Home shell nav entry label for the (not yet built) practice section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mashq qilish'**
+  String get navPracticeLabel;
+
+  /// Home shell nav entry label for the (not yet built) mistakes-review section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xatolar ustida ishlash'**
+  String get navMistakesLabel;
+
+  /// Home shell nav entry label for the (not yet built) stats section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Statistika'**
+  String get navStatsLabel;
+
+  /// Shown on the home shell when the user's VIP entitlement is active.
+  ///
+  /// In uz, this message translates to:
+  /// **'VIP: faol'**
+  String get vipActiveLabel;
+
+  /// Shown on the home shell when the user's VIP entitlement is not active.
+  ///
+  /// In uz, this message translates to:
+  /// **'VIP: faol emas'**
+  String get vipInactiveLabel;
+
+  /// Label for a generic retry action shown after a failed data load.
+  ///
+  /// In uz, this message translates to:
+  /// **'Qayta urinish'**
+  String get retryButton;
+
+  /// Tooltip for the home shell's light/dark theme toggle button.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mavzuni almashtirish'**
+  String get themeToggleTooltip;
+
+  /// Fallback message shown on the home shell when profile/entitlement fetch fails without a specific backend message.
+  ///
+  /// In uz, this message translates to:
+  /// **'Profil ma\'lumotlarini yuklab bo\'lmadi'**
+  String get profileLoadError;
 }
 
 class _AppLocalizationsDelegate

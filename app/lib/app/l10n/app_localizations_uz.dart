@@ -49,6 +49,36 @@ class AppLocalizationsUz extends AppLocalizations {
   String resendIn(int seconds) {
     return 'Qayta yuborish (${seconds}s)';
   }
+
+  @override
+  String get comingSoon => 'Tez orada';
+
+  @override
+  String get navVariantsLabel => 'Variantlar';
+
+  @override
+  String get navPracticeLabel => 'Mashq qilish';
+
+  @override
+  String get navMistakesLabel => 'Xatolar ustida ishlash';
+
+  @override
+  String get navStatsLabel => 'Statistika';
+
+  @override
+  String get vipActiveLabel => 'VIP: faol';
+
+  @override
+  String get vipInactiveLabel => 'VIP: faol emas';
+
+  @override
+  String get retryButton => 'Qayta urinish';
+
+  @override
+  String get themeToggleTooltip => 'Mavzuni almashtirish';
+
+  @override
+  String get profileLoadError => 'Profil ma\'lumotlarini yuklab bo\'lmadi';
 }
 
 /// The translations for Uzbek, using the Cyrillic script (`uz_Cyrl`).
@@ -96,4 +126,34 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
   String resendIn(int seconds) {
     return 'Қайта юбориш ($secondsс)';
   }
+
+  @override
+  String get comingSoon => 'Тез орада';
+
+  @override
+  String get navVariantsLabel => 'Вариантлар';
+
+  @override
+  String get navPracticeLabel => 'Машқ қилиш';
+
+  @override
+  String get navMistakesLabel => 'Хатолар устида ишлаш';
+
+  @override
+  String get navStatsLabel => 'Статистика';
+
+  @override
+  String get vipActiveLabel => 'VIP: фаол';
+
+  @override
+  String get vipInactiveLabel => 'VIP: фаол эмас';
+
+  @override
+  String get retryButton => 'Қайта уриниш';
+
+  @override
+  String get themeToggleTooltip => 'Мавзуни алмаштириш';
+
+  @override
+  String get profileLoadError => 'Профил маълумотларини юклаб бўлмади';
 }

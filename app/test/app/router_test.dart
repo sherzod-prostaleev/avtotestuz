@@ -4,6 +4,8 @@ import 'package:avtotest_app/features/auth/domain/auth_state.dart';
 import 'package:avtotest_app/features/auth/presentation/auth_controller.dart';
 import 'package:avtotest_app/features/auth/presentation/otp_verify_screen.dart';
 import 'package:avtotest_app/features/auth/presentation/phone_entry_screen.dart';
+import 'package:avtotest_app/features/profile/domain/profile.dart';
+import 'package:avtotest_app/features/profile/presentation/profile_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -24,6 +26,32 @@ class _FakeAuthController extends AuthController {
   void emit(AuthState newState) => state = newState;
 }
 
+/// A fake [ProfileController] so `HomeShell` (rendered at `/` once
+/// authenticated) never touches `profileApiProvider`'s real
+/// `UnimplementedError` default in these router-focused tests — these tests
+/// only care about redirect behavior, not profile data, so a fixed
+/// instantly-resolved value is all that's needed.
+class _FakeProfileController extends ProfileController {
+  @override
+  Future<({Profile profile, Entitlement entitlement})> build() async {
+    return (
+      profile: Profile(
+        id: 'p1',
+        phone: '+998901112233',
+        name: 'Test User',
+        region: 'Toshkent',
+        district: 'Chilonzor',
+        localePref: 'uz-Latn',
+        themePref: 'dark',
+        referralCode: '',
+        role: 'user',
+        createdAt: DateTime(2024, 1, 1),
+      ),
+      entitlement: const Entitlement(active: false),
+    );
+  }
+}
+
 void main() {
   testWidgets(
     'redirects re-fire on auth state changes on the SAME router instance '
@@ -33,7 +61,10 @@ void main() {
     (tester) async {
       final fake = _FakeAuthController(const AuthState.unauthenticated());
       final container = ProviderContainer(
-        overrides: [authControllerProvider.overrideWith(() => fake)],
+        overrides: [
+          authControllerProvider.overrideWith(() => fake),
+          profileControllerProvider.overrideWith(_FakeProfileController.new),
+        ],
       );
       addTearDown(container.dispose);
 
@@ -92,7 +123,10 @@ void main() {
   ) async {
     final fake = _FakeAuthController(const AuthState.authenticated());
     final container = ProviderContainer(
-      overrides: [authControllerProvider.overrideWith(() => fake)],
+      overrides: [
+        authControllerProvider.overrideWith(() => fake),
+        profileControllerProvider.overrideWith(_FakeProfileController.new),
+      ],
     );
     addTearDown(container.dispose);
     final router = container.read(routerProvider)..go('/login');
@@ -124,7 +158,10 @@ void main() {
         const AuthState.otpRequested(phone: '901112233'),
       );
       final container = ProviderContainer(
-        overrides: [authControllerProvider.overrideWith(() => fake)],
+        overrides: [
+          authControllerProvider.overrideWith(() => fake),
+          profileControllerProvider.overrideWith(_FakeProfileController.new),
+        ],
       );
       addTearDown(container.dispose);
       final router = container.read(routerProvider)..go('/login/verify');
@@ -156,7 +193,10 @@ void main() {
   ) async {
     final fake = _FakeAuthController(const AuthState.unknown());
     final container = ProviderContainer(
-      overrides: [authControllerProvider.overrideWith(() => fake)],
+      overrides: [
+        authControllerProvider.overrideWith(() => fake),
+        profileControllerProvider.overrideWith(_FakeProfileController.new),
+      ],
     );
     addTearDown(container.dispose);
     final router = container.read(routerProvider);

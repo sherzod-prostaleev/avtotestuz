@@ -11,5 +11,15 @@
   "devCodeCaption": "Dev-код: {code}",
   "phoneConfirmationLabel": "Телефон: {phone}",
   "resendButton": "Отправить повторно",
-  "resendIn": "Повторная отправка через {seconds}с"
+  "resendIn": "Повторная отправка через {seconds}с",
+  "comingSoon": "Скоро",
+  "navVariantsLabel": "Варианты",
+  "navPracticeLabel": "Практика",
+  "navMistakesLabel": "Работа над ошибками",
+  "navStatsLabel": "Статистика",
+  "vipActiveLabel": "VIP: активен",
+  "vipInactiveLabel": "VIP: не активен",
+  "retryButton": "Повторить",
+  "themeToggleTooltip": "Сменить тему",
+  "profileLoadError": "Не удалось загрузить данные профиля"
 }
