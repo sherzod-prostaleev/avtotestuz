@@ -7,6 +7,9 @@ import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/otp_verify_screen.dart';
 import '../features/auth/presentation/phone_entry_screen.dart';
 import '../features/home/presentation/home_shell.dart';
+import '../features/session/domain/session_models.dart';
+import '../features/session/presentation/session_controller.dart';
+import '../features/session/presentation/session_screen.dart';
 
 /// Adapts `authControllerProvider`'s Riverpod state stream into the plain
 /// [Listenable] that [GoRouter.refreshListenable] expects.
@@ -49,6 +52,39 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login/verify',
         builder: (context, state) => const OtpVerifyScreen(),
       ),
+      // The session screen is reached by navigating with a
+      // [SessionStartRequest] as `extra` — the controller starts the session
+      // itself (see [SessionController]), so callers (Variants/Practice/
+      // Mistakes) never pre-start one and hand over an id. A missing/wrong
+      // `extra` is a programming error (nobody should reach `/session`
+      // directly), surfaced as an inline message rather than a crash.
+      GoRoute(
+        path: '/session',
+        builder: (context, state) {
+          final request = state.extra;
+          if (request is! SessionStartRequest) {
+            return const _MissingExtraScreen(
+              message: 'Sessiyani boshlash uchun maʼlumot topilmadi.',
+            );
+          }
+          return SessionScreen(request: request);
+        },
+      ),
+      // Results route the session screen navigates to on finish. Task 4 wires
+      // the minimal [SessionResultView]; Task 5 replaces this with the full
+      // results screen. The [SessionResult] is passed as `extra`.
+      GoRoute(
+        path: sessionResultRoute,
+        builder: (context, state) {
+          final result = state.extra;
+          if (result is! SessionResult) {
+            return const _MissingExtraScreen(
+              message: 'Natija maʼlumoti topilmadi.',
+            );
+          }
+          return SessionResultView(result: result);
+        },
+      ),
     ],
   );
   ref.onDispose(router.dispose);
@@ -84,5 +120,38 @@ String? _authRedirect(Ref ref, GoRouterState state) {
       return onLoginFlow ? null : '/login';
     case AuthAuthenticated():
       return onLoginFlow ? '/' : null;
+  }
+}
+
+/// Shown when a route that expects a typed `extra` (e.g. `/session`,
+/// `/session/result`) is reached without it — a deep link or a caller bug.
+/// Offers a way home rather than dead-ending or throwing a cast error.
+class _MissingExtraScreen extends StatelessWidget {
+  const _MissingExtraScreen({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(message, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('Bosh sahifa'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
