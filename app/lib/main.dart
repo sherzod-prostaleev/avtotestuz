@@ -7,6 +7,7 @@ import 'core/network/token_storage.dart';
 import 'features/auth/data/auth_api.dart';
 import 'features/auth/data/auth_repository.dart';
 import 'features/auth/presentation/auth_controller.dart';
+import 'features/content/data/content_api.dart';
 import 'features/profile/data/profile_api.dart';
 import 'features/profile/presentation/profile_controller.dart';
 
@@ -64,10 +65,16 @@ void main() {
   // independently of each other.
   final profileApi = ProfileApi(dio);
 
+  // Real DI wiring for `contentApiProvider` (Plan 07 Task 1), reusing the
+  // SAME shared `dio` instance as `AuthApi`/`ProfileApi` above — never a
+  // second `buildDio` call, per this plan's Global Constraints.
+  final contentApi = ContentApi(dio);
+
   container = ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(authRepository),
       profileApiProvider.overrideWithValue(profileApi),
+      contentApiProvider.overrideWithValue(contentApi),
     ],
   );
 
