@@ -43,6 +43,16 @@ final authControllerProvider = NotifierProvider<AuthController, AuthState>(
 class AuthController extends Notifier<AuthState> {
   AuthRepository get _repository => ref.read(authRepositoryProvider);
 
+  /// Phone the current OTP flow is for, tracked independently of the
+  /// publicly-exposed [AuthState] union. A failed `verifyOtp` moves `state`
+  /// to [AuthError] — a different union case with no `phone` field — so
+  /// [verifyOtp] cannot rely on `state is AuthOtpRequested` to find the
+  /// phone to retry against; it reads this field instead. Set on a
+  /// successful [requestOtp] (overwriting any previous value), and cleared
+  /// once the flow concludes in a way that shouldn't allow further retries
+  /// (reaching [AuthAuthenticated], or [logout]).
+  String? _pendingPhone;
+
   @override
   AuthState build() {
     _checkStoredSession();
@@ -65,6 +75,7 @@ class AuthController extends Notifier<AuthState> {
     if (!ref.mounted) return;
     switch (result) {
       case Ok(data: final data):
+        _pendingPhone = phone;
         state = AuthState.otpRequested(
           phone: phone,
           debugCode: data.debugCode,
@@ -74,18 +85,18 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  /// Uses the phone from the current [AuthOtpRequested] state; a no-op if
-  /// state isn't currently `otpRequested` (nothing to verify against).
+  /// Uses [_pendingPhone] rather than the phone from the current
+  /// [AuthOtpRequested] state, so a retry still works after a failed
+  /// `verifyOtp` has moved `state` to [AuthError] — a no-op only if no OTP
+  /// flow has ever been started (nothing to verify against).
   Future<void> verifyOtp(String code) async {
-    final current = state;
-    if (current is! AuthOtpRequested) return;
-    final result = await _repository.verifyOtp(
-      phone: current.phone,
-      code: code,
-    );
+    final phone = _pendingPhone;
+    if (phone == null) return;
+    final result = await _repository.verifyOtp(phone: phone, code: code);
     if (!ref.mounted) return;
     switch (result) {
       case Ok():
+        _pendingPhone = null;
         state = const AuthState.authenticated();
       case Err(failure: final failure):
         state = AuthState.error(failure);
@@ -95,6 +106,7 @@ class AuthController extends Notifier<AuthState> {
   Future<void> logout() async {
     await _repository.logout();
     if (!ref.mounted) return;
+    _pendingPhone = null;
     state = const AuthState.unauthenticated();
   }
 }

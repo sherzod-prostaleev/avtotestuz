@@ -150,6 +150,36 @@ void main() {
   );
 
   testWidgets(
+    'after an error, correcting the code and resubmitting calls verifyOtp '
+    'again with the corrected code — the form must stay submittable after '
+    'a failed attempt, not just display the error',
+    (tester) async {
+      final fake = _FakeAuthController(
+        const AuthState.otpRequested(phone: '901112233', debugCode: null),
+      );
+      await tester.pumpWidget(_wrap(fake));
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byKey(const Key('otpField')), '000000');
+      await tester.tap(find.byKey(const Key('verifySubmitButton')));
+      await tester.pump();
+
+      fake.emit(
+        const AuthState.error(
+          Failure(code: 'invalid_code', message: 'Kod noto\'g\'ri'),
+        ),
+      );
+      await tester.pump();
+
+      await tester.enterText(find.byKey(const Key('otpField')), '111111');
+      await tester.tap(find.byKey(const Key('verifySubmitButton')));
+      await tester.pump();
+
+      expect(fake.verifyOtpCalls, ['000000', '111111']);
+    },
+  );
+
+  testWidgets(
     'bounces back to /login when reached without ever going through '
     'otpRequested (e.g. a stale deep link)',
     (tester) async {

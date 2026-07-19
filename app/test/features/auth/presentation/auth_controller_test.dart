@@ -304,6 +304,69 @@ void main() {
       expect((state as AuthError).failure.code, 'invalid_code');
     });
 
+    test(
+      'retrying after a failed verifyOtp actually calls the repository '
+      'again — the guard must not treat a state that moved to AuthError as '
+      '"nothing to retry" (regression: a typo on the first attempt used to '
+      'silently no-op every subsequent retry)',
+      () async {
+        when(() => repository.hasStoredSession())
+            .thenAnswer((_) async => false);
+        when(() => repository.requestOtp('901112233')).thenAnswer(
+          (_) async => const Result<({String channel, String? debugCode})>.ok(
+            (channel: 'sandbox', debugCode: '111111'),
+          ),
+        );
+        when(
+          () => repository.verifyOtp(phone: '901112233', code: '000000'),
+        ).thenAnswer(
+          (_) async => const Result<void>.err(
+            Failure(code: 'invalid_code', message: 'code is incorrect'),
+          ),
+        );
+        when(
+          () => repository.verifyOtp(phone: '901112233', code: '111111'),
+        ).thenAnswer((_) async => const Result<void>.ok(null));
+        final container = ProviderContainer(
+          overrides: [authRepositoryProvider.overrideWithValue(repository)],
+        );
+        addTearDown(container.dispose);
+        await pumpEventQueue();
+
+        await container
+            .read(authControllerProvider.notifier)
+            .requestOtp('901112233');
+        expect(
+          container.read(authControllerProvider),
+          isA<AuthOtpRequested>(),
+        );
+
+        // First attempt: a typo. Fails and moves state to AuthError.
+        await container
+            .read(authControllerProvider.notifier)
+            .verifyOtp('000000');
+        expect(container.read(authControllerProvider), isA<AuthError>());
+
+        // Second attempt: the user corrects the typo. State is now
+        // AuthError, NOT AuthOtpRequested — the guard must still let this
+        // call through to the repository rather than silently no-op'ing.
+        await container
+            .read(authControllerProvider.notifier)
+            .verifyOtp('111111');
+
+        verify(
+          () => repository.verifyOtp(phone: '901112233', code: '000000'),
+        ).called(1);
+        verify(
+          () => repository.verifyOtp(phone: '901112233', code: '111111'),
+        ).called(1);
+        expect(
+          container.read(authControllerProvider),
+          const AuthState.authenticated(),
+        );
+      },
+    );
+
     test('a distinct code (expired_code) is also surfaced untouched, not '
         'collapsed into a generic message', () async {
       when(() => repository.hasStoredSession())
