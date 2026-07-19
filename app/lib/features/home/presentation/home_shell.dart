@@ -160,15 +160,19 @@ class _HomeBody extends ConsumerWidget {
                   child: Text(l10n.navVariantsLabel, textAlign: TextAlign.center),
                 ),
               ),
-              _ComingSoonNav(
+              AppCard(
                 key: const Key('navPractice'),
-                title: l10n.navPracticeLabel,
-                subtitle: l10n.comingSoon,
+                onTap: () => context.push('/practice'),
+                child: Center(
+                  child: Text(l10n.navPracticeLabel, textAlign: TextAlign.center),
+                ),
               ),
-              _ComingSoonNav(
+              AppCard(
                 key: const Key('navMistakes'),
-                title: l10n.navMistakesLabel,
-                subtitle: l10n.comingSoon,
+                onTap: () => context.push('/mistakes'),
+                child: Center(
+                  child: Text(l10n.navMistakesLabel, textAlign: TextAlign.center),
+                ),
               ),
               _ComingSoonNav(
                 key: const Key('navStats'),

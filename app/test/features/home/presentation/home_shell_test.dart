@@ -298,8 +298,8 @@ void main() {
   );
 
   testWidgets(
-    'renders the real variants entry plus honest "coming soon" '
-    'placeholders for practice/mistakes/stats, not fake screens',
+    'renders the real variants/practice/mistakes entries plus an honest '
+    '"coming soon" placeholder for stats, not a fake screen',
     (tester) async {
       final container = _buildContainer(
         profileController: () => _FixedProfileController(
@@ -313,14 +313,14 @@ void main() {
       await tester.pumpWidget(_appFor(container));
       await tester.pumpAndSettle();
 
-      // Variants (Plan 07 Task 5) is wired to the real screen now, so it no
-      // longer shows the "coming soon" placeholder text — only the still-
-      // unbuilt practice/mistakes/stats entries do.
+      // Variants/practice/mistakes (Plan 07 Tasks 5-6) are wired to real
+      // screens now, so they no longer show the "coming soon" placeholder
+      // text — only the still-unbuilt stats entry does.
       expect(find.byKey(const Key('navVariants')), findsOneWidget);
       expect(find.byKey(const Key('navPractice')), findsOneWidget);
       expect(find.byKey(const Key('navMistakes')), findsOneWidget);
       expect(find.byKey(const Key('navStats')), findsOneWidget);
-      expect(find.text('Tez orada'), findsNWidgets(3));
+      expect(find.text('Tez orada'), findsNWidgets(1));
     },
   );
 }
