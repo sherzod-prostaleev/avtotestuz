@@ -55,6 +55,7 @@ class AuthInterceptor extends Interceptor {
     // itself fails with a 401.
     err.requestOptions.extra['retried'] = true;
 
+    final String newAccess;
     try {
       final refreshToken = await tokenStorage.readRefresh();
       if (refreshToken == null) {
@@ -66,22 +67,41 @@ class AuthInterceptor extends Interceptor {
         data: {'refresh_token': refreshToken},
       );
       final tokens = refreshResponse.data?['data'] as Map<String, dynamic>?;
-      final newAccess = tokens?['access_token'] as String?;
-      final newRefresh = tokens?['refresh_token'] as String?;
-      if (newAccess == null || newRefresh == null) {
+      final refreshedAccess = tokens?['access_token'] as String?;
+      final refreshedRefresh = tokens?['refresh_token'] as String?;
+      if (refreshedAccess == null || refreshedRefresh == null) {
         throw StateError('Malformed refresh response.');
       }
 
-      await tokenStorage.save(access: newAccess, refresh: newRefresh);
+      await tokenStorage.save(access: refreshedAccess, refresh: refreshedRefresh);
+      newAccess = refreshedAccess;
+    } catch (_) {
+      // The refresh call itself failed (or returned something unusable): the
+      // session really is invalid, so log the user out.
+      await tokenStorage.clear();
+      await onSessionExpired();
+      handler.next(err);
+      return;
+    }
 
+    // Refresh succeeded and the new tokens are already saved. From here on,
+    // any failure is specific to *this* retried request (e.g. a transient
+    // network blip) and must not be treated as a session-expiry: the
+    // refreshed tokens remain valid and saved for future requests, and this
+    // request's caller should simply see its own error.
+    try {
       final retryOptions = err.requestOptions;
       retryOptions.headers['Authorization'] = 'Bearer $newAccess';
       final retryResponse = await refreshDio.fetch(retryOptions);
       handler.resolve(retryResponse);
-    } catch (_) {
-      await tokenStorage.clear();
-      await onSessionExpired();
-      handler.next(err);
+    } on DioException catch (retryError) {
+      handler.reject(retryError);
+    } catch (retryError, stackTrace) {
+      handler.reject(DioException(
+        requestOptions: err.requestOptions,
+        error: retryError,
+        stackTrace: stackTrace,
+      ));
     }
   }
 }

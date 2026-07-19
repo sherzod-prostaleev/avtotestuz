@@ -237,6 +237,72 @@ void main() {
       expect(await tokenStorage.readRefresh(), isNull);
     });
 
+    test(
+        'a successful refresh followed by an unrelated retry failure keeps '
+        'the refreshed tokens, does not call onSessionExpired, and '
+        'propagates the retry error', () async {
+      final tokenStorage =
+          FakeTokenStorage(access: 'old-access', refresh: 'refresh-abc');
+      var protectedCallCount = 0;
+      var refreshCallCount = 0;
+      var retryCallCount = 0;
+      var sessionExpiredCount = 0;
+
+      final mainAdapter = FakeAdapter((options) async {
+        protectedCallCount++;
+        return jsonResponseBody({
+          'error': {'code': 'unauthorized', 'message': 'token expired'},
+        }, 401);
+      });
+
+      final refreshAdapter = FakeAdapter((options) async {
+        if (options.path == '/auth/refresh') {
+          refreshCallCount++;
+          return jsonResponseBody({
+            'data': {
+              'access_token': 'new-access',
+              'refresh_token': 'new-refresh',
+            },
+          }, 200);
+        }
+        // The retried original request fails for an unrelated reason (e.g.
+        // a transient network error), not because the new token is bad.
+        retryCallCount++;
+        return jsonResponseBody({
+          'error': {'code': 'server_error', 'message': 'boom'},
+        }, 503);
+      });
+
+      final refreshDio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = refreshAdapter;
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.test'))
+        ..httpClientAdapter = mainAdapter;
+      dio.interceptors.add(AuthInterceptor(
+        tokenStorage: tokenStorage,
+        refreshDio: refreshDio,
+        onSessionExpired: () async {
+          sessionExpiredCount++;
+        },
+      ));
+
+      try {
+        await dio.get<Map<String, dynamic>>('/protected');
+        fail('expected a DioException to propagate');
+      } on DioException catch (e) {
+        expect(e.response?.statusCode, 503);
+      }
+
+      expect(protectedCallCount, 1);
+      expect(refreshCallCount, 1);
+      expect(retryCallCount, 1);
+      // The refresh succeeded and its tokens must remain saved — this was
+      // NOT a session-expiry event.
+      expect(sessionExpiredCount, 0);
+      expect(tokenStorage.clearCalls, 0);
+      expect(await tokenStorage.readAccess(), 'new-access');
+      expect(await tokenStorage.readRefresh(), 'new-refresh');
+    });
+
     test('non-401 errors pass through unchanged without a refresh attempt',
         () async {
       final tokenStorage =
