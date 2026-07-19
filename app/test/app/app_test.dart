@@ -1,5 +1,7 @@
 import 'package:avtotest_app/app/app.dart';
 import 'package:avtotest_app/app/locale/locale_provider.dart';
+import 'package:avtotest_app/features/auth/domain/auth_state.dart';
+import 'package:avtotest_app/features/auth/presentation/auth_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +21,19 @@ class _FixedLocale extends LocaleNotifier {
   Locale build() => _locale;
 }
 
+/// An [AuthController] override that's always [AuthState.authenticated] and
+/// never touches `authRepositoryProvider` (which has no default — Task 7's
+/// real DI wiring lives in `main.dart`, not in this app-root composition
+/// test). Since Task 7, `routerProvider`'s redirect guard reads
+/// `authControllerProvider`, so every test pumping [AvtotestApp] needs some
+/// override for it — `authenticated` is the state that keeps these tests'
+/// existing assertions (rendering `_PlaceholderHome` at `/`) meaningful,
+/// since any other state would redirect away to `/login`.
+class _FixedAuthenticated extends AuthController {
+  @override
+  AuthState build() => const AuthState.authenticated();
+}
+
 void main() {
   setUp(() {
     // themeModeProvider also hydrates from shared_preferences on first
@@ -34,6 +49,7 @@ void main() {
       ProviderScope(
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('uz'))),
+          authControllerProvider.overrideWith(() => _FixedAuthenticated()),
         ],
         child: const AvtotestApp(),
       ),
@@ -66,6 +82,7 @@ void main() {
       ProviderScope(
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('ru'))),
+          authControllerProvider.overrideWith(() => _FixedAuthenticated()),
         ],
         child: const AvtotestApp(),
       ),
@@ -83,6 +100,7 @@ void main() {
       ProviderScope(
         overrides: [
           localeProvider.overrideWith(() => _FixedLocale(const Locale('uz'))),
+          authControllerProvider.overrideWith(() => _FixedAuthenticated()),
         ],
         child: const AvtotestApp(),
       ),

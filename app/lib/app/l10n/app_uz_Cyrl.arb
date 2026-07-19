@@ -6,5 +6,10 @@
   "otpLabel": "Тасдиқлаш коди",
   "verifyButton": "Тасдиқлаш",
   "logout": "Чиқиш",
-  "errorGeneric": "Хатолик юз берди"
+  "errorGeneric": "Хатолик юз берди",
+  "phoneInvalidError": "Телефон рақами нотўғри форматда",
+  "devCodeCaption": "Dev код: {code}",
+  "phoneConfirmationLabel": "Телефон: {phone}",
+  "resendButton": "Қайта юбориш",
+  "resendIn": "Қайта юбориш ({seconds}с)"
 }

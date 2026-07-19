@@ -27,5 +27,34 @@
   "errorGeneric": "Xatolik yuz berdi",
   "@errorGeneric": {
     "description": "Generic fallback error message shown when a more specific one is unavailable."
+  },
+  "phoneInvalidError": "Telefon raqami noto'g'ri formatda",
+  "@phoneInvalidError": {
+    "description": "Inline error shown under the phone field when the entered value doesn't match the accepted phone format."
+  },
+  "devCodeCaption": "Dev kod: {code}",
+  "@devCodeCaption": {
+    "description": "Dev-only caption on the OTP screen surfacing the sandbox debug OTP code (kDebugMode only).",
+    "placeholders": {
+      "code": {"type": "String"}
+    }
+  },
+  "phoneConfirmationLabel": "Telefon: {phone}",
+  "@phoneConfirmationLabel": {
+    "description": "Shows the phone number the OTP was requested for, on the OTP verification screen.",
+    "placeholders": {
+      "phone": {"type": "String"}
+    }
+  },
+  "resendButton": "Qayta yuborish",
+  "@resendButton": {
+    "description": "Label for the OTP resend button."
+  },
+  "resendIn": "Qayta yuborish ({seconds}s)",
+  "@resendIn": {
+    "description": "Label for the OTP resend button while its cooldown is active.",
+    "placeholders": {
+      "seconds": {"type": "int"}
+    }
   }
 }

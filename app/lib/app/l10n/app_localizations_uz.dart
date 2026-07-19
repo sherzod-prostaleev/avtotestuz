@@ -28,6 +28,27 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get errorGeneric => 'Xatolik yuz berdi';
+
+  @override
+  String get phoneInvalidError => 'Telefon raqami noto\'g\'ri formatda';
+
+  @override
+  String devCodeCaption(String code) {
+    return 'Dev kod: $code';
+  }
+
+  @override
+  String phoneConfirmationLabel(String phone) {
+    return 'Telefon: $phone';
+  }
+
+  @override
+  String get resendButton => 'Qayta yuborish';
+
+  @override
+  String resendIn(int seconds) {
+    return 'Qayta yuborish (${seconds}s)';
+  }
 }
 
 /// The translations for Uzbek, using the Cyrillic script (`uz_Cyrl`).
@@ -54,4 +75,25 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
 
   @override
   String get errorGeneric => 'Хатолик юз берди';
+
+  @override
+  String get phoneInvalidError => 'Телефон рақами нотўғри форматда';
+
+  @override
+  String devCodeCaption(String code) {
+    return 'Dev код: $code';
+  }
+
+  @override
+  String phoneConfirmationLabel(String phone) {
+    return 'Телефон: $phone';
+  }
+
+  @override
+  String get resendButton => 'Қайта юбориш';
+
+  @override
+  String resendIn(int seconds) {
+    return 'Қайта юбориш ($secondsс)';
+  }
 }

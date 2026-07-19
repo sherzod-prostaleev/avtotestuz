@@ -140,6 +140,36 @@ abstract class AppLocalizations {
   /// In uz, this message translates to:
   /// **'Xatolik yuz berdi'**
   String get errorGeneric;
+
+  /// Inline error shown under the phone field when the entered value doesn't match the accepted phone format.
+  ///
+  /// In uz, this message translates to:
+  /// **'Telefon raqami noto\'g\'ri formatda'**
+  String get phoneInvalidError;
+
+  /// Dev-only caption on the OTP screen surfacing the sandbox debug OTP code (kDebugMode only).
+  ///
+  /// In uz, this message translates to:
+  /// **'Dev kod: {code}'**
+  String devCodeCaption(String code);
+
+  /// Shows the phone number the OTP was requested for, on the OTP verification screen.
+  ///
+  /// In uz, this message translates to:
+  /// **'Telefon: {phone}'**
+  String phoneConfirmationLabel(String phone);
+
+  /// Label for the OTP resend button.
+  ///
+  /// In uz, this message translates to:
+  /// **'Qayta yuborish'**
+  String get resendButton;
+
+  /// Label for the OTP resend button while its cooldown is active.
+  ///
+  /// In uz, this message translates to:
+  /// **'Qayta yuborish ({seconds}s)'**
+  String resendIn(int seconds);
 }
 
 class _AppLocalizationsDelegate

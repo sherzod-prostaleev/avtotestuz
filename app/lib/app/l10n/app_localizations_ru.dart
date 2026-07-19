@@ -28,4 +28,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get errorGeneric => 'Произошла ошибка';
+
+  @override
+  String get phoneInvalidError => 'Неверный формат номера телефона';
+
+  @override
+  String devCodeCaption(String code) {
+    return 'Dev-код: $code';
+  }
+
+  @override
+  String phoneConfirmationLabel(String phone) {
+    return 'Телефон: $phone';
+  }
+
+  @override
+  String get resendButton => 'Отправить повторно';
+
+  @override
+  String resendIn(int seconds) {
+    return 'Повторная отправка через $secondsс';
+  }
 }

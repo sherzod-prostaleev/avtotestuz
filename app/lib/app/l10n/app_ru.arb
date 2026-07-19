@@ -6,5 +6,10 @@
   "otpLabel": "Код подтверждения",
   "verifyButton": "Подтвердить",
   "logout": "Выйти",
-  "errorGeneric": "Произошла ошибка"
+  "errorGeneric": "Произошла ошибка",
+  "phoneInvalidError": "Неверный формат номера телефона",
+  "devCodeCaption": "Dev-код: {code}",
+  "phoneConfirmationLabel": "Телефон: {phone}",
+  "resendButton": "Отправить повторно",
+  "resendIn": "Повторная отправка через {seconds}с"
 }
