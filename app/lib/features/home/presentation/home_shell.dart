@@ -101,22 +101,16 @@ class _HomeBody extends ConsumerWidget {
     final isRu = locale.languageCode == 'ru';
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.xl,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            profile.name,
-            key: const Key('profileNameText'),
-            style: Theme.of(context).textTheme.headlineSmall,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(profile.phone, key: const Key('profilePhoneText')),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            entitlement.active ? l10n.vipActiveLabel : l10n.vipInactiveLabel,
-            key: const Key('vipStatusText'),
-          ),
+          _ProfileHeader(profile: profile, entitlement: entitlement),
           const SizedBox(height: AppSpacing.lg),
           Wrap(
             spacing: AppSpacing.sm,
@@ -151,40 +145,242 @@ class _HomeBody extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: AppSpacing.sm,
-            crossAxisSpacing: AppSpacing.sm,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: AppSpacing.md,
+              crossAxisSpacing: AppSpacing.md,
+              mainAxisExtent: 152,
+            ),
             children: [
-              AppCard(
-                key: const Key('navVariants'),
+              _NavCard(
+                navKey: const Key('navVariants'),
+                icon: Icons.quiz_rounded,
+                title: l10n.navVariantsLabel,
+                subtitle: l10n.navVariantsSubtitle,
                 onTap: () => context.push('/variants'),
-                child: Center(
-                  child: Text(l10n.navVariantsLabel, textAlign: TextAlign.center),
-                ),
               ),
-              AppCard(
-                key: const Key('navPractice'),
+              _NavCard(
+                navKey: const Key('navPractice'),
+                icon: Icons.fitness_center_rounded,
+                title: l10n.navPracticeLabel,
+                subtitle: l10n.navPracticeSubtitle,
                 onTap: () => context.push('/practice'),
-                child: Center(
-                  child: Text(l10n.navPracticeLabel, textAlign: TextAlign.center),
-                ),
               ),
-              AppCard(
-                key: const Key('navMistakes'),
+              _NavCard(
+                navKey: const Key('navMistakes'),
+                icon: Icons.history_edu_rounded,
+                title: l10n.navMistakesLabel,
+                subtitle: l10n.navMistakesSubtitle,
                 onTap: () => context.push('/mistakes'),
-                child: Center(
-                  child: Text(l10n.navMistakesLabel, textAlign: TextAlign.center),
+              ),
+              _NavCard(
+                navKey: const Key('navStats'),
+                icon: Icons.bar_chart_rounded,
+                title: l10n.navStatsLabel,
+                subtitle: l10n.navStatsSubtitle,
+                onTap: () => context.push('/stats'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Hero header for the home shell: greeting + avatar initial + name/phone and
+/// a VIP status badge. Keeps the existing `profileNameText`/`profilePhoneText`/
+/// `vipStatusText` keys (and their exact text) that the test suite relies on.
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({required this.profile, required this.entitlement});
+
+  final Profile profile;
+  final Entitlement entitlement;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final trimmed = profile.name.trim();
+    final initial = trimmed.isEmpty ? '?' : trimmed.substring(0, 1).toUpperCase();
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: scheme.primaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  initial,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    color: scheme.onPrimaryContainer,
+                  ),
                 ),
               ),
-              AppCard(
-                key: const Key('navStats'),
-                onTap: () => context.push('/stats'),
-                child: Center(
-                  child: Text(l10n.navStatsLabel, textAlign: TextAlign.center),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      l10n.homeGreetingLabel,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      profile.name,
+                      key: const Key('profileNameText'),
+                      style: theme.textTheme.headlineSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      profile.phone,
+                      key: const Key('profilePhoneText'),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
                 ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          _VipBadge(
+            active: entitlement.active,
+            label: entitlement.active
+                ? l10n.vipActiveLabel
+                : l10n.vipInactiveLabel,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Small pill rendering the VIP/subscription status. Active reads as a brand
+/// "premium" moment; inactive is a quiet outlined chip. The `vipStatusText`
+/// key + exact label string are preserved for the test suite.
+class _VipBadge extends StatelessWidget {
+  const _VipBadge({required this.active, required this.label});
+
+  final bool active;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: active ? scheme.primaryContainer : Colors.transparent,
+          borderRadius: BorderRadius.circular(AppRadius.chip),
+          border: Border.all(
+            color: active
+                ? scheme.primary.withValues(alpha: 0.45)
+                : scheme.outlineVariant,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              active
+                  ? Icons.workspace_premium_rounded
+                  : Icons.lock_outline_rounded,
+              size: 18,
+              color: active ? scheme.primary : scheme.onSurfaceVariant,
+            ),
+            const SizedBox(width: AppSpacing.xs),
+            Text(
+              label,
+              key: const Key('vipStatusText'),
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: active ? scheme.onSurface : scheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A single nav-grid entry: icon tile + title + subtitle in an [AppCard]. The
+/// `navKey` is forwarded to the [AppCard] so the existing nav keys keep
+/// resolving; the label text is unchanged, only enriched with an icon and a
+/// one-line subtitle for hierarchy.
+class _NavCard extends StatelessWidget {
+  const _NavCard({
+    required this.navKey,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.onTap,
+  });
+
+  final Key navKey;
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return AppCard(
+      key: navKey,
+      onTap: onTap,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: scheme.primaryContainer,
+              borderRadius: BorderRadius.circular(AppRadius.chip),
+            ),
+            child: Icon(icon, color: scheme.onPrimaryContainer),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleMedium,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: theme.textTheme.bodySmall,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

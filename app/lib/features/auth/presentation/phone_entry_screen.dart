@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/l10n/app_localizations.dart';
+import '../../../app/theme/app_theme.dart';
 import '../domain/auth_state.dart';
 import 'auth_controller.dart';
 
@@ -90,63 +91,168 @@ class _PhoneEntryScreenState extends ConsumerState<PhoneEntryScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final authState = ref.watch(authControllerProvider);
     final serverError = authState is AuthError ? authState.failure.message : null;
 
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.appTitle,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium,
-                  ),
-                  const SizedBox(height: 32),
-                  TextField(
-                    key: const Key('phoneField'),
-                    controller: _phoneController,
-                    enabled: !_submitting,
-                    keyboardType: TextInputType.phone,
-                    decoration: InputDecoration(
-                      labelText: l10n.phoneLabel,
-                      errorText: _formError,
-                    ),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  if (serverError != null) ...[
-                    const SizedBox(height: 12),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
                     Text(
-                      serverError,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+                      l10n.appTitle,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: scheme.primary,
+                        letterSpacing: 0.5,
                       ),
                     ),
+                    const SizedBox(height: AppSpacing.lg),
+                    const _TaglineBadge(),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      l10n.authHeadline,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      l10n.phoneEntrySubtitle,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    TextField(
+                      key: const Key('phoneField'),
+                      controller: _phoneController,
+                      enabled: !_submitting,
+                      keyboardType: TextInputType.phone,
+                      decoration: InputDecoration(
+                        labelText: l10n.phoneLabel,
+                        prefixIcon: const Icon(Icons.phone_rounded),
+                        errorText: _formError,
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                    if (serverError != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        serverError,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    _SlabButton(
+                      buttonKey: const Key('phoneSubmitButton'),
+                      onPressed: _submitting ? null : _submit,
+                      loading: _submitting,
+                      label: l10n.continueButton,
+                    ),
                   ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    key: const Key('phoneSubmitButton'),
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.continueButton),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Small star badge above the hero headline (matches the reference screens'
+/// "⭐ tagline" pill).
+class _TaglineBadge extends StatelessWidget {
+  const _TaglineBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Align(
+      alignment: Alignment.center,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: scheme.primaryContainer,
+          borderRadius: BorderRadius.circular(AppRadius.chip),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_rounded, size: 18, color: scheme.primary),
+            const SizedBox(width: AppSpacing.xs),
+            Flexible(
+              child: Text(
+                AppLocalizations.of(context)!.authTagline,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.onPrimaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A pill [ElevatedButton] with the reference "3D press slab" shadow beneath
+/// it. Kept as a real [ElevatedButton] child (carrying [buttonKey]) so
+/// enabled/disabled semantics and the existing structural tests are unchanged.
+class _SlabButton extends StatelessWidget {
+  const _SlabButton({
+    required this.buttonKey,
+    required this.onPressed,
+    required this.label,
+    this.loading = false,
+  });
+
+  final Key buttonKey;
+  final VoidCallback? onPressed;
+  final String label;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final enabled = onPressed != null && !loading;
+    final hsl = HSLColor.fromColor(scheme.primary);
+    final slabColor = enabled
+        ? hsl.withLightness((hsl.lightness - 0.18).clamp(0.0, 1.0)).toColor()
+        : scheme.outlineVariant;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: [BoxShadow(color: slabColor, offset: const Offset(0, 4))],
+      ),
+      child: ElevatedButton(
+        key: buttonKey,
+        onPressed: loading ? null : onPressed,
+        child: loading
+            ? const SizedBox(
+                height: 18,
+                width: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Text(label),
       ),
     );
   }

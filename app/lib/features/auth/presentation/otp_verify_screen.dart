@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../app/l10n/app_localizations.dart';
+import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/primary_button.dart';
 import '../domain/auth_state.dart';
 import 'auth_controller.dart';
 
@@ -115,78 +117,112 @@ class _OtpVerifyScreenState extends ConsumerState<OtpVerifyScreen> {
     final serverErrorMessage =
         authState is AuthError ? authState.failure.message : null;
 
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
     return Scaffold(
+      appBar: AppBar(
+        leading: BackButton(onPressed: () => context.go('/login')),
+      ),
       body: SafeArea(
         child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    l10n.phoneConfirmationLabel(phone),
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  if (kDebugMode && debugCode != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      l10n.devCodeCaption(debugCode),
-                      key: const Key('devCodeCaption'),
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: Theme.of(context).colorScheme.secondary,
-                          ),
+          child: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: 64,
+                      height: 64,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: scheme.primaryContainer,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.sms_rounded,
+                        color: scheme.onPrimaryContainer,
+                        size: 30,
+                      ),
                     ),
-                  ],
-                  const SizedBox(height: 24),
-                  TextField(
-                    key: const Key('otpField'),
-                    controller: _codeController,
-                    enabled: !_submitting,
-                    keyboardType: TextInputType.number,
-                    maxLength: 6,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: InputDecoration(labelText: l10n.otpLabel),
-                    onSubmitted: (_) => _submit(),
-                  ),
-                  if (serverErrorMessage != null) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppSpacing.md),
                     Text(
-                      serverErrorMessage,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
+                      l10n.otpHeadline,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineMedium,
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      l10n.phoneConfirmationLabel(phone),
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    if (kDebugMode && debugCode != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        l10n.devCodeCaption(debugCode),
+                        key: const Key('devCodeCaption'),
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.secondary,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.xl),
+                    TextField(
+                      key: const Key('otpField'),
+                      controller: _codeController,
+                      enabled: !_submitting,
+                      keyboardType: TextInputType.number,
+                      maxLength: 6,
+                      textAlign: TextAlign.center,
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        letterSpacing: 8,
+                      ),
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      decoration: InputDecoration(
+                        labelText: l10n.otpLabel,
+                        counterText: '',
+                      ),
+                      onSubmitted: (_) => _submit(),
+                    ),
+                    if (serverErrorMessage != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Text(
+                        serverErrorMessage,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.error,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: AppSpacing.lg),
+                    PrimaryButton(
+                      key: const Key('verifySubmitButton'),
+                      label: l10n.verifyButton,
+                      loading: _submitting,
+                      onPressed: _submitting ? null : () => _submit(),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    TextButton(
+                      key: const Key('resendButton'),
+                      onPressed: (_submitting || _cooldownRemaining > 0)
+                          ? null
+                          : () => _resend(phone),
+                      child: Text(
+                        _cooldownRemaining > 0
+                            ? l10n.resendIn(_cooldownRemaining)
+                            : l10n.resendButton,
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    key: const Key('verifySubmitButton'),
-                    onPressed: _submitting ? null : () => _submit(),
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 18,
-                            width: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Text(l10n.verifyButton),
-                  ),
-                  const SizedBox(height: 8),
-                  TextButton(
-                    key: const Key('resendButton'),
-                    onPressed: (_submitting || _cooldownRemaining > 0)
-                        ? null
-                        : () => _resend(phone),
-                    child: Text(
-                      _cooldownRemaining > 0
-                          ? l10n.resendIn(_cooldownRemaining)
-                          : l10n.resendButton,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),

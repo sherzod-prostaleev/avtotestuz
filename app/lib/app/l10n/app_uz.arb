@@ -97,6 +97,42 @@
   "@profileLoadError": {
     "description": "Fallback message shown on the home shell when profile/entitlement fetch fails without a specific backend message."
   },
+  "homeGreetingLabel": "Xush kelibsiz",
+  "@homeGreetingLabel": {
+    "description": "Greeting shown above the user's name on the home shell header."
+  },
+  "navVariantsSubtitle": "Rasmiy imtihon biletlari",
+  "@navVariantsSubtitle": {
+    "description": "Home shell nav card subtitle for the exam variants section."
+  },
+  "navPracticeSubtitle": "Mavzu bo'yicha mashq qiling",
+  "@navPracticeSubtitle": {
+    "description": "Home shell nav card subtitle for the practice section."
+  },
+  "navMistakesSubtitle": "Xatolaringiz ustida ishlang",
+  "@navMistakesSubtitle": {
+    "description": "Home shell nav card subtitle for the mistakes-review section."
+  },
+  "navStatsSubtitle": "Natijalaringizni kuzating",
+  "@navStatsSubtitle": {
+    "description": "Home shell nav card subtitle for the stats section."
+  },
+  "authTagline": "Imtihonga tayyorgarlik",
+  "@authTagline": {
+    "description": "Small star badge tagline above the hero headline on the auth entry screen."
+  },
+  "authHeadline": "Prava'ni oson oling!",
+  "@authHeadline": {
+    "description": "Hero headline on the phone-entry auth screen."
+  },
+  "phoneEntrySubtitle": "Boshlash uchun telefon raqamingizni kiriting",
+  "@phoneEntrySubtitle": {
+    "description": "Reassuring subtitle under the hero headline on the phone-entry screen."
+  },
+  "otpHeadline": "Kodni kiriting",
+  "@otpHeadline": {
+    "description": "Hero headline on the OTP verification screen."
+  },
   "practiceSetupTitle": "Mashq sozlamalari",
   "practiceSetupDescription": "Mashq qilish uchun kategoriya YOKI belgini tanlang (ikkalasi emas, faqat bittasi).",
   "practiceTargetCategory": "Kategoriya",

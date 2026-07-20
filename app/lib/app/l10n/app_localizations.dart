@@ -231,6 +231,60 @@ abstract class AppLocalizations {
   /// **'Profil ma\'lumotlarini yuklab bo\'lmadi'**
   String get profileLoadError;
 
+  /// Greeting shown above the user's name on the home shell header.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xush kelibsiz'**
+  String get homeGreetingLabel;
+
+  /// Home shell nav card subtitle for the exam variants section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Rasmiy imtihon biletlari'**
+  String get navVariantsSubtitle;
+
+  /// Home shell nav card subtitle for the practice section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mavzu bo\'yicha mashq qiling'**
+  String get navPracticeSubtitle;
+
+  /// Home shell nav card subtitle for the mistakes-review section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xatolaringiz ustida ishlang'**
+  String get navMistakesSubtitle;
+
+  /// Home shell nav card subtitle for the stats section.
+  ///
+  /// In uz, this message translates to:
+  /// **'Natijalaringizni kuzating'**
+  String get navStatsSubtitle;
+
+  /// Small star badge tagline above the hero headline on the auth entry screen.
+  ///
+  /// In uz, this message translates to:
+  /// **'Imtihonga tayyorgarlik'**
+  String get authTagline;
+
+  /// Hero headline on the phone-entry auth screen.
+  ///
+  /// In uz, this message translates to:
+  /// **'Prava\'ni oson oling!'**
+  String get authHeadline;
+
+  /// Reassuring subtitle under the hero headline on the phone-entry screen.
+  ///
+  /// In uz, this message translates to:
+  /// **'Boshlash uchun telefon raqamingizni kiriting'**
+  String get phoneEntrySubtitle;
+
+  /// Hero headline on the OTP verification screen.
+  ///
+  /// In uz, this message translates to:
+  /// **'Kodni kiriting'**
+  String get otpHeadline;
+
   /// No description provided for @practiceSetupTitle.
   ///
   /// In uz, this message translates to:
