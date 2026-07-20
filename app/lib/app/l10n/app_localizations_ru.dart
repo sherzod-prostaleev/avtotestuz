@@ -81,6 +81,33 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileLoadError => 'Не удалось загрузить данные профиля';
 
   @override
+  String get homeGreetingLabel => 'Добро пожаловать';
+
+  @override
+  String get navVariantsSubtitle => 'Официальные экзаменационные билеты';
+
+  @override
+  String get navPracticeSubtitle => 'Тренируйтесь по темам';
+
+  @override
+  String get navMistakesSubtitle => 'Работайте над своими ошибками';
+
+  @override
+  String get navStatsSubtitle => 'Отслеживайте свои результаты';
+
+  @override
+  String get authTagline => 'Подготовка к экзамену';
+
+  @override
+  String get authHeadline => 'Получите права легко!';
+
+  @override
+  String get phoneEntrySubtitle => 'Введите номер телефона, чтобы начать';
+
+  @override
+  String get otpHeadline => 'Введите код';
+
+  @override
   String get practiceSetupTitle => 'Настройки практики';
 
   @override

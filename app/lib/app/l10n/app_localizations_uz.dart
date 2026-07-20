@@ -81,6 +81,34 @@ class AppLocalizationsUz extends AppLocalizations {
   String get profileLoadError => 'Profil ma\'lumotlarini yuklab bo\'lmadi';
 
   @override
+  String get homeGreetingLabel => 'Xush kelibsiz';
+
+  @override
+  String get navVariantsSubtitle => 'Rasmiy imtihon biletlari';
+
+  @override
+  String get navPracticeSubtitle => 'Mavzu bo\'yicha mashq qiling';
+
+  @override
+  String get navMistakesSubtitle => 'Xatolaringiz ustida ishlang';
+
+  @override
+  String get navStatsSubtitle => 'Natijalaringizni kuzating';
+
+  @override
+  String get authTagline => 'Imtihonga tayyorgarlik';
+
+  @override
+  String get authHeadline => 'Prava\'ni oson oling!';
+
+  @override
+  String get phoneEntrySubtitle =>
+      'Boshlash uchun telefon raqamingizni kiriting';
+
+  @override
+  String get otpHeadline => 'Kodni kiriting';
+
+  @override
   String get practiceSetupTitle => 'Mashq sozlamalari';
 
   @override
@@ -307,6 +335,33 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
 
   @override
   String get profileLoadError => 'Профил маълумотларини юклаб бўлмади';
+
+  @override
+  String get homeGreetingLabel => 'Хуш келибсиз';
+
+  @override
+  String get navVariantsSubtitle => 'Расмий имтиҳон билетлари';
+
+  @override
+  String get navPracticeSubtitle => 'Мавзу бўйича машқ қилинг';
+
+  @override
+  String get navMistakesSubtitle => 'Хатоларингиз устида ишланг';
+
+  @override
+  String get navStatsSubtitle => 'Натижаларингизни кузатинг';
+
+  @override
+  String get authTagline => 'Имтиҳонга тайёргарлик';
+
+  @override
+  String get authHeadline => 'Права\'ни осон олинг!';
+
+  @override
+  String get phoneEntrySubtitle => 'Бошлаш учун телефон рақамингизни киритинг';
+
+  @override
+  String get otpHeadline => 'Кодни киритинг';
 
   @override
   String get practiceSetupTitle => 'Машқ созламалари';
