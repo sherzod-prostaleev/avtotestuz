@@ -6,22 +6,30 @@ part 'session_models.freezed.dart';
 /// "Sessiya / test yechish" section exactly:
 /// ```
 /// { "id": string, "mode": string, "question_ids": string[],
-///   "time_limit_sec": int, "total": int, "started_at": string(ISO8601) }
+///   "time_limit_sec": int?, "total": int, "started_at": string(ISO8601) }
 /// ```
 /// `mode` is one of `variant`/`exam`/`practice`/`mistakes` — modeled as a
 /// plain `String` (not a closed enum) since the README documents the set as
 /// prose, not as a wire-level constraint the client should assume is
-/// exhaustive/stable. `timeLimitSec` is documented without a `?` (unlike
-/// `AnswerResult`'s genuinely-optional fields below), so it's required here
-/// too — non-exam modes are expected to send some non-exam value (e.g. `0`)
-/// rather than omitting the key.
+/// exhaustive/stable.
+///
+/// `timeLimitSec` is genuinely nullable — confirmed against the actual
+/// backend (`backend/internal/session/handlers.go`'s `sessionSummaryView`:
+/// `TimeLimitSec *int`, only ever set for `exam` mode in
+/// `service.go`/`StartSession`, left `nil` — i.e. JSON `null` — for
+/// `variant`/`practice`/`mistakes`). A prior version of this model declared
+/// it `required int` based on an unverified reading of the README prose;
+/// that caused a real crash (`type 'Null' is not a subtype of type 'int'`)
+/// on every non-exam session start, since the backend's actual `null` never
+/// deserializes into a non-nullable field. Lesson: verify field
+/// nullability against the real handler/DTO source, not just prose.
 @freezed
 abstract class SessionSummary with _$SessionSummary {
   const factory SessionSummary({
     required String id,
     required String mode,
     required List<String> questionIds,
-    required int timeLimitSec,
+    int? timeLimitSec,
     required int total,
     required DateTime startedAt,
   }) = _SessionSummary;

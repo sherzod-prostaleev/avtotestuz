@@ -137,7 +137,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     return _scaffold(
       active.summary.mode,
       remaining: active.remaining,
-      total: Duration(seconds: active.summary.timeLimitSec),
+      total: Duration(seconds: active.summary.timeLimitSec ?? 0),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

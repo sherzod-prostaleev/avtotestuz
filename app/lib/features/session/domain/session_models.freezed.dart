@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$SessionSummary {
 
- String get id; String get mode; List<String> get questionIds; int get timeLimitSec; int get total; DateTime get startedAt;
+ String get id; String get mode; List<String> get questionIds; int? get timeLimitSec; int get total; DateTime get startedAt;
 /// Create a copy of SessionSummary
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -45,7 +45,7 @@ abstract mixin class $SessionSummaryCopyWith<$Res>  {
   factory $SessionSummaryCopyWith(SessionSummary value, $Res Function(SessionSummary) _then) = _$SessionSummaryCopyWithImpl;
 @useResult
 $Res call({
- String id, String mode, List<String> questionIds, int timeLimitSec, int total, DateTime startedAt
+ String id, String mode, List<String> questionIds, int? timeLimitSec, int total, DateTime startedAt
 });
 
 
@@ -62,13 +62,13 @@ class _$SessionSummaryCopyWithImpl<$Res>
 
 /// Create a copy of SessionSummary
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mode = null,Object? questionIds = null,Object? timeLimitSec = null,Object? total = null,Object? startedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? mode = null,Object? questionIds = null,Object? timeLimitSec = freezed,Object? total = null,Object? startedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
 as String,questionIds: null == questionIds ? _self.questionIds : questionIds // ignore: cast_nullable_to_non_nullable
-as List<String>,timeLimitSec: null == timeLimitSec ? _self.timeLimitSec : timeLimitSec // ignore: cast_nullable_to_non_nullable
-as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as List<String>,timeLimitSec: freezed == timeLimitSec ? _self.timeLimitSec : timeLimitSec // ignore: cast_nullable_to_non_nullable
+as int?,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as int,startedAt: null == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));
@@ -155,7 +155,7 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mode,  List<String> questionIds,  int timeLimitSec,  int total,  DateTime startedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String mode,  List<String> questionIds,  int? timeLimitSec,  int total,  DateTime startedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _SessionSummary() when $default != null:
 return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.total,_that.startedAt);case _:
@@ -176,7 +176,7 @@ return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.t
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mode,  List<String> questionIds,  int timeLimitSec,  int total,  DateTime startedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String mode,  List<String> questionIds,  int? timeLimitSec,  int total,  DateTime startedAt)  $default,) {final _that = this;
 switch (_that) {
 case _SessionSummary():
 return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.total,_that.startedAt);case _:
@@ -196,7 +196,7 @@ return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.t
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mode,  List<String> questionIds,  int timeLimitSec,  int total,  DateTime startedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String mode,  List<String> questionIds,  int? timeLimitSec,  int total,  DateTime startedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _SessionSummary() when $default != null:
 return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.total,_that.startedAt);case _:
@@ -211,7 +211,7 @@ return $default(_that.id,_that.mode,_that.questionIds,_that.timeLimitSec,_that.t
 
 
 class _SessionSummary implements SessionSummary {
-  const _SessionSummary({required this.id, required this.mode, required final  List<String> questionIds, required this.timeLimitSec, required this.total, required this.startedAt}): _questionIds = questionIds;
+  const _SessionSummary({required this.id, required this.mode, required final  List<String> questionIds, this.timeLimitSec, required this.total, required this.startedAt}): _questionIds = questionIds;
   
 
 @override final  String id;
@@ -223,7 +223,7 @@ class _SessionSummary implements SessionSummary {
   return EqualUnmodifiableListView(_questionIds);
 }
 
-@override final  int timeLimitSec;
+@override final  int? timeLimitSec;
 @override final  int total;
 @override final  DateTime startedAt;
 
@@ -257,7 +257,7 @@ abstract mixin class _$SessionSummaryCopyWith<$Res> implements $SessionSummaryCo
   factory _$SessionSummaryCopyWith(_SessionSummary value, $Res Function(_SessionSummary) _then) = __$SessionSummaryCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String mode, List<String> questionIds, int timeLimitSec, int total, DateTime startedAt
+ String id, String mode, List<String> questionIds, int? timeLimitSec, int total, DateTime startedAt
 });
 
 
@@ -274,13 +274,13 @@ class __$SessionSummaryCopyWithImpl<$Res>
 
 /// Create a copy of SessionSummary
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mode = null,Object? questionIds = null,Object? timeLimitSec = null,Object? total = null,Object? startedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? mode = null,Object? questionIds = null,Object? timeLimitSec = freezed,Object? total = null,Object? startedAt = null,}) {
   return _then(_SessionSummary(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,mode: null == mode ? _self.mode : mode // ignore: cast_nullable_to_non_nullable
 as String,questionIds: null == questionIds ? _self._questionIds : questionIds // ignore: cast_nullable_to_non_nullable
-as List<String>,timeLimitSec: null == timeLimitSec ? _self.timeLimitSec : timeLimitSec // ignore: cast_nullable_to_non_nullable
-as int,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as List<String>,timeLimitSec: freezed == timeLimitSec ? _self.timeLimitSec : timeLimitSec // ignore: cast_nullable_to_non_nullable
+as int?,total: null == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
 as int,startedAt: null == startedAt ? _self.startedAt : startedAt // ignore: cast_nullable_to_non_nullable
 as DateTime,
   ));

@@ -106,13 +106,16 @@ class SessionController extends Notifier<SessionUiState> {
     switch (result) {
       case Ok(:final data):
         final exam = data.mode == 'exam';
+        final timeLimitSec = data.timeLimitSec;
         state = SessionUiState.active(
           summary: data,
           currentIndex: 0,
           answered: const {},
-          remaining: exam ? Duration(seconds: data.timeLimitSec) : null,
+          remaining: (exam && timeLimitSec != null)
+              ? Duration(seconds: timeLimitSec)
+              : null,
         );
-        if (exam) _startTimer();
+        if (exam && timeLimitSec != null) _startTimer();
       case Err(:final failure):
         state = SessionUiState.error(failure);
     }
