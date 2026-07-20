@@ -45,6 +45,9 @@ WHERE profile_id = sqlc.arg(profile_id) AND variant_id = sqlc.arg(variant_id);
 -- name: GetCategoryIDByCode :one
 SELECT id FROM category WHERE code = $1;
 
+-- name: GetSignIDByCode :one
+SELECT id FROM sign WHERE code = $1;
+
 -- name: CreateExamSession :one
 INSERT INTO exam_session
   (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)

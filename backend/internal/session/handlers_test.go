@@ -125,6 +125,73 @@ func TestFullVariantSessionOverHTTP(t *testing.T) {
 	}
 }
 
+// TestPracticeSessionByCategoryCodeOverHTTP proves the content-contract gap
+// this covers is actually fixed end-to-end: the Flutter Category model
+// (content.CategoryDTO / GET /categories) only ever exposes `code`, never a
+// UUID, so a real client can only send `category_id: "signs"` — not a UUID
+// it doesn't have. POST /sessions must accept that code directly.
+func TestPracticeSessionByCategoryCodeOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"mode": "practice", "category_id": "signs", "locale": "uz-Latn", "count": 5,
+	})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create session by category code status=%d body=%s err=%+v", status, env.Data, env.Error)
+	}
+	var created struct {
+		QuestionIDs []string `json:"question_ids"`
+		Total       int      `json:"total"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Total == 0 || len(created.QuestionIDs) != created.Total {
+		t.Fatalf("expected non-empty question set: %+v", created)
+	}
+}
+
+// TestPracticeSessionBySignCodeOverHTTP is TestPracticeSessionByCategoryCodeOverHTTP's
+// counterpart for sign_id/content.SignDTOs, which likewise never expose a UUID.
+func TestPracticeSessionBySignCodeOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"mode": "practice", "sign_id": "3.27", "locale": "uz-Latn", "count": 5,
+	})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create session by sign code status=%d body=%s err=%+v", status, env.Data, env.Error)
+	}
+	var created struct {
+		QuestionIDs []string `json:"question_ids"`
+		Total       int      `json:"total"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Total == 0 || len(created.QuestionIDs) != created.Total {
+		t.Fatalf("expected non-empty question set: %+v", created)
+	}
+}
+
+// TestPracticeSessionByBogusCategoryCodeOverHTTP confirms an unrecognized
+// code (not a UUID, not a real category.code) is reported as not_found —
+// same 404 error-code convention as every other not-found path in this
+// package — rather than a UUID-parse-shaped invalid_body/invalid_request.
+func TestPracticeSessionByBogusCategoryCodeOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"mode": "practice", "category_id": "no-such-category", "locale": "uz-Latn", "count": 5,
+	})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusNotFound || env.Error == nil || env.Error.Code != "not_found" {
+		t.Fatalf("expected 404 not_found for a bogus category code, got status=%d env=%+v", status, env)
+	}
+}
+
 func TestSessionsRequireAuth(t *testing.T) {
 	ts, _, _ := setupServer(t)
 	resp, err := ts.Client().Get(ts.URL + "/me/sessions")

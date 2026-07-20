@@ -37,6 +37,47 @@ func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service, p *prog
 	return &Service{Q: q, Billing: b, Learning: l, Progress: p}
 }
 
+// ResolveCategoryID accepts either a category UUID or its human-readable
+// `code` — the only identifier content.CategoryDTO (GET /categories) ever
+// exposes, since categories are never given a UUID over the wire — and
+// resolves it to the category's UUID for use in a practice-mode
+// StartRequest. A raw string that already parses as a UUID is trusted
+// as-is (matching StartSession's prior behavior of not re-validating a
+// caller-supplied UUID against the category table); anything else is
+// looked up by code, and a code with no matching row surfaces as
+// ErrNotFound (mirrored to the standard "not_found" response by
+// writeSessionError, same as every other not-found path in this package).
+func (s *Service) ResolveCategoryID(ctx context.Context, raw string) (uuid.UUID, error) {
+	if id, err := uuid.Parse(raw); err == nil {
+		return id, nil
+	}
+	id, err := s.Q.GetCategoryIDByCode(ctx, raw)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.UUID{}, ErrNotFound
+		}
+		return uuid.UUID{}, err
+	}
+	return id, nil
+}
+
+// ResolveSignID is ResolveCategoryID's counterpart for signs
+// (content.SignDTOs / GET /signs), which likewise only ever expose a
+// `code`.
+func (s *Service) ResolveSignID(ctx context.Context, raw string) (uuid.UUID, error) {
+	if id, err := uuid.Parse(raw); err == nil {
+		return id, nil
+	}
+	id, err := s.Q.GetSignIDByCode(ctx, raw)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.UUID{}, ErrNotFound
+		}
+		return uuid.UUID{}, err
+	}
+	return id, nil
+}
+
 func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req StartRequest) (SessionView, error) {
 	if req.Locale == "" {
 		req.Locale = i18n.Default

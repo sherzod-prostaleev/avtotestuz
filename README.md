@@ -149,7 +149,11 @@ Test yechish 4 rejimda ishlaydi (`POST /api/v1/sessions`ning `mode` maydoni):
 - **`practice`** (mashq) — `category_id` yoki `sign_id`dan biri (aynan bittasi)
   bo'yicha tasodifiy savollar, `count` bilan so'raladi. Kunlik limit bor
   (`daily_practice_questions` — free: 10/kun, VIP: cheklanmagan); limitdan
-  oshsa `daily_limit_reached` xatosi qaytadi.
+  oshsa `daily_limit_reached` xatosi qaytadi. `category_id`/`sign_id` — UUID
+  YOKI `GET /categories`/`GET /signs`ning `code`i (masalan `"signs"`,
+  `"3.27"`) bo'lishi mumkin — content API kategoriya/belgilarga hech qachon
+  UUID qaytarmaydi, shuning uchun backend kodni server tarafida UUID'ga
+  o'zi rezolyutsiya qiladi (`not_found` — kod topilmasa).
 - **`mistakes`** (xatolar banki) — foydalanuvchi noto'g'ri javob bergan
   savollardan tuzilgan shaxsiy to'plam (`count`, default 10).
 
