@@ -63,9 +63,22 @@ class ExplanationView extends StatelessWidget {
 
 /// Per-type visual styling for one [ExplanationBlock] — background color,
 /// icon, and foreground color all drawn from the existing `AppTheme`
-/// `ColorScheme` tonal roles (no ad-hoc hex literals), matching the
-/// convention `shared/widgets/answer_option.dart` already established for
-/// its own correct/incorrect/the-correct-one states.
+/// `ColorScheme`/`AppColors` tonal roles (no ad-hoc hex literals), matching
+/// the convention `shared/widgets/answer_option.dart` already established
+/// for its own correct/incorrect/the-correct-one states.
+///
+/// Each type maps to a genuinely distinct accent so a "MUHIM" callout never
+/// reads as interchangeable with "ESLATMA"/"OGOHLANTIRISH" — the mapping
+/// follows the actual severity/tone of each type's Uzbek meaning:
+/// `ogohlantirish` ("caution/warning") gets the strongest alarm-red, one
+/// notch above `muhim` ("important")'s attention-amber; `eslatma`
+/// ("reminder") is a quiet informational tone; `maslahat` ("tip/advice")
+/// borrows the success-green pair (allowed here specifically because a tip
+/// block only ever appears inside a *verified answer* explanation — a
+/// correctness-adjacent context per the design system's own carve-out for
+/// where green may be used outside `AnswerOption`); `xulosa` ("conclusion")
+/// is the one block allowed to read as brand-accent, since it's a neutral
+/// wrap-up rather than a correctness signal.
 class _BlockStyle {
   const _BlockStyle({
     required this.icon,
@@ -79,62 +92,66 @@ class _BlockStyle {
   final Color foreground;
   final String label;
 
-  static _BlockStyle forType(String type, ColorScheme colorScheme) {
+  static _BlockStyle forType(
+    String type,
+    ColorScheme colorScheme,
+    AppColors appColors,
+  ) {
     switch (type) {
       case 'intro':
         return _BlockStyle(
-          icon: Icons.info_outline,
-          background: colorScheme.surface,
+          icon: Icons.info_rounded,
+          background: colorScheme.surfaceContainerLow,
           foreground: colorScheme.onSurfaceVariant,
           label: 'INTRO',
         );
       case 'muhim':
         return _BlockStyle(
-          icon: Icons.priority_high,
-          background: colorScheme.errorContainer,
-          foreground: colorScheme.onErrorContainer,
+          icon: Icons.priority_high_rounded,
+          background: colorScheme.tertiaryContainer,
+          foreground: colorScheme.onTertiaryContainer,
           label: 'MUHIM',
         );
       case 'eslatma':
         return _BlockStyle(
-          icon: Icons.push_pin_outlined,
+          icon: Icons.push_pin_rounded,
           background: colorScheme.secondaryContainer,
           foreground: colorScheme.onSecondaryContainer,
           label: 'ESLATMA',
         );
       case 'ogohlantirish':
         return _BlockStyle(
-          icon: Icons.warning_amber_rounded,
-          background: colorScheme.tertiaryContainer,
-          foreground: colorScheme.onTertiaryContainer,
+          icon: Icons.warning_rounded,
+          background: colorScheme.errorContainer,
+          foreground: colorScheme.onErrorContainer,
           label: 'OGOHLANTIRISH',
         );
       case 'maslahat':
         return _BlockStyle(
-          icon: Icons.lightbulb_outline,
-          background: colorScheme.primaryContainer,
-          foreground: colorScheme.onPrimaryContainer,
+          icon: Icons.lightbulb_rounded,
+          background: appColors.successContainer,
+          foreground: appColors.onSuccessContainer,
           label: 'MASLAHAT',
         );
       case 'answer_analysis':
         return _BlockStyle(
-          icon: Icons.fact_check_outlined,
-          background: colorScheme.surfaceContainerLow,
+          icon: Icons.fact_check_rounded,
+          background: colorScheme.surfaceContainerHigh,
           foreground: colorScheme.onSurface,
           label: 'JAVOB TAHLILI',
         );
       case 'xulosa':
         return _BlockStyle(
-          icon: Icons.summarize_outlined,
-          background: colorScheme.surfaceContainerHigh,
-          foreground: colorScheme.onSurface,
+          icon: Icons.check_circle_outline_rounded,
+          background: colorScheme.primaryContainer,
+          foreground: colorScheme.onPrimaryContainer,
           label: 'XULOSA',
         );
       default:
         // Unrecognized type: neutral fallback, still legible/distinct from
         // every known type above, never a crash.
         return _BlockStyle(
-          icon: Icons.help_outline,
+          icon: Icons.help_outline_rounded,
           background: colorScheme.surfaceContainerLowest,
           foreground: colorScheme.onSurfaceVariant,
           label: type.toUpperCase(),
@@ -150,8 +167,12 @@ class _ExplanationBlockView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final style = _BlockStyle.forType(block.type, colorScheme);
+    final theme = Theme.of(context);
+    final style = _BlockStyle.forType(
+      block.type,
+      theme.colorScheme,
+      context.appColors,
+    );
 
     return Container(
       key: Key('explanation-block-${block.type}'),
@@ -175,7 +196,7 @@ class _ExplanationBlockView extends StatelessWidget {
               const SizedBox(width: AppSpacing.sm),
               Text(
                 style.label,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                style: theme.textTheme.labelLarge?.copyWith(
                   color: style.foreground,
                 ),
               ),
@@ -183,7 +204,12 @@ class _ExplanationBlockView extends StatelessWidget {
           ),
           if (block.text != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(block.text!, style: TextStyle(color: style.foreground)),
+            Text(
+              block.text!,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: style.foreground,
+              ),
+            ),
           ],
           if (block.items.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -204,15 +230,16 @@ class _AnswerAnalysisItemView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Padding(
       key: Key('answer-analysis-item-${item.position}'),
-      padding: const EdgeInsets.symmetric(vertical: 2),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            item.correct ? Icons.check_circle : Icons.cancel,
+            item.correct ? Icons.check_circle_rounded : Icons.cancel_rounded,
             key: Key('answer-analysis-item-icon-${item.position}'),
             color: item.correct ? colorScheme.primary : colorScheme.error,
             size: 18,
@@ -221,7 +248,7 @@ class _AnswerAnalysisItemView extends StatelessWidget {
           Expanded(
             child: Text(
               '${item.position}. ${item.text}',
-              style: TextStyle(color: foreground),
+              style: theme.textTheme.bodyMedium?.copyWith(color: foreground),
             ),
           ),
         ],
@@ -237,12 +264,14 @@ class _LegalRefsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
     return Container(
       key: const Key('explanation-legal-refs'),
       width: double.infinity,
       padding: const EdgeInsets.all(AppSpacing.md),
       decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
         border: Border.all(color: colorScheme.outlineVariant),
         borderRadius: BorderRadius.circular(AppRadius.card),
       ),
@@ -250,25 +279,35 @@ class _LegalRefsSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            'HUQUQIY ASOSLAR',
-            style: Theme.of(context).textTheme.labelLarge,
+          Row(
+            children: [
+              Icon(
+                Icons.gavel_rounded,
+                size: 18,
+                color: colorScheme.onSurfaceVariant,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text('HUQUQIY ASOSLAR', style: theme.textTheme.labelLarge),
+            ],
           ),
           const SizedBox(height: AppSpacing.sm),
           for (final ref in refs)
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+              padding: const EdgeInsets.symmetric(vertical: 3),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     ref.code,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(width: AppSpacing.sm),
-                  Expanded(child: Text(ref.title)),
+                  Expanded(
+                    child: Text(ref.title, style: theme.textTheme.bodyMedium),
+                  ),
                 ],
               ),
             ),

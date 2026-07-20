@@ -1,3 +1,4 @@
+import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/content/domain/category.dart';
@@ -73,7 +74,12 @@ Widget _wrap(SavedApi savedApi, ContentApi contentApi) {
       savedApiProvider.overrideWithValue(savedApi),
       contentApiProvider.overrideWithValue(contentApi),
     ],
-    child: const MaterialApp(home: SavedScreen()),
+    child: MaterialApp(
+      locale: const Locale('uz'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      home: const SavedScreen(),
+    ),
   );
 }
 

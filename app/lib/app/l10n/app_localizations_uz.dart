@@ -226,6 +226,10 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get sessionAnswerRetryMessage =>
       'Javobingizni yuborib bo\'lmadi. Qayta urinib ko\'ring.';
+
+  @override
+  String get savedEmptyHint =>
+      'Yoqtirgan savollaringizni saqlang — ular shu yerda to\'planadi.';
 }
 
 /// The translations for Uzbek, using the Cyrillic script (`uz_Cyrl`).
@@ -450,4 +454,8 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
   @override
   String get sessionAnswerRetryMessage =>
       'Жавобингизни юбориб бўлмади. Қайта уриниб кўринг.';
+
+  @override
+  String get savedEmptyHint =>
+      'Ёқтирган саволларингизни сақланг — улар шу ерда тўпланади.';
 }

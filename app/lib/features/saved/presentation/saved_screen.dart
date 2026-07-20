@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/question_card.dart';
@@ -51,18 +52,69 @@ class _SavedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (entries.isEmpty) {
-      return const EmptyState(
-        key: Key('saved-empty-state'),
-        message: 'Hali hech qanday savol saqlanmagan.',
-      );
+      return const _SavedEmptyState();
     }
     return ListView.separated(
       key: const Key('saved-list'),
       padding: const EdgeInsets.all(AppSpacing.md),
       itemCount: entries.length,
       separatorBuilder: (context, index) =>
-          const SizedBox(height: AppSpacing.sm),
+          const SizedBox(height: AppSpacing.md),
       itemBuilder: (context, index) => _SavedListItem(entry: entries[index]),
+    );
+  }
+}
+
+/// A dedicated (not the shared [EmptyState]) empty-state for "nothing
+/// bookmarked yet" — the shared widget has no icon slot, and this state
+/// specifically calls for one plus a second line of encouraging copy (not
+/// an error, so no retry action either). The original plain message text is
+/// preserved verbatim as the headline; the added subtitle is the only new
+/// user-facing string this screen introduces.
+class _SavedEmptyState extends StatelessWidget {
+  const _SavedEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final l10n = AppLocalizations.of(context)!;
+    return Center(
+      key: const Key('saved-empty-state'),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.bookmark_border_rounded,
+                size: 40,
+                color: colorScheme.onPrimaryContainer,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'Hali hech qanday savol saqlanmagan.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleMedium,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              l10n.savedEmptyHint,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -88,8 +140,8 @@ class _SavedListItem extends ConsumerWidget {
         children: [
           QuestionCard(question: question.text, imageUrl: question.imageUrl),
           Positioned(
-            top: 4,
-            right: 4,
+            top: AppSpacing.sm,
+            right: AppSpacing.sm,
             child: SavedToggleButton(questionId: entry.questionId),
           ),
         ],

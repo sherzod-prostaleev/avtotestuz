@@ -67,5 +67,6 @@
   "sessionReasonTimeUpLabel": "Время вышло",
   "sessionReasonTooManyErrorsLabel": "Количество ошибок превышено",
   "sessionResultTitle": "Результат",
-  "sessionAnswerRetryMessage": "Не удалось отправить ваш ответ. Попробуйте ещё раз."
+  "sessionAnswerRetryMessage": "Не удалось отправить ваш ответ. Попробуйте ещё раз.",
+  "savedEmptyHint": "Сохраняйте понравившиеся вопросы — они появятся здесь."
 }

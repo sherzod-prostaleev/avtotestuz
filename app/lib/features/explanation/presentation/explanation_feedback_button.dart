@@ -73,75 +73,96 @@ class _ExplanationFeedbackButtonState
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final appColors = context.appColors;
+    final isUp = _status == _Status.submittedUp;
+    final isDown = _status == _Status.submittedDown;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Text(
-              'Izoh foydali bo\'ldimi?',
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            IconButton(
-              key: const Key('explanation-feedback-thumbs-up'),
-              onPressed: _isBusyOrDone ? null : () => _submit(true),
-              icon: Icon(
-                Icons.thumb_up,
-                color: _status == _Status.submittedUp
-                    ? colorScheme.primary
-                    : colorScheme.onSurfaceVariant,
+    return Container(
+      key: const Key('explanation-feedback'),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.md,
+        vertical: AppSpacing.sm,
+      ),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(AppRadius.card),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Izoh foydali bo\'ldimi?',
+                  style: theme.textTheme.bodyMedium,
+                ),
+              ),
+              IconButton(
+                key: const Key('explanation-feedback-thumbs-up'),
+                onPressed: _isBusyOrDone ? null : () => _submit(true),
+                style: IconButton.styleFrom(
+                  backgroundColor:
+                      isUp ? appColors.successContainer : colorScheme.surface,
+                  foregroundColor:
+                      isUp ? appColors.success : colorScheme.onSurfaceVariant,
+                ),
+                icon: Icon(isUp ? Icons.thumb_up_rounded : Icons.thumb_up_outlined),
+              ),
+              const SizedBox(width: AppSpacing.xs),
+              IconButton(
+                key: const Key('explanation-feedback-thumbs-down'),
+                onPressed: _isBusyOrDone ? null : () => _submit(false),
+                style: IconButton.styleFrom(
+                  backgroundColor:
+                      isDown ? colorScheme.errorContainer : colorScheme.surface,
+                  foregroundColor:
+                      isDown ? colorScheme.error : colorScheme.onSurfaceVariant,
+                ),
+                icon: Icon(
+                  isDown ? Icons.thumb_down_rounded : Icons.thumb_down_outlined,
+                ),
+              ),
+            ],
+          ),
+          if (isUp || isDown)
+            Padding(
+              key: const Key('explanation-feedback-confirmation'),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                'Fikringiz uchun rahmat!',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: appColors.success,
+                ),
               ),
             ),
-            IconButton(
-              key: const Key('explanation-feedback-thumbs-down'),
-              onPressed: _isBusyOrDone ? null : () => _submit(false),
-              icon: Icon(
-                Icons.thumb_down,
-                color: _status == _Status.submittedDown
-                    ? colorScheme.error
-                    : colorScheme.onSurfaceVariant,
+          if (_status == _Status.notFound)
+            Padding(
+              key: const Key('explanation-feedback-not-found'),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                'Hali izoh mavjud emas.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
               ),
             ),
-          ],
-        ),
-        if (_status == _Status.submittedUp || _status == _Status.submittedDown)
-          Padding(
-            key: const Key('explanation-feedback-confirmation'),
-            padding: const EdgeInsets.only(top: AppSpacing.sm),
-            child: Text(
-              'Fikringiz uchun rahmat!',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.primary),
+          if (_status == _Status.error)
+            Padding(
+              key: const Key('explanation-feedback-error'),
+              padding: const EdgeInsets.only(top: AppSpacing.xs),
+              child: Text(
+                _errorMessage ?? 'Xatolik yuz berdi. Qayta urinib ko\'ring.',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.error,
+                ),
+              ),
             ),
-          ),
-        if (_status == _Status.notFound)
-          Padding(
-            key: const Key('explanation-feedback-not-found'),
-            padding: const EdgeInsets.only(top: AppSpacing.sm),
-            child: Text(
-              'Hali izoh mavjud emas.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
-            ),
-          ),
-        if (_status == _Status.error)
-          Padding(
-            key: const Key('explanation-feedback-error'),
-            padding: const EdgeInsets.only(top: AppSpacing.sm),
-            child: Text(
-              _errorMessage ?? 'Xatolik yuz berdi. Qayta urinib ko\'ring.',
-              style: Theme.of(
-                context,
-              ).textTheme.bodySmall?.copyWith(color: colorScheme.error),
-            ),
-          ),
-      ],
+        ],
+      ),
     );
   }
 }
