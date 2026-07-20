@@ -258,6 +258,17 @@ func (q *Queries) GetSessionAnswer(ctx context.Context, arg GetSessionAnswerPara
 	return i, err
 }
 
+const getSignIDByCode = `-- name: GetSignIDByCode :one
+SELECT id FROM sign WHERE code = $1
+`
+
+func (q *Queries) GetSignIDByCode(ctx context.Context, code string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSignIDByCode, code)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getVariantByID = `-- name: GetVariantByID :one
 SELECT id, number, sort_order FROM variant WHERE id = $1
 `

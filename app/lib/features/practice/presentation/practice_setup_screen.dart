@@ -54,15 +54,17 @@ final _practiceSignsProvider = FutureProvider.autoDispose<List<Sign>>((
 /// clears whatever was picked for the other one (see [_setTarget]), so it is
 /// impossible for both to be non-null when the start button is enabled.
 ///
-/// Known contract gap (same shape as `variants_screen.dart`'s bilet-number-
-/// vs-UUID note): `POST /sessions`' `category_id`/`sign_id` are UUIDs
+/// Formerly-known contract gap, now fixed backend-side (same shape as
+/// `variants_screen.dart`'s bilet-number-vs-UUID note, which is still open):
+/// `POST /sessions`' `category_id`/`sign_id` used to be UUID-only
 /// server-side (`backend/internal/session/handlers.go`), but the content
-/// API's [Category]/[Sign] models only expose a `code` (no UUID) — this
-/// screen passes `category.code`/`sign.code` as `categoryId`/`signId`,
-/// matching the literal interface this plan specifies, but a real backend
-/// round-trip will 400 (`invalid_body`, a UUID parse failure) until the
-/// backend either accepts a code or content exposes the UUID somewhere the
-/// client can read it.
+/// API's [Category]/[Sign] models only ever expose a `code` (no UUID) — a
+/// real backend round-trip used to 400 (`invalid_body`, a UUID parse
+/// failure). The backend now resolves either a UUID or a `code` in these
+/// same two fields (`Service.ResolveCategoryID`/`ResolveSignID`, 404
+/// `not_found` for an unrecognized code), so this screen's existing
+/// `category.code`/`sign.code` passthrough as `categoryId`/`signId` already
+/// works end-to-end with no client-side change needed.
 ///
 /// On `daily_limit_reached` (429) — expected/normal for free-tier users
 /// hitting their daily cap, not a bug (D13) — this screen does NOT
