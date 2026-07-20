@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../domain/session_models.dart';
 
@@ -32,22 +33,25 @@ class SessionResultsScreen extends StatelessWidget {
     };
   }
 
-  static String _statusLabel(String status) => switch (status) {
-    'passed' => 'O\'tdingiz',
-    'failed' => 'O\'ta olmadingiz',
-    'abandoned' => 'Sessiya tugallanmadi',
-    _ => status,
-  };
+  static String _statusLabel(AppLocalizations l10n, String status) =>
+      switch (status) {
+        'passed' => l10n.sessionStatusPassedLabel,
+        'failed' => l10n.sessionStatusFailedLabel,
+        'abandoned' => l10n.sessionResultsAbandonedLabel,
+        _ => status,
+      };
 
-  static String _reasonLabel(String stoppedReason) => switch (stoppedReason) {
-    'completed' => 'Barcha savollar yakunlandi',
-    'time_up' => 'Vaqt tugadi',
-    'too_many_errors' => 'Xatolar soni ko\'payib ketdi',
-    _ => stoppedReason,
-  };
+  static String _reasonLabel(AppLocalizations l10n, String stoppedReason) =>
+      switch (stoppedReason) {
+        'completed' => l10n.sessionReasonCompletedLabel,
+        'time_up' => l10n.sessionReasonTimeUpLabel,
+        'too_many_errors' => l10n.sessionReasonTooManyErrorsLabel,
+        _ => stoppedReason,
+      };
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final scheme = Theme.of(context).colorScheme;
     final visual = _statusVisual(result.status);
     final percent = result.total == 0
@@ -56,7 +60,7 @@ class SessionResultsScreen extends StatelessWidget {
 
     return Scaffold(
       key: const Key('session-results-screen'),
-      appBar: AppBar(title: const Text('Natija')),
+      appBar: AppBar(title: Text(l10n.sessionResultTitle)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -72,7 +76,7 @@ class SessionResultsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  _statusLabel(result.status),
+                  _statusLabel(l10n, result.status),
                   key: const Key('session-results-status'),
                   style: Theme.of(context).textTheme.headlineSmall,
                   textAlign: TextAlign.center,
@@ -93,7 +97,7 @@ class SessionResultsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
-                  _reasonLabel(result.stoppedReason),
+                  _reasonLabel(l10n, result.stoppedReason),
                   key: const Key('session-results-reason'),
                   textAlign: TextAlign.center,
                 ),
@@ -101,7 +105,7 @@ class SessionResultsScreen extends StatelessWidget {
                 FilledButton(
                   key: const Key('session-results-home-button'),
                   onPressed: () => context.go('/'),
-                  child: const Text('Bosh sahifa'),
+                  child: Text(l10n.homeButton),
                 ),
               ],
             ),

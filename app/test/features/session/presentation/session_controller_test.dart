@@ -229,6 +229,61 @@ void main() {
     expect((state as SessionFinished).result.status, 'passed');
   });
 
+  test(
+    'a transient submitAnswer failure keeps the session active (not error) '
+    'and surfaces a pending retry; retryPendingAnswer resubmits and succeeds',
+    () async {
+      final api = FakeSessionApi(
+        startResult: fakeSummary(mode: 'variant', ids: ['q1', 'q2']),
+        answerFailureCount: 1,
+        answerFn: (_, _) => const AnswerResult(
+          recorded: true,
+          correct: true,
+          correctAnswerId: 'q1-a1',
+        ),
+      );
+      final container = _container(api);
+      addTearDown(container.dispose);
+      const req = SessionStartRequest(mode: 'variant');
+      container.listen(sessionControllerProvider(req), (_, _) {},
+          fireImmediately: true);
+      await _flush();
+
+      final notifier = container.read(sessionControllerProvider(req).notifier);
+      await notifier.submitAnswer('q1', 'q1-a1');
+      await _flush();
+
+      // First call failed: the session must stay active, NOT collapse to
+      // SessionUiState.error (that would strand the whole attempt over a
+      // transient network blip).
+      final afterFailure = container.read(sessionControllerProvider(req));
+      expect(afterFailure, isA<SessionActive>());
+      final activeAfterFailure = afterFailure as SessionActive;
+      expect(activeAfterFailure.answered.containsKey('q1'), isFalse);
+      // A retry affordance for the EXACT failed pair is present.
+      expect(activeAfterFailure.pendingRetryQuestionId, 'q1');
+      expect(activeAfterFailure.pendingRetryAnswerId, 'q1-a1');
+      expect(api.answerCalls.length, 1);
+
+      // Tapping retry resubmits the same questionId/answerId and this time
+      // the API call succeeds.
+      await notifier.retryPendingAnswer();
+      await _flush();
+
+      final afterRetry = container.read(sessionControllerProvider(req));
+      expect(afterRetry, isA<SessionActive>());
+      final activeAfterRetry = afterRetry as SessionActive;
+      expect(activeAfterRetry.answered.containsKey('q1'), isTrue);
+      expect(activeAfterRetry.answered['q1']!.correct, isTrue);
+      // Pending retry is cleared once the resubmit succeeds.
+      expect(activeAfterRetry.pendingRetryQuestionId, isNull);
+      expect(activeAfterRetry.pendingRetryAnswerId, isNull);
+      expect(api.answerCalls.length, 2);
+      expect(api.answerCalls.last.questionId, 'q1');
+      expect(api.answerCalls.last.answerId, 'q1-a1');
+    },
+  );
+
   test('SessionStartRequest value-equality makes it a stable family key', () {
     const a = SessionStartRequest(mode: 'variant', variantId: 'v1');
     const b = SessionStartRequest(mode: 'variant', variantId: 'v1');

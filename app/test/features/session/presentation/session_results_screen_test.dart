@@ -1,3 +1,4 @@
+import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/features/session/domain/session_models.dart';
 import 'package:avtotest_app/features/session/presentation/session_results_screen.dart';
 import 'package:flutter/material.dart';
@@ -5,7 +6,15 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 Widget _wrap(SessionResult result) {
-  return MaterialApp(home: SessionResultsScreen(result: result));
+  return MaterialApp(
+    // Pinned explicitly — without a `locale:`, Flutter's default
+    // locale-resolution fallback picks `ru`, not `uz`, and these assertions
+    // are uz-Latn ARB-string specific (see home_shell_test.dart's same note).
+    locale: const Locale('uz'),
+    localizationsDelegates: AppLocalizations.localizationsDelegates,
+    supportedLocales: AppLocalizations.supportedLocales,
+    home: SessionResultsScreen(result: result),
+  );
 }
 
 void main() {
@@ -126,7 +135,14 @@ void main() {
         ),
       ],
     );
-    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpWidget(
+      MaterialApp.router(
+        locale: const Locale('uz'),
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        routerConfig: router,
+      ),
+    );
 
     await tester.tap(find.byKey(const Key('session-results-home-button')));
     await tester.pumpAndSettle();

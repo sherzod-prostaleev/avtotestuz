@@ -22,11 +22,24 @@ sealed class SessionUiState with _$SessionUiState {
   /// `SessionController`'s `Timer.periodic`, NOT by this state class or by
   /// `CountdownTimer` — see Task 2's widget doc) — `null` in every
   /// non-`exam` mode.
+  ///
+  /// [pendingRetryQuestionId]/[pendingRetryAnswerId] carry the exact
+  /// `questionId`/`answerId` pair of the most recent `submitAnswer` call
+  /// whose API request failed (a transient network blip, not a genuinely
+  /// unrecoverable failure). Deliberately kept on `SessionActive` itself
+  /// rather than collapsing to `SessionUiState.error`: a single failed
+  /// answer-submit must never strand the whole in-progress session (in
+  /// exam mode that would burn a VIP-gated/daily-limited attempt over a
+  /// momentary hiccup). Both are `null` whenever there is nothing to
+  /// retry; `SessionController.retryPendingAnswer` reads them, clears them,
+  /// and resubmits.
   const factory SessionUiState.active({
     required SessionSummary summary,
     required int currentIndex,
     required Map<String, AnswerResult> answered,
     Duration? remaining,
+    String? pendingRetryQuestionId,
+    String? pendingRetryAnswerId,
   }) = SessionActive;
 
   /// The session was stopped before naturally finishing (e.g. `exam`'s 3rd
