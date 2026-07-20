@@ -67,5 +67,9 @@
   "sessionReasonTimeUpLabel": "Вақт тугади",
   "sessionReasonTooManyErrorsLabel": "Хатолар сони кўпайиб кетди",
   "sessionResultTitle": "Натижа",
-  "sessionAnswerRetryMessage": "Жавобингизни юбориб бўлмади. Қайта уриниб кўринг."
+  "sessionAnswerRetryMessage": "Жавобингизни юбориб бўлмади. Қайта уриниб кўринг.",
+  "sessionNavigatorLabel": "Саволлар",
+  "sessionResultsPassedMessage": "Табриклаймиз! Сиз имтиҳондан муваффақиятли ўтдингиз.",
+  "sessionResultsFailedMessage": "Бу сафар чиқмади. Хатоларингиз устида ишланг ва яна уриниб кўринг.",
+  "sessionResultsAbandonedMessage": "Сессия охиригача якунланмади."
 }

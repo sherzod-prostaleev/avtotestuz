@@ -67,5 +67,9 @@
   "sessionReasonTimeUpLabel": "Время вышло",
   "sessionReasonTooManyErrorsLabel": "Количество ошибок превышено",
   "sessionResultTitle": "Результат",
-  "sessionAnswerRetryMessage": "Не удалось отправить ваш ответ. Попробуйте ещё раз."
+  "sessionAnswerRetryMessage": "Не удалось отправить ваш ответ. Попробуйте ещё раз.",
+  "sessionNavigatorLabel": "Вопросы",
+  "sessionResultsPassedMessage": "Поздравляем! Вы успешно сдали экзамен.",
+  "sessionResultsFailedMessage": "В этот раз не вышло. Поработайте над ошибками и попробуйте снова.",
+  "sessionResultsAbandonedMessage": "Сессия не была завершена до конца."
 }

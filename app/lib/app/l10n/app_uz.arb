@@ -149,5 +149,9 @@
   "sessionReasonTimeUpLabel": "Vaqt tugadi",
   "sessionReasonTooManyErrorsLabel": "Xatolar soni ko'payib ketdi",
   "sessionResultTitle": "Natija",
-  "sessionAnswerRetryMessage": "Javobingizni yuborib bo'lmadi. Qayta urinib ko'ring."
+  "sessionAnswerRetryMessage": "Javobingizni yuborib bo'lmadi. Qayta urinib ko'ring.",
+  "sessionNavigatorLabel": "Savollar",
+  "sessionResultsPassedMessage": "Tabriklaymiz! Siz imtihondan muvaffaqiyatli o'tdingiz.",
+  "sessionResultsFailedMessage": "Bu safar chiqmadi. Xatolaringiz ustida ishlang va yana urinib ko'ring.",
+  "sessionResultsAbandonedMessage": "Sessiya oxirigacha yakunlanmadi."
 }

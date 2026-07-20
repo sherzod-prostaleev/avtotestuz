@@ -506,6 +506,30 @@ abstract class AppLocalizations {
   /// In uz, this message translates to:
   /// **'Javobingizni yuborib bo\'lmadi. Qayta urinib ko\'ring.'**
   String get sessionAnswerRetryMessage;
+
+  /// No description provided for @sessionNavigatorLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Savollar'**
+  String get sessionNavigatorLabel;
+
+  /// No description provided for @sessionResultsPassedMessage.
+  ///
+  /// In uz, this message translates to:
+  /// **'Tabriklaymiz! Siz imtihondan muvaffaqiyatli o\'tdingiz.'**
+  String get sessionResultsPassedMessage;
+
+  /// No description provided for @sessionResultsFailedMessage.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bu safar chiqmadi. Xatolaringiz ustida ishlang va yana urinib ko\'ring.'**
+  String get sessionResultsFailedMessage;
+
+  /// No description provided for @sessionResultsAbandonedMessage.
+  ///
+  /// In uz, this message translates to:
+  /// **'Sessiya oxirigacha yakunlanmadi.'**
+  String get sessionResultsAbandonedMessage;
 }
 
 class _AppLocalizationsDelegate
