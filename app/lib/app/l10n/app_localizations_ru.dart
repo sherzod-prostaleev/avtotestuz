@@ -226,4 +226,8 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get sessionAnswerRetryMessage =>
       'Не удалось отправить ваш ответ. Попробуйте ещё раз.';
+
+  @override
+  String get savedEmptyHint =>
+      'Сохраняйте понравившиеся вопросы — они появятся здесь.';
 }

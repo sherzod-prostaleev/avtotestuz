@@ -149,5 +149,9 @@
   "sessionReasonTimeUpLabel": "Vaqt tugadi",
   "sessionReasonTooManyErrorsLabel": "Xatolar soni ko'payib ketdi",
   "sessionResultTitle": "Natija",
-  "sessionAnswerRetryMessage": "Javobingizni yuborib bo'lmadi. Qayta urinib ko'ring."
+  "sessionAnswerRetryMessage": "Javobingizni yuborib bo'lmadi. Qayta urinib ko'ring.",
+  "savedEmptyHint": "Yoqtirgan savollaringizni saqlang — ular shu yerda to'planadi.",
+  "@savedEmptyHint": {
+    "description": "Encouraging subtitle shown under the main message on the saved-questions screen's empty state, when nothing has been bookmarked yet."
+  }
 }

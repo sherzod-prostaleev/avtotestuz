@@ -506,6 +506,12 @@ abstract class AppLocalizations {
   /// In uz, this message translates to:
   /// **'Javobingizni yuborib bo\'lmadi. Qayta urinib ko\'ring.'**
   String get sessionAnswerRetryMessage;
+
+  /// Encouraging subtitle shown under the main message on the saved-questions screen's empty state, when nothing has been bookmarked yet.
+  ///
+  /// In uz, this message translates to:
+  /// **'Yoqtirgan savollaringizni saqlang — ular shu yerda to\'planadi.'**
+  String get savedEmptyHint;
 }
 
 class _AppLocalizationsDelegate

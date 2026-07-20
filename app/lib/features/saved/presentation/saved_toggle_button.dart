@@ -29,10 +29,20 @@ class SavedToggleButton extends ConsumerWidget {
           (e) => e.questionId == questionId,
         ) ??
         false;
+    final colorScheme = Theme.of(context).colorScheme;
 
+    // Filled bookmark gets a colored "chip" (brand-tinted background + brand
+    // icon color) so saving reads as a clear, satisfying state change, not
+    // just a shape swap — outline bookmark stays neutral/quiet.
     return IconButton(
       key: ValueKey('saved-toggle-$questionId'),
       icon: Icon(isSaved ? Icons.bookmark : Icons.bookmark_border),
+      style: IconButton.styleFrom(
+        backgroundColor:
+            isSaved ? colorScheme.primaryContainer : colorScheme.surface,
+        foregroundColor:
+            isSaved ? colorScheme.primary : colorScheme.onSurfaceVariant,
+      ),
       tooltip: isSaved ? 'Saqlangandan olib tashlash' : 'Saqlash',
       onPressed: state.isLoading
           ? null
