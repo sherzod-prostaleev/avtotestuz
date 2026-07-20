@@ -209,6 +209,86 @@ void main() {
       verifyNever(() => api.logBatch(any()));
       logger.dispose();
     });
+
+    test(
+      'stops at the first failing batch and does not attempt further batches; '
+      'failed batch events remain queued for retry',
+      () async {
+        var callCount = 0;
+        when(() => api.logBatch(any())).thenAnswer((_) async {
+          callCount++;
+          // Batch 1 succeeds, batch 2 fails, batch 3 should never be called
+          if (callCount == 1) {
+            return const Result.ok(1);
+          } else if (callCount == 2) {
+            return const Result.err(
+              Failure(code: 'server_error', message: 'internal error'),
+            );
+          }
+          // If we somehow reach here, that's a test failure — batch 3 should
+          // never be attempted when batch 2 fails.
+          throw StateError('batch 3 should never be called');
+        });
+
+        final logger = EventLogger(
+          api,
+          flushInterval: const Duration(minutes: 10),
+        );
+
+        // Queue 250 events: batches will be [100, 100, 50]
+        for (var i = 0; i < 250; i++) {
+          logger.log('event_$i');
+        }
+        expect(logger.queueForTesting, hasLength(250));
+
+        // First flush: batch 1 succeeds, batch 2 fails, batch 3 never called
+        await logger.flush();
+
+        // Verify exactly 2 calls were made (batch 1 succeeded, batch 2 failed,
+        // batch 3 was never attempted)
+        final captured1 = verify(
+          () => api.logBatch(captureAny()),
+        ).captured.cast<List<ClientEvent>>();
+        expect(captured1, hasLength(2));
+        expect(captured1[0], hasLength(100)); // batch 1: events 0-99
+        expect(captured1[1], hasLength(100)); // batch 2: events 100-199
+
+        // Events from batch 2 (100-199) and batch 3 (200-249) should remain
+        // queued, i.e., the first 100 events should have been removed.
+        expect(logger.queueForTesting, hasLength(150));
+        expect(logger.queueForTesting.first.name, 'event_100');
+        expect(logger.queueForTesting.last.name, 'event_249');
+
+        // Reset mock for second flush to avoid the throw check
+        reset(api);
+        when(() => api.logBatch(any())).thenAnswer(
+          (_) async => const Result.ok(1),
+        );
+
+        // Second flush: should retry batch 2 and then batch 3
+        await logger.flush();
+
+        final captured2 = verify(
+          () => api.logBatch(captureAny()),
+        ).captured.cast<List<ClientEvent>>();
+        expect(captured2, hasLength(2));
+        expect(captured2[0], hasLength(100)); // batch 2 retry: events 100-199
+        expect(captured2[1], hasLength(50)); // batch 3: events 200-249
+        expect(
+          captured2[0].first.name,
+          'event_100',
+          reason: 'batch 2 retry should start from event_100',
+        );
+        expect(captured2[0].last.name, 'event_199');
+        expect(captured2[1].first.name, 'event_200');
+        expect(captured2[1].last.name, 'event_249');
+
+        // Queue should now be empty
+        expect(logger.queueForTesting, isEmpty);
+
+        logger.dispose();
+      },
+    );
   });
 
   group('periodic auto-flush', () {
