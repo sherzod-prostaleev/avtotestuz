@@ -52,13 +52,20 @@ void main() {
     group('start', () {
       test('parses a SessionSummary and sends only the non-null fields',
           () async {
+        // `time_limit_sec` is JSON `null` here deliberately — that is what
+        // the real backend sends for every non-exam mode (`TimeLimitSec
+        // *int`, only set for exam). An earlier version of this fixture used
+        // `0`, which let a hard `as int` cast in the parser pass tests while
+        // crashing against the real backend on every variant/practice/
+        // mistakes session start. Keep this null so the fixture matches
+        // reality, not a convenient stand-in.
         final (dio, adapter) = buildDio(
           (options) async => jsonResponseBody({
             'data': {
               'id': 'sess-1',
               'mode': 'variant',
               'question_ids': ['q1', 'q2'],
-              'time_limit_sec': 0,
+              'time_limit_sec': null,
               'total': 2,
               'started_at': '2026-07-18T10:00:00Z',
             },
@@ -82,7 +89,7 @@ void main() {
             expect(summary.id, 'sess-1');
             expect(summary.mode, 'variant');
             expect(summary.questionIds, ['q1', 'q2']);
-            expect(summary.timeLimitSec, 0);
+            expect(summary.timeLimitSec, isNull);
             expect(summary.total, 2);
             expect(
               summary.startedAt,

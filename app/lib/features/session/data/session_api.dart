@@ -140,7 +140,11 @@ SessionSummary _sessionSummaryFromJson(Map<String, dynamic> json) {
     id: json['id'] as String,
     mode: json['mode'] as String,
     questionIds: questionIds.map((e) => e as String).toList(),
-    timeLimitSec: json['time_limit_sec'] as int,
+    // Genuinely nullable: the backend sends `null` for every non-exam mode
+    // (see SessionSummary's doc comment). A hard `as int` here was the real
+    // crash site of the live "type 'Null' is not a subtype of type 'int'"
+    // bug — the model was made nullable but this cast was missed.
+    timeLimitSec: json['time_limit_sec'] as int?,
     total: json['total'] as int,
     startedAt: DateTime.parse(json['started_at'] as String),
   );
