@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/widgets/empty_state.dart';
 import '../../../shared/widgets/sign_chip.dart';
@@ -17,11 +18,12 @@ class SignsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(signsControllerProvider);
     final notifier = ref.read(signsControllerProvider.notifier);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Yo\'l belgilari')),
+      appBar: AppBar(title: Text(l10n.signsScreenTitle)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.md),
@@ -30,17 +32,17 @@ class SignsScreen extends ConsumerWidget {
             children: [
               TextField(
                 key: const Key('signs-query-field'),
-                decoration: const InputDecoration(
-                  labelText: 'Qidiruv',
-                  prefixIcon: Icon(Icons.search),
+                decoration: InputDecoration(
+                  labelText: l10n.searchLabel,
+                  prefixIcon: const Icon(Icons.search),
                 ),
                 onChanged: notifier.setQuery,
               ),
               const SizedBox(height: AppSpacing.sm),
               TextField(
                 key: const Key('signs-group-field'),
-                decoration: const InputDecoration(
-                  labelText: 'Guruh kodi (ixtiyoriy)',
+                decoration: InputDecoration(
+                  labelText: l10n.groupCodeLabel,
                 ),
                 onChanged: notifier.setGroup,
               ),
@@ -55,11 +57,11 @@ class SignsScreen extends ConsumerWidget {
                     key: const Key('signs-error-state'),
                     message: error is SignsFetchFailure
                         ? error.failure.message
-                        : 'Belgilar ro\'yxatini yuklab bo\'lmadi.',
+                        : l10n.signsLoadError,
                     onRetry: () => ref.invalidate(signsControllerProvider),
-                    retryLabel: 'Qayta urinish',
+                    retryLabel: l10n.retryButton,
                   ),
-                  data: (signs) => _SignsList(signs: signs),
+                  data: (signs) => _SignsList(signs: signs, l10n: l10n),
                 ),
               ),
             ],
@@ -71,16 +73,17 @@ class SignsScreen extends ConsumerWidget {
 }
 
 class _SignsList extends StatelessWidget {
-  const _SignsList({required this.signs});
+  const _SignsList({required this.signs, required this.l10n});
 
   final List<Sign> signs;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     if (signs.isEmpty) {
-      return const EmptyState(
-        key: Key('signs-empty-state'),
-        message: 'Hech qanday belgi topilmadi.',
+      return EmptyState(
+        key: const Key('signs-empty-state'),
+        message: l10n.signsEmptyState,
       );
     }
     return ListView.separated(

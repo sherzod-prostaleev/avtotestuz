@@ -1,3 +1,4 @@
+import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/content/domain/category.dart';
@@ -61,7 +62,12 @@ class _FakeContentApi implements ContentApi {
 Widget _wrap(ContentApi contentApi) {
   return ProviderScope(
     overrides: [contentApiProvider.overrideWithValue(contentApi)],
-    child: const MaterialApp(home: SignsScreen()),
+    child: MaterialApp(
+      home: const SignsScreen(),
+      locale: const Locale('uz'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ),
   );
 }
 
