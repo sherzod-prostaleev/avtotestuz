@@ -21,6 +21,22 @@ Sabab: loyiha web-first; Next.js'da SEO ishlaydi, dizayn kutubxonalari boy
 (shadcn/ui), AI yordam sifati eng yuqori, debugging oson (brauzer DevTools),
 dev-tsikl bir soniyali hot-reload.
 
+QO'SHIMCHA TASDIQLANGAN QARORLAR (2026-07-21, foydalanuvchi tanlovi):
+a) KONTENT-KATEGORIYALASH: hozir, frontend'dan oldin/parallel, alohida
+   mini-plan bilan — 1235 savol standart YHQ mavzulariga AI-tagging +
+   tanlab tekshirish orqali ajratiladi (busiz mastery-map/tayyorlik-%/
+   weak-area — bari bitta 'umumiy' bucket, flagman feature ishlamaydi).
+b) BELGILAR KATALOGI: litsenziya jihatdan toza rasmiy YHQ belgilar
+   to'plami manbasi qidiriladi; topilsa M1'da qoladi, topilmasa M1
+   dizaynidan vaqtincha chiqariladi (bo'sh sahifa TAQIQ — 8.6-saboq).
+c) AUTH-ARXITEKTURA (Next.js): httpOnly cookie + Next.js route-handler
+   proxy (BFF pattern) — tokenlar brauzer JS'iga hech qachon ko'rinmaydi,
+   SSR to'g'ridan-to'g'ri ishlaydi, CORS kerak emas. localStorage+Bearer
+   RAD ETILDI (XSS xavfi, SSR ishlamaydi). Single-flight refresh endi
+   proxy qatlamida amalga oshiriladi (8.1-saboq o'z kuchida).
+d) DEMO-ENDPOINT: M1'da quriladi (6.1-bo'limdagi cheklovga yechim) —
+   rate-limit'li public POST /demo/answer, faqat whitelist savollar.
+
 --------------------------------------------------------------------------------
 1. LOYIHA NIMA? (VIZYON)
 --------------------------------------------------------------------------------
