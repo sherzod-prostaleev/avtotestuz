@@ -9,6 +9,7 @@ import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/question_card.dart';
 import '../../../shared/widgets/question_navigator.dart';
 import '../../content/domain/question.dart';
+import '../../saved/presentation/saved_toggle_button.dart';
 import '../domain/session_models.dart';
 import '../domain/session_state.dart';
 import 'session_controller.dart';
@@ -235,7 +236,16 @@ class _QuestionBody extends StatelessWidget {
             style: Theme.of(context).textTheme.labelLarge,
           ),
           const SizedBox(height: AppSpacing.sm),
-          QuestionCard(question: question.text, imageUrl: question.imageUrl),
+          Stack(
+            children: [
+              QuestionCard(question: question.text, imageUrl: question.imageUrl),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: SavedToggleButton(questionId: question.id),
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpacing.md),
           AnswerOptionsGroup(options: options),
           if (_isExam) ...[
