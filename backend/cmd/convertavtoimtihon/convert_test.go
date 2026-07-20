@@ -16,7 +16,15 @@ func loadOrSkip(t *testing.T) Result {
 	if _, err := os.Stat(srcRoot + "/src/data/questions.uz-Latn.json"); err != nil {
 		t.Skipf("source dataset not present at %s: %v", srcRoot, err)
 	}
-	res, err := Convert(srcRoot)
+	return convertOrSkip(t, nil)
+}
+
+func convertOrSkip(t *testing.T, assignments map[string]string) Result {
+	t.Helper()
+	if _, err := os.Stat(srcRoot + "/src/data/questions.uz-Latn.json"); err != nil {
+		t.Skipf("source dataset not present at %s: %v", srcRoot, err)
+	}
+	res, err := Convert(srcRoot, assignments)
 	if err != nil {
 		t.Fatalf("Convert: %v", err)
 	}
@@ -84,7 +92,9 @@ func TestConvertQuestionFidelity(t *testing.T) {
 	if q1.Image != "images/i1_1.webp" {
 		t.Errorf("q1 image = %q, want images/i1_1.webp", q1.Image)
 	}
-	if q1.Category != "umumiy" || q1.Source != "avtoimtihon" {
+	// q1's real ru comment cites "Приложение №1 к ПДД пункт 3.27" — appendix 1
+	// resolves deterministically to road_signs_markings (see categories.go).
+	if q1.Category != "road_signs_markings" || q1.Source != "avtoimtihon" {
 		t.Errorf("q1 category/source = %q/%q", q1.Category, q1.Source)
 	}
 
@@ -106,6 +116,60 @@ func TestConvertQuestionFidelity(t *testing.T) {
 	}
 	if correct != 1 {
 		t.Errorf("q614 correct count = %d, want 1", correct)
+	}
+}
+
+// TestConvertCategorization verifies the classifier wiring end-to-end against
+// real dataset ext_ids: a chapter-citation question resolves deterministically,
+// a citation-free question falls back to umumiy and is reported as unresolved,
+// and an explicit assignment overrides citation classification.
+func TestConvertCategorization(t *testing.T) {
+	res := convertOrSkip(t, nil)
+	byExt := map[string]importer.CanonQuestion{}
+	for _, q := range res.Dataset.Questions {
+		byExt[q.ExtID] = q
+	}
+
+	// id 4's real ru comment cites "Пункта 105 главы 16 ПДД" -> chapter 16 ->
+	// priority_intersections.
+	q4 := byExt["avtoimtihon-4"]
+	if q4.Category != "priority_intersections" {
+		t.Errorf("q4 category = %q, want priority_intersections", q4.Category)
+	}
+
+	// id 9's real ru comment has no chapter/appendix citation -> provisional
+	// umumiy fallback, and must be reported in res.Unresolved.
+	q9 := byExt["avtoimtihon-9"]
+	if q9.Category != "umumiy" {
+		t.Errorf("q9 category = %q, want umumiy (no citation)", q9.Category)
+	}
+	foundUnresolved := false
+	for _, u := range res.Unresolved {
+		if u.ExtID == "avtoimtihon-9" {
+			foundUnresolved = true
+		}
+		// none of the resolved questions above should appear here
+		if u.ExtID == "avtoimtihon-1" || u.ExtID == "avtoimtihon-4" {
+			t.Errorf("resolved question %s unexpectedly in Unresolved", u.ExtID)
+		}
+	}
+	if !foundUnresolved {
+		t.Errorf("avtoimtihon-9 (citation-free) not found in res.Unresolved")
+	}
+
+	// Explicit assignment wins over citation classification (or lack thereof).
+	override := convertOrSkip(t, map[string]string{"avtoimtihon-9": "stopping_parking"})
+	byExtOverride := map[string]importer.CanonQuestion{}
+	for _, q := range override.Dataset.Questions {
+		byExtOverride[q.ExtID] = q
+	}
+	if got := byExtOverride["avtoimtihon-9"].Category; got != "stopping_parking" {
+		t.Errorf("assignment override: avtoimtihon-9 category = %q, want stopping_parking", got)
+	}
+	for _, u := range override.Unresolved {
+		if u.ExtID == "avtoimtihon-9" {
+			t.Errorf("avtoimtihon-9 should not be unresolved once explicitly assigned")
+		}
 	}
 }
 

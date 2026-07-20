@@ -28,10 +28,29 @@ import (
 func main() {
 	src := flag.String("src", "/home/sher/Рабочий стол/aaa", "source dataset root (contains src/data + public/quiz-images)")
 	out := flag.String("out", "seed/avtoimtihon", "output dataset directory (data.json + images/)")
+	assignmentsPath := flag.String("assignments", "", "optional JSON file mapping ext_id -> category code (wins over citation classification)")
+	unresolvedPath := flag.String("unresolved", "", "optional path to write the unresolved-questions JSON report")
+	strict := flag.Bool("strict", false, "fail (exit 1) if any question remains uncategorized")
 	flag.Parse()
 
-	res, err := Convert(*src)
+	assignments := map[string]string{}
+	if *assignmentsPath != "" {
+		raw, err := os.ReadFile(*assignmentsPath)
+		fatal(err)
+		fatal(json.Unmarshal(raw, &assignments))
+	}
+
+	res, err := Convert(*src, assignments)
 	fatal(err)
+
+	if *unresolvedPath != "" {
+		u, err := json.MarshalIndent(res.Unresolved, "", "  ")
+		fatal(err)
+		fatal(os.WriteFile(*unresolvedPath, u, 0o644))
+	}
+	if *strict && len(res.Unresolved) > 0 {
+		fatal(fmt.Errorf("strict: %d questions uncategorized (run with -unresolved to list them)", len(res.Unresolved)))
+	}
 
 	// Write data.json.
 	if err := os.MkdirAll(*out, 0o755); err != nil {
@@ -74,6 +93,12 @@ func main() {
 	for _, f := range res.AnswerFixups {
 		fmt.Printf("    - %s\n", f)
 	}
+	fmt.Printf("  uncategorized (fallback umumiy): %d\n", len(res.Unresolved))
+	catCounts := map[string]int{}
+	for _, q := range res.Dataset.Questions {
+		catCounts[q.Category]++
+	}
+	fmt.Printf("  category distribution: %v\n", catCounts)
 
 	// Issue breakdown by code.
 	byCode := map[string]int{}

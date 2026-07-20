@@ -23,7 +23,6 @@ var sourceFile = map[string]string{
 
 const (
 	extIDPrefix     = "avtoimtihon-"
-	categoryCode    = "umumiy"
 	sourceLabel     = "avtoimtihon"
 	imageExt        = ".webp"
 	imageDestPrefix = "images/"
@@ -46,25 +45,50 @@ type imageCopy struct {
 	Rel    string // relative dest inside dataset dir, e.g. "images/i1_1.webp"
 }
 
+// UnresolvedQuestion is a question no deterministic rule could categorize —
+// input for the LLM classification pass (assignments.json).
+type UnresolvedQuestion struct {
+	ExtID         string   `json:"ext_id"`
+	TextUzLatn    string   `json:"text_uz_latn"`
+	TextRu        string   `json:"text_ru"`
+	AnswersUzLatn []string `json:"answers_uz_latn"`
+	CommentRu     string   `json:"comment_ru"`
+}
+
 // Result bundles the converted dataset with the side data main() needs.
 type Result struct {
 	Dataset      importer.Dataset
 	ImageCopies  []imageCopy
-	MissingImg   []string // image refs with no file on disk (question ext_ids affected reported separately)
-	MissingImgQ  []string // ext_ids that lost their image because the file was missing
-	LeftoverExtI []string // ext_ids not assigned to any variant
-	NoComment    []string // ext_ids with no comment in any locale (no explanation emitted)
-	PartialComnt []string // ext_ids with a comment in some-but-not-all locales
-	AnswerFixups []string // human-readable notes about per-question answer reconciliation
-	Warnings     []string // prominent warnings for the operator
+	MissingImg   []string             // image refs with no file on disk (question ext_ids affected reported separately)
+	MissingImgQ  []string             // ext_ids that lost their image because the file was missing
+	LeftoverExtI []string             // ext_ids not assigned to any variant
+	NoComment    []string             // ext_ids with no comment in any locale (no explanation emitted)
+	PartialComnt []string             // ext_ids with a comment in some-but-not-all locales
+	AnswerFixups []string             // human-readable notes about per-question answer reconciliation
+	Warnings     []string             // prominent warnings for the operator
+	Unresolved   []UnresolvedQuestion // questions with no explicit assignment and no citation match
 }
 
 // Convert reads the three source locale files under <srcDir>/src/data and the
 // image directory under <srcDir>/public/quiz-images, and builds the canonical
 // dataset. It cross-validates the three files and fails loudly on any structural
 // inconsistency it cannot deterministically and safely reconcile.
-func Convert(srcDir string) (Result, error) {
+//
+// assignments maps ext_id -> category code and wins over citation
+// classification; every code in it must be a known category code.
+func Convert(srcDir string, assignments map[string]string) (Result, error) {
 	var res Result
+
+	// 0. Validate assignments up front against the known category codes.
+	knownCodes := map[string]bool{}
+	for _, d := range categoryDefs {
+		knownCodes[d.code] = true
+	}
+	for extID, code := range assignments {
+		if !knownCodes[code] {
+			return res, fmt.Errorf("assignments: unknown category code %q for %s", code, extID)
+		}
+	}
 
 	// 1. Read + parse all three locale files.
 	byLocale := map[string][]srcQuestion{}
@@ -177,9 +201,30 @@ func Convert(srcDir string) (Result, error) {
 			})
 		}
 
+		ruComment := byLocale["ru"][i].Comment
+		category := ""
+		if code, ok := assignments[extID]; ok {
+			category = code // explicit assignment wins over citation
+		} else if code, ok := classifyByCitation(ruComment); ok {
+			category = code
+		} else {
+			category = "umumiy" // provisional fallback; recorded below
+			ansUz := make([]string, 0, count)
+			for p := 0; p < count; p++ {
+				ansUz = append(ansUz, byLocale["uz-Latn"][i].Answers[p])
+			}
+			res.Unresolved = append(res.Unresolved, UnresolvedQuestion{
+				ExtID:         extID,
+				TextUzLatn:    texts["uz-Latn"],
+				TextRu:        texts["ru"],
+				AnswersUzLatn: ansUz,
+				CommentRu:     ruComment,
+			})
+		}
+
 		q := importer.CanonQuestion{
 			ExtID:    extID,
-			Category: categoryCode,
+			Category: category,
 			Texts:    texts,
 			Answers:  answers,
 			Source:   sourceLabel,
@@ -285,16 +330,9 @@ func Convert(srcDir string) (Result, error) {
 		}
 	}
 
-	// 6. Single fallback category.
-	res.Dataset.Categories = []importer.CanonCategory{{
-		Code: categoryCode,
-		Sort: 0,
-		Names: map[string]string{
-			"uz-Latn": "Umumiy savollar",
-			"uz-Cyrl": "Умумий саволлар",
-			"ru":      "Общие вопросы",
-		},
-	}}
+	// 6. Category catalog: 13 approved categories; keep the umumiy fallback
+	// only while unresolved questions still reference it.
+	res.Dataset.Categories = categoriesForDataset(len(res.Unresolved) > 0)
 	// 7. No sign groups / signs.
 
 	return res, nil
