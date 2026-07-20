@@ -6,6 +6,7 @@ import '../../../app/l10n/app_localizations.dart';
 import '../../../app/locale/locale_provider.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/result.dart';
+import '../../../shared/widgets/app_card.dart';
 import '../../content/data/content_api.dart';
 import '../../content/domain/category.dart';
 import '../../content/domain/sign.dart';
@@ -19,17 +20,17 @@ enum _PracticeTarget { category, sign }
 /// one-shot [FutureProvider] (not a dedicated controller — this task's file
 /// list only calls for `practice_setup_screen.dart`, no separate practice
 /// controller) since it's a read-only list, refetched only if invalidated.
-final _practiceCategoriesProvider = FutureProvider.autoDispose<List<Category>>(
-  (ref) async {
-    final api = ref.read(contentApiProvider);
-    final locale = localeToBackendCode(ref.read(localeProvider));
-    final result = await api.categories(locale: locale);
-    return switch (result) {
-      Ok(:final data) => data,
-      Err(:final failure) => throw Exception(failure.message),
-    };
-  },
-);
+final _practiceCategoriesProvider = FutureProvider.autoDispose<List<Category>>((
+  ref,
+) async {
+  final api = ref.read(contentApiProvider);
+  final locale = localeToBackendCode(ref.read(localeProvider));
+  final result = await api.categories(locale: locale);
+  return switch (result) {
+    Ok(:final data) => data,
+    Err(:final failure) => throw Exception(failure.message),
+  };
+});
 
 /// Signs to pick from for the "by sign" practice target.
 final _practiceSignsProvider = FutureProvider.autoDispose<List<Sign>>((
@@ -110,15 +111,28 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
     });
   }
 
+  /// Nudges the count field by [delta], clamped to a sane `1..999` range.
+  /// A pure convenience ADDITION alongside the existing `TextField` — it
+  /// writes through the same [_countController] the field already owns, so
+  /// the field's `Key`/behavior (including `onChanged`'s `setState`-driven
+  /// `_canStart` recompute) is untouched.
+  void _adjustCount(int delta) {
+    final next = ((_count ?? 0) + delta).clamp(1, 999);
+    setState(() {
+      _countController.text = '$next';
+      _countController.selection = TextSelection.collapsed(
+        offset: _countController.text.length,
+      );
+    });
+  }
+
   void _start(BuildContext context) {
     if (!_canStart) return;
     context.push(
       '/session',
       extra: SessionStartRequest(
         mode: 'practice',
-        categoryId: _target == _PracticeTarget.category
-            ? _categoryCode
-            : null,
+        categoryId: _target == _PracticeTarget.category ? _categoryCode : null,
         signId: _target == _PracticeTarget.sign ? _signCode : null,
         count: _count,
       ),
@@ -134,6 +148,7 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final categoriesAsync = ref.watch(_practiceCategoriesProvider);
     final signsAsync = ref.watch(_practiceSignsProvider);
 
@@ -143,7 +158,7 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
         actions: [
           IconButton(
             key: const Key('open-signs-catalog'),
-            icon: const Icon(Icons.info_outline),
+            icon: const Icon(Icons.info_outline_rounded),
             tooltip: l10n.signsScreenTitle,
             onPressed: () => context.push('/signs'),
           ),
@@ -153,78 +168,150 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            Text(l10n.practiceSetupDescription),
-            const SizedBox(height: AppSpacing.md),
-            SegmentedButton<_PracticeTarget>(
-              key: const Key('practice-target-selector'),
-              segments: [
-                ButtonSegment(
-                  value: _PracticeTarget.category,
-                  label: Text(l10n.practiceTargetCategory),
-                ),
-                ButtonSegment(
-                  value: _PracticeTarget.sign,
-                  label: Text(l10n.practiceTargetSign),
-                ),
-              ],
-              selected: _target == null ? const {} : {_target!},
-              emptySelectionAllowed: true,
-              onSelectionChanged: _setTarget,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            if (_target == _PracticeTarget.category)
-              categoriesAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (error, stackTrace) =>
-                    Text(l10n.practiceLoadCategoriesError),
-                data: (categories) => DropdownButton<String>(
-                  key: const Key('practice-category-dropdown'),
-                  isExpanded: true,
-                  hint: Text(l10n.practiceSelectCategory),
-                  value: _categoryCode,
-                  items: [
-                    for (final category in categories)
-                      DropdownMenuItem(
-                        value: category.code,
-                        child: Text(category.name),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _categoryCode = value),
-                ),
-              ),
-            if (_target == _PracticeTarget.sign)
-              signsAsync.when(
-                loading: () => const LinearProgressIndicator(),
-                error: (error, stackTrace) =>
-                    Text(l10n.practiceLoadSignsError),
-                data: (signs) => DropdownButton<String>(
-                  key: const Key('practice-sign-dropdown'),
-                  isExpanded: true,
-                  hint: Text(l10n.practiceSelectSign),
-                  value: _signCode,
-                  items: [
-                    for (final sign in signs)
-                      DropdownMenuItem(
-                        value: sign.code,
-                        child: Text(sign.name),
-                      ),
-                  ],
-                  onChanged: (value) => setState(() => _signCode = value),
-                ),
-              ),
-            const SizedBox(height: AppSpacing.lg),
-            TextField(
-              key: const Key('practice-count-field'),
-              controller: _countController,
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(labelText: l10n.questionCountLabel),
-              onChanged: (_) => setState(() {}),
+            Text(
+              l10n.practiceSetupDescription,
+              style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: AppSpacing.lg),
-            FilledButton(
-              key: const Key('practice-start-button'),
-              onPressed: _canStart ? () => _start(context) : null,
-              child: Text(l10n.startButton),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SegmentedButton<_PracticeTarget>(
+                    key: const Key('practice-target-selector'),
+                    segments: [
+                      ButtonSegment(
+                        value: _PracticeTarget.category,
+                        icon: const Icon(Icons.category_rounded, size: 18),
+                        label: Text(l10n.practiceTargetCategory),
+                      ),
+                      ButtonSegment(
+                        value: _PracticeTarget.sign,
+                        icon: const Icon(Icons.warning_amber_rounded, size: 18),
+                        label: Text(l10n.practiceTargetSign),
+                      ),
+                    ],
+                    selected: _target == null ? const {} : {_target!},
+                    emptySelectionAllowed: true,
+                    onSelectionChanged: _setTarget,
+                  ),
+                  if (_target != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    if (_target == _PracticeTarget.category)
+                      categoriesAsync.when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: LinearProgressIndicator(),
+                        ),
+                        error: (error, stackTrace) => Text(
+                          l10n.practiceLoadCategoriesError,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        data: (categories) => DropdownButtonFormField<String>(
+                          key: const Key('practice-category-dropdown'),
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: l10n.practiceSelectCategory,
+                            prefixIcon: const Icon(Icons.category_rounded),
+                          ),
+                          initialValue: _categoryCode,
+                          items: [
+                            for (final category in categories)
+                              DropdownMenuItem(
+                                value: category.code,
+                                child: Text(category.name),
+                              ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _categoryCode = value),
+                        ),
+                      ),
+                    if (_target == _PracticeTarget.sign)
+                      signsAsync.when(
+                        loading: () => const Padding(
+                          padding: EdgeInsets.symmetric(
+                            vertical: AppSpacing.sm,
+                          ),
+                          child: LinearProgressIndicator(),
+                        ),
+                        error: (error, stackTrace) => Text(
+                          l10n.practiceLoadSignsError,
+                          style: TextStyle(color: theme.colorScheme.error),
+                        ),
+                        data: (signs) => DropdownButtonFormField<String>(
+                          key: const Key('practice-sign-dropdown'),
+                          isExpanded: true,
+                          decoration: InputDecoration(
+                            labelText: l10n.practiceSelectSign,
+                            prefixIcon: const Icon(Icons.warning_amber_rounded),
+                          ),
+                          initialValue: _signCode,
+                          items: [
+                            for (final sign in signs)
+                              DropdownMenuItem(
+                                value: sign.code,
+                                child: Text(sign.name),
+                              ),
+                          ],
+                          onChanged: (value) =>
+                              setState(() => _signCode = value),
+                        ),
+                      ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l10n.questionCountLabel,
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => _adjustCount(-1),
+                        icon: const Icon(Icons.remove_rounded),
+                        tooltip: '-1',
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: TextField(
+                          key: const Key('practice-count-field'),
+                          controller: _countController,
+                          keyboardType: TextInputType.number,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.titleLarge,
+                          decoration: const InputDecoration(isDense: true),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      IconButton(
+                        onPressed: () => _adjustCount(1),
+                        icon: const Icon(Icons.add_rounded),
+                        tooltip: '+1',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                key: const Key('practice-start-button'),
+                onPressed: _canStart ? () => _start(context) : null,
+                icon: const Icon(Icons.play_arrow_rounded),
+                label: Text(l10n.startButton),
+              ),
             ),
           ],
         ),
