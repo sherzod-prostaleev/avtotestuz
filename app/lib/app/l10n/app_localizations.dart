@@ -423,6 +423,30 @@ abstract class AppLocalizations {
   /// **'Bugungi bepul limitga yetdingiz. Ertaga yana davom etishingiz mumkin.'**
   String get sessionDailyLimitError;
 
+  /// No description provided for @vipRequiredTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Premium bo\'lim'**
+  String get vipRequiredTitle;
+
+  /// No description provided for @vipRequiredHeadline.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bu bo\'lim faqat obunachilar uchun'**
+  String get vipRequiredHeadline;
+
+  /// No description provided for @vipRequiredBody.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bu bo\'limdan foydalanish uchun faol obuna (Premium) kerak. Bepul rejada birinchi bilet va ba\'zi bo\'limlar ochiq.'**
+  String get vipRequiredBody;
+
+  /// No description provided for @vipRequiredPurchaseUnavailable.
+  ///
+  /// In uz, this message translates to:
+  /// **'Obunani xarid qilish hozircha bu versiyada mavjud emas — to\'lov tizimi keyingi bosqichda qo\'shiladi.'**
+  String get vipRequiredPurchaseUnavailable;
+
   /// No description provided for @homeButton.
   ///
   /// In uz, this message translates to:

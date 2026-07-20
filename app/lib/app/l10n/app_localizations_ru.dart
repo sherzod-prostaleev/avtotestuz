@@ -183,6 +183,20 @@ class AppLocalizationsRu extends AppLocalizations {
       'Вы достигли сегодняшнего бесплатного лимита. Продолжить можно завтра.';
 
   @override
+  String get vipRequiredTitle => 'Премиум-раздел';
+
+  @override
+  String get vipRequiredHeadline => 'Этот раздел доступен только по подписке';
+
+  @override
+  String get vipRequiredBody =>
+      'Для доступа к этому разделу нужна активная подписка (Premium). В бесплатном режиме открыты первый билет и некоторые разделы.';
+
+  @override
+  String get vipRequiredPurchaseUnavailable =>
+      'Покупка подписки пока недоступна в этой версии — оплата появится на следующем этапе.';
+
+  @override
   String get homeButton => 'Главная';
 
   @override

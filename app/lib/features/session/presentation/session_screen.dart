@@ -9,6 +9,7 @@ import '../../../shared/widgets/answer_option.dart';
 import '../../../shared/widgets/countdown_timer.dart';
 import '../../../shared/widgets/question_card.dart';
 import '../../../shared/widgets/question_navigator.dart';
+import '../../billing/presentation/vip_required_screen.dart';
 import '../../content/domain/question.dart';
 import '../../saved/presentation/saved_toggle_button.dart';
 import '../domain/session_models.dart';
@@ -76,6 +77,16 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     ) {
       if (next is SessionFinished) {
         context.go(sessionResultRoute, extra: next.result);
+      } else if (next is SessionError &&
+          next.failure.code == 'vip_required') {
+        // `vip_required` (402) is a KIND of block, not a transient error: it
+        // gets a dedicated paywall-style screen (per the plan's Global
+        // Constraints) rather than inline error copy. Navigate to the shared
+        // [VipRequiredScreen] so every gated entry path (bilet #2+, exam,
+        // mistakes) lands on one consistent upsell surface. `daily_limit_reached`
+        // stays inline (see the build switch below) — that one is just a
+        // message, a different kind of thing.
+        context.go(vipRequiredRoute);
       }
     });
 
@@ -90,11 +101,23 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
           child: CircularProgressIndicator(),
         ),
       ),
-      SessionError(:final failure) => _scaffold(
-        _request.mode,
-        remaining: null,
-        body: _ErrorView(failure: failure),
-      ),
+      // `vip_required` navigates away to [VipRequiredScreen] (handled in the
+      // `ref.listen` above) — render a spinner for the single frame before
+      // that navigation lands, never the inline error copy, so the gate is a
+      // dedicated screen and not a flash of inline text. Every other failure
+      // (including `daily_limit_reached`, which stays a message) renders the
+      // inline [_ErrorView].
+      SessionError(:final failure) => failure.code == 'vip_required'
+          ? _scaffold(
+              _request.mode,
+              remaining: null,
+              body: const Center(child: CircularProgressIndicator()),
+            )
+          : _scaffold(
+              _request.mode,
+              remaining: null,
+              body: _ErrorView(failure: failure),
+            ),
       // The stopped state is transient here (the controller collapses it
       // straight into finish()); show a spinner while that resolves.
       SessionStopped() || SessionFinished() => _scaffold(
@@ -363,10 +386,12 @@ class _ErrorView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
-    // Distinct, non-alarming copy for the two "this is expected, not a crash"
-    // codes; the raw server message otherwise.
+    // `vip_required` never reaches here — it navigates to [VipRequiredScreen]
+    // (a dedicated paywall-style screen) from the build switch above. This
+    // view handles the "expected, stay-on-screen message" codes: a
+    // non-alarming line for `daily_limit_reached`, the raw server message
+    // otherwise.
     final message = switch (failure.code) {
-      'vip_required' => l10n.sessionVipRequiredError,
       'daily_limit_reached' => l10n.sessionDailyLimitError,
       _ => failure.message,
     };

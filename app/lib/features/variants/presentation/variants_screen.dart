@@ -26,10 +26,10 @@ import 'variants_controller.dart';
 /// back `vip_required` (e.g. a stale list, or bilet #2+ business rules the
 /// server enforces regardless of what this list said) — and because we
 /// route through the real `SessionScreen`/`SessionController` rather than
-/// re-implementing our own start-call/error-handling here, that distinct
-/// `vip_required` copy (Task 4's `_ErrorView`, already reviewed clean) is
-/// what actually renders, not a generic error banner reinvented at this
-/// layer.
+/// re-implementing our own start-call/error-handling here, that 402 lands on
+/// the shared paywall-style `VipRequiredScreen` (Task 9) via
+/// `SessionScreen`'s error handling, not a generic error banner reinvented
+/// at this layer.
 ///
 /// Known contract gap (not fixed here, flagged for whoever owns the backend
 /// contract next): [VariantStatus] only carries a bilet `number`, never a

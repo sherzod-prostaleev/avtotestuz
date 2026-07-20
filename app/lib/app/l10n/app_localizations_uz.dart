@@ -183,6 +183,20 @@ class AppLocalizationsUz extends AppLocalizations {
       'Bugungi bepul limitga yetdingiz. Ertaga yana davom etishingiz mumkin.';
 
   @override
+  String get vipRequiredTitle => 'Premium bo\'lim';
+
+  @override
+  String get vipRequiredHeadline => 'Bu bo\'lim faqat obunachilar uchun';
+
+  @override
+  String get vipRequiredBody =>
+      'Bu bo\'limdan foydalanish uchun faol obuna (Premium) kerak. Bepul rejada birinchi bilet va ba\'zi bo\'limlar ochiq.';
+
+  @override
+  String get vipRequiredPurchaseUnavailable =>
+      'Obunani xarid qilish hozircha bu versiyada mavjud emas — to\'lov tizimi keyingi bosqichda qo\'shiladi.';
+
+  @override
   String get homeButton => 'Bosh sahifa';
 
   @override
@@ -391,6 +405,20 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
   @override
   String get sessionDailyLimitError =>
       'Бугунги бепул лимитга етдингиз. Эртага яна давом этишингиз мумкин.';
+
+  @override
+  String get vipRequiredTitle => 'Премиум бўлим';
+
+  @override
+  String get vipRequiredHeadline => 'Бу бўлим фақат обуначилар учун';
+
+  @override
+  String get vipRequiredBody =>
+      'Бу бўлимдан фойдаланиш учун фаол обуна (Premium) керак. Бепул режада биринчи билет ва баъзи бўлимлар очиқ.';
+
+  @override
+  String get vipRequiredPurchaseUnavailable =>
+      'Обунани харид қилиш ҳозирча бу версияда мавжуд эмас — тўлов тизими кейинги босқичда қўшилади.';
 
   @override
   String get homeButton => 'Бош саҳифа';

@@ -1,5 +1,6 @@
 import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
+import 'package:avtotest_app/features/billing/presentation/vip_required_screen.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/session/data/session_api.dart';
 import 'package:avtotest_app/features/session/domain/session_models.dart';
@@ -41,6 +42,10 @@ Widget _wrap({
         path: sessionResultRoute,
         builder: (context, state) =>
             SessionResultView(result: state.extra! as SessionResult),
+      ),
+      GoRoute(
+        path: vipRequiredRoute,
+        builder: (context, state) => const VipRequiredScreen(),
       ),
     ],
   );
@@ -316,24 +321,58 @@ void main() {
     },
   );
 
-  testWidgets('a vip_required start error renders the distinct upsell copy', (
-    tester,
-  ) async {
-    final api = FakeSessionApi(
-      startFailure: const Failure(code: 'vip_required', message: 'raw'),
-    );
-    await tester.pumpWidget(
-      _wrap(
-        sessionApi: api,
-        contentApi: FakeContentApi(),
-        request: const SessionStartRequest(mode: 'variant', variantId: 'v2'),
-      ),
-    );
-    await tester.pumpAndSettle();
+  testWidgets(
+    'a vip_required start error navigates to the dedicated VipRequiredScreen '
+    '(a paywall-style screen), NOT an inline session error view',
+    (tester) async {
+      final api = FakeSessionApi(
+        startFailure: const Failure(code: 'vip_required', message: 'raw'),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          sessionApi: api,
+          contentApi: FakeContentApi(),
+          request: const SessionStartRequest(mode: 'variant', variantId: 'v2'),
+        ),
+      );
+      await tester.pumpAndSettle();
 
-    expect(find.byKey(const Key('session-error-view')), findsOneWidget);
-    expect(find.textContaining('obuna kerak'), findsOneWidget);
-  });
+      // Landed on the real VIP screen — a distinct route, not inline copy on
+      // the session screen.
+      expect(find.byKey(const Key('vip-required-screen')), findsOneWidget);
+      expect(find.byKey(const Key('session-error-view')), findsNothing);
+      expect(
+        find.text('Bu bo\'lim faqat obunachilar uchun'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'a daily_limit_reached start error stays an inline message on the session '
+    'screen (a different KIND of block than vip_required)',
+    (tester) async {
+      final api = FakeSessionApi(
+        startFailure: const Failure(
+          code: 'daily_limit_reached',
+          message: 'raw',
+        ),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          sessionApi: api,
+          contentApi: FakeContentApi(),
+          request: const SessionStartRequest(mode: 'practice'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Inline — NOT the VIP screen.
+      expect(find.byKey(const Key('session-error-view')), findsOneWidget);
+      expect(find.byKey(const Key('vip-required-screen')), findsNothing);
+      expect(find.textContaining('bepul limitga'), findsOneWidget);
+    },
+  );
 
   testWidgets('the Next button is disabled until the question is answered', (
     tester,
