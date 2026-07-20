@@ -51,14 +51,19 @@ class AnswerOption extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final appColors = context.appColors;
 
     final Color background;
     final Color foreground;
     final IconData? trailingIcon;
     switch (feedback) {
       case AnswerFeedback.correct:
-        background = colorScheme.primaryContainer;
-        foreground = colorScheme.onPrimaryContainer;
+        // A genuine semantic green, distinct from the brand accent
+        // (`colorScheme.primary`) — "this answer is correct" must never
+        // read as "this is brand-colored", same convention quiz/learning
+        // apps (Duolingo included) use green specifically for correctness.
+        background = appColors.successContainer;
+        foreground = appColors.onSuccessContainer;
         trailingIcon = Icons.check_circle;
       case AnswerFeedback.incorrect:
         background = colorScheme.errorContainer;
