@@ -124,23 +124,105 @@ class _VariantCell extends StatelessWidget {
       key: ValueKey('variant-cell-${variant.number}'),
       enabled: !locked,
       onTap: locked ? null : () => _onTap(context),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (locked)
-            const Icon(Icons.lock_outline, size: 20)
-          else
-            Text(
-              '${variant.number}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            locked ? l10n.lockedLabel : '${variant.bestCorrect}/${variant.questionCount}',
-            style: Theme.of(context).textTheme.bodySmall,
+      child: locked
+          ? _LockedCellBody(l10n: l10n)
+          : _UnlockedCellBody(variant: variant),
+    );
+  }
+}
+
+/// A locked bilet: a muted circular badge around the lock glyph (not just
+/// dimmed text) plus the "Yopiq" label — reads as a distinct locked *state*,
+/// not a disabled/broken cell. [AppCard]'s own `enabled: false` opacity dip
+/// still applies on top of this from the parent.
+class _LockedCellBody extends StatelessWidget {
+  const _LockedCellBody({required this.l10n});
+
+  final AppLocalizations l10n;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colorScheme.surfaceContainerHighest,
           ),
-        ],
-      ),
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.lock_outline,
+            size: 18,
+            color: colorScheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: AppSpacing.xs),
+        Text(
+          l10n.lockedLabel,
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall,
+        ),
+      ],
+    );
+  }
+}
+
+/// An unlocked bilet: the bilet number plus a small score chip. The chip is
+/// neutral for never-attempted bilets (nothing to show off yet), a
+/// success-tinted chip for an attempted bilet's best score, and a
+/// [AppColorsX.appColors]`.gold` chip once that best score is a near-perfect
+/// run — gold is reserved app-wide for rank/best-score highlights, so it
+/// signals "this one you've basically nailed" rather than just "attempted".
+class _UnlockedCellBody extends StatelessWidget {
+  const _UnlockedCellBody({required this.variant});
+
+  final VariantStatus variant;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final attempted = variant.attempts > 0;
+    final ratio = variant.questionCount > 0
+        ? variant.bestCorrect / variant.questionCount
+        : 0.0;
+
+    final Color chipBackground;
+    final Color chipForeground;
+    if (!attempted) {
+      chipBackground = theme.colorScheme.surfaceContainerHighest;
+      chipForeground = theme.colorScheme.onSurfaceVariant;
+    } else if (ratio >= 0.9) {
+      chipBackground = context.appColors.gold.withValues(alpha: 0.18);
+      chipForeground = context.appColors.gold;
+    } else {
+      chipBackground = context.appColors.successContainer;
+      chipForeground = context.appColors.onSuccessContainer;
+    }
+
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text('${variant.number}', style: theme.textTheme.titleLarge),
+        const SizedBox(height: AppSpacing.xs),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.sm,
+            vertical: 2,
+          ),
+          decoration: BoxDecoration(
+            color: chipBackground,
+            borderRadius: BorderRadius.circular(AppRadius.chip),
+          ),
+          child: Text(
+            '${variant.bestCorrect}/${variant.questionCount}',
+            style: theme.textTheme.labelSmall?.copyWith(color: chipForeground),
+          ),
+        ),
+      ],
     );
   }
 }

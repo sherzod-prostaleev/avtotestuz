@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
+import '../../../shared/widgets/primary_button.dart';
 
 /// The route [VipRequiredScreen] is mounted at. Shared as a const so the
 /// screen, the router and their tests all agree on the destination — the
@@ -44,10 +45,21 @@ class VipRequiredScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(
-                  Icons.workspace_premium_outlined,
-                  size: 64,
-                  color: theme.colorScheme.primary,
+                Center(
+                  child: Container(
+                    width: 112,
+                    height: 112,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: theme.colorScheme.primaryContainer,
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.workspace_premium_rounded,
+                      size: 60,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
                 Text(
@@ -70,10 +82,10 @@ class VipRequiredScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: AppSpacing.lg),
-                FilledButton(
+                PrimaryButton(
                   key: const Key('vip-required-home-button'),
+                  label: l10n.homeButton,
                   onPressed: () => context.go('/'),
-                  child: Text(l10n.homeButton),
                 ),
               ],
             ),
