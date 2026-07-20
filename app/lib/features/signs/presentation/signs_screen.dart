@@ -34,7 +34,7 @@ class SignsScreen extends ConsumerWidget {
                 key: const Key('signs-query-field'),
                 decoration: InputDecoration(
                   labelText: l10n.searchLabel,
-                  prefixIcon: const Icon(Icons.search),
+                  prefixIcon: const Icon(Icons.search_rounded),
                 ),
                 onChanged: notifier.setQuery,
               ),
@@ -43,6 +43,7 @@ class SignsScreen extends ConsumerWidget {
                 key: const Key('signs-group-field'),
                 decoration: InputDecoration(
                   labelText: l10n.groupCodeLabel,
+                  prefixIcon: const Icon(Icons.filter_alt_outlined),
                 ),
                 onChanged: notifier.setGroup,
               ),
@@ -86,22 +87,23 @@ class _SignsList extends StatelessWidget {
         message: l10n.signsEmptyState,
       );
     }
-    return ListView.separated(
+    // A wrapping catalog grid (rather than one sign per row) reads like a
+    // real browsable catalog and lets short/long sign names size themselves
+    // naturally instead of every cell being forced to one uniform width.
+    return SingleChildScrollView(
       key: const Key('signs-list'),
-      itemCount: signs.length,
-      separatorBuilder: (context, index) =>
-          const SizedBox(height: AppSpacing.sm),
-      itemBuilder: (context, index) {
-        final sign = signs[index];
-        return Align(
-          alignment: Alignment.centerLeft,
-          child: SignChip(
-            key: ValueKey('sign-chip-${sign.code}'),
-            name: sign.name,
-            imageUrl: sign.imageUrl,
-          ),
-        );
-      },
+      child: Wrap(
+        spacing: AppSpacing.sm,
+        runSpacing: AppSpacing.sm,
+        children: [
+          for (final sign in signs)
+            SignChip(
+              key: ValueKey('sign-chip-${sign.code}'),
+              name: sign.name,
+              imageUrl: sign.imageUrl,
+            ),
+        ],
+      ),
     );
   }
 }
