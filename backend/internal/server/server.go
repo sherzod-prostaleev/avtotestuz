@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/demo"
 	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/httpx"
@@ -68,6 +69,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 					sender, []byte(cfg.JWTSecret), cfg.Env)
 				ah := &auth.Handler{Svc: svc}
 				ah.Routes(api)
+
+				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}
+				dh.Routes(api)
 
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))

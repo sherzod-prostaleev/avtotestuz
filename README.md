@@ -99,6 +99,36 @@ buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 Javob konverti: `{"data":..., "meta":{...}}` yoki `{"error":{"code","message"}}`.
 Kontent javoblarida to'g'ri javob maydonlari hech qachon qaytmaydi (anti-cheat).
 
+## Demo (public, auth talab qilinmaydi)
+
+Landing sahifa uchun ro'yxatdan o'tmasdan javob berish mumkin bo'lgan
+YAGONA haqiqiy savol yuzasi (rejalashtirilgan yagona qo'shimcha backend
+yuzasi — boshqa hech narsa public/grading emas). To'liq stateless — hech
+qanday user/learning jadvaliga (sessiya, FSRS, streak, events) yozuv
+qilinmaydi, Redis rate-limit hisoblagichidan tashqari.
+
+- `GET /api/v1/demo/question?locale=` → `GET /questions/{id}` bilan AYNAN
+  bir xil DTO shakli (`content` paketining rendering yo'lidan qayta
+  foydalaniladi — yangi shakl yo'q, to'g'ri javob maydonlari yo'q).
+  Whitelist — 1-bilet (bepul bilet)ning **birinchi 2 ta savoli** (pozitsiya
+  bo'yicha, kod konstantasi `demoQuestionCount = 2`, konfiguratsiya jadvali
+  yo'q). Har so'rovda whitelist'dan tasodifiy bittasi qaytadi. 1-bilet
+  mavjud bo'lmasa yoki savolsiz bo'lsa (bo'sh DB) — `not_found` (404),
+  hech narsa o'ylab topilmaydi.
+- `POST /api/v1/demo/answer {question_id, answer_id}` → `{correct,
+  correct_answer_id}`. `question_id` whitelist'dan tashqarida bo'lsa —
+  `not_found` (404, bu endpoint hech qachon butun savol banki uchun
+  "to'g'ri javob oracle"iga aylanmaydi). `answer_id` `question_id`ga
+  tegishli bo'lmasa — `invalid_answer` (400, sessiya paketidagi xuddi shu
+  qoida/kod). IP bo'yicha rate limit — **60 so'rov/soat/IP** (auth/OTP
+  paketidagi Redis pattern'i bilan bir xil); oshsa — `rate_limited` (429).
+
+Xato kodlari: `not_found`, `invalid_answer`, `rate_limited` (429),
+`invalid_request` (400, `question_id`/`answer_id` UUID emas). Shuningdek
+content/session paketlaridagi umumiy kodlar ham qaytishi mumkin:
+`invalid_locale` (400, GET'da), `invalid_body` (400, POST'da JSON buzilgan
+bo'lsa).
+
 ## Auth (M1 Plan 02 holati)
 
 Login telefon raqami + OTP kod orqali (Telegram Gateway; dev/sandboxda kod

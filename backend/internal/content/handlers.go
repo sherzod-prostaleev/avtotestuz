@@ -3,6 +3,7 @@
 package content
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strconv"
@@ -205,7 +206,7 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_id", "question id must be a UUID")
 		return
 	}
-	q, err := h.Q.GetQuestion(r.Context(), sqlc.GetQuestionParams{ID: id, Locale: loc})
+	detail, fallback, err := h.LoadQuestionDetail(r.Context(), id, loc)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
 		return
@@ -213,11 +214,28 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
 		return
 	}
-	ans, err := h.Q.ListAnswersByQuestionIDs(r.Context(),
+	cacheable(w)
+	httpx.DataMeta(w, http.StatusOK, detail, LocaleMeta{Locale: loc, Fallback: fallback})
+}
+
+// LoadQuestionDetail loads a single question's full public detail (answers,
+// linked signs, verified explanation) in the given locale, applying the same
+// locale-fallback rule as every other content query (exact-locale row wins,
+// otherwise uz-Latn). It never returns correctness fields — the anti-cheat
+// rule for this whole package. This is GetQuestion's (GET /questions/{id})
+// sole rendering path, extracted so the public demo endpoints
+// (internal/demo) can reuse the exact same shape rather than inventing a
+// second one. A missing/invalid question surfaces as pgx.ErrNoRows, exactly
+// as h.Q.GetQuestion itself would.
+func (h *Handler) LoadQuestionDetail(ctx context.Context, id uuid.UUID, loc string) (QuestionDetailDTO, bool, error) {
+	q, err := h.Q.GetQuestion(ctx, sqlc.GetQuestionParams{ID: id, Locale: loc})
+	if err != nil {
+		return QuestionDetailDTO{}, false, err
+	}
+	ans, err := h.Q.ListAnswersByQuestionIDs(ctx,
 		sqlc.ListAnswersByQuestionIDsParams{QuestionIds: []uuid.UUID{id}, Locale: loc})
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "answers query failed")
-		return
+		return QuestionDetailDTO{}, false, err
 	}
 	answers := make([]AnswerDTO, 0, len(ans))
 	for _, a := range ans {
@@ -225,11 +243,10 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 			ID: a.ID.String(), Position: a.Position, Text: a.Text, ImageURL: h.media(a.ImageKey),
 		})
 	}
-	signs, err := h.Q.ListQuestionSigns(r.Context(),
+	signs, err := h.Q.ListQuestionSigns(ctx,
 		sqlc.ListQuestionSignsParams{QuestionID: id, Locale: loc})
 	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "question signs query failed")
-		return
+		return QuestionDetailDTO{}, false, err
 	}
 	chips := make([]SignChipDTO, 0, len(signs))
 	for _, s := range signs {
@@ -242,14 +259,12 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		},
 		Signs: chips,
 	}
-	expl, err := h.Q.GetVerifiedExplanation(r.Context(),
+	expl, err := h.Q.GetVerifiedExplanation(ctx,
 		sqlc.GetVerifiedExplanationParams{QuestionID: id, Locale: loc})
 	if err == nil {
 		detail.Explanation = &ExplanationDTO{LegalRefs: expl.LegalRefs, Blocks: expl.Blocks}
 	} else if !errors.Is(err, pgx.ErrNoRows) {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "explanation query failed")
-		return
+		return QuestionDetailDTO{}, false, err
 	}
-	cacheable(w)
-	httpx.DataMeta(w, http.StatusOK, detail, LocaleMeta{Locale: loc, Fallback: q.FallbackUsed})
+	return detail, q.FallbackUsed, nil
 }
