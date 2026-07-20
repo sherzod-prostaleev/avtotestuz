@@ -1,5 +1,6 @@
 import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
+import 'package:avtotest_app/features/billing/presentation/vip_required_screen.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart'
     show contentApiProvider;
 import 'package:avtotest_app/features/session/data/session_api.dart';
@@ -36,6 +37,10 @@ Widget _wrap({required FakeSessionApi sessionApi, FakeContentApi? contentApi}) {
         path: sessionResultRoute,
         builder: (context, state) =>
             SessionResultView(result: state.extra! as SessionResult),
+      ),
+      GoRoute(
+        path: vipRequiredRoute,
+        builder: (context, state) => const VipRequiredScreen(),
       ),
     ],
   );
@@ -145,8 +150,8 @@ void main() {
 
   testWidgets(
     'SEAM TEST: a bilet that looks unlocked but whose start() call comes '
-    'back vip_required surfaces the distinct upsell copy, not a generic '
-    'error banner',
+    'back vip_required lands on the dedicated VipRequiredScreen end-to-end, '
+    'not an inline error banner',
     (tester) async {
       final api = FakeSessionApi(
         variantsResult: const [
@@ -165,11 +170,17 @@ void main() {
       await tester.pumpWidget(_wrap(sessionApi: api));
       await tester.pumpAndSettle();
 
+      // Real tap → real VariantsController → real SessionController.start()
+      // returns vip_required → real SessionScreen routes to the VIP screen.
       await tester.tap(find.byKey(const ValueKey('variant-cell-2')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('session-error-view')), findsOneWidget);
-      expect(find.textContaining('obuna kerak'), findsOneWidget);
+      expect(find.byKey(const Key('vip-required-screen')), findsOneWidget);
+      expect(find.byKey(const Key('session-error-view')), findsNothing);
+      expect(
+        find.text('Bu bo\'lim faqat obunachilar uchun'),
+        findsOneWidget,
+      );
     },
   );
 

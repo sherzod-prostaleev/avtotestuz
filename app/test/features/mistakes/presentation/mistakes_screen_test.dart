@@ -1,5 +1,6 @@
 import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
+import 'package:avtotest_app/features/billing/presentation/vip_required_screen.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/content/domain/category.dart';
 import 'package:avtotest_app/features/content/domain/question.dart';
@@ -115,6 +116,10 @@ Widget _wrap({required _FakeSessionApi sessionApi, ContentApi? contentApi}) {
         builder: (context, state) =>
             SessionResultView(result: state.extra! as SessionResult),
       ),
+      GoRoute(
+        path: vipRequiredRoute,
+        builder: (context, state) => const VipRequiredScreen(),
+      ),
     ],
   );
   return ProviderScope(
@@ -192,8 +197,9 @@ void main() {
   );
 
   testWidgets(
-    'SEAM TEST: a vip_required start() failure surfaces the distinct upsell '
-    'copy via the real session screen, not a generic error banner',
+    'SEAM TEST: a vip_required start() failure lands on the dedicated '
+    'VipRequiredScreen end-to-end (real screen + real controller), not an '
+    'inline error banner',
     (tester) async {
       final api = _FakeSessionApi(
         startFailure: const Failure(code: 'vip_required', message: 'raw'),
@@ -204,8 +210,15 @@ void main() {
       await tester.tap(find.byKey(const Key('mistakes-start-button')));
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const Key('session-error-view')), findsOneWidget);
-      expect(find.textContaining('obuna kerak'), findsOneWidget);
+      // start(mode: mistakes) came back vip_required → real SessionScreen
+      // routed to the VIP screen.
+      expect(api.startCalls.single.mode, 'mistakes');
+      expect(find.byKey(const Key('vip-required-screen')), findsOneWidget);
+      expect(find.byKey(const Key('session-error-view')), findsNothing);
+      expect(
+        find.text('Bu bo\'lim faqat obunachilar uchun'),
+        findsOneWidget,
+      );
     },
   );
 }

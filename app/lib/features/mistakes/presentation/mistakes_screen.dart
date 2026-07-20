@@ -18,12 +18,12 @@ import '../../session/presentation/session_controller.dart';
 /// Non-VIP gating: `mistakes` is one of the three modes `POST /sessions` can
 /// reject with `vip_required` (402) (README: bilet #2+, `exam`, `mistakes`).
 /// This screen deliberately does NOT special-case that error itself — the
-/// real `SessionScreen`/`SessionController` reached at `/session` already
-/// renders the distinct upsell copy for `vip_required`
-/// (`session_screen.dart`'s `_ErrorView`, reviewed clean in Task 4), so
-/// routing through the real screen rather than re-implementing error
-/// handling here means the same seam Task 5's `VariantsScreen` relies on for
-/// bilet #2+ "just works" here too.
+/// real `SessionScreen`/`SessionController` reached at `/session` routes a
+/// `vip_required` start to the shared paywall-style `VipRequiredScreen`
+/// (Task 9, via `session_screen.dart`'s error handling), so routing through
+/// the real screen rather than re-implementing error handling here means the
+/// same seam Task 5's `VariantsScreen` relies on for bilet #2+ "just works"
+/// here too.
 class MistakesScreen extends StatefulWidget {
   const MistakesScreen({super.key});
 

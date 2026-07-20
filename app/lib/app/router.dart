@@ -6,6 +6,7 @@ import '../features/auth/domain/auth_state.dart';
 import '../features/auth/presentation/auth_controller.dart';
 import '../features/auth/presentation/otp_verify_screen.dart';
 import '../features/auth/presentation/phone_entry_screen.dart';
+import '../features/billing/presentation/vip_required_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/mistakes/presentation/mistakes_screen.dart';
 import '../features/practice/presentation/practice_setup_screen.dart';
@@ -74,6 +75,15 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/stats',
         builder: (context, state) => const StatsScreen(),
+      ),
+      // The upsell/paywall-style screen reached when a session start is
+      // rejected with `vip_required` (402). `SessionScreen` navigates here
+      // from its error state (see `session_screen.dart`), so every gated
+      // entry path (bilet #2+, exam, mistakes) lands on one consistent
+      // surface rather than each screen reinventing its own gate.
+      GoRoute(
+        path: vipRequiredRoute,
+        builder: (context, state) => const VipRequiredScreen(),
       ),
       GoRoute(
         path: '/login',
