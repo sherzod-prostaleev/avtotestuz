@@ -4,6 +4,19 @@
 **Miqyos:** Butun platforma (startap) + M1 batafsil
 **Status:** Ko'rib chiqilmoqda (foydalanuvchi tasdig'i kutilmoqda)
 
+> **⚠️ STACK-PIVOT (2026-07-21, foydalanuvchi qat'iy qarori):** Flutter frontend
+> **bekor qilindi** va repodan o'chirildi (commit `c938664`). Yangi frontend:
+> **Next.js + TypeScript + Tailwind CSS + shadcn/ui** — ilova ham, ommaviy
+> SEO-sahifalar ham bitta Next.js loyihasida (alohida Astro SSG sayt endi kerak
+> emas). Shunga ko'ra bu hujjatning quyidagi qismlari **eskirgan**: D1 (Flutter),
+> D17 (Astro), §6 diagrammadagi Flutter/Astro qatlamlari, §15 (Flutter
+> arxitekturasi), §17 (Astro sayt), §22'dagi Flutter/Astro build-qadamlar, M6
+> ta'rifi (endi: PWA yoki React Native). Backend (Go/PostgreSQL/Redis/MinIO),
+> domain-model, API, o'quv-mexanika, biznes-qarorlar — **o'z kuchida**. Frontend
+> uchun amaldagi manba-hujjat: repo ildizidagi **`AVTOTEST-MASTER-PROMPT.txt`**.
+> Kelajakda bu spec'ni tahrirlaydigan har qanday agent shu pivot'dan xabardor
+> qilinishi shart (Flutter'ga oid qaror qaytarilmasin).
+
 ---
 
 ## 1. Vizyon

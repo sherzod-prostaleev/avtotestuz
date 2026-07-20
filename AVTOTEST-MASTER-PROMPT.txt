@@ -89,8 +89,14 @@ b) IMTIHON SIMULYATSIYASI: 20 tasodifiy savol, 25 daqiqa taymer, feedback
    FAQAT OXIRIDA, 3-xatoda avtomatik to'xtaydi, vaqt tugasa avto-yakun.
 c) MASHQ: kategoriya YOKI belgi bo'yicha (aynan bittasi), darhol feedback,
    bepul foydalanuvchiga kunlik limit (sozlanadigan).
-d) XATOLAR BANKI: avval xato qilingan savollar, Leitner tizimi (ketma-ket
-   to'g'ri javob berilsa bankdan chiqadi). VIP funksiya.
+d) XATOLAR BANKI: avval xato qilingan savollar. VIP funksiya.
+   MUHIM (backend haqiqati): bank Leitner EMAS, FSRS-jadvalga asoslangan —
+   bank = "lapses > 0 VA due_at <= hozir" bo'lgan savollar; savol keyingi
+   muvaffaqiyatli takrordan so'ng due_at kelajakka siljiganda bankdan
+   chiqadi. FSRS har doim due_at'ni kamida 1 kun keyinga qo'yadi, shuning
+   uchun HOZIRGINA xato qilingan savollar bankda DARHOL KO'RINMAYDI
+   (ertaga chiqadi) — bu bug emas, UI buni tushuntirishi SHART
+   (6.9-bo'limga qarang).
 + M2'da: GRAND MOCK (o'rtacha o'zlashtirish 85%+ bo'lganda ochiladi).
 
 4.3. IMTIHON UI (real imtihonga paritet):
@@ -196,6 +202,13 @@ photo_*.jpg), onless.uz, Duolingo.
   ("Bepul boshlash"), yonida "star-badge" ("Ro'yxatsiz sinab ko'ring")
 - JONLI DEMO-SAVOL bloki: sahifaning o'zida ro'yxatsiz yechib ko'riladigan
   bitta haqiqiy savol (avto-test.uz taktikasi — konversiyaning kaliti!)
+  DIQQAT — BACKEND CHEKLOVI: hozirgi API'da buni baholab BO'LMAYDI —
+  content-endpointlar to'g'ri javobni hech qachon qaytarmaydi (anti-cheat),
+  baholash faqat sessiyada, sessiya esa auth talab qiladi. Yechim: kichik
+  yangi PUBLIC endpoint (masalan, rate-limit'li POST /demo/answer, faqat
+  whitelist'dagi 1-2 savol uchun) — backend'ga qo'shilishi kerak bo'lgan
+  YAGONA yangi ish (10-bo'limga qarang). To'g'ri javobni klientga qo'yish
+  TAQIQLANADI (anti-cheat buziladi).
 - Proof-stats qatori: "1235 savol · 61 bilet · 3 til · FSRS aqlli takror"
   (onless'dagi kabi katta raqamlar bilan)
 - "Nega biz?" bo'limi: 4-6 feature-karta ikonkalar bilan (FSRS dvigatel,
@@ -277,8 +290,16 @@ photo_*.jpg), onless.uz, Duolingo.
 - BEPUL bo'lim — VIP talab qilinmaydi
 
 6.9. XATOLAR BANKI SAHIFASI:
-- Hero: nechta savol bankda, oxirgi mashq sanasi
-- "Mashqni boshlash" (soni tanlanadi), Leitner tushuntirish-satri
+- Hero: IKKI raqam alohida — "hozir takrorlash kerak" (due) va "jami
+  bankda" (barcha lapses>0 savollar). Faqat bitta raqam ko'rsatilsa,
+  foydalanuvchi "hozirgina 5 ta xato qildim, banki bo'sh?!" deb
+  adashadi (FSRS due_at >= 1 kun — 4.2d'ga qarang)
+- Bo'sh-due holati ALOHIDA DIZAYN QILINSIN: "Ajoyib — hozircha
+  takrorlash shart emas! Xato savollaringiz ertaga qaytadi" ohangida
+  xotirjam xabar + keyingi due sanasi
+- "Mashqni boshlash" (soni tanlanadi), FSRS tushuntirish-satri
+  ("xatolaringiz aqlli intervalda qaytariladi" uslubida, Leitner so'zi
+  ishlatilmasin)
 - VIP bo'lmasa: premium-taklif sahifasiga
 
 6.10. STATISTIKA SAHIFASI:
@@ -381,6 +402,8 @@ Go backend TO'LIQ ISHLAYDI va testlangan (16 paket, barcha testlar yashil):
   715 rasm bilan sinovdan o'tgan)
 - CLI: VIP berish (grantvip), kontent seed (make seed / make seed-real)
 YANGI FRONTEND SHU BACKEND'GA ULANadi — backend qayta yozilmaydi.
+(Bitta rejalashtirilgan istisno: landing'dagi ro'yxatsiz demo-savol uchun
+kichik public demo-endpoint qo'shiladi — 6.1-bo'limdagi izohga qarang.)
 (Agar boshqa AI backend'ni ham qayta quradigan bo'lsa: 7-bo'limdagi API
 kontrakt + yuqoridagi funksiyalar ro'yxati to'liq chizma bo'lib xizmat
 qiladi.)
