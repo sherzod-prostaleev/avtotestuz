@@ -1,3 +1,4 @@
+import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/content/domain/category.dart';
@@ -131,7 +132,12 @@ Widget _wrap({required _FakeSessionApi sessionApi, required _FakeContentApi cont
       sessionApiProvider.overrideWithValue(sessionApi),
       contentApiProvider.overrideWithValue(contentApi),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(
+      routerConfig: router,
+      locale: const Locale('uz'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+    ),
   );
 }
 

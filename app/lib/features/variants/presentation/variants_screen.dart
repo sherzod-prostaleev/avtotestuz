@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/empty_state.dart';
@@ -45,10 +46,11 @@ class VariantsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context)!;
     final state = ref.watch(variantsControllerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Biletlar')),
+      appBar: AppBar(title: Text(l10n.variantsScreenTitle)),
       body: SafeArea(
         child: state.when(
           loading: () => const Center(
@@ -59,11 +61,11 @@ class VariantsScreen extends ConsumerWidget {
             key: const Key('variants-error-state'),
             message: error is VariantsFetchFailure
                 ? error.failure.message
-                : 'Biletlar ro\'yxatini yuklab bo\'lmadi.',
+                : l10n.variantsLoadError,
             onRetry: () => ref.invalidate(variantsControllerProvider),
-            retryLabel: 'Qayta urinish',
+            retryLabel: l10n.retryButton,
           ),
-          data: (variants) => _VariantsGrid(variants: variants),
+          data: (variants) => _VariantsGrid(variants: variants, l10n: l10n),
         ),
       ),
     );
@@ -71,16 +73,17 @@ class VariantsScreen extends ConsumerWidget {
 }
 
 class _VariantsGrid extends StatelessWidget {
-  const _VariantsGrid({required this.variants});
+  const _VariantsGrid({required this.variants, required this.l10n});
 
   final List<VariantStatus> variants;
+  final AppLocalizations l10n;
 
   @override
   Widget build(BuildContext context) {
     if (variants.isEmpty) {
-      return const EmptyState(
-        key: Key('variants-empty-state'),
-        message: 'Hozircha biletlar mavjud emas.',
+      return EmptyState(
+        key: const Key('variants-empty-state'),
+        message: l10n.variantsEmptyState,
       );
     }
     return GridView.builder(
@@ -93,15 +96,16 @@ class _VariantsGrid extends StatelessWidget {
         childAspectRatio: 0.85,
       ),
       itemCount: variants.length,
-      itemBuilder: (context, index) => _VariantCell(variant: variants[index]),
+      itemBuilder: (context, index) => _VariantCell(variant: variants[index], l10n: l10n),
     );
   }
 }
 
 class _VariantCell extends StatelessWidget {
-  const _VariantCell({required this.variant});
+  const _VariantCell({required this.variant, required this.l10n});
 
   final VariantStatus variant;
+  final AppLocalizations l10n;
 
   void _onTap(BuildContext context) {
     context.push(
@@ -132,7 +136,7 @@ class _VariantCell extends StatelessWidget {
             ),
           const SizedBox(height: AppSpacing.sm),
           Text(
-            locked ? 'Yopiq' : '${variant.bestCorrect}/${variant.questionCount}',
+            locked ? l10n.lockedLabel : '${variant.bestCorrect}/${variant.questionCount}',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],

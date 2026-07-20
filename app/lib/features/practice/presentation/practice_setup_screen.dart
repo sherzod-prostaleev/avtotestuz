@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/locale/locale_provider.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/result.dart';
@@ -132,30 +133,28 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final categoriesAsync = ref.watch(_practiceCategoriesProvider);
     final signsAsync = ref.watch(_practiceSignsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mashq sozlamalari')),
+      appBar: AppBar(title: Text(l10n.practiceSetupTitle)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),
           children: [
-            const Text(
-              'Mashq qilish uchun kategoriya YOKI belgini tanlang '
-              '(ikkalasi emas, faqat bittasi).',
-            ),
+            Text(l10n.practiceSetupDescription),
             const SizedBox(height: AppSpacing.md),
             SegmentedButton<_PracticeTarget>(
               key: const Key('practice-target-selector'),
-              segments: const [
+              segments: [
                 ButtonSegment(
                   value: _PracticeTarget.category,
-                  label: Text('Kategoriya'),
+                  label: Text(l10n.practiceTargetCategory),
                 ),
                 ButtonSegment(
                   value: _PracticeTarget.sign,
-                  label: Text('Belgi'),
+                  label: Text(l10n.practiceTargetSign),
                 ),
               ],
               selected: _target == null ? const {} : {_target!},
@@ -167,11 +166,11 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
               categoriesAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (error, stackTrace) =>
-                    const Text('Kategoriyalarni yuklab bo\'lmadi.'),
+                    Text(l10n.practiceLoadCategoriesError),
                 data: (categories) => DropdownButton<String>(
                   key: const Key('practice-category-dropdown'),
                   isExpanded: true,
-                  hint: const Text('Kategoriyani tanlang'),
+                  hint: Text(l10n.practiceSelectCategory),
                   value: _categoryCode,
                   items: [
                     for (final category in categories)
@@ -187,11 +186,11 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
               signsAsync.when(
                 loading: () => const LinearProgressIndicator(),
                 error: (error, stackTrace) =>
-                    const Text('Belgilarni yuklab bo\'lmadi.'),
+                    Text(l10n.practiceLoadSignsError),
                 data: (signs) => DropdownButton<String>(
                   key: const Key('practice-sign-dropdown'),
                   isExpanded: true,
-                  hint: const Text('Belgini tanlang'),
+                  hint: Text(l10n.practiceSelectSign),
                   value: _signCode,
                   items: [
                     for (final sign in signs)
@@ -208,14 +207,14 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
               key: const Key('practice-count-field'),
               controller: _countController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Savollar soni'),
+              decoration: InputDecoration(labelText: l10n.questionCountLabel),
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: AppSpacing.lg),
             FilledButton(
               key: const Key('practice-start-button'),
               onPressed: _canStart ? () => _start(context) : null,
-              child: const Text('Boshlash'),
+              child: Text(l10n.startButton),
             ),
           ],
         ),

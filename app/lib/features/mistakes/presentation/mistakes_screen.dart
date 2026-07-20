@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../session/presentation/session_controller.dart';
 
@@ -58,8 +59,9 @@ class _MistakesScreenState extends State<MistakesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
-      appBar: AppBar(title: const Text('Xatolar ustida ishlash')),
+      appBar: AppBar(title: Text(l10n.mistakesScreenTitle)),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(AppSpacing.lg),
@@ -67,23 +69,20 @@ class _MistakesScreenState extends State<MistakesScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text(
-                'Avval noto\'g\'ri javob bergan savollaringiz ustida qayta '
-                'ishlang — savollar tizim tomonidan avtomatik tanlanadi.',
-              ),
+              Text(l10n.mistakesScreenDescription),
               const SizedBox(height: AppSpacing.lg),
               TextField(
                 key: const Key('mistakes-count-field'),
                 controller: _countController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Savollar soni'),
+                decoration: InputDecoration(labelText: l10n.questionCountLabel),
                 onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: AppSpacing.lg),
               FilledButton(
                 key: const Key('mistakes-start-button'),
                 onPressed: _canStart ? () => _start(context) : null,
-                child: const Text('Boshlash'),
+                child: Text(l10n.startButton),
               ),
             ],
           ),
