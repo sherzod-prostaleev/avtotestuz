@@ -125,6 +125,46 @@ func TestFullVariantSessionOverHTTP(t *testing.T) {
 	}
 }
 
+// TestVariantSessionByNumberOverHTTP proves the same content-contract gap
+// TestPracticeSessionByCategoryCodeOverHTTP fixes for category_id/sign_id,
+// but for variant_id: GET /variants (content.VariantListItemDTO) never
+// exposes a bilet's UUID, only its `number` — matching what
+// variants_screen.dart actually sends (`variant.number.toString()`) — so a
+// real client can only send `variant_id: "1"`, not a UUID it doesn't have.
+func TestVariantSessionByNumberOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "1", "locale": "uz-Latn"})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create session by variant number status=%d body=%s err=%+v", status, env.Data, env.Error)
+	}
+	var created struct {
+		QuestionIDs []string `json:"question_ids"`
+		Total       int      `json:"total"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Total != 20 || len(created.QuestionIDs) != 20 {
+		t.Fatalf("expected 20 questions: %+v", created)
+	}
+}
+
+// TestVariantSessionByBogusNumberOverHTTP confirms an unrecognized bilet
+// number is reported as not_found — same 404 convention as
+// TestPracticeSessionByBogusCategoryCodeOverHTTP — rather than a
+// UUID-parse-shaped invalid_body/invalid_request.
+func TestVariantSessionByBogusNumberOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "999999", "locale": "uz-Latn"})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusNotFound || env.Error == nil || env.Error.Code != "not_found" {
+		t.Fatalf("expected 404 not_found for a bogus variant number, got status=%d env=%+v", status, env)
+	}
+}
+
 // TestPracticeSessionByCategoryCodeOverHTTP proves the content-contract gap
 // this covers is actually fixed end-to-end: the Flutter Category model
 // (content.CategoryDTO / GET /categories) only ever exposes `code`, never a

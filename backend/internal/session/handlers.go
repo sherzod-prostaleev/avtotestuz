@@ -54,15 +54,17 @@ func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.U
 }
 
 type startSessionBody struct {
-	Mode      string     `json:"mode"`
-	VariantID *uuid.UUID `json:"variant_id"`
-	// CategoryID/SignID accept either a UUID or the human-readable `code`
-	// returned by GET /categories / GET /signs (content.CategoryDTO/SignDTOs
-	// never expose a UUID at all — practice-mode session starts need to
-	// work from just the code the content API gave the client). Plain
-	// strings here, not *uuid.UUID, since a code like "signs" or "3.27"
-	// isn't UUID-shaped and would fail JSON decoding otherwise; resolution
-	// to the underlying UUID happens in Service.Resolve{Category,Sign}ID.
+	Mode string `json:"mode"`
+	// VariantID/CategoryID/SignID accept either a UUID or the human-readable
+	// identifier the content API actually exposes for that resource — GET
+	// /variants never returns a bilet's UUID, only its `number`
+	// (content.VariantListItemDTO), and GET /categories / GET /signs never
+	// return a UUID at all, only `code` (content.CategoryDTO/SignDTOs).
+	// Plain strings here, not *uuid.UUID, since neither a bilet number
+	// ("12") nor a code like "signs"/"3.27" is UUID-shaped and would fail
+	// JSON decoding otherwise; resolution to the underlying UUID happens in
+	// Service.Resolve{Variant,Category,Sign}ID.
+	VariantID  *string `json:"variant_id"`
 	CategoryID *string `json:"category_id"`
 	SignID     *string `json:"sign_id"`
 	Locale     string  `json:"locale"`
@@ -108,7 +110,12 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
 		Count:  body.Count,
 	}
 	if body.VariantID != nil {
-		req.VariantID = *body.VariantID
+		id, err := h.Svc.ResolveVariantID(r.Context(), *body.VariantID)
+		if err != nil {
+			writeSessionError(w, err)
+			return
+		}
+		req.VariantID = id
 	}
 	if body.CategoryID != nil {
 		id, err := h.Svc.ResolveCategoryID(r.Context(), *body.CategoryID)

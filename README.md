@@ -142,6 +142,10 @@ Test yechish 4 rejimda ishlaydi (`POST /api/v1/sessions`ning `mode` maydoni):
 
 - **`variant`** (bilet) — bitta biletning 20 ta savoli, tayinlangan tartibda
   (`variant_id` majburiy). Faqat ochilgan biletlar yechilishi mumkin.
+  `variant_id` — UUID YOKI `GET /variants`ning `number`i (masalan `"1"`)
+  bo'lishi mumkin — content API biletlarga hech qachon UUID qaytarmaydi,
+  faqat `number`; shuning uchun backend server tarafida UUID'ga o'zi
+  rezolyutsiya qiladi (`not_found` — raqam topilmasa).
 - **`exam`** (imtihon) — 20 ta tasodifiy savol, 25 daqiqa vaqt chegarasi
   (`time_limit_sec: 1500`), haqiqiy imtihon qoidasi: 3-xatoda darhol to'xtaydi
   (`≤2 xato` — real YHQ imtihoni kabi). Javob fikr-mulohazasi (`correct`,

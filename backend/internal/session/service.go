@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -76,6 +77,36 @@ func (s *Service) ResolveSignID(ctx context.Context, raw string) (uuid.UUID, err
 		return uuid.UUID{}, err
 	}
 	return id, nil
+}
+
+// ResolveVariantID is ResolveCategoryID/ResolveSignID's counterpart for
+// variant-mode session starts. GET /variants (content.VariantListItemDTO)
+// never exposes a bilet's UUID — only its human-readable `number` — so a
+// real client can only send `variant_id: "12"`, not a UUID it doesn't have.
+// A raw string that already parses as a UUID is trusted as-is (matching the
+// prior behavior of not re-validating a caller-supplied UUID); otherwise it
+// must parse as the variant's integer number, resolved to a UUID via the
+// existing GetVariantByNumber query (already used by ListVariantStatuses,
+// so no new sqlc query is needed here). Anything that is neither a valid
+// UUID nor a valid integer, or a well-formed number with no matching
+// variant, surfaces as ErrNotFound (mirrored to "not_found" by
+// writeSessionError, same as ResolveCategoryID/ResolveSignID).
+func (s *Service) ResolveVariantID(ctx context.Context, raw string) (uuid.UUID, error) {
+	if id, err := uuid.Parse(raw); err == nil {
+		return id, nil
+	}
+	num, err := strconv.Atoi(raw)
+	if err != nil {
+		return uuid.UUID{}, ErrNotFound
+	}
+	v, err := s.Q.GetVariantByNumber(ctx, int32(num))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.UUID{}, ErrNotFound
+		}
+		return uuid.UUID{}, err
+	}
+	return v.ID, nil
 }
 
 func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req StartRequest) (SessionView, error) {
