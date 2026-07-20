@@ -1,3 +1,4 @@
+import 'package:avtotest_app/app/l10n/app_localizations.dart';
 import 'package:avtotest_app/core/result.dart';
 import 'package:avtotest_app/features/content/data/content_api.dart';
 import 'package:avtotest_app/features/session/data/session_api.dart';
@@ -48,7 +49,16 @@ Widget _wrap({
       sessionApiProvider.overrideWithValue(sessionApi),
       contentApiProvider.overrideWithValue(contentApi),
     ],
-    child: MaterialApp.router(routerConfig: router),
+    child: MaterialApp.router(
+      // Pinned explicitly — without a `locale:`, Flutter's default
+      // locale-resolution fallback picks `ru`, not `uz`, and these assertions
+      // are uz-Latn ARB-string specific (see home_shell_test.dart's same
+      // note).
+      locale: const Locale('uz'),
+      localizationsDelegates: AppLocalizations.localizationsDelegates,
+      supportedLocales: AppLocalizations.supportedLocales,
+      routerConfig: router,
+    ),
   );
 }
 
@@ -345,4 +355,57 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets(
+    'SEAM TEST: a transient answer-submit failure keeps the REAL screen on '
+    'the active session (no full-screen error) and shows a working retry '
+    'banner that resubmits the same answer',
+    (tester) async {
+      final api = FakeSessionApi(
+        startResult: fakeSummary(mode: 'variant', ids: ['q1', 'q2']),
+        answerFailureCount: 1,
+        answerFn: (questionId, answerId) => AnswerResult(
+          recorded: true,
+          correct: true,
+          correctAnswerId: answerId,
+        ),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          sessionApi: api,
+          contentApi: FakeContentApi(),
+          request: const SessionStartRequest(mode: 'variant'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // First tap fails on the network. The screen must stay on the active
+      // question — never the full-screen SessionError view — and show the
+      // retry banner instead.
+      await tester.tap(find.byKey(const ValueKey('answer-option-A')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('session-error-view')), findsNothing);
+      expect(find.text('Savol 1 / 2'), findsOneWidget);
+      expect(find.byKey(const Key('answer-retry-banner')), findsOneWidget);
+      expect(api.answerCalls.length, 1);
+      // Not yet recorded as answered — the Next/Finish button stays disabled.
+      final button = tester.widget<FilledButton>(
+        find.byKey(const Key('session-next-button')),
+      );
+      expect(button.onPressed, isNull);
+
+      // Tapping retry resubmits the exact same questionId/answerId, and this
+      // time the API call succeeds.
+      await tester.tap(find.byKey(const Key('answer-retry-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const Key('answer-retry-banner')), findsNothing);
+      expect(api.answerCalls.length, 2);
+      expect(api.answerCalls.last.questionId, 'q1');
+      expect(api.answerCalls.last.answerId, 'q1-a1');
+      // Feedback now renders — the retried answer was actually recorded.
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    },
+  );
 }

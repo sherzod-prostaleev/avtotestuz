@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../app/l10n/app_localizations.dart';
 import '../../../app/theme/app_theme.dart';
 import '../../../core/result.dart';
 import '../../../shared/widgets/answer_option.dart';
@@ -105,6 +106,7 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
   }
 
   Widget _buildActive(SessionActive active) {
+    final l10n = AppLocalizations.of(context)!;
     final questionId = active.summary.questionIds[active.currentIndex];
     final questionAsync = ref.watch(sessionQuestionProvider(questionId));
 
@@ -112,35 +114,50 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
       active.summary.mode,
       remaining: active.remaining,
       total: Duration(seconds: active.summary.timeLimitSec),
-      body: questionAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Savolni yuklab bo\'lmadi.'),
-              const SizedBox(height: AppSpacing.sm),
-              OutlinedButton(
-                onPressed: () =>
-                    ref.invalidate(sessionQuestionProvider(questionId)),
-                child: const Text('Qayta urinish'),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (active.pendingRetryQuestionId != null)
+            _AnswerRetryBanner(
+              onRetry: () => ref
+                  .read(sessionControllerProvider(_request).notifier)
+                  .retryPendingAnswer(),
+            ),
+          Expanded(
+            child: questionAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(l10n.sessionQuestionLoadError),
+                    const SizedBox(height: AppSpacing.sm),
+                    OutlinedButton(
+                      onPressed: () =>
+                          ref.invalidate(sessionQuestionProvider(questionId)),
+                      child: Text(l10n.retryButton),
+                    ),
+                  ],
+                ),
               ),
-            ],
+              data: (question) => _QuestionBody(
+                active: active,
+                question: question,
+                selectedAnswerId: _selected[questionId],
+                onSelect: (answerId) => _onSelect(questionId, answerId, active),
+                onJump: (index) => ref
+                    .read(sessionControllerProvider(_request).notifier)
+                    .jumpTo(index),
+                onNext: () => ref
+                    .read(sessionControllerProvider(_request).notifier)
+                    .jumpTo(active.currentIndex + 1),
+                onFinish: () => ref
+                    .read(sessionControllerProvider(_request).notifier)
+                    .finish(),
+              ),
+            ),
           ),
-        ),
-        data: (question) => _QuestionBody(
-          active: active,
-          question: question,
-          selectedAnswerId: _selected[questionId],
-          onSelect: (answerId) => _onSelect(questionId, answerId, active),
-          onJump: (index) =>
-              ref.read(sessionControllerProvider(_request).notifier).jumpTo(index),
-          onNext: () => ref
-              .read(sessionControllerProvider(_request).notifier)
-              .jumpTo(active.currentIndex + 1),
-          onFinish: () =>
-              ref.read(sessionControllerProvider(_request).notifier).finish(),
-        ),
+        ],
       ),
     );
   }
@@ -151,9 +168,10 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     Duration? total,
     required Widget body,
   }) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: Text(_modeTitle(mode)),
+        title: Text(_modeTitle(l10n, mode)),
         actions: [
           if (remaining != null && total != null)
             Padding(
@@ -168,13 +186,54 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
-  static String _modeTitle(String mode) => switch (mode) {
-    'exam' => 'Imtihon',
-    'variant' => 'Bilet',
-    'practice' => 'Mashq',
-    'mistakes' => 'Xatolar ustida ishlash',
-    _ => 'Test',
+  static String _modeTitle(AppLocalizations l10n, String mode) => switch (mode) {
+    'exam' => l10n.sessionTitleExam,
+    'variant' => l10n.sessionTitleVariant,
+    'practice' => l10n.sessionTitlePractice,
+    'mistakes' => l10n.sessionTitleMistakes,
+    _ => l10n.sessionTitleDefault,
   };
+}
+
+/// Inline banner shown when [SessionActive.pendingRetryQuestionId] is set —
+/// i.e. the most recent answer submission failed on a transient API error.
+/// Keeps the session on-screen (never a full-screen error) and offers a
+/// single tap to resubmit the exact same questionId/answerId pair.
+class _AnswerRetryBanner extends StatelessWidget {
+  const _AnswerRetryBanner({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      key: const Key('answer-retry-banner'),
+      color: scheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                l10n.sessionAnswerRetryMessage,
+                style: TextStyle(color: scheme.onErrorContainer),
+              ),
+            ),
+            TextButton(
+              key: const Key('answer-retry-button'),
+              onPressed: onRetry,
+              child: Text(l10n.retryButton),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 /// The active-question layout: question card, answer options (with F1-F4),
@@ -202,6 +261,7 @@ class _QuestionBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final questionId = question.id;
     final result = active.answered[questionId];
     final isAnswered = result != null;
@@ -230,7 +290,7 @@ class _QuestionBody extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
-            'Savol ${active.currentIndex + 1} / $total',
+            l10n.sessionProgressLabel(active.currentIndex + 1, total),
             key: const Key('session-progress'),
             style: Theme.of(context).textTheme.labelLarge,
           ),
@@ -256,7 +316,7 @@ class _QuestionBody extends StatelessWidget {
             key: const Key('session-next-button'),
             // Must answer the current question before advancing/finishing.
             onPressed: isAnswered ? (isLast ? onFinish : onNext) : null,
-            child: Text(isLast ? 'Yakunlash' : 'Keyingi'),
+            child: Text(isLast ? l10n.sessionFinishButton : l10n.sessionNextButton),
           ),
         ],
       ),
@@ -292,14 +352,12 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     // Distinct, non-alarming copy for the two "this is expected, not a crash"
     // codes; the raw server message otherwise.
     final message = switch (failure.code) {
-      'vip_required' =>
-        'Bu bo\'lim uchun faol obuna kerak. Obuna hozircha bu versiyada '
-            'mavjud emas.',
-      'daily_limit_reached' =>
-        'Bugungi bepul limitga yetdingiz. Ertaga yana davom etishingiz mumkin.',
+      'vip_required' => l10n.sessionVipRequiredError,
+      'daily_limit_reached' => l10n.sessionDailyLimitError,
       _ => failure.message,
     };
 
@@ -314,7 +372,7 @@ class _ErrorView extends StatelessWidget {
             const SizedBox(height: AppSpacing.md),
             FilledButton(
               onPressed: () => context.go('/'),
-              child: const Text('Bosh sahifa'),
+              child: Text(l10n.homeButton),
             ),
           ],
         ),
@@ -333,22 +391,23 @@ class SessionResultView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final statusLabel = switch (result.status) {
-      'passed' => 'O\'tdingiz',
-      'failed' => 'O\'ta olmadingiz',
-      'abandoned' => 'Sessiya to\'xtatildi',
+      'passed' => l10n.sessionStatusPassedLabel,
+      'failed' => l10n.sessionStatusFailedLabel,
+      'abandoned' => l10n.sessionResultViewAbandonedLabel,
       _ => result.status,
     };
     final reasonLabel = switch (result.stoppedReason) {
-      'completed' => 'Barcha savollar yakunlandi',
-      'time_up' => 'Vaqt tugadi',
-      'too_many_errors' => 'Xatolar soni ko\'payib ketdi',
+      'completed' => l10n.sessionReasonCompletedLabel,
+      'time_up' => l10n.sessionReasonTimeUpLabel,
+      'too_many_errors' => l10n.sessionReasonTooManyErrorsLabel,
       _ => result.stoppedReason,
     };
 
     return Scaffold(
       key: const Key('session-result-view'),
-      appBar: AppBar(title: const Text('Natija')),
+      appBar: AppBar(title: Text(l10n.sessionResultTitle)),
       body: SafeArea(
         child: Center(
           child: Padding(
@@ -371,7 +430,7 @@ class SessionResultView extends StatelessWidget {
                 const SizedBox(height: AppSpacing.lg),
                 FilledButton(
                   onPressed: () => context.go('/'),
-                  child: const Text('Bosh sahifa'),
+                  child: Text(l10n.homeButton),
                 ),
               ],
             ),

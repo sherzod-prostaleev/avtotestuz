@@ -46,6 +46,11 @@ class FakeSessionApi implements SessionApi {
     this.startResult,
     this.startFailure,
     this.answerFn,
+    this.answerFailureCount = 0,
+    this.answerFailure = const Failure(
+      code: 'network_error',
+      message: 'A network error occurred.',
+    ),
     this.finishResult = const SessionResult(
       status: 'passed',
       stoppedReason: 'completed',
@@ -62,6 +67,13 @@ class FakeSessionApi implements SessionApi {
   final SessionResult finishResult;
   final List<VariantStatus> variantsResult;
   final Failure? variantsFailure;
+
+  /// How many of the NEXT `answer()` calls should fail with [answerFailure]
+  /// before falling through to [answerFn]/the default success — lets a test
+  /// simulate a transient network blip that then recovers on retry. Each
+  /// failing call decrements this counter.
+  int answerFailureCount;
+  final Failure answerFailure;
 
   final List<({String mode, String? variantId, String locale})> startCalls = [];
   final List<({String questionId, String answerId})> answerCalls = [];
@@ -90,6 +102,10 @@ class FakeSessionApi implements SessionApi {
     required String answerId,
   }) async {
     answerCalls.add((questionId: questionId, answerId: answerId));
+    if (answerFailureCount > 0) {
+      answerFailureCount--;
+      return Result.err(answerFailure);
+    }
     final fn = answerFn;
     final result = fn != null
         ? fn(questionId, answerId)

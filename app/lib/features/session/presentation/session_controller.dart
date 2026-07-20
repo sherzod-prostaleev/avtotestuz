@@ -146,6 +146,15 @@ class SessionController extends Notifier<SessionUiState> {
   /// this question was already answered (so a stray F-key / double-tap after
   /// answering can't re-submit). In exam mode a `stopped: true` response
   /// (e.g. the 3rd wrong answer) triggers an automatic [finish].
+  ///
+  /// On a transient API failure (a network blip, not a "session is gone"
+  /// situation) this does **not** collapse the whole session to
+  /// [SessionUiState.error] — that would strand an in-progress (possibly
+  /// VIP-gated / daily-limited) attempt over a momentary hiccup. Instead the
+  /// session stays [SessionActive] with [SessionActive.pendingRetryQuestionId]
+  /// / [SessionActive.pendingRetryAnswerId] set to this exact
+  /// `questionId`/`answerId` pair, so the screen can show a retry affordance
+  /// that calls [retryPendingAnswer].
   Future<void> submitAnswer(String questionId, String answerId) async {
     final current = state;
     if (current is! SessionActive) return;
@@ -165,6 +174,8 @@ class SessionController extends Notifier<SessionUiState> {
       case Ok(:final data):
         state = afterCall.copyWith(
           answered: {...afterCall.answered, questionId: data},
+          pendingRetryQuestionId: null,
+          pendingRetryAnswerId: null,
         );
         if (data.stopped) {
           // Server stopped the session (too many errors / time). Collapse
@@ -174,9 +185,37 @@ class SessionController extends Notifier<SessionUiState> {
           // state that the screen navigates on.
           await finish();
         }
-      case Err(:final failure):
-        state = SessionUiState.error(failure);
+      case Err():
+        // Transient answer-submit failure: keep the session active and
+        // surface a per-answer retry affordance instead of losing the whole
+        // attempt. The full-session `.error` state is reserved for
+        // genuinely unrecoverable situations (session gone/finished
+        // server-side), not a single failed answer submission.
+        state = afterCall.copyWith(
+          pendingRetryQuestionId: questionId,
+          pendingRetryAnswerId: answerId,
+        );
     }
+  }
+
+  /// Resubmits the answer recorded in [SessionActive.pendingRetryQuestionId]
+  /// / [SessionActive.pendingRetryAnswerId] (the exact pair from the most
+  /// recent failed [submitAnswer] call). No-op if the session isn't active or
+  /// there is nothing pending. Clears the pending-retry fields first so the
+  /// retry itself is a normal [submitAnswer] call — including surfacing a
+  /// fresh pending-retry state if it fails again.
+  Future<void> retryPendingAnswer() async {
+    final current = state;
+    if (current is! SessionActive) return;
+    final questionId = current.pendingRetryQuestionId;
+    final answerId = current.pendingRetryAnswerId;
+    if (questionId == null || answerId == null) return;
+
+    state = current.copyWith(
+      pendingRetryQuestionId: null,
+      pendingRetryAnswerId: null,
+    );
+    await submitAnswer(questionId, answerId);
   }
 
   /// Moves the exam navigator (or any mode's "next"/"previous") to [index].

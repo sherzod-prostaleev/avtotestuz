@@ -128,11 +128,11 @@ return error(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loading,TResult Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining)?  active,TResult Function( SessionSummary summary,  String stopReason)?  stopped,TResult Function( SessionResult result)?  finished,TResult Function( Failure failure)?  error,required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>({TResult Function()?  loading,TResult Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining,  String? pendingRetryQuestionId,  String? pendingRetryAnswerId)?  active,TResult Function( SessionSummary summary,  String stopReason)?  stopped,TResult Function( SessionResult result)?  finished,TResult Function( Failure failure)?  error,required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading();case SessionActive() when active != null:
-return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining);case SessionStopped() when stopped != null:
+return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining,_that.pendingRetryQuestionId,_that.pendingRetryAnswerId);case SessionStopped() when stopped != null:
 return stopped(_that.summary,_that.stopReason);case SessionFinished() when finished != null:
 return finished(_that.result);case SessionError() when error != null:
 return error(_that.failure);case _:
@@ -153,11 +153,11 @@ return error(_that.failure);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loading,required TResult Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining)  active,required TResult Function( SessionSummary summary,  String stopReason)  stopped,required TResult Function( SessionResult result)  finished,required TResult Function( Failure failure)  error,}) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>({required TResult Function()  loading,required TResult Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining,  String? pendingRetryQuestionId,  String? pendingRetryAnswerId)  active,required TResult Function( SessionSummary summary,  String stopReason)  stopped,required TResult Function( SessionResult result)  finished,required TResult Function( Failure failure)  error,}) {final _that = this;
 switch (_that) {
 case SessionLoading():
 return loading();case SessionActive():
-return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining);case SessionStopped():
+return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining,_that.pendingRetryQuestionId,_that.pendingRetryAnswerId);case SessionStopped():
 return stopped(_that.summary,_that.stopReason);case SessionFinished():
 return finished(_that.result);case SessionError():
 return error(_that.failure);}
@@ -174,11 +174,11 @@ return error(_that.failure);}
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loading,TResult? Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining)?  active,TResult? Function( SessionSummary summary,  String stopReason)?  stopped,TResult? Function( SessionResult result)?  finished,TResult? Function( Failure failure)?  error,}) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>({TResult? Function()?  loading,TResult? Function( SessionSummary summary,  int currentIndex,  Map<String, AnswerResult> answered,  Duration? remaining,  String? pendingRetryQuestionId,  String? pendingRetryAnswerId)?  active,TResult? Function( SessionSummary summary,  String stopReason)?  stopped,TResult? Function( SessionResult result)?  finished,TResult? Function( Failure failure)?  error,}) {final _that = this;
 switch (_that) {
 case SessionLoading() when loading != null:
 return loading();case SessionActive() when active != null:
-return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining);case SessionStopped() when stopped != null:
+return active(_that.summary,_that.currentIndex,_that.answered,_that.remaining,_that.pendingRetryQuestionId,_that.pendingRetryAnswerId);case SessionStopped() when stopped != null:
 return stopped(_that.summary,_that.stopReason);case SessionFinished() when finished != null:
 return finished(_that.result);case SessionError() when error != null:
 return error(_that.failure);case _:
@@ -225,7 +225,7 @@ String toString() {
 
 
 class SessionActive implements SessionUiState {
-  const SessionActive({required this.summary, required this.currentIndex, required final  Map<String, AnswerResult> answered, this.remaining}): _answered = answered;
+  const SessionActive({required this.summary, required this.currentIndex, required final  Map<String, AnswerResult> answered, this.remaining, this.pendingRetryQuestionId, this.pendingRetryAnswerId}): _answered = answered;
   
 
  final  SessionSummary summary;
@@ -238,6 +238,8 @@ class SessionActive implements SessionUiState {
 }
 
  final  Duration? remaining;
+ final  String? pendingRetryQuestionId;
+ final  String? pendingRetryAnswerId;
 
 /// Create a copy of SessionUiState
 /// with the given fields replaced by the non-null parameter values.
@@ -249,16 +251,16 @@ $SessionActiveCopyWith<SessionActive> get copyWith => _$SessionActiveCopyWithImp
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionActive&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&const DeepCollectionEquality().equals(other._answered, _answered)&&(identical(other.remaining, remaining) || other.remaining == remaining));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SessionActive&&(identical(other.summary, summary) || other.summary == summary)&&(identical(other.currentIndex, currentIndex) || other.currentIndex == currentIndex)&&const DeepCollectionEquality().equals(other._answered, _answered)&&(identical(other.remaining, remaining) || other.remaining == remaining)&&(identical(other.pendingRetryQuestionId, pendingRetryQuestionId) || other.pendingRetryQuestionId == pendingRetryQuestionId)&&(identical(other.pendingRetryAnswerId, pendingRetryAnswerId) || other.pendingRetryAnswerId == pendingRetryAnswerId));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,summary,currentIndex,const DeepCollectionEquality().hash(_answered),remaining);
+int get hashCode => Object.hash(runtimeType,summary,currentIndex,const DeepCollectionEquality().hash(_answered),remaining,pendingRetryQuestionId,pendingRetryAnswerId);
 
 @override
 String toString() {
-  return 'SessionUiState.active(summary: $summary, currentIndex: $currentIndex, answered: $answered, remaining: $remaining)';
+  return 'SessionUiState.active(summary: $summary, currentIndex: $currentIndex, answered: $answered, remaining: $remaining, pendingRetryQuestionId: $pendingRetryQuestionId, pendingRetryAnswerId: $pendingRetryAnswerId)';
 }
 
 
@@ -269,7 +271,7 @@ abstract mixin class $SessionActiveCopyWith<$Res> implements $SessionUiStateCopy
   factory $SessionActiveCopyWith(SessionActive value, $Res Function(SessionActive) _then) = _$SessionActiveCopyWithImpl;
 @useResult
 $Res call({
- SessionSummary summary, int currentIndex, Map<String, AnswerResult> answered, Duration? remaining
+ SessionSummary summary, int currentIndex, Map<String, AnswerResult> answered, Duration? remaining, String? pendingRetryQuestionId, String? pendingRetryAnswerId
 });
 
 
@@ -286,13 +288,15 @@ class _$SessionActiveCopyWithImpl<$Res>
 
 /// Create a copy of SessionUiState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') $Res call({Object? summary = null,Object? currentIndex = null,Object? answered = null,Object? remaining = freezed,}) {
+@pragma('vm:prefer-inline') $Res call({Object? summary = null,Object? currentIndex = null,Object? answered = null,Object? remaining = freezed,Object? pendingRetryQuestionId = freezed,Object? pendingRetryAnswerId = freezed,}) {
   return _then(SessionActive(
 summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
 as SessionSummary,currentIndex: null == currentIndex ? _self.currentIndex : currentIndex // ignore: cast_nullable_to_non_nullable
 as int,answered: null == answered ? _self._answered : answered // ignore: cast_nullable_to_non_nullable
 as Map<String, AnswerResult>,remaining: freezed == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
-as Duration?,
+as Duration?,pendingRetryQuestionId: freezed == pendingRetryQuestionId ? _self.pendingRetryQuestionId : pendingRetryQuestionId // ignore: cast_nullable_to_non_nullable
+as String?,pendingRetryAnswerId: freezed == pendingRetryAnswerId ? _self.pendingRetryAnswerId : pendingRetryAnswerId // ignore: cast_nullable_to_non_nullable
+as String?,
   ));
 }
 
