@@ -50,17 +50,27 @@ Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
   `avtoimtihon-1221..1235`) — ular baribir yaroqli, mustaqil savol sifatida
   mavjud (mashq / xatolar banki / FSRS ularda ishlaydi), faqat raqamli
   biletga kirmaydi.
-- **Kategoriya**: manbada kategoriya maydoni yo'q, shuning uchun hamma savol
-  bitta fallback kategoriya — `umumiy` ("Umumiy savollar") ostiga tushadi.
-  Halol cheklov: kategoriya darajasidagi FSRS mastery breakdown (`/me/stats`)
-  haqiqiy kategoriyalash qo'shilgunicha bitta bucketda ko'rinadi.
+- **Kategoriya**: manbada kategoriya maydoni yo'q edi, shuning uchun barcha
+  1235 ta savol **13 ta tasdiqlangan kategoriya**ga taqsimlangan (izoh
+  matnidagi PDD bob/ilova iqtiboslariga qarab qoidaga asoslangan klassifikator
+  + iqtibossiz 390 ta savol uchun committed `assignments.json` override —
+  `docs/superpowers/research/2026-07-21-category-taxonomy-proposal.md`):
+  `road_signs_markings` (334), `priority_intersections` (138),
+  `maneuvering_lane_position` (105), `accidents_first_aid_dynamics` (102),
+  `vehicle_equipment_lighting` (94), `stopping_parking` (80),
+  `pedestrians_public_transport` (67), `general_provisions_admin` (65),
+  `overtaking_speed` (62), `traffic_signals_gestures` (56),
+  `special_road_zones` (52), `towing_special_vehicles` (41),
+  `cargo_passenger_carriage` (39). Fallback `umumiy` kategoriyasi endi
+  ishlatilmaydi — regeneratsiya `-strict` bilan ishga tushadi va har bir
+  savolga kategoriya biriktirilmasa muvaffaqiyatsiz tugaydi (nol fallback).
 - **Izohlar**: 1219 ta savolda izoh bor (manba `comment` matnidan). `LegalRefs`
   bo'sh — manba matnida huquqiy iqtiboslar inline proza sifatida yozilgan,
   strukturaviy maydonlarga ajratib olinmagan (halol gap, soxta iqtibos emas).
 - **Signlar katalogi bu importdan KELMAYDI** (manbada yo'l-belgi katalogi
   yo'q, faqat sahna-fotolar). Signlar API'si dev'da bo'sh qaytadi (yoki agar
   `make seed` alohida ishga tushirilgan bo'lsa, [NAMUNA] sign katalogi).
-- Import Report'i: `categories=1 signs=0 images=715 · questions valid=1235
+- Import Report'i: `categories=13 signs=0 images=715 · questions valid=1235
   quarantined=0 · variants stored=61 skipped=0` (`images` 715 — noyob
   fayllar soni; content-hash bo'yicha byte-bir xillari birlashib DB'da 682
   qatorga tushadi). 1 ta manba-rasm (`i120_9`) yo'q, u savol rasmsiz keladi.
@@ -68,7 +78,8 @@ Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
 Regeneratsiya + import (`backend/`dan):
 
 ```bash
-go run ./cmd/convertavtoimtihon -src "/home/sher/Рабочий стол/aaa" -out seed/avtoimtihon
+go run ./cmd/convertavtoimtihon -src "/home/sher/Рабочий стол/aaa" -out seed/avtoimtihon \
+  -assignments seed/avtoimtihon/assignments.json -strict
 go run ./cmd/importer -data seed/avtoimtihon -verified
 # yoki repo ildizidan: make seed-real
 ```

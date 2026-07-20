@@ -26,7 +26,7 @@ seed:
 # the canonical dataset from the source tree, then imports it (upsert; truncate the
 # DB first for a clean real-only dev DB). Both seed/ dirs are gitignored.
 seed-real:
-	cd backend && go run ./cmd/convertavtoimtihon -src "$(AAA_SRC)" -out seed/avtoimtihon && go run ./cmd/importer -data seed/avtoimtihon -verified
+	cd backend && go run ./cmd/convertavtoimtihon -src "$(AAA_SRC)" -out seed/avtoimtihon -assignments seed/avtoimtihon/assignments.json -strict && go run ./cmd/importer -data seed/avtoimtihon -verified
 AAA_SRC ?= /home/sher/Рабочий стол/aaa
 
 run:
