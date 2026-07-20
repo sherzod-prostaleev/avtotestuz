@@ -189,5 +189,9 @@
   "savedEmptyHint": "Yoqtirgan savollaringizni saqlang — ular shu yerda to'planadi.",
   "@savedEmptyHint": {
     "description": "Encouraging subtitle shown under the main message on the saved-questions screen's empty state, when nothing has been bookmarked yet."
-  }
+  },
+  "sessionNavigatorLabel": "Savollar",
+  "sessionResultsPassedMessage": "Tabriklaymiz! Siz imtihondan muvaffaqiyatli o'tdingiz.",
+  "sessionResultsFailedMessage": "Bu safar chiqmadi. Xatolaringiz ustida ishlang va yana urinib ko'ring.",
+  "sessionResultsAbandonedMessage": "Sessiya oxirigacha yakunlanmadi."
 }

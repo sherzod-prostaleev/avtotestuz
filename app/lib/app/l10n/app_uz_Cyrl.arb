@@ -77,5 +77,9 @@
   "sessionReasonTooManyErrorsLabel": "Хатолар сони кўпайиб кетди",
   "sessionResultTitle": "Натижа",
   "sessionAnswerRetryMessage": "Жавобингизни юбориб бўлмади. Қайта уриниб кўринг.",
-  "savedEmptyHint": "Ёқтирган саволларингизни сақланг — улар шу ерда тўпланади."
+  "savedEmptyHint": "Ёқтирган саволларингизни сақланг — улар шу ерда тўпланади.",
+  "sessionNavigatorLabel": "Саволлар",
+  "sessionResultsPassedMessage": "Табриклаймиз! Сиз имтиҳондан муваффақиятли ўтдингиз.",
+  "sessionResultsFailedMessage": "Бу сафар чиқмади. Хатоларингиз устида ишланг ва яна уриниб кўринг.",
+  "sessionResultsAbandonedMessage": "Сессия охиригача якунланмади."
 }

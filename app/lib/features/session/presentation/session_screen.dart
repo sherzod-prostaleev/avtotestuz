@@ -133,11 +133,31 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     final l10n = AppLocalizations.of(context)!;
     final questionId = active.summary.questionIds[active.currentIndex];
     final questionAsync = ref.watch(sessionQuestionProvider(questionId));
+    final total = active.summary.questionIds.length;
+    final isAnswered = active.answered.containsKey(questionId);
+    final isLast = active.currentIndex == total - 1;
 
     return _scaffold(
       active.summary.mode,
       remaining: active.remaining,
       total: Duration(seconds: active.summary.timeLimitSec ?? 0),
+      // Bookmark for the CURRENT question lives up in the header chrome — the
+      // same top-bar slot the reference screenshots put it in — instead of
+      // floating over the question card.
+      headerTrailing: SavedToggleButton(questionId: questionId),
+      // The primary advance/finish control is a persistent bottom action bar
+      // (always in reach, never scrolled past), not a button buried at the end
+      // of the scrolling content.
+      bottomBar: _SessionBottomBar(
+        isAnswered: isAnswered,
+        isLast: isLast,
+        onNext: () => ref
+            .read(sessionControllerProvider(_request).notifier)
+            .jumpTo(active.currentIndex + 1),
+        onFinish: () => ref
+            .read(sessionControllerProvider(_request).notifier)
+            .finish(),
+      ),
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -172,12 +192,6 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
                 onJump: (index) => ref
                     .read(sessionControllerProvider(_request).notifier)
                     .jumpTo(index),
-                onNext: () => ref
-                    .read(sessionControllerProvider(_request).notifier)
-                    .jumpTo(active.currentIndex + 1),
-                onFinish: () => ref
-                    .read(sessionControllerProvider(_request).notifier)
-                    .finish(),
               ),
             ),
           ),
@@ -186,27 +200,38 @@ class _SessionScreenState extends ConsumerState<SessionScreen> {
     );
   }
 
+  /// The screen frame shared by every state (loading / error / active): a
+  /// custom themed header (mode title, an optional current-question bookmark,
+  /// and — exam only — the prominent centered countdown), the state's [body],
+  /// and an optional persistent [bottomBar]. Deliberately a bespoke header
+  /// rather than a plain [AppBar] so the top chrome matches the reference
+  /// screenshots' rounded, chip-led treatment.
   Widget _scaffold(
     String mode, {
     required Duration? remaining,
     Duration? total,
     required Widget body,
+    Widget? headerTrailing,
+    Widget? bottomBar,
   }) {
     final l10n = AppLocalizations.of(context)!;
+    final showTimer = remaining != null && total != null;
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_modeTitle(l10n, mode)),
-        actions: [
-          if (remaining != null && total != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
-              child: Center(
-                child: CountdownTimer(remaining: remaining, total: total),
-              ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _SessionHeader(
+              title: _modeTitle(l10n, mode),
+              trailing: headerTrailing,
+              timer: showTimer
+                  ? CountdownTimer(remaining: remaining, total: total)
+                  : null,
             ),
-        ],
+            Expanded(child: body),
+            ?bottomBar,
+          ],
+        ),
       ),
-      body: SafeArea(child: body),
     );
   }
 
@@ -260,8 +285,112 @@ class _AnswerRetryBanner extends StatelessWidget {
   }
 }
 
-/// The active-question layout: question card, answer options (with F1-F4),
-/// exam-only navigator, and the next/finish control.
+/// The screen's top chrome: the mode title on the left, an optional [trailing]
+/// action (the current-question bookmark) on the right, and — when a [timer] is
+/// supplied (exam mode) — the countdown given its own prominent, centered row
+/// beneath the title. A bespoke header (not an [AppBar]) so it can carry this
+/// two-tier layout and the reference screenshots' rounded chip treatment.
+class _SessionHeader extends StatelessWidget {
+  const _SessionHeader({required this.title, this.trailing, this.timer});
+
+  final String title;
+  final Widget? trailing;
+  final Widget? timer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleLarge,
+                ),
+              ),
+              ?trailing,
+            ],
+          ),
+          if (timer != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            timer!,
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// The persistent bottom action bar: a single full-width advance/finish pill,
+/// pinned below the scrolling question so it's always in reach. Disabled until
+/// the current question is answered (mirrors the exam/variant "answer before
+/// you move on" rule). Shows "finish" copy on the last question, "next"
+/// otherwise.
+class _SessionBottomBar extends StatelessWidget {
+  const _SessionBottomBar({
+    required this.isAnswered,
+    required this.isLast,
+    required this.onNext,
+    required this.onFinish,
+  });
+
+  final bool isAnswered;
+  final bool isLast;
+  final VoidCallback onNext;
+  final VoidCallback onFinish;
+
+  @override
+  Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.sm,
+        AppSpacing.md,
+        AppSpacing.md,
+      ),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        border: Border(
+          top: BorderSide(color: theme.colorScheme.outlineVariant),
+        ),
+      ),
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          key: const Key('session-next-button'),
+          // Must answer the current question before advancing/finishing.
+          onPressed: isAnswered ? (isLast ? onFinish : onNext) : null,
+          child: Text(
+            isLast ? l10n.sessionFinishButton : l10n.sessionNextButton,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The active-question layout: a small progress label, the question card, the
+/// answer options (with F1-F4) and — exam only — the question navigator. The
+/// advance/finish control is NOT here; it lives in the persistent
+/// [_SessionBottomBar] the screen frame keeps pinned below this scroll view.
 class _QuestionBody extends StatelessWidget {
   const _QuestionBody({
     required this.active,
@@ -269,8 +398,6 @@ class _QuestionBody extends StatelessWidget {
     required this.selectedAnswerId,
     required this.onSelect,
     required this.onJump,
-    required this.onNext,
-    required this.onFinish,
   });
 
   final SessionActive active;
@@ -278,19 +405,16 @@ class _QuestionBody extends StatelessWidget {
   final String? selectedAnswerId;
   final ValueChanged<String> onSelect;
   final ValueChanged<int> onJump;
-  final VoidCallback onNext;
-  final VoidCallback onFinish;
 
   bool get _isExam => active.summary.mode == 'exam';
 
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
     final questionId = question.id;
     final result = active.answered[questionId];
-    final isAnswered = result != null;
     final total = active.summary.questionIds.length;
-    final isLast = active.currentIndex == total - 1;
 
     // Answers in A..D order (sorted by their `position`), so the label chip
     // and the F1..F4 shortcut index line up.
@@ -309,30 +433,36 @@ class _QuestionBody extends StatelessWidget {
     ];
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppSpacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.md,
+        AppSpacing.lg,
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Text(
             l10n.sessionProgressLabel(active.currentIndex + 1, total),
             key: const Key('session-progress'),
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          Stack(
-            children: [
-              QuestionCard(question: question.text, imageUrl: question.imageUrl),
-              Positioned(
-                top: 4,
-                right: 4,
-                child: SavedToggleButton(questionId: question.id),
-              ),
-            ],
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 0.5,
+            ),
           ),
           const SizedBox(height: AppSpacing.md),
+          QuestionCard(question: question.text, imageUrl: question.imageUrl),
+          const SizedBox(height: AppSpacing.lg),
           AnswerOptionsGroup(options: options),
           if (_isExam) ...[
-            const SizedBox(height: AppSpacing.md),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              l10n.sessionNavigatorLabel,
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
             QuestionNavigator(
               total: total,
               currentIndex: active.currentIndex,
@@ -344,13 +474,6 @@ class _QuestionBody extends StatelessWidget {
               onJump: onJump,
             ),
           ],
-          const SizedBox(height: AppSpacing.md),
-          FilledButton(
-            key: const Key('session-next-button'),
-            // Must answer the current question before advancing/finishing.
-            onPressed: isAnswered ? (isLast ? onFinish : onNext) : null,
-            child: Text(isLast ? l10n.sessionFinishButton : l10n.sessionNextButton),
-          ),
         ],
       ),
     );

@@ -258,6 +258,21 @@ class AppLocalizationsUz extends AppLocalizations {
   @override
   String get savedEmptyHint =>
       'Yoqtirgan savollaringizni saqlang — ular shu yerda to\'planadi.';
+
+  @override
+  String get sessionNavigatorLabel => 'Savollar';
+
+  @override
+  String get sessionResultsPassedMessage =>
+      'Tabriklaymiz! Siz imtihondan muvaffaqiyatli o\'tdingiz.';
+
+  @override
+  String get sessionResultsFailedMessage =>
+      'Bu safar chiqmadi. Xatolaringiz ustida ishlang va yana urinib ko\'ring.';
+
+  @override
+  String get sessionResultsAbandonedMessage =>
+      'Sessiya oxirigacha yakunlanmadi.';
 }
 
 /// The translations for Uzbek, using the Cyrillic script (`uz_Cyrl`).
@@ -513,4 +528,18 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
   @override
   String get savedEmptyHint =>
       'Ёқтирган саволларингизни сақланг — улар шу ерда тўпланади.';
+
+  @override
+  String get sessionNavigatorLabel => 'Саволлар';
+
+  @override
+  String get sessionResultsPassedMessage =>
+      'Табриклаймиз! Сиз имтиҳондан муваффақиятли ўтдингиз.';
+
+  @override
+  String get sessionResultsFailedMessage =>
+      'Бу сафар чиқмади. Хатоларингиз устида ишланг ва яна уриниб кўринг.';
+
+  @override
+  String get sessionResultsAbandonedMessage => 'Сессия охиригача якунланмади.';
 }

@@ -257,4 +257,19 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get savedEmptyHint =>
       'Сохраняйте понравившиеся вопросы — они появятся здесь.';
+
+  @override
+  String get sessionNavigatorLabel => 'Вопросы';
+
+  @override
+  String get sessionResultsPassedMessage =>
+      'Поздравляем! Вы успешно сдали экзамен.';
+
+  @override
+  String get sessionResultsFailedMessage =>
+      'В этот раз не вышло. Поработайте над ошибками и попробуйте снова.';
+
+  @override
+  String get sessionResultsAbandonedMessage =>
+      'Сессия не была завершена до конца.';
 }
