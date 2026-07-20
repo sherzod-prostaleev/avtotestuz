@@ -35,10 +35,15 @@ String streakRelativeLabel(String? lastActiveDate, {DateTime? now}) {
   return lastActiveDate;
 }
 
-/// Compact, reusable streak display: current streak (with a flame icon), the
-/// best-ever record, today's progress toward the daily goal, and the
+/// Compact, reusable streak display: current streak (with a big flame icon),
+/// the best-ever record, today's progress toward the daily goal, and the
 /// UTC-day-relative last-active label. Rendered on [StatsScreen] and designed
 /// to drop into other surfaces (e.g. a home header) unchanged.
+///
+/// Visual identity is deliberately loud (Duolingo-convention): a flame icon
+/// and the day-count number are always in [AppColors.streak] orange, so the
+/// streak reads as the daily hook it is meant to be. The best-streak record
+/// rides a [AppColors.gold] pill (rank/achievement accent).
 class StreakCard extends StatelessWidget {
   const StreakCard({required this.streak, this.now, super.key});
 
@@ -51,7 +56,15 @@ class StreakCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final appColors = context.appColors;
+    final streakColor = appColors.streak;
     final activeLabel = streakRelativeLabel(streak.lastActiveDate, now: now);
+
+    final goal = streak.dailyGoal;
+    final goalProgress = goal > 0
+        ? (streak.todayDone / goal).clamp(0.0, 1.0)
+        : 0.0;
+    final goalReached = goal > 0 && streak.todayDone >= goal;
 
     return AppCard(
       key: const Key('streakCard'),
@@ -60,32 +73,108 @@ class StreakCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.local_fire_department, color: Colors.deepOrange),
-              const SizedBox(width: AppSpacing.sm),
+              // Flame badge — the streak's visual anchor.
+              Container(
+                width: 60,
+                height: 60,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: streakColor.withValues(alpha: 0.16),
+                  borderRadius: BorderRadius.circular(AppRadius.card),
+                ),
+                child: Icon(
+                  Icons.local_fire_department_rounded,
+                  color: streakColor,
+                  size: 36,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${streak.current} kun',
+                      key: const Key('streakCurrentText'),
+                      style: theme.textTheme.displaySmall?.copyWith(
+                        color: streakColor,
+                        height: 1,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'Oxirgi faollik: $activeLabel',
+                      key: const Key('streakLastActiveText'),
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  ],
+                ),
+              ),
+              // Best-ever record — gold achievement pill.
+              _RecordPill(best: streak.best, color: appColors.gold),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          Row(
+            children: [
               Text(
-                '${streak.current} kun',
-                key: const Key('streakCurrentText'),
-                style: theme.textTheme.headlineSmall,
+                'Bugun: ${streak.todayDone}/${streak.dailyGoal}',
+                key: const Key('streakTodayText'),
+                style: theme.textTheme.titleSmall,
               ),
               const Spacer(),
-              Text(
-                'Rekord: ${streak.best}',
-                key: const Key('streakBestText'),
-                style: theme.textTheme.bodyMedium,
-              ),
+              if (goalReached)
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 18,
+                  color: appColors.success,
+                ),
             ],
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Bugun: ${streak.todayDone}/${streak.dailyGoal}',
-            key: const Key('streakTodayText'),
-            style: theme.textTheme.bodyMedium,
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: LinearProgressIndicator(
+              value: goalProgress,
+              minHeight: 10,
+              color: goalReached ? appColors.success : streakColor,
+              backgroundColor: theme.colorScheme.surfaceContainerHighest,
+            ),
           ),
-          const SizedBox(height: 4),
+        ],
+      ),
+    );
+  }
+}
+
+/// The best-ever streak record, rendered as a compact gold trophy pill.
+class _RecordPill extends StatelessWidget {
+  const _RecordPill({required this.best, required this.color});
+
+  final int best;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(AppRadius.chip),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.emoji_events_rounded, size: 16, color: color),
+          const SizedBox(width: AppSpacing.xs),
           Text(
-            'Oxirgi faollik: $activeLabel',
-            key: const Key('streakLastActiveText'),
-            style: theme.textTheme.bodySmall,
+            'Rekord: $best',
+            key: const Key('streakBestText'),
+            style: theme.textTheme.labelMedium?.copyWith(color: color),
           ),
         ],
       ),
