@@ -79,6 +79,139 @@ class AppLocalizationsUz extends AppLocalizations {
 
   @override
   String get profileLoadError => 'Profil ma\'lumotlarini yuklab bo\'lmadi';
+
+  @override
+  String get practiceSetupTitle => 'Mashq sozlamalari';
+
+  @override
+  String get practiceSetupDescription =>
+      'Mashq qilish uchun kategoriya YOKI belgini tanlang (ikkalasi emas, faqat bittasi).';
+
+  @override
+  String get practiceTargetCategory => 'Kategoriya';
+
+  @override
+  String get practiceTargetSign => 'Belgi';
+
+  @override
+  String get practiceLoadCategoriesError => 'Kategoriyalarni yuklab bo\'lmadi.';
+
+  @override
+  String get practiceSelectCategory => 'Kategoriyani tanlang';
+
+  @override
+  String get practiceLoadSignsError => 'Belgilarni yuklab bo\'lmadi.';
+
+  @override
+  String get practiceSelectSign => 'Belgini tanlang';
+
+  @override
+  String get questionCountLabel => 'Savollar soni';
+
+  @override
+  String get startButton => 'Boshlash';
+
+  @override
+  String get signsScreenTitle => 'Yo\'l belgilari';
+
+  @override
+  String get searchLabel => 'Qidiruv';
+
+  @override
+  String get groupCodeLabel => 'Guruh kodi (ixtiyoriy)';
+
+  @override
+  String get signsLoadError => 'Belgilar ro\'yxatini yuklab bo\'lmadi.';
+
+  @override
+  String get signsEmptyState => 'Hech qanday belgi topilmadi.';
+
+  @override
+  String get mistakesScreenTitle => 'Xatolar ustida ishlash';
+
+  @override
+  String get mistakesScreenDescription =>
+      'Avval noto\'g\'ri javob bergan savollaringiz ustida qayta ishlang — savollar tizim tomonidan avtomatik tanlanadi.';
+
+  @override
+  String get variantsScreenTitle => 'Biletlar';
+
+  @override
+  String get variantsLoadError => 'Biletlar ro\'yxatini yuklab bo\'lmadi.';
+
+  @override
+  String get variantsEmptyState => 'Hozircha biletlar mavjud emas.';
+
+  @override
+  String get lockedLabel => 'Yopiq';
+
+  @override
+  String get sessionQuestionLoadError => 'Savolni yuklab bo\'lmadi.';
+
+  @override
+  String get sessionTitleExam => 'Imtihon';
+
+  @override
+  String get sessionTitleVariant => 'Bilet';
+
+  @override
+  String get sessionTitlePractice => 'Mashq';
+
+  @override
+  String get sessionTitleMistakes => 'Xatolar ustida ishlash';
+
+  @override
+  String get sessionTitleDefault => 'Test';
+
+  @override
+  String sessionProgressLabel(int current, int total) {
+    return 'Savol $current / $total';
+  }
+
+  @override
+  String get sessionFinishButton => 'Yakunlash';
+
+  @override
+  String get sessionNextButton => 'Keyingi';
+
+  @override
+  String get sessionVipRequiredError =>
+      'Bu bo\'lim uchun faol obuna kerak. Obuna hozircha bu versiyada mavjud emas.';
+
+  @override
+  String get sessionDailyLimitError =>
+      'Bugungi bepul limitga yetdingiz. Ertaga yana davom etishingiz mumkin.';
+
+  @override
+  String get homeButton => 'Bosh sahifa';
+
+  @override
+  String get sessionStatusPassedLabel => 'O\'tdingiz';
+
+  @override
+  String get sessionStatusFailedLabel => 'O\'ta olmadingiz';
+
+  @override
+  String get sessionResultViewAbandonedLabel => 'Sessiya to\'xtatildi';
+
+  @override
+  String get sessionResultsAbandonedLabel => 'Sessiya tugallanmadi';
+
+  @override
+  String get sessionReasonCompletedLabel => 'Barcha savollar yakunlandi';
+
+  @override
+  String get sessionReasonTimeUpLabel => 'Vaqt tugadi';
+
+  @override
+  String get sessionReasonTooManyErrorsLabel => 'Xatolar soni ko\'payib ketdi';
+
+  @override
+  String get sessionResultTitle => 'Natija';
+
+  @override
+  String get sessionAnswerRetryMessage =>
+      'Javobingizni yuborib bo\'lmadi. Qayta urinib ko\'ring.';
 }
 
 /// The translations for Uzbek, using the Cyrillic script (`uz_Cyrl`).
@@ -156,4 +289,137 @@ class AppLocalizationsUzCyrl extends AppLocalizationsUz {
 
   @override
   String get profileLoadError => 'Профил маълумотларини юклаб бўлмади';
+
+  @override
+  String get practiceSetupTitle => 'Машқ созламалари';
+
+  @override
+  String get practiceSetupDescription =>
+      'Машқ қилиш учун категория ЙОКИ бельгини танланг (иккаласи эмас, фақат биттаси).';
+
+  @override
+  String get practiceTargetCategory => 'Категория';
+
+  @override
+  String get practiceTargetSign => 'Бельги';
+
+  @override
+  String get practiceLoadCategoriesError => 'Категорияларни юклаб бўлмади.';
+
+  @override
+  String get practiceSelectCategory => 'Категорияни танланг';
+
+  @override
+  String get practiceLoadSignsError => 'Бельгиларни юклаб бўлмади.';
+
+  @override
+  String get practiceSelectSign => 'Бельгини танланг';
+
+  @override
+  String get questionCountLabel => 'Саволлар сони';
+
+  @override
+  String get startButton => 'Бошлаш';
+
+  @override
+  String get signsScreenTitle => 'Йўл бельгилари';
+
+  @override
+  String get searchLabel => 'Қидирув';
+
+  @override
+  String get groupCodeLabel => 'Гуруҳ коди (ихтиёрий)';
+
+  @override
+  String get signsLoadError => 'Бельгилар рўйхатини юклаб бўлмади.';
+
+  @override
+  String get signsEmptyState => 'Ҳеч қандай бельги топилмади.';
+
+  @override
+  String get mistakesScreenTitle => 'Хатолар устида ишлаш';
+
+  @override
+  String get mistakesScreenDescription =>
+      'Аввал нотўғри жавоб берган саволларингиз устида қайта ишланг — саволлар тизим томонидан автоматик танланади.';
+
+  @override
+  String get variantsScreenTitle => 'Билетлар';
+
+  @override
+  String get variantsLoadError => 'Билетлар рўйхатини юклаб бўлмади.';
+
+  @override
+  String get variantsEmptyState => 'Ҳозирча билетлар мавжуд эмас.';
+
+  @override
+  String get lockedLabel => 'Ёпиқ';
+
+  @override
+  String get sessionQuestionLoadError => 'Саволни юклаб бўлмади.';
+
+  @override
+  String get sessionTitleExam => 'Имтиҳон';
+
+  @override
+  String get sessionTitleVariant => 'Билет';
+
+  @override
+  String get sessionTitlePractice => 'Машқ';
+
+  @override
+  String get sessionTitleMistakes => 'Хатолар устида ишлаш';
+
+  @override
+  String get sessionTitleDefault => 'Тест';
+
+  @override
+  String sessionProgressLabel(int current, int total) {
+    return 'Савол $current / $total';
+  }
+
+  @override
+  String get sessionFinishButton => 'Якунлаш';
+
+  @override
+  String get sessionNextButton => 'Кейинги';
+
+  @override
+  String get sessionVipRequiredError =>
+      'Бу бўлим учун фаол обуна керак. Обуна ҳозирча бу версияда мавжуд эмас.';
+
+  @override
+  String get sessionDailyLimitError =>
+      'Бугунги бепул лимитга етдингиз. Эртага яна давом этишингиз мумкин.';
+
+  @override
+  String get homeButton => 'Бош саҳифа';
+
+  @override
+  String get sessionStatusPassedLabel => 'Ўтдингиз';
+
+  @override
+  String get sessionStatusFailedLabel => 'Ўта олмадингиз';
+
+  @override
+  String get sessionResultViewAbandonedLabel => 'Сессия тўхтатилди';
+
+  @override
+  String get sessionResultsAbandonedLabel => 'Сессия якунланмади';
+
+  @override
+  String get sessionReasonCompletedLabel => 'Барча саволлар якунланди';
+
+  @override
+  String get sessionReasonTimeUpLabel => 'Вақт тугади';
+
+  @override
+  String get sessionReasonTooManyErrorsLabel => 'Хатолар сони кўпайиб кетди';
+
+  @override
+  String get sessionResultTitle => 'Натижа';
+
+  @override
+  String get sessionAnswerRetryMessage =>
+      'Жавобингизни юбориб бўлмади. Қайта уриниб кўринг.';
 }

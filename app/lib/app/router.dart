@@ -9,11 +9,13 @@ import '../features/auth/presentation/phone_entry_screen.dart';
 import '../features/home/presentation/home_shell.dart';
 import '../features/mistakes/presentation/mistakes_screen.dart';
 import '../features/practice/presentation/practice_setup_screen.dart';
+import '../features/saved/presentation/saved_screen.dart';
 import '../features/session/domain/session_models.dart';
 import '../features/session/presentation/session_controller.dart';
 import '../features/session/presentation/session_results_screen.dart';
 import '../features/session/presentation/session_screen.dart';
 import '../features/signs/presentation/signs_screen.dart';
+import '../features/stats/presentation/stats_screen.dart';
 import '../features/variants/presentation/variants_screen.dart';
 
 /// Adapts `authControllerProvider`'s Riverpod state stream into the plain
@@ -64,6 +66,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/mistakes',
         builder: (context, state) => const MistakesScreen(),
+      ),
+      GoRoute(
+        path: '/saved',
+        builder: (context, state) => const SavedScreen(),
+      ),
+      GoRoute(
+        path: '/stats',
+        builder: (context, state) => const StatsScreen(),
       ),
       GoRoute(
         path: '/login',

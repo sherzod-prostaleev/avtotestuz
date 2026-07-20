@@ -79,4 +79,137 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileLoadError => 'Не удалось загрузить данные профиля';
+
+  @override
+  String get practiceSetupTitle => 'Настройки практики';
+
+  @override
+  String get practiceSetupDescription =>
+      'Для практики выберите категорию или знак дорожного движения (не оба, только один).';
+
+  @override
+  String get practiceTargetCategory => 'Категория';
+
+  @override
+  String get practiceTargetSign => 'Знак';
+
+  @override
+  String get practiceLoadCategoriesError => 'Не удалось загрузить категории.';
+
+  @override
+  String get practiceSelectCategory => 'Выберите категорию';
+
+  @override
+  String get practiceLoadSignsError => 'Не удалось загрузить знаки.';
+
+  @override
+  String get practiceSelectSign => 'Выберите знак';
+
+  @override
+  String get questionCountLabel => 'Количество вопросов';
+
+  @override
+  String get startButton => 'Начать';
+
+  @override
+  String get signsScreenTitle => 'Дорожные знаки';
+
+  @override
+  String get searchLabel => 'Поиск';
+
+  @override
+  String get groupCodeLabel => 'Код группы (необязательно)';
+
+  @override
+  String get signsLoadError => 'Не удалось загрузить список знаков.';
+
+  @override
+  String get signsEmptyState => 'Знаки не найдены.';
+
+  @override
+  String get mistakesScreenTitle => 'Работа над ошибками';
+
+  @override
+  String get mistakesScreenDescription =>
+      'Повторно отработайте вопросы, на которые вы ответили неправильно — вопросы автоматически выбираются системой.';
+
+  @override
+  String get variantsScreenTitle => 'Билеты';
+
+  @override
+  String get variantsLoadError => 'Не удалось загрузить список билетов.';
+
+  @override
+  String get variantsEmptyState => 'Билеты недоступны.';
+
+  @override
+  String get lockedLabel => 'Заблокировано';
+
+  @override
+  String get sessionQuestionLoadError => 'Не удалось загрузить вопрос.';
+
+  @override
+  String get sessionTitleExam => 'Экзамен';
+
+  @override
+  String get sessionTitleVariant => 'Билет';
+
+  @override
+  String get sessionTitlePractice => 'Практика';
+
+  @override
+  String get sessionTitleMistakes => 'Работа над ошибками';
+
+  @override
+  String get sessionTitleDefault => 'Тест';
+
+  @override
+  String sessionProgressLabel(int current, int total) {
+    return 'Вопрос $current / $total';
+  }
+
+  @override
+  String get sessionFinishButton => 'Завершить';
+
+  @override
+  String get sessionNextButton => 'Далее';
+
+  @override
+  String get sessionVipRequiredError =>
+      'Для этого раздела нужна активная подписка. Подписка пока недоступна в этой версии.';
+
+  @override
+  String get sessionDailyLimitError =>
+      'Вы достигли сегодняшнего бесплатного лимита. Продолжить можно завтра.';
+
+  @override
+  String get homeButton => 'Главная';
+
+  @override
+  String get sessionStatusPassedLabel => 'Вы сдали';
+
+  @override
+  String get sessionStatusFailedLabel => 'Вы не сдали';
+
+  @override
+  String get sessionResultViewAbandonedLabel => 'Сессия остановлена';
+
+  @override
+  String get sessionResultsAbandonedLabel => 'Сессия не завершена';
+
+  @override
+  String get sessionReasonCompletedLabel => 'Все вопросы пройдены';
+
+  @override
+  String get sessionReasonTimeUpLabel => 'Время вышло';
+
+  @override
+  String get sessionReasonTooManyErrorsLabel => 'Количество ошибок превышено';
+
+  @override
+  String get sessionResultTitle => 'Результат';
+
+  @override
+  String get sessionAnswerRetryMessage =>
+      'Не удалось отправить ваш ответ. Попробуйте ещё раз.';
 }

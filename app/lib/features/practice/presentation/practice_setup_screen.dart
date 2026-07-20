@@ -138,7 +138,17 @@ class _PracticeSetupScreenState extends ConsumerState<PracticeSetupScreen> {
     final signsAsync = ref.watch(_practiceSignsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.practiceSetupTitle)),
+      appBar: AppBar(
+        title: Text(l10n.practiceSetupTitle),
+        actions: [
+          IconButton(
+            key: const Key('open-signs-catalog'),
+            icon: const Icon(Icons.info_outline),
+            tooltip: l10n.signsScreenTitle,
+            onPressed: () => context.push('/signs'),
+          ),
+        ],
+      ),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(AppSpacing.lg),

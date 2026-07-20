@@ -15,9 +15,8 @@ import '../../profile/presentation/profile_controller.dart';
 /// Authenticated landing screen, reachable at `/` once the router's auth
 /// guard (`app/lib/app/router.dart`) confirms `AuthAuthenticated`. Shows the
 /// current profile/VIP status (from [profileControllerProvider]), a locale
-/// switcher, a theme toggle, logout, and honest "coming soon" placeholders
-/// for the richer screens Plan 07 builds (variants/practice/mistakes/
-/// stats) — no half-built fake versions of those screens here.
+/// switcher, a theme toggle, logout, a saved-questions shortcut, and the
+/// nav grid to Plan 07's screens (variants/practice/mistakes/stats).
 class HomeShell extends ConsumerWidget {
   const HomeShell({super.key});
 
@@ -30,6 +29,12 @@ class HomeShell extends ConsumerWidget {
       appBar: AppBar(
         title: Text(l10n.appTitle),
         actions: [
+          IconButton(
+            key: const Key('savedButton'),
+            icon: const Icon(Icons.bookmark),
+            tooltip: 'Saqlangan savollar',
+            onPressed: () => context.push('/saved'),
+          ),
           const _ThemeToggleButton(),
           IconButton(
             key: const Key('logoutButton'),
@@ -174,41 +179,14 @@ class _HomeBody extends ConsumerWidget {
                   child: Text(l10n.navMistakesLabel, textAlign: TextAlign.center),
                 ),
               ),
-              _ComingSoonNav(
+              AppCard(
                 key: const Key('navStats'),
-                title: l10n.navStatsLabel,
-                subtitle: l10n.comingSoon,
+                onTap: () => context.push('/stats'),
+                child: Center(
+                  child: Text(l10n.navStatsLabel, textAlign: TextAlign.center),
+                ),
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// An honest "coming soon" placeholder nav entry — disabled-looking, no
-/// `onTap`, and no attempt to imitate the real variants/practice/mistakes/
-/// stats screens Plan 07 builds.
-class _ComingSoonNav extends StatelessWidget {
-  const _ComingSoonNav({super.key, required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    return AppCard(
-      enabled: false,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(title, textAlign: TextAlign.center),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            subtitle,
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),

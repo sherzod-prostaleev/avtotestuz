@@ -298,8 +298,8 @@ void main() {
   );
 
   testWidgets(
-    'renders the real variants/practice/mistakes entries plus an honest '
-    '"coming soon" placeholder for stats, not a fake screen',
+    'renders all four real nav entries (variants/practice/mistakes/stats), '
+    'no "coming soon" placeholders left',
     (tester) async {
       final container = _buildContainer(
         profileController: () => _FixedProfileController(
@@ -313,14 +313,28 @@ void main() {
       await tester.pumpWidget(_appFor(container));
       await tester.pumpAndSettle();
 
-      // Variants/practice/mistakes (Plan 07 Tasks 5-6) are wired to real
-      // screens now, so they no longer show the "coming soon" placeholder
-      // text — only the still-unbuilt stats entry does.
+      // All four nav entries (Plan 07 Tasks 5-6-8) are now wired to real
+      // screens — no more "coming soon" placeholder text anywhere.
       expect(find.byKey(const Key('navVariants')), findsOneWidget);
       expect(find.byKey(const Key('navPractice')), findsOneWidget);
       expect(find.byKey(const Key('navMistakes')), findsOneWidget);
       expect(find.byKey(const Key('navStats')), findsOneWidget);
-      expect(find.text('Tez orada'), findsNWidgets(1));
+      expect(find.text('Tez orada'), findsNothing);
     },
   );
+
+  testWidgets('renders a saved-questions shortcut button in the app bar', (
+    tester,
+  ) async {
+    final container = _buildContainer(
+      profileController: () => _FixedProfileController(
+        (profile: _testProfile, entitlement: const Entitlement(active: true)),
+      ),
+    );
+    addTearDown(container.dispose);
+    await tester.pumpWidget(_appFor(container));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('savedButton')), findsOneWidget);
+  });
 }

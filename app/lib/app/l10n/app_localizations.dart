@@ -230,6 +230,258 @@ abstract class AppLocalizations {
   /// In uz, this message translates to:
   /// **'Profil ma\'lumotlarini yuklab bo\'lmadi'**
   String get profileLoadError;
+
+  /// No description provided for @practiceSetupTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mashq sozlamalari'**
+  String get practiceSetupTitle;
+
+  /// No description provided for @practiceSetupDescription.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mashq qilish uchun kategoriya YOKI belgini tanlang (ikkalasi emas, faqat bittasi).'**
+  String get practiceSetupDescription;
+
+  /// No description provided for @practiceTargetCategory.
+  ///
+  /// In uz, this message translates to:
+  /// **'Kategoriya'**
+  String get practiceTargetCategory;
+
+  /// No description provided for @practiceTargetSign.
+  ///
+  /// In uz, this message translates to:
+  /// **'Belgi'**
+  String get practiceTargetSign;
+
+  /// No description provided for @practiceLoadCategoriesError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Kategoriyalarni yuklab bo\'lmadi.'**
+  String get practiceLoadCategoriesError;
+
+  /// No description provided for @practiceSelectCategory.
+  ///
+  /// In uz, this message translates to:
+  /// **'Kategoriyani tanlang'**
+  String get practiceSelectCategory;
+
+  /// No description provided for @practiceLoadSignsError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Belgilarni yuklab bo\'lmadi.'**
+  String get practiceLoadSignsError;
+
+  /// No description provided for @practiceSelectSign.
+  ///
+  /// In uz, this message translates to:
+  /// **'Belgini tanlang'**
+  String get practiceSelectSign;
+
+  /// No description provided for @questionCountLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Savollar soni'**
+  String get questionCountLabel;
+
+  /// No description provided for @startButton.
+  ///
+  /// In uz, this message translates to:
+  /// **'Boshlash'**
+  String get startButton;
+
+  /// No description provided for @signsScreenTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Yo\'l belgilari'**
+  String get signsScreenTitle;
+
+  /// No description provided for @searchLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Qidiruv'**
+  String get searchLabel;
+
+  /// No description provided for @groupCodeLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Guruh kodi (ixtiyoriy)'**
+  String get groupCodeLabel;
+
+  /// No description provided for @signsLoadError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Belgilar ro\'yxatini yuklab bo\'lmadi.'**
+  String get signsLoadError;
+
+  /// No description provided for @signsEmptyState.
+  ///
+  /// In uz, this message translates to:
+  /// **'Hech qanday belgi topilmadi.'**
+  String get signsEmptyState;
+
+  /// No description provided for @mistakesScreenTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xatolar ustida ishlash'**
+  String get mistakesScreenTitle;
+
+  /// No description provided for @mistakesScreenDescription.
+  ///
+  /// In uz, this message translates to:
+  /// **'Avval noto\'g\'ri javob bergan savollaringiz ustida qayta ishlang — savollar tizim tomonidan avtomatik tanlanadi.'**
+  String get mistakesScreenDescription;
+
+  /// No description provided for @variantsScreenTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Biletlar'**
+  String get variantsScreenTitle;
+
+  /// No description provided for @variantsLoadError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Biletlar ro\'yxatini yuklab bo\'lmadi.'**
+  String get variantsLoadError;
+
+  /// No description provided for @variantsEmptyState.
+  ///
+  /// In uz, this message translates to:
+  /// **'Hozircha biletlar mavjud emas.'**
+  String get variantsEmptyState;
+
+  /// No description provided for @lockedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Yopiq'**
+  String get lockedLabel;
+
+  /// No description provided for @sessionQuestionLoadError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Savolni yuklab bo\'lmadi.'**
+  String get sessionQuestionLoadError;
+
+  /// No description provided for @sessionTitleExam.
+  ///
+  /// In uz, this message translates to:
+  /// **'Imtihon'**
+  String get sessionTitleExam;
+
+  /// No description provided for @sessionTitleVariant.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bilet'**
+  String get sessionTitleVariant;
+
+  /// No description provided for @sessionTitlePractice.
+  ///
+  /// In uz, this message translates to:
+  /// **'Mashq'**
+  String get sessionTitlePractice;
+
+  /// No description provided for @sessionTitleMistakes.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xatolar ustida ishlash'**
+  String get sessionTitleMistakes;
+
+  /// No description provided for @sessionTitleDefault.
+  ///
+  /// In uz, this message translates to:
+  /// **'Test'**
+  String get sessionTitleDefault;
+
+  /// Progress label on the session screen, e.g. 'Savol 3 / 20'.
+  ///
+  /// In uz, this message translates to:
+  /// **'Savol {current} / {total}'**
+  String sessionProgressLabel(int current, int total);
+
+  /// No description provided for @sessionFinishButton.
+  ///
+  /// In uz, this message translates to:
+  /// **'Yakunlash'**
+  String get sessionFinishButton;
+
+  /// No description provided for @sessionNextButton.
+  ///
+  /// In uz, this message translates to:
+  /// **'Keyingi'**
+  String get sessionNextButton;
+
+  /// No description provided for @sessionVipRequiredError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bu bo\'lim uchun faol obuna kerak. Obuna hozircha bu versiyada mavjud emas.'**
+  String get sessionVipRequiredError;
+
+  /// No description provided for @sessionDailyLimitError.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bugungi bepul limitga yetdingiz. Ertaga yana davom etishingiz mumkin.'**
+  String get sessionDailyLimitError;
+
+  /// No description provided for @homeButton.
+  ///
+  /// In uz, this message translates to:
+  /// **'Bosh sahifa'**
+  String get homeButton;
+
+  /// No description provided for @sessionStatusPassedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'O\'tdingiz'**
+  String get sessionStatusPassedLabel;
+
+  /// No description provided for @sessionStatusFailedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'O\'ta olmadingiz'**
+  String get sessionStatusFailedLabel;
+
+  /// No description provided for @sessionResultViewAbandonedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Sessiya to\'xtatildi'**
+  String get sessionResultViewAbandonedLabel;
+
+  /// No description provided for @sessionResultsAbandonedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Sessiya tugallanmadi'**
+  String get sessionResultsAbandonedLabel;
+
+  /// No description provided for @sessionReasonCompletedLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Barcha savollar yakunlandi'**
+  String get sessionReasonCompletedLabel;
+
+  /// No description provided for @sessionReasonTimeUpLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Vaqt tugadi'**
+  String get sessionReasonTimeUpLabel;
+
+  /// No description provided for @sessionReasonTooManyErrorsLabel.
+  ///
+  /// In uz, this message translates to:
+  /// **'Xatolar soni ko\'payib ketdi'**
+  String get sessionReasonTooManyErrorsLabel;
+
+  /// No description provided for @sessionResultTitle.
+  ///
+  /// In uz, this message translates to:
+  /// **'Natija'**
+  String get sessionResultTitle;
+
+  /// No description provided for @sessionAnswerRetryMessage.
+  ///
+  /// In uz, this message translates to:
+  /// **'Javobingizni yuborib bo\'lmadi. Qayta urinib ko\'ring.'**
+  String get sessionAnswerRetryMessage;
 }
 
 class _AppLocalizationsDelegate

@@ -12,7 +12,9 @@ import 'features/events/data/events_api.dart';
 import 'features/explanation/data/explanation_api.dart';
 import 'features/profile/data/profile_api.dart';
 import 'features/profile/presentation/profile_controller.dart';
+import 'features/saved/data/saved_api.dart';
 import 'features/session/data/session_api.dart';
+import 'features/stats/data/progress_api.dart';
 
 /// Default dev backend base URL — matches this plan's Global Constraints
 /// (`PORT=8090` convention) and Task 9's live-verification
@@ -83,6 +85,12 @@ void main() {
   final explanationApi = ExplanationApi(dio);
   final eventsApi = EventsApi(dio);
 
+  // Real DI wiring for `savedApiProvider`/`progressApiProvider` (Plan 07 Task
+  // 8, saved-questions + streak/stats halves) — same consolidation pattern
+  // as above, both reusing the SAME shared `dio` instance.
+  final savedApi = SavedApi(dio);
+  final progressApi = ProgressApi(dio);
+
   container = ProviderContainer(
     overrides: [
       authRepositoryProvider.overrideWithValue(authRepository),
@@ -91,6 +99,8 @@ void main() {
       sessionApiProvider.overrideWithValue(sessionApi),
       explanationApiProvider.overrideWithValue(explanationApi),
       eventsApiProvider.overrideWithValue(eventsApi),
+      savedApiProvider.overrideWithValue(savedApi),
+      progressApiProvider.overrideWithValue(progressApi),
     ],
   );
 

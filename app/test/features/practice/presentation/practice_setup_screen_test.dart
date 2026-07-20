@@ -10,6 +10,7 @@ import 'package:avtotest_app/features/session/data/session_api.dart';
 import 'package:avtotest_app/features/session/domain/session_models.dart';
 import 'package:avtotest_app/features/session/presentation/session_controller.dart';
 import 'package:avtotest_app/features/session/presentation/session_screen.dart';
+import 'package:avtotest_app/features/signs/presentation/signs_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -124,6 +125,10 @@ Widget _wrap({required _FakeSessionApi sessionApi, required _FakeContentApi cont
         path: sessionResultRoute,
         builder: (context, state) =>
             SessionResultView(result: state.extra! as SessionResult),
+      ),
+      GoRoute(
+        path: '/signs',
+        builder: (context, state) => const SignsScreen(),
       ),
     ],
   );
@@ -302,4 +307,25 @@ void main() {
     );
     expect(button.onPressed, isNull);
   });
+
+  testWidgets(
+    'tapping the app-bar signs-catalog icon navigates to the real '
+    'SignsScreen',
+    (tester) async {
+      final contentApi = _FakeContentApi(
+        categoriesResult: categories,
+        signsResult: signs,
+      );
+      await tester.pumpWidget(
+        _wrap(sessionApi: _FakeSessionApi(), contentApi: contentApi),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const Key('open-signs-catalog')));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(SignsScreen), findsOneWidget);
+      expect(find.byKey(const Key('signs-list')), findsOneWidget);
+    },
+  );
 }
