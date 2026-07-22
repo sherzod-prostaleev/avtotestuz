@@ -399,3 +399,9 @@ tarixi git'da — `git log -- app/`). Yangi frontend **Next.js + TypeScript +
 Tailwind CSS + shadcn/ui** bilan quriladi va shu Go backend'ga ulanadi.
 To'liq talablar, sahifama-sahifa dizayn spetsifikatsiyasi va o'tmish
 saboqlari: repo ildizidagi `AVTOTEST-MASTER-PROMPT.txt`.
+
+**Phase A (2026-07-22):** skelet + dizayn-tizim + 3 statik mockup sahifa
+tayyor (`frontend/`, real API'ga ulanmagan). Ishga tushirish:
+`cd frontend && npm install && npm run dev`. Tafsilot:
+`docs/superpowers/specs/2026-07-22-nextjs-frontend-foundation-design.md`
+va `frontend/README.md`.
