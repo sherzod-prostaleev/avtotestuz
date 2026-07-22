@@ -1,9 +1,13 @@
 import { useState, useCallback } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
+import { defaultLocale } from "@/i18n/config";
+
+export type SessionMode = "variant" | "exam" | "practice" | "mistakes";
 
 export interface AnswerOptionItem {
   id: string;
   text: string;
+  image_url?: string | null;
 }
 
 export interface QuestionExplanationBlock {
@@ -15,294 +19,167 @@ export interface QuestionExplanation {
   blocks: QuestionExplanationBlock[];
 }
 
+/**
+ * A question as rendered during a session.
+ *
+ * IMPORTANT (anti-cheat): `correct` and `correct_answer_id` are NEVER populated
+ * from the content API (which by design never returns them). They are ONLY ever
+ * copied verbatim from a `submitAnswer` / `loadSession` backend response, and
+ * stay `undefined` until the backend chooses to send them (e.g. in exam mode
+ * they only appear after the session ends). They must never be computed,
+ * defaulted, or inferred on the client.
+ */
 export interface SessionQuestionItem {
   id: string;
   question: string;
   image_url?: string | null;
   answers: AnswerOptionItem[];
   user_answer_id?: string | null;
-  is_correct?: boolean | null;
-  correct_answer_id?: string | null;
+  /** whether this question has been answered (from resume; the chosen answer id
+   * itself is not part of the backend resume contract). */
+  answered?: boolean;
+  /** correctness, straight from the backend — undefined until it sends it. */
+  correct?: boolean;
+  /** the id of the correct answer, straight from the backend — undefined until sent. */
+  correct_answer_id?: string;
   explanation?: QuestionExplanation | null;
 }
 
 export interface SessionState {
   id: string;
-  mode: "variant" | "exam" | "practice" | "mistakes";
+  mode: SessionMode;
   time_limit_sec: number | null;
   remaining_sec: number | null;
   status: "active" | "completed";
   questions: SessionQuestionItem[];
   score: number | null;
+  total: number | null;
+  stopped_reason: string | null;
   passed: boolean | null;
   completed_at: string | null;
 }
 
+/** Typed error surfaced to the pages so they can branch on `.code`. */
+export interface SessionError {
+  code: string;
+  message: string;
+}
 
+export interface StartSessionOptions {
+  variant_id?: number | string;
+  category_id?: string;
+  sign_id?: string;
+  question_count?: number;
+  locale?: string;
+}
 
-const fallbackQuestions: SessionQuestionItem[] = [
-  {
-    id: "q-1",
-    question: "Ushbu yo'l belgisining ma'nosi nima?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/2.5_Russian_road_sign.svg",
-    answers: [
-      { id: "a-1", text: "Harakatlanish taqiqlangan" },
-      { id: "a-2", text: "To'xtamasdan harakatlanish taqiqlangan (STOP)" },
-      { id: "a-3", text: "Yo'l bering" },
-      { id: "a-4", text: "Asosiy yo'l boshi" },
-    ],
-    correct_answer_id: "a-2",
-    explanation: {
-      blocks: [
-        { type: "important", content: "2.5 'STOP' belgisida to'xtamasdan o'tish taqiqlanadi. Haydovchi STOP chizig'i oldida to'xtashi shart." },
-      ],
-    },
-  },
-  {
-    id: "q-2",
-    question: "Tartibga solinmagan chorrahada o'ngdan kelayotgan transport vositasiga kim yo'l berishi kerak?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/1.5_Russian_road_sign.svg",
-    answers: [
-      { id: "b-1", text: "Chap tomondagi haydovchi (O'ng qo'l qoidasi)" },
-      { id: "b-2", text: "O'ng tomondagi haydovchi" },
-      { id: "b-3", text: "Hech kim yo'l bermaydi" },
-      { id: "b-4", text: "Tezroq kelgan haydovchi o'tadi" },
-    ],
-    correct_answer_id: "b-1",
-    explanation: {
-      blocks: [
-        { type: "tip", content: "Teng ahamiyatli chorrahalarda 'o'ng qo'l qoidasi' amal qiladi. O'ngdan kelayotgan vositaga yo'l beriladi." },
-      ],
-    },
-  },
-  {
-    id: "q-3",
-    question: "Aholi punktlarida yengil avtomobillarning eng yuqori ruxsat etilgan tezligi qancha?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/3.24_Russian_road_sign_50.svg",
-    answers: [
-      { id: "c-1", text: "50 km/soat (yoki tegishli belgida ko'rsatilgan tezlik)" },
-      { id: "c-2", text: "70 km/soat" },
-      { id: "c-3", text: "90 km/soat" },
-      { id: "c-4", text: "110 km/soat" },
-    ],
-    correct_answer_id: "c-1",
-    explanation: {
-      blocks: [
-        { type: "important", content: "O'zbekiston Respublikasi YHQ bo'yicha aholi punktlarida ruxsat etilgan me'yoriy tezlik cheklovi amal qiladi." },
-      ],
-    },
-  },
-  {
-    id: "q-4",
-    question: "Ushbu yo'l belgisi o'rnatilgan joyda qanday harakat bajarish taqiqlanadi?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/3.27_Russian_road_sign.svg",
-    answers: [
-      { id: "d-1", text: "Faqat to'xtab turish" },
-      { id: "d-2", text: "To'xtash va to'xtab turish (har ikkalasi)" },
-      { id: "d-3", text: "Faqat quvib o'tish" },
-      { id: "d-4", text: "Faqat qayrilib olish" },
-    ],
-    correct_answer_id: "d-2",
-    explanation: {
-      blocks: [
-        { type: "warning", content: "3.27 'To'xtash taqiqlangan' belgisi zonada transportning har qanday to'xtashini taqiqlaydi." },
-      ],
-    },
-  },
-  {
-    id: "q-5",
-    question: "Piyodalar o'tish joyiga yaqinlashganda haydovchi nima qilishi shart?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/5.19.1_Russian_road_sign.svg",
-    answers: [
-      { id: "e-1", text: "Tezlikni oshirib o'tib ketishi kerak" },
-      { id: "e-2", text: "Tezlikni kamaytirishi va piyodalarga yo'l berishi shart" },
-      { id: "e-3", text: "Ovozli signal berishi kerak" },
-      { id: "e-4", text: "Faqat kechasi to'xtaydi" },
-    ],
-    correct_answer_id: "e-2",
-    explanation: {
-      blocks: [
-        { type: "tip", content: "Tartibga solinmagan piyodalar o'tish joyida piyodalarga o'tish imkoniyatini berish shart." },
-      ],
-    },
-  },
-  {
-    id: "q-6",
-    question: "Svetoforning sariq chirog'i miltillab tursa bu nimani bildiradi?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/1.7_Russian_road_sign.svg",
-    answers: [
-      { id: "f-1", text: "Chorraha tartibga solinmagan va xavfli ekanligini" },
-      { id: "f-2", text: "Harakatlanish taqiqlanganligini" },
-      { id: "f-3", text: "Faqat tez yordam o'tishini" },
-      { id: "f-4", text: "Svetofor buzilganini" },
-    ],
-    correct_answer_id: "f-1",
-    explanation: {
-      blocks: [
-        { type: "important", content: "Miltillovchi sariq signal chorraha tartibga solinmaganligini bildiradi va imtiyoz belgilariga amal qilinadi." },
-      ],
-    },
-  },
-  {
-    id: "q-7",
-    question: "Asosiy yo'lda harakatlanayotgan avtomobil qanday huquqga ega?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/2.1_Russian_road_sign.svg",
-    answers: [
-      { id: "g-1", text: "Ikkinchi darajali yo'ldan kelayotganlarga nisbatan birinchi bo'lib o'tish imtiyoziga" },
-      { id: "g-2", text: "Har qanday tezlikda harakatlanish huquqiga" },
-      { id: "g-3", text: "Chorrahada to'xtab turish huquqiga" },
-      { id: "g-4", text: "Svetoforga boysunmaslik huquqiga" },
-    ],
-    correct_answer_id: "g-1",
-    explanation: {
-      blocks: [
-        { type: "tip", content: "2.1 'Asosiy yo'l' belgisi tartibga solinmagan chorrahada birinchi bo'lib o'tish huquqini beradi." },
-      ],
-    },
-  },
-  {
-    id: "q-8",
-    question: "Quvib o'tish taqiqlangan zonada qaysi transport vositasini quvib o'tishga ruxsat beriladi?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/3.20_Russian_road_sign.svg",
-    answers: [
-      { id: "h-1", text: "Sekin harakatlanuvchi transport vositasini (30 km/s dan kam)" },
-      { id: "h-2", text: "Har qanday yuk avtomobilini" },
-      { id: "h-3", text: "Taksini" },
-      { id: "h-4", text: "Hech qanday transportni quvib bo'lmaydi" },
-    ],
-    correct_answer_id: "h-1",
-    explanation: {
-      blocks: [
-        { type: "important", content: "YHQ qoidalariga ko'ra sekin harakatlanuvchi va velosiped/mopedlarni tegishli sharoitda o'tib ketish ruxsat etiladi." },
-      ],
-    },
-  },
-  {
-    id: "q-9",
-    question: "Tunda uzoqni yorituvchi chiroqlarni yaqinni yorituvchiga qachon o'tkazish kerak?",
-    answers: [
-      { id: "i-1", text: "Ro'paradan kelayotgan transportga kamida 150 metr qolganda" },
-      { id: "i-2", text: "Faqat chorrahada" },
-      { id: "i-3", text: "50 metr qolganda" },
-      { id: "i-4", text: "O'tkazish shart emas" },
-    ],
-    correct_answer_id: "i-1",
-    explanation: {
-      blocks: [
-        { type: "tip", content: "Ro'paradagi haydovchini ko'zini qalashtirmaslik uchun kamida 150m masofada chiroq yaqingga o'tkaziladi." },
-      ],
-    },
-  },
-  {
-    id: "q-10",
-    question: "Avtomagistralda orqaga harakatlanish (revers) mumkinmi?",
-    image_url: "https://commons.wikimedia.org/wiki/Special:FilePath/5.1_Russian_road_sign.svg",
-    answers: [
-      { id: "j-1", text: "Taqiqlanadi" },
-      { id: "j-2", text: "Ruxsat beriladi" },
-      { id: "j-3", text: "Faqat kunduzi mumkin" },
-      { id: "j-4", text: "Faqat avtoturargohda" },
-    ],
-    correct_answer_id: "j-1",
-    explanation: {
-      blocks: [
-        { type: "warning", content: "Avtomagistralda orqaga harakatlanish va qayrilib olish qat'iyan taqiqlanadi." },
-      ],
-    },
-  },
-];
+interface StartSessionResponse {
+  id: string;
+  mode: SessionMode;
+  question_ids: string[];
+  time_limit_sec: number | null;
+  total: number;
+  started_at: string;
+}
+
+interface QuestionDetailResponse {
+  id: string;
+  category_code: string;
+  text: string;
+  image_url: string | null;
+  answers: { id: string; position: number; text: string; image_url: string | null }[];
+  signs: { code: string; name: string; image_url: string | null }[];
+  explanation: { legal_refs: unknown; blocks: unknown } | null;
+}
+
+export interface SubmitAnswerResponse {
+  recorded: boolean;
+  correct?: boolean;
+  correct_answer_id?: string;
+  stopped?: boolean;
+  stop_reason?: string;
+}
+
+interface FinishSessionResponse {
+  status: "passed" | "failed" | "abandoned";
+  stopped_reason: "completed" | "time_up" | "too_many_errors";
+  score: number;
+  total: number;
+}
+
+interface SessionDetailResponse {
+  id: string;
+  mode: SessionMode;
+  total: number;
+  status: "in_progress" | "passed" | "failed" | "abandoned";
+  stopped_reason: string;
+  score?: number;
+  started_at: string;
+  finished_at?: string;
+  answers: { question_id: string; position: number; answered: boolean; correct?: boolean }[];
+}
+
+/** Normalize any thrown value into the typed SessionError we expose to pages. */
+function toSessionError(err: unknown): SessionError {
+  if (err instanceof ApiError) {
+    return { code: err.code, message: err.message };
+  }
+  // A thrown non-ApiError means `fetch` itself rejected — no HTTP response.
+  return { code: "network_error", message: "Tarmoq xatosi. Internetni tekshiring." };
+}
 
 /**
- * Normalize raw backend question data to our internal SessionQuestionItem shape.
+ * Narrow the genuinely-unknown backend explanation into the renderable shape the
+ * QuestionCard consumes. We render ONLY structurally-present blocks and never
+ * fabricate content; anything that does not match is dropped to `null`.
  */
-function normalizeQuestion(raw: any): SessionQuestionItem {
-  const question =
-    raw.question || raw.question_text || raw.body || raw.text || raw.title || "";
-
-  const image_url =
-    raw.image_url || raw.imageUrl || raw.image || raw.img || raw.photo_url || null;
-
-  const rawAnswers: any[] =
-    raw.answers || raw.options || raw.variants || raw.choices || [];
-
-  const answers: AnswerOptionItem[] = rawAnswers.map((a: any, idx: number) => {
-    if (typeof a === "string") {
-      return { id: String(idx), text: a };
+function narrowExplanation(raw: QuestionDetailResponse["explanation"]): QuestionExplanation | null {
+  if (!raw || typeof raw !== "object") return null;
+  const blocks = (raw as { blocks?: unknown }).blocks;
+  if (!Array.isArray(blocks)) return null;
+  const parsed: QuestionExplanationBlock[] = [];
+  for (const b of blocks) {
+    if (b && typeof b === "object" && typeof (b as { content?: unknown }).content === "string") {
+      const type = (b as { type?: unknown }).type;
+      parsed.push({
+        type: (typeof type === "string" ? type : "intro") as QuestionExplanationBlock["type"],
+        content: (b as { content: string }).content,
+      });
     }
-    return {
-      id: a.id || a.answer_id || String(idx),
-      text: a.text || a.body || a.answer || a.answer_text || a.label || "",
-    };
-  });
+  }
+  return parsed.length > 0 ? { blocks: parsed } : null;
+}
 
+/** Build a SessionQuestionItem from the content API's QuestionDetail. */
+function toQuestionItem(d: QuestionDetailResponse): SessionQuestionItem {
   return {
-    id: raw.id || raw.question_id || String(Math.random()),
-    question,
-    image_url,
-    answers,
-    user_answer_id: raw.user_answer_id || raw.selected_answer_id || null,
-    is_correct: raw.is_correct ?? null,
-    correct_answer_id: raw.correct_answer_id || raw.correct_id || null,
-    explanation: raw.explanation || null,
+    id: d.id,
+    question: d.text,
+    image_url: d.image_url,
+    answers: d.answers.map((a) => ({ id: a.id, text: a.text, image_url: a.image_url })),
+    explanation: narrowExplanation(d.explanation),
   };
 }
 
-/**
- * Normalize entire session response from the backend with robust fallback.
- */
-function normalizeSession(raw: any): SessionState {
-  const rawQuestions: any[] =
-    raw.questions || raw.items || raw.question_list || [];
-
-  const parsedQuestions = rawQuestions.map(normalizeQuestion);
-  const questions = parsedQuestions.length > 0 ? parsedQuestions : fallbackQuestions;
-
-  return {
-    id: raw.id || raw.session_id || "demo-session-id",
-    mode: raw.mode || "variant",
-    time_limit_sec: raw.time_limit_sec ?? raw.time_limit ?? 1500,
-    remaining_sec: raw.remaining_sec ?? raw.remaining_seconds ?? raw.time_remaining ?? 1500,
-    status: raw.status || "active",
-    questions,
-    score: raw.score ?? raw.correct_count ?? null,
-    passed: raw.passed ?? null,
-    completed_at: raw.completed_at ?? null,
-  };
+/** Fetch each question's public content, in the given order. */
+async function fetchQuestions(ids: string[], locale: string): Promise<SessionQuestionItem[]> {
+  const details = await Promise.all(
+    ids.map((id) => apiGet<QuestionDetailResponse>(`questions/${id}?locale=${encodeURIComponent(locale)}`))
+  );
+  return details.map(toQuestionItem);
 }
 
-
-
-export function useSessionEngine(initialSessionId?: string) {
+export function useSessionEngine(_initialSessionId?: string) {
   const [session, setSession] = useState<SessionState | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadSession = useCallback(async (sessionId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const raw = await apiGet<any>(`sessions/${sessionId}`);
-      const data = normalizeSession(raw);
-      setSession(data);
-      return data;
-    } catch (err: unknown) {
-      // Fallback session if backend token missing or session ID draft
-      const fallbackState = normalizeSession({ id: sessionId, questions: [] });
-      setSession(fallbackState);
-      return fallbackState;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [error, setError] = useState<SessionError | null>(null);
 
   const startSession = useCallback(
-    async (
-      mode: "variant" | "exam" | "practice" | "mistakes",
-      options?: { variant_id?: number | string; category_id?: string; sign_id?: string; question_count?: number }
-    ) => {
+    async (mode: SessionMode, options?: StartSessionOptions): Promise<SessionState | null> => {
       setLoading(true);
       setError(null);
+      const locale = options?.locale ?? defaultLocale;
       try {
         const payload: Record<string, unknown> = { mode };
         if (options?.variant_id !== undefined && options.variant_id !== null) {
@@ -317,16 +194,80 @@ export function useSessionEngine(initialSessionId?: string) {
         if (options?.question_count !== undefined && options.question_count !== null) {
           payload.count = options.question_count;
         }
+        if (options?.locale) {
+          payload.locale = options.locale;
+        }
 
-        const raw = await apiPost<any>("sessions", payload);
-        const data = normalizeSession(raw);
-        setSession(data);
-        return data;
+        const created = await apiPost<StartSessionResponse>("sessions", payload);
+        const questions = await fetchQuestions(created.question_ids, locale);
+
+        const state: SessionState = {
+          id: created.id,
+          mode: created.mode,
+          time_limit_sec: created.time_limit_sec,
+          remaining_sec: created.time_limit_sec,
+          status: "active",
+          questions,
+          score: null,
+          total: created.total,
+          stopped_reason: null,
+          passed: null,
+          completed_at: null,
+        };
+        setSession(state);
+        return state;
       } catch (err: unknown) {
-        // Fallback session creation
-        const fallbackState = normalizeSession({ mode, questions: [] });
-        setSession(fallbackState);
-        return fallbackState;
+        // Never fabricate a session. Surface the typed error; leave session null.
+        setError(toSessionError(err));
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
+
+  const loadSession = useCallback(
+    async (sessionId: string, locale?: string): Promise<SessionState | null> => {
+      setLoading(true);
+      setError(null);
+      const loc = locale ?? defaultLocale;
+      try {
+        const detail = await apiGet<SessionDetailResponse>(`sessions/${sessionId}`);
+        const ordered = [...detail.answers].sort((a, b) => a.position - b.position);
+        const questions = await fetchQuestions(
+          ordered.map((a) => a.question_id),
+          loc
+        );
+        // Mark answered/correct from the resume payload. The chosen answer id is
+        // NOT part of the resume contract, so user_answer_id stays unset.
+        const merged = questions.map((q, i) => ({
+          ...q,
+          answered: ordered[i].answered,
+          correct: ordered[i].correct,
+        }));
+
+        const completed = detail.status !== "in_progress";
+        const state: SessionState = {
+          id: detail.id,
+          mode: detail.mode,
+          // The resume contract does not include the time limit, so remaining
+          // time cannot be reconstructed reliably — leave it null.
+          time_limit_sec: null,
+          remaining_sec: null,
+          status: completed ? "completed" : "active",
+          questions: merged,
+          score: detail.score ?? null,
+          total: detail.total,
+          stopped_reason: detail.stopped_reason || null,
+          passed: completed ? detail.status === "passed" : null,
+          completed_at: detail.finished_at ?? null,
+        };
+        setSession(state);
+        return state;
+      } catch (err: unknown) {
+        setError(toSessionError(err));
+        return null;
       } finally {
         setLoading(false);
       }
@@ -335,30 +276,41 @@ export function useSessionEngine(initialSessionId?: string) {
   );
 
   const submitAnswer = useCallback(
-    async (sessionId: string, questionId: string, answerId: string) => {
+    async (
+      sessionId: string,
+      questionId: string,
+      answerId: string
+    ): Promise<SubmitAnswerResponse | null> => {
       setSubmitting(true);
       setError(null);
       try {
-        const raw = await apiPost<any>(`sessions/${sessionId}/answers`, {
+        const resp = await apiPost<SubmitAnswerResponse>(`sessions/${sessionId}/answers`, {
           question_id: questionId,
           answer_id: answerId,
         });
-        const data = normalizeSession(raw);
-        setSession(data);
-        return data;
-      } catch (err: unknown) {
-        // Local state update fallback
+        // Update ONLY this question, copying correctness verbatim from the
+        // backend (undefined stays undefined — never computed client-side).
         setSession((prev) => {
-          if (!prev) return null;
-          const questions = prev.questions.map((q) => {
-            if (q.id === questionId) {
-              const isCorrect = answerId === q.correct_answer_id;
-              return { ...q, user_answer_id: answerId, is_correct: isCorrect };
-            }
-            return q;
-          });
-          return { ...prev, questions };
+          if (!prev) return prev;
+          return {
+            ...prev,
+            questions: prev.questions.map((q) =>
+              q.id === questionId
+                ? {
+                    ...q,
+                    user_answer_id: answerId,
+                    answered: true,
+                    correct: resp.correct,
+                    correct_answer_id: resp.correct_answer_id,
+                  }
+                : q
+            ),
+          };
         });
+        return resp;
+      } catch (err: unknown) {
+        // Do NOT touch local answer state — no client-computed correctness.
+        setError(toSessionError(err));
         return null;
       } finally {
         setSubmitting(false);
@@ -367,21 +319,37 @@ export function useSessionEngine(initialSessionId?: string) {
     []
   );
 
-  const finishSession = useCallback(async (sessionId: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const raw = await apiPost<any>(`sessions/${sessionId}/finish`);
-      const data = normalizeSession(raw);
-      setSession(data);
-      return data;
-    } catch (err: unknown) {
-      setSession((prev) => (prev ? { ...prev, status: "completed" } : null));
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const finishSession = useCallback(
+    async (sessionId: string): Promise<SessionState | null> => {
+      setLoading(true);
+      setError(null);
+      try {
+        const resp = await apiPost<FinishSessionResponse>(`sessions/${sessionId}/finish`);
+        let next: SessionState | null = null;
+        setSession((prev) => {
+          if (!prev) return prev;
+          next = {
+            ...prev,
+            status: "completed",
+            score: resp.score,
+            total: resp.total,
+            stopped_reason: resp.stopped_reason,
+            passed: resp.status === "passed",
+            completed_at: prev.completed_at ?? new Date().toISOString(),
+          };
+          return next;
+        });
+        return next;
+      } catch (err: unknown) {
+        // Do NOT fake completion.
+        setError(toSessionError(err));
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    []
+  );
 
   return {
     session,
