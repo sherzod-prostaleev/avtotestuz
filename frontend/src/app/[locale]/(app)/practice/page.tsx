@@ -62,17 +62,19 @@ export default function PracticePage() {
       {/* Header */}
       <div>
         <Link href={`/${locale}/dashboard`} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline">
-          <ArrowLeft className="h-4 w-4" /> Bosh sahifaga qaytish
+          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
         <h1 className="font-display text-3xl font-extrabold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-xl">{t("subtitle")}</p>
       </div>
 
       {/* 2 Primary Practice Modes */}
-      <section className="grid gap-4 sm:grid-cols-2">
-        <Card
+      <section aria-label={t("modeGroupLabel")} className="grid gap-4 sm:grid-cols-2">
+        <button
+          type="button"
           onClick={() => setMode("category")}
-          className={`glass-card cursor-pointer p-6 transition-all duration-200 hover:-translate-y-1 ${
+          aria-pressed={mode === "category"}
+          className={`glass-card rounded-2xl border p-6 text-left transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mode === "category"
               ? "border-accent bg-accent/15 ring-2 ring-accent/40 shadow-xl"
               : "hover:border-accent/60"
@@ -82,18 +84,20 @@ export default function PracticePage() {
             <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
               mode === "category" ? "bg-accent text-white shadow-3d" : "bg-accent/10 text-accent"
             }`}>
-              <BookOpen className="h-7 w-7" />
+              <BookOpen aria-hidden="true" className="h-7 w-7" />
             </div>
             <div>
               <h3 className="font-display text-lg font-bold">{t("byCategory")}</h3>
-              <p className="text-xs text-muted-foreground">Yo'l harakati qoidalarining 13 ta rasmiy mavzulari bo'yicha</p>
+              <p className="text-xs text-muted-foreground">{t("byCategoryDescription", { count: 13 })}</p>
             </div>
           </div>
-        </Card>
+        </button>
 
-        <Card
+        <button
+          type="button"
           onClick={() => setMode("sign")}
-          className={`glass-card cursor-pointer p-6 transition-all duration-200 hover:-translate-y-1 ${
+          aria-pressed={mode === "sign"}
+          className={`glass-card rounded-2xl border p-6 text-left transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             mode === "sign"
               ? "border-emerald-500 bg-emerald-500/15 ring-2 ring-emerald-500/40 shadow-xl"
               : "hover:border-emerald-500/60"
@@ -103,14 +107,14 @@ export default function PracticePage() {
             <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${
               mode === "sign" ? "bg-emerald-500 text-white shadow-3d" : "bg-emerald-500/10 text-emerald-500"
             }`}>
-              <Signpost className="h-7 w-7" />
+              <Signpost aria-hidden="true" className="h-7 w-7" />
             </div>
             <div>
               <h3 className="font-display text-lg font-bold">{t("bySign")}</h3>
-              <p className="text-xs text-muted-foreground">O'zbekiston Yo'l belgilari katalogi va belgi interaktiv mashqi</p>
+              <p className="text-xs text-muted-foreground">{t("bySignDescription")}</p>
             </div>
           </div>
-        </Card>
+        </button>
       </section>
 
       {/* Category Selection Panel */}
@@ -119,9 +123,9 @@ export default function PracticePage() {
           <div className="flex items-center justify-between border-b border-border pb-4">
             <div>
               <h2 className="font-display text-xl font-bold">{t("selectCategory")}</h2>
-              <p className="text-xs text-muted-foreground">Mavzuni tanlang va o'zingizga mos savollar sonini belgilang</p>
+              <p className="text-xs text-muted-foreground">{t("selectCategoryDescription")}</p>
             </div>
-            <Sparkles className="h-5 w-5 text-gold animate-pulse" />
+            <Sparkles aria-hidden="true" className="h-5 w-5 text-gold animate-pulse" />
           </div>
 
           {loading ? (
@@ -138,23 +142,25 @@ export default function PracticePage() {
           ) : categories.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">{t("categoriesEmpty")}</div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div role="group" aria-label={t("categoryGroupLabel")} className="grid gap-3 sm:grid-cols-2">
               {categories.map((cat) => {
                 const isSelected = selectedCategory === cat.code;
 
                 return (
-                  <div
+                  <button
+                    type="button"
                     key={cat.code}
                     onClick={() => setSelectedCategory(cat.code)}
-                    className={`flex cursor-pointer items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
+                    aria-pressed={isSelected}
+                    className={`flex items-center justify-between rounded-2xl border p-4 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                       isSelected
                         ? "border-accent bg-accent/15 text-accent font-bold ring-2 ring-accent/40 shadow-md translate-x-0.5"
                         : "border-border bg-card/80 text-foreground hover:border-accent/60 hover:bg-card"
                     }`}
                   >
                     <span className="text-xs font-bold leading-relaxed">{cat.name}</span>
-                    {isSelected && <CheckCircle2 className="h-4 w-4 shrink-0 text-accent" />}
-                  </div>
+                    {isSelected && <CheckCircle2 aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" />}
+                  </button>
                 );
               })}
             </div>
@@ -165,16 +171,17 @@ export default function PracticePage() {
             <label className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {t("questionCount")}
             </label>
-            <div className="flex gap-3">
+            <div role="group" aria-label={t("questionCount")} className="flex gap-3">
               {[10, 20, 30].map((count) => (
                 <Button
                   key={count}
                   variant={questionCount === count ? "game" : "outline"}
                   size="sm"
                   onClick={() => setQuestionCount(count)}
+                  aria-pressed={questionCount === count}
                   className="flex-1 py-2 text-xs font-extrabold"
                 >
-                  {count} ta savol
+                  {t("questionCountOption", { count })}
                 </Button>
               ))}
             </div>
@@ -189,7 +196,7 @@ export default function PracticePage() {
               onClick={handleStart}
               disabled={loading || loadError || !selectedCategory}
             >
-              <Play className="mr-2 h-5 w-5 fill-current" /> {t("start")}
+              <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" /> {t("start")}
             </Button>
           </div>
         </Card>
@@ -199,14 +206,14 @@ export default function PracticePage() {
       {mode === "sign" && (
         <Card className="glass-card p-8 text-center space-y-4">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-500 shadow-sm">
-            <Signpost className="h-8 w-8" />
+            <Signpost aria-hidden="true" className="h-8 w-8" />
           </div>
-          <h2 className="font-display text-xl font-bold">Yo'l Belgilari Interaktiv Mashqi</h2>
+          <h2 className="font-display text-xl font-bold">{t("signPracticeTitle")}</h2>
           <p className="mx-auto max-w-md text-xs leading-relaxed text-muted-foreground">
-            O'zbekiston Respublikasi Yo'l belgilari katalogidan barcha 7 ta guruh belgilarini o'rganing va test topshiring.
+            {t("signPracticeDescription", { count: 7 })}
           </p>
           <Button variant="success" size="lg" onClick={handleStart} className="px-8">
-            Yo'l belgilari katalogiga o'tish <ChevronRight className="ml-1 h-5 w-5" />
+            {t("openSigns")} <ChevronRight aria-hidden="true" className="ml-1 h-5 w-5" />
           </Button>
         </Card>
       )}

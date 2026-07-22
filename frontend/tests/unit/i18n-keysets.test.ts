@@ -13,13 +13,12 @@ describe("localized message contracts", () => {
     }
   });
 
-  it.each(["Landing", "Dashboard", "Sidebar"] as const)(
-    "keeps %s keys identical in all locales",
-    (namespace) => {
+  it("keeps every namespace's keys identical in all locales", () => {
+    for (const namespace of Object.keys(uzLatnMessages) as Array<keyof typeof uzLatnMessages>) {
       const expected = Object.keys(uzLatnMessages[namespace]).sort();
       for (const messages of messageSets.slice(1)) {
         expect(Object.keys(messages[namespace]).sort()).toEqual(expected);
       }
     }
-  );
+  });
 });

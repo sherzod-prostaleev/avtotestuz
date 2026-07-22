@@ -163,9 +163,13 @@ Xato kodlari: `invalid_phone`, `rate_limited` (429), `invalid_code`,
 `unauthorized` (401, Bearer yo'q/yaroqsiz).
 
 Env o'zgaruvchilari (`.env` yoki shell): `JWT_SECRET` (dev default
-`dev-secret-change-me`), `OTP_CHANNEL` (`sandbox`|`telegram`|`sms`, default
+`dev-secret-change-me`), `OTP_CHANNEL` (`sandbox`|`telegram`, default
 `sandbox`), `TELEGRAM_GATEWAY_TOKEN`, `TELEGRAM_GATEWAY_URL` (default
-`https://gatewayapi.telegram.org`). `sms` kanali hali sozlanmagan (Plan 05+).
+`https://gatewayapi.telegram.org`) va Next.js BFF bilan umumiy, tasodifiy 32+
+baytli `CLIENT_IP_ASSERTION_SECRET`. Devda oxirgi qiymat bo'sh qolishi mumkin:
+backend imzosiz/spoof qilingan client-IP headerlarini e'tiborsiz qoldirib,
+ulanish IP'ini xavfsiz fallback sifatida ishlatadi. `ENV=staging|prod`da secret
+majburiy; frontendda ayni secret bilan `TRUSTED_PROXY_HOPS` ham sozlanadi.
 
 VIP grant (to'lovsiz, admin tomonidan): foydalanuvchi kamida bir marta OTP
 orqali kirgan bo'lishi kerak (profil yaratilgan bo'lishi shart), so'ng:

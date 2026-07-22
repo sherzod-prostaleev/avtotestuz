@@ -1,19 +1,28 @@
 import type { Metadata } from "next";
 import { Baloo_2, Manrope } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
-import { getMessages } from "next-intl/server";
+import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Providers } from "@/app/providers";
 import { locales, type Locale } from "@/i18n/config";
 import "../globals.css";
 
-const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700", "800"], variable: "--font-baloo" });
-const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-manrope" });
+const baloo = Baloo_2({ subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"], variable: "--font-baloo" });
+const manrope = Manrope({
+  subsets: ["latin", "latin-ext", "cyrillic"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-manrope",
+});
 
-export const metadata: Metadata = {
-  title: "AvtoTest — Haydovchilik nazariy imtihoniga tayyorgarlik",
-  description: "O'zbekiston Respublikasining 1235 ta rasmiy YHQ savollari, 61 bilet va FSRS aqlli xatolar banki",
-};
+export async function generateMetadata({
+  params: { locale },
+}: {
+  params: { locale: string };
+}): Promise<Metadata> {
+  if (!locales.includes(locale as Locale)) return {};
+  const t = await getTranslations({ locale, namespace: "Metadata" });
+  return { title: t("title"), description: t("description") };
+}
 
 export default async function LocaleLayout({
   children,

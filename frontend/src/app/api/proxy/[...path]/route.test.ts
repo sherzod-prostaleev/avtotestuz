@@ -113,4 +113,62 @@ describe("proxy route", () => {
       expect.objectContaining({ method: "POST", body })
     );
   });
+
+  it("returns a stable 502 and preserves auth cookies when the backend is unavailable", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+    const response = await GET(requestWithCookies("at=good-token; rt=good-refresh"), {
+      params: { path: ["me"] },
+    });
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("network_error");
+    expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
+
+  it("keeps newly rotated cookies when the retried backend request has a network failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { access_token: "fresh-at", refresh_token: "fresh-rt" } }), {
+          status: 200,
+        })
+      )
+      .mockRejectedValueOnce(new Error("backend disappeared"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=expired; rt=old-rt"), {
+      params: { path: ["me"] },
+    });
+
+    expect(response.status).toBe(502);
+    expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("fresh-at");
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("fresh-rt");
+  });
+
+  it("rejects traversal-like route segments before contacting the backend", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=good-token"), {
+      params: { path: ["..", "auth", "logout"] },
+    });
+
+    expect(response.status).toBe(400);
+    expect((await response.json()).error.code).toBe("invalid_path");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("returns 502 for a malformed successful backend response", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not-json", { status: 200 })));
+
+    const response = await GET(requestWithCookies("at=good-token"), {
+      params: { path: ["me"] },
+    });
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("network_error");
+  });
 });

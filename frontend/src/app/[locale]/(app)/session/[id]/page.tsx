@@ -108,7 +108,7 @@ export default function TestSessionPage() {
   const handleSelectAnswer = useCallback(
     async (questionId: string, answerId: string) => {
       const question = session?.questions.find((item) => item.id === questionId);
-      if (!session || session.status === "completed" || !question || hasAnswer(question) || submitting) {
+      if (!session || session.status !== "active" || !question || hasAnswer(question) || submitting) {
         return;
       }
 
@@ -142,7 +142,7 @@ export default function TestSessionPage() {
   );
 
   const handleFinish = useCallback(async () => {
-    if (!session || session.status === "completed" || finishing || submitting) return;
+    if (!session || session.status !== "active" || finishing || submitting) return;
     setFinishing(true);
     setPendingAnswer(null);
     try {
@@ -151,7 +151,12 @@ export default function TestSessionPage() {
         trackEvent("session_finish", {
           session_id: completed.id,
           mode: completed.mode,
-          status: completed.passed ? "passed" : "failed",
+          status:
+            completed.mode === "exam"
+              ? completed.passed
+                ? "passed"
+                : "failed"
+              : "completed",
           score: completed.score,
           total: completed.total,
           stopped_reason: completed.stopped_reason,
@@ -167,7 +172,7 @@ export default function TestSessionPage() {
   const currentAnswered = currentQuestion ? hasAnswer(currentQuestion) : false;
 
   useEffect(() => {
-    if (!session || !currentQuestion || session.status === "completed") return;
+    if (!session || !currentQuestion || session.status !== "active") return;
     const eventKey = `${session.id}:${currentQuestion.id}`;
     if (viewedQuestionsRef.current.has(eventKey)) return;
     viewedQuestionsRef.current.add(eventKey);
@@ -186,7 +191,7 @@ export default function TestSessionPage() {
         setZoomImageUrl(null);
         return;
       }
-      if (!session || session.status === "completed" || !currentQuestion) return;
+      if (!session || session.status !== "active" || !currentQuestion) return;
 
       if (event.key === "ArrowLeft" && currentIndex > 0) {
         event.preventDefault();
@@ -307,7 +312,23 @@ export default function TestSessionPage() {
     );
   }
 
-  if (session.status !== "completed" && questions.length === 0) {
+  if (session.status === "result_pending") {
+    return (
+      <main className="mx-auto max-w-xl px-4 py-12">
+        <Card className="border-gold/40 bg-gold/5 p-8 text-center" role="status" aria-live="polite">
+          <RefreshCw className="mx-auto h-10 w-10 text-gold" aria-hidden="true" />
+          <h1 className="mt-3 font-display text-xl font-bold">{t("resultPendingTitle")}</h1>
+          <p className="mt-2 text-sm text-muted-foreground">{t("resultPendingBody")}</p>
+          <Button className="mt-6" variant="game" onClick={() => void loadSession(sessionId, locale)}>
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+            {t("reloadResult")}
+          </Button>
+        </Card>
+      </main>
+    );
+  }
+
+  if (session.status === "active" && questions.length === 0) {
     return (
       <main className="mx-auto max-w-xl px-4 py-12">
         <Card className="border-accent/40 bg-accent/5 p-8 text-center">
@@ -333,29 +354,47 @@ export default function TestSessionPage() {
     const total = session.total ?? questions.length;
     const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     const passed = session.passed === true;
+    const isExam = session.mode === "exam";
+    const positiveResult = isExam ? passed : true;
+    const completedBodyKey =
+      session.mode === "variant"
+        ? "completedVariantBody"
+        : session.mode === "practice"
+          ? "completedPracticeBody"
+          : "completedMistakesBody";
+    const resultTitle = isExam ? (passed ? t("passedTitle") : t("failedTitle")) : t("completedTitle");
+    const resultBody = isExam ? (passed ? t("passedBody") : t("failedBody")) : t(completedBodyKey);
+    const primaryRoute =
+      session.mode === "practice"
+        ? `/${locale}/practice`
+        : session.mode === "mistakes"
+          ? `/${locale}/mistakes`
+          : `/${locale}/tickets`;
+    const primaryLabel =
+      session.mode === "practice"
+        ? t("backToPractice")
+        : session.mode === "mistakes"
+          ? t("backToMistakes")
+          : t("backToTickets");
 
     return (
       <main className="mx-auto max-w-4xl space-y-6 px-4 py-10">
-        <Card className={`p-8 text-center shadow-xl ${passed ? "border-success/40" : "border-border"}`}>
+        <Card className={`p-8 text-center shadow-xl ${positiveResult ? "border-success/40" : "border-border"}`}>
           <div
             className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${
-              passed ? "border-success/40 bg-success/10" : "border-accent/30 bg-accent/10"
+              positiveResult ? "border-success/40 bg-success/10" : "border-accent/30 bg-accent/10"
             }`}
           >
-            {passed ? (
+            {positiveResult ? (
               <Award className="h-11 w-11 text-gold" aria-hidden="true" />
             ) : (
               <RefreshCw className="h-10 w-10 text-accent" aria-hidden="true" />
             )}
           </div>
-          <h1 className="mt-5 font-display text-3xl font-extrabold">
-            {passed ? t("passedTitle") : t("failedTitle")}
-          </h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
-            {passed ? t("passedBody") : t("failedBody")}
-          </p>
+          <h1 className="mt-5 font-display text-3xl font-extrabold">{resultTitle}</h1>
+          <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{resultBody}</p>
 
-          {session.stopped_reason && session.stopped_reason !== "completed" && (
+          {isExam && session.stopped_reason && session.stopped_reason !== "completed" && (
             <p className="mx-auto mt-4 max-w-lg rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm">
               {session.stopped_reason === "too_many_errors" ? t("stoppedTooMany") : t("stoppedTime")}
             </p>
@@ -375,8 +414,8 @@ export default function TestSessionPage() {
           </dl>
 
           <div className="flex flex-wrap justify-center gap-3">
-            <Button variant="game" size="lg" onClick={() => router.push(`/${locale}/tickets`)}>
-              {t("backToTickets")}
+            <Button variant="game" size="lg" onClick={() => router.push(primaryRoute)}>
+              {primaryLabel}
             </Button>
             <Button variant="outline" size="lg" onClick={() => router.push(`/${locale}/dashboard`)}>
               {t("dashboard")}

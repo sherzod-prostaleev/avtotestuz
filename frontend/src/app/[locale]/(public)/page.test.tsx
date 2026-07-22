@@ -86,7 +86,10 @@ describe("LandingPage i18n and accessibility", () => {
     const { container } = renderWithIntl(localeCase);
 
     expect(screen.getByText(localeCase.hero)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: localeCase.login })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: localeCase.login })).toHaveAttribute(
+      "href",
+      `/${localeCase.locale}/login`
+    );
     expect(screen.getByText(localeCase.feature)).toBeInTheDocument();
     expect(screen.getByText(localeCase.footer)).toBeInTheDocument();
     expect(await screen.findByText(localeCase.question)).toBeInTheDocument();

@@ -25,9 +25,11 @@ ORDER BY random()
 LIMIT sqlc.arg(limit_count);
 
 -- name: ListMistakeBankQuestionIDs :many
-SELECT question_id FROM question_memory
-WHERE profile_id = sqlc.arg(profile_id) AND lapses > 0 AND due_at <= now()
-ORDER BY due_at ASC
+SELECT qm.question_id
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = sqlc.arg(profile_id) AND qm.lapses > 0 AND qm.due_at <= now()
+ORDER BY qm.due_at ASC
 LIMIT sqlc.arg(limit_count);
 
 -- name: GetAnswerForScoring :one

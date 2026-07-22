@@ -3,7 +3,6 @@ package auth
 import (
 	"encoding/json"
 	"errors"
-	"net"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,7 +11,8 @@ import (
 )
 
 type Handler struct {
-	Svc *Service
+	Svc       *Service
+	ClientIPs ClientIPResolver
 }
 
 func (h *Handler) Routes(r chi.Router) {
@@ -30,14 +30,6 @@ func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
-	}
-	return host
-}
-
 type otpRequestBody struct {
 	Phone string `json:"phone"`
 }
@@ -52,7 +44,7 @@ func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, &body) {
 		return
 	}
-	res, err := h.Svc.RequestOTP(r.Context(), body.Phone, clientIP(r))
+	res, err := h.Svc.RequestOTP(r.Context(), body.Phone, h.ClientIPs.Resolve(r))
 	if err != nil {
 		writeAuthError(w, err)
 		return

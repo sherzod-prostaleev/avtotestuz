@@ -32,7 +32,7 @@ describe("ExamMockupPage", () => {
     renderWithIntl();
     fireEvent.click(screen.getByRole("button", { name: "To'g'ri javob berilgan" }));
     expect(screen.getByTestId("answer-correct-icon")).toBeInTheDocument();
-    expect(screen.getByText("MUHIM")).toBeInTheDocument();
+    expect(screen.getByText("Muhim")).toBeInTheDocument();
   });
 
   it("never reveals correctness in the exam-hidden state, even after selecting an answer", () => {

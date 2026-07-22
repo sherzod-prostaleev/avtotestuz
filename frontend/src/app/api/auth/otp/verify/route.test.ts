@@ -59,4 +59,22 @@ describe("POST /api/auth/otp/verify", () => {
     expect(json.error.code).toBe("invalid_code");
     expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
   });
+
+  it("rejects a malformed success payload without setting empty token cookies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { access_token: "only-one-token" } }), { status: 200 }))
+    );
+
+    const request = new Request("http://localhost/api/auth/otp/verify", {
+      method: "POST",
+      body: JSON.stringify({ phone: "901112233", code: "123456" }),
+    });
+    const response = await POST(request);
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("network_error");
+    expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
 });

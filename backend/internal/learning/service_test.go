@@ -207,6 +207,32 @@ func TestMistakeBankSummaryIsProfileScopedAndIgnoresInvalidQuestions(t *testing.
 	}
 }
 
+func TestMistakeBankQuestionIDsIgnoreInvalidQuestions(t *testing.T) {
+	q, svc, profileID, qids, pool := seedWithPool(t)
+	ctx := context.Background()
+
+	for _, questionID := range qids[:2] {
+		if _, err := svc.RecordReview(ctx, profileID, questionID, learning.Again); err != nil {
+			t.Fatalf("record mistake for %s: %v", questionID, err)
+		}
+		backdateDueAt(t, pool, profileID, questionID, time.Now().UTC().Add(-time.Hour))
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE question SET validation_status = 'quarantined' WHERE id = $1`, qids[1]); err != nil {
+		t.Fatalf("quarantine question: %v", err)
+	}
+
+	ids, err := q.ListMistakeBankQuestionIDs(ctx, sqlc.ListMistakeBankQuestionIDsParams{
+		ProfileID: profileID, LimitCount: 10,
+	})
+	if err != nil {
+		t.Fatalf("ListMistakeBankQuestionIDs: %v", err)
+	}
+	if len(ids) != 1 || ids[0] != qids[0] {
+		t.Fatalf("mistake bank ids = %v, want only valid question %s", ids, qids[0])
+	}
+}
+
 func TestMistakeBankSummaryUsesEarliestFutureDueAndNullWhenAllDue(t *testing.T) {
 	_, svc, profileID, qids, pool := seedWithPool(t)
 	for _, questionID := range qids[:3] {

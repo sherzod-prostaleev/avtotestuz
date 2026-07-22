@@ -6,15 +6,23 @@ import { QuestionCard } from "@/components/shared/question-card";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
 import { Button } from "@/components/ui/button";
-import { mockExamQuestions } from "@/lib/mock-data";
 
 type Mode = "unanswered" | "correct" | "incorrect" | "exam-hidden";
 
 export default function ExamMockupPage() {
   const t = useTranslations("ExamMockup");
   const [mode, setMode] = useState<Mode>("unanswered");
-  const question = mockExamQuestions[0];
-  const wrongAnswerId = question.answers.find((a) => a.id !== question.correctAnswerId)!.id;
+  const question = {
+    text: t("question"),
+    answers: [
+      { id: "a1", shortcutLabel: "F1", text: t("answerLeft") },
+      { id: "a2", shortcutLabel: "F2", text: t("answerRight") },
+      { id: "a3", shortcutLabel: "F3", text: t("answerStraight") },
+      { id: "a4", shortcutLabel: "F4", text: t("answerFastest") },
+    ],
+    correctAnswerId: "a2",
+  };
+  const wrongAnswerId = question.answers.find((answer) => answer.id !== question.correctAnswerId)!.id;
   const selectedAnswerId =
     mode === "correct" ? question.correctAnswerId : mode === "incorrect" ? wrongAnswerId : null;
 
@@ -36,7 +44,7 @@ export default function ExamMockupPage() {
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
       {/* Mockup-only tooling: Phase B3 replaces this with real session state. */}
-      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Mockup holatini tanlash">
+      <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label={t("modeGroupLabel")}>
         {(Object.keys(modeLabels) as Mode[]).map((m) => (
           <Button key={m} size="sm" variant={m === mode ? "game" : "outline"} onClick={() => setMode(m)}>
             {modeLabels[m]}
@@ -49,7 +57,7 @@ export default function ExamMockupPage() {
         <CountdownTimer remainingSeconds={mode === "exam-hidden" ? 45 : 900} />
       </div>
 
-      <QuestionCard questionNumber={1} totalQuestions={20} text={question.text} hasImage={question.hasImage} />
+      <QuestionCard questionNumber={1} totalQuestions={20} text={question.text} />
 
       <div className="mt-4 flex flex-col gap-3">
         {question.answers.map((a) => (
@@ -59,11 +67,8 @@ export default function ExamMockupPage() {
 
       {(mode === "correct" || mode === "incorrect") && (
         <div className="mt-4 rounded-lg border border-gold bg-gold/10 p-4">
-          <p className="font-display font-bold text-gold">MUHIM</p>
-          <p className="mt-1 text-sm">
-            Svetofor ishlamagan chorrahada — YHQning tegishli qoidasiga ko&apos;ra o&apos;ngdan kelayotgan
-            transport vositasi ustunlikka ega bo&apos;ladi.
-          </p>
+          <p className="font-display font-bold text-gold">{t("important")}</p>
+          <p className="mt-1 text-sm">{t("explanation")}</p>
         </div>
       )}
     </main>

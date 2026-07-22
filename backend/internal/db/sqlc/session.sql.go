@@ -395,9 +395,11 @@ func (q *Queries) InsertSessionAnswer(ctx context.Context, arg InsertSessionAnsw
 }
 
 const listMistakeBankQuestionIDs = `-- name: ListMistakeBankQuestionIDs :many
-SELECT question_id FROM question_memory
-WHERE profile_id = $1 AND lapses > 0 AND due_at <= now()
-ORDER BY due_at ASC
+SELECT qm.question_id
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.lapses > 0 AND qm.due_at <= now()
+ORDER BY qm.due_at ASC
 LIMIT $2
 `
 

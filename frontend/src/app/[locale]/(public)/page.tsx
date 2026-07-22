@@ -2,7 +2,6 @@
 
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { DemoQuestionBlock } from "./demo-question-block";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
@@ -16,6 +15,9 @@ import {
   LogIn,
   CarFront,
 } from "lucide-react";
+
+const gameLinkBase = "inline-flex items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none";
+const outlineLinkBase = "inline-flex items-center justify-center rounded-2xl border border-border bg-card font-bold tracking-wide text-foreground shadow-sm transition-all duration-150 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 export default function LandingPage() {
   const t = useTranslations("Landing");
@@ -100,10 +102,8 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link href={`/${locale}/login`}>
-              <Button variant="game" size="sm" className="px-5">
+            <Link href={`/${locale}/login`} className={`${gameLinkBase} h-9 px-5 text-xs`}>
                 <LogIn aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> {t("login")}
-              </Button>
             </Link>
           </div>
         </div>
@@ -137,15 +137,11 @@ export default function LandingPage() {
 
           {/* CTA Buttons */}
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-in">
-            <Link href={`/${locale}/login`}>
-              <Button variant="game" size="lg" className="px-10 py-4 text-base font-extrabold shadow-xl">
+            <Link href={`/${locale}/login`} className={`${gameLinkBase} h-13 px-10 py-4 text-base font-extrabold shadow-xl`}>
                 {t("ctaStart")} <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-              </Button>
             </Link>
-            <Link href={`/${locale}/signs`}>
-              <Button variant="outline" size="lg" className="px-8 py-4 text-sm font-bold">
+            <Link href={`/${locale}/signs`} className={`${outlineLinkBase} h-13 px-8 py-4 text-sm`}>
                 {t("ctaSigns")}
-              </Button>
             </Link>
           </div>
 
@@ -253,10 +249,8 @@ export default function LandingPage() {
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
             {t("bottomCtaText")}
           </p>
-          <Link href={`/${locale}/login`}>
-            <Button variant="game" size="lg" className="px-10 py-4 text-base font-extrabold shadow-xl">
+          <Link href={`/${locale}/login`} className={`${gameLinkBase} h-13 px-10 py-4 text-base font-extrabold shadow-xl`}>
               {t("ctaStart")} <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-            </Button>
           </Link>
         </section>
       </main>

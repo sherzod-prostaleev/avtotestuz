@@ -61,7 +61,7 @@ export interface SessionState {
   mode: SessionMode;
   time_limit_sec: number | null;
   remaining_sec: number | null;
-  status: "active" | "completed";
+  status: "active" | "completed" | "result_pending";
   questions: SessionQuestionItem[];
   score: number | null;
   total: number | null;
@@ -455,7 +455,10 @@ export function useSessionEngine(_initialSessionId?: string) {
             if (current) {
               commitSession({
                 ...current,
-                status: "completed",
+                // The backend has completed the exam, but its authoritative
+                // score/pass result could not be reloaded. Keep a distinct
+                // recoverable state instead of fabricating 0/failed.
+                status: "result_pending",
                 stopped_reason: response.stop_reason ?? current.stopped_reason,
               });
             }

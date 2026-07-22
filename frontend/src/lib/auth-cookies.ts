@@ -39,5 +39,13 @@ export function readCookie(request: Request, name: string): string | undefined {
     .split(";")
     .map((c) => c.trim())
     .find((c) => c.startsWith(`${name}=`));
-  return match ? decodeURIComponent(match.slice(name.length + 1)) : undefined;
+  if (!match) return undefined;
+
+  try {
+    return decodeURIComponent(match.slice(name.length + 1));
+  } catch {
+    // A malformed attacker-controlled Cookie header must behave like a
+    // missing cookie instead of crashing every BFF request with a 500.
+    return undefined;
+  }
 }

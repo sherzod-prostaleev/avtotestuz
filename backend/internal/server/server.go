@@ -67,7 +67,10 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				}
 				svc := auth.NewService(deps.Queries, deps.Pool, auth.Limiter{R: deps.Redis},
 					sender, []byte(cfg.JWTSecret), cfg.Env)
-				ah := &auth.Handler{Svc: svc}
+				ah := &auth.Handler{
+					Svc:       svc,
+					ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+				}
 				ah.Routes(api)
 
 				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}

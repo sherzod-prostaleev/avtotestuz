@@ -53,4 +53,16 @@ describe("POST /api/auth/refresh", () => {
     expect(json.error.code).toBe("invalid_refresh");
     expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("");
   });
+
+  it("returns 502 without clearing cookies on a transient backend failure", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
+
+    const response = await POST(requestWithCookie("rt=still-usable"));
+    const json = await response.json();
+
+    expect(response.status).toBe(502);
+    expect(json.error.code).toBe("network_error");
+    expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
 });

@@ -39,6 +39,7 @@ describe("PracticePage", () => {
 
     expect(screen.getByText("Mashq rejimi")).toBeInTheDocument();
     expect(screen.getByText("Kategoriya bo'yicha")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Kategoriya bo'yicha/ })).toHaveAttribute("aria-pressed", "true");
     expect(await screen.findByText("Chorrahalar")).toBeInTheDocument();
     expect(apiClient.apiGet).toHaveBeenCalledWith("categories?locale=uz-Latn");
 
