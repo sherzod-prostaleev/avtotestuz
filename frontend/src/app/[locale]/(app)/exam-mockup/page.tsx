@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { QuestionCard } from "@/components/shared/question-card";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
@@ -9,19 +10,20 @@ import { mockExamQuestions } from "@/lib/mock-data";
 
 type Mode = "unanswered" | "correct" | "incorrect" | "exam-hidden";
 
-const modeLabels: Record<Mode, string> = {
-  unanswered: "Javobsiz",
-  correct: "To'g'ri javob berilgan",
-  incorrect: "Xato javob berilgan",
-  "exam-hidden": "Imtihon rejimi (feedback yashirin)",
-};
-
 export default function ExamMockupPage() {
+  const t = useTranslations("ExamMockup");
   const [mode, setMode] = useState<Mode>("unanswered");
   const question = mockExamQuestions[0];
   const wrongAnswerId = question.answers.find((a) => a.id !== question.correctAnswerId)!.id;
   const selectedAnswerId =
     mode === "correct" ? question.correctAnswerId : mode === "incorrect" ? wrongAnswerId : null;
+
+  const modeLabels: Record<Mode, string> = {
+    unanswered: t("modeUnanswered"),
+    correct: t("modeCorrect"),
+    incorrect: t("modeIncorrect"),
+    "exam-hidden": t("modeExamHidden"),
+  };
 
   function stateFor(answerId: string): AnswerState {
     if (mode === "unanswered") return "neutral";
@@ -33,7 +35,7 @@ export default function ExamMockupPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-8">
-      {/* Mockup-only tooling: Phase B replaces this with real session state. */}
+      {/* Mockup-only tooling: Phase B3 replaces this with real session state. */}
       <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Mockup holatini tanlash">
         {(Object.keys(modeLabels) as Mode[]).map((m) => (
           <Button key={m} size="sm" variant={m === mode ? "default" : "outline"} onClick={() => setMode(m)}>
@@ -43,7 +45,7 @@ export default function ExamMockupPage() {
       </div>
 
       <div className="mb-4 flex items-center justify-between">
-        <span className="text-sm text-muted-foreground">1 / 20</span>
+        <span className="text-sm text-muted-foreground">{t("positionLabel", { n: 1, total: 20 })}</span>
         <CountdownTimer remainingSeconds={mode === "exam-hidden" ? 45 : 900} />
       </div>
 

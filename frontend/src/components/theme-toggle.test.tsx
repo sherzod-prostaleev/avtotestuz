@@ -1,13 +1,17 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { ThemeProvider } from "next-themes";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../messages/uz-Latn.json";
 import { ThemeToggle } from "./theme-toggle";
 
 function renderWithTheme() {
   return render(
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-      <ThemeToggle />
-    </ThemeProvider>
+    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeToggle />
+      </ThemeProvider>
+    </NextIntlClientProvider>
   );
 }
 

@@ -1,22 +1,25 @@
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { ResultRing } from "@/components/shared/result-ring";
 import { mockProfile } from "@/lib/mock-data";
 import { Flame } from "lucide-react";
 
-const navCards = [
-  { title: "Biletlar", desc: "61 ta bilet, ketma-ket ochiladi" },
-  { title: "Imtihon simulyatsiyasi", desc: "20 savol, 25 daqiqa" },
-  { title: "Mashq", desc: "Mavzu yoki belgi bo'yicha" },
-  { title: "Xatolar ustida ishlash", desc: "FSRS asosida takrorlash" },
-];
-
 export default function DashboardPage() {
+  const t = useTranslations("Dashboard");
   const { name, isVip, streak, readinessPercent } = mockProfile;
+
+  const navCards = [
+    { title: t("navVariantsTitle"), desc: t("navVariantsDesc") },
+    { title: t("navExamTitle"), desc: t("navExamDesc") },
+    { title: t("navPracticeTitle"), desc: t("navPracticeDesc") },
+    { title: t("navMistakesTitle"), desc: t("navMistakesDesc") },
+  ];
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
       <header className="flex items-center justify-between">
         <div>
-          <p className="text-muted-foreground">Xush kelibsiz,</p>
+          <p className="text-muted-foreground">{t("welcome")}</p>
           <h1 className="font-display text-2xl font-bold">{name}</h1>
         </div>
         <span
@@ -26,7 +29,7 @@ export default function DashboardPage() {
               : "rounded-full border border-border px-4 py-1 text-sm text-muted-foreground"
           }
         >
-          {isVip ? "Premium" : "Bepul reja"}
+          {isVip ? t("planPremium") : t("planFree")}
         </span>
       </header>
 
@@ -35,7 +38,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <Flame className="h-6 w-6 text-streak" />
             <span className="font-display text-2xl font-extrabold">{streak.current}</span>
-            <span className="text-muted-foreground">kunlik streak</span>
+            <span className="text-muted-foreground">{t("streakSuffix")}</span>
           </div>
           <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-border">
             <div
@@ -44,12 +47,12 @@ export default function DashboardPage() {
             />
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Bugun: {streak.todayDone}/{streak.dailyGoal} savol
+            {t("streakToday", { done: streak.todayDone, goal: streak.dailyGoal })}
           </p>
         </div>
 
         <div className="flex items-center justify-center rounded-lg border border-border bg-card p-5">
-          <ResultRing percent={readinessPercent} label="Tayyorlik" />
+          <ResultRing percent={readinessPercent} label={t("readinessLabel")} />
         </div>
       </section>
 

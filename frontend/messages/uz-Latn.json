@@ -1,0 +1,62 @@
+{
+  "ThemeToggle": {
+    "toLight": "Yorug' temaga o'tish",
+    "toDark": "Qorong'i temaga o'tish"
+  },
+  "Landing": {
+    "heroTitleBefore": "Prava'ni",
+    "heroTitleAccent": "oson",
+    "heroTitleAfter": "oling!",
+    "heroSubtitle": "FSRS asosidagi aqlli o'quv dvigateli bilan haydovchilik nazariy imtihoniga tayyorlaning.",
+    "ctaStart": "Bepul boshlash",
+    "ctaNoSignup": "Ro'yxatsiz sinab ko'ring",
+    "demoSectionTitle": "Hozir sinab ko'ring",
+    "whyUsTitle": "Nega biz?",
+    "feature1Title": "FSRS o'quv dvigateli",
+    "feature1Text": "Har savol siz uchun aqlli takrorlash jadvali bilan due bo'ladi.",
+    "feature2Title": "Tayyorlik %",
+    "feature2Text": "Imtihonga qanchalik tayyorligingizni real vaqtda ko'ring.",
+    "feature3Title": "YHQ-havolali izohlar",
+    "feature3Text": "Har javobda huquqiy modda-havola bilan chuqur tushuntirish.",
+    "feature4Title": "Real imtihon simulyatsiyasi",
+    "feature4Text": "20 savol, 25 daqiqa, 3-xatoda to'xtash — aynan rasmiy qoida.",
+    "howItWorksTitle": "Qanday ishlaydi",
+    "step1Title": "Ro'yxatdan o'ting",
+    "step1Text": "Telefon raqamingiz bilan bir daqiqada.",
+    "step2Title": "Bilet yeching",
+    "step2Text": "Birinchi bilet har doim bepul.",
+    "step3Title": "Tayyorlikni kuzating",
+    "step3Text": "Statistikada zaif mavzularni ko'ring.",
+    "faqTitle": "Savol-javob",
+    "faq1Q": "Birinchi bilet chindan bepulmi?",
+    "faq1A": "Ha, ro'yxatdan o'tgan har bir foydalanuvchi uchun 1-bilet doim bepul.",
+    "faq2Q": "Savollar qayerdan olingan?",
+    "faq2A": "Real imtihon savollari, litsenziyasi tasdiqlangan manbadan.",
+    "faq3Q": "Necha tilda ishlaydi?",
+    "faq3A": "uz-Latn, uz-Cyrl va rus tillarida.",
+    "footer": "AvtoTest — {year}"
+  },
+  "Dashboard": {
+    "welcome": "Xush kelibsiz,",
+    "planPremium": "Premium",
+    "planFree": "Bepul reja",
+    "streakSuffix": "kunlik streak",
+    "streakToday": "Bugun: {done}/{goal} savol",
+    "readinessLabel": "Tayyorlik",
+    "navVariantsTitle": "Biletlar",
+    "navVariantsDesc": "61 ta bilet, ketma-ket ochiladi",
+    "navExamTitle": "Imtihon simulyatsiyasi",
+    "navExamDesc": "20 savol, 25 daqiqa",
+    "navPracticeTitle": "Mashq",
+    "navPracticeDesc": "Mavzu yoki belgi bo'yicha",
+    "navMistakesTitle": "Xatolar ustida ishlash",
+    "navMistakesDesc": "FSRS asosida takrorlash"
+  },
+  "ExamMockup": {
+    "modeUnanswered": "Javobsiz",
+    "modeCorrect": "To'g'ri javob berilgan",
+    "modeIncorrect": "Xato javob berilgan",
+    "modeExamHidden": "Imtihon rejimi (feedback yashirin)",
+    "positionLabel": "{n} / {total}"
+  }
+}
