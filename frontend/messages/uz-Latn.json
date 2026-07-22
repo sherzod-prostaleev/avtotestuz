@@ -570,5 +570,12 @@
     "questionCount": "Savollar soni",
     "questionCountOption": "{count} ta savol",
     "start": "Mashqni boshlash"
+  },
+  "Trial": {
+    "label": "Premium sinov",
+    "remaining": "Sinov muddati",
+    "expiredTitle": "Sinov muddati tugadi",
+    "expiredBody": "Cheksiz mashq va barcha biletlar uchun obunani rasmiylashtiring.",
+    "upgrade": "Premium olish"
   }
 }

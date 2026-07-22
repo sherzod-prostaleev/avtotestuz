@@ -570,5 +570,12 @@
     "questionCount": "Количество вопросов",
     "questionCountOption": "{count} вопросов",
     "start": "Начать практику"
+  },
+  "Trial": {
+    "label": "Пробный Premium",
+    "remaining": "Осталось времени",
+    "expiredTitle": "Пробный период закончился",
+    "expiredBody": "Оформите подписку для безлимитной практики и всех билетов.",
+    "upgrade": "Получить Premium"
   }
 }

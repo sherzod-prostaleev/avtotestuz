@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
 import {
   LayoutDashboard,
@@ -155,6 +156,8 @@ export function Sidebar() {
               )}
             </div>
           </div>
+
+          <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} />
 
           {/* Navigation Links List */}
           <nav className="space-y-1">

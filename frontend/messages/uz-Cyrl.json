@@ -570,5 +570,12 @@
     "questionCount": "Саволлар сони",
     "questionCountOption": "{count} та савол",
     "start": "Машқни бошлаш"
+  },
+  "Trial": {
+    "label": "Premium синов",
+    "remaining": "Синов муддати",
+    "expiredTitle": "Синов муддати тугади",
+    "expiredBody": "Чексиз машқ ва барча билетлар учун обунани расмийлаштиринг.",
+    "upgrade": "Premium олиш"
   }
 }
