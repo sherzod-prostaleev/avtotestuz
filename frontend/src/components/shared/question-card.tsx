@@ -1,16 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import {
-  AlertTriangle,
-  CheckCircle2,
-  CircleHelp,
-  Info,
-  Lightbulb,
-  ListChecks,
-  ZoomIn,
-} from "lucide-react";
-import type { QuestionExplanation, QuestionExplanationBlock } from "@/hooks/use-session-engine";
+import { ZoomIn } from "lucide-react";
 
 interface QuestionCardProps {
   questionNumber: number;
@@ -21,106 +12,13 @@ interface QuestionCardProps {
   /** Kept for the retired mockup surface; no fake image is rendered without a real URL. */
   hasImage?: boolean;
   onImageClick?: () => void;
-  explanation?: QuestionExplanation | null;
 }
 
-type ExplanationStyle = {
-  labelKey:
-    | "explanationIntro"
-    | "explanationImportant"
-    | "explanationWarning"
-    | "explanationTip"
-    | "explanationAnswers"
-    | "explanationSummary"
-    | "explanationNote"
-    | "explanationRule";
-  className: string;
-  Icon: typeof Info;
-};
-
-function explanationStyle(type: QuestionExplanationBlock["type"] | string): ExplanationStyle {
-  switch (type) {
-    case "intro":
-      return { labelKey: "explanationIntro", className: "border-accent/30 bg-accent/5", Icon: Info };
-    case "important":
-    case "muhim":
-      return {
-        labelKey: "explanationImportant",
-        className: "border-gold/40 bg-gold/10",
-        Icon: AlertTriangle,
-      };
-    case "warning":
-    case "ogohlantirish":
-      return {
-        labelKey: "explanationWarning",
-        className: "border-danger/40 bg-danger/10",
-        Icon: AlertTriangle,
-      };
-    case "tip":
-    case "maslahat":
-      return {
-        labelKey: "explanationTip",
-        className: "border-success/40 bg-success/10",
-        Icon: Lightbulb,
-      };
-    case "option_analysis":
-    case "answer_analysis":
-      return {
-        labelKey: "explanationAnswers",
-        className: "border-accent/30 bg-background/60",
-        Icon: ListChecks,
-      };
-    case "summary":
-    case "xulosa":
-      return {
-        labelKey: "explanationSummary",
-        className: "border-success/40 bg-success/10",
-        Icon: CheckCircle2,
-      };
-    case "eslatma":
-      return {
-        labelKey: "explanationNote",
-        className: "border-accent/30 bg-background/60",
-        Icon: CircleHelp,
-      };
-    default:
-      return {
-        labelKey: "explanationRule",
-        className: "border-border bg-background/60",
-        Icon: Info,
-      };
-  }
-}
-
-function ExplanationBlock({ block, collapsed }: { block: QuestionExplanationBlock; collapsed: boolean }) {
-  const t = useTranslations("Session");
-  const style = explanationStyle(block.type);
-  const Icon = style.Icon;
-  const body = <p className="whitespace-pre-line text-sm leading-6 text-foreground/90">{block.content}</p>;
-
-  if (collapsed) {
-    return (
-      <details className={`rounded-xl border p-4 ${style.className}`}>
-        <summary className="flex min-h-7 cursor-pointer list-none items-center gap-2 text-xs font-extrabold uppercase tracking-wider">
-          <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-          {t(style.labelKey)}
-        </summary>
-        <div className="mt-3 border-t border-current/10 pt-3">{body}</div>
-      </details>
-    );
-  }
-
-  return (
-    <section className={`rounded-xl border p-4 ${style.className}`}>
-      <h3 className="mb-2 flex items-center gap-2 text-xs font-extrabold uppercase tracking-wider">
-        <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-        {t(style.labelKey)}
-      </h3>
-      {body}
-    </section>
-  );
-}
-
+/**
+ * Presentational question header used by the exam mockup. The live session screen composes its own
+ * layout through QuestionStage, which owns the height budget; explanations live in
+ * ExplanationDialog so nothing in the answering flow can grow unbounded.
+ */
 export function QuestionCard({
   questionNumber,
   totalQuestions,
@@ -128,7 +26,6 @@ export function QuestionCard({
   text,
   imageUrl,
   onImageClick,
-  explanation,
 }: QuestionCardProps) {
   const t = useTranslations("Session");
   const displayText = questionText || text || "";
@@ -167,18 +64,6 @@ export function QuestionCard({
             </span>
           )}
         </button>
-      )}
-
-      {explanation && explanation.blocks.length > 0 && (
-        <section className="space-y-3 border-t border-border pt-5" aria-label={t("explanationTitle")}>
-          <div className="flex items-center gap-2">
-            <Lightbulb className="h-5 w-5 text-gold" aria-hidden="true" />
-            <h2 className="font-display text-lg font-bold">{t("explanationTitle")}</h2>
-          </div>
-          {explanation.blocks.map((block, index) => (
-            <ExplanationBlock key={`${block.type}-${index}`} block={block} collapsed={index > 0} />
-          ))}
-        </section>
       )}
     </div>
   );

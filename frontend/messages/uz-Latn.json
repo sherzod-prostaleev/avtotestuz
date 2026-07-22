@@ -417,7 +417,9 @@
     "explanationAnswers": "Javoblar tahlili",
     "explanationSummary": "Xulosa",
     "explanationNote": "Eslatma",
-    "explanationRule": "YHQ qoidasi"
+    "explanationRule": "YHQ qoidasi",
+    "expertAnalysis": "Ekspert tahlili",
+    "closeExplanation": "Yopish"
   },
   "SessionStart": {
     "starting": "Test sessiyasi tayyorlanmoqda...",

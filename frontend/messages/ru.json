@@ -417,7 +417,9 @@
     "explanationAnswers": "Разбор ответов",
     "explanationSummary": "Вывод",
     "explanationNote": "Примечание",
-    "explanationRule": "Правило ПДД"
+    "explanationRule": "Правило ПДД",
+    "expertAnalysis": "Экспертный разбор",
+    "closeExplanation": "Закрыть"
   },
   "SessionStart": {
     "starting": "Готовим тестовую сессию...",

@@ -417,7 +417,9 @@
     "explanationAnswers": "Жавоблар таҳлили",
     "explanationSummary": "Хулоса",
     "explanationNote": "Эслатма",
-    "explanationRule": "ЙҲҚ қоидаси"
+    "explanationRule": "ЙҲҚ қоидаси",
+    "expertAnalysis": "Эксперт таҳлили",
+    "closeExplanation": "Ёпиш"
   },
   "SessionStart": {
     "starting": "Тест сессияси тайёрланмоқда...",
