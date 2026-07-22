@@ -28,6 +28,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/sessions/{id}/finish", h.finishSession)
 	r.Get("/sessions/{id}", h.getSession)
 	r.Get("/sessions/{id}/questions/{questionID}", h.getSessionQuestion)
+	r.Get("/me/practice-allowance", h.practiceAllowance)
 	r.Get("/me/sessions", h.listMySessions)
 	r.Get("/me/variants", h.listVariantStatuses)
 }
@@ -74,9 +75,12 @@ type startSessionBody struct {
 	SignID     *string `json:"sign_id"`
 	// HasImage is a practice selector like CategoryID/SignID, but needs no
 	// resolution: it is a plain boolean over question.image_id.
-	HasImage *bool  `json:"has_image"`
-	Locale   string `json:"locale"`
-	Count    int    `json:"count"`
+	HasImage *bool `json:"has_image"`
+	// Bilet span selector; numbers, not codes, so no resolution is needed.
+	VariantFrom int    `json:"variant_from"`
+	VariantTo   int    `json:"variant_to"`
+	Locale      string `json:"locale"`
+	Count       int    `json:"count"`
 }
 
 type startSessionResponse struct {
@@ -101,6 +105,30 @@ func toStartSessionResponse(v SessionView) startSessionResponse {
 		Total:        v.Total,
 		StartedAt:    v.StartedAt,
 	}
+}
+
+type practiceAllowanceResponse struct {
+	Unlimited bool `json:"unlimited"`
+	Limit     int  `json:"limit"`
+	Used      int  `json:"used"`
+	Remaining int  `json:"remaining"`
+}
+
+// practiceAllowance reports today's practice budget so the picker can say how
+// many questions a chosen size will actually deliver. Without it the UI offers
+// sizes the server then silently clamps, which reads as a broken question pool
+// rather than as a paywall.
+func (h *Handler) practiceAllowance(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	allowance, err := h.Svc.PracticeAllowance(r.Context(), claims.ProfileID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, practiceAllowanceResponse(allowance))
 }
 
 func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
@@ -142,6 +170,8 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
 		req.SignID = id
 	}
 	req.HasImage = body.HasImage
+	req.VariantFrom = body.VariantFrom
+	req.VariantTo = body.VariantTo
 
 	view, err := h.Svc.StartSession(r.Context(), claims.ProfileID, req)
 	if err != nil {

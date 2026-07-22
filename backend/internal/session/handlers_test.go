@@ -623,6 +623,79 @@ func TestPracticeSessionByImagePresenceOverHTTP(t *testing.T) {
 	}
 }
 
+// TestPracticeSessionByVariantRangeOverHTTP covers the bilet-span selector,
+// which lets a learner mix-review a range they have already worked through.
+func TestPracticeSessionByVariantRangeOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"mode": "practice", "variant_from": 1, "variant_to": 2,
+		"locale": "uz-Latn", "count": 5,
+	})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("variant range status=%d body=%s err=%+v", status, env.Data, env.Error)
+	}
+	var created struct {
+		QuestionIDs []string `json:"question_ids"`
+		Total       int      `json:"total"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	if created.Total == 0 || len(created.QuestionIDs) != created.Total {
+		t.Fatalf("expected non-empty question set: %+v", created)
+	}
+}
+
+// TestPracticeSessionRejectsMalformedVariantRange: a half-open or inverted
+// span must fail loudly rather than quietly widening or emptying the draw.
+func TestPracticeSessionRejectsMalformedVariantRange(t *testing.T) {
+	cases := []map[string]any{
+		{"variant_from": 5, "variant_to": 0},
+		{"variant_from": 0, "variant_to": 5},
+		{"variant_from": 9, "variant_to": 3},
+	}
+	for _, extra := range cases {
+		ts, tok, _ := setupServer(t)
+		payload := map[string]any{"mode": "practice", "locale": "uz-Latn", "count": 5}
+		for k, v := range extra {
+			payload[k] = v
+		}
+		body, _ := json.Marshal(payload)
+		status, _ := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+		if status != http.StatusBadRequest {
+			t.Fatalf("range %+v: status=%d want 400", extra, status)
+		}
+	}
+}
+
+// TestPracticeAllowanceReportsBudget: the picker needs the real remaining
+// budget, otherwise it offers sizes the server then silently clamps.
+func TestPracticeAllowanceReportsBudget(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	status, env := doReq(t, ts, http.MethodGet, "/me/practice-allowance", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("allowance status=%d err=%+v", status, env.Error)
+	}
+	var got struct {
+		Unlimited bool `json:"unlimited"`
+		Limit     int  `json:"limit"`
+		Used      int  `json:"used"`
+		Remaining int  `json:"remaining"`
+	}
+	if err := json.Unmarshal(env.Data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Unlimited {
+		return // VIP fixtures report no finite budget, which is also valid
+	}
+	if got.Limit <= 0 || got.Remaining != got.Limit-got.Used {
+		t.Fatalf("inconsistent allowance: %+v", got)
+	}
+}
+
 // TestPracticeSessionRejectsCombinedSelectors pins the invariant that practice
 // takes exactly one selector — combining them would silently ignore one.
 func TestPracticeSessionRejectsCombinedSelectors(t *testing.T) {

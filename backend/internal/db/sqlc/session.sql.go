@@ -739,6 +739,49 @@ func (q *Queries) RandomQuestionIDsBySign(ctx context.Context, arg RandomQuestio
 	return items, nil
 }
 
+const randomQuestionIDsByVariantRange = `-- name: RandomQuestionIDsByVariantRange :many
+SELECT id FROM (
+  SELECT DISTINCT q.id
+  FROM question q
+  JOIN variant_question vq ON vq.question_id = q.id
+  JOIN variant v ON v.id = vq.variant_id
+  WHERE q.validation_status = 'valid'
+    AND v.number BETWEEN $1 AND $2
+) candidates
+ORDER BY random()
+LIMIT $3
+`
+
+type RandomQuestionIDsByVariantRangeParams struct {
+	FromNumber int32 `json:"from_number"`
+	ToNumber   int32 `json:"to_number"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+// Draws across a contiguous span of bilets so a learner can mix-review the
+// range they have already worked through, which one-bilet-at-a-time cannot do.
+// DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
+// ordered by an expression that is not in the select list, and random() is.
+func (q *Queries) RandomQuestionIDsByVariantRange(ctx context.Context, arg RandomQuestionIDsByVariantRangeParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, randomQuestionIDsByVariantRange, arg.FromNumber, arg.ToNumber, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertVariantProgress = `-- name: UpsertVariantProgress :one
 INSERT INTO variant_progress (profile_id, variant_id, best_correct, attempts, completed_at)
 VALUES ($1, $2, $3, 1, $4)

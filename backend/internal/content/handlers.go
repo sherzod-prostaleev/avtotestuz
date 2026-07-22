@@ -67,7 +67,9 @@ func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
 	fallback := false
 	for _, c := range rows {
 		fallback = fallback || c.FallbackUsed
-		out = append(out, CategoryDTO{Code: c.Code, Name: c.Name, SortOrder: c.SortOrder})
+		out = append(out, CategoryDTO{
+			Code: c.Code, Name: c.Name, SortOrder: c.SortOrder, QuestionCount: c.QuestionCount,
+		})
 	}
 	cacheable(w)
 	httpx.DataMeta(w, http.StatusOK, out, LocaleMeta{Locale: loc, Fallback: fallback})
