@@ -14,10 +14,10 @@ Foydalanuvchi (2026-07-22 muhokamasi) auth-avval tartibini tanladi: "hech narsa 
 
 ```
 frontend/
-  middleware.ts                       # next-intl locale-routing + auth-guard (coarse)
   messages/
     uz-Latn.json  uz-Cyrl.json  ru.json
   src/
+    middleware.ts                     # next-intl locale-routing + auth-guard (coarse) — MUST live under src/ (Next.js convention when a src/ dir is used; wrong location = silently never invoked)
     i18n/request.ts                   # next-intl server config
     app/
       [locale]/
