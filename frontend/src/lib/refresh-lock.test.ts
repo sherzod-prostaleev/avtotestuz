@@ -43,4 +43,29 @@ describe("refreshOnce", () => {
     expect(result1).toBeNull();
     expect(result2).toBeNull();
   });
+
+  it("never mixes up two different users' concurrent refreshes (cross-session isolation)", async () => {
+    // This server-side lock handles every logged-in user's requests in the
+    // same process. If the lock were a single global (not keyed by token),
+    // user B's concurrent request would collapse into user A's in-flight
+    // refresh and come back with user A's rotated tokens — a cross-user
+    // session leak. Two DIFFERENT tokens must always refresh independently,
+    // even when their calls overlap in time.
+    const doRefresh = vi.fn((rt: string) =>
+      rt === "rt-userA"
+        ? Promise.resolve({ accessToken: "at-userA", refreshToken: "rt-userA-2" })
+        : Promise.resolve({ accessToken: "at-userB", refreshToken: "rt-userB-2" })
+    );
+
+    const [resultA, resultB] = await Promise.all([
+      refreshOnce("rt-userA", doRefresh),
+      refreshOnce("rt-userB", doRefresh),
+    ]);
+
+    expect(doRefresh).toHaveBeenCalledTimes(2);
+    expect(doRefresh).toHaveBeenCalledWith("rt-userA");
+    expect(doRefresh).toHaveBeenCalledWith("rt-userB");
+    expect(resultA).toEqual({ accessToken: "at-userA", refreshToken: "rt-userA-2" });
+    expect(resultB).toEqual({ accessToken: "at-userB", refreshToken: "rt-userB-2" });
+  });
 });
