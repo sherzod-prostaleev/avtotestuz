@@ -23,7 +23,6 @@ import {
   Sparkles,
   Bookmark,
   CarFront,
-  Image as ImageIcon,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -50,7 +49,6 @@ export function Sidebar() {
     { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: 61 }), icon: BookOpen },
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
-    { href: `/${currentLocale}/image-questions`, label: t("navImageQuestions"), icon: ImageIcon },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
     { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },

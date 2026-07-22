@@ -10,7 +10,6 @@ const PROTECTED_SEGMENTS = [
   "exam-mockup",
   "tickets",
   "practice",
-  "image-questions",
   "mistakes",
   "signs",
   "stats",

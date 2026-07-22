@@ -179,8 +179,7 @@
     "languageSwitcher": "Выбор языка",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru",
-    "navImageQuestions": "Вопросы с картинкой"
+    "languageRu": "Ru"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -340,7 +339,36 @@
     "categoryCountLoading": "Загрузка...",
     "categoryCountUnavailable": "Темы не загружены",
     "signCatalogSummary": "Официальный каталог знаков",
-    "signCatalogHint": "Изучайте дорожные знаки по группам и проверяйте себя."
+    "signCatalogHint": "Изучайте дорожные знаки по группам и проверяйте себя.",
+    "sourceLabel": "Что будете практиковать?",
+    "sourceCategory": "Категория",
+    "sourceCategoryHint": "По темам",
+    "sourceVariant": "Диапазон билетов",
+    "sourceVariantHint": "Например билеты 1–10 вперемешку",
+    "sourceImage": "По картинке",
+    "sourceImageHint": "Вопросы с картинкой или без",
+    "sourceSign": "Дорожные знаки",
+    "sourceSignHint": "Практика по знакам",
+    "sourceSignUnavailable": "База знаков ещё не заполнена",
+    "categoryQuestionCount": "{count} вопросов",
+    "variantRangeLabel": "Выберите диапазон билетов",
+    "variantFrom": "С",
+    "variantTo": "По",
+    "variantRangeSummary": "Билеты {from}–{to} · {count} вопросов",
+    "variantRangeInvalid": "Начальный номер не может быть больше конечного",
+    "imageWith": "Вопросы с картинкой",
+    "imageWithout": "Вопросы без картинки",
+    "imageWithCount": "{count} вопросов",
+    "imageWithoutCount": "{count} вопросов",
+    "countLabel": "Количество вопросов",
+    "countCustom": "Своё число",
+    "countCustomPlaceholder": "Например 40",
+    "allowanceRemaining": "Сегодня осталось {count} вопросов",
+    "allowanceUnlimited": "Безлимитная практика (Premium)",
+    "allowanceExhausted": "Дневной бесплатный лимит исчерпан",
+    "allowanceUpgrade": "Получить Premium",
+    "allowanceClamped": "Сегодня будет выдано {count}",
+    "startPractice": "Начать практику"
   },
   "Session": {
     "loading": "Загружаем сессию...",
@@ -557,19 +585,6 @@
     "feature4": "Глубокие экспертные пояснения со ссылками на ПДД",
     "m1Notice": "Платежные системы (Payme / Click) будут подключены на следующем этапе.",
     "backHome": "На главную"
-  },
-  "ImageQuestions": {
-    "backHome": "Вернуться на главную",
-    "title": "Вопросы с картинкой",
-    "subtitle": "Выберите тип вопросов: с картинкой — разбор ситуаций, без картинки — знание правил.",
-    "modeGroupLabel": "Выбор типа вопросов",
-    "withImage": "Вопросы с картинкой",
-    "withImageDescription": "Ситуационные вопросы по схемам и фотографиям",
-    "withoutImage": "Вопросы без картинки",
-    "withoutImageDescription": "Только текст — проверка правил и определений",
-    "questionCount": "Количество вопросов",
-    "questionCountOption": "{count} вопросов",
-    "start": "Начать практику"
   },
   "Trial": {
     "label": "Пробный Premium",

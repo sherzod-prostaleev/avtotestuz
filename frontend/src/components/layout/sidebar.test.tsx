@@ -81,16 +81,13 @@ describe("Sidebar i18n and accessibility", () => {
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
 
-  // The with/without-image split belongs inside the section, not in the nav:
-  // two sibling entries that only differ by a boolean cluttered the sidebar and
-  // pointed several nav items at the same /session/start route.
-  it.each(localeCases)("links to a single image-questions section for $locale", (localeCase) => {
+  // The image split lives inside Practice, not in the nav. Two sibling entries
+  // differing only by a boolean cluttered the sidebar and pointed several nav
+  // items at /session/start, which starts a session as a mount side effect.
+  it.each(localeCases)("keeps question filters out of the nav for $locale", (localeCase) => {
     renderWithIntl(localeCase);
 
-    expect(screen.getByRole("link", { name: localeCase.imageQuestions })).toHaveAttribute(
-      "href",
-      `/${localeCase.locale}/image-questions`
-    );
+    expect(screen.queryByText(localeCase.imageQuestions)).not.toBeInTheDocument();
     expect(screen.queryByText(localeCase.textQuestions)).not.toBeInTheDocument();
     expect(
       screen.queryAllByRole("link").filter((link) => link.getAttribute("href")?.includes("session/start"))

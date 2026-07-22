@@ -22,7 +22,6 @@ describe("middleware auth guard", () => {
     "/uz-Latn/exam-mockup",
     "/uz-Latn/tickets",
     "/uz-Latn/practice",
-    "/uz-Latn/image-questions",
     "/uz-Latn/mistakes",
     "/uz-Latn/signs",
     "/uz-Latn/stats",

@@ -179,8 +179,7 @@
     "languageSwitcher": "Tilni tanlash",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru",
-    "navImageQuestions": "Rasmli savollar"
+    "languageRu": "Ru"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -340,7 +339,36 @@
     "categoryCountLoading": "Yuklanmoqda...",
     "categoryCountUnavailable": "Mavzular yuklanmadi",
     "signCatalogSummary": "Rasmiy belgilar katalogi",
-    "signCatalogHint": "Yo'l belgilarini guruhlar bo'yicha o'rganing va bilimingizni sinang."
+    "signCatalogHint": "Yo'l belgilarini guruhlar bo'yicha o'rganing va bilimingizni sinang.",
+    "sourceLabel": "Nimadan mashq qilasiz?",
+    "sourceCategory": "Kategoriya",
+    "sourceCategoryHint": "Mavzu bo'yicha",
+    "sourceVariant": "Biletlar oralig'i",
+    "sourceVariantHint": "Masalan 1–10 biletlar aralash",
+    "sourceImage": "Rasm bo'yicha",
+    "sourceImageHint": "Rasmli yoki rasmsiz savollar",
+    "sourceSign": "Yo'l belgilari",
+    "sourceSignHint": "Belgilar bo'yicha mashq",
+    "sourceSignUnavailable": "Belgilar bazasi hali to'ldirilmagan",
+    "categoryQuestionCount": "{count} ta savol",
+    "variantRangeLabel": "Bilet oralig'ini tanlang",
+    "variantFrom": "Boshlanishi",
+    "variantTo": "Tugashi",
+    "variantRangeSummary": "{from}–{to} biletlar · {count} ta savol",
+    "variantRangeInvalid": "Boshlanish raqami tugash raqamidan katta bo'lmasin",
+    "imageWith": "Rasmli savollar",
+    "imageWithout": "Rasmsiz savollar",
+    "imageWithCount": "{count} ta savol",
+    "imageWithoutCount": "{count} ta savol",
+    "countLabel": "Savollar soni",
+    "countCustom": "O'zim kiritaman",
+    "countCustomPlaceholder": "Masalan 40",
+    "allowanceRemaining": "Bugun {count} ta savol qoldi",
+    "allowanceUnlimited": "Cheksiz mashq (Premium)",
+    "allowanceExhausted": "Bugungi bepul limit tugadi",
+    "allowanceUpgrade": "Premium olish",
+    "allowanceClamped": "Bugun {count} tasi beriladi",
+    "startPractice": "Mashqni boshlash"
   },
   "Session": {
     "loading": "Sessiya yuklanmoqda...",
@@ -557,19 +585,6 @@
     "feature4": "Chuqur YHQ havolali ekspert izohlari",
     "m1Notice": "To'lov tizimlari (Payme / Click) keyingi bosqichda ishga tushiriladi.",
     "backHome": "Bosh sahifaga qaytish"
-  },
-  "ImageQuestions": {
-    "backHome": "Bosh sahifaga qaytish",
-    "title": "Rasmli savollar",
-    "subtitle": "Savol turini tanlang — rasmli savollar vizual tahlilni, rasmsizlari esa qoida bilimini sinaydi.",
-    "modeGroupLabel": "Savol turini tanlash",
-    "withImage": "Rasmli savollar",
-    "withImageDescription": "Chizma va suratlar asosidagi vaziyatli savollar",
-    "withoutImage": "Rasmsiz savollar",
-    "withoutImageDescription": "Faqat matnli — qoida va ta'riflarni tekshiradi",
-    "questionCount": "Savollar soni",
-    "questionCountOption": "{count} ta savol",
-    "start": "Mashqni boshlash"
   },
   "Trial": {
     "label": "Premium sinov",

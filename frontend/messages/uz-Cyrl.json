@@ -179,8 +179,7 @@
     "languageSwitcher": "Тилни танлаш",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru",
-    "navImageQuestions": "Расмли саволлар"
+    "languageRu": "Ru"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -340,7 +339,36 @@
     "categoryCountLoading": "Юкланмоқда...",
     "categoryCountUnavailable": "Мавзулар юкланмади",
     "signCatalogSummary": "Расмий белгилар каталоги",
-    "signCatalogHint": "Йўл белгиларини гуруҳлар бўйича ўрганинг ва билимингизни синанг."
+    "signCatalogHint": "Йўл белгиларини гуруҳлар бўйича ўрганинг ва билимингизни синанг.",
+    "sourceLabel": "Нимадан машқ қиласиз?",
+    "sourceCategory": "Категория",
+    "sourceCategoryHint": "Мавзу бўйича",
+    "sourceVariant": "Билетлар оралиғи",
+    "sourceVariantHint": "Масалан 1–10 билетлар аралаш",
+    "sourceImage": "Расм бўйича",
+    "sourceImageHint": "Расмли ёки расмсиз саволлар",
+    "sourceSign": "Йўл белгилари",
+    "sourceSignHint": "Белгилар бўйича машқ",
+    "sourceSignUnavailable": "Белгилар базаси ҳали тўлдирилмаган",
+    "categoryQuestionCount": "{count} та савол",
+    "variantRangeLabel": "Билет оралиғини танланг",
+    "variantFrom": "Бошланиши",
+    "variantTo": "Тугаши",
+    "variantRangeSummary": "{from}–{to} билетлар · {count} та савол",
+    "variantRangeInvalid": "Бошланиш рақами тугаш рақамидан катта бўлмасин",
+    "imageWith": "Расмли саволлар",
+    "imageWithout": "Расмсиз саволлар",
+    "imageWithCount": "{count} та савол",
+    "imageWithoutCount": "{count} та савол",
+    "countLabel": "Саволлар сони",
+    "countCustom": "Ўзим киритаман",
+    "countCustomPlaceholder": "Масалан 40",
+    "allowanceRemaining": "Бугун {count} та савол қолди",
+    "allowanceUnlimited": "Чексиз машқ (Premium)",
+    "allowanceExhausted": "Бугунги бепул лимит тугади",
+    "allowanceUpgrade": "Premium олиш",
+    "allowanceClamped": "Бугун {count} таси берилади",
+    "startPractice": "Машқни бошлаш"
   },
   "Session": {
     "loading": "Сессия юкланмоқда...",
@@ -557,19 +585,6 @@
     "feature4": "Чуқур ЙҲҚ ҳаволали эксперт изоҳлари",
     "m1Notice": "Тўлов тизимлари (Payme / Click) кейинги босқичда ишга туширилади.",
     "backHome": "Бош саҳифага қайтиш"
-  },
-  "ImageQuestions": {
-    "backHome": "Бош саҳифага қайтиш",
-    "title": "Расмли саволлар",
-    "subtitle": "Савол турини танланг — расмли саволлар визуал таҳлилни, расмсизлари эса қоида билимини синайди.",
-    "modeGroupLabel": "Савол турини танлаш",
-    "withImage": "Расмли саволлар",
-    "withImageDescription": "Чизма ва суратлар асосидаги вазиятли саволлар",
-    "withoutImage": "Расмсиз саволлар",
-    "withoutImageDescription": "Фақат матнли — қоида ва таърифларни текширади",
-    "questionCount": "Саволлар сони",
-    "questionCountOption": "{count} та савол",
-    "start": "Машқни бошлаш"
   },
   "Trial": {
     "label": "Premium синов",
