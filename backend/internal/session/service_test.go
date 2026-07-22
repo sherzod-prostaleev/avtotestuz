@@ -116,41 +116,58 @@ func TestStartSessionVariantRequiresVariantID(t *testing.T) {
 
 func TestStartSessionPracticeDailyLimitClampsAndBlocks(t *testing.T) {
 	q, svc, profileID := seed(t)
+	ctx := context.Background()
+	// Read the allowance instead of restating it: this test previously hard-coded
+	// the seeded value of 10 and broke the moment the free tier was retuned,
+	// even though the behaviour under test — clamp, then block — never changed.
+	cfg, err := q.GetLimitConfig(ctx, "daily_practice_questions")
+	if err != nil {
+		t.Fatalf("limit config: %v", err)
+	}
+	allowance := int(cfg.FreeValue)
+	if allowance <= 0 {
+		t.Fatalf("free allowance = %d, expected a finite positive limit to test against", allowance)
+	}
+
 	// fixture.Sample() assigns 40 questions round-robin across 4 categories
-	// (10 each) and limit_config seeds daily_practice_questions free_value=10
-	// (migration 0003_billing.up.sql) — so a fresh profile's first practice
-	// session of this category exhausts the entire daily allowance.
-	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	// (10 each), so one session can never exceed 10 regardless of allowance.
+	catID, err := q.GetCategoryIDByCode(ctx, "signs")
 	if err != nil {
 		t.Fatalf("category lookup: %v", err)
 	}
 
-	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
-		Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 100,
-	})
-	if err != nil {
-		t.Fatalf("StartSession: %v", err)
-	}
-	if len(view.QuestionIDs) != 10 {
-		t.Fatalf("expected count clamped to the free daily allowance of 10, got %d", len(view.QuestionIDs))
-	}
-	// Record the answers directly via InsertSessionAnswer (rather than
-	// svc.SubmitAnswer, which does not exist until Task 4) so that
-	// CountPracticeAnswersToday sees today's practice-mode answers and the
-	// daily allowance is exhausted, exactly like a real submit would record.
-	for i, qid := range view.QuestionIDs {
-		correctID, err := q.GetCorrectAnswerID(context.Background(), qid)
+	// Record answers directly via InsertSessionAnswer (rather than
+	// svc.SubmitAnswer) so CountPracticeAnswersToday sees today's
+	// practice-mode answers exactly as a real submit would record them.
+	answered := 0
+	for answered < allowance {
+		view, err := svc.StartSession(ctx, profileID, session.StartRequest{
+			Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 100,
+		})
 		if err != nil {
-			t.Fatalf("correct answer: %v", err)
+			t.Fatalf("StartSession after %d answers: %v", answered, err)
 		}
-		if _, err := q.InsertSessionAnswer(context.Background(), sqlc.InsertSessionAnswerParams{
-			SessionID: view.ID, QuestionID: qid, AnswerID: correctID, IsCorrect: true, Position: int16(i + 1),
-		}); err != nil {
-			t.Fatalf("insert session answer: %v", err)
+		if len(view.QuestionIDs) == 0 {
+			t.Fatalf("empty session after %d answers, allowance %d", answered, allowance)
 		}
+		if remaining := allowance - answered; len(view.QuestionIDs) > remaining {
+			t.Fatalf("session of %d exceeds remaining allowance %d", len(view.QuestionIDs), remaining)
+		}
+		for i, qid := range view.QuestionIDs {
+			correctID, err := q.GetCorrectAnswerID(ctx, qid)
+			if err != nil {
+				t.Fatalf("correct answer: %v", err)
+			}
+			if _, err := q.InsertSessionAnswer(ctx, sqlc.InsertSessionAnswerParams{
+				SessionID: view.ID, QuestionID: qid, AnswerID: correctID, IsCorrect: true, Position: int16(i + 1),
+			}); err != nil {
+				t.Fatalf("insert session answer: %v", err)
+			}
+		}
+		answered += len(view.QuestionIDs)
 	}
 
-	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+	if _, err := svc.StartSession(ctx, profileID, session.StartRequest{
 		Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 5,
 	}); err != session.ErrDailyLimitReached {
 		t.Fatalf("err=%v want ErrDailyLimitReached once today's allowance is used up", err)
