@@ -179,7 +179,9 @@
     "languageSwitcher": "Выбор языка",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru"
+    "languageRu": "Ru",
+    "navImageQuestions": "Вопросы с картинкой",
+    "navTextQuestions": "Вопросы без картинки"
   },
   "Header": {
     "brandName": "AvtoTest",

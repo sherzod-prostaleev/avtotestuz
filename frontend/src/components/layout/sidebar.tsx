@@ -22,7 +22,11 @@ import {
   Sparkles,
   Bookmark,
   CarFront,
+  Image as ImageIcon,
+  AlignLeft,
 } from "lucide-react";
+
+const PRACTICE_QUESTION_COUNT = 20;
 
 export function Sidebar() {
   const currentLocale = useLocale();
@@ -48,6 +52,16 @@ export function Sidebar() {
     { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: 61 }), icon: BookOpen },
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
+    {
+      href: `/${currentLocale}/session/start?mode=practice&has_image=true&count=${PRACTICE_QUESTION_COUNT}`,
+      label: t("navImageQuestions"),
+      icon: ImageIcon,
+    },
+    {
+      href: `/${currentLocale}/session/start?mode=practice&has_image=false&count=${PRACTICE_QUESTION_COUNT}`,
+      label: t("navTextQuestions"),
+      icon: AlignLeft,
+    },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
     { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },

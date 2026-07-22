@@ -80,6 +80,8 @@ export interface StartSessionOptions {
   variant_id?: number | string;
   category_id?: string;
   sign_id?: string;
+  /** Practice selector: true = illustrated questions only, false = text-only. */
+  has_image?: boolean;
   question_count?: number;
   locale?: string;
 }
@@ -348,6 +350,9 @@ export function useSessionEngine(_initialSessionId?: string) {
         }
         if (options?.sign_id !== undefined && options.sign_id !== null) {
           payload.sign_id = String(options.sign_id);
+        }
+        if (options?.has_image !== undefined) {
+          payload.has_image = options.has_image;
         }
         if (options?.question_count !== undefined && options.question_count !== null) {
           payload.count = options.question_count;

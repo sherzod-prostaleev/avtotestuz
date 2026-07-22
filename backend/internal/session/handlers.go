@@ -72,8 +72,11 @@ type startSessionBody struct {
 	VariantID  *string `json:"variant_id"`
 	CategoryID *string `json:"category_id"`
 	SignID     *string `json:"sign_id"`
-	Locale     string  `json:"locale"`
-	Count      int     `json:"count"`
+	// HasImage is a practice selector like CategoryID/SignID, but needs no
+	// resolution: it is a plain boolean over question.image_id.
+	HasImage *bool  `json:"has_image"`
+	Locale   string `json:"locale"`
+	Count    int    `json:"count"`
 }
 
 type startSessionResponse struct {
@@ -138,6 +141,7 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
 		}
 		req.SignID = id
 	}
+	req.HasImage = body.HasImage
 
 	view, err := h.Svc.StartSession(r.Context(), claims.ProfileID, req)
 	if err != nil {

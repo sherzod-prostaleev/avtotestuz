@@ -672,6 +672,40 @@ func (q *Queries) RandomQuestionIDsByCategory(ctx context.Context, arg RandomQue
 	return items, nil
 }
 
+const randomQuestionIDsByImagePresence = `-- name: RandomQuestionIDsByImagePresence :many
+SELECT id FROM question
+WHERE validation_status = 'valid'
+  AND (image_id IS NOT NULL) = $1::boolean
+ORDER BY random()
+LIMIT $2
+`
+
+type RandomQuestionIDsByImagePresenceParams struct {
+	HasImage   bool  `json:"has_image"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+// has_image=true selects illustrated questions, false selects text-only ones.
+func (q *Queries) RandomQuestionIDsByImagePresence(ctx context.Context, arg RandomQuestionIDsByImagePresenceParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, randomQuestionIDsByImagePresence, arg.HasImage, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const randomQuestionIDsBySign = `-- name: RandomQuestionIDsBySign :many
 SELECT q.id FROM question q
 JOIN question_sign qs ON qs.question_id = q.id

@@ -24,6 +24,14 @@ WHERE q.validation_status = 'valid' AND qs.sign_id = sqlc.arg(sign_id)
 ORDER BY random()
 LIMIT sqlc.arg(limit_count);
 
+-- name: RandomQuestionIDsByImagePresence :many
+-- has_image=true selects illustrated questions, false selects text-only ones.
+SELECT id FROM question
+WHERE validation_status = 'valid'
+  AND (image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+ORDER BY random()
+LIMIT sqlc.arg(limit_count);
+
 -- name: ListMistakeBankQuestionIDs :many
 SELECT qm.question_id
 FROM question_memory qm

@@ -34,6 +34,7 @@ function SessionStartContent() {
       const variantParam = searchParams.get("variant_id");
       const categoryParam = searchParams.get("category_id");
       const signParam = searchParams.get("sign_id");
+      const hasImageParam = searchParams.get("has_image");
       const countParam = searchParams.get("count");
 
       const mode: SessionMode = isSessionMode(modeParam) ? modeParam : variantParam ? "variant" : "exam";
@@ -42,6 +43,11 @@ function SessionStartContent() {
       if (variantParam) options.variant_id = variantParam;
       if (categoryParam) options.category_id = categoryParam;
       if (signParam) options.sign_id = signParam;
+      // Only "true"/"false" count; anything else leaves the selector unused so
+      // a malformed URL cannot silently narrow the question pool.
+      if (hasImageParam === "true" || hasImageParam === "false") {
+        options.has_image = hasImageParam === "true";
+      }
 
       if (countParam) {
         const count = Number(countParam);

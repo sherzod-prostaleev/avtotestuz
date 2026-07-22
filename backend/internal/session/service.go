@@ -196,22 +196,38 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
 
 	case "practice":
-		if (req.CategoryID == uuid.Nil) == (req.SignID == uuid.Nil) {
-			return SessionView{}, ErrInvalidRequest // exactly one must be set
+		// Exactly one selector: category, sign, or image presence.
+		selectors := 0
+		if req.CategoryID != uuid.Nil {
+			selectors++
+		}
+		if req.SignID != uuid.Nil {
+			selectors++
+		}
+		if req.HasImage != nil {
+			selectors++
+		}
+		if selectors != 1 {
+			return SessionView{}, ErrInvalidRequest
 		}
 		count, dailyErr := s.clampToDailyAllowance(ctx, profileID, req.Count)
 		if dailyErr != nil {
 			return SessionView{}, dailyErr
 		}
-		if req.CategoryID != uuid.Nil {
+		switch {
+		case req.CategoryID != uuid.Nil:
 			categoryID = uuid.NullUUID{UUID: req.CategoryID, Valid: true}
 			ids, err = s.Q.RandomQuestionIDsByCategory(ctx, sqlc.RandomQuestionIDsByCategoryParams{
 				CategoryID: req.CategoryID, LimitCount: int32(count),
 			})
-		} else {
+		case req.SignID != uuid.Nil:
 			signID = uuid.NullUUID{UUID: req.SignID, Valid: true}
 			ids, err = s.Q.RandomQuestionIDsBySign(ctx, sqlc.RandomQuestionIDsBySignParams{
 				SignID: req.SignID, LimitCount: int32(count),
+			})
+		default:
+			ids, err = s.Q.RandomQuestionIDsByImagePresence(ctx, sqlc.RandomQuestionIDsByImagePresenceParams{
+				HasImage: *req.HasImage, LimitCount: int32(count),
 			})
 		}
 

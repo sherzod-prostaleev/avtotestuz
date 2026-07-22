@@ -179,7 +179,9 @@
     "languageSwitcher": "Tilni tanlash",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru"
+    "languageRu": "Ru",
+    "navImageQuestions": "Rasmli savollar",
+    "navTextQuestions": "Rasmsiz savollar"
   },
   "Header": {
     "brandName": "AvtoTest",

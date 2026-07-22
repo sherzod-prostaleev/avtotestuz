@@ -595,6 +595,49 @@ func TestPracticeSessionByCategoryCodeOverHTTP(t *testing.T) {
 	}
 }
 
+// TestPracticeSessionByImagePresenceOverHTTP covers the third practice
+// selector, which unlike category/sign needs no code resolution: has_image
+// filters straight on question.image_id. Both polarities must work, and the
+// selector must stay mutually exclusive with the other two.
+func TestPracticeSessionByImagePresenceOverHTTP(t *testing.T) {
+	for _, hasImage := range []bool{true, false} {
+		ts, tok, _ := setupServer(t)
+
+		body, _ := json.Marshal(map[string]any{
+			"mode": "practice", "has_image": hasImage, "locale": "uz-Latn", "count": 5,
+		})
+		status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+		if status != http.StatusCreated {
+			t.Fatalf("has_image=%v status=%d body=%s err=%+v", hasImage, status, env.Data, env.Error)
+		}
+		var created struct {
+			QuestionIDs []string `json:"question_ids"`
+			Total       int      `json:"total"`
+		}
+		if err := json.Unmarshal(env.Data, &created); err != nil {
+			t.Fatal(err)
+		}
+		if created.Total == 0 || len(created.QuestionIDs) != created.Total {
+			t.Fatalf("has_image=%v expected non-empty question set: %+v", hasImage, created)
+		}
+	}
+}
+
+// TestPracticeSessionRejectsCombinedSelectors pins the invariant that practice
+// takes exactly one selector — combining them would silently ignore one.
+func TestPracticeSessionRejectsCombinedSelectors(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	body, _ := json.Marshal(map[string]any{
+		"mode": "practice", "category_id": "signs", "has_image": true,
+		"locale": "uz-Latn", "count": 5,
+	})
+	status, _ := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusBadRequest {
+		t.Fatalf("expected 400 for combined selectors, got %d", status)
+	}
+}
+
 // TestPracticeSessionBySignCodeOverHTTP is TestPracticeSessionByCategoryCodeOverHTTP's
 // counterpart for sign_id/content.SignDTOs, which likewise never expose a UUID.
 func TestPracticeSessionBySignCodeOverHTTP(t *testing.T) {

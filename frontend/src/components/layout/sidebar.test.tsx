@@ -31,6 +31,8 @@ const localeCases = [
     saved: "Saqlangan savollar",
     user: "O'quvchi",
     openMenu: "Menyuni ochish",
+    imageQuestions: "Rasmli savollar",
+    textQuestions: "Rasmsiz savollar",
   },
   {
     locale: "uz-Cyrl",
@@ -39,6 +41,8 @@ const localeCases = [
     saved: "Сақланган саволлар",
     user: "Ўқувчи",
     openMenu: "Менюни очиш",
+    imageQuestions: "Расмли саволлар",
+    textQuestions: "Расмсиз саволлар",
   },
   {
     locale: "ru",
@@ -47,6 +51,8 @@ const localeCases = [
     saved: "Сохранённые вопросы",
     user: "Ученик",
     openMenu: "Открыть меню",
+    imageQuestions: "Вопросы с картинкой",
+    textQuestions: "Вопросы без картинки",
   },
 ] as const;
 
@@ -73,6 +79,19 @@ describe("Sidebar i18n and accessibility", () => {
     expect(screen.getByText(localeCase.user)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: localeCase.openMenu })).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
+  });
+
+  it.each(localeCases)("starts an image-filtered practice session for $locale", (localeCase) => {
+    renderWithIntl(localeCase);
+
+    expect(screen.getByRole("link", { name: localeCase.imageQuestions })).toHaveAttribute(
+      "href",
+      `/${localeCase.locale}/session/start?mode=practice&has_image=true&count=20`
+    );
+    expect(screen.getByRole("link", { name: localeCase.textQuestions })).toHaveAttribute(
+      "href",
+      `/${localeCase.locale}/session/start?mode=practice&has_image=false&count=20`
+    );
   });
 
   it.each(localeCases.slice(1))("does not leak Latin Uzbek chrome into $locale", (localeCase) => {
