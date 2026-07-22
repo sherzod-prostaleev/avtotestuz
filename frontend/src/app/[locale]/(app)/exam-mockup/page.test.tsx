@@ -1,8 +1,17 @@
 import { render, screen, fireEvent } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import ExamMockupPage from "./page";
+
+vi.mock("next/link", () => ({
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
+}));
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  usePathname: () => "/uz-Latn/exam-mockup",
+}));
 
 function renderWithIntl() {
   return render(

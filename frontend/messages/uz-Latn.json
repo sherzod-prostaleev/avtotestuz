@@ -37,7 +37,10 @@
     "footer": "AvtoTest — {year}"
   },
   "Dashboard": {
-    "welcome": "Xush kelibsiz,",
+    "welcome": "Xush kelibsiz",
+    "welcomeUser": "Xush kelibsiz, {name}!",
+    "welcomeSubtitle": "Bugungi o'quv rejangizni davom ettiring va haydovchilik ko'nikmalarini oshiring",
+    "guestUser": "O'quvchi",
     "planPremium": "Premium",
     "planFree": "Bepul reja",
     "streakSuffix": "kunlik streak",
@@ -46,11 +49,12 @@
     "navVariantsTitle": "Biletlar",
     "navVariantsDesc": "61 ta bilet, ketma-ket ochiladi",
     "navExamTitle": "Imtihon simulyatsiyasi",
-    "navExamDesc": "20 savol, 25 daqiqa",
-    "navPracticeTitle": "Mashq",
-    "navPracticeDesc": "Mavzu yoki belgi bo'yicha",
+    "navExamDesc": "20 savol, 25 daqiqa, 3-xatoda to'xtash",
+    "navPracticeTitle": "Mashq rejimi",
+    "navPracticeDesc": "Kategoriya yoki yo'l belgisi bo'yicha mashq qiling",
     "navMistakesTitle": "Xatolar ustida ishlash",
-    "navMistakesDesc": "FSRS asosida takrorlash"
+    "navMistakesDesc": "FSRS aqlli algoritmi asosida takrorlash",
+    "categoryMasteryTitle": "Kategoriyalar bo'yicha o'zlashtirish"
   },
   "ExamMockup": {
     "modeUnanswered": "Javobsiz",
@@ -79,5 +83,85 @@
     "errorTooManyAttempts": "Juda ko'p urinish",
     "errorNetwork": "Server bilan bog'lanib bo'lmadi",
     "errorUnknown": "Xatolik yuz berdi"
+  },
+  "Tickets": {
+    "title": "Biletlar",
+    "subtitle": "61 ta bilet — rasmiy imtihon standartiga mos",
+    "filterAll": "Hammasi",
+    "filterCompleted": "Tugallangan",
+    "filterInProgress": "Jarayonda",
+    "filterUnstarted": "Boshlanmagan",
+    "searchPlaceholder": "Bilet raqami...",
+    "ticketNumber": "Bilet #{number}",
+    "scoreLabel": "Natija: {score}/20",
+    "lockedText": "Qulflangan (VIP talab qilinadi)",
+    "progressText": "{answered}/{total} savol"
+  },
+  "Signs": {
+    "title": "Yo'l belgilari katalogi",
+    "subtitle": "O'zbekiston Respublikasining barcha rasmiy yo'l belgilari",
+    "searchPlaceholder": "Belgi nomi yoki kodi bo'yicha qidiruv...",
+    "groupAll": "Barcha belgilar",
+    "groupWarning": "Ogohlantiruvchi",
+    "groupPriority": "Imtiyoz",
+    "groupProhibitory": "Taqiqlovchi",
+    "groupMandatory": "Buyuruvchi",
+    "groupInformation": "Axborot-ko'rsatkich",
+    "groupService": "Servis",
+    "groupSupplementary": "Qo'shimcha axborot",
+    "emptyState": "Hech qanday belgi topilmadi"
+  },
+  "Practice": {
+    "title": "Mashq rejimi",
+    "subtitle": "Aynan o'zingiz qiynalayotgan kategoriya yoki yo'l belgisi bo'yicha mashq qiling",
+    "byCategory": "Kategoriya bo'yicha",
+    "bySign": "Yo'l belgilari bo'yicha",
+    "questionCount": "Savollar soni",
+    "start": "Mashqni boshlash",
+    "selectCategory": "Kategoriyani tanlang",
+    "dailyLimitReached": "Bugungi bepul mashq limitingiz tugadi. Ertaga davom eting yoki VIP obunasini oling!"
+  },
+  "Mistakes": {
+    "title": "Xatolar ustida ishlash",
+    "subtitle": "FSRS aqlli takrorlash algoritmi asosida avval yo'l qo'yilgan xatolaringiz",
+    "dueNow": "Hozir takrorlash kerak",
+    "totalBank": "Jami bankdagi xatolar",
+    "emptyDue": "Ajoyib! Hozircha takrorlash kerak bo'lgan xatolar yo'q. Xato savollaringiz aqlli intervalda kelajakda qaytadi.",
+    "start": "Xatolarni takrorlash",
+    "fsrsNote": "FSRS algoritmi xatolaringizni unutish xavfi eng yuqori bo'lgan paytda qaytaradi.",
+    "vipRequired": "Xatolar banki VIP obunachilar uchun maxsus funksiyadir."
+  },
+  "Stats": {
+    "title": "Statistika va Tahlil",
+    "subtitle": "O'zlashtirish va imtihonga tayyorlik statistikangiz",
+    "readiness": "Imtihonga tayyorlik",
+    "readyBadge": "Imtihonga tayyor!",
+    "notReadyBadge": "Ko'proq mashq qiling",
+    "streakRecord": "Rekord streak: {max} kun",
+    "dueQuestions": "Takrorlash kerak: {count} savol",
+    "startRepeat": "Hozir takrorlash",
+    "categoryMastery": "Kategoriyalar bo'yicha o'zlashtirish",
+    "history": "Sessiyalar tarixi"
+  },
+  "Profile": {
+    "title": "Profil va Sozlamalar",
+    "subtitle": "Shaxsiy ma'lumotlar va dastur sozlamalari",
+    "nameLabel": "Ismingiz",
+    "regionLabel": "Viloyat/Shahar",
+    "save": "Saqlash",
+    "savedSuccess": "Ma'lumotlar saqlandi",
+    "language": "Ilova tili",
+    "theme": "Mavzu (Theme)",
+    "logout": "Tizimdan chiqish"
+  },
+  "Premium": {
+    "title": "AvtoTest Premium",
+    "subtitle": "Imtihondan 100% birinchi urinishda o'tish uchun barcha imkoniyatlarni oching",
+    "feature1": "Barcha 61 ta bilet cheklovsiz ochiladi",
+    "feature2": "FSRS aqlli xatolar banki va takrorlash dvigateli",
+    "feature3": "Cheksiz kunlik mashq rejimi",
+    "feature4": "Chuqur YHQ havolali ekspert izohlari",
+    "m1Notice": "To'lov tizimlari (Payme / Click) keyingi bosqichda ishga tushiriladi.",
+    "backHome": "Bosh sahifaga qaytish"
   }
 }

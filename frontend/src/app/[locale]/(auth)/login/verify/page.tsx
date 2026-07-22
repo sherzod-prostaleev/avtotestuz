@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { KeyRound } from "lucide-react";
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -22,8 +23,15 @@ function VerifyForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams.get("phone") ?? "";
+  const initialCode = searchParams.get("code") ?? "";
 
-  const [digits, setDigits] = useState<string[]>(Array(CODE_LENGTH).fill(""));
+  const [digits, setDigits] = useState<string[]>(() => {
+    if (initialCode && initialCode.length === CODE_LENGTH) {
+      return initialCode.split("");
+    }
+    return Array(CODE_LENGTH).fill("");
+  });
+  const [debugCode, setDebugCode] = useState<string>(initialCode);
   const [error, setError] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(RESEND_COOLDOWN_SECONDS);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -33,6 +41,14 @@ function VerifyForm() {
     const timer = setInterval(() => setCooldown((c) => Math.max(0, c - 1)), 1000);
     return () => clearInterval(timer);
   }, [cooldown]);
+
+  // Auto submit if initialCode is set
+  useEffect(() => {
+    if (initialCode && initialCode.length === CODE_LENGTH) {
+      void submitCode(initialCode);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCode]);
 
   async function submitCode(code: string) {
     setError(null);
@@ -69,11 +85,21 @@ function VerifyForm() {
 
   async function handleResend() {
     setCooldown(RESEND_COOLDOWN_SECONDS);
-    await fetch("/api/auth/otp/request", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone, channel: "sandbox" }),
-    });
+    try {
+      const res = await fetch("/api/auth/otp/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone, channel: "sandbox" }),
+      });
+      const json = await res.json();
+      if (json.data?.debug_code) {
+        setDebugCode(json.data.debug_code);
+        setDigits(json.data.debug_code.split(""));
+        void submitCode(json.data.debug_code);
+      }
+    } catch {
+      setError("network_error");
+    }
   }
 
   return (
@@ -81,6 +107,14 @@ function VerifyForm() {
       <Card className="w-full max-w-sm p-8 text-center">
         <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{t("subtitle", { phone })}</p>
+
+        {debugCode && (
+          <div className="my-4 flex items-center justify-center gap-2 rounded-md border border-accent/40 bg-accent/10 p-2.5 text-sm font-bold text-accent">
+            <KeyRound className="h-4 w-4" />
+            <span>Test Kod: {debugCode}</span>
+          </div>
+        )}
+
         <div className="mt-6 flex justify-center gap-2">
           {digits.map((d, i) => (
             <input

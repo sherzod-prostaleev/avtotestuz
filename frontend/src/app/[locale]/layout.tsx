@@ -4,7 +4,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Providers } from "@/app/providers";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { locales, type Locale } from "@/i18n/config";
 import "../globals.css";
 
@@ -12,8 +11,8 @@ const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700", "800"], varia
 const manrope = Manrope({ subsets: ["latin"], weight: ["400", "500", "600", "700"], variable: "--font-manrope" });
 
 export const metadata: Metadata = {
-  title: "AvtoTest",
-  description: "Haydovchilik nazariy imtihoniga tayyorgarlik",
+  title: "AvtoTest — Haydovchilik nazariy imtihoniga tayyorgarlik",
+  description: "O'zbekiston Respublikasining 1235 ta rasmiy YHQ savollari, 61 bilet va FSRS aqlli xatolar banki",
 };
 
 export default async function LocaleLayout({
@@ -28,12 +27,9 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning className={`${baloo.variable} ${manrope.variable}`}>
-      <body>
+      <body className="min-h-screen bg-background text-foreground antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>
-            <div className="fixed right-4 top-4 z-50">
-              <ThemeToggle />
-            </div>
             {children}
           </Providers>
         </NextIntlClientProvider>

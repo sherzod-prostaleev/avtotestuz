@@ -1,7 +1,10 @@
 import { cn } from "@/lib/utils";
 
 export interface CountdownTimerProps {
-  remainingSeconds: number;
+  remainingSeconds?: number;
+  seconds?: number;
+  initialSeconds?: number;
+  onExpire?: () => void;
 }
 
 function formatTime(totalSeconds: number): string {
@@ -11,8 +14,9 @@ function formatTime(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-export function CountdownTimer({ remainingSeconds }: CountdownTimerProps) {
-  const isLowTime = remainingSeconds <= 60;
+export function CountdownTimer({ remainingSeconds, seconds, initialSeconds }: CountdownTimerProps) {
+  const total = remainingSeconds ?? seconds ?? initialSeconds ?? 0;
+  const isLowTime = total <= 60;
   return (
     <span
       data-testid="countdown-timer"
@@ -21,7 +25,7 @@ export function CountdownTimer({ remainingSeconds }: CountdownTimerProps) {
         isLowTime ? "animate-pulse text-danger" : "text-gold"
       )}
     >
-      {formatTime(remainingSeconds)}
+      {formatTime(total)}
     </span>
   );
 }

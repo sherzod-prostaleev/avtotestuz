@@ -38,7 +38,7 @@ export default function ExamMockupPage() {
       {/* Mockup-only tooling: Phase B3 replaces this with real session state. */}
       <div className="mb-4 flex flex-wrap gap-2" role="group" aria-label="Mockup holatini tanlash">
         {(Object.keys(modeLabels) as Mode[]).map((m) => (
-          <Button key={m} size="sm" variant={m === mode ? "default" : "outline"} onClick={() => setMode(m)}>
+          <Button key={m} size="sm" variant={m === mode ? "game" : "outline"} onClick={() => setMode(m)}>
             {modeLabels[m]}
           </Button>
         ))}

@@ -1,44 +1,79 @@
-import { Check, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+"use client";
 
-export type AnswerState = "neutral" | "selected" | "correct" | "incorrect" | "hidden";
+import { CheckCircle2, XCircle } from "lucide-react";
 
-export interface AnswerOptionProps {
-  shortcutLabel: string;
+export type AnswerState = "neutral" | "selected" | "correct" | "wrong" | "incorrect" | "hidden";
+
+interface AnswerOptionProps {
+  id?: string;
+  index?: number;
   text: string;
-  state: AnswerState;
-  onSelect?: () => void;
+  state?: AnswerState;
+  onClick?: () => void;
+  onSelect?: (id: string) => void;
+  shortcutKey?: string;
+  shortcutLabel?: string;
 }
 
-const stateClasses: Record<AnswerState, string> = {
-  neutral: "border-border bg-card hover:border-accent",
-  selected: "border-accent bg-accent/10",
-  correct: "border-success bg-success/15",
-  incorrect: "border-danger bg-danger/15",
-  hidden: "border-border bg-card",
-};
+export function AnswerOption({
+  id = "",
+  index,
+  text,
+  state = "neutral",
+  onClick,
+  onSelect,
+  shortcutKey,
+  shortcutLabel,
+}: AnswerOptionProps) {
+  const handleClick = () => {
+    if (onClick) onClick();
+    if (onSelect) onSelect(id);
+  };
 
-// NOTE: there is deliberately no `isCorrect` prop. The caller can only make
-// this component reveal correctness by explicitly passing state="correct" /
-// "incorrect" — in exam mode the caller only ever has "neutral"/"selected"/
-// "hidden" available because the backend withholds correctness entirely
-// until the session ends (see backend/internal/session — anti-cheat).
-export function AnswerOption({ shortcutLabel, text, state, onSelect }: AnswerOptionProps) {
+  const keyLabel = shortcutKey ?? shortcutLabel ?? (typeof index === "number" ? `F${index + 1}` : "");
+  const normalizedState = state === "incorrect" ? "wrong" : state;
+
+  const stateStyles: Record<string, string> = {
+    neutral: "border-border bg-card/80 text-foreground hover:border-accent/60 hover:bg-card hover:-translate-y-0.5 shadow-sm",
+    selected: "border-accent bg-accent/15 text-accent font-bold ring-2 ring-accent/40 shadow-md",
+    correct: "border-success bg-success/15 text-success font-bold ring-2 ring-success/40 shadow-md",
+    wrong: "border-danger bg-danger/15 text-danger font-bold ring-2 ring-danger/40 shadow-md",
+  };
+
+  const keyBadgeStyles: Record<string, string> = {
+    neutral: "border-border bg-background/80 text-muted-foreground",
+    selected: "border-accent/40 bg-accent text-white font-bold",
+    correct: "border-success/40 bg-success text-white font-bold",
+    wrong: "border-danger/40 bg-danger text-white font-bold",
+  };
+
   return (
     <button
       type="button"
-      onClick={onSelect}
-      className={cn(
-        "flex w-full items-center gap-4 rounded-lg border-2 px-4 py-3 text-left transition-colors",
-        stateClasses[state]
-      )}
+      onClick={handleClick}
+      className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.99] ${stateStyles[normalizedState]}`}
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border font-display text-sm font-bold">
-        {shortcutLabel}
-      </span>
-      <span className="flex-1 font-medium">{text}</span>
-      {state === "correct" && <Check data-testid="answer-correct-icon" aria-hidden className="h-5 w-5 text-success" />}
-      {state === "incorrect" && <X data-testid="answer-incorrect-icon" aria-hidden className="h-5 w-5 text-danger" />}
+      <div className="flex items-center gap-3.5">
+        {/* Shortcut Key Badge */}
+        {keyLabel && (
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-colors ${keyBadgeStyles[normalizedState]}`}
+          >
+            {keyLabel}
+          </span>
+        )}
+
+        {/* Option Text */}
+        <span className="text-sm font-medium leading-relaxed">{text}</span>
+      </div>
+
+      {/* Result Icons */}
+      {normalizedState === "correct" && (
+        <CheckCircle2 data-testid="answer-correct-icon" className="h-5 w-5 shrink-0 text-success animate-bounce" />
+      )}
+      {normalizedState === "wrong" && (
+        <XCircle data-testid="answer-incorrect-icon" className="h-5 w-5 shrink-0 text-danger animate-pulse" />
+      )}
     </button>
   );
 }

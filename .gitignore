@@ -5,9 +5,10 @@ photo_*_2026-*.jpg
 # Go
 backend/bin/
 backend/seed/sample/
-# avtoimtihon: data.json IS tracked (real licensed exam content — diffable/recoverable
-# without the aaa/ source dir); only the 49MB image blobs stay untracked (regenerate
-# via `make seed-real` / cmd/convertavtoimtihon from aaa/).
 backend/seed/avtoimtihon/images/
 backend/var/
+backend/*.log
 .env
+scratch/
+.claude/
+111.png
