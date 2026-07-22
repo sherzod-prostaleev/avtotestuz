@@ -1,3 +1,44 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  --background: 228 40% 98%;
+  --foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 220 20% 90%;
+  --input: 220 20% 90%;
+  --muted-foreground: 220 15% 40%;
+  --accent: 243 100% 69%;
+  --accent-foreground: 0 0% 100%;
+  --accent-shadow: 243 60% 45%;
+  --success: 142 71% 45%;
+  --danger: 0 84% 60%;
+  --streak: 21 90% 54%;
+  --gold: 45 93% 47%;
+  --ring: 243 100% 69%;
+  --radius: 1.25rem;
+}
+
+.dark {
+  --background: 222 46% 10%;
+  --foreground: 210 40% 98%;
+  --card: 225 41% 18%;
+  --card-foreground: 210 40% 98%;
+  --border: 225 30% 27%;
+  --input: 225 30% 27%;
+  --muted-foreground: 217 20% 65%;
+  --accent: 243 100% 69%;
+  --accent-foreground: 0 0% 100%;
+  --accent-shadow: 243 60% 45%;
+  --success: 142 71% 45%;
+  --danger: 0 84% 60%;
+  --streak: 21 90% 54%;
+  --gold: 45 93% 47%;
+  --ring: 243 100% 69%;
+}
+
+body {
+  @apply bg-background text-foreground font-sans;
+}
