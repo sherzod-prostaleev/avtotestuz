@@ -58,5 +58,26 @@
     "modeIncorrect": "Дан неправильный ответ",
     "modeExamHidden": "Режим экзамена (обратная связь скрыта)",
     "positionLabel": "{n} / {total}"
+  },
+  "Login": {
+    "subtitle": "Войдите с помощью номера телефона",
+    "phoneLabel": "Номер телефона",
+    "continue": "Продолжить",
+    "errorInvalidPhone": "Неверный формат номера телефона",
+    "errorRateLimited": "Слишком много попыток. Повторите позже",
+    "errorNetwork": "Не удалось связаться с сервером",
+    "errorUnknown": "Произошла ошибка. Попробуйте снова"
+  },
+  "Verify": {
+    "title": "Введите код",
+    "subtitle": "Введите 6-значный код, отправленный на {phone}",
+    "digitLabel": "{position}-я цифра",
+    "resend": "Отправить снова",
+    "resendIn": "Отправить снова ({seconds}с)",
+    "errorInvalidCode": "Неверный код",
+    "errorExpiredCode": "Код истёк",
+    "errorTooManyAttempts": "Слишком много попыток",
+    "errorNetwork": "Не удалось связаться с сервером",
+    "errorUnknown": "Произошла ошибка"
   }
 }

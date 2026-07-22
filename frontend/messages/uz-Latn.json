@@ -58,5 +58,26 @@
     "modeIncorrect": "Xato javob berilgan",
     "modeExamHidden": "Imtihon rejimi (feedback yashirin)",
     "positionLabel": "{n} / {total}"
+  },
+  "Login": {
+    "subtitle": "Telefon raqamingiz bilan kiring",
+    "phoneLabel": "Telefon raqam",
+    "continue": "Davom etish",
+    "errorInvalidPhone": "Telefon raqam noto'g'ri formatda",
+    "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
+    "errorNetwork": "Server bilan bog'lanib bo'lmadi",
+    "errorUnknown": "Xatolik yuz berdi. Qayta urinib ko'ring"
+  },
+  "Verify": {
+    "title": "Kodni kiriting",
+    "subtitle": "{phone} raqamiga yuborilgan 6 xonali kodni kiriting",
+    "digitLabel": "{position}-raqam",
+    "resend": "Qayta yuborish",
+    "resendIn": "Qayta yuborish ({seconds}s)",
+    "errorInvalidCode": "Kod noto'g'ri",
+    "errorExpiredCode": "Kod muddati tugagan",
+    "errorTooManyAttempts": "Juda ko'p urinish",
+    "errorNetwork": "Server bilan bog'lanib bo'lmadi",
+    "errorUnknown": "Xatolik yuz berdi"
   }
 }

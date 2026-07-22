@@ -58,5 +58,26 @@
     "modeIncorrect": "Хато жавоб берилган",
     "modeExamHidden": "Имтиҳон режими (feedback яширин)",
     "positionLabel": "{n} / {total}"
+  },
+  "Login": {
+    "subtitle": "Телефон рақамингиз билан киринг",
+    "phoneLabel": "Телефон рақам",
+    "continue": "Давом этиш",
+    "errorInvalidPhone": "Телефон рақам нотўғри форматда",
+    "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
+    "errorNetwork": "Сервер билан боғланиб бўлмади",
+    "errorUnknown": "Хатолик юз берди. Қайта уриниб кўринг"
+  },
+  "Verify": {
+    "title": "Кодни киритинг",
+    "subtitle": "{phone} рақамига юборилган 6 хонали кодни киритинг",
+    "digitLabel": "{position}-рақам",
+    "resend": "Қайта юбориш",
+    "resendIn": "Қайта юбориш ({seconds}s)",
+    "errorInvalidCode": "Код нотўғри",
+    "errorExpiredCode": "Код муддати тугаган",
+    "errorTooManyAttempts": "Жуда кўп уриниш",
+    "errorNetwork": "Сервер билан боғланиб бўлмади",
+    "errorUnknown": "Хатолик юз берди"
   }
 }
