@@ -45,7 +45,7 @@ describe("VerifyPage", () => {
     const boxes = digitBoxes();
     "123456".split("").forEach((digit, i) => fireEvent.change(boxes[i], { target: { value: digit } }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/dashboard"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/dashboard"));
   });
 
   it("shows a translated error and does not navigate on an invalid code", async () => {

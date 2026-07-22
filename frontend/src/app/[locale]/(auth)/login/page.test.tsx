@@ -40,7 +40,7 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
     fireEvent.click(screen.getByRole("button", { name: "Davom etish" }));
 
-    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/login/verify?phone=901112233"));
+    await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/login/verify?phone=901112233"));
   });
 
   it("shows a translated error and does not navigate when the backend returns rate_limited", async () => {

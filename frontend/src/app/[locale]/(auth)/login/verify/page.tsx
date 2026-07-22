@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -18,6 +18,7 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
 
 function VerifyForm() {
   const t = useTranslations("Verify");
+  const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
   const phone = searchParams.get("phone") ?? "";
@@ -46,7 +47,7 @@ function VerifyForm() {
         setError(json.error?.code ?? "unknown");
         return;
       }
-      router.push("/dashboard");
+      router.push(`/${locale}/dashboard`);
     } catch {
       setError("network_error");
     }

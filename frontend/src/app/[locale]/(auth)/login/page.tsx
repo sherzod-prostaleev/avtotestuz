@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -18,6 +18,7 @@ function normalizePhone(input: string): string {
 
 export default function LoginPage() {
   const t = useTranslations("Login");
+  const locale = useLocale();
   const router = useRouter();
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +39,7 @@ export default function LoginPage() {
         setError(json.error?.code ?? "unknown");
         return;
       }
-      router.push(`/login/verify?phone=${encodeURIComponent(normalizePhone(phone))}`);
+      router.push(`/${locale}/login/verify?phone=${encodeURIComponent(normalizePhone(phone))}`);
     } catch {
       setError("network_error");
     } finally {
