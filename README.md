@@ -405,3 +405,9 @@ tayyor (`frontend/`, real API'ga ulanmagan). Ishga tushirish:
 `cd frontend && npm install && npm run dev`. Tafsilot:
 `docs/superpowers/specs/2026-07-22-nextjs-frontend-foundation-design.md`
 va `frontend/README.md`.
+
+**Phase B1 (2026-07-22):** real phone+OTP login, httpOnly-cookie sessions,
+single-flight-refresh BFF proxy (`/api/proxy/[...path]`), and full next-intl
+locale routing (uz-Latn/uz-Cyrl/ru) landed. Dashboard/exam-mockup content is
+still mock data post-login — Phase B2 wires the real backend. Details:
+`docs/superpowers/specs/2026-07-22-nextjs-frontend-phase-b1-auth-i18n-design.md`.
