@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -20,10 +20,13 @@ import {
   Menu,
   X,
   Sparkles,
+  Bookmark,
+  CarFront,
 } from "lucide-react";
 
 export function Sidebar() {
   const currentLocale = useLocale();
+  const t = useTranslations("Sidebar");
   const pathname = usePathname();
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -32,7 +35,7 @@ export function Sidebar() {
 
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
-  const userName = user?.name || "O'quvchi";
+  const userName = user?.name || t("userFallback");
 
   const handleLanguageChange = (newLocale: string) => {
     if (newLocale === currentLocale) return;
@@ -41,15 +44,16 @@ export function Sidebar() {
   };
 
   const navLinks = [
-    { href: `/${currentLocale}/dashboard`, label: "Bosh sahifa", icon: LayoutDashboard },
-    { href: `/${currentLocale}/tickets`, label: "Biletlar (61 ta)", icon: BookOpen },
-    { href: `/${currentLocale}/session/start?mode=exam`, label: "Imtihon simulyatsiyasi", icon: Award },
-    { href: `/${currentLocale}/practice`, label: "Mashq rejimi", icon: Target },
-    { href: `/${currentLocale}/signs`, label: "Yo'l belgilari", icon: Signpost },
-    { href: `/${currentLocale}/mistakes`, label: "Xatolar banki", icon: AlertTriangle },
-    { href: `/${currentLocale}/stats`, label: "Statistika va Tahlil", icon: BarChart3 },
-    { href: `/${currentLocale}/profile`, label: "Profil va Sozlamalar", icon: User },
-    { href: `/${currentLocale}/premium`, label: "Premium VIP", icon: Crown, isGold: true },
+    { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
+    { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: 61 }), icon: BookOpen },
+    { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
+    { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
+    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
+    { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
+    { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
+    { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
+    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
+    { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
   ];
 
   return (
@@ -58,31 +62,39 @@ export function Sidebar() {
       <div className="md:hidden sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md">
         <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-2 font-display text-lg font-bold">
           <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-white shadow-3d">
-            🚗
+            <CarFront aria-hidden="true" className="h-5 w-5" />
           </div>
           <span className="bg-gradient-to-r from-accent to-indigo-500 bg-clip-text text-transparent">
-            AvtoTest
+            {t("brandName")}
           </span>
         </Link>
 
         <div className="flex items-center gap-2">
           <div className="flex items-center gap-1 rounded-full border border-streak/30 bg-streak/10 px-2.5 py-1 text-xs font-bold text-streak">
-            <Flame className="h-3.5 w-3.5 animate-flame" />
+            <Flame aria-hidden="true" className="h-3.5 w-3.5 animate-flame" />
             <span>{currentStreak}</span>
           </div>
 
           <button
+            type="button"
+            aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
             onClick={() => setMobileOpen(!mobileOpen)}
             className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground"
           >
-            {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileOpen ? (
+              <X aria-hidden="true" className="h-5 w-5" />
+            ) : (
+              <Menu aria-hidden="true" className="h-5 w-5" />
+            )}
           </button>
         </div>
       </div>
 
       {/* Backdrop Overlay (Mobile) */}
       {mobileOpen && (
-        <div
+        <button
+          type="button"
+          aria-label={t("closeMenu")}
           onClick={() => setMobileOpen(false)}
           className="md:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
         />
@@ -99,18 +111,25 @@ export function Sidebar() {
           <div className="flex items-center justify-between pt-2 px-2">
             <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-2.5 font-display text-xl font-black">
               <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent text-white shadow-3d hover:scale-105 transition-transform">
-                🚗
+                <CarFront aria-hidden="true" className="h-6 w-6" />
               </div>
               <div className="flex flex-col">
                 <span className="bg-gradient-to-r from-accent via-indigo-500 to-accent bg-clip-text text-transparent">
-                  AvtoTest
+                  {t("brandName")}
                 </span>
-                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Pro Edition</span>
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                  {t("brandTagline")}
+                </span>
               </div>
             </Link>
 
-            <button onClick={() => setMobileOpen(false)} className="md:hidden text-muted-foreground">
-              <X className="h-5 w-5" />
+            <button
+              type="button"
+              aria-label={t("closeMenu")}
+              onClick={() => setMobileOpen(false)}
+              className="md:hidden text-muted-foreground"
+            >
+              <X aria-hidden="true" className="h-5 w-5" />
             </button>
           </div>
 
@@ -118,16 +137,17 @@ export function Sidebar() {
           <div className="rounded-2xl border border-accent/20 bg-accent/5 p-3 space-y-2">
             <div className="flex items-center justify-between text-xs font-extrabold">
               <span className="flex items-center gap-1.5 text-streak">
-                <Flame className="h-4 w-4 animate-flame" /> {currentStreak} Kunlik Streak
+                <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
+                {t("streakCount", { count: currentStreak })}
               </span>
               {isVip ? (
                 <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-extrabold text-gold border border-gold/30">
-                  VIP
+                  {t("vipBadge")}
                 </span>
               ) : (
                 <Link href={`/${currentLocale}/premium`}>
                   <span className="rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-extrabold text-accent hover:underline">
-                    +VIP
+                    {t("upgradeVip")}
                   </span>
                 </Link>
               )}
@@ -154,10 +174,15 @@ export function Sidebar() {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <Icon className={`h-4 w-4 ${link.isGold && !isActive ? "text-gold" : ""}`} />
+                    <Icon
+                      aria-hidden="true"
+                      className={`h-4 w-4 ${link.isGold && !isActive ? "text-gold" : ""}`}
+                    />
                     <span>{link.label}</span>
                   </div>
-                  {link.isGold && !isActive && <Sparkles className="h-3.5 w-3.5 text-gold animate-pulse" />}
+                  {link.isGold && !isActive && (
+                    <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-gold animate-pulse" />
+                  )}
                 </Link>
               );
             })}
@@ -168,13 +193,18 @@ export function Sidebar() {
         <div className="space-y-3 pt-4 border-t border-border">
           <div className="flex items-center justify-between px-1">
             {/* Language Switcher */}
-            <div className="flex gap-0.5 rounded-lg border border-border bg-background p-0.5">
+            <div
+              role="group"
+              aria-label={t("languageSwitcher")}
+              className="flex gap-0.5 rounded-lg border border-border bg-background p-0.5"
+            >
               {[
-                { code: "uz-Latn", label: "O'z" },
-                { code: "uz-Cyrl", label: "Ўз" },
-                { code: "ru", label: "Ru" },
+                { code: "uz-Latn", label: t("languageUzLatn") },
+                { code: "uz-Cyrl", label: t("languageUzCyrl") },
+                { code: "ru", label: t("languageRu") },
               ].map((lang) => (
                 <button
+                  type="button"
                   key={lang.code}
                   onClick={() => handleLanguageChange(lang.code)}
                   className={`rounded px-2 py-0.5 text-[10px] font-bold transition-all ${
@@ -200,7 +230,7 @@ export function Sidebar() {
               </div>
               <div className="flex flex-col truncate">
                 <span className="text-xs font-bold text-foreground truncate">{userName}</span>
-                <span className="text-[10px] text-muted-foreground">Profilni ko'rish</span>
+                <span className="text-[10px] text-muted-foreground">{t("viewProfile")}</span>
               </div>
             </div>
           </Link>

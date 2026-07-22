@@ -1,27 +1,52 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
-import { useSessionEngine } from "@/hooks/use-session-engine";
+import { useLocale, useTranslations } from "next-intl";
+import {
+  useSessionEngine,
+  type SessionMode,
+  type StartSessionOptions,
+} from "@/hooks/use-session-engine";
+
+const SESSION_MODES: SessionMode[] = ["variant", "exam", "practice", "mistakes"];
+
+function isSessionMode(value: string | null): value is SessionMode {
+  return value !== null && SESSION_MODES.includes(value as SessionMode);
+}
 
 function SessionStartContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const locale = useLocale();
+  const t = useTranslations("SessionStart");
+  const practiceT = useTranslations("Practice");
+  const sessionT = useTranslations("Session");
   const { startSession, error } = useSessionEngine();
+  const startedRef = useRef(false);
 
   useEffect(() => {
+    if (startedRef.current) return;
+    startedRef.current = true;
+
     async function initSession() {
-      const modeParam = searchParams.get("mode") as "variant" | "exam" | "practice" | "mistakes" | null;
+      const modeParam = searchParams.get("mode");
       const variantParam = searchParams.get("variant_id");
       const categoryParam = searchParams.get("category_id");
+      const signParam = searchParams.get("sign_id");
+      const countParam = searchParams.get("count");
 
-      const mode = modeParam || (variantParam ? "variant" : "exam");
-      const options: Record<string, unknown> = {};
+      const mode: SessionMode = isSessionMode(modeParam) ? modeParam : variantParam ? "variant" : "exam";
+      const options: StartSessionOptions = { locale };
 
       if (variantParam) options.variant_id = variantParam;
       if (categoryParam) options.category_id = categoryParam;
+      if (signParam) options.sign_id = signParam;
+
+      if (countParam) {
+        const count = Number(countParam);
+        if (Number.isInteger(count) && count > 0) options.question_count = count;
+      }
 
       const session = await startSession(mode, options);
       if (session?.id) {
@@ -33,27 +58,49 @@ function SessionStartContent() {
   }, [searchParams, router, locale, startSession]);
 
   if (error) {
+    const isVipRequired = error.code === "vip_required";
+    const isDailyLimitReached = error.code === "daily_limit_reached";
+    const destination = isVipRequired
+      ? `/${locale}/premium`
+      : isDailyLimitReached
+        ? `/${locale}/practice`
+        : `/${locale}/tickets`;
+    const actionLabel = isVipRequired
+      ? t("goToPremium")
+      : isDailyLimitReached
+        ? t("backToPractice")
+        : t("backToTickets");
+    const message = isVipRequired
+      ? t("vipRequired")
+      : isDailyLimitReached
+        ? practiceT("dailyLimitReached")
+        : error.code === "network_error"
+          ? sessionT("networkError")
+          : sessionT("genericError");
+
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center text-destructive">
-        <p className="font-bold">Sessiyani boshlashda xatolik</p>
-        <p className="mt-1 text-sm">{error}</p>
+        <p className="font-bold">{t("errorTitle")}</p>
+        <p className="mt-1 text-sm">{message}</p>
         <button
-          onClick={() => router.push(`/${locale}/tickets`)}
+          onClick={() => router.push(destination)}
           className="mt-4 rounded bg-accent px-4 py-2 text-xs font-bold text-accent-foreground"
         >
-          Biletlarga qaytish
+          {actionLabel}
         </button>
       </div>
     );
   }
 
-  return <div className="text-center text-muted-foreground animate-pulse">Test sessiyasi tayyorlanmoqda...</div>;
+  return <div className="text-center text-muted-foreground animate-pulse">{t("starting")}</div>;
 }
 
 export default function SessionStartPage() {
+  const t = useTranslations("SessionStart");
+
   return (
     <main className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center p-4">
-      <Suspense fallback={<div className="text-center text-muted-foreground">Yuklanmoqda...</div>}>
+      <Suspense fallback={<div className="text-center text-muted-foreground">{t("loading")}</div>}>
         <SessionStartContent />
       </Suspense>
     </main>

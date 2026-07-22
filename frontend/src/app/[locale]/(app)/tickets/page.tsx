@@ -68,10 +68,10 @@ export default function TicketsPage() {
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2">
         {[
-          { key: "all", label: t("all") },
-          { key: "completed", label: t("completed") },
-          { key: "in_progress", label: t("inProgress") },
-          { key: "locked", label: t("locked") },
+          { key: "all", label: t("filterAll") },
+          { key: "completed", label: t("filterCompleted") },
+          { key: "in_progress", label: t("filterInProgress") },
+          { key: "locked", label: t("lockedText") },
         ].map((tab) => (
           <button
             key={tab.key}

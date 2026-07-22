@@ -92,6 +92,8 @@ export default function SignsPage() {
               className="glass-card flex cursor-pointer flex-col items-center justify-between p-4 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:border-accent"
             >
               <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 p-2">
+                {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={sign.image_url} alt={sign.name} className="max-h-full max-w-full object-contain" />
               </div>
               <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-extrabold text-accent">
@@ -122,6 +124,8 @@ export default function SignsPage() {
             </div>
 
             <div className="flex justify-center p-4 bg-black/5 rounded-2xl">
+              {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={activeModalSign.image_url}
                 alt={activeModalSign.name}

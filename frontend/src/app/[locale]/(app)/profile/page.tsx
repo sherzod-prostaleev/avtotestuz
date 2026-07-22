@@ -13,8 +13,20 @@ import { ArrowLeft, User, Globe, Moon, LogOut, Check } from "lucide-react";
 interface UserProfileData {
   id: string;
   phone: string;
-  name?: string;
-  region?: string;
+  name: string;
+  region: string;
+  district: string;
+  birth_date: string | null;
+  locale_pref: string;
+  theme_pref: string;
+  referral_code: string;
+  role: string;
+  created_at: string;
+}
+
+interface MeResponse {
+  profile: UserProfileData;
+  vip: { active: boolean; until: string | null };
 }
 
 export default function ProfilePage() {
@@ -33,10 +45,10 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        const data = await apiGet<UserProfileData>("me");
-        setProfile(data);
-        setName(data?.name ?? "");
-        setRegion(data?.region ?? "");
+        const data = await apiGet<MeResponse>("me");
+        setProfile(data.profile);
+        setName(data.profile.name);
+        setRegion(data.profile.region);
       } catch {
         setError("Profil ma'lumotlarini yuklab bo'lmadi");
       }
@@ -61,10 +73,14 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLanguageChange = (newLocale: string) => {
+  const handleLanguageChange = async (newLocale: string) => {
     if (newLocale === currentLocale) return;
     const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    router.push(newPath);
+    try {
+      await apiPatch<UserProfileData>("me", { locale_pref: newLocale });
+    } finally {
+      router.push(newPath);
+    }
   };
 
   const handleLogout = async () => {
@@ -165,7 +181,7 @@ export default function ProfilePage() {
                 ].map((lang) => (
                   <button
                     key={lang.code}
-                    onClick={() => handleLanguageChange(lang.code)}
+                    onClick={() => void handleLanguageChange(lang.code)}
                     className={`rounded px-3 py-1 text-xs font-bold transition-all ${
                       currentLocale === lang.code
                         ? "bg-accent text-accent-foreground"

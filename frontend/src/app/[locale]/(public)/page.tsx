@@ -3,21 +3,18 @@
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { proofStats } from "@/lib/mock-data";
 import { DemoQuestionBlock } from "./demo-question-block";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Sparkles,
   Award,
-  BookOpen,
   BrainCircuit,
   ShieldCheck,
   Zap,
   HelpCircle,
   ChevronRight,
   LogIn,
-  CheckCircle2,
-  Smartphone,
+  CarFront,
 } from "lucide-react";
 
 export default function LandingPage() {
@@ -29,50 +26,47 @@ export default function LandingPage() {
       icon: BrainCircuit,
       color: "text-violet-500",
       bg: "bg-violet-500/10",
-      title: "FSRS 4.5 Aqlli O'quv Dvigateli",
-      text: "Kognitiv psixologiya va spaced repetition algoritmi asosida xatolaringizni eng o'z vaqtida takrorlashga beradi.",
+      title: t("feature1Title"),
+      text: t("feature1Text"),
     },
     {
       icon: Award,
       color: "text-amber-500",
       bg: "bg-amber-500/10",
-      title: "Real Imtihon Simulyatsiyasi",
-      text: "YHXB rasmiy imtihon qoidalari: 20 savol, 25 daqiqa, 3-xatoda avtostop. Hayajonsiz tayyorgarlik.",
+      title: t("feature4Title"),
+      text: t("feature4Text"),
     },
     {
       icon: ShieldCheck,
       color: "text-emerald-500",
       bg: "bg-emerald-500/10",
-      title: "100% Rasmiy YHQ 2026 Bazasi",
-      text: "O'zbekiston Respublikasi YHQ barcha 1235 ta rasmiy nazariy savoli va 61 ta bileti.",
+      title: t("feature2Title"),
+      text: t("feature2Text"),
     },
     {
       icon: Zap,
       color: "text-sky-500",
       bg: "bg-sky-500/10",
-      title: "Huquqiy Modda Tushuntirishlari",
-      text: "Har bir javobda tegishli YHQ moddasi keltiriladi. Tushunib o'rganing, yodlab emas.",
+      title: t("feature3Title"),
+      text: t("feature3Text"),
     },
   ];
 
   const steps = [
     {
       n: "1",
-      icon: Smartphone,
-      title: "Telefon bilan kiring",
-      text: "Parolsiz, SMS orqali 10 soniyada ro'yxatdan o'ting.",
+      title: t("step1Title"),
+      text: t("step1Text"),
     },
     {
       n: "2",
-      icon: BookOpen,
-      title: "Bilet va mashq yeching",
-      text: "61 ta bilet, FSRS xatolar banki va kategoriya mashqlari bilan tayyorlaning.",
+      title: t("step2Title"),
+      text: t("step2Text"),
     },
     {
       n: "3",
-      icon: CheckCircle2,
-      title: "Imtihondan o'ting!",
-      text: "Simulyatorda 100% tayyorligingizni tekshirib, birinchi urinishda prava oling.",
+      title: t("step3Title"),
+      text: t("step3Text"),
     },
   ];
 
@@ -80,10 +74,14 @@ export default function LandingPage() {
     { q: t("faq1Q"), a: t("faq1A") },
     { q: t("faq2Q"), a: t("faq2A") },
     { q: t("faq3Q"), a: t("faq3A") },
-    {
-      q: "Qaysi toifa (A, B, C, D) uchun savollar bor?",
-      a: "Barcha asosiy toifalar uchun rasmiy YHQ nazariy imtihon savollari to'liq qamrab olingan.",
-    },
+    { q: t("faq4Q"), a: t("faq4A") },
+  ];
+
+  const proofStats = [
+    { value: 1235, label: t("proofQuestions") },
+    { value: 61, label: t("proofTickets") },
+    { value: 13, label: t("proofTopics") },
+    { value: 3, label: t("proofLanguages") },
   ];
 
   return (
@@ -93,10 +91,10 @@ export default function LandingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link href={`/${locale}`} className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight">
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white shadow-3d transition-transform hover:scale-105">
-              🚗
+              <CarFront aria-hidden="true" className="h-5 w-5" />
             </div>
             <span className="bg-gradient-to-r from-accent via-indigo-500 to-accent bg-clip-text text-transparent">
-              AvtoTest
+              {t("brandName")}
             </span>
           </Link>
 
@@ -104,7 +102,7 @@ export default function LandingPage() {
             <ThemeToggle />
             <Link href={`/${locale}/login`}>
               <Button variant="game" size="sm" className="px-5">
-                <LogIn className="mr-1.5 h-3.5 w-3.5" /> Kirish
+                <LogIn aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" /> {t("login")}
               </Button>
             </Link>
           </div>
@@ -120,33 +118,33 @@ export default function LandingPage() {
         <div className="relative mx-auto max-w-6xl px-4 py-16 md:py-24 text-center space-y-8">
           {/* Year Badge */}
           <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-5 py-2 text-xs font-extrabold text-gold shadow-sm animate-fade-in">
-            <Sparkles className="h-4 w-4" /> 2026-yil Yangilangan Rasmiy Savollar Bazasi
+            <Sparkles aria-hidden="true" className="h-4 w-4" /> {t("updatedBadge")}
           </div>
 
           {/* Main Title */}
           <h1 className="mx-auto max-w-4xl font-display text-4xl sm:text-5xl md:text-6xl font-black leading-[1.1] tracking-tight animate-fade-in">
-            Haydovchilik imtihoniga{" "}
+            {t("heroTitleBefore")}{" "}
             <span className="bg-gradient-to-r from-accent via-indigo-500 to-accent bg-clip-text text-transparent">
-              100% aqlli va oson
+              {t("heroTitleAccent")}
             </span>{" "}
-            tayyorlaning!
+            {t("heroTitleAfter")}
           </h1>
 
           {/* Subtitle */}
           <p className="mx-auto max-w-2xl text-base sm:text-lg text-muted-foreground leading-relaxed animate-fade-in">
-            O'zbekiston YHQ 1235 ta rasmiy savoli, 61 ta bilet, FSRS aqlli takrorlash va real imtihon simulyatori — hammasini bitta platformada.
+            {t("heroSubtitle")}
           </p>
 
           {/* CTA Buttons */}
           <div className="flex flex-col items-center justify-center gap-4 sm:flex-row animate-fade-in">
             <Link href={`/${locale}/login`}>
               <Button variant="game" size="lg" className="px-10 py-4 text-base font-extrabold shadow-xl">
-                Bepul Boshlash <ChevronRight className="ml-2 h-5 w-5" />
+                {t("ctaStart")} <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
               </Button>
             </Link>
             <Link href={`/${locale}/signs`}>
               <Button variant="outline" size="lg" className="px-8 py-4 text-sm font-bold">
-                Yo'l belgilari katalogi
+                {t("ctaSigns")}
               </Button>
             </Link>
           </div>
@@ -168,11 +166,11 @@ export default function LandingPage() {
         <section className="space-y-8">
           <div className="text-center space-y-3">
             <span className="inline-block rounded-full bg-accent/10 px-4 py-1.5 text-xs font-extrabold text-accent">
-              Interaktiv Sinov
+              {t("demoBadge")}
             </span>
             <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{t("demoSectionTitle")}</h2>
             <p className="mx-auto max-w-lg text-sm text-muted-foreground">
-              Ro'yxatdan o'tmasdan turib haqiqiy imtihon savolini yechib ko'ring.
+              {t("demoDescription")}
             </p>
           </div>
           <div className="mx-auto max-w-xl">
@@ -185,7 +183,7 @@ export default function LandingPage() {
           <div className="text-center space-y-3">
             <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{t("whyUsTitle")}</h2>
             <p className="mx-auto max-w-lg text-sm text-muted-foreground">
-              Minglab bo'lajak haydovchilar AvtoTest platformasini tanlaydi.
+              {t("whyUsSubtitle")}
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-2">
@@ -194,7 +192,7 @@ export default function LandingPage() {
               return (
                 <div key={f.title} className="glass-card p-6 flex items-start gap-5 hover:border-accent/50 hover:shadow-xl hover:-translate-y-0.5">
                   <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${f.bg} ${f.color} shadow-sm`}>
-                    <Icon className="h-6 w-6" />
+                    <Icon aria-hidden="true" className="h-6 w-6" />
                   </div>
                   <div className="space-y-1.5">
                     <h3 className="font-display text-base font-bold">{f.title}</h3>
@@ -211,12 +209,11 @@ export default function LandingPage() {
           <div className="text-center space-y-3">
             <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{t("howItWorksTitle")}</h2>
             <p className="mx-auto max-w-lg text-sm text-muted-foreground">
-              Imtihonga tayyorlanish 3 ta oddiy bosqichdan iborat.
+              {t("howItWorksSubtitle")}
             </p>
           </div>
           <div className="grid gap-6 sm:grid-cols-3">
             {steps.map((s) => {
-              const Icon = s.icon;
               return (
                 <div key={s.n} className="glass-card p-6 text-center space-y-4 hover:border-accent/50 hover:shadow-xl hover:-translate-y-0.5">
                   <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white font-display text-xl font-black shadow-3d">
@@ -240,9 +237,9 @@ export default function LandingPage() {
               <details key={f.q} className="glass-card group rounded-2xl p-5 [&_summary::-webkit-details-marker]:hidden">
                 <summary className="flex cursor-pointer items-center justify-between text-sm font-bold text-foreground list-none">
                   <span className="flex items-center gap-2.5">
-                    <HelpCircle className="h-4 w-4 text-accent shrink-0" /> {f.q}
+                    <HelpCircle aria-hidden="true" className="h-4 w-4 text-accent shrink-0" /> {f.q}
                   </span>
-                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90 shrink-0" />
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-90 shrink-0" />
                 </summary>
                 <p className="mt-3 pt-3 border-t border-border text-xs leading-relaxed text-muted-foreground">{f.a}</p>
               </details>
@@ -252,13 +249,13 @@ export default function LandingPage() {
 
         {/* ───── BOTTOM CTA ───── */}
         <section className="rounded-3xl border border-accent/30 bg-gradient-to-br from-card via-card to-accent/10 p-10 text-center space-y-5 shadow-xl">
-          <h2 className="font-display text-2xl sm:text-3xl font-extrabold">Hoziroq o'qishni boshlang!</h2>
+          <h2 className="font-display text-2xl sm:text-3xl font-extrabold">{t("bottomCtaTitle")}</h2>
           <p className="mx-auto max-w-md text-sm text-muted-foreground">
-            Bepul ro'yxatdan o'ting va birinchi urinishda imtihondan o'ting.
+            {t("bottomCtaText")}
           </p>
           <Link href={`/${locale}/login`}>
             <Button variant="game" size="lg" className="px-10 py-4 text-base font-extrabold shadow-xl">
-              Bepul Boshlash <ChevronRight className="ml-2 h-5 w-5" />
+              {t("ctaStart")} <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
             </Button>
           </Link>
         </section>
@@ -268,9 +265,10 @@ export default function LandingPage() {
       <footer className="border-t border-border bg-card/50 py-8">
         <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-2 font-display font-extrabold text-foreground">
-            🚗 AvtoTest · {new Date().getFullYear()}
+            <CarFront aria-hidden="true" className="h-4 w-4" />
+            {t("footer", { year: new Date().getFullYear() })}
           </div>
-          <p>O'zbekiston Respublikasi YHQ rasmiy o'quv platformasi</p>
+          <p>{t("footerDescription")}</p>
         </div>
       </footer>
     </div>

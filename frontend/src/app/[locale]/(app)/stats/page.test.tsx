@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import StatsPage from "./page";
 import * as useUserStatsModule from "@/hooks/use-user-stats";
+import * as useSessionHistoryModule from "@/hooks/use-session-history";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
@@ -32,6 +33,22 @@ describe("StatsPage", () => {
       error: null,
       refetch: vi.fn(),
     });
+    vi.spyOn(useSessionHistoryModule, "useSessionHistory").mockReturnValue({
+      sessions: [
+        {
+          id: "session-1",
+          mode: "exam",
+          status: "passed",
+          score: 18,
+          total: 20,
+          started_at: "2026-07-22T10:00:00Z",
+          finished_at: "2026-07-22T10:20:00Z",
+        },
+      ],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
 
     renderWithIntl();
 
@@ -39,5 +56,7 @@ describe("StatsPage", () => {
     expect(screen.getByText("88%")).toBeInTheDocument();
     expect(screen.getByText("10")).toBeInTheDocument();
     expect(screen.getByText("Imtihonga tayyor!")).toBeInTheDocument();
+    expect(screen.getByText("18/20")).toBeInTheDocument();
+    expect(screen.getByText("20 daq")).toBeInTheDocument();
   });
 });

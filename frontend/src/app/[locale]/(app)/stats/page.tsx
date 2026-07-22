@@ -3,6 +3,7 @@
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useUserStats } from "@/hooks/use-user-stats";
+import { useSessionHistory } from "@/hooks/use-session-history";
 import { ResultRing } from "@/components/shared/result-ring";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -13,6 +14,7 @@ export default function StatsPage() {
   const t = useTranslations("Stats");
   const locale = useLocale();
   const { streak, stats, loading, error } = useUserStats();
+  const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
 
   const readinessPct = stats?.readiness_pct ?? 0;
   const isReady = readinessPct >= 80;
@@ -89,6 +91,67 @@ export default function StatsPage() {
             </CardContent>
           </Card>
         )}
+
+        <Card className="p-6">
+          <CardHeader className="p-0 mb-4">
+            <CardTitle className="text-lg font-bold">{t("history")}</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {historyLoading ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Sessiyalar yuklanmoqda...</p>
+            ) : historyError ? (
+              <p className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {historyError}
+              </p>
+            ) : sessions.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Hali yakunlangan sessiyalar yo'q.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[560px] text-left text-xs">
+                  <thead className="border-b border-border text-muted-foreground">
+                    <tr>
+                      <th className="pb-3 font-semibold">Sana</th>
+                      <th className="pb-3 font-semibold">Rejim</th>
+                      <th className="pb-3 font-semibold">Holat</th>
+                      <th className="pb-3 text-right font-semibold">Natija</th>
+                      <th className="pb-3 text-right font-semibold">Vaqt</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sessions.map((item) => {
+                      const durationMinutes = item.finished_at
+                        ? Math.max(
+                            0,
+                            Math.round(
+                              (new Date(item.finished_at).getTime() - new Date(item.started_at).getTime()) /
+                                60_000
+                            )
+                          )
+                        : null;
+                      return (
+                        <tr key={item.id} className="border-b border-border/60 last:border-0">
+                          <td className="py-3">
+                            {new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
+                              new Date(item.started_at)
+                            )}
+                          </td>
+                          <td className="py-3 font-medium">{item.mode}</td>
+                          <td className="py-3">{item.status}</td>
+                          <td className="py-3 text-right font-bold">
+                            {item.score === undefined ? "—" : `${item.score}/${item.total}`}
+                          </td>
+                          <td className="py-3 text-right">
+                            {durationMinutes === null ? "—" : `${durationMinutes} daq`}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </main>
   );

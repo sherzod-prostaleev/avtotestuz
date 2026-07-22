@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -10,10 +10,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, BookOpen, Signpost, Play, Sparkles, CheckCircle2, ChevronRight } from "lucide-react";
 
 interface CategoryItem {
-  id: string;
   code: string;
   name: string;
-  questions_count?: number;
+  sort_order: number;
 }
 
 export default function PracticePage() {
@@ -26,39 +25,35 @@ export default function PracticePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [questionCount, setQuestionCount] = useState<number>(10);
   const [loading, setLoading] = useState<boolean>(true);
+  const [loadError, setLoadError] = useState<boolean>(false);
+
+  const loadCategories = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const data = await apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`);
+      const ordered = [...data].sort((left, right) => left.sort_order - right.sort_order);
+      setCategories(ordered);
+      setSelectedCategory(ordered[0]?.code ?? "");
+    } catch {
+      setCategories([]);
+      setSelectedCategory("");
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [locale]);
 
   useEffect(() => {
-    async function loadCategories() {
-      try {
-        const data = await apiGet<CategoryItem[]>("categories");
-        setCategories(data ?? []);
-        if (data && data.length > 0) {
-          setSelectedCategory(data[0].id || data[0].code);
-        }
-      } catch {
-        // Fallback categories list matching official 13 categories
-        const fallback = [
-          { id: "road_signs_markings", code: "road_signs_markings", name: "Yo'l belgilari va chizig'i" },
-          { id: "priority_intersections", code: "priority_intersections", name: "Chorrahalar va yo'l ustunligi" },
-          { id: "stopping_parking", code: "stopping_parking", name: "To'xtash va to'xtab turish" },
-          { id: "vehicle_equipment_lighting", code: "vehicle_equipment_lighting", name: "Chiroqlar va texnik sozlik" },
-          { id: "speed_distance_maneuver", code: "speed_distance_maneuver", name: "Tezlik, oraliq va manevr" },
-          { id: "traffic_signals_gestures", code: "traffic_signals_gestures", name: "Svetofor va tartibga soluvchi" },
-        ];
-        setCategories(fallback);
-        setSelectedCategory("road_signs_markings");
-      } finally {
-        setLoading(false);
-      }
-    }
-    loadCategories();
-  }, []);
+    void loadCategories();
+  }, [loadCategories]);
 
   const handleStart = () => {
     if (mode === "sign") {
       router.push(`/${locale}/signs`);
       return;
     }
+    if (!selectedCategory) return;
     router.push(`/${locale}/session/start?mode=practice&category_id=${selectedCategory}&count=${questionCount}`);
   };
 
@@ -131,18 +126,26 @@ export default function PracticePage() {
 
           {loading ? (
             <div className="py-8 text-center text-sm text-muted-foreground animate-pulse">
-              Kategoriyalar yuklanmoqda...
+              {t("categoriesLoading")}
             </div>
+          ) : loadError ? (
+            <div role="alert" className="space-y-3 py-8 text-center">
+              <p className="text-sm font-semibold text-destructive">{t("categoriesLoadError")}</p>
+              <Button variant="outline" size="sm" onClick={() => void loadCategories()}>
+                {t("retry")}
+              </Button>
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">{t("categoriesEmpty")}</div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2">
               {categories.map((cat) => {
-                const catId = cat.id || cat.code;
-                const isSelected = selectedCategory === catId;
+                const isSelected = selectedCategory === cat.code;
 
                 return (
                   <div
-                    key={catId}
-                    onClick={() => setSelectedCategory(catId)}
+                    key={cat.code}
+                    onClick={() => setSelectedCategory(cat.code)}
                     className={`flex cursor-pointer items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
                       isSelected
                         ? "border-accent bg-accent/15 text-accent font-bold ring-2 ring-accent/40 shadow-md translate-x-0.5"
@@ -179,7 +182,13 @@ export default function PracticePage() {
 
           {/* Start CTA Button */}
           <div className="pt-4">
-            <Button variant="game" size="lg" className="w-full text-base py-3" onClick={handleStart}>
+            <Button
+              variant="game"
+              size="lg"
+              className="w-full text-base py-3"
+              onClick={handleStart}
+              disabled={loading || loadError || !selectedCategory}
+            >
               <Play className="mr-2 h-5 w-5 fill-current" /> {t("start")}
             </Button>
           </div>

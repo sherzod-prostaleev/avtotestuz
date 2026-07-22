@@ -1,36 +1,116 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, it, expect, vi } from "vitest";
-import messages from "../../../../messages/uz-Latn.json";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import uzLatnMessages from "../../../../messages/uz-Latn.json";
+import uzCyrlMessages from "../../../../messages/uz-Cyrl.json";
+import ruMessages from "../../../../messages/ru.json";
 import LandingPage from "./page";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  usePathname: () => "/uz-Latn",
-}));
+vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
 
-function renderWithIntl() {
+const localeCases = [
+  {
+    locale: "uz-Latn",
+    messages: uzLatnMessages,
+    hero: "oson",
+    login: "Kirish",
+    feature: "FSRS o'quv dvigateli",
+    footer: "O'zbekiston yo'l harakati qoidalari bo'yicha o'quv platformasi",
+    question: "O'ngdan keluvchi haydovchi qachon yo'l beradi?",
+  },
+  {
+    locale: "uz-Cyrl",
+    messages: uzCyrlMessages,
+    hero: "осон",
+    login: "Кириш",
+    feature: "FSRS ўқув двигатели",
+    footer: "Ўзбекистон йўл ҳаракати қоидалари бўйича ўқув платформаси",
+    question: "Ўнгдан келаётган ҳайдовчи қачон йўл беради?",
+  },
+  {
+    locale: "ru",
+    messages: ruMessages,
+    hero: "права",
+    login: "Войти",
+    feature: "Движок обучения FSRS",
+    footer: "Учебная платформа по правилам дорожного движения Узбекистана",
+    question: "Когда водитель должен уступить машине справа?",
+  },
+] as const;
+
+function renderWithIntl(localeCase: (typeof localeCases)[number]) {
   return render(
-    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+    <NextIntlClientProvider locale={localeCase.locale} messages={localeCase.messages}>
       <LandingPage />
     </NextIntlClientProvider>
   );
 }
 
-describe("LandingPage", () => {
-  it("renders the hero CTA and all proof stats", () => {
-    renderWithIntl();
-    expect(screen.getAllByRole("button", { name: /Bepul/i }).length).toBeGreaterThanOrEqual(1);
+beforeEach(() => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn().mockImplementation((input: string) => {
+      const localeCase = localeCases.find(({ locale }) => input.includes(`locale=${locale}`)) ?? localeCases[0];
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({
+            data: {
+              id: "question-1",
+              text: localeCase.question,
+              image_url: null,
+              answers: [
+                { id: "answer-1", position: 1, text: "A", image_url: null },
+                { id: "answer-2", position: 2, text: "B", image_url: null },
+              ],
+            },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      );
+    })
+  );
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("LandingPage i18n and accessibility", () => {
+  it.each(localeCases)("renders complete translated content for $locale", async (localeCase) => {
+    const { container } = renderWithIntl(localeCase);
+
+    expect(screen.getByText(localeCase.hero)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: localeCase.login })).toBeInTheDocument();
+    expect(screen.getByText(localeCase.feature)).toBeInTheDocument();
+    expect(screen.getByText(localeCase.footer)).toBeInTheDocument();
+    expect(await screen.findByText(localeCase.question)).toBeInTheDocument();
     expect(screen.getByText("1235")).toBeInTheDocument();
     expect(screen.getByText("61")).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
 
-  it("renders the interactive demo question", () => {
-    renderWithIntl();
-    expect(screen.getByText(/O'ngdan keluvchi haydovchi/)).toBeInTheDocument();
+  it.each(localeCases.slice(1))("does not leak Latin Uzbek chrome into $locale", async (localeCase) => {
+    const { container } = renderWithIntl(localeCase);
+    await screen.findByText(localeCase.question);
+
+    expect(container.textContent).not.toContain("Bepul Boshlash");
+    expect(container.textContent).not.toContain("Yo'l belgilari katalogi");
+    expect(container.textContent).not.toContain("Hoziroq o'qishni boshlang");
+    expect(container.textContent).not.toContain("Minglab bo'lajak haydovchilar");
+  });
+
+  it("requests the real demo in the current locale", async () => {
+    renderWithIntl(localeCases[2]);
+    await screen.findByText(localeCases[2].question);
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/proxy/demo/question?locale=ru",
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    );
   });
 });

@@ -41,6 +41,10 @@ describe("TicketsPage", () => {
     renderWithIntl();
 
     expect(screen.getByText("Biletlar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hammasi" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tugallangan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jarayonda" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Qulflangan (VIP talab qilinadi)" })).toBeInTheDocument();
     expect(screen.getByText("Bilet 1")).toBeInTheDocument();
     expect(screen.getByText("19/20")).toBeInTheDocument();
     expect(screen.getByText("Bilet 2")).toBeInTheDocument();
