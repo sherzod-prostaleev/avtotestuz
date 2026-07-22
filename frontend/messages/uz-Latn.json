@@ -180,8 +180,7 @@
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
     "languageRu": "Ru",
-    "navImageQuestions": "Rasmli savollar",
-    "navTextQuestions": "Rasmsiz savollar"
+    "navImageQuestions": "Rasmli savollar"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -558,5 +557,18 @@
     "feature4": "Chuqur YHQ havolali ekspert izohlari",
     "m1Notice": "To'lov tizimlari (Payme / Click) keyingi bosqichda ishga tushiriladi.",
     "backHome": "Bosh sahifaga qaytish"
+  },
+  "ImageQuestions": {
+    "backHome": "Bosh sahifaga qaytish",
+    "title": "Rasmli savollar",
+    "subtitle": "Savol turini tanlang — rasmli savollar vizual tahlilni, rasmsizlari esa qoida bilimini sinaydi.",
+    "modeGroupLabel": "Savol turini tanlash",
+    "withImage": "Rasmli savollar",
+    "withImageDescription": "Chizma va suratlar asosidagi vaziyatli savollar",
+    "withoutImage": "Rasmsiz savollar",
+    "withoutImageDescription": "Faqat matnli — qoida va ta'riflarni tekshiradi",
+    "questionCount": "Savollar soni",
+    "questionCountOption": "{count} ta savol",
+    "start": "Mashqni boshlash"
   }
 }

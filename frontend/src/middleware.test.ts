@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -20,6 +22,7 @@ describe("middleware auth guard", () => {
     "/uz-Latn/exam-mockup",
     "/uz-Latn/tickets",
     "/uz-Latn/practice",
+    "/uz-Latn/image-questions",
     "/uz-Latn/mistakes",
     "/uz-Latn/signs",
     "/uz-Latn/stats",
@@ -55,5 +58,24 @@ describe("middleware auth guard", () => {
   it("delegates to next-intl untouched when the URL has no locale prefix yet", () => {
     const response = middleware(makeRequest("/dashboard"));
     expect(response.headers.get("location")).toBeNull(); // the mocked intl middleware returns NextResponse.next()
+  });
+
+  // PROTECTED_SEGMENTS is a hand-maintained list, so adding a route under
+  // (app) without touching it silently ships an authenticated page that
+  // anyone can open. Enumerate the directory instead of trusting memory.
+  it("guards every route in the (app) group", () => {
+    const appDir = path.join(__dirname, "app", "[locale]", "(app)");
+    const routes = fs
+      .readdirSync(appDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+
+    expect(routes.length).toBeGreaterThan(0);
+    for (const route of routes) {
+      const response = middleware(makeRequest(`/uz-Latn/${route}`));
+      expect(response.headers.get("location"), `/${route} is not auth-guarded`).toBe(
+        "http://localhost:3000/uz-Latn/login"
+      );
+    }
   });
 });

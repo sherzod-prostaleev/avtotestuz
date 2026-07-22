@@ -180,8 +180,7 @@
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
     "languageRu": "Ru",
-    "navImageQuestions": "Расмли саволлар",
-    "navTextQuestions": "Расмсиз саволлар"
+    "navImageQuestions": "Расмли саволлар"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -558,5 +557,18 @@
     "feature4": "Чуқур ЙҲҚ ҳаволали эксперт изоҳлари",
     "m1Notice": "Тўлов тизимлари (Payme / Click) кейинги босқичда ишга туширилади.",
     "backHome": "Бош саҳифага қайтиш"
+  },
+  "ImageQuestions": {
+    "backHome": "Бош саҳифага қайтиш",
+    "title": "Расмли саволлар",
+    "subtitle": "Савол турини танланг — расмли саволлар визуал таҳлилни, расмсизлари эса қоида билимини синайди.",
+    "modeGroupLabel": "Савол турини танлаш",
+    "withImage": "Расмли саволлар",
+    "withImageDescription": "Чизма ва суратлар асосидаги вазиятли саволлар",
+    "withoutImage": "Расмсиз саволлар",
+    "withoutImageDescription": "Фақат матнли — қоида ва таърифларни текширади",
+    "questionCount": "Саволлар сони",
+    "questionCountOption": "{count} та савол",
+    "start": "Машқни бошлаш"
   }
 }

@@ -180,8 +180,7 @@
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
     "languageRu": "Ru",
-    "navImageQuestions": "Вопросы с картинкой",
-    "navTextQuestions": "Вопросы без картинки"
+    "navImageQuestions": "Вопросы с картинкой"
   },
   "Header": {
     "brandName": "AvtoTest",
@@ -558,5 +557,18 @@
     "feature4": "Глубокие экспертные пояснения со ссылками на ПДД",
     "m1Notice": "Платежные системы (Payme / Click) будут подключены на следующем этапе.",
     "backHome": "На главную"
+  },
+  "ImageQuestions": {
+    "backHome": "Вернуться на главную",
+    "title": "Вопросы с картинкой",
+    "subtitle": "Выберите тип вопросов: с картинкой — разбор ситуаций, без картинки — знание правил.",
+    "modeGroupLabel": "Выбор типа вопросов",
+    "withImage": "Вопросы с картинкой",
+    "withImageDescription": "Ситуационные вопросы по схемам и фотографиям",
+    "withoutImage": "Вопросы без картинки",
+    "withoutImageDescription": "Только текст — проверка правил и определений",
+    "questionCount": "Количество вопросов",
+    "questionCountOption": "{count} вопросов",
+    "start": "Начать практику"
   }
 }

@@ -81,17 +81,20 @@ describe("Sidebar i18n and accessibility", () => {
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
 
-  it.each(localeCases)("starts an image-filtered practice session for $locale", (localeCase) => {
+  // The with/without-image split belongs inside the section, not in the nav:
+  // two sibling entries that only differ by a boolean cluttered the sidebar and
+  // pointed several nav items at the same /session/start route.
+  it.each(localeCases)("links to a single image-questions section for $locale", (localeCase) => {
     renderWithIntl(localeCase);
 
     expect(screen.getByRole("link", { name: localeCase.imageQuestions })).toHaveAttribute(
       "href",
-      `/${localeCase.locale}/session/start?mode=practice&has_image=true&count=20`
+      `/${localeCase.locale}/image-questions`
     );
-    expect(screen.getByRole("link", { name: localeCase.textQuestions })).toHaveAttribute(
-      "href",
-      `/${localeCase.locale}/session/start?mode=practice&has_image=false&count=20`
-    );
+    expect(screen.queryByText(localeCase.textQuestions)).not.toBeInTheDocument();
+    expect(
+      screen.queryAllByRole("link").filter((link) => link.getAttribute("href")?.includes("session/start"))
+    ).toHaveLength(1);
   });
 
   it.each(localeCases.slice(1))("does not leak Latin Uzbek chrome into $locale", (localeCase) => {

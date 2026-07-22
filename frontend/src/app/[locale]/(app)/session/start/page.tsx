@@ -23,11 +23,16 @@ function SessionStartContent() {
   const practiceT = useTranslations("Practice");
   const sessionT = useTranslations("Session");
   const { startSession, error } = useSessionEngine();
-  const startedRef = useRef(false);
+  // Keyed by the request itself, not a bare boolean: several sidebar entries
+  // point at this route with different params, and App Router reuses the
+  // mounted component across those navigations. A boolean guard would swallow
+  // every start after the first one, leaving the user on a stale screen.
+  const startedForRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    const requestKey = searchParams.toString();
+    if (startedForRef.current === requestKey) return;
+    startedForRef.current = requestKey;
 
     async function initSession() {
       const modeParam = searchParams.get("mode");
