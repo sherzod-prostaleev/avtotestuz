@@ -13,6 +13,7 @@ interface AnswerOptionProps {
   onSelect?: (id: string) => void;
   shortcutKey?: string;
   shortcutLabel?: string;
+  disabled?: boolean;
 }
 
 export function AnswerOption({
@@ -24,6 +25,7 @@ export function AnswerOption({
   onSelect,
   shortcutKey,
   shortcutLabel,
+  disabled = false,
 }: AnswerOptionProps) {
   const handleClick = () => {
     if (onClick) onClick();
@@ -31,7 +33,7 @@ export function AnswerOption({
   };
 
   const keyLabel = shortcutKey ?? shortcutLabel ?? (typeof index === "number" ? `F${index + 1}` : "");
-  const normalizedState = state === "incorrect" ? "wrong" : state;
+  const normalizedState = state === "incorrect" ? "wrong" : state === "hidden" ? "selected" : state;
 
   const stateStyles: Record<string, string> = {
     neutral: "border-border bg-card/80 text-foreground hover:border-accent/60 hover:bg-card hover:-translate-y-0.5 shadow-sm",
@@ -51,7 +53,8 @@ export function AnswerOption({
     <button
       type="button"
       onClick={handleClick}
-      className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.99] ${stateStyles[normalizedState]}`}
+      disabled={disabled}
+      className={`group relative flex w-full items-center justify-between gap-4 rounded-2xl border p-4 text-left transition-all duration-200 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-80 ${stateStyles[normalizedState]}`}
     >
       <div className="flex items-center gap-3.5">
         {/* Shortcut Key Badge */}

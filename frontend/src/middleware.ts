@@ -5,7 +5,19 @@ import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
 
 const intlMiddleware = createMiddleware({ locales, defaultLocale, localePrefix: "always" });
 
-const PROTECTED_SEGMENTS = ["dashboard", "exam-mockup"];
+const PROTECTED_SEGMENTS = [
+  "dashboard",
+  "exam-mockup",
+  "tickets",
+  "practice",
+  "mistakes",
+  "signs",
+  "stats",
+  "profile",
+  "premium",
+  "saved",
+  "session",
+];
 const AUTH_SEGMENTS = ["login"];
 
 function matchesAny(pathname: string, segments: string[]): boolean {

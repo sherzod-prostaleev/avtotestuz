@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useLocale } from "next-intl";
 import { apiGet, ApiError } from "@/lib/api-client";
 
 export interface UserProfile {
@@ -6,6 +7,13 @@ export interface UserProfile {
   phone: string;
   name?: string;
   region?: string;
+  district?: string;
+  birth_date?: string | null;
+  locale_pref?: string;
+  theme_pref?: string;
+  referral_code?: string;
+  role?: string;
+  created_at?: string;
 }
 
 export interface UserEntitlement {
@@ -18,13 +26,12 @@ export interface UserStreak {
   max_streak: number;
   today_answered: number;
   daily_target: number;
+  last_active_date?: string | null;
 }
 
 export interface CategoryMastery {
-  category_id: string;
   code: string;
   name: string;
-  total: number;
   answered: number;
   correct: number;
   mastery_pct: number;
@@ -45,7 +52,55 @@ export interface DashboardData {
   stats: UserStats | null;
 }
 
+interface MeResponseDTO {
+  profile: {
+    id: string;
+    phone: string;
+    name: string;
+    region: string;
+    district: string;
+    birth_date: string | null;
+    locale_pref: string;
+    theme_pref: string;
+    referral_code: string;
+    role: string;
+    created_at: string;
+  };
+  vip: {
+    active: boolean;
+    until: string | null;
+  };
+}
+
+interface StreakDTO {
+  current: number;
+  best: number;
+  today_done: number;
+  daily_goal: number;
+  last_active_date: string | null;
+}
+
+interface CategoryStatDTO {
+  category_code: string;
+  mastery: number;
+  seen: number;
+  correct: number;
+}
+
+interface StatsResponseDTO {
+  categories: CategoryStatDTO[];
+  readiness_pct: number;
+  due_count: number;
+}
+
+interface CategoryDTO {
+  code: string;
+  name: string;
+  sort_order: number;
+}
+
 export function useUserStats() {
+  const locale = useLocale();
   const [data, setData] = useState<DashboardData>({
     user: null,
     entitlement: null,
@@ -59,19 +114,48 @@ export function useUserStats() {
     setLoading(true);
     setError(null);
     try {
-      const [userRes, entRes, streakRes, statsRes] = await Promise.allSettled([
-        apiGet<UserProfile>("me"),
-        apiGet<UserEntitlement>("me/entitlement"),
-        apiGet<UserStreak>("me/streak"),
-        apiGet<UserStats>("me/stats"),
+      const [me, streakDTO, statsDTO, categories] = await Promise.all([
+        apiGet<MeResponseDTO>("me"),
+        apiGet<StreakDTO>("me/streak"),
+        apiGet<StatsResponseDTO>("me/stats"),
+        apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`),
       ]);
 
-      const user = userRes.status === "fulfilled" ? userRes.value : null;
-      const entitlement = entRes.status === "fulfilled" ? entRes.value : null;
-      const streak = streakRes.status === "fulfilled" ? streakRes.value : null;
-      const stats = statsRes.status === "fulfilled" ? statsRes.value : null;
+      const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
+      const categoryMastery = statsDTO.categories.map((category) => {
+        const name = namesByCode.get(category.category_code);
+        if (!name) {
+          throw new Error(`Missing localized category: ${category.category_code}`);
+        }
+        return {
+          code: category.category_code,
+          name,
+          answered: category.seen,
+          correct: category.correct,
+          mastery_pct: Math.round(category.mastery * 100),
+        };
+      });
 
-      setData({ user, entitlement, streak, stats });
+      const entitlement: UserEntitlement = {
+        is_vip: me.vip.active,
+        valid_until: me.vip.until,
+      };
+      const streak: UserStreak = {
+        current_streak: streakDTO.current,
+        max_streak: streakDTO.best,
+        today_answered: streakDTO.today_done,
+        daily_target: streakDTO.daily_goal,
+        last_active_date: streakDTO.last_active_date,
+      };
+      const stats: UserStats = {
+        readiness_pct: statsDTO.readiness_pct,
+        due_questions_count: statsDTO.due_count,
+        total_answered: statsDTO.categories.reduce((sum, category) => sum + category.seen, 0),
+        total_correct: statsDTO.categories.reduce((sum, category) => sum + category.correct, 0),
+        category_mastery: categoryMastery,
+      };
+
+      setData({ user: me.profile, entitlement, streak, stats });
     } catch (err: unknown) {
       if (err instanceof ApiError) {
         setError(err.message);
@@ -81,7 +165,7 @@ export function useUserStats() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     fetchAll();

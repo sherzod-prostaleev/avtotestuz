@@ -5,7 +5,7 @@ O'zbekiston YHQ nazariy imtihoniga tayyorlovchi onlayn maktab. Spec:
 
 ## Dev boshlash
 
-Talablar: Docker (compose bilan), Go 1.22+ (`~/.local/go`ga o'rnatilgan bo'lsa,
+Talablar: Docker (compose bilan), Go 1.26.5+ (`~/.local/go`ga o'rnatilgan bo'lsa,
 `export PATH=$HOME/.local/go/bin:$HOME/go/bin:$PATH`).
 
 ```bash

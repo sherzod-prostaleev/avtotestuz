@@ -15,8 +15,21 @@ function makeRequest(pathname: string, cookieHeader?: string): NextRequest {
 }
 
 describe("middleware auth guard", () => {
-  it("redirects to login when a protected page is requested without a session cookie", () => {
-    const response = middleware(makeRequest("/uz-Latn/dashboard"));
+  it.each([
+    "/uz-Latn/dashboard",
+    "/uz-Latn/exam-mockup",
+    "/uz-Latn/tickets",
+    "/uz-Latn/practice",
+    "/uz-Latn/mistakes",
+    "/uz-Latn/signs",
+    "/uz-Latn/stats",
+    "/uz-Latn/profile",
+    "/uz-Latn/premium",
+    "/uz-Latn/saved",
+    "/uz-Latn/session/start",
+    "/uz-Latn/session/session-id",
+  ])("redirects unauthenticated requests for %s to login", (pathname) => {
+    const response = middleware(makeRequest(pathname));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/login");
   });
