@@ -11,6 +11,15 @@ import { ArrowLeft, Search, Lock, Star, Play, RefreshCw } from "lucide-react";
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
 
+function getTicketState(ticket: TicketItem) {
+  const bestCorrect = ticket.best_correct ?? ticket.score ?? 0;
+  const isCompleted = ticket.status === "completed" || bestCorrect >= 18;
+  const isLocked = ticket.status === "locked" || ticket.unlocked === false;
+  const attempts = ticket.attempts ?? (ticket.status !== "unstarted" ? 1 : 0);
+
+  return { bestCorrect, isCompleted, isLocked, attempts };
+}
+
 export default function TicketsPage() {
   const t = useTranslations("Tickets");
   const locale = useLocale();
@@ -23,10 +32,7 @@ export default function TicketsPage() {
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = search === "" || ticket.number.toString().includes(search);
     if (!matchesSearch) return false;
-    const bestCorrect = ticket.best_correct ?? ticket.score ?? 0;
-    const isCompleted = ticket.status === "completed" || bestCorrect >= 18;
-    const isLocked = ticket.status === "locked" || ticket.unlocked === false;
-    const attempts = ticket.attempts ?? (ticket.status !== "unstarted" ? 1 : 0);
+    const { isCompleted, isLocked, attempts } = getTicketState(ticket);
 
     if (filterStatus === "completed") return isCompleted;
     if (filterStatus === "in_progress") return attempts > 0 && !isCompleted;
@@ -34,8 +40,17 @@ export default function TicketsPage() {
     return true;
   });
 
+  const ticketStates = tickets.map((ticket) => ({ ticket, ...getTicketState(ticket) }));
+  const completedCount = ticketStates.filter(({ isCompleted }) => isCompleted).length;
+  const lockedCount = ticketStates.filter(({ isLocked }) => isLocked).length;
+  const inProgressCount = ticketStates.filter(({ attempts, isCompleted, isLocked }) => attempts > 0 && !isCompleted && !isLocked).length;
+  const availableCount = ticketStates.filter(({ isLocked }) => !isLocked).length;
+  const unstartedCount = ticketStates.filter(({ isLocked, attempts }) => !isLocked && attempts === 0).length;
+  const nextTicket = ticketStates.find(({ isLocked, isCompleted }) => !isLocked && !isCompleted) ?? null;
+  const completedPercent = tickets.length > 0 ? Math.min(100, Math.round((completedCount / tickets.length) * 100)) : 0;
+
   const handleStartTicket = (ticket: TicketItem) => {
-    const isLocked = ticket.status === "locked" || ticket.unlocked === false;
+    const { isLocked } = getTicketState(ticket);
     if (isLocked) {
       router.push(`/${locale}/premium`);
       return;
@@ -57,7 +72,7 @@ export default function TicketsPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 space-y-6">
+    <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
       <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <Link href={`/${locale}/dashboard`} className="mb-2 inline-flex items-center gap-1 text-sm text-accent hover:underline">
@@ -80,6 +95,101 @@ export default function TicketsPage() {
           />
         </div>
       </header>
+
+      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <Card className="glass-card overflow-hidden border-accent/20 bg-gradient-to-br from-card via-card to-accent/10 p-6 md:p-8">
+          <div className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+                {t("statTotal", { count: tickets.length })}
+              </span>
+              <span className="rounded-full bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+                {t("statCompleted", { count: completedCount })}
+              </span>
+              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
+                {t("statInProgress", { count: inProgressCount })}
+              </span>
+              <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-extrabold text-muted-foreground">
+                {t("statLocked", { count: lockedCount })}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-bold text-muted-foreground">
+                {t("ticketsProgress", { done: completedCount, total: tickets.length })}
+              </div>
+              <h2 className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
+                {t("heroTitle")}
+              </h2>
+              <p className="max-w-xl text-sm text-muted-foreground">
+                {t("heroDescription")}
+              </p>
+              <div
+                className="h-2 w-full overflow-hidden rounded-full border border-border bg-background"
+                role="progressbar"
+                aria-valuenow={completedPercent}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={t("ticketsProgress", { done: completedCount, total: tickets.length })}
+              >
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-accent to-gold transition-all duration-500"
+                  style={{ width: `${completedPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="glass-card flex flex-col justify-between border-border/70 bg-background/80 p-6 md:p-8">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("nextTicketLabel")}
+              </p>
+              <h3 className="mt-2 font-display text-3xl font-black tracking-tight">
+                {nextTicket ? t("ticketNumber", { number: nextTicket.ticket.number }) : t("allDoneTitle")}
+              </h3>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {nextTicket
+                  ? t("nextTicketBest", {
+                      best: nextTicket.bestCorrect,
+                      total: nextTicket.ticket.total_questions ?? 20,
+                    })
+                  : t("heroEmpty")}
+              </p>
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+              <Play aria-hidden="true" className="h-6 w-6" />
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
+            <span className="rounded-full bg-card px-3 py-1 text-muted-foreground">
+              {t("statAvailable", { count: availableCount })}
+            </span>
+            <span className="rounded-full bg-card px-3 py-1 text-muted-foreground">
+              {t("statUnstarted", { count: unstartedCount })}
+            </span>
+          </div>
+
+          {nextTicket ? (
+            <Button
+              type="button"
+              variant="game"
+              size="lg"
+              className="mt-5 w-full"
+              onClick={() => handleStartTicket(nextTicket.ticket)}
+            >
+              {t("solve")}
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" size="lg" className="mt-5 w-full" onClick={() => router.push(`/${locale}/practice`)}>
+              {t("goToPractice")}
+            </Button>
+          )}
+        </Card>
+      </section>
 
       {/* Filter Tabs */}
       <div className="flex flex-wrap gap-2">
@@ -117,10 +227,7 @@ export default function TicketsPage() {
       ) : (
         <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {filteredTickets.map((ticket) => {
-            const bestCorrect = ticket.best_correct ?? ticket.score ?? 0;
-            const isCompleted = ticket.status === "completed" || bestCorrect >= 18;
-            const isLocked = ticket.status === "locked" || ticket.unlocked === false;
-            const attempts = ticket.attempts ?? (ticket.status !== "unstarted" ? 1 : 0);
+            const { bestCorrect, isCompleted, isLocked, attempts } = getTicketState(ticket);
 
             return (
               <Card

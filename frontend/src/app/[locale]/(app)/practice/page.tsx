@@ -9,6 +9,8 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, BookOpen, Signpost, Play, Sparkles, CheckCircle2, ChevronRight } from "lucide-react";
 
+const QUESTION_COUNT_OPTIONS = [10, 20, 30] as const;
+
 interface CategoryItem {
   code: string;
   name: string;
@@ -59,7 +61,6 @@ export default function PracticePage() {
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8 space-y-8">
-      {/* Header */}
       <div>
         <Link href={`/${locale}/dashboard`} className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
@@ -67,6 +68,99 @@ export default function PracticePage() {
         <h1 className="font-display text-3xl font-extrabold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground max-w-xl">{t("subtitle")}</p>
       </div>
+
+      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <Card className="glass-card overflow-hidden border-accent/20 bg-gradient-to-br from-card via-card to-accent/10 p-6 md:p-8">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+                {t("modeGroupLabel")}
+              </span>
+              {categories.length > 0 && (
+                <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
+                  {t("byCategoryDescription", { count: categories.length })}
+                </span>
+              )}
+              <span className="rounded-full bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+                {t("bySignDescription")}
+              </span>
+            </div>
+
+            <div className="space-y-3">
+              <h2 className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
+                {t("heroModeTitle")}
+              </h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {mode === "category" ? t("heroCategoryBody") : t("heroSignBody")}
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  {t("selectCategory")}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">
+                  {loading
+                    ? t("categoryCountLoading")
+                    : categories.length > 0
+                      ? t("categoryCountSummary", { count: categories.length })
+                      : t("categoryCountUnavailable")}
+                </p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  {t("questionCount")}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">{t("selectedQuestionCount", { count: questionCount })}</p>
+              </div>
+              <div className="rounded-2xl border border-border/70 bg-background/80 p-4">
+                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                  {t("bySign")}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-foreground">{t("signCatalogSummary")}</p>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="glass-card flex flex-col justify-between border-border/70 bg-background/80 p-6 md:p-8">
+          <div className="space-y-4">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              {t("modeGroupLabel")}
+            </p>
+            <div className="rounded-2xl border border-border bg-card/80 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+                  <BookOpen aria-hidden="true" className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{t("selectCategory")}</p>
+                  <p className="text-xs text-muted-foreground">{t("selectCategoryDescription")}</p>
+                </div>
+              </div>
+            </div>
+            <div className="rounded-2xl border border-border bg-card/80 p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-500">
+                  <Signpost aria-hidden="true" className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold">{t("bySign")}</p>
+                  <p className="text-xs text-muted-foreground">{t("signCatalogHint")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {QUESTION_COUNT_OPTIONS.map((count) => (
+              <span key={count} className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">
+                {t("questionCountOption", { count })}
+              </span>
+            ))}
+          </div>
+        </Card>
+      </section>
 
       {/* 2 Primary Practice Modes */}
       <section aria-label={t("modeGroupLabel")} className="grid gap-4 sm:grid-cols-2">
@@ -88,7 +182,9 @@ export default function PracticePage() {
             </div>
             <div>
               <h3 className="font-display text-lg font-bold">{t("byCategory")}</h3>
-              <p className="text-xs text-muted-foreground">{t("byCategoryDescription", { count: 13 })}</p>
+              <p className="text-xs text-muted-foreground">
+                {categories.length > 0 ? t("byCategoryDescription", { count: categories.length }) : t("selectCategoryDescription")}
+              </p>
             </div>
           </div>
         </button>
@@ -172,7 +268,7 @@ export default function PracticePage() {
               {t("questionCount")}
             </label>
             <div role="group" aria-label={t("questionCount")} className="flex gap-3">
-              {[10, 20, 30].map((count) => (
+              {QUESTION_COUNT_OPTIONS.map((count) => (
                 <Button
                   key={count}
                   variant={questionCount === count ? "game" : "outline"}
