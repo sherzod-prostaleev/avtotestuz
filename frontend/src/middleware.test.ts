@@ -60,17 +60,28 @@ describe("middleware auth guard", () => {
     expect(response.headers.get("location")).toBeNull(); // the mocked intl middleware returns NextResponse.next()
   });
 
-  // PROTECTED_SEGMENTS is a hand-maintained list, so adding a route under
-  // (app) without touching it silently ships an authenticated page that
-  // anyone can open. Enumerate the directory instead of trusting memory.
-  it("guards every route in the (app) group", () => {
-    const appDir = path.join(__dirname, "app", "[locale]", "(app)");
-    const routes = fs
-      .readdirSync(appDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory())
-      .map((entry) => entry.name);
+  // PROTECTED_SEGMENTS is a hand-maintained list, so adding a route without
+  // touching it silently ships an authenticated page anyone can open.
+  // Enumerate the route groups instead of trusting memory — this also keeps
+  // working when a route moves between groups, as /session did when the test
+  // screen went full-screen.
+  it("guards every route outside the public and auth groups", () => {
+    const localeDir = path.join(__dirname, "app", "[locale]");
+    const publicGroups = new Set(["(public)", "(auth)"]);
+    const groups = fs
+      .readdirSync(localeDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("("))
+      .filter((entry) => !publicGroups.has(entry.name));
 
-    expect(routes.length).toBeGreaterThan(0);
+    const routes = groups.flatMap((group) =>
+      fs
+        .readdirSync(path.join(localeDir, group.name), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+    );
+
+    expect(routes).toContain("session");
+    expect(routes.length).toBeGreaterThan(1);
     for (const route of routes) {
       const response = middleware(makeRequest(`/uz-Latn/${route}`));
       expect(response.headers.get("location"), `/${route} is not auth-guarded`).toBe(
