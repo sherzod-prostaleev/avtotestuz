@@ -98,6 +98,15 @@ func TestDemoQuestionOverHTTP(t *testing.T) {
 	if strings.Contains(raw, "is_correct") || strings.Contains(raw, "correct_answer") {
 		t.Fatalf("correctness leaked into demo question payload: %s", raw)
 	}
+	var preGrade struct {
+		Explanation json.RawMessage `json:"explanation"`
+	}
+	if err := json.Unmarshal(env.Data, &preGrade); err != nil {
+		t.Fatal(err)
+	}
+	if len(preGrade.Explanation) > 0 && string(preGrade.Explanation) != "null" {
+		t.Fatalf("answer-revealing explanation leaked before grading: %s", preGrade.Explanation)
+	}
 }
 
 func TestDemoQuestionEmptyDBOverHTTP(t *testing.T) {

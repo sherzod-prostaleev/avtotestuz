@@ -78,7 +78,10 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
-				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)}
+				sess := &session.Handler{
+					Svc:     session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc),
+					Content: ch,
+				}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				lh := &learning.Handler{Svc: learningSvc}

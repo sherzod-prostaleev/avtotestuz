@@ -170,4 +170,7 @@ func TestSignsAndQuestionDetail(t *testing.T) {
 	if !strings.HasPrefix(qd.Data.ImageURL, "http://media.test/images/") {
 		t.Fatalf("image url=%q", qd.Data.ImageURL)
 	}
+	if qd.Data.Explanation != nil {
+		t.Fatal("public question detail must not expose answer-revealing explanation prose")
+	}
 }

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -31,8 +32,28 @@ type AnswerResult struct {
 	Recorded        bool
 	Correct         *bool      // nil for exam mode (feedback withheld)
 	CorrectAnswerID *uuid.UUID // nil for exam mode
-	Stopped         bool       // true if this answer ended an exam (3rd mistake)
-	StopReason      string     // "too_many_errors" when Stopped
+	Explanation     *ExplanationPayload
+	Stopped         bool   // true if this answer ended an exam (3rd mistake)
+	StopReason      string // "too_many_errors" when Stopped
+}
+
+// ExplanationPayload is localized, verified answer feedback. It is returned
+// only after disclosure is allowed for the session mode.
+type ExplanationPayload struct {
+	LegalRefs json.RawMessage `json:"legal_refs"`
+	Blocks    json.RawMessage `json:"blocks"`
+}
+
+// SessionQuestionAccess is the authorization and anti-cheat decision for one
+// assigned question. The content handler uses FeedbackAllowed to decide
+// whether explanation prose may be serialized.
+type SessionQuestionAccess struct {
+	Position        int
+	Answered        bool
+	UserAnswerID    *uuid.UUID
+	Correct         *bool
+	CorrectAnswerID *uuid.UUID
+	FeedbackAllowed bool
 }
 
 // FinishResult is the full outcome of finishing an exam session: its final
@@ -49,10 +70,12 @@ type FinishResult struct {
 // in_progress (anti-cheat redaction) and populated for every mode once the
 // session is no longer in_progress.
 type AnsweredQuestion struct {
-	QuestionID uuid.UUID
-	Position   int
-	Answered   bool
-	Correct    *bool // nil while an exam session is still in_progress
+	QuestionID      uuid.UUID
+	Position        int
+	Answered        bool
+	UserAnswerID    *uuid.UUID // nil until the profile answers this question
+	Correct         *bool      // nil when unanswered or anti-cheat redaction applies
+	CorrectAnswerID *uuid.UUID // nil when the answer key must remain hidden
 }
 
 // SessionDetail is the resume/history view of a single session: its

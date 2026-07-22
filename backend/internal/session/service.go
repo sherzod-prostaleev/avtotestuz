@@ -18,13 +18,15 @@ import (
 )
 
 var (
-	ErrNotFound          = errors.New("session not found")
-	ErrInvalidRequest    = errors.New("invalid session request")
-	ErrDailyLimitReached = errors.New("daily practice limit reached")
-	ErrAlreadyAnswered   = errors.New("question already answered in this session")
-	ErrInvalidAnswer     = errors.New("answer does not belong to question")
-	ErrSessionFinished   = errors.New("session already finished")
-	ErrRequiresVIP       = errors.New("active entitlement required")
+	ErrNotFound            = errors.New("session not found")
+	ErrInvalidRequest      = errors.New("invalid session request")
+	ErrDailyLimitReached   = errors.New("daily practice limit reached")
+	ErrAlreadyAnswered     = errors.New("question already answered in this session")
+	ErrInvalidAnswer       = errors.New("answer does not belong to question")
+	ErrQuestionNotAssigned = errors.New("question is not assigned to this session")
+	ErrSessionFinished     = errors.New("session already finished")
+	ErrRequiresVIP         = errors.New("active entitlement required")
+	ErrVariantLocked       = errors.New("variant is locked")
 )
 
 type Service struct {
@@ -32,10 +34,18 @@ type Service struct {
 	Billing  billing.Service
 	Learning *learning.Service
 	Progress *progress.Service
+	Now      func() time.Time
 }
 
 func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service, p *progress.Service) *Service {
 	return &Service{Q: q, Billing: b, Learning: l, Progress: p}
+}
+
+func (s *Service) now() time.Time {
+	if s.Now != nil {
+		return s.Now()
+	}
+	return time.Now()
 }
 
 // ResolveCategoryID accepts either a category UUID or its human-readable
@@ -143,6 +153,29 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			if !active {
 				return SessionView{}, ErrRequiresVIP
 			}
+			previous, previousErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
+			if previousErr != nil {
+				if errors.Is(previousErr, pgx.ErrNoRows) {
+					return SessionView{}, ErrVariantLocked
+				}
+				return SessionView{}, previousErr
+			}
+			previousProgress, progressErr := s.Q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{
+				ProfileID: profileID, VariantID: previous.ID,
+			})
+			if progressErr != nil {
+				if errors.Is(progressErr, pgx.ErrNoRows) {
+					return SessionView{}, ErrVariantLocked
+				}
+				return SessionView{}, progressErr
+			}
+			cfg, cfgErr := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
+			if cfgErr != nil {
+				return SessionView{}, cfgErr
+			}
+			if !IsVariantUnlocked(false, int(previousProgress.BestCorrect), int(cfg.FreeValue)) {
+				return SessionView{}, ErrVariantLocked
+			}
 		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
@@ -214,7 +247,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		Locale:        req.Locale,
 		TimeLimitSec:  timeLimit,
 		ErrorsAllowed: errorsAllowed,
-		Total:         int32(len(ids)),
+		QuestionIds:   ids,
 	})
 	if err != nil {
 		return SessionView{}, err
@@ -290,6 +323,24 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	if row.Status != "in_progress" {
 		return AnswerResult{}, ErrSessionFinished
 	}
+	if row.Mode == "exam" && row.TimeLimitSec.Valid &&
+		!s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32)*time.Second)) {
+		finished, finishErr := s.finishInternal(ctx, row, false, true)
+		if finishErr != nil {
+			return AnswerResult{}, finishErr
+		}
+		return AnswerResult{Stopped: true, StopReason: finished.StoppedReason}, nil
+	}
+
+	assigned, err := s.Q.GetSessionQuestion(ctx, sqlc.GetSessionQuestionParams{
+		SessionID: sessionID, QuestionID: questionID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return AnswerResult{}, ErrQuestionNotAssigned
+		}
+		return AnswerResult{}, err
+	}
 
 	_, err = s.Q.GetSessionAnswer(ctx, sqlc.GetSessionAnswerParams{SessionID: sessionID, QuestionID: questionID})
 	if err == nil {
@@ -307,18 +358,27 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		return AnswerResult{}, err
 	}
 
-	before, err := s.Q.CountSessionAnswers(ctx, sessionID)
-	if err != nil {
-		return AnswerResult{}, err
+	var explanation *ExplanationPayload
+	if row.Mode != "exam" {
+		expl, explErr := s.Q.GetVerifiedExplanation(ctx, sqlc.GetVerifiedExplanationParams{
+			QuestionID: questionID, Locale: row.Locale,
+		})
+		switch {
+		case explErr == nil:
+			explanation = &ExplanationPayload{LegalRefs: expl.LegalRefs, Blocks: expl.Blocks}
+		case errors.Is(explErr, pgx.ErrNoRows):
+			// Explanations are optional; accepted answers remain successful.
+		default:
+			return AnswerResult{}, explErr
+		}
 	}
-	position := int16(before.TotalAnswered + 1)
 
 	if _, err := s.Q.InsertSessionAnswer(ctx, sqlc.InsertSessionAnswerParams{
 		SessionID:  sessionID,
 		QuestionID: questionID,
 		AnswerID:   answerID,
 		IsCorrect:  ans.IsCorrect,
-		Position:   position,
+		Position:   assigned.Position,
 	}); err != nil {
 		return AnswerResult{}, err
 	}
@@ -357,7 +417,71 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		}
 	}
 	correct := ans.IsCorrect
-	return AnswerResult{Recorded: true, Correct: &correct, CorrectAnswerID: &correctID}, nil
+	return AnswerResult{
+		Recorded: true, Correct: &correct, CorrectAnswerID: &correctID, Explanation: explanation,
+	}, nil
+}
+
+// GetSessionQuestionAccess authorizes a session-scoped question read and
+// computes what grading feedback can be exposed. A caller outside the owning
+// profile, or a question outside the persisted assignment, receives
+// ErrNotFound so the endpoint does not reveal session membership.
+func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessionID, questionID uuid.UUID) (SessionQuestionAccess, error) {
+	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionQuestionAccess{}, ErrNotFound
+		}
+		return SessionQuestionAccess{}, err
+	}
+	if row.ProfileID != profileID {
+		return SessionQuestionAccess{}, ErrNotFound
+	}
+
+	assigned, err := s.Q.GetSessionQuestion(ctx, sqlc.GetSessionQuestionParams{
+		SessionID: sessionID, QuestionID: questionID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return SessionQuestionAccess{}, ErrNotFound
+		}
+		return SessionQuestionAccess{}, err
+	}
+
+	access := SessionQuestionAccess{Position: int(assigned.Position)}
+	answer, answerErr := s.Q.GetSessionAnswer(ctx, sqlc.GetSessionAnswerParams{
+		SessionID: sessionID, QuestionID: questionID,
+	})
+	switch {
+	case answerErr == nil:
+		access.Answered = true
+		userAnswerID := answer.AnswerID
+		access.UserAnswerID = &userAnswerID
+	case errors.Is(answerErr, pgx.ErrNoRows):
+		// The assignment exists but is unanswered.
+	default:
+		return SessionQuestionAccess{}, answerErr
+	}
+
+	if row.Mode == "exam" {
+		access.FeedbackAllowed = row.Status != "in_progress"
+	} else {
+		access.FeedbackAllowed = access.Answered
+	}
+	if !access.FeedbackAllowed {
+		return access, nil
+	}
+
+	correctAnswerID, err := s.Q.GetCorrectAnswerID(ctx, questionID)
+	if err != nil {
+		return SessionQuestionAccess{}, err
+	}
+	access.CorrectAnswerID = &correctAnswerID
+	if access.Answered {
+		correct := answer.IsCorrect
+		access.Correct = &correct
+	}
+	return access, nil
 }
 
 // unlockThresholdConfigKey is the limit_config key holding the minimum
@@ -384,7 +508,7 @@ func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.U
 
 	timedOut := false
 	if row.Mode == "exam" && row.TimeLimitSec.Valid {
-		timedOut = time.Now().After(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32) * time.Second))
+		timedOut = !s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32) * time.Second))
 	}
 	return s.finishInternal(ctx, row, false, timedOut)
 }
@@ -489,7 +613,7 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 		return SessionDetail{}, ErrNotFound
 	}
 
-	rows, err := s.Q.ListSessionAnswers(ctx, sessionID)
+	rows, err := s.Q.ListSessionQuestionsWithAnswers(ctx, sessionID)
 	if err != nil {
 		return SessionDetail{}, err
 	}
@@ -497,25 +621,39 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 	redact := row.Mode == "exam" && row.Status == "in_progress"
 
 	answers := make([]AnsweredQuestion, 0, len(rows))
+	questionIDs := make([]uuid.UUID, 0, len(rows))
 	for _, a := range rows {
 		aq := AnsweredQuestion{
 			QuestionID: a.QuestionID,
 			Position:   int(a.Position),
-			Answered:   true,
+			Answered:   a.UserAnswerID.Valid,
 		}
-		if !redact {
-			correct := a.IsCorrect
+		questionIDs = append(questionIDs, a.QuestionID)
+		if a.UserAnswerID.Valid {
+			userAnswerID := a.UserAnswerID.UUID
+			aq.UserAnswerID = &userAnswerID
+		}
+		if !redact && a.IsCorrect.Valid {
+			correct := a.IsCorrect.Bool
 			aq.Correct = &correct
+		}
+		// Feedback modes reveal the answer key only after this particular
+		// question is answered. A completed session may reveal it for every
+		// assigned question, including questions skipped before an early stop.
+		if !redact && a.CorrectAnswerID.Valid && (aq.Answered || row.Status != "in_progress") {
+			correctAnswerID := a.CorrectAnswerID.UUID
+			aq.CorrectAnswerID = &correctAnswerID
 		}
 		answers = append(answers, aq)
 	}
 
 	detail := SessionDetail{
 		SessionView: SessionView{
-			ID:        row.ID,
-			Mode:      row.Mode,
-			Total:     int(row.Total),
-			StartedAt: row.StartedAt.Time,
+			ID:          row.ID,
+			Mode:        row.Mode,
+			QuestionIDs: questionIDs,
+			Total:       int(row.Total),
+			StartedAt:   row.StartedAt.Time,
 		},
 		Status:        row.Status,
 		StoppedReason: row.StoppedReason.String,

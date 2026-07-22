@@ -49,10 +49,32 @@ SELECT id FROM category WHERE code = $1;
 SELECT id FROM sign WHERE code = $1;
 
 -- name: CreateExamSession :one
-INSERT INTO exam_session
-  (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING *;
+WITH created AS (
+  INSERT INTO exam_session
+    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
+  VALUES (
+    sqlc.arg(profile_id),
+    sqlc.arg(mode),
+    sqlc.arg(variant_id),
+    sqlc.arg(category_id),
+    sqlc.arg(sign_id),
+    sqlc.arg(locale),
+    sqlc.arg(time_limit_sec),
+    sqlc.arg(errors_allowed),
+    COALESCE(cardinality(sqlc.arg(question_ids)::uuid[]), 0)
+  )
+  RETURNING *
+), assigned AS (
+  INSERT INTO session_question (session_id, question_id, position)
+  SELECT created.id, questions.question_id, questions.position::smallint
+  FROM created
+  CROSS JOIN unnest(sqlc.arg(question_ids)::uuid[])
+    WITH ORDINALITY AS questions(question_id, position)
+  RETURNING session_id
+)
+SELECT created.*
+FROM created
+CROSS JOIN (SELECT count(*) FROM assigned) persisted;
 
 -- name: GetExamSession :one
 SELECT * FROM exam_session WHERE id = $1;
@@ -72,8 +94,26 @@ RETURNING *;
 SELECT * FROM session_answer
 WHERE session_id = sqlc.arg(session_id) AND question_id = sqlc.arg(question_id);
 
+-- name: GetSessionQuestion :one
+SELECT * FROM session_question
+WHERE session_id = sqlc.arg(session_id) AND question_id = sqlc.arg(question_id);
+
 -- name: ListSessionAnswers :many
 SELECT * FROM session_answer WHERE session_id = $1 ORDER BY position;
+
+-- name: ListSessionQuestionsWithAnswers :many
+SELECT
+  sq.question_id,
+  sq.position,
+  sa.answer_id AS user_answer_id,
+  sa.is_correct,
+  q.correct_answer_id
+FROM session_question sq
+JOIN question q ON q.id = sq.question_id
+LEFT JOIN session_answer sa
+  ON sa.session_id = sq.session_id AND sa.question_id = sq.question_id
+WHERE sq.session_id = $1
+ORDER BY sq.position;
 
 -- name: CountSessionAnswers :one
 SELECT

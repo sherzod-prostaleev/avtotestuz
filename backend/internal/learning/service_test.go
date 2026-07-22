@@ -131,6 +131,123 @@ func TestRecordReviewInvalidRating(t *testing.T) {
 	}
 }
 
+func TestMistakeBankSummaryTracksTotalDueAndNextDate(t *testing.T) {
+	_, svc, profileID, qids, pool := seedWithPool(t)
+
+	if _, err := svc.RecordReview(context.Background(), profileID, qids[0], learning.Again); err != nil {
+		t.Fatalf("record future mistake: %v", err)
+	}
+	if _, err := svc.RecordReview(context.Background(), profileID, qids[1], learning.Again); err != nil {
+		t.Fatalf("record due mistake: %v", err)
+	}
+	dueAt := time.Now().UTC().Add(-time.Hour)
+	backdateDueAt(t, pool, profileID, qids[1], dueAt)
+
+	summary, err := svc.MistakeBankSummary(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("MistakeBankSummary: %v", err)
+	}
+	if summary.TotalBankCount != 2 || summary.DueCount != 1 {
+		t.Fatalf("summary=%+v, want total=2 due=1", summary)
+	}
+	if summary.NextDueAt == nil || !summary.NextDueAt.After(time.Now()) {
+		t.Fatalf("next_due_at=%v, want future timestamp", summary.NextDueAt)
+	}
+}
+
+func TestMistakeBankSummaryEmpty(t *testing.T) {
+	_, svc, profileID, _ := seed(t)
+	summary, err := svc.MistakeBankSummary(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("MistakeBankSummary: %v", err)
+	}
+	if summary.DueCount != 0 || summary.TotalBankCount != 0 || summary.NextDueAt != nil {
+		t.Fatalf("unexpected empty summary: %+v", summary)
+	}
+}
+
+func TestMistakeBankSummaryIsProfileScopedAndIgnoresInvalidQuestions(t *testing.T) {
+	q, svc, profileAID, qids, pool := seedWithPool(t)
+	profileB, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998907770088"})
+	if err != nil {
+		t.Fatalf("create profile B: %v", err)
+	}
+
+	for _, review := range []struct {
+		profileID  uuid.UUID
+		questionID uuid.UUID
+	}{
+		{profileAID, qids[0]},
+		{profileAID, qids[1]}, // quarantined below; must disappear from the bank
+		{profileB.ID, qids[2]},
+	} {
+		if _, err := svc.RecordReview(context.Background(), review.profileID, review.questionID, learning.Again); err != nil {
+			t.Fatalf("record review for %s/%s: %v", review.profileID, review.questionID, err)
+		}
+		backdateDueAt(t, pool, review.profileID, review.questionID, time.Now().UTC().Add(-time.Hour))
+	}
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE question SET validation_status = 'quarantined' WHERE id = $1`, qids[1]); err != nil {
+		t.Fatalf("quarantine question: %v", err)
+	}
+
+	summaryA, err := svc.MistakeBankSummary(context.Background(), profileAID)
+	if err != nil {
+		t.Fatalf("profile A summary: %v", err)
+	}
+	if summaryA.DueCount != 1 || summaryA.TotalBankCount != 1 || summaryA.NextDueAt != nil {
+		t.Fatalf("profile A summary includes another tenant or invalid content: %+v", summaryA)
+	}
+	summaryB, err := svc.MistakeBankSummary(context.Background(), profileB.ID)
+	if err != nil {
+		t.Fatalf("profile B summary: %v", err)
+	}
+	if summaryB.DueCount != 1 || summaryB.TotalBankCount != 1 || summaryB.NextDueAt != nil {
+		t.Fatalf("profile B summary includes profile A data: %+v", summaryB)
+	}
+}
+
+func TestMistakeBankSummaryUsesEarliestFutureDueAndNullWhenAllDue(t *testing.T) {
+	_, svc, profileID, qids, pool := seedWithPool(t)
+	for _, questionID := range qids[:3] {
+		if _, err := svc.RecordReview(context.Background(), profileID, questionID, learning.Again); err != nil {
+			t.Fatalf("record mistake: %v", err)
+		}
+	}
+
+	now := time.Now().UTC().Truncate(time.Microsecond)
+	past := now.Add(-time.Hour)
+	firstFuture := now.Add(2 * time.Hour)
+	secondFuture := now.Add(4 * time.Hour)
+	backdateDueAt(t, pool, profileID, qids[0], past)
+	backdateDueAt(t, pool, profileID, qids[1], secondFuture)
+	backdateDueAt(t, pool, profileID, qids[2], firstFuture)
+
+	summary, err := svc.MistakeBankSummary(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("MistakeBankSummary: %v", err)
+	}
+	if summary.DueCount != 1 || summary.TotalBankCount != 3 {
+		t.Fatalf("mixed schedule summary=%+v, want due=1 total=3", summary)
+	}
+	if summary.NextDueAt == nil || !summary.NextDueAt.Equal(firstFuture) {
+		t.Fatalf("next_due_at=%v want earliest future %v", summary.NextDueAt, firstFuture)
+	}
+	if summary.NextDueAt.Location() != time.UTC {
+		t.Fatalf("next_due_at location=%v want UTC", summary.NextDueAt.Location())
+	}
+
+	backdateDueAt(t, pool, profileID, qids[1], past.Add(-time.Hour))
+	backdateDueAt(t, pool, profileID, qids[2], past.Add(-2*time.Hour))
+	summary, err = svc.MistakeBankSummary(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("all-due summary: %v", err)
+	}
+	if summary.DueCount != 3 || summary.TotalBankCount != 3 || summary.NextDueAt != nil {
+		t.Fatalf("all-due summary=%+v want due=total=3 and next_due_at=nil", summary)
+	}
+}
+
 func TestRecordReviewSecondTimeUsesStoredState(t *testing.T) {
 	q, svc, profileID, qids := seed(t)
 	first, err := svc.RecordReview(context.Background(), profileID, qids[0], learning.Good)

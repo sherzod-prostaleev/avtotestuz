@@ -22,7 +22,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"tariff", "tariff_translation", "promo_code", "payment", "entitlement",
 		"promo_redemption", "referral_attribution", "limit_config",
 		// learning
-		"exam_session", "session_answer", "variant_progress", "question_memory",
+		"exam_session", "session_question", "session_answer", "variant_progress", "question_memory",
 		"category_mastery", "saved_question", "streak",
 		// system
 		"audit_log", "event", "notification",
@@ -67,5 +67,59 @@ func TestConstraintsAndSeeds(t *testing.T) {
 	if _, err := pool.Exec(ctx,
 		`INSERT INTO answer (question_id, position) VALUES ($1, 1)`, qid); err == nil {
 		t.Fatal("want unique violation for duplicate answer position")
+	}
+}
+
+func TestSessionQuestionOrderingAndMembershipConstraints(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+
+	var categoryID, questionA, questionB, answerA, answerB, profileID, sessionID string
+	if err := pool.QueryRow(ctx, `INSERT INTO category (code) VALUES ('session-constraints') RETURNING id`).Scan(&categoryID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO question (source_ext_id, category_id, content_hash)
+		VALUES ('session-q-a', $1, 'session-h-a') RETURNING id`, categoryID).Scan(&questionA); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO question (source_ext_id, category_id, content_hash)
+		VALUES ('session-q-b', $1, 'session-h-b') RETURNING id`, categoryID).Scan(&questionB); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO answer (question_id, position) VALUES ($1, 1) RETURNING id`, questionA).Scan(&answerA); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO answer (question_id, position) VALUES ($1, 1) RETURNING id`, questionB).Scan(&answerB); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO profile (phone) VALUES ('+998900000099') RETURNING id`).Scan(&profileID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO exam_session (profile_id, mode, locale, total)
+		VALUES ($1, 'practice', 'uz-Latn', 1) RETURNING id`, profileID).Scan(&sessionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_question (session_id, question_id, position)
+		VALUES ($1, $2, 1)`, sessionID, questionA); err != nil {
+		t.Fatalf("insert assigned question: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_question (session_id, question_id, position)
+		VALUES ($1, $2, 1)`, sessionID, questionB); err == nil {
+		t.Fatal("duplicate position in one session must be rejected")
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_answer (session_id, question_id, answer_id, is_correct, position)
+		VALUES ($1, $2, $3, false, 2)`, sessionID, questionB, answerB); err == nil {
+		t.Fatal("answer for an unassigned question must be rejected by the composite FK")
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_answer (session_id, question_id, answer_id, is_correct, position)
+		VALUES ($1, $2, $3, false, 1)`, sessionID, questionA, answerA); err != nil {
+		t.Fatalf("answer for assigned question: %v", err)
 	}
 }

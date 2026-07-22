@@ -79,6 +79,29 @@ func (q *Queries) GetCategoryMastery(ctx context.Context, arg GetCategoryMastery
 	return i, err
 }
 
+const getMistakeBankSummary = `-- name: GetMistakeBankSummary :one
+SELECT
+  count(*) FILTER (WHERE qm.due_at <= now())::int AS due_count,
+  count(*)::int AS total_bank_count,
+  (min(qm.due_at) FILTER (WHERE qm.due_at > now()))::timestamptz AS next_due_at
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.lapses > 0
+`
+
+type GetMistakeBankSummaryRow struct {
+	DueCount       int32              `json:"due_count"`
+	TotalBankCount int32              `json:"total_bank_count"`
+	NextDueAt      pgtype.Timestamptz `json:"next_due_at"`
+}
+
+func (q *Queries) GetMistakeBankSummary(ctx context.Context, profileID uuid.UUID) (GetMistakeBankSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getMistakeBankSummary, profileID)
+	var i GetMistakeBankSummaryRow
+	err := row.Scan(&i.DueCount, &i.TotalBankCount, &i.NextDueAt)
+	return i, err
+}
+
 const getQuestionCategoryID = `-- name: GetQuestionCategoryID :one
 SELECT category_id FROM question WHERE id = $1
 `

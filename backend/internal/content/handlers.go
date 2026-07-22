@@ -214,6 +214,10 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
 		return
 	}
+	// A verified explanation can state the correct option in prose. Public
+	// question content must therefore stay grading-neutral; session-scoped
+	// feedback surfaces reveal explanations only after the server permits it.
+	detail.Explanation = nil
 	cacheable(w)
 	httpx.DataMeta(w, http.StatusOK, detail, LocaleMeta{Locale: loc, Fallback: fallback})
 }

@@ -245,3 +245,26 @@ func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error)
 		DueCount:     int(dueCount),
 	}, nil
 }
+
+// MistakeBankSummary returns the two distinct counters required by the UI:
+// every valid question with at least one lapse, and the subset currently due.
+// The first future due date is returned when nothing (or only part of the
+// bank) is due so the product can explain FSRS scheduling honestly.
+func (s *Service) MistakeBankSummary(ctx context.Context, profileID uuid.UUID) (MistakeBankSummary, error) {
+	row, err := s.Q.GetMistakeBankSummary(ctx, profileID)
+	if err != nil {
+		return MistakeBankSummary{}, err
+	}
+
+	result := MistakeBankSummary{
+		DueCount:       int(row.DueCount),
+		TotalBankCount: int(row.TotalBankCount),
+	}
+	if row.NextDueAt.Valid {
+		// pgx decodes timestamptz in the process-local zone by default. Keep
+		// the wire contract stable across deployments by always returning UTC.
+		next := row.NextDueAt.Time.UTC()
+		result.NextDueAt = &next
+	}
+	return result, nil
+}
