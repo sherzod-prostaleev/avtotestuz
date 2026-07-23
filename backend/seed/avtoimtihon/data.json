@@ -2631,7 +2631,7 @@
       "category": "vehicle_equipment_lighting",
       "texts": {
         "ru": "Шины автотранспортных средств категории M2, M3 должны иметь остаточную высоту рисунка протектора не менее:",
-        "uz-Cyrl": "М2; МЗ тоифали автотранспорт воситалари шина протекторлари нақшларининг қолдик баландлиги камида қанча бўлиши керак?",
+        "uz-Cyrl": "М2; М3 тоифали автотранспорт воситалари шина протекторлари нақшларининг қолдик баландлиги камида қанча бўлиши керак?",
         "uz-Latn": "M2; M3 toifali avtotransport vositalari shina protektorlari naqshlarining qoldiq balandligi kamida qancha bo'lishi kerak?"
       },
       "answers": [
@@ -12001,7 +12001,7 @@
           "texts": {
             "ru": "10 м",
             "uz-Cyrl": "10 м",
-            "uz-Latn": "1,0 m"
+            "uz-Latn": "10 m"
           }
         },
         {
@@ -25692,7 +25692,7 @@
       "category": "vehicle_equipment_lighting",
       "texts": {
         "ru": "Шины автотранспортных средств категории М2 М3 должны иметь остаточную высоту рисунка протектора не менее:",
-        "uz-Cyrl": "М2; МЗ тоифадаги автотранспорт воситаларининг шина протектори нақшларининг баландлиги қуйидагилардан кам бўлмаслиги керак:",
+        "uz-Cyrl": "М2; М3 тоифадаги автотранспорт воситаларининг шина протектори нақшларининг баландлиги қуйидагилардан кам бўлмаслиги керак:",
         "uz-Latn": "M2; M3 toifadagi avtotransport vositalarining shina protektori naqshlarining balandligi quyidagilardan kam bo'lmasligi kerak:"
       },
       "answers": [
@@ -26417,7 +26417,7 @@
           "texts": {
             "ru": "Для замены в необходимых случаях сигнала «рука поднята вверх»",
             "uz-Cyrl": "Зарур ҳолларда «Қўлни юқорига кўтариш» ишорасининг ўрнини босиш учун",
-            "uz-Latn": "Zarur hollarda \u003cQo'lni yuqoriga ko'tarish» ishorasining o'rnini bosish uchun"
+            "uz-Latn": "Zarur hollarda <Qo'lni yuqoriga ko'tarish» ishorasining o'rnini bosish uchun"
           }
         },
         {
@@ -26682,7 +26682,7 @@
           "correct": false,
           "texts": {
             "ru": "Место, где необходимо остановиться, чтобы пропустить пешеходов, переходящих проезжую часть",
-            "uz-Cyrl": "1.Йўлни кесиб ўтувчи пиёдаларни ўтказиб юбориш учун тўхташ мажбурий бўлган жой ",
+            "uz-Cyrl": "Йўлни кесиб ўтувчи пиёдаларни ўтказиб юбориш учун тўхташ мажбурий бўлган жой ",
             "uz-Latn": "Yo'lni kesib o'tuvchi piyodalarni o'tkazib yuborish uchun to'xtash majburiy bo'lgan joy"
           }
         },
@@ -27775,7 +27775,7 @@
       "category": "general_provisions_admin",
       "texts": {
         "ru": "На задней стенке кузова автотранспортных средств категории N2; N3; 03; 04 ; M2; M3 (кроме особо малых) должен быть нанесен:",
-        "uz-Cyrl": "N2; N3; 03; 04 ; М2; МЗ тоифадаги автотранспорт воситаларининг(микроавтобуслардан ташқари)орқа деворида ёзилиши керак:",
+        "uz-Cyrl": "N2; N3; 03; 04 ; М2; М3 тоифадаги автотранспорт воситаларининг(микроавтобуслардан ташқари)орқа деворида ёзилиши керак:",
         "uz-Latn": "N2; N3; 03; 04 ; M2; M3 toifadagi avtotransport vositalarining (mikroavtobuslardan tashqari)orqa devorida yozilishi kerak:"
       },
       "answers": [
