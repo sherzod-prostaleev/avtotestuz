@@ -1,12 +1,14 @@
 package importer
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"path"
+	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,6 +16,46 @@ import (
 	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/db/sqlc"
 )
+
+// imageMime derives the stored MIME type and a canonical file extension from
+// the image bytes rather than the filename. Source images are sometimes saved
+// with a wrong extension (e.g. GIF or JPEG bytes named ".png"); trusting the
+// extension would store a wrong Content-Type. Detection is by magic bytes,
+// with the path extension used only when the content is inconclusive.
+func imageMime(data []byte, rel string) (mime, ext string) {
+	switch {
+	case bytes.HasPrefix(data, []byte("GIF8")):
+		return "image/gif", ".gif"
+	case bytes.HasPrefix(data, []byte{0x89, 'P', 'N', 'G'}):
+		return "image/png", ".png"
+	case bytes.HasPrefix(data, []byte{0xFF, 0xD8, 0xFF}):
+		return "image/jpeg", ".jpg"
+	case bytes.HasPrefix(data, []byte("RIFF")) && len(data) >= 12 && bytes.Equal(data[8:12], []byte("WEBP")):
+		return "image/webp", ".webp"
+	case looksSVG(data):
+		return "image/svg+xml", ".svg"
+	}
+	switch strings.ToLower(path.Ext(rel)) {
+	case ".jpg", ".jpeg":
+		return "image/jpeg", ".jpg"
+	case ".gif":
+		return "image/gif", ".gif"
+	case ".webp":
+		return "image/webp", ".webp"
+	case ".svg":
+		return "image/svg+xml", ".svg"
+	default:
+		return "image/png", ".png"
+	}
+}
+
+func looksSVG(data []byte) bool {
+	head := data
+	if len(head) > 512 {
+		head = head[:512]
+	}
+	return bytes.Contains(head, []byte("<svg")) || bytes.Contains(head, []byte("<?xml"))
+}
 
 type StoreOptions struct {
 	MarkVerified bool        // licensed/trusted import → translations verified
@@ -55,17 +97,8 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 		}
 		sum := sha256.Sum256(data)
 		hexSum := hex.EncodeToString(sum[:])
-		ext := path.Ext(rel)
+		mime, ext := imageMime(data, rel)
 		key := "images/" + hexSum + ext
-		mime := "image/png"
-		switch ext {
-		case ".jpg", ".jpeg":
-			mime = "image/jpeg"
-		case ".webp":
-			mime = "image/webp"
-		case ".svg":
-			mime = "image/svg+xml"
-		}
 		if err := blobs.Put(ctx, key, mime, data); err != nil {
 			return uuid.NullUUID{}, fmt.Errorf("blob put %s: %w", key, err)
 		}
