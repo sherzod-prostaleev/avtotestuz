@@ -45,7 +45,7 @@ func build() (importer.Dataset, error) {
 		known[g.Code] = true
 		ds.SignGroups = append(ds.SignGroups, importer.CanonSignGroup{
 			Code: g.Code, Sort: g.Sort,
-			Names: map[string]string{"uz-Latn": g.NameLatn, "ru": g.NameRu},
+			Names: map[string]string{"uz-Latn": g.NameLatn, "uz-Cyrl": toCyrillic(g.NameLatn), "ru": g.NameRu},
 		})
 	}
 
@@ -60,7 +60,7 @@ func build() (importer.Dataset, error) {
 		seenSign[s.Code] = true
 		ds.Signs = append(ds.Signs, importer.CanonSign{
 			Code: s.Code, Group: s.Group, Image: s.Image, Sort: i + 1,
-			Names: map[string]string{"uz-Latn": s.NameLatn, "ru": s.NameRu},
+			Names: map[string]string{"uz-Latn": s.NameLatn, "uz-Cyrl": toCyrillic(s.NameLatn), "ru": s.NameRu},
 		})
 	}
 	// Stable output so re-runs produce identical files and diffs stay readable.
