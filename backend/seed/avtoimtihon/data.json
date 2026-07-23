@@ -42728,63 +42728,6 @@
       "source": "avtoimtihon"
     },
     {
-      "ext_id": "avtoimtihon-1020",
-      "category": "towing_special_vehicles",
-      "texts": {
-        "ru": "Какая общая длина поезда сцепленных транспортных средств допускается Правилами при буксировке?",
-        "uz-Cyrl": "Қоидаларга кўра шатакка олиш вақтида бир-бирига уланган транспорт воситалари таркибининг қандай умумий узунлигига йўл қўйилади?",
-        "uz-Latn": "Qoidalarga ko'ra shatakka olish vaqtida bir-biriga ulangan transport vositalari tarkibining qanday umumiy uzunligiga yo'l qo'yiladi?"
-      },
-      "answers": [
-        {
-          "position": 1,
-          "correct": true,
-          "texts": {
-            "ru": "20 м",
-            "uz-Cyrl": "20 м",
-            "uz-Latn": "20 m"
-          }
-        },
-        {
-          "position": 2,
-          "correct": false,
-          "texts": {
-            "ru": "21 м",
-            "uz-Cyrl": "21 м",
-            "uz-Latn": "21 m"
-          }
-        },
-        {
-          "position": 3,
-          "correct": false,
-          "texts": {
-            "ru": "22 м",
-            "uz-Cyrl": "22 м",
-            "uz-Latn": "22 m"
-          }
-        },
-        {
-          "position": 4,
-          "correct": false,
-          "texts": {
-            "ru": "23 м",
-            "uz-Cyrl": "23 м",
-            "uz-Latn": "23 m"
-          }
-        },
-        {
-          "position": 5,
-          "correct": false,
-          "texts": {
-            "ru": "24 м",
-            "uz-Cyrl": "24 м",
-            "uz-Latn": "24 m"
-          }
-        }
-      ],
-      "source": "avtoimtihon"
-    },
-    {
       "ext_id": "avtoimtihon-1021",
       "category": "road_signs_markings",
       "image": "images/i103_1.webp",
@@ -53191,7 +53134,7 @@
         "avtoimtihon-1017",
         "avtoimtihon-1018",
         "avtoimtihon-1019",
-        "avtoimtihon-1020"
+        "avtoimtihon-109"
       ]
     },
     {
