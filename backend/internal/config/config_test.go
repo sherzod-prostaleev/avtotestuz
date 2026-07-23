@@ -1,8 +1,32 @@
 package config
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
+
+var configEnvKeys = []string{
+	"ENV",
+	"PORT",
+	"DATABASE_URL",
+	"REDIS_URL",
+	"MEDIA_BASE_URL",
+	"JWT_SECRET",
+	"OTP_CHANNEL",
+	"TELEGRAM_GATEWAY_TOKEN",
+	"TELEGRAM_GATEWAY_URL",
+	"CLIENT_IP_ASSERTION_SECRET",
+}
+
+func isolateConfigEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range configEnvKeys {
+		t.Setenv(key, "")
+	}
+}
 
 func TestLoadDefaults(t *testing.T) {
+	isolateConfigEnv(t)
 	cfg, err := Load()
 	if err != nil {
 		t.Fatalf("Load: %v", err)
@@ -22,6 +46,7 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadAuthOverrides(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("JWT_SECRET", "s3cr3t")
 	t.Setenv("OTP_CHANNEL", "telegram")
 	t.Setenv("TELEGRAM_GATEWAY_TOKEN", "tok123")
@@ -39,6 +64,7 @@ func TestLoadAuthOverrides(t *testing.T) {
 }
 
 func TestLoadOverridesAndInvalidPort(t *testing.T) {
+	isolateConfigEnv(t)
 	t.Setenv("PORT", "9999")
 	cfg, err := Load()
 	if err != nil || cfg.Port != 9999 {
@@ -47,5 +73,160 @@ func TestLoadOverridesAndInvalidPort(t *testing.T) {
 	t.Setenv("PORT", "abc")
 	if _, err := Load(); err == nil {
 		t.Fatal("want error for invalid PORT")
+	}
+}
+
+func TestLoadValidation(t *testing.T) {
+	validSecret := strings.Repeat("s", minJWTSecretLen)
+	validAssertionSecret := strings.Repeat("i", minClientIPAssertionSecretLen)
+	tests := []struct {
+		name    string
+		env     map[string]string
+		wantErr string
+	}{
+		{
+			name: "development defaults remain valid",
+		},
+		{
+			name: "development permits a short custom JWT secret",
+			env: map[string]string{
+				"JWT_SECRET": "local-only",
+			},
+		},
+		{
+			name: "invalid environment",
+			env: map[string]string{
+				"ENV": "qa",
+			},
+			wantErr: `invalid ENV "qa"`,
+		},
+		{
+			name: "unknown OTP channel",
+			env: map[string]string{
+				"OTP_CHANNEL": "email",
+			},
+			wantErr: `invalid OTP_CHANNEL "email"`,
+		},
+		{
+			name: "unimplemented SMS channel",
+			env: map[string]string{
+				"OTP_CHANNEL": "sms",
+			},
+			wantErr: `invalid OTP_CHANNEL "sms": no sender implementation`,
+		},
+		{
+			name: "telegram requires its sender token",
+			env: map[string]string{
+				"OTP_CHANNEL": "telegram",
+			},
+			wantErr: "requires TELEGRAM_GATEWAY_TOKEN",
+		},
+		{
+			name: "telegram rejects a whitespace token",
+			env: map[string]string{
+				"OTP_CHANNEL":            "telegram",
+				"TELEGRAM_GATEWAY_TOKEN": "   ",
+			},
+			wantErr: "requires TELEGRAM_GATEWAY_TOKEN",
+		},
+		{
+			name: "development telegram config is valid with a token",
+			env: map[string]string{
+				"OTP_CHANNEL":            "telegram",
+				"TELEGRAM_GATEWAY_TOKEN": "token",
+			},
+		},
+		{
+			name: "development rejects a short client IP assertion secret",
+			env: map[string]string{
+				"CLIENT_IP_ASSERTION_SECRET": "too-short",
+			},
+			wantErr: "CLIENT_IP_ASSERTION_SECRET must be at least 32 bytes",
+		},
+		{
+			name: "staging rejects sandbox OTP",
+			env: map[string]string{
+				"ENV":        "staging",
+				"JWT_SECRET": validSecret,
+			},
+			wantErr: "OTP_CHANNEL sandbox is not allowed when ENV=staging",
+		},
+		{
+			name: "production rejects sandbox OTP",
+			env: map[string]string{
+				"ENV":        "prod",
+				"JWT_SECRET": validSecret,
+			},
+			wantErr: "OTP_CHANNEL sandbox is not allowed when ENV=prod",
+		},
+		{
+			name: "staging rejects the development JWT secret",
+			env: map[string]string{
+				"ENV":                    "staging",
+				"OTP_CHANNEL":            "telegram",
+				"TELEGRAM_GATEWAY_TOKEN": "token",
+			},
+			wantErr: "JWT_SECRET must not use the development default",
+		},
+		{
+			name: "production rejects a short JWT secret",
+			env: map[string]string{
+				"ENV":                    "prod",
+				"JWT_SECRET":             "too-short",
+				"OTP_CHANNEL":            "telegram",
+				"TELEGRAM_GATEWAY_TOKEN": "token",
+			},
+			wantErr: "JWT_SECRET must be at least 32 bytes",
+		},
+		{
+			name: "staging accepts complete real sender config",
+			env: map[string]string{
+				"ENV":                        "staging",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+			},
+		},
+		{
+			name: "staging requires a client IP assertion secret",
+			env: map[string]string{
+				"ENV":                    "staging",
+				"JWT_SECRET":             validSecret,
+				"OTP_CHANNEL":            "telegram",
+				"TELEGRAM_GATEWAY_TOKEN": "token",
+			},
+			wantErr: "CLIENT_IP_ASSERTION_SECRET is required when ENV=staging",
+		},
+		{
+			name: "production accepts complete real sender config",
+			env: map[string]string{
+				"ENV":                        "prod",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			isolateConfigEnv(t)
+			for key, value := range tt.env {
+				t.Setenv(key, value)
+			}
+
+			_, err := Load()
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Load: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("Load error = %v, want substring %q", err, tt.wantErr)
+			}
+		})
 	}
 }

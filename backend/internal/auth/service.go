@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -168,6 +169,9 @@ func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyR
 		if err != nil {
 			return VerifyResult{}, err
 		}
+		if err := grantSignupTrial(ctx, q, profile.ID); err != nil {
+			return VerifyResult{}, err
+		}
 		created = true
 	}
 
@@ -250,6 +254,27 @@ func (s *Service) Logout(ctx context.Context, raw string) error {
 		return err
 	}
 	return s.Q.DeleteRefreshToken(ctx, rt.ID)
+}
+
+// SignupTrialDuration is how much full access a brand-new profile receives.
+// The paywall is a worse first impression than the product is, so the limits
+// only start applying once the user has seen what they are paying for.
+const SignupTrialDuration = 24 * time.Hour
+
+// grantSignupTrial writes the welcome entitlement inside the caller's
+// transaction rather than going through billing.GrantDays: it must commit or
+// roll back together with the profile row, and a profile created moments ago
+// has no existing entitlement for GrantDays' stacking logic to consider.
+func grantSignupTrial(ctx context.Context, q *sqlc.Queries, profileID uuid.UUID) error {
+	now := time.Now()
+	_, err := q.InsertEntitlement(ctx, sqlc.InsertEntitlementParams{
+		ProfileID: profileID,
+		Source:    "trial",
+		StartsAt:  pgtype.Timestamptz{Time: now, Valid: true},
+		EndsAt:    pgtype.Timestamptz{Time: now.Add(SignupTrialDuration), Valid: true},
+		Note:      "signup welcome trial",
+	})
+	return err
 }
 
 func createProfileWithReferral(ctx context.Context, q *sqlc.Queries, phone string) (sqlc.Profile, error) {

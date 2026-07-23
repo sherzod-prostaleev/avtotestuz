@@ -1,14 +1,39 @@
 import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
+import { readBackendJson } from "@/lib/backend-response";
 import { setAuthCookies, clearAuthCookies, readCookie, AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
 import { refreshOnce } from "@/lib/refresh-lock";
 import { callBackendRefresh } from "@/lib/backend-refresh";
+
+type TokenPair = { accessToken: string; refreshToken: string };
 
 const publicPaths = new Set(["signs", "categories", "demo"]);
 
 function isPublicPath(path: string[]): boolean {
   if (path.length === 0) return false;
   return publicPaths.has(path[0]);
+}
+
+function safePath(path: string[]): string | null {
+  if (path.length === 0) return null;
+
+  const unsafe = path.some(
+    (segment) => !segment || segment === "." || segment === ".." || segment.includes("/") || segment.includes("\\")
+  );
+  return unsafe ? null : path.map(encodeURIComponent).join("/");
+}
+
+function unavailableResponse(tokens?: TokenPair | null) {
+  const response = NextResponse.json(
+    { error: { code: "network_error", message: "service temporarily unavailable" } },
+    { status: 502 }
+  );
+  if (tokens) {
+    // Refresh rotation may have succeeded before the downstream request
+    // failed. Preserve the rotated pair so the next retry remains usable.
+    setAuthCookies(response, tokens);
+  }
+  return response;
 }
 
 async function forward(
@@ -18,7 +43,11 @@ async function forward(
   body: string | undefined
 ): Promise<Response> {
   const url = new URL(request.url);
-  const targetPath = `/${path.join("/")}${url.search}`;
+  const encodedPath = safePath(path);
+  if (!encodedPath) {
+    throw new TypeError("invalid proxy path");
+  }
+  const targetPath = `/${encodedPath}${url.search}`;
   const headers: Record<string, string> = {
     "Content-Type": request.headers.get("content-type") ?? "application/json",
   };
@@ -37,6 +66,13 @@ async function forward(
 
 async function handle(request: Request, context: { params: { path: string[] } }) {
   const { path } = context.params;
+  if (!safePath(path)) {
+    return NextResponse.json(
+      { error: { code: "invalid_path", message: "invalid proxy path" } },
+      { status: 400 }
+    );
+  }
+
   let accessToken = readCookie(request, AUTH_COOKIE);
   const refreshToken = readCookie(request, REFRESH_COOKIE);
 
@@ -45,11 +81,15 @@ async function handle(request: Request, context: { params: { path: string[] } })
     return NextResponse.json({ error: { code: "unauthorized", message: "no access token" } }, { status: 401 });
   }
 
-  let newTokens: { accessToken: string; refreshToken: string } | null = null;
+  let newTokens: TokenPair | null = null;
 
   // If access token is missing but refresh token exists, try refreshing first
   if (!accessToken && refreshToken) {
-    newTokens = await refreshOnce(refreshToken, callBackendRefresh);
+    try {
+      newTokens = await refreshOnce(refreshToken, callBackendRefresh);
+    } catch {
+      return unavailableResponse();
+    }
     if (newTokens) {
       accessToken = newTokens.accessToken;
     }
@@ -59,24 +99,42 @@ async function handle(request: Request, context: { params: { path: string[] } })
   const body = request.method !== "GET" && request.method !== "HEAD" ? await request.text() : undefined;
 
   let backendRes: Response | undefined;
-  
+
   if (accessToken || isPublicPath(path)) {
-    backendRes = await forward(request, path, accessToken, body);
+    try {
+      backendRes = await forward(request, path, accessToken, body);
+    } catch {
+      return unavailableResponse(newTokens);
+    }
   }
 
   // If 401 unauthorized and we haven't refreshed yet, try refresh once
   if ((!backendRes || backendRes.status === 401) && refreshToken && !newTokens) {
-    newTokens = await refreshOnce(refreshToken, callBackendRefresh);
+    try {
+      newTokens = await refreshOnce(refreshToken, callBackendRefresh);
+    } catch {
+      return unavailableResponse();
+    }
     if (newTokens) {
       accessToken = newTokens.accessToken;
-      backendRes = await forward(request, path, accessToken, body);
+      try {
+        backendRes = await forward(request, path, accessToken, body);
+      } catch {
+        return unavailableResponse(newTokens);
+      }
     }
   }
 
   if (!backendRes || backendRes.status === 401) {
-    const data = backendRes
-      ? await backendRes.json()
-      : { error: { code: "unauthorized", message: "session expired" } };
+    let data: unknown = { error: { code: "unauthorized", message: "session expired" } };
+    if (backendRes) {
+      try {
+        data = await readBackendJson(backendRes);
+      } catch {
+        // The status is authoritative even if an upstream proxy stripped the
+        // body. Never expose parser details to the browser.
+      }
+    }
     const response = NextResponse.json(data, { status: 401 });
     if (refreshToken || accessToken) {
       clearAuthCookies(response);
@@ -84,7 +142,12 @@ async function handle(request: Request, context: { params: { path: string[] } })
     return response;
   }
 
-  const data = await backendRes.json();
+  let data: unknown;
+  try {
+    data = await readBackendJson(backendRes);
+  } catch {
+    return unavailableResponse(newTokens);
+  }
   const response = NextResponse.json(data, { status: backendRes.status });
 
   if (newTokens) {

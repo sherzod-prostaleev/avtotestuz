@@ -12,3 +12,4 @@ backend/*.log
 scratch/
 .claude/
 111.png
+backend/seed/signs/

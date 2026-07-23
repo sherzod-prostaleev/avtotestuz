@@ -1,7 +1,11 @@
 -- name: ListCategories :many
+-- question_count lets the practice picker state how much material a topic
+-- actually holds instead of guessing; categories range from tens to hundreds.
 SELECT c.id, c.code, c.sort_order,
        COALESCE(t.name, ft.name, '') AS name,
-       (t.name IS NULL)::bool AS fallback_used
+       (t.name IS NULL)::bool AS fallback_used,
+       (SELECT count(*) FROM question q
+         WHERE q.category_id = c.id AND q.validation_status = 'valid')::int AS question_count
 FROM category c
 LEFT JOIN category_translation t
        ON t.category_id = c.id AND t.locale = $1 AND t.status = 'verified'

@@ -51,10 +51,32 @@ func (q *Queries) CountSessionAnswers(ctx context.Context, sessionID uuid.UUID) 
 }
 
 const createExamSession = `-- name: CreateExamSession :one
-INSERT INTO exam_session
-  (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason
+WITH created AS (
+  INSERT INTO exam_session
+    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
+  VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6,
+    $7,
+    $8,
+    COALESCE(cardinality($9::uuid[]), 0)
+  )
+  RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason
+), assigned AS (
+  INSERT INTO session_question (session_id, question_id, position)
+  SELECT created.id, questions.question_id, questions.position::smallint
+  FROM created
+  CROSS JOIN unnest($9::uuid[])
+    WITH ORDINALITY AS questions(question_id, position)
+  RETURNING session_id
+)
+SELECT created.id, created.profile_id, created.mode, created.variant_id, created.category_id, created.sign_id, created.locale, created.time_limit_sec, created.errors_allowed, created.started_at, created.finished_at, created.status, created.score, created.total, created.stopped_reason
+FROM created
+CROSS JOIN (SELECT count(*) FROM assigned) persisted
 `
 
 type CreateExamSessionParams struct {
@@ -66,10 +88,28 @@ type CreateExamSessionParams struct {
 	Locale        string        `json:"locale"`
 	TimeLimitSec  pgtype.Int4   `json:"time_limit_sec"`
 	ErrorsAllowed pgtype.Int4   `json:"errors_allowed"`
-	Total         int32         `json:"total"`
+	QuestionIds   []uuid.UUID   `json:"question_ids"`
 }
 
-func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionParams) (ExamSession, error) {
+type CreateExamSessionRow struct {
+	ID            uuid.UUID          `json:"id"`
+	ProfileID     uuid.UUID          `json:"profile_id"`
+	Mode          string             `json:"mode"`
+	VariantID     uuid.NullUUID      `json:"variant_id"`
+	CategoryID    uuid.NullUUID      `json:"category_id"`
+	SignID        uuid.NullUUID      `json:"sign_id"`
+	Locale        string             `json:"locale"`
+	TimeLimitSec  pgtype.Int4        `json:"time_limit_sec"`
+	ErrorsAllowed pgtype.Int4        `json:"errors_allowed"`
+	StartedAt     pgtype.Timestamptz `json:"started_at"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	Status        string             `json:"status"`
+	Score         pgtype.Int4        `json:"score"`
+	Total         int32              `json:"total"`
+	StoppedReason pgtype.Text        `json:"stopped_reason"`
+}
+
+func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionParams) (CreateExamSessionRow, error) {
 	row := q.db.QueryRow(ctx, createExamSession,
 		arg.ProfileID,
 		arg.Mode,
@@ -79,9 +119,9 @@ func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionPa
 		arg.Locale,
 		arg.TimeLimitSec,
 		arg.ErrorsAllowed,
-		arg.Total,
+		arg.QuestionIds,
 	)
-	var i ExamSession
+	var i CreateExamSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProfileID,
@@ -258,6 +298,23 @@ func (q *Queries) GetSessionAnswer(ctx context.Context, arg GetSessionAnswerPara
 	return i, err
 }
 
+const getSessionQuestion = `-- name: GetSessionQuestion :one
+SELECT session_id, question_id, position FROM session_question
+WHERE session_id = $1 AND question_id = $2
+`
+
+type GetSessionQuestionParams struct {
+	SessionID  uuid.UUID `json:"session_id"`
+	QuestionID uuid.UUID `json:"question_id"`
+}
+
+func (q *Queries) GetSessionQuestion(ctx context.Context, arg GetSessionQuestionParams) (SessionQuestion, error) {
+	row := q.db.QueryRow(ctx, getSessionQuestion, arg.SessionID, arg.QuestionID)
+	var i SessionQuestion
+	err := row.Scan(&i.SessionID, &i.QuestionID, &i.Position)
+	return i, err
+}
+
 const getSignIDByCode = `-- name: GetSignIDByCode :one
 SELECT id FROM sign WHERE code = $1
 `
@@ -338,9 +395,11 @@ func (q *Queries) InsertSessionAnswer(ctx context.Context, arg InsertSessionAnsw
 }
 
 const listMistakeBankQuestionIDs = `-- name: ListMistakeBankQuestionIDs :many
-SELECT question_id FROM question_memory
-WHERE profile_id = $1 AND lapses > 0 AND due_at <= now()
-ORDER BY due_at ASC
+SELECT qm.question_id
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.lapses > 0 AND qm.due_at <= now()
+ORDER BY qm.due_at ASC
 LIMIT $2
 `
 
@@ -436,6 +495,55 @@ func (q *Queries) ListSessionAnswers(ctx context.Context, sessionID uuid.UUID) (
 			&i.IsCorrect,
 			&i.Position,
 			&i.AnsweredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSessionQuestionsWithAnswers = `-- name: ListSessionQuestionsWithAnswers :many
+SELECT
+  sq.question_id,
+  sq.position,
+  sa.answer_id AS user_answer_id,
+  sa.is_correct,
+  q.correct_answer_id
+FROM session_question sq
+JOIN question q ON q.id = sq.question_id
+LEFT JOIN session_answer sa
+  ON sa.session_id = sq.session_id AND sa.question_id = sq.question_id
+WHERE sq.session_id = $1
+ORDER BY sq.position
+`
+
+type ListSessionQuestionsWithAnswersRow struct {
+	QuestionID      uuid.UUID     `json:"question_id"`
+	Position        int16         `json:"position"`
+	UserAnswerID    uuid.NullUUID `json:"user_answer_id"`
+	IsCorrect       pgtype.Bool   `json:"is_correct"`
+	CorrectAnswerID uuid.NullUUID `json:"correct_answer_id"`
+}
+
+func (q *Queries) ListSessionQuestionsWithAnswers(ctx context.Context, sessionID uuid.UUID) ([]ListSessionQuestionsWithAnswersRow, error) {
+	rows, err := q.db.Query(ctx, listSessionQuestionsWithAnswers, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSessionQuestionsWithAnswersRow
+	for rows.Next() {
+		var i ListSessionQuestionsWithAnswersRow
+		if err := rows.Scan(
+			&i.QuestionID,
+			&i.Position,
+			&i.UserAnswerID,
+			&i.IsCorrect,
+			&i.CorrectAnswerID,
 		); err != nil {
 			return nil, err
 		}
@@ -564,6 +672,40 @@ func (q *Queries) RandomQuestionIDsByCategory(ctx context.Context, arg RandomQue
 	return items, nil
 }
 
+const randomQuestionIDsByImagePresence = `-- name: RandomQuestionIDsByImagePresence :many
+SELECT id FROM question
+WHERE validation_status = 'valid'
+  AND (image_id IS NOT NULL) = $1::boolean
+ORDER BY random()
+LIMIT $2
+`
+
+type RandomQuestionIDsByImagePresenceParams struct {
+	HasImage   bool  `json:"has_image"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+// has_image=true selects illustrated questions, false selects text-only ones.
+func (q *Queries) RandomQuestionIDsByImagePresence(ctx context.Context, arg RandomQuestionIDsByImagePresenceParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, randomQuestionIDsByImagePresence, arg.HasImage, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const randomQuestionIDsBySign = `-- name: RandomQuestionIDsBySign :many
 SELECT q.id FROM question q
 JOIN question_sign qs ON qs.question_id = q.id
@@ -579,6 +721,49 @@ type RandomQuestionIDsBySignParams struct {
 
 func (q *Queries) RandomQuestionIDsBySign(ctx context.Context, arg RandomQuestionIDsBySignParams) ([]uuid.UUID, error) {
 	rows, err := q.db.Query(ctx, randomQuestionIDsBySign, arg.SignID, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const randomQuestionIDsByVariantRange = `-- name: RandomQuestionIDsByVariantRange :many
+SELECT id FROM (
+  SELECT DISTINCT q.id
+  FROM question q
+  JOIN variant_question vq ON vq.question_id = q.id
+  JOIN variant v ON v.id = vq.variant_id
+  WHERE q.validation_status = 'valid'
+    AND v.number BETWEEN $1 AND $2
+) candidates
+ORDER BY random()
+LIMIT $3
+`
+
+type RandomQuestionIDsByVariantRangeParams struct {
+	FromNumber int32 `json:"from_number"`
+	ToNumber   int32 `json:"to_number"`
+	LimitCount int32 `json:"limit_count"`
+}
+
+// Draws across a contiguous span of bilets so a learner can mix-review the
+// range they have already worked through, which one-bilet-at-a-time cannot do.
+// DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
+// ordered by an expression that is not in the select list, and random() is.
+func (q *Queries) RandomQuestionIDsByVariantRange(ctx context.Context, arg RandomQuestionIDsByVariantRangeParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, randomQuestionIDsByVariantRange, arg.FromNumber, arg.ToNumber, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}

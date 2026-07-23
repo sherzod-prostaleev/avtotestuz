@@ -40,13 +40,14 @@ export function CountdownTimer({ remainingSeconds, seconds, initialSeconds, onEx
   // Tick once per second while time remains. The effect only re-runs when
   // crossing the zero boundary, not on every tick, so the interval isn't
   // recreated every second.
+  const isRunning = remaining > 0;
   useEffect(() => {
-    if (remaining <= 0) return;
+    if (!isRunning) return;
     const id = setInterval(() => {
       setRemaining((prev) => Math.max(0, prev - 1));
     }, 1000);
     return () => clearInterval(id);
-  }, [remaining <= 0]);
+  }, [isRunning]);
 
   // Fire onExpire exactly once when reaching zero.
   useEffect(() => {

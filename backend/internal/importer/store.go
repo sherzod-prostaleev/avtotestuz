@@ -63,6 +63,8 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 			mime = "image/jpeg"
 		case ".webp":
 			mime = "image/webp"
+		case ".svg":
+			mime = "image/svg+xml"
 		}
 		if err := blobs.Put(ctx, key, mime, data); err != nil {
 			return uuid.NullUUID{}, fmt.Errorf("blob put %s: %w", key, err)

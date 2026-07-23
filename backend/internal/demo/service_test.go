@@ -78,6 +78,9 @@ func TestGetQuestionReturnsWhitelistedQuestion(t *testing.T) {
 		if !found {
 			t.Fatalf("returned question %s is not in the demo whitelist %v", detail.ID, wl)
 		}
+		if detail.Explanation != nil {
+			t.Fatal("pre-grade demo question must not expose answer-revealing explanation prose")
+		}
 		seen[detail.ID] = true
 	}
 	// Not a strict requirement of the brief, but with 20 draws from a 2-item

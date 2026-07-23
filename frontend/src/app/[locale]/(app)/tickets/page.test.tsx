@@ -1,16 +1,18 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import TicketsPage from "./page";
 import * as useTicketsModule from "@/hooks/use-tickets";
 
+const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: pushMock, replace: vi.fn() }),
   usePathname: () => "/uz-Latn/tickets",
 }));
 
@@ -25,6 +27,7 @@ function renderWithIntl() {
 describe("TicketsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    pushMock.mockReset();
   });
 
   it("renders tickets header and grid", () => {
@@ -41,8 +44,15 @@ describe("TicketsPage", () => {
     renderWithIntl();
 
     expect(screen.getByText("Biletlar")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Hammasi" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tugallangan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Jarayonda" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Qulflangan (VIP talab qilinadi)" })).toBeInTheDocument();
     expect(screen.getByText("Bilet 1")).toBeInTheDocument();
     expect(screen.getByText("19/20")).toBeInTheDocument();
     expect(screen.getByText("Bilet 2")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "1-biletni ochish" }), { key: "Enter" });
+    expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=variant&variant_id=1");
   });
 });

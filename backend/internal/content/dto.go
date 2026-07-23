@@ -6,6 +6,9 @@ type CategoryDTO struct {
 	Code      string `json:"code"`
 	Name      string `json:"name"`
 	SortOrder int32  `json:"sort_order"`
+	// QuestionCount lets a picker state how much material a topic holds
+	// rather than implying they are all the same size; they are not.
+	QuestionCount int32 `json:"question_count"`
 }
 
 type VariantListItemDTO struct {

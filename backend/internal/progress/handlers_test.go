@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/blob"
@@ -23,7 +24,7 @@ import (
 
 const handlerSecret = "test-secret"
 
-func setupHandlerServer(t *testing.T) (*httptest.Server, string, string) {
+func setupHandlerServer(t *testing.T) (*httptest.Server, string, string, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.New(t)
 	ds, images := fixture.Sample()
@@ -55,7 +56,7 @@ func setupHandlerServer(t *testing.T) (*httptest.Server, string, string) {
 
 	ts := httptest.NewServer(r)
 	t.Cleanup(ts.Close)
-	return ts, tok, qids[0].String()
+	return ts, tok, qids[0].String(), pool
 }
 
 func doReq(t *testing.T, ts *httptest.Server, method, path, token string, body []byte) (int, []byte) {
@@ -81,7 +82,7 @@ func doReq(t *testing.T, ts *httptest.Server, method, path, token string, body [
 }
 
 func TestSavedQuestionsRoundtripOverHTTP(t *testing.T) {
-	ts, tok, questionID := setupHandlerServer(t)
+	ts, tok, questionID, _ := setupHandlerServer(t)
 
 	body, _ := json.Marshal(map[string]string{"question_id": questionID})
 	status, _ := doReq(t, ts, http.MethodPost, "/me/saved", tok, body)
@@ -111,8 +112,38 @@ func TestSavedQuestionsRoundtripOverHTTP(t *testing.T) {
 	}
 }
 
+func TestSavedQuestionsListExcludesQuarantinedQuestions(t *testing.T) {
+	ts, tok, questionID, pool := setupHandlerServer(t)
+
+	body, _ := json.Marshal(map[string]string{"question_id": questionID})
+	status, _ := doReq(t, ts, http.MethodPost, "/me/saved", tok, body)
+	if status != http.StatusOK {
+		t.Fatalf("POST /me/saved status=%d", status)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE question SET validation_status = 'quarantined' WHERE id = $1`, questionID); err != nil {
+		t.Fatalf("quarantine question: %v", err)
+	}
+
+	status, respBody := doReq(t, ts, http.MethodGet, "/me/saved", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("GET /me/saved status=%d body=%s", status, respBody)
+	}
+	var env struct {
+		Data []struct {
+			QuestionID string `json:"question_id"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(respBody, &env); err != nil {
+		t.Fatal(err)
+	}
+	if len(env.Data) != 0 {
+		t.Fatalf("saved list contains quarantined question: %+v", env.Data)
+	}
+}
+
 func TestStreakRequiresAuth(t *testing.T) {
-	ts, _, _ := setupHandlerServer(t)
+	ts, _, _, _ := setupHandlerServer(t)
 	resp, err := ts.Client().Get(ts.URL + "/me/streak")
 	if err != nil {
 		t.Fatal(err)

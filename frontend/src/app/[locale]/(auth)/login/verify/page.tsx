@@ -92,6 +92,10 @@ function VerifyForm() {
         body: JSON.stringify({ phone, channel: "sandbox" }),
       });
       const json = await res.json();
+      if (!res.ok) {
+        setError(json.error?.code ?? "unknown");
+        return;
+      }
       if (json.data?.debug_code) {
         setDebugCode(json.data.debug_code);
         setDigits(json.data.debug_code.split(""));
@@ -110,12 +114,12 @@ function VerifyForm() {
 
         {debugCode && (
           <div className="my-4 flex items-center justify-center gap-2 rounded-md border border-accent/40 bg-accent/10 p-2.5 text-sm font-bold text-accent">
-            <KeyRound className="h-4 w-4" />
-            <span>Test Kod: {debugCode}</span>
+            <KeyRound aria-hidden="true" className="h-4 w-4" />
+            <span>{t("debugCode", { code: debugCode })}</span>
           </div>
         )}
 
-        <div className="mt-6 flex justify-center gap-2">
+        <div role="group" aria-label={t("codeInputLabel")} className="mt-6 flex justify-center gap-2">
           {digits.map((d, i) => (
             <input
               key={i}
@@ -124,6 +128,7 @@ function VerifyForm() {
               }}
               type="text"
               inputMode="numeric"
+              autoComplete={i === 0 ? "one-time-code" : "off"}
               value={d}
               onChange={(e) => handleDigitChange(i, e.target.value)}
               aria-label={t("digitLabel", { position: i + 1 })}
@@ -131,7 +136,7 @@ function VerifyForm() {
             />
           ))}
         </div>
-        {error && <p className="mt-4 text-sm text-danger">{t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}</p>}
+        {error && <p role="alert" className="mt-4 text-sm text-danger">{t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}</p>}
         <Button type="button" variant="outline" className="mt-6" disabled={cooldown > 0} onClick={handleResend}>
           {cooldown > 0 ? t("resendIn", { seconds: cooldown }) : t("resend")}
         </Button>
@@ -141,8 +146,10 @@ function VerifyForm() {
 }
 
 export default function VerifyPage() {
+  const t = useTranslations("Verify");
+
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<p role="status" className="p-6 text-center text-sm text-muted-foreground">{t("loading")}</p>}>
       <VerifyForm />
     </Suspense>
   );

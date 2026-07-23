@@ -7,9 +7,11 @@ ON CONFLICT (profile_id, question_id) DO NOTHING;
 DELETE FROM saved_question WHERE profile_id = sqlc.arg(profile_id) AND question_id = sqlc.arg(question_id);
 
 -- name: ListSavedQuestions :many
-SELECT question_id, created_at FROM saved_question
-WHERE profile_id = $1
-ORDER BY created_at DESC;
+SELECT sq.question_id, sq.created_at
+FROM saved_question sq
+JOIN question q ON q.id = sq.question_id AND q.validation_status = 'valid'
+WHERE sq.profile_id = $1
+ORDER BY sq.created_at DESC;
 
 -- name: GetStreak :one
 SELECT * FROM streak WHERE profile_id = $1;

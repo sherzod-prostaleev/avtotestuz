@@ -31,9 +31,11 @@ func (q *Queries) GetStreak(ctx context.Context, profileID uuid.UUID) (Streak, e
 }
 
 const listSavedQuestions = `-- name: ListSavedQuestions :many
-SELECT question_id, created_at FROM saved_question
-WHERE profile_id = $1
-ORDER BY created_at DESC
+SELECT sq.question_id, sq.created_at
+FROM saved_question sq
+JOIN question q ON q.id = sq.question_id AND q.validation_status = 'valid'
+WHERE sq.profile_id = $1
+ORDER BY sq.created_at DESC
 `
 
 type ListSavedQuestionsRow struct {

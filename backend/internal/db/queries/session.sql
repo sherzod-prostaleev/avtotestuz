@@ -24,10 +24,36 @@ WHERE q.validation_status = 'valid' AND qs.sign_id = sqlc.arg(sign_id)
 ORDER BY random()
 LIMIT sqlc.arg(limit_count);
 
+-- name: RandomQuestionIDsByVariantRange :many
+-- Draws across a contiguous span of bilets so a learner can mix-review the
+-- range they have already worked through, which one-bilet-at-a-time cannot do.
+-- DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
+-- ordered by an expression that is not in the select list, and random() is.
+SELECT id FROM (
+  SELECT DISTINCT q.id
+  FROM question q
+  JOIN variant_question vq ON vq.question_id = q.id
+  JOIN variant v ON v.id = vq.variant_id
+  WHERE q.validation_status = 'valid'
+    AND v.number BETWEEN sqlc.arg(from_number) AND sqlc.arg(to_number)
+) candidates
+ORDER BY random()
+LIMIT sqlc.arg(limit_count);
+
+-- name: RandomQuestionIDsByImagePresence :many
+-- has_image=true selects illustrated questions, false selects text-only ones.
+SELECT id FROM question
+WHERE validation_status = 'valid'
+  AND (image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+ORDER BY random()
+LIMIT sqlc.arg(limit_count);
+
 -- name: ListMistakeBankQuestionIDs :many
-SELECT question_id FROM question_memory
-WHERE profile_id = sqlc.arg(profile_id) AND lapses > 0 AND due_at <= now()
-ORDER BY due_at ASC
+SELECT qm.question_id
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = sqlc.arg(profile_id) AND qm.lapses > 0 AND qm.due_at <= now()
+ORDER BY qm.due_at ASC
 LIMIT sqlc.arg(limit_count);
 
 -- name: GetAnswerForScoring :one
@@ -49,10 +75,32 @@ SELECT id FROM category WHERE code = $1;
 SELECT id FROM sign WHERE code = $1;
 
 -- name: CreateExamSession :one
-INSERT INTO exam_session
-  (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING *;
+WITH created AS (
+  INSERT INTO exam_session
+    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
+  VALUES (
+    sqlc.arg(profile_id),
+    sqlc.arg(mode),
+    sqlc.arg(variant_id),
+    sqlc.arg(category_id),
+    sqlc.arg(sign_id),
+    sqlc.arg(locale),
+    sqlc.arg(time_limit_sec),
+    sqlc.arg(errors_allowed),
+    COALESCE(cardinality(sqlc.arg(question_ids)::uuid[]), 0)
+  )
+  RETURNING *
+), assigned AS (
+  INSERT INTO session_question (session_id, question_id, position)
+  SELECT created.id, questions.question_id, questions.position::smallint
+  FROM created
+  CROSS JOIN unnest(sqlc.arg(question_ids)::uuid[])
+    WITH ORDINALITY AS questions(question_id, position)
+  RETURNING session_id
+)
+SELECT created.*
+FROM created
+CROSS JOIN (SELECT count(*) FROM assigned) persisted;
 
 -- name: GetExamSession :one
 SELECT * FROM exam_session WHERE id = $1;
@@ -72,8 +120,26 @@ RETURNING *;
 SELECT * FROM session_answer
 WHERE session_id = sqlc.arg(session_id) AND question_id = sqlc.arg(question_id);
 
+-- name: GetSessionQuestion :one
+SELECT * FROM session_question
+WHERE session_id = sqlc.arg(session_id) AND question_id = sqlc.arg(question_id);
+
 -- name: ListSessionAnswers :many
 SELECT * FROM session_answer WHERE session_id = $1 ORDER BY position;
+
+-- name: ListSessionQuestionsWithAnswers :many
+SELECT
+  sq.question_id,
+  sq.position,
+  sa.answer_id AS user_answer_id,
+  sa.is_correct,
+  q.correct_answer_id
+FROM session_question sq
+JOIN question q ON q.id = sq.question_id
+LEFT JOIN session_answer sa
+  ON sa.session_id = sq.session_id AND sa.question_id = sq.question_id
+WHERE sq.session_id = $1
+ORDER BY sq.position;
 
 -- name: CountSessionAnswers :one
 SELECT

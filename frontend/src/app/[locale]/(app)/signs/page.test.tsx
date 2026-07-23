@@ -1,81 +1,174 @@
-import { render, screen, fireEvent } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
-import SignsPage from "./page";
 import * as useSignsModule from "@/hooks/use-signs";
+import SignsPage from "./page";
 
 vi.mock("next/link", () => ({
-  default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
+  default: ({ children, href }: { children: React.ReactNode; href: string }) => (
+    <a href={href}>{children}</a>
+  ),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
-  usePathname: () => "/uz-Latn/signs",
-}));
+const testMessages = {
+  ...messages,
+  Signs: {
+    ...messages.Signs,
+    backToDashboard: "Bosh sahifaga qaytish",
+    groupFilterLabel: "Belgilar guruhi",
+    loading: "Yo'l belgilari yuklanmoqda...",
+    loadError: "Yo'l belgilarini serverdan yuklab bo'lmadi.",
+    retry: "Qayta urinish",
+    noResults: "So'rovga mos yo'l belgisi topilmadi.",
+    emptyCatalog: "Tekshirilgan yo'l belgilari katalogi hali serverga yuklanmagan.",
+    imageUnavailable: "Rasm mavjud emas",
+    descriptionTitle: "Tavsif",
+    detailLoading: "Belgi tavsifi yuklanmoqda...",
+    detailLoadError: "Belgi tavsifini yuklab bo'lmadi.",
+    descriptionUnavailable: "Bu belgi uchun tekshirilgan tavsif hali mavjud emas.",
+    close: "Yopish",
+  },
+};
+
+const sign = {
+  code: "3.27",
+  group_code: "prohibiting",
+  name: "To'xtash taqiqlangan",
+  image_url: "/signs/3.27.png",
+  question_count: 4,
+};
 
 function renderWithIntl() {
   return render(
-    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+    <NextIntlClientProvider locale="uz-Latn" messages={testMessages}>
       <SignsPage />
     </NextIntlClientProvider>
   );
 }
 
+function mockSigns(overrides: Partial<ReturnType<typeof useSignsModule.useSigns>> = {}) {
+  const result = {
+    signs: [sign],
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+    ...overrides,
+  };
+  vi.spyOn(useSignsModule, "useSigns").mockReturnValue(result);
+  return result;
+}
+
 describe("SignsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it("renders signs catalog header and sign cards", () => {
-    vi.spyOn(useSignsModule, "useSigns").mockReturnValue({
-      signs: [
-        {
-          id: "s1",
-          code: "3.27",
-          group_code: "prohibitory",
-          group_name: "Taqiqlovchi",
-          name: "To'xtash taqiqlangan",
-          description: "Transport vositalarining to'xtashi taqiqlanadi",
-          image_url: "/signs/3.27.png",
-        },
-      ],
+    vi.spyOn(useSignsModule, "useSignDetail").mockReturnValue({
+      sign: null,
       loading: false,
       error: null,
       refetch: vi.fn(),
     });
+  });
+
+  it("renders the server-provided sign summary", () => {
+    mockSigns();
 
     renderWithIntl();
 
-    expect(screen.getByText("Yo'l belgilari katalogi")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Yo'l belgilari katalogi" })).toBeInTheDocument();
     expect(screen.getByText("3.27")).toBeInTheDocument();
     expect(screen.getByText("To'xtash taqiqlangan")).toBeInTheDocument();
+    expect(useSignsModule.useSigns).toHaveBeenCalledWith("uz-Latn", "all", "");
   });
 
-  it("opens details modal when sign card is clicked", () => {
-    vi.spyOn(useSignsModule, "useSigns").mockReturnValue({
-      signs: [
-        {
-          id: "s1",
-          code: "3.27",
-          group_code: "prohibitory",
-          group_name: "Taqiqlovchi",
-          name: "To'xtash taqiqlangan",
-          description: "Transport vositalarining to'xtashi taqiqlanadi",
-          image_url: "/signs/3.27.png",
-        },
-      ],
+  it("opens the modal with the description returned by the detail endpoint", () => {
+    mockSigns();
+    vi.mocked(useSignsModule.useSignDetail).mockReturnValue({
+      sign: {
+        code: "3.27",
+        group_code: "prohibiting",
+        name: "To'xtash taqiqlangan",
+        description: "Transport vositalarining to'xtashi taqiqlanadi.",
+        image_url: "/signs/3.27.png",
+        question_ids: ["q-1"],
+      },
       loading: false,
       error: null,
       refetch: vi.fn(),
     });
 
     renderWithIntl();
+    fireEvent.click(screen.getByRole("button", { name: /To'xtash taqiqlangan/ }));
 
-    const signCard = screen.getByText("To'xtash taqiqlangan");
-    fireEvent.click(signCard);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("Transport vositalarining to'xtashi taqiqlanadi.")).toBeInTheDocument();
+    expect(useSignsModule.useSignDetail).toHaveBeenLastCalledWith("3.27", "uz-Latn");
+  });
 
-    expect(screen.getByText("Transport vositalarining to'xtashi taqiqlanadi")).toBeInTheDocument();
-    expect(screen.getByText("Yopish")).toBeInTheDocument();
+  it("shows an API-unavailable state and lets the user retry", () => {
+    const refetch = vi.fn();
+    mockSigns({ signs: [], error: "unavailable", refetch });
+
+    renderWithIntl();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Yo'l belgilarini serverdan yuklab bo'lmadi."
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Qayta urinish" }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(testMessages.Signs.emptyCatalog)).not.toBeInTheDocument();
+  });
+
+  it("identifies an empty unfiltered response as an empty server catalog", () => {
+    mockSigns({ signs: [] });
+
+    renderWithIntl();
+
+    expect(screen.getByText(testMessages.Signs.emptyCatalog)).toBeInTheDocument();
+    expect(screen.queryByText(testMessages.Signs.noResults)).not.toBeInTheDocument();
+  });
+
+  it("distinguishes no search matches from an empty catalog", () => {
+    mockSigns({ signs: [] });
+
+    renderWithIntl();
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "3.27" } });
+
+    expect(screen.getByText(testMessages.Signs.noResults)).toBeInTheDocument();
+    expect(screen.queryByText(testMessages.Signs.emptyCatalog)).not.toBeInTheDocument();
+  });
+
+  it("does not invent a legal description when the verified detail is empty", () => {
+    mockSigns();
+    vi.mocked(useSignsModule.useSignDetail).mockReturnValue({
+      sign: {
+        code: "3.27",
+        group_code: "prohibiting",
+        name: "To'xtash taqiqlangan",
+        description: "",
+        image_url: null,
+        question_ids: [],
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithIntl();
+    fireEvent.click(screen.getByRole("button", { name: /To'xtash taqiqlangan/ }));
+
+    expect(screen.getByText(testMessages.Signs.descriptionUnavailable)).toBeInTheDocument();
+    expect(
+      screen.queryByText(/O'zbekiston Respublikasi YHQ standartiga mos keladi/)
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows an honest media state when the API has no image", () => {
+    mockSigns({ signs: [{ ...sign, image_url: null }] });
+
+    renderWithIntl();
+
+    expect(screen.getByText(testMessages.Signs.imageUnavailable)).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });

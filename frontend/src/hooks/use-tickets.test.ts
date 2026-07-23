@@ -8,14 +8,22 @@ describe("useTickets", () => {
     vi.restoreAllMocks();
   });
 
-  it("fetches tickets array successfully", async () => {
-    const mockTickets = [
-      { id: 1, number: 1, total_questions: 20, status: "completed", score: 19, passed: true },
-      { id: 2, number: 2, total_questions: 20, status: "in_progress", score: null, passed: null },
-      { id: 3, number: 3, total_questions: 20, status: "locked", score: null, passed: null },
+  it("maps real variant status DTOs into ticket items", async () => {
+    const mockVariants = [
+      {
+        number: 1,
+        question_count: 20,
+        unlocked: true,
+        best_correct: 19,
+        attempts: 2,
+        completed_at: "2026-07-20T12:00:00Z",
+      },
+      { number: 2, question_count: 20, unlocked: true, best_correct: 12, attempts: 1 },
+      { number: 3, question_count: 20, unlocked: false, best_correct: 0, attempts: 0 },
+      { number: 4, question_count: 20, unlocked: true, best_correct: 0, attempts: 0 },
     ];
 
-    vi.spyOn(apiClient, "apiGet").mockResolvedValue(mockTickets as any);
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue(mockVariants as any);
 
     const { result } = renderHook(() => useTickets());
 
@@ -25,8 +33,34 @@ describe("useTickets", () => {
       expect(result.current.loading).toBe(false);
     });
 
-    expect(result.current.tickets.length).toBe(3);
-    expect(result.current.tickets[0].score).toBe(19);
+    expect(result.current.tickets).toHaveLength(4);
+    expect(result.current.tickets[0]).toEqual({
+      number: 1,
+      total_questions: 20,
+      status: "completed",
+      best_correct: 19,
+      attempts: 2,
+      unlocked: true,
+      completed_at: "2026-07-20T12:00:00Z",
+    });
+    expect(result.current.tickets[1].status).toBe("in_progress");
     expect(result.current.tickets[2].status).toBe("locked");
+    expect(result.current.tickets[3].status).toBe("unstarted");
+    expect(apiClient.apiGet).toHaveBeenCalledWith("me/variants");
+  });
+
+  it("exposes API failures", async () => {
+    vi.spyOn(apiClient, "apiGet").mockRejectedValue(
+      new apiClient.ApiError("variants unavailable", "internal", 500)
+    );
+
+    const { result } = renderHook(() => useTickets());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toBe("variants unavailable");
+    expect(result.current.tickets).toEqual([]);
   });
 });

@@ -305,6 +305,12 @@ type SessionAnswer struct {
 	AnsweredAt pgtype.Timestamptz `json:"answered_at"`
 }
 
+type SessionQuestion struct {
+	SessionID  uuid.UUID `json:"session_id"`
+	QuestionID uuid.UUID `json:"question_id"`
+	Position   int16     `json:"position"`
+}
+
 type Sign struct {
 	ID        uuid.UUID     `json:"id"`
 	GroupID   uuid.UUID     `json:"group_id"`

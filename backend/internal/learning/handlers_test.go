@@ -6,10 +6,12 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/blob"
@@ -132,6 +134,79 @@ func TestPostLearnReviewAndStats(t *testing.T) {
 	}
 }
 
+func TestGetMistakeBankSummaryDistinguishesDueFromTotal(t *testing.T) {
+	ts, tok, qids := setupHandlerServer(t)
+
+	// FSRS deliberately schedules an Again review at least one day ahead.
+	// The bank must therefore report one total mistake but zero due now,
+	// together with the next due timestamp so the UI can explain the state.
+	body, _ := json.Marshal(map[string]any{"question_id": qids[0], "rating": 1})
+	status, env := doReq(t, ts, http.MethodPost, "/learn/review", tok, body)
+	if status != http.StatusOK {
+		t.Fatalf("review status=%d error=%+v", status, env.Error)
+	}
+
+	status, env = doReq(t, ts, http.MethodGet, "/me/mistakes", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("mistakes status=%d error=%+v", status, env.Error)
+	}
+	var summary struct {
+		DueCount       int     `json:"due_count"`
+		TotalBankCount int     `json:"total_bank_count"`
+		NextDueAt      *string `json:"next_due_at"`
+	}
+	if err := json.Unmarshal(env.Data, &summary); err != nil {
+		t.Fatal(err)
+	}
+	if summary.DueCount != 0 || summary.TotalBankCount != 1 || summary.NextDueAt == nil {
+		t.Fatalf("unexpected mistake summary: %+v", summary)
+	}
+	if _, err := time.Parse(time.RFC3339Nano, *summary.NextDueAt); err != nil {
+		t.Fatalf("next_due_at=%q is not RFC3339: %v", *summary.NextDueAt, err)
+	}
+	if !strings.HasSuffix(*summary.NextDueAt, "Z") {
+		t.Fatalf("next_due_at=%q must be normalized to UTC", *summary.NextDueAt)
+	}
+
+	otherToken, err := auth.IssueAccess([]byte(handlerSecret), uuid.New(), "user", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, env = doReq(t, ts, http.MethodGet, "/me/mistakes", otherToken, nil)
+	if status != http.StatusOK {
+		t.Fatalf("other profile mistakes status=%d error=%+v", status, env.Error)
+	}
+	var otherSummary struct {
+		DueCount       int        `json:"due_count"`
+		TotalBankCount int        `json:"total_bank_count"`
+		NextDueAt      *time.Time `json:"next_due_at"`
+	}
+	if err := json.Unmarshal(env.Data, &otherSummary); err != nil {
+		t.Fatal(err)
+	}
+	if otherSummary.DueCount != 0 || otherSummary.TotalBankCount != 0 || otherSummary.NextDueAt != nil {
+		t.Fatalf("another profile can see the owner's mistake bank: %+v", otherSummary)
+	}
+}
+
+func TestGetMistakeBankSummaryEmptyUsesExplicitNullNextDue(t *testing.T) {
+	ts, tok, _ := setupHandlerServer(t)
+	status, env := doReq(t, ts, http.MethodGet, "/me/mistakes", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("mistakes status=%d error=%+v", status, env.Error)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(env.Data, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if string(fields["due_count"]) != "0" || string(fields["total_bank_count"]) != "0" {
+		t.Fatalf("empty counts payload=%s", env.Data)
+	}
+	if next, ok := fields["next_due_at"]; !ok || string(next) != "null" {
+		t.Fatalf("empty next_due_at must be explicit null, payload=%s", env.Data)
+	}
+}
+
 func TestLearnRoutesRequireAuth(t *testing.T) {
 	ts, _, _ := setupHandlerServer(t)
 	resp, err := ts.Client().Get(ts.URL + "/me/stats")
@@ -141,5 +216,14 @@ func TestLearnRoutesRequireAuth(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("status=%d want 401", resp.StatusCode)
+	}
+
+	resp, err = ts.Client().Get(ts.URL + "/me/mistakes")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("mistakes status=%d want 401", resp.StatusCode)
 	}
 }

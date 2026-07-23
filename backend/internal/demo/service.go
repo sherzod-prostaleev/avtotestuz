@@ -82,7 +82,14 @@ func (s *Service) GetQuestion(ctx context.Context, locale string) (content.Quest
 		return content.QuestionDetailDTO{}, false, err
 	}
 	pick := ids[rand.IntN(len(ids))]
-	return s.Content.LoadQuestionDetail(ctx, pick, locale)
+	detail, fallback, err := s.Content.LoadQuestionDetail(ctx, pick, locale)
+	if err != nil {
+		return content.QuestionDetailDTO{}, false, err
+	}
+	// Explanations frequently name the correct option. The public question
+	// response is pre-grade, so it must never expose that prose.
+	detail.Explanation = nil
+	return detail, fallback, nil
 }
 
 // SubmitAnswer grades a single answer against a whitelisted demo question.

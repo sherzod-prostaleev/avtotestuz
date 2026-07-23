@@ -1,7 +1,7 @@
 "use client";
 
-import { ZoomIn, Lightbulb } from "lucide-react";
-import { QuestionExplanation } from "@/hooks/use-session-engine";
+import { useTranslations } from "next-intl";
+import { ZoomIn } from "lucide-react";
 
 interface QuestionCardProps {
   questionNumber: number;
@@ -9,76 +9,61 @@ interface QuestionCardProps {
   questionText?: string;
   text?: string;
   imageUrl?: string | null;
+  /** Kept for the retired mockup surface; no fake image is rendered without a real URL. */
   hasImage?: boolean;
   onImageClick?: () => void;
-  explanation?: QuestionExplanation | null;
 }
 
+/**
+ * Presentational question header used by the exam mockup. The live session screen composes its own
+ * layout through QuestionStage, which owns the height budget; explanations live in
+ * ExplanationDialog so nothing in the answering flow can grow unbounded.
+ */
 export function QuestionCard({
   questionNumber,
   totalQuestions,
   questionText,
   text,
   imageUrl,
-  hasImage,
   onImageClick,
-  explanation,
 }: QuestionCardProps) {
+  const t = useTranslations("Session");
   const displayText = questionText || text || "";
-  const finalImageUrl = imageUrl || (hasImage ? "/placeholder.png" : null);
 
   return (
-    <div className="space-y-4">
-      {/* Question Header & Badge */}
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-extrabold text-accent">
-          Savol {questionNumber} / {totalQuestions}
+          {t("questionPosition", { number: questionNumber, total: totalQuestions })}
         </span>
       </div>
 
-      {/* Question Text */}
-      <h2 className="font-display text-lg font-bold leading-snug tracking-tight text-foreground sm:text-xl">
+      <h1 className="font-display text-xl font-bold leading-snug tracking-tight text-foreground sm:text-2xl">
         {displayText}
-      </h2>
+      </h1>
 
-      {/* Image Block (Zoomable) */}
-      {finalImageUrl && (
-        <div
+      {imageUrl && (
+        <button
+          type="button"
           onClick={onImageClick}
-          className="group relative cursor-pointer overflow-hidden rounded-2xl border border-border bg-black/5 transition-all hover:border-accent/60 hover:shadow-lg"
+          disabled={!onImageClick}
+          aria-label={t("zoomImage")}
+          className="group relative block w-full overflow-hidden rounded-2xl border border-border bg-black/5 transition-all hover:border-accent/60 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
         >
-          {hasImage && !imageUrl ? (
-            <div className="flex h-36 w-full items-center justify-center text-xs font-bold text-muted-foreground">
-              Savol rasmi
-            </div>
-          ) : (
-            <img
-              src={finalImageUrl}
-              alt={`Savol ${questionNumber} rasmi`}
-              className="mx-auto max-h-72 w-full object-contain transition-transform duration-300 group-hover:scale-[1.02]"
-            />
-          )}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-            <span className="flex items-center gap-1.5 rounded-full bg-white/90 px-3.5 py-1.5 text-xs font-bold text-slate-900 shadow-md backdrop-blur-sm">
-              <ZoomIn className="h-4 w-4" /> Kattalashtirish
+          {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={imageUrl}
+            alt={t("questionImageAlt", { number: questionNumber })}
+            className="mx-auto max-h-[28rem] w-full object-contain transition-transform duration-300 group-hover:scale-[1.01]"
+          />
+          {onImageClick && (
+            <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-slate-950/85 px-3.5 py-2 text-xs font-bold text-white shadow-md backdrop-blur-sm">
+              <ZoomIn className="h-4 w-4" aria-hidden="true" />
+              {t("zoomImage")}
             </span>
-          </div>
-        </div>
-      )}
-
-      {/* Explanation Block */}
-      {explanation && explanation.blocks && explanation.blocks.length > 0 && (
-        <div className="mt-6 rounded-2xl border border-accent/30 bg-accent/5 p-4 space-y-2">
-          <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-accent">
-            <Lightbulb className="h-4 w-4 text-gold" />
-            <span>Rasmiy YHQ Tushuntirishi</span>
-          </div>
-          {explanation.blocks.map((block, idx) => (
-            <div key={idx} className="text-xs leading-relaxed text-foreground/90">
-              {block.content}
-            </div>
-          ))}
-        </div>
+          )}
+        </button>
       )}
     </div>
   );

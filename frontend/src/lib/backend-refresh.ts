@@ -1,4 +1,5 @@
 import { backendFetch } from "@/lib/backend";
+import { extractTokenPair, readBackendJson } from "@/lib/backend-response";
 import type { RefreshedTokens } from "@/lib/refresh-lock";
 
 export async function callBackendRefresh(refreshToken: string): Promise<RefreshedTokens | null> {
@@ -8,6 +9,5 @@ export async function callBackendRefresh(refreshToken: string): Promise<Refreshe
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   if (!res.ok) return null;
-  const data = await res.json();
-  return { accessToken: data.data.access_token, refreshToken: data.data.refresh_token };
+  return extractTokenPair(await readBackendJson(res));
 }

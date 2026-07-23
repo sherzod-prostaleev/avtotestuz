@@ -2,9 +2,12 @@ package session_test
 
 import (
 	"context"
+	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/blob"
@@ -113,41 +116,58 @@ func TestStartSessionVariantRequiresVariantID(t *testing.T) {
 
 func TestStartSessionPracticeDailyLimitClampsAndBlocks(t *testing.T) {
 	q, svc, profileID := seed(t)
+	ctx := context.Background()
+	// Read the allowance instead of restating it: this test previously hard-coded
+	// the seeded value of 10 and broke the moment the free tier was retuned,
+	// even though the behaviour under test — clamp, then block — never changed.
+	cfg, err := q.GetLimitConfig(ctx, "daily_practice_questions")
+	if err != nil {
+		t.Fatalf("limit config: %v", err)
+	}
+	allowance := int(cfg.FreeValue)
+	if allowance <= 0 {
+		t.Fatalf("free allowance = %d, expected a finite positive limit to test against", allowance)
+	}
+
 	// fixture.Sample() assigns 40 questions round-robin across 4 categories
-	// (10 each) and limit_config seeds daily_practice_questions free_value=10
-	// (migration 0003_billing.up.sql) — so a fresh profile's first practice
-	// session of this category exhausts the entire daily allowance.
-	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	// (10 each), so one session can never exceed 10 regardless of allowance.
+	catID, err := q.GetCategoryIDByCode(ctx, "signs")
 	if err != nil {
 		t.Fatalf("category lookup: %v", err)
 	}
 
-	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
-		Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 100,
-	})
-	if err != nil {
-		t.Fatalf("StartSession: %v", err)
-	}
-	if len(view.QuestionIDs) != 10 {
-		t.Fatalf("expected count clamped to the free daily allowance of 10, got %d", len(view.QuestionIDs))
-	}
-	// Record the answers directly via InsertSessionAnswer (rather than
-	// svc.SubmitAnswer, which does not exist until Task 4) so that
-	// CountPracticeAnswersToday sees today's practice-mode answers and the
-	// daily allowance is exhausted, exactly like a real submit would record.
-	for i, qid := range view.QuestionIDs {
-		correctID, err := q.GetCorrectAnswerID(context.Background(), qid)
+	// Record answers directly via InsertSessionAnswer (rather than
+	// svc.SubmitAnswer) so CountPracticeAnswersToday sees today's
+	// practice-mode answers exactly as a real submit would record them.
+	answered := 0
+	for answered < allowance {
+		view, err := svc.StartSession(ctx, profileID, session.StartRequest{
+			Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 100,
+		})
 		if err != nil {
-			t.Fatalf("correct answer: %v", err)
+			t.Fatalf("StartSession after %d answers: %v", answered, err)
 		}
-		if _, err := q.InsertSessionAnswer(context.Background(), sqlc.InsertSessionAnswerParams{
-			SessionID: view.ID, QuestionID: qid, AnswerID: correctID, IsCorrect: true, Position: int16(i + 1),
-		}); err != nil {
-			t.Fatalf("insert session answer: %v", err)
+		if len(view.QuestionIDs) == 0 {
+			t.Fatalf("empty session after %d answers, allowance %d", answered, allowance)
 		}
+		if remaining := allowance - answered; len(view.QuestionIDs) > remaining {
+			t.Fatalf("session of %d exceeds remaining allowance %d", len(view.QuestionIDs), remaining)
+		}
+		for i, qid := range view.QuestionIDs {
+			correctID, err := q.GetCorrectAnswerID(ctx, qid)
+			if err != nil {
+				t.Fatalf("correct answer: %v", err)
+			}
+			if _, err := q.InsertSessionAnswer(ctx, sqlc.InsertSessionAnswerParams{
+				SessionID: view.ID, QuestionID: qid, AnswerID: correctID, IsCorrect: true, Position: int16(i + 1),
+			}); err != nil {
+				t.Fatalf("insert session answer: %v", err)
+			}
+		}
+		answered += len(view.QuestionIDs)
 	}
 
-	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+	if _, err := svc.StartSession(ctx, profileID, session.StartRequest{
 		Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 5,
 	}); err != session.ErrDailyLimitReached {
 		t.Fatalf("err=%v want ErrDailyLimitReached once today's allowance is used up", err)
@@ -222,6 +242,41 @@ func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
 	_ = res
 }
 
+func TestSubmitAnswerRejectsQuestionOutsideSession(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+
+	secondVariant, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get second variant: %v", err)
+	}
+	outsideIDs, err := q.ListVariantQuestionIDsOrdered(context.Background(), secondVariant.ID)
+	if err != nil || len(outsideIDs) == 0 {
+		t.Fatalf("outside questions: len=%d err=%v", len(outsideIDs), err)
+	}
+	outsideQuestionID := outsideIDs[0]
+	outsideAnswerID := correctAnswerID(t, q, outsideQuestionID)
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, outsideQuestionID, outsideAnswerID); !errors.Is(err, session.ErrQuestionNotAssigned) {
+		t.Fatalf("a valid question/answer pair outside the assigned session must return ErrQuestionNotAssigned, got %v", err)
+	}
+	counts, err := q.CountSessionAnswers(context.Background(), view.ID)
+	if err != nil {
+		t.Fatalf("count session answers: %v", err)
+	}
+	if counts.TotalAnswered != 0 || counts.CorrectCount != 0 {
+		t.Fatalf("rejected injection must not be recorded: %+v", counts)
+	}
+	if _, err := q.GetQuestionMemory(context.Background(), sqlc.GetQuestionMemoryParams{
+		ProfileID: profileID, QuestionID: outsideQuestionID,
+	}); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("rejected injection must not update FSRS memory, got err=%v", err)
+	}
+	if _, err := q.GetStreak(context.Background(), profileID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("rejected injection must not update streak, got err=%v", err)
+	}
+}
+
 func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
@@ -243,6 +298,46 @@ func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
 	}
 	if res.CorrectAnswerID != nil {
 		t.Fatalf("exam mode must withhold CorrectAnswerID, got %+v", res)
+	}
+}
+
+func TestSubmitAnswerExpiresExamBeforeRecordingSideEffects(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	answerID := correctAnswerID(t, q, view.QuestionIDs[0])
+	svc.Now = func() time.Time {
+		return view.StartedAt.Add(time.Duration(session.ExamTimeLimitSec+1) * time.Second)
+	}
+
+	result, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], answerID)
+	if err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+	if result.Recorded || !result.Stopped || result.StopReason != "time_up" {
+		t.Fatalf("expired exam must stop without recording: %+v", result)
+	}
+	counts, err := q.CountSessionAnswers(context.Background(), view.ID)
+	if err != nil || counts.TotalAnswered != 0 {
+		t.Fatalf("expired answer count=%+v err=%v, want zero", counts, err)
+	}
+	if _, err := q.GetQuestionMemory(context.Background(), sqlc.GetQuestionMemoryParams{
+		ProfileID: profileID, QuestionID: view.QuestionIDs[0],
+	}); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("expired answer must not update FSRS memory, got err=%v", err)
+	}
+	if _, err := q.GetStreak(context.Background(), profileID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("expired answer must not update streak, got err=%v", err)
+	}
+	stored, err := q.GetExamSession(context.Background(), view.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != "failed" || !stored.StoppedReason.Valid || stored.StoppedReason.String != "time_up" || !stored.Score.Valid || stored.Score.Int32 != 0 {
+		t.Fatalf("expired exam was not finalized as time_up: %+v", stored)
 	}
 }
 
@@ -408,8 +503,17 @@ func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession: %v", err)
 	}
-	if len(detail.Answers) != 1 || detail.Answers[0].Correct != nil {
-		t.Fatalf("in-progress exam must redact correctness: %+v", detail.Answers)
+	if len(detail.Answers) != len(view.QuestionIDs) {
+		t.Fatalf("resume must return all %d assigned questions, got %d", len(view.QuestionIDs), len(detail.Answers))
+	}
+	if !detail.Answers[0].Answered || detail.Answers[0].UserAnswerID == nil || *detail.Answers[0].UserAnswerID != correctID ||
+		detail.Answers[0].Correct != nil || detail.Answers[0].CorrectAnswerID != nil {
+		t.Fatalf("in-progress exam must mark the submitted question and redact correctness: %+v", detail.Answers[0])
+	}
+	for i, answer := range detail.Answers[1:] {
+		if answer.Answered || answer.UserAnswerID != nil || answer.Correct != nil || answer.CorrectAnswerID != nil {
+			t.Fatalf("in-progress exam question %d leaks answer data: %+v", i+1, answer)
+		}
 	}
 
 	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
@@ -419,8 +523,77 @@ func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession after finish: %v", err)
 	}
-	if detail.Answers[0].Correct == nil {
-		t.Fatal("finished session must reveal correctness")
+	if detail.Answers[0].Correct == nil || !*detail.Answers[0].Correct ||
+		detail.Answers[0].CorrectAnswerID == nil || *detail.Answers[0].CorrectAnswerID != correctID {
+		t.Fatalf("finished exam must reveal submitted correctness and answer key: %+v", detail.Answers[0])
+	}
+	for i, answer := range detail.Answers {
+		if answer.CorrectAnswerID == nil {
+			t.Fatalf("finished exam question %d must disclose its answer key: %+v", i, answer)
+		}
+	}
+}
+
+func TestGetSessionReturnsExactOrderedQuestionSetBeforeAnyAnswers(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if len(detail.Answers) != len(view.QuestionIDs) {
+		t.Fatalf("new session must resume with all %d questions, got %d", len(view.QuestionIDs), len(detail.Answers))
+	}
+	for i, got := range detail.Answers {
+		if got.QuestionID != view.QuestionIDs[i] || got.Position != i+1 {
+			t.Fatalf("question %d = (%s, position %d), want (%s, position %d)",
+				i, got.QuestionID, got.Position, view.QuestionIDs[i], i+1)
+		}
+		if got.Answered || got.UserAnswerID != nil || got.Correct != nil || got.CorrectAnswerID != nil {
+			t.Fatalf("fresh question %d must be unanswered with no correctness: %+v", i, got)
+		}
+	}
+}
+
+func TestGetSessionKeepsAssignedOrderWhenAnsweredOutOfOrder(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+
+	answerIDs := make(map[int]uuid.UUID)
+	for _, index := range []int{7, 2} {
+		answerID := correctAnswerID(t, q, view.QuestionIDs[index])
+		answerIDs[index] = answerID
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[index], answerID); err != nil {
+			t.Fatalf("submit question %d: %v", index, err)
+		}
+	}
+
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if len(detail.Answers) != len(view.QuestionIDs) {
+		t.Fatalf("got %d questions, want %d", len(detail.Answers), len(view.QuestionIDs))
+	}
+	for i, got := range detail.Answers {
+		if got.QuestionID != view.QuestionIDs[i] || got.Position != i+1 {
+			t.Fatalf("question order changed at %d: got (%s, %d), want (%s, %d)",
+				i, got.QuestionID, got.Position, view.QuestionIDs[i], i+1)
+		}
+		wantAnswered := i == 2 || i == 7
+		if got.Answered != wantAnswered {
+			t.Fatalf("question %d answered=%v, want %v", i, got.Answered, wantAnswered)
+		}
+		if wantAnswered {
+			if got.UserAnswerID == nil || *got.UserAnswerID != answerIDs[i] ||
+				got.Correct == nil || !*got.Correct ||
+				got.CorrectAnswerID == nil || *got.CorrectAnswerID != answerIDs[i] {
+				t.Fatalf("feedback-mode answer %d must disclose the recorded result: %+v", i, got)
+			}
+		} else if got.UserAnswerID != nil || got.Correct != nil || got.CorrectAnswerID != nil {
+			t.Fatalf("unanswered feedback-mode question %d leaks answer data: %+v", i, got)
+		}
 	}
 }
 
@@ -485,6 +658,36 @@ func TestStartSessionVariantTwoRequiresVIP(t *testing.T) {
 	}
 }
 
+func TestStartSessionVariantEnforcesSequentialUnlock(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); !errors.Is(err, session.ErrVariantLocked) {
+		t.Fatalf("variant 2 before variant 1 threshold: err=%v want ErrVariantLocked", err)
+	}
+
+	v1Session := startVariantSession(t, q, svc, profileID)
+	for _, questionID := range v1Session.QuestionIDs[:10] {
+		answerID := correctAnswerID(t, q, questionID)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, v1Session.ID, questionID, answerID); err != nil {
+			t.Fatalf("submit variant 1: %v", err)
+		}
+	}
+	if _, err := svc.FinishSession(context.Background(), profileID, v1Session.ID); err != nil {
+		t.Fatalf("finish variant 1: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != nil {
+		t.Fatalf("variant 2 must unlock after variant 1 reaches threshold: %v", err)
+	}
+}
+
 func TestStartSessionVariantOneNeverRequiresVIP(t *testing.T) {
 	q, svc, profileID := seed(t)
 	v1, err := q.GetVariantByNumber(context.Background(), 1)
@@ -513,6 +716,27 @@ func TestStartSessionMistakesRequiresVIP(t *testing.T) {
 		Mode: "mistakes", Locale: "uz-Latn",
 	}); err != session.ErrRequiresVIP {
 		t.Fatalf("err=%v want ErrRequiresVIP", err)
+	}
+}
+
+func TestStartSessionEmptyMistakesPersistsAnEmptyQuestionSet(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "mistakes", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if view.Total != 0 || len(view.QuestionIDs) != 0 {
+		t.Fatalf("empty mistake bank session=%+v, want zero questions", view)
+	}
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if detail.Total != 0 || len(detail.Answers) != 0 {
+		t.Fatalf("empty mistake session resume=%+v, want zero questions", detail)
 	}
 }
 

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useCallback, useRef, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { defaultLocale } from "@/i18n/config";
 
@@ -8,39 +8,50 @@ export interface AnswerOptionItem {
   id: string;
   text: string;
   image_url?: string | null;
+  position?: number;
 }
 
+export interface QuestionExplanationItem {
+  position: number;
+  correct: boolean;
+  text: string;
+}
+
+/**
+ * Renderable explanation block.
+ *
+ * The canonical backend shape is `{ type, text, items? }`. `content` is a
+ * compatibility projection consumed by QuestionCard; it is made only from
+ * the backend's text/items and never contains generated explanation prose.
+ */
 export interface QuestionExplanationBlock {
-  type: "intro" | "important" | "warning" | "tip" | "option_analysis" | "summary";
+  type: string;
   content: string;
+  text?: string;
+  items?: QuestionExplanationItem[];
 }
 
 export interface QuestionExplanation {
+  legal_refs?: unknown;
   blocks: QuestionExplanationBlock[];
 }
 
 /**
  * A question as rendered during a session.
  *
- * IMPORTANT (anti-cheat): `correct` and `correct_answer_id` are NEVER populated
- * from the content API (which by design never returns them). They are ONLY ever
- * copied verbatim from a `submitAnswer` / `loadSession` backend response, and
- * stay `undefined` until the backend chooses to send them (e.g. in exam mode
- * they only appear after the session ends). They must never be computed,
- * defaulted, or inferred on the client.
+ * IMPORTANT (anti-cheat): correctness is copied only from authenticated
+ * session responses. It is never fetched from a public content endpoint and
+ * is never inferred or calculated in the browser.
  */
 export interface SessionQuestionItem {
   id: string;
   question: string;
   image_url?: string | null;
   answers: AnswerOptionItem[];
+  position?: number;
   user_answer_id?: string | null;
-  /** whether this question has been answered (from resume; the chosen answer id
-   * itself is not part of the backend resume contract). */
   answered?: boolean;
-  /** correctness, straight from the backend — undefined until it sends it. */
   correct?: boolean;
-  /** the id of the correct answer, straight from the backend — undefined until sent. */
   correct_answer_id?: string;
   explanation?: QuestionExplanation | null;
 }
@@ -50,7 +61,7 @@ export interface SessionState {
   mode: SessionMode;
   time_limit_sec: number | null;
   remaining_sec: number | null;
-  status: "active" | "completed";
+  status: "active" | "completed" | "result_pending";
   questions: SessionQuestionItem[];
   score: number | null;
   total: number | null;
@@ -59,7 +70,7 @@ export interface SessionState {
   completed_at: string | null;
 }
 
-/** Typed error surfaced to the pages so they can branch on `.code`. */
+/** Typed error surfaced to pages so they can branch on `.code`. */
 export interface SessionError {
   code: string;
   message: string;
@@ -69,6 +80,8 @@ export interface StartSessionOptions {
   variant_id?: number | string;
   category_id?: string;
   sign_id?: string;
+  /** Practice selector: true = illustrated questions only, false = text-only. */
+  has_image?: boolean;
   question_count?: number;
   locale?: string;
 }
@@ -82,6 +95,11 @@ interface StartSessionResponse {
   started_at: string;
 }
 
+interface RawExplanationPayload {
+  legal_refs: unknown;
+  blocks: unknown;
+}
+
 interface QuestionDetailResponse {
   id: string;
   category_code: string;
@@ -89,22 +107,37 @@ interface QuestionDetailResponse {
   image_url: string | null;
   answers: { id: string; position: number; text: string; image_url: string | null }[];
   signs: { code: string; name: string; image_url: string | null }[];
-  explanation: { legal_refs: unknown; blocks: unknown } | null;
+  explanation: RawExplanationPayload | null;
+  position: number;
+  answered: boolean;
+  user_answer_id?: string | null;
+  correct?: boolean;
+  correct_answer_id?: string | null;
 }
 
 export interface SubmitAnswerResponse {
   recorded: boolean;
   correct?: boolean;
   correct_answer_id?: string;
+  explanation?: RawExplanationPayload | null;
   stopped?: boolean;
   stop_reason?: string;
 }
 
 interface FinishSessionResponse {
   status: "passed" | "failed" | "abandoned";
-  stopped_reason: "completed" | "time_up" | "too_many_errors";
+  stopped_reason: string;
   score: number;
   total: number;
+}
+
+interface SessionAnswerResponse {
+  question_id: string;
+  position: number;
+  answered: boolean;
+  user_answer_id?: string | null;
+  correct?: boolean;
+  correct_answer_id?: string | null;
 }
 
 interface SessionDetailResponse {
@@ -114,74 +147,201 @@ interface SessionDetailResponse {
   status: "in_progress" | "passed" | "failed" | "abandoned";
   stopped_reason: string;
   score?: number;
+  time_limit_sec?: number | null;
   started_at: string;
   finished_at?: string;
-  answers: { question_id: string; position: number; answered: boolean; correct?: boolean }[];
+  answers: SessionAnswerResponse[];
 }
 
-/** Normalize any thrown value into the typed SessionError we expose to pages. */
 function toSessionError(err: unknown): SessionError {
   if (err instanceof ApiError) {
     return { code: err.code, message: err.message };
   }
-  // A thrown non-ApiError means `fetch` itself rejected — no HTTP response.
   return { code: "network_error", message: "Tarmoq xatosi. Internetni tekshiring." };
 }
 
-/**
- * Narrow the genuinely-unknown backend explanation into the renderable shape the
- * QuestionCard consumes. We render ONLY structurally-present blocks and never
- * fabricate content; anything that does not match is dropped to `null`.
- */
-function narrowExplanation(raw: QuestionDetailResponse["explanation"]): QuestionExplanation | null {
-  if (!raw || typeof raw !== "object") return null;
-  const blocks = (raw as { blocks?: unknown }).blocks;
-  if (!Array.isArray(blocks)) return null;
-  const parsed: QuestionExplanationBlock[] = [];
-  for (const b of blocks) {
-    if (b && typeof b === "object" && typeof (b as { content?: unknown }).content === "string") {
-      const type = (b as { type?: unknown }).type;
-      parsed.push({
-        type: (typeof type === "string" ? type : "intro") as QuestionExplanationBlock["type"],
-        content: (b as { content: string }).content,
+function parseExplanationItems(raw: unknown): QuestionExplanationItem[] {
+  if (!Array.isArray(raw)) return [];
+
+  const items: QuestionExplanationItem[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const candidate = item as { position?: unknown; correct?: unknown; text?: unknown };
+    if (
+      typeof candidate.position === "number" &&
+      Number.isFinite(candidate.position) &&
+      typeof candidate.correct === "boolean" &&
+      typeof candidate.text === "string"
+    ) {
+      items.push({
+        position: candidate.position,
+        correct: candidate.correct,
+        text: candidate.text,
       });
     }
   }
-  return parsed.length > 0 ? { blocks: parsed } : null;
+  return items;
 }
 
-/** Build a SessionQuestionItem from the content API's QuestionDetail. */
-function toQuestionItem(d: QuestionDetailResponse): SessionQuestionItem {
+/**
+ * Normalize the real backend `{ type, text, items? }` schema while accepting
+ * the old frontend-only `content` field as a compatibility fallback.
+ */
+function narrowExplanation(raw: RawExplanationPayload | null | undefined): QuestionExplanation | null {
+  if (!raw || typeof raw !== "object" || !Array.isArray(raw.blocks)) return null;
+
+  const blocks: QuestionExplanationBlock[] = [];
+  for (const block of raw.blocks) {
+    if (!block || typeof block !== "object") continue;
+    const candidate = block as {
+      type?: unknown;
+      text?: unknown;
+      content?: unknown;
+      items?: unknown;
+    };
+    const text =
+      typeof candidate.text === "string"
+        ? candidate.text
+        : typeof candidate.content === "string"
+          ? candidate.content
+          : undefined;
+    const items = parseExplanationItems(candidate.items);
+    if (text === undefined && items.length === 0) continue;
+
+    const itemText = items.map((item) => item.text).join("\n");
+    const content = [text, itemText].filter((part): part is string => Boolean(part)).join("\n");
+    blocks.push({
+      type: typeof candidate.type === "string" ? candidate.type : "",
+      content,
+      ...(text !== undefined ? { text } : {}),
+      ...(items.length > 0 ? { items } : {}),
+    });
+  }
+
+  return blocks.length > 0 ? { legal_refs: raw.legal_refs, blocks } : null;
+}
+
+function chooseDefined<T>(primary: T | null | undefined, fallback: T | null | undefined): T | undefined {
+  return primary !== undefined && primary !== null
+    ? primary
+    : fallback !== undefined && fallback !== null
+      ? fallback
+      : undefined;
+}
+
+/** Build a question using only the authenticated session-scoped response. */
+function toQuestionItem(
+  detail: QuestionDetailResponse,
+  persisted?: SessionAnswerResponse
+): SessionQuestionItem {
   return {
-    id: d.id,
-    question: d.text,
-    image_url: d.image_url,
-    answers: d.answers.map((a) => ({ id: a.id, text: a.text, image_url: a.image_url })),
-    explanation: narrowExplanation(d.explanation),
+    id: detail.id,
+    question: detail.text,
+    image_url: detail.image_url,
+    answers: detail.answers.map((answer) => ({
+      id: answer.id,
+      position: answer.position,
+      text: answer.text,
+      image_url: answer.image_url,
+    })),
+    position: persisted?.position ?? detail.position,
+    answered: persisted?.answered ?? detail.answered,
+    user_answer_id: chooseDefined(persisted?.user_answer_id, detail.user_answer_id) ?? null,
+    correct: chooseDefined(persisted?.correct, detail.correct),
+    correct_answer_id: chooseDefined(persisted?.correct_answer_id, detail.correct_answer_id),
+    explanation: narrowExplanation(detail.explanation),
   };
 }
 
-/** Fetch each question's public content, in the given order. */
-async function fetchQuestions(ids: string[], locale: string): Promise<SessionQuestionItem[]> {
+/** Promise.all preserves the canonical input order supplied by the session. */
+async function fetchSessionQuestions(
+  sessionId: string,
+  orderedAnswers: SessionAnswerResponse[],
+  locale: string
+): Promise<SessionQuestionItem[]> {
   const details = await Promise.all(
-    ids.map((id) => apiGet<QuestionDetailResponse>(`questions/${id}?locale=${encodeURIComponent(locale)}`))
+    orderedAnswers.map((answer) =>
+      apiGet<QuestionDetailResponse>(
+        `sessions/${sessionId}/questions/${answer.question_id}?locale=${encodeURIComponent(locale)}`
+      )
+    )
   );
-  return details.map(toQuestionItem);
+  return details.map((detail, index) => toQuestionItem(detail, orderedAnswers[index]));
+}
+
+function orderedQuestionRefs(questionIds: string[]): SessionAnswerResponse[] {
+  return questionIds.map((questionId, index) => ({
+    question_id: questionId,
+    position: index + 1,
+    answered: false,
+  }));
+}
+
+function sortSessionAnswers(answers: SessionAnswerResponse[]): SessionAnswerResponse[] {
+  return answers
+    .map((answer, serverIndex) => ({ answer, serverIndex }))
+    .sort((left, right) =>
+      left.answer.position === right.answer.position
+        ? left.serverIndex - right.serverIndex
+        : left.answer.position - right.answer.position
+    )
+    .map(({ answer }) => answer);
+}
+
+/** Reconstruct the deadline from immutable server values; never restart it. */
+function remainingSeconds(startedAt: string, timeLimitSec: number | null): number | null {
+  if (timeLimitSec === null) return null;
+  const startedAtMs = Date.parse(startedAt);
+  if (!Number.isFinite(startedAtMs)) return null;
+  const remainingMs = startedAtMs + timeLimitSec * 1000 - Date.now();
+  return Math.max(0, Math.ceil(remainingMs / 1000));
+}
+
+async function fetchSessionState(sessionId: string, locale: string): Promise<SessionState> {
+  const detail = await apiGet<SessionDetailResponse>(`sessions/${sessionId}`);
+  const orderedAnswers = sortSessionAnswers(detail.answers);
+  const questions = await fetchSessionQuestions(sessionId, orderedAnswers, locale);
+  const timeLimitSec = detail.time_limit_sec ?? null;
+  const completed = detail.status !== "in_progress";
+
+  return {
+    id: detail.id,
+    mode: detail.mode,
+    time_limit_sec: timeLimitSec,
+    remaining_sec: remainingSeconds(detail.started_at, timeLimitSec),
+    status: completed ? "completed" : "active",
+    questions,
+    score: detail.score ?? null,
+    total: detail.total,
+    stopped_reason: detail.stopped_reason || null,
+    passed: completed ? detail.status === "passed" : null,
+    completed_at: detail.finished_at ?? null,
+  };
 }
 
 export function useSessionEngine(_initialSessionId?: string) {
   const [session, setSession] = useState<SessionState | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
-  const [submitting, setSubmitting] = useState<boolean>(false);
+  const sessionRef = useRef<SessionState | null>(null);
+  const localeRef = useRef<string>(defaultLocale);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<SessionError | null>(null);
+
+  const commitSession = useCallback((next: SessionState | null) => {
+    sessionRef.current = next;
+    setSession(next);
+  }, []);
 
   const startSession = useCallback(
     async (mode: SessionMode, options?: StartSessionOptions): Promise<SessionState | null> => {
       setLoading(true);
       setError(null);
+      commitSession(null);
       const locale = options?.locale ?? defaultLocale;
+      localeRef.current = locale;
+
       try {
-        const payload: Record<string, unknown> = { mode };
+        const payload: Record<string, unknown> = { mode, locale };
         if (options?.variant_id !== undefined && options.variant_id !== null) {
           payload.variant_id = String(options.variant_id);
         }
@@ -191,21 +351,24 @@ export function useSessionEngine(_initialSessionId?: string) {
         if (options?.sign_id !== undefined && options.sign_id !== null) {
           payload.sign_id = String(options.sign_id);
         }
+        if (options?.has_image !== undefined) {
+          payload.has_image = options.has_image;
+        }
         if (options?.question_count !== undefined && options.question_count !== null) {
           payload.count = options.question_count;
         }
-        if (options?.locale) {
-          payload.locale = options.locale;
-        }
 
         const created = await apiPost<StartSessionResponse>("sessions", payload);
-        const questions = await fetchQuestions(created.question_ids, locale);
-
+        const questions = await fetchSessionQuestions(
+          created.id,
+          orderedQuestionRefs(created.question_ids),
+          locale
+        );
         const state: SessionState = {
           id: created.id,
           mode: created.mode,
           time_limit_sec: created.time_limit_sec,
-          remaining_sec: created.time_limit_sec,
+          remaining_sec: remainingSeconds(created.started_at, created.time_limit_sec),
           status: "active",
           questions,
           score: null,
@@ -214,56 +377,29 @@ export function useSessionEngine(_initialSessionId?: string) {
           passed: null,
           completed_at: null,
         };
-        setSession(state);
+        commitSession(state);
         return state;
       } catch (err: unknown) {
-        // Never fabricate a session. Surface the typed error; leave session null.
         setError(toSessionError(err));
         return null;
       } finally {
         setLoading(false);
       }
     },
-    []
+    [commitSession]
   );
 
   const loadSession = useCallback(
     async (sessionId: string, locale?: string): Promise<SessionState | null> => {
       setLoading(true);
       setError(null);
-      const loc = locale ?? defaultLocale;
-      try {
-        const detail = await apiGet<SessionDetailResponse>(`sessions/${sessionId}`);
-        const ordered = [...detail.answers].sort((a, b) => a.position - b.position);
-        const questions = await fetchQuestions(
-          ordered.map((a) => a.question_id),
-          loc
-        );
-        // Mark answered/correct from the resume payload. The chosen answer id is
-        // NOT part of the resume contract, so user_answer_id stays unset.
-        const merged = questions.map((q, i) => ({
-          ...q,
-          answered: ordered[i].answered,
-          correct: ordered[i].correct,
-        }));
+      commitSession(null);
+      const resolvedLocale = locale ?? defaultLocale;
+      localeRef.current = resolvedLocale;
 
-        const completed = detail.status !== "in_progress";
-        const state: SessionState = {
-          id: detail.id,
-          mode: detail.mode,
-          // The resume contract does not include the time limit, so remaining
-          // time cannot be reconstructed reliably — leave it null.
-          time_limit_sec: null,
-          remaining_sec: null,
-          status: completed ? "completed" : "active",
-          questions: merged,
-          score: detail.score ?? null,
-          total: detail.total,
-          stopped_reason: detail.stopped_reason || null,
-          passed: completed ? detail.status === "passed" : null,
-          completed_at: detail.finished_at ?? null,
-        };
-        setSession(state);
+      try {
+        const state = await fetchSessionState(sessionId, resolvedLocale);
+        commitSession(state);
         return state;
       } catch (err: unknown) {
         setError(toSessionError(err));
@@ -272,7 +408,7 @@ export function useSessionEngine(_initialSessionId?: string) {
         setLoading(false);
       }
     },
-    []
+    [commitSession]
   );
 
   const submitAnswer = useCallback(
@@ -283,72 +419,111 @@ export function useSessionEngine(_initialSessionId?: string) {
     ): Promise<SubmitAnswerResponse | null> => {
       setSubmitting(true);
       setError(null);
+
       try {
-        const resp = await apiPost<SubmitAnswerResponse>(`sessions/${sessionId}/answers`, {
+        const response = await apiPost<SubmitAnswerResponse>(`sessions/${sessionId}/answers`, {
           question_id: questionId,
           answer_id: answerId,
         });
-        // Update ONLY this question, copying correctness verbatim from the
-        // backend (undefined stays undefined — never computed client-side).
-        setSession((prev) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            questions: prev.questions.map((q) =>
-              q.id === questionId
-                ? {
-                    ...q,
-                    user_answer_id: answerId,
-                    answered: true,
-                    correct: resp.correct,
-                    correct_answer_id: resp.correct_answer_id,
-                  }
-                : q
-            ),
-          };
-        });
-        return resp;
+
+        if (response.recorded) {
+          const current = sessionRef.current;
+          if (current) {
+            commitSession({
+              ...current,
+              questions: current.questions.map((question) => {
+                if (question.id !== questionId) return question;
+                return {
+                  ...question,
+                  user_answer_id: answerId,
+                  answered: true,
+                  ...(response.correct !== undefined ? { correct: response.correct } : {}),
+                  ...(response.correct_answer_id !== undefined
+                    ? { correct_answer_id: response.correct_answer_id }
+                    : {}),
+                  ...(response.explanation !== undefined
+                    ? { explanation: narrowExplanation(response.explanation) }
+                    : {}),
+                };
+              }),
+            });
+          }
+        }
+
+        // A stopped exam is already finalized server-side. Reload its detail
+        // and every scoped question so withheld feedback becomes available.
+        if (response.stopped) {
+          try {
+            commitSession(await fetchSessionState(sessionId, localeRef.current));
+          } catch (reloadError: unknown) {
+            const current = sessionRef.current;
+            if (current) {
+              commitSession({
+                ...current,
+                // The backend has completed the exam, but its authoritative
+                // score/pass result could not be reloaded. Keep a distinct
+                // recoverable state instead of fabricating 0/failed.
+                status: "result_pending",
+                stopped_reason: response.stop_reason ?? current.stopped_reason,
+              });
+            }
+            setError(toSessionError(reloadError));
+          }
+        }
+
+        // Return the backend response itself, including explanation/stopped
+        // fields; consumers never receive a client-generated grading result.
+        return response;
       } catch (err: unknown) {
-        // Do NOT touch local answer state — no client-computed correctness.
         setError(toSessionError(err));
         return null;
       } finally {
         setSubmitting(false);
       }
     },
-    []
+    [commitSession]
   );
 
   const finishSession = useCallback(
     async (sessionId: string): Promise<SessionState | null> => {
       setLoading(true);
       setError(null);
+
       try {
-        const resp = await apiPost<FinishSessionResponse>(`sessions/${sessionId}/finish`);
-        let next: SessionState | null = null;
-        setSession((prev) => {
-          if (!prev) return prev;
-          next = {
-            ...prev,
+        const response = await apiPost<FinishSessionResponse>(`sessions/${sessionId}/finish`);
+
+        // Finishing changes exam disclosure rules, so the finish DTO alone is
+        // insufficient: reload session answers and each scoped question.
+        try {
+          const reloaded = await fetchSessionState(sessionId, localeRef.current);
+          commitSession(reloaded);
+          return reloaded;
+        } catch (reloadError: unknown) {
+          const current = sessionRef.current;
+          if (!current) {
+            setError(toSessionError(reloadError));
+            return null;
+          }
+          const completed: SessionState = {
+            ...current,
             status: "completed",
-            score: resp.score,
-            total: resp.total,
-            stopped_reason: resp.stopped_reason,
-            passed: resp.status === "passed",
-            completed_at: prev.completed_at ?? new Date().toISOString(),
+            score: response.score,
+            total: response.total,
+            stopped_reason: response.stopped_reason || null,
+            passed: response.status === "passed",
           };
-          return next;
-        });
-        return next;
+          commitSession(completed);
+          setError(toSessionError(reloadError));
+          return completed;
+        }
       } catch (err: unknown) {
-        // Do NOT fake completion.
         setError(toSessionError(err));
         return null;
       } finally {
         setLoading(false);
       }
     },
-    []
+    [commitSession]
   );
 
   return {

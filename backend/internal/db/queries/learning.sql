@@ -28,6 +28,15 @@ LIMIT sqlc.arg(limit_count);
 SELECT count(*)::int FROM question_memory
 WHERE profile_id = $1 AND due_at <= now();
 
+-- name: GetMistakeBankSummary :one
+SELECT
+  count(*) FILTER (WHERE qm.due_at <= now())::int AS due_count,
+  count(*)::int AS total_bank_count,
+  (min(qm.due_at) FILTER (WHERE qm.due_at > now()))::timestamptz AS next_due_at
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.lapses > 0;
+
 -- name: GetQuestionCategoryID :one
 SELECT category_id FROM question WHERE id = $1;
 

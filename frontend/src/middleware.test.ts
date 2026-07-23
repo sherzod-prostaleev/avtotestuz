@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -15,8 +17,21 @@ function makeRequest(pathname: string, cookieHeader?: string): NextRequest {
 }
 
 describe("middleware auth guard", () => {
-  it("redirects to login when a protected page is requested without a session cookie", () => {
-    const response = middleware(makeRequest("/uz-Latn/dashboard"));
+  it.each([
+    "/uz-Latn/dashboard",
+    "/uz-Latn/exam-mockup",
+    "/uz-Latn/tickets",
+    "/uz-Latn/practice",
+    "/uz-Latn/mistakes",
+    "/uz-Latn/signs",
+    "/uz-Latn/stats",
+    "/uz-Latn/profile",
+    "/uz-Latn/premium",
+    "/uz-Latn/saved",
+    "/uz-Latn/session/start",
+    "/uz-Latn/session/session-id",
+  ])("redirects unauthenticated requests for %s to login", (pathname) => {
+    const response = middleware(makeRequest(pathname));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/login");
   });
@@ -42,5 +57,35 @@ describe("middleware auth guard", () => {
   it("delegates to next-intl untouched when the URL has no locale prefix yet", () => {
     const response = middleware(makeRequest("/dashboard"));
     expect(response.headers.get("location")).toBeNull(); // the mocked intl middleware returns NextResponse.next()
+  });
+
+  // PROTECTED_SEGMENTS is a hand-maintained list, so adding a route without
+  // touching it silently ships an authenticated page anyone can open.
+  // Enumerate the route groups instead of trusting memory — this also keeps
+  // working when a route moves between groups, as /session did when the test
+  // screen went full-screen.
+  it("guards every route outside the public and auth groups", () => {
+    const localeDir = path.join(__dirname, "app", "[locale]");
+    const publicGroups = new Set(["(public)", "(auth)"]);
+    const groups = fs
+      .readdirSync(localeDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory() && entry.name.startsWith("("))
+      .filter((entry) => !publicGroups.has(entry.name));
+
+    const routes = groups.flatMap((group) =>
+      fs
+        .readdirSync(path.join(localeDir, group.name), { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+    );
+
+    expect(routes).toContain("session");
+    expect(routes.length).toBeGreaterThan(1);
+    for (const route of routes) {
+      const response = middleware(makeRequest(`/uz-Latn/${route}`));
+      expect(response.headers.get("location"), `/${route} is not auth-guarded`).toBe(
+        "http://localhost:3000/uz-Latn/login"
+      );
+    }
   });
 });

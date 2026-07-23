@@ -67,7 +67,9 @@ func (h *Handler) listCategories(w http.ResponseWriter, r *http.Request) {
 	fallback := false
 	for _, c := range rows {
 		fallback = fallback || c.FallbackUsed
-		out = append(out, CategoryDTO{Code: c.Code, Name: c.Name, SortOrder: c.SortOrder})
+		out = append(out, CategoryDTO{
+			Code: c.Code, Name: c.Name, SortOrder: c.SortOrder, QuestionCount: c.QuestionCount,
+		})
 	}
 	cacheable(w)
 	httpx.DataMeta(w, http.StatusOK, out, LocaleMeta{Locale: loc, Fallback: fallback})
@@ -214,6 +216,10 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
 		return
 	}
+	// A verified explanation can state the correct option in prose. Public
+	// question content must therefore stay grading-neutral; session-scoped
+	// feedback surfaces reveal explanations only after the server permits it.
+	detail.Explanation = nil
 	cacheable(w)
 	httpx.DataMeta(w, http.StatusOK, detail, LocaleMeta{Locale: loc, Fallback: fallback})
 }

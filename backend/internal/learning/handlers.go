@@ -24,6 +24,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/learn/next", h.nextDue)
 	r.Post("/learn/review", h.review)
 	r.Get("/me/stats", h.stats)
+	r.Get("/me/mistakes", h.mistakes)
 }
 
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -137,6 +138,25 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 		ReadinessPct: st.ReadinessPct,
 		DueCount:     st.DueCount,
 	})
+}
+
+type mistakeBankResponse struct {
+	DueCount       int        `json:"due_count"`
+	TotalBankCount int        `json:"total_bank_count"`
+	NextDueAt      *time.Time `json:"next_due_at"`
+}
+
+func (h *Handler) mistakes(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	summary, err := h.Svc.MistakeBankSummary(r.Context(), claims.ProfileID)
+	if err != nil {
+		writeLearningError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, mistakeBankResponse(summary))
 }
 
 func writeLearningError(w http.ResponseWriter, err error) {

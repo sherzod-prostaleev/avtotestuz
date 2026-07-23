@@ -19,6 +19,16 @@ npm run build
 The Go backend must be running for real login/OTP to work: from the repo
 root, `make up && make seed && cd backend && PORT=8090 go run ./cmd/api`.
 
+Local `next dev` may leave `CLIENT_IP_ASSERTION_SECRET` and
+`TRUSTED_PROXY_HOPS` empty; OTP then uses the backend connection IP as one safe
+development rate-limit bucket. A production Next.js process requires both:
+the same random 32+ byte `CLIENT_IP_ASSERTION_SECRET` as the Go API and the
+number of trusted reverse proxies in `TRUSTED_PROXY_HOPS`. The Next.js service
+must only be reachable through that chain, and every trusted proxy must strip
+or append `X-Forwarded-For` consistently; the selected address is counted from
+the right. Missing/invalid production configuration returns `network_error`
+without forwarding an OTP request.
+
 ## Phase A mockup routes (still present, still mock-data-driven)
 
 - `/[locale]/` — Landing, `/[locale]/dashboard`, `/[locale]/exam-mockup`

@@ -1,17 +1,17 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { renderHook, act } from "@testing-library/react";
-import { useSessionEngine } from "./use-session-engine";
-import * as apiClient from "@/lib/api-client";
+import { act, renderHook } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
+import * as apiClient from "@/lib/api-client";
+import { useSessionEngine } from "./use-session-engine";
 
 const LOCALE = "uz-Latn";
+const STARTED_AT = "2026-07-22T10:00:00Z";
 
-/** A minimal QuestionDetail as the real content API returns it (no correctness fields). */
-function questionDetail(id: string, text: string) {
+function questionDetail(id: string, overrides: Record<string, unknown> = {}) {
   return {
     id,
     category_code: "yhq",
-    text,
+    text: `Savol ${id}`,
     image_url: null,
     answers: [
       { id: `${id}-a1`, position: 1, text: "Birinchi javob", image_url: null },
@@ -19,98 +19,126 @@ function questionDetail(id: string, text: string) {
     ],
     signs: [],
     explanation: null,
+    position: 1,
+    answered: false,
+    ...overrides,
   };
 }
 
-/** Configure apiGet to resolve question content by path. */
-function mockQuestionContent() {
-  vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-    const m = path.match(/^questions\/([^?]+)/);
-    if (m) return questionDetail(m[1], `Savol ${m[1]}`) as never;
-    throw new Error(`unexpected apiGet path: ${path}`);
-  });
-}
-
-/** Start a single-question session so submit/finish tests have real state. */
-async function startOneQuestionSession(result: { current: ReturnType<typeof useSessionEngine> }) {
-  vi.spyOn(apiClient, "apiPost").mockResolvedValueOnce({
+function startResponse(overrides: Record<string, unknown> = {}) {
+  return {
     id: "sess-99",
     mode: "variant",
     question_ids: ["q-1"],
     time_limit_sec: null,
     total: 1,
-    started_at: "2026-07-22T10:00:00Z",
-  } as never);
-  mockQuestionContent();
+    started_at: STARTED_AT,
+    ...overrides,
+  };
+}
+
+function scopedQuestionPath(sessionId: string, questionId: string, locale = LOCALE) {
+  return `sessions/${sessionId}/questions/${questionId}?locale=${locale}`;
+}
+
+function mockOnlyScopedQuestions(
+  sessionId = "sess-99",
+  details: Record<string, ReturnType<typeof questionDetail>> = {}
+) {
+  return vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+    const match = path.match(/^sessions\/([^/]+)\/questions\/([^?]+)\?locale=(.+)$/);
+    if (match && match[1] === sessionId) {
+      const id = match[2];
+      return (details[id] ?? questionDetail(id)) as never;
+    }
+    throw new Error(`unexpected apiGet path: ${path}`);
+  });
+}
+
+async function startOneQuestionSession(
+  result: { current: ReturnType<typeof useSessionEngine> },
+  mode: "variant" | "exam" = "variant"
+) {
   await act(async () => {
-    await result.current.startSession("variant", { locale: LOCALE });
+    await result.current.startSession(mode, { locale: LOCALE });
   });
 }
 
 describe("useSessionEngine", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-07-22T10:05:00Z"));
   });
 
-  it("starts a session by creating it then fetching each question's content", async () => {
-    vi.spyOn(apiClient, "apiPost").mockResolvedValue({
-      id: "sess-99",
-      mode: "exam",
-      question_ids: ["q-1"],
-      time_limit_sec: 1500,
-      total: 1,
-      started_at: "2026-07-22T10:00:00Z",
-    } as never);
-    mockQuestionContent();
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
+  it("starts with authenticated session-scoped questions in the server's question_ids order", async () => {
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue(
+      startResponse({
+        mode: "exam",
+        question_ids: ["q-2", "q-1"],
+        time_limit_sec: 1500,
+        total: 2,
+      }) as never
+    );
+    const get = mockOnlyScopedQuestions("sess-99", {
+      "q-1": questionDetail("q-1", { position: 1 }),
+      "q-2": questionDetail("q-2", { position: 2 }),
+    });
     const { result } = renderHook(() => useSessionEngine());
 
-    let started: Awaited<ReturnType<typeof result.current.startSession>>;
     await act(async () => {
-      started = await result.current.startSession("exam", { locale: LOCALE });
+      await result.current.startSession("exam", { locale: LOCALE });
     });
 
-    expect(started?.id).toBe("sess-99");
-    expect(result.current.session?.mode).toBe("exam");
+    expect(result.current.session?.id).toBe("sess-99");
+    expect(result.current.session?.questions.map((question) => question.id)).toEqual(["q-2", "q-1"]);
     expect(result.current.session?.time_limit_sec).toBe(1500);
-    expect(result.current.session?.remaining_sec).toBe(1500);
-    expect(result.current.session?.questions).toHaveLength(1);
-    expect(result.current.session?.questions[0].question).toBe("Savol q-1");
-    expect(result.current.session?.questions[0].answers).toHaveLength(2);
-    // no correctness leaked from content
+    expect(result.current.session?.remaining_sec).toBe(1200);
     expect(result.current.session?.questions[0].correct).toBeUndefined();
     expect(result.current.session?.questions[0].correct_answer_id).toBeUndefined();
-    expect(apiClient.apiPost).toHaveBeenCalledWith("sessions", { mode: "exam", locale: LOCALE });
-    expect(apiClient.apiGet).toHaveBeenCalledWith("questions/q-1?locale=uz-Latn");
+    expect(post).toHaveBeenCalledWith("sessions", { mode: "exam", locale: LOCALE });
+    expect(get.mock.calls.map(([path]) => path)).toEqual([
+      scopedQuestionPath("sess-99", "q-2"),
+      scopedQuestionPath("sess-99", "q-1"),
+    ]);
+    expect(get.mock.calls.some(([path]) => String(path).startsWith("questions/"))).toBe(false);
   });
 
-  it("submitAnswer stores backend correct/correct_answer_id verbatim (variant feedback)", async () => {
+  it("serializes human-readable selectors and count without changing the backend contract", async () => {
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue(startResponse() as never);
+    mockOnlyScopedQuestions();
     const { result } = renderHook(() => useSessionEngine());
-    await startOneQuestionSession(result);
-
-    vi.spyOn(apiClient, "apiPost").mockResolvedValueOnce({
-      recorded: true,
-      correct: true,
-      correct_answer_id: "q-1-a1",
-    } as never);
 
     await act(async () => {
-      await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
+      await result.current.startSession("practice", {
+        variant_id: 12,
+        category_id: "priority_intersections",
+        sign_id: "3.27",
+        question_count: 20,
+        locale: "ru",
+      });
     });
 
-    expect(result.current.session?.questions[0].user_answer_id).toBe("q-1-a1");
-    expect(result.current.session?.questions[0].correct).toBe(true);
-    expect(result.current.session?.questions[0].correct_answer_id).toBe("q-1-a1");
-    expect(apiClient.apiPost).toHaveBeenCalledWith("sessions/sess-99/answers", {
-      question_id: "q-1",
-      answer_id: "q-1-a1",
+    expect(post).toHaveBeenCalledWith("sessions", {
+      mode: "practice",
+      locale: "ru",
+      variant_id: "12",
+      category_id: "priority_intersections",
+      sign_id: "3.27",
+      count: 20,
     });
+    expect(apiClient.apiGet).toHaveBeenCalledWith(scopedQuestionPath("sess-99", "q-1", "ru"));
   });
 
-  it("startSession on 402 vip_required leaves session null and surfaces the code", async () => {
-    vi.spyOn(apiClient, "apiPost").mockRejectedValue(
-      new ApiError("active entitlement required", "vip_required", 402)
-    );
+  it.each([
+    [402, "vip_required", "active entitlement required"],
+    [429, "daily_limit_reached", "daily practice limit reached"],
+  ])("surfaces backend start errors (%s/%s) without fabricating a session", async (status, code, message) => {
+    vi.spyOn(apiClient, "apiPost").mockRejectedValue(new ApiError(message, code, status));
     const { result } = renderHook(() => useSessionEngine());
 
     await act(async () => {
@@ -118,24 +146,10 @@ describe("useSessionEngine", () => {
     });
 
     expect(result.current.session).toBeNull();
-    expect(result.current.error?.code).toBe("vip_required");
+    expect(result.current.error).toEqual({ code, message });
   });
 
-  it("startSession on 429 daily_limit_reached leaves session null and surfaces the code", async () => {
-    vi.spyOn(apiClient, "apiPost").mockRejectedValue(
-      new ApiError("daily practice limit reached", "daily_limit_reached", 429)
-    );
-    const { result } = renderHook(() => useSessionEngine());
-
-    await act(async () => {
-      await result.current.startSession("practice", { locale: LOCALE });
-    });
-
-    expect(result.current.session).toBeNull();
-    expect(result.current.error?.code).toBe("daily_limit_reached");
-  });
-
-  it("startSession on a thrown network error surfaces network_error", async () => {
+  it("surfaces a rejected fetch as network_error", async () => {
     vi.spyOn(apiClient, "apiPost").mockRejectedValue(new TypeError("Failed to fetch"));
     const { result } = renderHook(() => useSessionEngine());
 
@@ -147,15 +161,170 @@ describe("useSessionEngine", () => {
     expect(result.current.error?.code).toBe("network_error");
   });
 
-  it("submitAnswer in exam-mode-in-progress keeps correct undefined (anti-cheat)", async () => {
+  it("resumes in position order, merges persisted answer fields, and keeps the original exam deadline", async () => {
+    vi.setSystemTime(new Date("2026-07-22T10:10:00Z"));
+    const realExplanation = {
+      legal_refs: [{ document: "YHQ", clause: "3.27" }],
+      blocks: [
+        { type: "muhim", text: "REAL_TEXT_SENTINEL" },
+        {
+          type: "answer_analysis",
+          items: [{ position: 1, correct: false, text: "REAL_ITEM_SENTINEL" }],
+        },
+        { type: "tip", content: "LEGACY_CONTENT_FALLBACK" },
+      ],
+    };
+    const get = vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "sessions/sess-7") {
+        return {
+          id: "sess-7",
+          mode: "exam",
+          total: 2,
+          status: "in_progress",
+          stopped_reason: "",
+          time_limit_sec: 1500,
+          started_at: STARTED_AT,
+          answers: [
+            { question_id: "q-b", position: 2, answered: false },
+            {
+              question_id: "q-a",
+              position: 1,
+              answered: true,
+              user_answer_id: "q-a-a1",
+              correct: false,
+              correct_answer_id: "q-a-a2",
+            },
+          ],
+        } as never;
+      }
+      if (path === scopedQuestionPath("sess-7", "q-a")) {
+        return questionDetail("q-a", { position: 1, explanation: realExplanation }) as never;
+      }
+      if (path === scopedQuestionPath("sess-7", "q-b")) {
+        return questionDetail("q-b", { position: 2 }) as never;
+      }
+      throw new Error(`unexpected apiGet path: ${path}`);
+    });
+    const { result } = renderHook(() => useSessionEngine());
+
+    await act(async () => {
+      await result.current.loadSession("sess-7", LOCALE);
+    });
+
+    const questions = result.current.session?.questions ?? [];
+    expect(questions.map((question) => question.id)).toEqual(["q-a", "q-b"]);
+    expect(questions[0]).toMatchObject({
+      answered: true,
+      user_answer_id: "q-a-a1",
+      correct: false,
+      correct_answer_id: "q-a-a2",
+    });
+    expect(questions[0].explanation?.legal_refs).toEqual(realExplanation.legal_refs);
+    expect(questions[0].explanation?.blocks).toEqual([
+      { type: "muhim", text: "REAL_TEXT_SENTINEL", content: "REAL_TEXT_SENTINEL" },
+      {
+        type: "answer_analysis",
+        content: "REAL_ITEM_SENTINEL",
+        items: [{ position: 1, correct: false, text: "REAL_ITEM_SENTINEL" }],
+      },
+      { type: "tip", text: "LEGACY_CONTENT_FALLBACK", content: "LEGACY_CONTENT_FALLBACK" },
+    ]);
+    expect(result.current.session?.remaining_sec).toBe(900);
+    expect(result.current.session?.remaining_sec).not.toBe(1500);
+    expect(get.mock.calls.map(([path]) => path)).toEqual([
+      "sessions/sess-7",
+      scopedQuestionPath("sess-7", "q-a"),
+      scopedQuestionPath("sess-7", "q-b"),
+    ]);
+  });
+
+  it("clamps an expired resumed exam to zero instead of restarting its timer", async () => {
+    vi.setSystemTime(new Date("2026-07-22T11:00:00Z"));
+    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "sessions/sess-expired") {
+        return {
+          id: "sess-expired",
+          mode: "exam",
+          total: 1,
+          status: "in_progress",
+          stopped_reason: "",
+          time_limit_sec: 1500,
+          started_at: STARTED_AT,
+          answers: [{ question_id: "q-1", position: 1, answered: false }],
+        } as never;
+      }
+      if (path === scopedQuestionPath("sess-expired", "q-1")) {
+        return questionDetail("q-1") as never;
+      }
+      throw new Error(`unexpected apiGet path: ${path}`);
+    });
+    const { result } = renderHook(() => useSessionEngine());
+
+    await act(async () => {
+      await result.current.loadSession("sess-expired", LOCALE);
+    });
+
+    expect(result.current.session?.time_limit_sec).toBe(1500);
+    expect(result.current.session?.remaining_sec).toBe(0);
+  });
+
+  it("returns the exact submit DTO and copies backend grading plus real explanation into state", async () => {
+    const backendResponse = {
+      recorded: true,
+      correct: false,
+      correct_answer_id: "q-1-a2",
+      explanation: {
+        legal_refs: ["YHQ 3.27"],
+        blocks: [
+          { type: "muhim", text: "SUBMIT_REAL_TEXT_SENTINEL" },
+          {
+            type: "answer_analysis",
+            items: [{ position: 1, correct: false, text: "SUBMIT_REAL_ITEM_SENTINEL" }],
+          },
+        ],
+      },
+    };
+    const post = vi
+      .spyOn(apiClient, "apiPost")
+      .mockResolvedValueOnce(startResponse() as never)
+      .mockResolvedValueOnce(backendResponse as never);
+    mockOnlyScopedQuestions();
     const { result } = renderHook(() => useSessionEngine());
     await startOneQuestionSession(result);
 
-    // Exam-in-progress: backend omits correct / correct_answer_id entirely.
-    vi.spyOn(apiClient, "apiPost").mockResolvedValueOnce({
-      recorded: true,
-      stopped: false,
-    } as never);
+    let returned: Awaited<ReturnType<typeof result.current.submitAnswer>> = null;
+    await act(async () => {
+      returned = await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
+    });
+
+    expect(returned).toBe(backendResponse);
+    expect(result.current.session?.questions[0]).toMatchObject({
+      user_answer_id: "q-1-a1",
+      answered: true,
+      correct: false,
+      correct_answer_id: "q-1-a2",
+    });
+    expect(result.current.session?.questions[0].explanation?.blocks[0]).toEqual({
+      type: "muhim",
+      text: "SUBMIT_REAL_TEXT_SENTINEL",
+      content: "SUBMIT_REAL_TEXT_SENTINEL",
+    });
+    expect(result.current.session?.questions[0].explanation?.blocks[1].items?.[0].text).toBe(
+      "SUBMIT_REAL_ITEM_SENTINEL"
+    );
+    expect(post).toHaveBeenLastCalledWith("sessions/sess-99/answers", {
+      question_id: "q-1",
+      answer_id: "q-1-a1",
+    });
+  });
+
+  it("records the chosen answer but never grades an in-progress exam on the client", async () => {
+    vi.spyOn(apiClient, "apiPost")
+      .mockResolvedValueOnce(startResponse({ mode: "exam", time_limit_sec: 1500 }) as never)
+      .mockResolvedValueOnce({ recorded: true, stopped: false } as never);
+    const get = mockOnlyScopedQuestions();
+    const { result } = renderHook(() => useSessionEngine());
+    await startOneQuestionSession(result, "exam");
 
     await act(async () => {
       await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
@@ -164,74 +333,200 @@ describe("useSessionEngine", () => {
     expect(result.current.session?.questions[0].user_answer_id).toBe("q-1-a1");
     expect(result.current.session?.questions[0].correct).toBeUndefined();
     expect(result.current.session?.questions[0].correct_answer_id).toBeUndefined();
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
-  it("submitAnswer surfaces stopped/stop_reason so the page can react", async () => {
+  it("does not mutate local answer state when submit fails", async () => {
+    vi.spyOn(apiClient, "apiPost")
+      .mockResolvedValueOnce(startResponse() as never)
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    mockOnlyScopedQuestions();
     const { result } = renderHook(() => useSessionEngine());
     await startOneQuestionSession(result);
 
-    vi.spyOn(apiClient, "apiPost").mockResolvedValueOnce({
-      recorded: true,
-      stopped: true,
-      stop_reason: "too_many_errors",
-    } as never);
-
-    let resp: Awaited<ReturnType<typeof result.current.submitAnswer>>;
     await act(async () => {
-      resp = await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
+      await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
     });
 
-    expect(resp?.stopped).toBe(true);
-    expect(resp?.stop_reason).toBe("too_many_errors");
-  });
-
-  it("submitAnswer on a network error does NOT mutate local answer state", async () => {
-    const { result } = renderHook(() => useSessionEngine());
-    await startOneQuestionSession(result);
-
-    vi.spyOn(apiClient, "apiPost").mockRejectedValueOnce(new TypeError("Failed to fetch"));
-
-    let resp: Awaited<ReturnType<typeof result.current.submitAnswer>>;
-    await act(async () => {
-      resp = await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
-    });
-
-    expect(resp).toBeNull();
-    // No client-computed correctness, no answer recorded locally.
-    expect(result.current.session?.questions[0].user_answer_id ?? null).toBeNull();
+    expect(result.current.session?.questions[0].user_answer_id).toBeNull();
     expect(result.current.session?.questions[0].correct).toBeUndefined();
-    expect(result.current.session?.questions[0].correct_answer_id).toBeUndefined();
     expect(result.current.error?.code).toBe("network_error");
   });
 
-  it("finishSession stores the real backend result", async () => {
+  it("reloads a server-stopped exam so completed feedback is immediately available", async () => {
+    const stoppedResponse = {
+      recorded: true,
+      stopped: true,
+      stop_reason: "too_many_errors",
+    };
+    let stopped = false;
+    vi.spyOn(apiClient, "apiPost").mockImplementation(async (path: string) => {
+      if (path === "sessions") {
+        return startResponse({ mode: "exam", time_limit_sec: 1500 }) as never;
+      }
+      if (path === "sessions/sess-99/answers") {
+        stopped = true;
+        return stoppedResponse as never;
+      }
+      throw new Error(`unexpected apiPost path: ${path}`);
+    });
+    const get = vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "sessions/sess-99") {
+        return {
+          id: "sess-99",
+          mode: "exam",
+          total: 1,
+          status: "failed",
+          stopped_reason: "too_many_errors",
+          score: 0,
+          time_limit_sec: 1500,
+          started_at: STARTED_AT,
+          finished_at: "2026-07-22T10:05:00Z",
+          answers: [
+            {
+              question_id: "q-1",
+              position: 1,
+              answered: true,
+              user_answer_id: "q-1-a1",
+              correct: false,
+              correct_answer_id: "q-1-a2",
+            },
+          ],
+        } as never;
+      }
+      if (path === scopedQuestionPath("sess-99", "q-1")) {
+        return questionDetail("q-1", {
+          answered: stopped,
+          user_answer_id: stopped ? "q-1-a1" : undefined,
+          correct: stopped ? false : undefined,
+          correct_answer_id: stopped ? "q-1-a2" : undefined,
+          explanation: stopped
+            ? {
+                legal_refs: [],
+                blocks: [{ type: "muhim", text: "STOPPED_FEEDBACK_SENTINEL" }],
+              }
+            : null,
+        }) as never;
+      }
+      throw new Error(`unexpected apiGet path: ${path}`);
+    });
     const { result } = renderHook(() => useSessionEngine());
-    await startOneQuestionSession(result);
+    await startOneQuestionSession(result, "exam");
 
-    vi.spyOn(apiClient, "apiPost").mockResolvedValueOnce({
-      status: "passed",
-      stopped_reason: "completed",
-      score: 18,
-      total: 20,
-    } as never);
+    let returned: Awaited<ReturnType<typeof result.current.submitAnswer>> = null;
+    await act(async () => {
+      returned = await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
+    });
+
+    expect(returned).toBe(stoppedResponse);
+    expect(result.current.session?.status).toBe("completed");
+    expect(result.current.session?.stopped_reason).toBe("too_many_errors");
+    expect(result.current.session?.questions[0].correct).toBe(false);
+    expect(result.current.session?.questions[0].correct_answer_id).toBe("q-1-a2");
+    expect(result.current.session?.questions[0].explanation?.blocks[0].content).toBe(
+      "STOPPED_FEEDBACK_SENTINEL"
+    );
+    expect(get.mock.calls.map(([path]) => path)).toEqual([
+      scopedQuestionPath("sess-99", "q-1"),
+      "sessions/sess-99",
+      scopedQuestionPath("sess-99", "q-1"),
+    ]);
+  });
+
+  it("finishSession reloads detail and scoped questions to disclose completed exam feedback", async () => {
+    let finished = false;
+    vi.spyOn(apiClient, "apiPost").mockImplementation(async (path: string) => {
+      if (path === "sessions") {
+        return startResponse({ mode: "exam", time_limit_sec: 1500 }) as never;
+      }
+      if (path === "sessions/sess-99/finish") {
+        finished = true;
+        return {
+          status: "passed",
+          stopped_reason: "completed",
+          score: 1,
+          total: 1,
+        } as never;
+      }
+      throw new Error(`unexpected apiPost path: ${path}`);
+    });
+    const get = vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "sessions/sess-99") {
+        return {
+          id: "sess-99",
+          mode: "exam",
+          total: 1,
+          status: "passed",
+          stopped_reason: "completed",
+          score: 1,
+          time_limit_sec: 1500,
+          started_at: STARTED_AT,
+          finished_at: "2026-07-22T10:05:00Z",
+          answers: [
+            {
+              question_id: "q-1",
+              position: 1,
+              answered: true,
+              user_answer_id: "q-1-a1",
+              correct: true,
+              correct_answer_id: "q-1-a1",
+            },
+          ],
+        } as never;
+      }
+      if (path === scopedQuestionPath("sess-99", "q-1")) {
+        return questionDetail("q-1", {
+          answered: finished,
+          user_answer_id: finished ? "q-1-a1" : undefined,
+          correct: finished ? true : undefined,
+          correct_answer_id: finished ? "q-1-a1" : undefined,
+          explanation: finished
+            ? {
+                legal_refs: [],
+                blocks: [{ type: "muhim", text: "FINISH_FEEDBACK_SENTINEL" }],
+              }
+            : null,
+        }) as never;
+      }
+      throw new Error(`unexpected apiGet path: ${path}`);
+    });
+    const { result } = renderHook(() => useSessionEngine());
+    await startOneQuestionSession(result, "exam");
 
     await act(async () => {
       await result.current.finishSession("sess-99");
     });
 
-    expect(result.current.session?.status).toBe("completed");
-    expect(result.current.session?.passed).toBe(true);
-    expect(result.current.session?.score).toBe(18);
-    expect(result.current.session?.total).toBe(20);
+    expect(result.current.session).toMatchObject({
+      status: "completed",
+      passed: true,
+      score: 1,
+      total: 1,
+      stopped_reason: "completed",
+      completed_at: "2026-07-22T10:05:00Z",
+    });
+    expect(result.current.session?.questions[0]).toMatchObject({
+      user_answer_id: "q-1-a1",
+      correct: true,
+      correct_answer_id: "q-1-a1",
+    });
+    expect(result.current.session?.questions[0].explanation?.blocks[0].content).toBe(
+      "FINISH_FEEDBACK_SENTINEL"
+    );
+    expect(get.mock.calls.map(([path]) => path)).toEqual([
+      scopedQuestionPath("sess-99", "q-1"),
+      "sessions/sess-99",
+      scopedQuestionPath("sess-99", "q-1"),
+    ]);
   });
 
-  it("finishSession error does NOT silently mark the session completed", async () => {
+  it("does not mark a session completed when the finish POST fails", async () => {
+    vi.spyOn(apiClient, "apiPost")
+      .mockResolvedValueOnce(startResponse() as never)
+      .mockRejectedValueOnce(new ApiError("boom", "internal", 500));
+    mockOnlyScopedQuestions();
     const { result } = renderHook(() => useSessionEngine());
     await startOneQuestionSession(result);
-
-    vi.spyOn(apiClient, "apiPost").mockRejectedValueOnce(
-      new ApiError("boom", "internal", 500)
-    );
 
     await act(async () => {
       await result.current.finishSession("sess-99");
@@ -239,39 +534,5 @@ describe("useSessionEngine", () => {
 
     expect(result.current.session?.status).toBe("active");
     expect(result.current.error?.code).toBe("internal");
-  });
-
-  it("loadSession reconstructs question order from answers[].position", async () => {
-    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-      if (path.startsWith("sessions/")) {
-        return {
-          id: "sess-7",
-          mode: "variant",
-          total: 2,
-          status: "in_progress",
-          stopped_reason: "",
-          started_at: "2026-07-22T10:00:00Z",
-          answers: [
-            { question_id: "q-b", position: 2, answered: false },
-            { question_id: "q-a", position: 1, answered: true, correct: true },
-          ],
-        } as never;
-      }
-      const m = path.match(/^questions\/([^?]+)/);
-      if (m) return questionDetail(m[1], `Savol ${m[1]}`) as never;
-      throw new Error(`unexpected apiGet path: ${path}`);
-    });
-
-    const { result } = renderHook(() => useSessionEngine());
-
-    await act(async () => {
-      await result.current.loadSession("sess-7", LOCALE);
-    });
-
-    const qs = result.current.session?.questions ?? [];
-    expect(qs.map((q) => q.id)).toEqual(["q-a", "q-b"]);
-    expect(qs[0].answered).toBe(true);
-    expect(qs[0].correct).toBe(true);
-    expect(qs[1].answered).toBe(false);
   });
 });

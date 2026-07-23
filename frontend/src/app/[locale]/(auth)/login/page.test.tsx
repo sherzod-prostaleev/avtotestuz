@@ -23,6 +23,12 @@ function renderWithIntl() {
 }
 
 describe("LoginPage", () => {
+  it("uses an accessible icon asset instead of an emoji logo", () => {
+    const { container } = renderWithIntl();
+    expect(screen.getByRole("heading", { name: "Kirish" })).toBeInTheDocument();
+    expect(container.textContent).not.toContain("🚗");
+  });
+
   it("disables the continue button until 9 digits are entered", () => {
     renderWithIntl();
     const button = screen.getByRole("button", { name: "Davom etish" });

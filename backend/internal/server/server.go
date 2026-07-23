@@ -67,7 +67,10 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				}
 				svc := auth.NewService(deps.Queries, deps.Pool, auth.Limiter{R: deps.Redis},
 					sender, []byte(cfg.JWTSecret), cfg.Env)
-				ah := &auth.Handler{Svc: svc}
+				ah := &auth.Handler{
+					Svc:       svc,
+					ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+				}
 				ah.Routes(api)
 
 				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}
@@ -78,7 +81,10 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
-				sess := &session.Handler{Svc: session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)}
+				sess := &session.Handler{
+					Svc:     session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc),
+					Content: ch,
+				}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				lh := &learning.Handler{Svc: learningSvc}
