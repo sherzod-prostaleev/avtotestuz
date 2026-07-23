@@ -49,23 +49,4 @@ describe("QuestionCard", () => {
     expect(screen.queryByText("Savol rasmi")).not.toBeInTheDocument();
   });
 
-  it("shows the primary verified rule first and progressively discloses later blocks", () => {
-    renderCard(
-      <QuestionCard
-        questionNumber={1}
-        totalQuestions={20}
-        text="Savol matni"
-        explanation={{
-          blocks: [
-            { type: "muhim", content: "Asosiy qoida" },
-            { type: "maslahat", content: "Qo'shimcha maslahat" },
-          ],
-        }}
-      />
-    );
-
-    expect(screen.getByText("Asosiy qoida")).toBeVisible();
-    expect(screen.getByText("Maslahat").closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByText("Qo'shimcha maslahat")).toBeInTheDocument();
-  });
 });

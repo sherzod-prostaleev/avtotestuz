@@ -86,6 +86,18 @@ export default function LandingPage() {
     { value: 3, label: t("proofLanguages") },
   ];
 
+  const holdPoints = [
+    { title: t("hold1Title"), text: t("hold1Text") },
+    { title: t("hold2Title"), text: t("hold2Text") },
+    { title: t("hold3Title"), text: t("hold3Text") },
+  ];
+
+  const methodSteps = [
+    { title: t("methodRecallTitle"), text: t("methodRecallText") },
+    { title: t("methodSpacingTitle"), text: t("methodSpacingText") },
+    { title: t("methodFeedbackTitle"), text: t("methodFeedbackText") },
+  ];
+
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* ───── Top Navigation Bar ───── */}
@@ -145,6 +157,18 @@ export default function LandingPage() {
             </Link>
           </div>
 
+          <div className="mx-auto grid max-w-4xl gap-3 md:grid-cols-3">
+            {holdPoints.map((point) => (
+              <div
+                key={point.title}
+                className="rounded-2xl border border-border/70 bg-card/80 p-4 text-left shadow-sm backdrop-blur"
+              >
+                <p className="font-display text-sm font-bold">{point.title}</p>
+                <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{point.text}</p>
+              </div>
+            ))}
+          </div>
+
           {/* Proof Stats Row */}
           <div className="mx-auto max-w-3xl pt-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {proofStats.map((s) => (
@@ -158,6 +182,27 @@ export default function LandingPage() {
       </section>
 
       <main className="flex-1 mx-auto max-w-6xl px-4 py-16 space-y-20">
+        {/* ───── STUDY METHOD ───── */}
+        <section className="space-y-8">
+          <div className="text-center space-y-3">
+            <span className="inline-block rounded-full bg-accent/10 px-4 py-1.5 text-xs font-extrabold text-accent">
+              {t("methodBadge")}
+            </span>
+            <h2 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">{t("methodTitle")}</h2>
+            <p className="mx-auto max-w-lg text-sm text-muted-foreground">
+              {t("methodSubtitle")}
+            </p>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {methodSteps.map((item) => (
+              <div key={item.title} className="glass-card p-6 space-y-3">
+                <p className="font-display text-lg font-bold">{item.title}</p>
+                <p className="text-sm leading-relaxed text-muted-foreground">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
         {/* ───── DEMO SECTION ───── */}
         <section className="space-y-8">
           <div className="text-center space-y-3">

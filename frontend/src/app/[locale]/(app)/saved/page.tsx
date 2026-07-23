@@ -97,7 +97,7 @@ export default function SavedPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       <header>
         <Link
           href={`/${locale}/dashboard`}
@@ -115,6 +115,51 @@ export default function SavedPage() {
           </div>
         </div>
       </header>
+
+      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+        <Card className="glass-card overflow-hidden border-gold/20 bg-gradient-to-br from-card via-card to-gold/10 p-6 md:p-8">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+                {t("navLabel")}
+              </span>
+              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+                {t("countLabel", { count: items.length })}
+              </span>
+            </div>
+            <div className="space-y-3">
+              <h2 className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
+                {t("heroTitle")}
+              </h2>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                {t("heroBody")}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="glass-card flex flex-col justify-between border-border/70 bg-background/80 p-6 md:p-8">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-border bg-card/80 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("navLabel")}
+              </p>
+              <p className="mt-2 text-2xl font-display font-black">{items.length}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-card/80 p-4">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+                {t("browseTickets")}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-foreground">{t("browseHint")}</p>
+            </div>
+          </div>
+          <Link href={`/${locale}/tickets`} className="mt-5">
+            <Button variant="game" size="sm" className="w-full">
+              {t("browseTickets")}
+            </Button>
+          </Link>
+        </Card>
+      </section>
 
       {status === "loading" && (
         <Card className="p-10 text-center text-sm text-muted-foreground animate-pulse">

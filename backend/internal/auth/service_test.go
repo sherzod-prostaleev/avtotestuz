@@ -54,6 +54,55 @@ func TestRequestVerifyOTPHappyPath(t *testing.T) {
 	}
 }
 
+// TestSignupGrantsTrialEntitlement pins the welcome trial: a first sign-in
+// must land with full access already active, and the grant must be recorded
+// as a trial so it never counts as revenue. A repeat sign-in must not extend
+// it — otherwise logging out and back in would renew VIP forever.
+func TestSignupGrantsTrialEntitlement(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
+	res, err := svc.VerifyOTP(ctx, testPhone, sender.last)
+	if err != nil {
+		t.Fatalf("VerifyOTP: %v", err)
+	}
+
+	var source string
+	var startsAt, endsAt time.Time
+	row := pool.QueryRow(ctx,
+		`SELECT source, starts_at, ends_at FROM entitlement WHERE profile_id = $1`, res.Profile.ID)
+	if err := row.Scan(&source, &startsAt, &endsAt); err != nil {
+		t.Fatalf("expected a trial entitlement for a new profile: %v", err)
+	}
+	if source != "trial" {
+		t.Fatalf("source = %q, want trial", source)
+	}
+	if got := endsAt.Sub(startsAt); got != SignupTrialDuration {
+		t.Fatalf("trial length = %v, want %v", got, SignupTrialDuration)
+	}
+
+	// clear the resend cooldown so the second request isn't rate limited
+	svc.Lim.R.Del(ctx, "otp:cooldown:"+testPhone)
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("second RequestOTP: %v", err)
+	}
+	if _, err := svc.VerifyOTP(ctx, testPhone, sender.last); err != nil {
+		t.Fatalf("second VerifyOTP: %v", err)
+	}
+	var count int
+	if err := pool.QueryRow(ctx,
+		`SELECT count(*) FROM entitlement WHERE profile_id = $1`, res.Profile.ID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("entitlement rows after re-login = %d, want 1", count)
+	}
+}
+
 func TestVerifyOTPSecondSignInNotCreated(t *testing.T) {
 	pool := testdb.New(t)
 	svc, sender := newTestService(t, pool)

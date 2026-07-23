@@ -27,9 +27,10 @@ import {
   type SessionMode,
   type SessionQuestionItem,
 } from "@/hooks/use-session-engine";
-import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
+import { type AnswerState } from "@/components/shared/answer-option";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
-import { QuestionCard } from "@/components/shared/question-card";
+import { ExplanationDialog } from "@/components/shared/explanation-dialog";
+import { QuestionStage } from "@/components/shared/question-stage";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -65,6 +66,7 @@ export default function TestSessionPage() {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [explanationOpen, setExplanationOpen] = useState(false);
   const [pendingAnswer, setPendingAnswer] = useState<PendingAnswer | null>(null);
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
@@ -98,6 +100,11 @@ export default function TestSessionPage() {
     const firstUnanswered = session.questions.findIndex((question) => !hasAnswer(question));
     setCurrentIndex(firstUnanswered >= 0 ? firstUnanswered : 0);
   }, [session]);
+
+  // The explanation belongs to one question; carrying it across navigation would show stale content.
+  useEffect(() => {
+    setExplanationOpen(false);
+  }, [currentIndex]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -485,8 +492,8 @@ export default function TestSessionPage() {
   const isLast = currentIndex === questions.length - 1;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-5 px-4 py-6">
-      <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 p-3 shadow-sm backdrop-blur-md">
+    <main className="flex h-[100dvh] flex-col gap-3 overflow-hidden px-3 py-3 sm:px-4">
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 p-3 shadow-sm backdrop-blur-md">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -564,7 +571,7 @@ export default function TestSessionPage() {
       {(error || bookmarkError) && (
         <div
           role="alert"
-          className="flex flex-col items-start justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-4 text-sm sm:flex-row sm:items-center"
+          className="flex shrink-0 flex-col items-start justify-between gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm sm:flex-row sm:items-center"
         >
           <span>{bookmarkError ? t("bookmarkError") : localizedError()}</span>
           {pendingAnswer && (
@@ -582,7 +589,7 @@ export default function TestSessionPage() {
       )}
 
       <nav
-        className="flex gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-3 shadow-sm"
+        className="flex shrink-0 gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 shadow-sm"
         aria-label={t("questionNavigator")}
       >
         {questions.map((question, index) => {
@@ -632,34 +639,23 @@ export default function TestSessionPage() {
       </nav>
 
       {currentQuestion && (
-        <Card className="space-y-6 p-5 sm:p-7">
-          <QuestionCard
-            questionNumber={currentIndex + 1}
-            totalQuestions={questions.length}
-            questionText={currentQuestion.question}
-            imageUrl={currentQuestion.image_url}
-            onImageClick={
-              currentQuestion.image_url ? () => setZoomImageUrl(currentQuestion.image_url ?? null) : undefined
-            }
-            explanation={currentQuestion.explanation}
-          />
-
-          <div className="space-y-3 border-t border-border pt-5">
-            {currentQuestion.answers.map((answer, index) => (
-              <AnswerOption
-                key={answer.id}
-                id={answer.id}
-                index={index}
-                text={answer.text}
-                state={answerState(currentQuestion, answer.id)}
-                disabled={currentAnswered || submitting}
-                onSelect={(answerId) => void handleSelectAnswer(currentQuestion.id, answerId)}
-              />
-            ))}
+        <Card className="flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+          <div className="min-h-0 flex-1">
+            <QuestionStage
+              question={currentQuestion}
+              questionNumber={currentIndex + 1}
+              totalQuestions={questions.length}
+              answered={currentAnswered}
+              disabled={currentAnswered || submitting}
+              answerStateFor={(answerId) => answerState(currentQuestion, answerId)}
+              onSelectAnswer={(answerId) => void handleSelectAnswer(currentQuestion.id, answerId)}
+              onZoomImage={() => setZoomImageUrl(currentQuestion.image_url ?? null)}
+              onOpenExplanation={() => setExplanationOpen(true)}
+            />
           </div>
 
           {currentAnswered && currentQuestion.correct === undefined && (
-            <p className="flex items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 p-3 text-sm font-semibold text-accent">
+            <p className="flex shrink-0 items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 p-2.5 text-sm font-semibold text-accent">
               <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
               {t("answerAccepted")}
             </p>
@@ -667,7 +663,7 @@ export default function TestSessionPage() {
         </Card>
       )}
 
-      <footer className="sticky bottom-3 flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-3 shadow-xl backdrop-blur-md">
+      <footer className="flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-xl backdrop-blur-md">
         <Button
           variant="outline"
           disabled={currentIndex === 0}
@@ -697,6 +693,17 @@ export default function TestSessionPage() {
           </Button>
         )}
       </footer>
+
+      {currentQuestion && (
+        <ExplanationDialog
+          open={explanationOpen}
+          onClose={() => setExplanationOpen(false)}
+          questionNumber={currentIndex + 1}
+          questionText={currentQuestion.question}
+          imageUrl={currentQuestion.image_url}
+          explanation={currentQuestion.explanation ?? null}
+        />
+      )}
 
       {zoomImageUrl && (
         <div

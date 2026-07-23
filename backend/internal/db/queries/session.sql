@@ -24,6 +24,30 @@ WHERE q.validation_status = 'valid' AND qs.sign_id = sqlc.arg(sign_id)
 ORDER BY random()
 LIMIT sqlc.arg(limit_count);
 
+-- name: RandomQuestionIDsByVariantRange :many
+-- Draws across a contiguous span of bilets so a learner can mix-review the
+-- range they have already worked through, which one-bilet-at-a-time cannot do.
+-- DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
+-- ordered by an expression that is not in the select list, and random() is.
+SELECT id FROM (
+  SELECT DISTINCT q.id
+  FROM question q
+  JOIN variant_question vq ON vq.question_id = q.id
+  JOIN variant v ON v.id = vq.variant_id
+  WHERE q.validation_status = 'valid'
+    AND v.number BETWEEN sqlc.arg(from_number) AND sqlc.arg(to_number)
+) candidates
+ORDER BY random()
+LIMIT sqlc.arg(limit_count);
+
+-- name: RandomQuestionIDsByImagePresence :many
+-- has_image=true selects illustrated questions, false selects text-only ones.
+SELECT id FROM question
+WHERE validation_status = 'valid'
+  AND (image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+ORDER BY random()
+LIMIT sqlc.arg(limit_count);
+
 -- name: ListMistakeBankQuestionIDs :many
 SELECT qm.question_id
 FROM question_memory qm

@@ -196,22 +196,51 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
 
 	case "practice":
-		if (req.CategoryID == uuid.Nil) == (req.SignID == uuid.Nil) {
-			return SessionView{}, ErrInvalidRequest // exactly one must be set
+		// Exactly one selector: category, sign, or image presence.
+		selectors := 0
+		if req.CategoryID != uuid.Nil {
+			selectors++
+		}
+		if req.SignID != uuid.Nil {
+			selectors++
+		}
+		if req.HasImage != nil {
+			selectors++
+		}
+		hasRange := req.VariantFrom > 0 || req.VariantTo > 0
+		if hasRange {
+			// A half-open or inverted span would silently widen or empty the
+			// draw, so reject it rather than guessing what was meant.
+			if req.VariantFrom <= 0 || req.VariantTo <= 0 || req.VariantFrom > req.VariantTo {
+				return SessionView{}, ErrInvalidRequest
+			}
+			selectors++
+		}
+		if selectors != 1 {
+			return SessionView{}, ErrInvalidRequest
 		}
 		count, dailyErr := s.clampToDailyAllowance(ctx, profileID, req.Count)
 		if dailyErr != nil {
 			return SessionView{}, dailyErr
 		}
-		if req.CategoryID != uuid.Nil {
+		switch {
+		case req.CategoryID != uuid.Nil:
 			categoryID = uuid.NullUUID{UUID: req.CategoryID, Valid: true}
 			ids, err = s.Q.RandomQuestionIDsByCategory(ctx, sqlc.RandomQuestionIDsByCategoryParams{
 				CategoryID: req.CategoryID, LimitCount: int32(count),
 			})
-		} else {
+		case req.SignID != uuid.Nil:
 			signID = uuid.NullUUID{UUID: req.SignID, Valid: true}
 			ids, err = s.Q.RandomQuestionIDsBySign(ctx, sqlc.RandomQuestionIDsBySignParams{
 				SignID: req.SignID, LimitCount: int32(count),
+			})
+		case hasRange:
+			ids, err = s.Q.RandomQuestionIDsByVariantRange(ctx, sqlc.RandomQuestionIDsByVariantRangeParams{
+				FromNumber: int32(req.VariantFrom), ToNumber: int32(req.VariantTo), LimitCount: int32(count),
+			})
+		default:
+			ids, err = s.Q.RandomQuestionIDsByImagePresence(ctx, sqlc.RandomQuestionIDsByImagePresenceParams{
+				HasImage: *req.HasImage, LimitCount: int32(count),
 			})
 		}
 
@@ -264,6 +293,52 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 	return view, nil
 }
 
+// Allowance is today's practice budget for one profile.
+type Allowance struct {
+	Unlimited bool
+	Limit     int
+	Used      int
+	Remaining int
+}
+
+// PracticeAllowance reports the budget without consuming it, so the client can
+// show what a chosen session size will really deliver before starting one.
+func (s *Service) PracticeAllowance(ctx context.Context, profileID uuid.UUID) (Allowance, error) {
+	active, _, err := s.Billing.Status(ctx, profileID)
+	if err != nil {
+		return Allowance{}, err
+	}
+	cfg, err := s.Q.GetLimitConfig(ctx, "daily_practice_questions")
+	if err != nil {
+		return Allowance{}, err
+	}
+	limit := int(cfg.FreeValue)
+	if active {
+		limit = int(cfg.VipValue)
+	}
+	if limit == -1 {
+		return Allowance{Unlimited: true}, nil
+	}
+	used, err := s.practiceAnswersToday(ctx, profileID)
+	if err != nil {
+		return Allowance{}, err
+	}
+	remaining := limit - used
+	if remaining < 0 {
+		remaining = 0
+	}
+	return Allowance{Limit: limit, Used: used, Remaining: remaining}, nil
+}
+
+func (s *Service) practiceAnswersToday(ctx context.Context, profileID uuid.UUID) (int, error) {
+	startOfDay := time.Now().UTC().Truncate(24 * time.Hour)
+	used, err := s.Q.CountPracticeAnswersToday(ctx, sqlc.CountPracticeAnswersTodayParams{
+		ProfileID: profileID,
+		Since:     pgtype.Timestamptz{Time: startOfDay, Valid: true},
+	})
+	return int(used), err
+}
+
 func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID, requested int) (int, error) {
 	active, _, err := s.Billing.Status(ctx, profileID)
 	if err != nil {
@@ -283,15 +358,11 @@ func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID
 		}
 		return requested, nil
 	}
-	startOfDay := time.Now().UTC().Truncate(24 * time.Hour)
-	used, err := s.Q.CountPracticeAnswersToday(ctx, sqlc.CountPracticeAnswersTodayParams{
-		ProfileID: profileID,
-		Since:     pgtype.Timestamptz{Time: startOfDay, Valid: true},
-	})
+	used, err := s.practiceAnswersToday(ctx, profileID)
 	if err != nil {
 		return 0, err
 	}
-	remaining := limit - int(used)
+	remaining := limit - used
 	if remaining < 0 {
 		remaining = 0
 	}

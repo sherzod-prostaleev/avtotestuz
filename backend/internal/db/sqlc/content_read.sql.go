@@ -197,7 +197,9 @@ func (q *Queries) ListAnswersByQuestionIDs(ctx context.Context, arg ListAnswersB
 const listCategories = `-- name: ListCategories :many
 SELECT c.id, c.code, c.sort_order,
        COALESCE(t.name, ft.name, '') AS name,
-       (t.name IS NULL)::bool AS fallback_used
+       (t.name IS NULL)::bool AS fallback_used,
+       (SELECT count(*) FROM question q
+         WHERE q.category_id = c.id AND q.validation_status = 'valid')::int AS question_count
 FROM category c
 LEFT JOIN category_translation t
        ON t.category_id = c.id AND t.locale = $1 AND t.status = 'verified'
@@ -207,13 +209,16 @@ ORDER BY c.sort_order, c.code
 `
 
 type ListCategoriesRow struct {
-	ID           uuid.UUID `json:"id"`
-	Code         string    `json:"code"`
-	SortOrder    int32     `json:"sort_order"`
-	Name         string    `json:"name"`
-	FallbackUsed bool      `json:"fallback_used"`
+	ID            uuid.UUID `json:"id"`
+	Code          string    `json:"code"`
+	SortOrder     int32     `json:"sort_order"`
+	Name          string    `json:"name"`
+	FallbackUsed  bool      `json:"fallback_used"`
+	QuestionCount int32     `json:"question_count"`
 }
 
+// question_count lets the practice picker state how much material a topic
+// actually holds instead of guessing; categories range from tens to hundreds.
 func (q *Queries) ListCategories(ctx context.Context, locale string) ([]ListCategoriesRow, error) {
 	rows, err := q.db.Query(ctx, listCategories, locale)
 	if err != nil {
@@ -229,6 +234,7 @@ func (q *Queries) ListCategories(ctx context.Context, locale string) ([]ListCate
 			&i.SortOrder,
 			&i.Name,
 			&i.FallbackUsed,
+			&i.QuestionCount,
 		); err != nil {
 			return nil, err
 		}

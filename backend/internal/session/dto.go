@@ -12,8 +12,16 @@ type StartRequest struct {
 	VariantID  uuid.UUID
 	CategoryID uuid.UUID
 	SignID     uuid.UUID
-	Locale     string
-	Count      int
+	// HasImage narrows practice to illustrated (true) or text-only (false)
+	// questions. Nil means the selector is unused, which is how it stays
+	// mutually exclusive with CategoryID and SignID.
+	HasImage *bool
+	// VariantFrom/VariantTo draw across a contiguous bilet span. Both are set
+	// together or neither is; zero means the selector is unused.
+	VariantFrom int
+	VariantTo   int
+	Locale      string
+	Count       int
 }
 
 type SessionView struct {

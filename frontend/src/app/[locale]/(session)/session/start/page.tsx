@@ -23,17 +23,23 @@ function SessionStartContent() {
   const practiceT = useTranslations("Practice");
   const sessionT = useTranslations("Session");
   const { startSession, error } = useSessionEngine();
-  const startedRef = useRef(false);
+  // Keyed by the request itself, not a bare boolean: several sidebar entries
+  // point at this route with different params, and App Router reuses the
+  // mounted component across those navigations. A boolean guard would swallow
+  // every start after the first one, leaving the user on a stale screen.
+  const startedForRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
+    const requestKey = searchParams.toString();
+    if (startedForRef.current === requestKey) return;
+    startedForRef.current = requestKey;
 
     async function initSession() {
       const modeParam = searchParams.get("mode");
       const variantParam = searchParams.get("variant_id");
       const categoryParam = searchParams.get("category_id");
       const signParam = searchParams.get("sign_id");
+      const hasImageParam = searchParams.get("has_image");
       const countParam = searchParams.get("count");
 
       const mode: SessionMode = isSessionMode(modeParam) ? modeParam : variantParam ? "variant" : "exam";
@@ -42,6 +48,11 @@ function SessionStartContent() {
       if (variantParam) options.variant_id = variantParam;
       if (categoryParam) options.category_id = categoryParam;
       if (signParam) options.sign_id = signParam;
+      // Only "true"/"false" count; anything else leaves the selector unused so
+      // a malformed URL cannot silently narrow the question pool.
+      if (hasImageParam === "true" || hasImageParam === "false") {
+        options.has_image = hasImageParam === "true";
+      }
 
       if (countParam) {
         const count = Number(countParam);

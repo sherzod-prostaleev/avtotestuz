@@ -7,11 +7,17 @@ import { Providers } from "@/app/providers";
 import { locales, type Locale } from "@/i18n/config";
 import "../globals.css";
 
-const baloo = Baloo_2({ subsets: ["latin", "latin-ext"], weight: ["600", "700", "800"], variable: "--font-baloo" });
+const baloo = Baloo_2({
+  subsets: ["latin", "latin-ext"],
+  weight: ["600", "700", "800"],
+  variable: "--font-baloo",
+  display: "swap",
+});
 const manrope = Manrope({
   subsets: ["latin", "latin-ext", "cyrillic"],
   weight: ["400", "500", "600", "700"],
   variable: "--font-manrope",
+  display: "swap",
 });
 
 export async function generateMetadata({

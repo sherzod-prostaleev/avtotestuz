@@ -149,8 +149,13 @@ describe("SessionPage secure session flow", () => {
 
     expect(screen.getByTestId("answer-incorrect-icon")).toBeInTheDocument();
     expect(screen.getByTestId("answer-correct-icon")).toBeInTheDocument();
-    expect(screen.getByText("YHQ 91-band bo'yicha tekshirilgan izoh.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Keyingisi" })).toBeEnabled();
+
+    // The explanation must stay out of the answering flow so the stage keeps a fixed height.
+    expect(screen.queryByText("YHQ 91-band bo'yicha tekshirilgan izoh.")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Ekspert tahlili" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByText("YHQ 91-band bo'yicha tekshirilgan izoh.")).toBeVisible();
   });
 
   it("keeps in-progress exam feedback hidden while confirming persistence", () => {

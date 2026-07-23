@@ -156,11 +156,7 @@ func (h *Handler) mistakes(w http.ResponseWriter, r *http.Request) {
 		writeLearningError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, mistakeBankResponse{
-		DueCount:       summary.DueCount,
-		TotalBankCount: summary.TotalBankCount,
-		NextDueAt:      summary.NextDueAt,
-	})
+	httpx.Data(w, http.StatusOK, mistakeBankResponse(summary))
 }
 
 func writeLearningError(w http.ResponseWriter, err error) {
