@@ -711,6 +711,92 @@ func TestPracticeAllowanceReportsBudget(t *testing.T) {
 	}
 }
 
+type mockEligibilityDTO struct {
+	Eligible           bool    `json:"eligible"`
+	MasteryPercent     int     `json:"mastery_percent"`
+	MinRequiredPercent int     `json:"min_required_percent"`
+	IsVIP              bool    `json:"is_vip"`
+	Reason             *string `json:"reason"`
+}
+
+// TestMockEligibilityHandler exercises GET /me/mock-eligibility end-to-end
+// over HTTP for both ineligible reasons and the eligible case, mirroring
+// TestPracticeAllowanceReportsBudget's setupServer/doReq pattern.
+func TestMockEligibilityHandler(t *testing.T) {
+	t.Run("mastery too low", func(t *testing.T) {
+		ts, tok, q := setupServer(t)
+		profile, err := q.GetProfileByPhone(context.Background(), "+998901234567")
+		if err != nil {
+			t.Fatal(err)
+		}
+		grantVIP(t, q, profile.ID)
+
+		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
+		if status != http.StatusOK {
+			t.Fatalf("status=%d err=%+v", status, env.Error)
+		}
+		var got mockEligibilityDTO
+		if err := json.Unmarshal(env.Data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Eligible || got.Reason == nil || *got.Reason != "mastery_too_low" {
+			t.Fatalf("expected ineligible/mastery_too_low, got %+v", got)
+		}
+		if !got.IsVIP {
+			t.Fatalf("expected is_vip=true, got %+v", got)
+		}
+	})
+
+	t.Run("vip required", func(t *testing.T) {
+		ts, tok, q := setupServer(t)
+		profile, err := q.GetProfileByPhone(context.Background(), "+998901234567")
+		if err != nil {
+			t.Fatal(err)
+		}
+		grantMastery(t, q, learning.NewService(q), profile.ID)
+
+		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
+		if status != http.StatusOK {
+			t.Fatalf("status=%d err=%+v", status, env.Error)
+		}
+		var got mockEligibilityDTO
+		if err := json.Unmarshal(env.Data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Eligible || got.Reason == nil || *got.Reason != "vip_required" {
+			t.Fatalf("expected ineligible/vip_required, got %+v", got)
+		}
+		if got.IsVIP {
+			t.Fatalf("expected is_vip=false, got %+v", got)
+		}
+	})
+
+	t.Run("eligible", func(t *testing.T) {
+		ts, tok, q := setupServer(t)
+		profile, err := q.GetProfileByPhone(context.Background(), "+998901234567")
+		if err != nil {
+			t.Fatal(err)
+		}
+		grantVIP(t, q, profile.ID)
+		grantMastery(t, q, learning.NewService(q), profile.ID)
+
+		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
+		if status != http.StatusOK {
+			t.Fatalf("status=%d err=%+v", status, env.Error)
+		}
+		var got mockEligibilityDTO
+		if err := json.Unmarshal(env.Data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if !got.Eligible || got.Reason != nil {
+			t.Fatalf("expected eligible with no reason, got %+v", got)
+		}
+		if !got.IsVIP || got.MasteryPercent < got.MinRequiredPercent {
+			t.Fatalf("expected is_vip=true and mastery>=min, got %+v", got)
+		}
+	})
+}
+
 // TestPracticeSessionRejectsCombinedSelectors pins the invariant that practice
 // takes exactly one selector — combining them would silently ignore one.
 func TestPracticeSessionRejectsCombinedSelectors(t *testing.T) {

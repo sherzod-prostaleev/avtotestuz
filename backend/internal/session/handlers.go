@@ -29,6 +29,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/sessions/{id}", h.getSession)
 	r.Get("/sessions/{id}/questions/{questionID}", h.getSessionQuestion)
 	r.Get("/me/practice-allowance", h.practiceAllowance)
+	r.Get("/me/mock-eligibility", h.mockEligibility)
 	r.Get("/me/sessions", h.listMySessions)
 	r.Get("/me/variants", h.listVariantStatuses)
 }
@@ -129,6 +130,41 @@ func (h *Handler) practiceAllowance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, practiceAllowanceResponse(allowance))
+}
+
+type mockEligibilityResponse struct {
+	Eligible           bool    `json:"eligible"`
+	MasteryPercent     int     `json:"mastery_percent"`
+	MinRequiredPercent int     `json:"min_required_percent"`
+	IsVIP              bool    `json:"is_vip"`
+	Reason             *string `json:"reason"`
+}
+
+// mockEligibility reports whether the profile currently qualifies for Grand
+// Mock, so GrandMockCard can render its locked/unlocked state without
+// guessing — StartSession(mode:"grand_mock") re-checks the same conditions
+// server-side and is the actual source of truth/enforcement.
+func (h *Handler) mockEligibility(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	res, err := h.Svc.MockEligibility(r.Context(), claims.ProfileID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	var reason *string
+	if res.Reason != "" {
+		reason = &res.Reason
+	}
+	httpx.Data(w, http.StatusOK, mockEligibilityResponse{
+		Eligible:           res.Eligible,
+		MasteryPercent:     res.MasteryPercent,
+		MinRequiredPercent: res.MinRequiredPercent,
+		IsVIP:              res.IsVIP,
+		Reason:             reason,
+	})
 }
 
 func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
@@ -479,6 +515,8 @@ func writeSessionError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusConflict, "session_finished", "session already finished")
 	case errors.Is(err, ErrRequiresVIP):
 		httpx.Error(w, http.StatusPaymentRequired, "vip_required", "active entitlement required")
+	case errors.Is(err, ErrMockNotEligible):
+		httpx.Error(w, http.StatusForbidden, "mock_not_eligible", "Grand Mock imtihoni uchun bilim darajangiz kamida 85% bo'lishi va VIP aktiv bo'lishi kerak")
 	case errors.Is(err, ErrVariantLocked):
 		httpx.Error(w, http.StatusForbidden, "variant_locked", "complete the previous variant first")
 	default:

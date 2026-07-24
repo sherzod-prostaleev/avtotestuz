@@ -27,6 +27,7 @@ var (
 	ErrSessionFinished     = errors.New("session already finished")
 	ErrRequiresVIP         = errors.New("active entitlement required")
 	ErrVariantLocked       = errors.New("variant is locked")
+	ErrMockNotEligible     = errors.New("grand mock requires 85% mastery and active VIP")
 )
 
 type Service struct {
@@ -164,6 +165,28 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		}
 		if !active {
 			return SessionView{}, ErrRequiresVIP
+		}
+		ids, err = s.Q.RandomQuestionIDs(ctx, int32(ExamQuestionCount))
+		if err == nil && len(ids) < ExamQuestionCount {
+			return SessionView{}, ErrInvalidRequest
+		}
+		timeLimit = pgtype.Int4{Int32: ExamTimeLimitSec, Valid: true}
+		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
+
+	case "grand_mock":
+		active, _, statusErr := s.Billing.Status(ctx, profileID)
+		if statusErr != nil {
+			return SessionView{}, statusErr
+		}
+		if !active {
+			return SessionView{}, ErrMockNotEligible
+		}
+		stats, statsErr := s.Learning.Stats(ctx, profileID)
+		if statsErr != nil {
+			return SessionView{}, statsErr
+		}
+		if stats.ReadinessPct < MockMasteryThreshold {
+			return SessionView{}, ErrMockNotEligible
 		}
 		ids, err = s.Q.RandomQuestionIDs(ctx, int32(ExamQuestionCount))
 		if err == nil && len(ids) < ExamQuestionCount {
@@ -371,7 +394,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	if row.Status != "in_progress" {
 		return AnswerResult{}, ErrSessionFinished
 	}
-	if row.Mode == "exam" && row.TimeLimitSec.Valid &&
+	if IsExamLike(row.Mode) && row.TimeLimitSec.Valid &&
 		!s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32)*time.Second)) {
 		finished, finishErr := s.finishInternal(ctx, row, false, true)
 		if finishErr != nil {
@@ -407,7 +430,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	}
 
 	var explanation *ExplanationPayload
-	if row.Mode != "exam" {
+	if !IsExamLike(row.Mode) {
 		expl, explErr := s.Q.GetVerifiedExplanation(ctx, sqlc.GetVerifiedExplanationParams{
 			QuestionID: questionID, Locale: row.Locale,
 		})
@@ -442,7 +465,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		return AnswerResult{}, err
 	}
 
-	if row.Mode == "exam" {
+	if IsExamLike(row.Mode) {
 		// Compute per-answer correct/wrong feedback so the exam UI can show
 		// green/red immediately, matching the official Avtotest desktop app.
 		examCorrectID := answerID
@@ -522,7 +545,7 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 		return SessionQuestionAccess{}, answerErr
 	}
 
-	if row.Mode == "exam" {
+	if IsExamLike(row.Mode) {
 		access.FeedbackAllowed = row.Status != "in_progress"
 	} else {
 		access.FeedbackAllowed = access.Answered
@@ -566,7 +589,7 @@ func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.U
 	}
 
 	timedOut := false
-	if row.Mode == "exam" && row.TimeLimitSec.Valid {
+	if IsExamLike(row.Mode) && row.TimeLimitSec.Valid {
 		timedOut = !s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32) * time.Second))
 	}
 	return s.finishInternal(ctx, row, false, timedOut)
@@ -596,7 +619,7 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 
 	var status, reason string
 	switch row.Mode {
-	case "exam":
+	case "exam", "grand_mock":
 		wrong := totalAnswered - correctCount
 		outcome := EvaluateExam(correctCount, wrong, int(row.Total), timedOut, tooManyErrors)
 		status = outcome.Status
@@ -677,7 +700,7 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 		return SessionDetail{}, err
 	}
 
-	redact := row.Mode == "exam" && row.Status == "in_progress"
+	redact := IsExamLike(row.Mode) && row.Status == "in_progress"
 
 	answers := make([]AnsweredQuestion, 0, len(rows))
 	questionIDs := make([]uuid.UUID, 0, len(rows))
@@ -829,4 +852,43 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		statuses = append(statuses, status)
 	}
 	return statuses, nil
+}
+
+// MockEligibilityResult is the read-only view GrandMockCard polls before
+// offering the "start" button.
+type MockEligibilityResult struct {
+	Eligible           bool
+	MasteryPercent     int
+	MinRequiredPercent int
+	IsVIP              bool
+	Reason             string // "mastery_too_low" | "vip_required" | ""
+}
+
+// MockEligibility reports whether the profile currently meets the Grand Mock
+// requirements (active VIP entitlement + >=MockMasteryThreshold overall
+// readiness), for read-only UI display — StartSession re-checks the same
+// conditions server-side regardless of what this reports.
+func (s *Service) MockEligibility(ctx context.Context, profileID uuid.UUID) (MockEligibilityResult, error) {
+	active, _, err := s.Billing.Status(ctx, profileID)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+	stats, err := s.Learning.Stats(ctx, profileID)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+	res := MockEligibilityResult{
+		MasteryPercent:     stats.ReadinessPct,
+		MinRequiredPercent: MockMasteryThreshold,
+		IsVIP:              active,
+	}
+	switch {
+	case !active:
+		res.Reason = "vip_required"
+	case stats.ReadinessPct < MockMasteryThreshold:
+		res.Reason = "mastery_too_low"
+	default:
+		res.Eligible = true
+	}
+	return res, nil
 }

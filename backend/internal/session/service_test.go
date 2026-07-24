@@ -50,6 +50,25 @@ func grantVIP(t *testing.T, q *sqlc.Queries, profileID uuid.UUID) {
 	}
 }
 
+// grantMastery answers every valid fixture question correctly once, which
+// drives every category's mastery ratio (correct/seen, see
+// learning.Service.RecordReview) to 100% — so the profile's overall
+// learning.Stats().ReadinessPct clears MockMasteryThreshold (85) regardless
+// of how the fixture's questions are distributed across categories.
+func grantMastery(t *testing.T, q *sqlc.Queries, l *learning.Service, profileID uuid.UUID) {
+	t.Helper()
+	ctx := context.Background()
+	ids, err := q.RandomQuestionIDs(ctx, 1000)
+	if err != nil {
+		t.Fatalf("grantMastery: list questions: %v", err)
+	}
+	for _, qid := range ids {
+		if _, err := l.RecordReview(ctx, profileID, qid, learning.Good); err != nil {
+			t.Fatalf("grantMastery: record review: %v", err)
+		}
+	}
+}
+
 func TestStartSessionVariantMode(t *testing.T) {
 	q, svc, profileID := seed(t)
 	v, err := q.GetVariantByNumber(context.Background(), 1)
@@ -205,6 +224,25 @@ func correctAnswerID(t *testing.T, q *sqlc.Queries, questionID uuid.UUID) uuid.U
 		}
 	}
 	t.Fatal("no correct answer found")
+	return uuid.Nil
+}
+
+// wrongAnswerID returns any answer for questionID other than the correct
+// one, for tests that need to deliberately submit an incorrect answer.
+func wrongAnswerID(t *testing.T, q *sqlc.Queries, questionID uuid.UUID) uuid.UUID {
+	t.Helper()
+	ans, err := q.ListAnswersByQuestionIDs(context.Background(),
+		sqlc.ListAnswersByQuestionIDsParams{QuestionIds: []uuid.UUID{questionID}, Locale: "uz-Latn"})
+	if err != nil || len(ans) == 0 {
+		t.Fatalf("answers: %v", err)
+	}
+	correctID := correctAnswerID(t, q, questionID)
+	for _, a := range ans {
+		if a.ID != correctID {
+			return a.ID
+		}
+	}
+	t.Fatal("no wrong answer found")
 	return uuid.Nil
 }
 
@@ -744,6 +782,153 @@ func TestStartSessionExamWorksForVIPProfile(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("VIP profile should be able to start exam: %v", err)
 	}
+}
+
+func TestStartSessionGrandMockNotEligibleLowMastery(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	// No mastery seeded — ReadinessPct stays 0, well under MockMasteryThreshold.
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "grand_mock", Locale: "uz-Latn",
+	}); !errors.Is(err, session.ErrMockNotEligible) {
+		t.Fatalf("err=%v want ErrMockNotEligible", err)
+	}
+}
+
+func TestStartSessionGrandMockNotEligibleNoVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantMastery(t, q, svc.Learning, profileID)
+	// No VIP entitlement granted.
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "grand_mock", Locale: "uz-Latn",
+	}); !errors.Is(err, session.ErrMockNotEligible) {
+		t.Fatalf("err=%v want ErrMockNotEligible", err)
+	}
+}
+
+func TestStartSessionGrandMockEligible(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	grantMastery(t, q, svc.Learning, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "grand_mock", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if view.Mode != "grand_mock" {
+		t.Fatalf("expected mode=grand_mock, got %q", view.Mode)
+	}
+	if view.Total != session.ExamQuestionCount || len(view.QuestionIDs) != session.ExamQuestionCount {
+		t.Fatalf("expected %d questions, got %d", session.ExamQuestionCount, len(view.QuestionIDs))
+	}
+	if view.TimeLimitSec == nil || *view.TimeLimitSec != session.ExamTimeLimitSec {
+		t.Fatalf("expected time limit %d, got %v", session.ExamTimeLimitSec, view.TimeLimitSec)
+	}
+}
+
+func TestSubmitAnswerGrandMockStopsOnThirdMistake(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	grantMastery(t, q, svc.Learning, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "grand_mock", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	// answer the first 3 questions wrong, same pattern as
+	// TestSubmitAnswerExamStopsOnThirdMistake — grand_mock shares the exam
+	// pipeline via IsExamLike, so the 3rd mistake must stop it too.
+	for i := 0; i < 3; i++ {
+		wrongID := wrongAnswerID(t, q, view.QuestionIDs[i])
+		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID)
+		if err != nil {
+			t.Fatalf("submit %d: %v", i, err)
+		}
+		if i < 2 {
+			if res.Stopped {
+				t.Fatalf("must not stop before the 3rd mistake, i=%d", i)
+			}
+		} else {
+			if !res.Stopped || res.StopReason != "too_many_errors" {
+				t.Fatalf("expected stop on 3rd mistake, got %+v", res)
+			}
+		}
+	}
+	stored, err := q.GetExamSession(context.Background(), view.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != "failed" || !stored.StoppedReason.Valid || stored.StoppedReason.String != "too_many_errors" {
+		t.Fatalf("expected grand_mock session finalized as too_many_errors/failed, got %+v", stored)
+	}
+}
+
+func TestFinishSessionGrandMockPassFail(t *testing.T) {
+	t.Run("passes at 18/20 with 2 wrong", func(t *testing.T) {
+		q, svc, profileID := seed(t)
+		grantVIP(t, q, profileID)
+		grantMastery(t, q, svc.Learning, profileID)
+		view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+			Mode: "grand_mock", Locale: "uz-Latn",
+		})
+		if err != nil {
+			t.Fatalf("StartSession: %v", err)
+		}
+		for i, qid := range view.QuestionIDs {
+			var answerID uuid.UUID
+			if i < 2 {
+				answerID = wrongAnswerID(t, q, qid)
+			} else {
+				answerID = correctAnswerID(t, q, qid)
+			}
+			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID); err != nil {
+				t.Fatalf("submit %d: %v", i, err)
+			}
+		}
+		res, err := svc.FinishSession(context.Background(), profileID, view.ID)
+		if err != nil {
+			t.Fatalf("FinishSession: %v", err)
+		}
+		if res.Status != "passed" || res.Score != 18 {
+			t.Fatalf("expected passed 18/20, got %+v", res)
+		}
+	})
+
+	t.Run("fails when correct count falls short", func(t *testing.T) {
+		q, svc, profileID := seed(t)
+		grantVIP(t, q, profileID)
+		grantMastery(t, q, svc.Learning, profileID)
+		view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+			Mode: "grand_mock", Locale: "uz-Latn",
+		})
+		if err != nil {
+			t.Fatalf("StartSession: %v", err)
+		}
+		// Answer 18 questions (16 correct, 2 wrong — the max wrong that
+		// doesn't auto-stop the exam-like pipeline) and finish manually with
+		// 2 questions left unanswered, so EvaluateExam sees correct=16 <
+		// total-ExamErrorsAllowed(18) while wrong stays within the allowed 2.
+		for i, qid := range view.QuestionIDs[:18] {
+			var answerID uuid.UUID
+			if i < 2 {
+				answerID = wrongAnswerID(t, q, qid)
+			} else {
+				answerID = correctAnswerID(t, q, qid)
+			}
+			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID); err != nil {
+				t.Fatalf("submit %d: %v", i, err)
+			}
+		}
+		res, err := svc.FinishSession(context.Background(), profileID, view.ID)
+		if err != nil {
+			t.Fatalf("FinishSession: %v", err)
+		}
+		if res.Status != "failed" || res.Score != 16 || res.StoppedReason != "completed" {
+			t.Fatalf("expected failed 16/20 (completed), got %+v", res)
+		}
+	})
 }
 
 func TestSubmitAnswerBumpsStreak(t *testing.T) {

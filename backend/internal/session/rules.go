@@ -8,7 +8,18 @@ const (
 	ExamQuestionCount = 20
 	ExamTimeLimitSec  = 25 * 60
 	ExamErrorsAllowed = 2
+
+	// MockMasteryThreshold is the minimum overall readiness percentage
+	// (learning.Stats.ReadinessPct) required to unlock Grand Mock.
+	MockMasteryThreshold = 85
 )
+
+// IsExamLike reports whether mode uses the strict timed/anti-cheat exam
+// pipeline (time limit, answer redaction until finish, EvaluateExam
+// scoring) — currently "exam" and "grand_mock" share this behavior.
+func IsExamLike(mode string) bool {
+	return mode == "exam" || mode == "grand_mock"
+}
 
 // IsVariantUnlocked reports whether a variant is unlocked. The first variant
 // in the sequence (isFirst) and any VIP/Premium profile (isVIP) are always
