@@ -36,6 +36,10 @@ VALUES ($1, $2, $3, 1, $4);
 SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
 FROM payme_transaction WHERE payme_id = $1;
 
+-- name: GetPaymeTransactionForUpdate :one
+SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
+FROM payme_transaction WHERE payme_id = $1 FOR UPDATE;
+
 -- name: GetActivePaymeTxByPayment :one
 SELECT payme_id, state FROM payme_transaction
 WHERE payment_id = $1 AND state IN (1, 2) LIMIT 1;

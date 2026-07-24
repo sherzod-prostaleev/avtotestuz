@@ -24,7 +24,7 @@ const methodsTestKey = "test-cashbox-key"
 // ServeHTTP (exercising the full dispatch, not the method funcs directly).
 func newMethodsHandler(pool *pgxpool.Pool) *Handler {
 	q := sqlc.New(pool)
-	return &Handler{Q: q, Svc: billing.Service{Q: q}, Key: methodsTestKey}
+	return &Handler{Q: q, Svc: billing.Service{Q: q}, Pool: pool, Key: methodsTestKey}
 }
 
 // seedPaymeTransaction inserts a payme_transaction row directly (bypassing
@@ -70,6 +70,42 @@ func seedPayment(t *testing.T, pool *pgxpool.Pool, status string) uuid.UUID {
 	if _, err := pool.Exec(ctx,
 		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, 'gentra', 30, 59900, 1, true)`,
 		tariffID); err != nil {
+		t.Fatalf("seed tariff: %v", err)
+	}
+
+	paymentID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
+		 VALUES ($1, $2, $3, 59900, 'payme', $4, $5)`,
+		paymentID, profileID, tariffID, status, uuid.New().String()); err != nil {
+		t.Fatalf("seed payment: %v", err)
+	}
+
+	return paymentID
+}
+
+// seedPaymentWithTariffDays is seedPayment with a caller-chosen tariff.days,
+// for TestPerformTransaction_GrantDaysFailureRollsBack: a huge days value
+// overflows the int64-nanosecond time.Duration arithmetic in
+// billing.Service.GrantDays (days * 24 * time.Hour wraps around to a
+// negative duration), so the computed entitlement end lands before its
+// start — deterministically tripping entitlement's `CHECK (ends_at >
+// starts_at)` constraint on insert, without needing any FK trickery.
+func seedPaymentWithTariffDays(t *testing.T, pool *pgxpool.Pool, status string, days int32) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+
+	profileID := uuid.New()
+	phone := fmt.Sprintf("+9989%08d", int(profileID.ID())%100000000)
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO profile (id, phone) VALUES ($1, $2)`, profileID, phone); err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+
+	tariffID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, 'gentra-overflow', $2, 59900, 1, true)`,
+		tariffID, days); err != nil {
 		t.Fatalf("seed tariff: %v", err)
 	}
 
@@ -521,6 +557,69 @@ func TestPerformTransaction_ExpiredPending(t *testing.T) {
 	}
 	if status != "canceled" {
 		t.Errorf("payment.status = %q, want canceled", status)
+	}
+}
+
+// TestPerformTransaction_GrantDaysFailureRollsBack proves the review-round-1
+// fix for the "non-atomic multi-step write can strand a paid customer"
+// finding: if GrantDays fails after the state flip would otherwise have
+// happened, the whole performTransaction DB transaction must roll back, so
+// payme_transaction.state stays 1 (not 2) and payment.status stays
+// 'pending' (not 'paid') — leaving room for a genuine retry to actually
+// retry, instead of the state==2 idempotent-replay branch silently
+// fabricating "success" forever with no entitlement ever granted.
+//
+// The GrantDays failure is forced deterministically via tariff.days
+// overflowing GrantDays' internal time.Duration arithmetic (see
+// seedPaymentWithTariffDays) rather than via any FK trick, since
+// payment.profile_id's FK to profile is NOT NULL and enforced immediately
+// on insert — a payment row pointing at a nonexistent profile can't be
+// seeded in the first place.
+func TestPerformTransaction_GrantDaysFailureRollsBack(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPaymentWithTariffDays(t, pool, "pending", 2000000000)
+	paymeID := "payme-perform-grantfail"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, time.Now().UnixMilli())
+
+	resp := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+
+	if code, isErr := rpcErrorCode(t, resp); !isErr {
+		t.Fatalf("expected error (GrantDays should have failed), got result=%s", resp["result"])
+	} else if code == 0 {
+		t.Errorf("error code = 0, want nonzero")
+	}
+
+	var state int32
+	if err := pool.QueryRow(context.Background(),
+		`SELECT state FROM payme_transaction WHERE payme_id = $1`, paymeID).Scan(&state); err != nil {
+		t.Fatal(err)
+	}
+	if state != 1 {
+		t.Errorf("payme_transaction.state = %d, want 1 (rolled back, not stranded at 2)", state)
+	}
+
+	var status string
+	var paidAt *time.Time
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status, paid_at FROM payment WHERE id = $1`, paymentID).Scan(&status, &paidAt); err != nil {
+		t.Fatal(err)
+	}
+	if status != "pending" {
+		t.Errorf("payment.status = %q, want pending (rolled back, not paid)", status)
+	}
+	if paidAt != nil {
+		t.Errorf("payment.paid_at = %v, want nil (rolled back)", *paidAt)
+	}
+
+	// A genuine retry with the same payme_id must still be able to try
+	// again (not silently replay a fabricated "success" via the state==2
+	// idempotent branch) — it'll hit the same deterministic GrantDays
+	// failure again here, but the important thing is it's NOT treated as
+	// an idempotent replay of a prior success.
+	retry := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+	if _, isErr := rpcErrorCode(t, retry); !isErr {
+		t.Fatalf("retry unexpectedly succeeded with result=%s (should still fail deterministically, proving it re-attempted rather than idempotent-replayed)", retry["result"])
 	}
 }
 

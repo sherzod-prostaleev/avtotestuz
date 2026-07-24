@@ -146,6 +146,38 @@ func (q *Queries) GetPaymeTransaction(ctx context.Context, paymeID string) (GetP
 	return i, err
 }
 
+const getPaymeTransactionForUpdate = `-- name: GetPaymeTransactionForUpdate :one
+SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
+FROM payme_transaction WHERE payme_id = $1 FOR UPDATE
+`
+
+type GetPaymeTransactionForUpdateRow struct {
+	PaymeID     string      `json:"payme_id"`
+	PaymentID   uuid.UUID   `json:"payment_id"`
+	AmountTiyin int64       `json:"amount_tiyin"`
+	State       int32       `json:"state"`
+	Reason      pgtype.Int4 `json:"reason"`
+	CreateTime  int64       `json:"create_time"`
+	PerformTime int64       `json:"perform_time"`
+	CancelTime  int64       `json:"cancel_time"`
+}
+
+func (q *Queries) GetPaymeTransactionForUpdate(ctx context.Context, paymeID string) (GetPaymeTransactionForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getPaymeTransactionForUpdate, paymeID)
+	var i GetPaymeTransactionForUpdateRow
+	err := row.Scan(
+		&i.PaymeID,
+		&i.PaymentID,
+		&i.AmountTiyin,
+		&i.State,
+		&i.Reason,
+		&i.CreateTime,
+		&i.PerformTime,
+		&i.CancelTime,
+	)
+	return i, err
+}
+
 const getPaymentForPayme = `-- name: GetPaymentForPayme :one
 SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, t.days AS tariff_days
 FROM payment p JOIN tariff t ON t.id = p.tariff_id

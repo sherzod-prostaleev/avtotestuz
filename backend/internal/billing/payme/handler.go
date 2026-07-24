@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 )
@@ -12,11 +14,16 @@ import (
 // Handler serves the Payme JSON-RPC webhook (POST /api/v1/billing/payme).
 // Key is the Basic-auth password — the cashbox KEY for the active
 // PAYME_ENV (PAYME_TEST_KEY or PAYME_KEY). An empty Key means Payme isn't
-// configured, so every call is rejected with -32504.
+// configured, so every call is rejected with -32504. Pool backs the
+// transactional read-decide-write path performTransaction needs (lock the
+// payme_transaction row for the whole decision, then commit the state flip
+// + entitlement grant atomically) — Q/Svc remain the non-transactional
+// handles every other method uses.
 type Handler struct {
-	Q   *sqlc.Queries
-	Svc billing.Service
-	Key string
+	Q    *sqlc.Queries
+	Svc  billing.Service
+	Pool *pgxpool.Pool
+	Key  string
 }
 
 // ServeHTTP implements the JSON-RPC 2.0 transport contract: method check,

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
@@ -194,8 +195,26 @@ type performTransactionResult struct {
 // paid, and grant the VIP entitlement via billing.Service.GrantDays — this
 // is the whole point of M2-02's revenue loop. Any other state (-1/-2,
 // already cancelled) can never be performed, so it's -31008 too.
+//
+// The whole read-decide-write sequence runs inside a single DB transaction,
+// with the initial read taken via GetPaymeTransactionForUpdate (SELECT ...
+// FOR UPDATE): this locks the payme_transaction row for the duration of the
+// decision, so a concurrent retry of the same payme_id (Payme is documented
+// to retry webhooks) blocks until this call commits, then correctly takes
+// the idempotent state==2 branch instead of double-granting. Wrapping
+// PerformPaymeTransaction + MarkPaymentPaid + GrantDays together also means
+// a GrantDays failure rolls back the state flip: state stays 1, so a
+// genuine retry can actually retry instead of silently replaying "success"
+// against a customer who was never granted entitlement.
 func (h *Handler) performTransaction(ctx context.Context, p performTransactionParams) (performTransactionResult, *rpcError) {
-	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return performTransactionResult{}, errInternal
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	existing, err := q.GetPaymeTransactionForUpdate(ctx, p.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return performTransactionResult{}, errTransactionNotFound
@@ -204,6 +223,9 @@ func (h *Handler) performTransaction(ctx context.Context, p performTransactionPa
 	}
 
 	if existing.State == 2 {
+		if err := tx.Commit(ctx); err != nil {
+			return performTransactionResult{}, errInternal
+		}
 		return performTransactionResult{
 			Transaction: existing.PaymentID.String(),
 			PerformTime: existing.PerformTime,
@@ -218,7 +240,7 @@ func (h *Handler) performTransaction(ctx context.Context, p performTransactionPa
 
 	now := time.Now().UnixMilli()
 	if existing.CreateTime+paymeTxTimeoutMs < now {
-		if err := h.Q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
+		if err := q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
 			PaymeID:    p.ID,
 			State:      -1,
 			Reason:     pgtype.Int4{Int32: cancelReasonTimeout, Valid: true},
@@ -226,30 +248,38 @@ func (h *Handler) performTransaction(ctx context.Context, p performTransactionPa
 		}); err != nil {
 			return performTransactionResult{}, errInternal
 		}
-		if err := h.Q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
+		if err := q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
 			ID:     existing.PaymentID,
 			Status: "canceled",
 		}); err != nil {
 			return performTransactionResult{}, errInternal
 		}
+		if err := tx.Commit(ctx); err != nil {
+			return performTransactionResult{}, errInternal
+		}
 		return performTransactionResult{}, errTransactionState
 	}
 
-	if err := h.Q.PerformPaymeTransaction(ctx, sqlc.PerformPaymeTransactionParams{
+	if err := q.PerformPaymeTransaction(ctx, sqlc.PerformPaymeTransactionParams{
 		PaymeID:     p.ID,
 		PerformTime: now,
 	}); err != nil {
 		return performTransactionResult{}, errInternal
 	}
-	if err := h.Q.MarkPaymentPaid(ctx, existing.PaymentID); err != nil {
+	if err := q.MarkPaymentPaid(ctx, existing.PaymentID); err != nil {
 		return performTransactionResult{}, errInternal
 	}
 
-	payment, err := h.Q.GetPaymentForPayme(ctx, existing.PaymentID)
+	payment, err := q.GetPaymentForPayme(ctx, existing.PaymentID)
 	if err != nil {
 		return performTransactionResult{}, errInternal
 	}
-	if _, err := h.Svc.GrantDays(ctx, payment.ProfileID, int(payment.TariffDays), "purchase", "", uuid.NullUUID{}); err != nil {
+	txSvc := billing.Service{Q: q}
+	if _, err := txSvc.GrantDays(ctx, payment.ProfileID, int(payment.TariffDays), "purchase", "", uuid.NullUUID{}); err != nil {
+		return performTransactionResult{}, errInternal
+	}
+
+	if err := tx.Commit(ctx); err != nil {
 		return performTransactionResult{}, errInternal
 	}
 
