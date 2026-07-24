@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -29,14 +31,40 @@ func BuildPaymeURL(host, merchantID, orderID string, amountUZS int64, locale, re
 	return strings.TrimRight(host, "/") + "/" + base64.StdEncoding.EncodeToString([]byte(raw))
 }
 
+// BuildClickURL builds the GET checkout URL for Click. amountUZS is in so'm
+// (no tiyin conversion, unlike Payme). returnURL is omitted if empty.
+func BuildClickURL(serviceID, merchantID, orderID string, amountUZS int64, returnURL string) string {
+	v := url.Values{}
+	v.Set("service_id", serviceID)
+	v.Set("merchant_id", merchantID)
+	v.Set("amount", strconv.FormatInt(amountUZS, 10))
+	v.Set("transaction_param", orderID)
+	if returnURL != "" {
+		v.Set("return_url", returnURL)
+	}
+	return "https://my.click.uz/services/pay?" + v.Encode()
+}
+
 type CheckoutResult struct {
 	PaymentID   uuid.UUID `json:"payment_id"`
 	CheckoutURL string    `json:"checkout_url"`
 }
 
+// CheckoutConfig carries the provider-specific merchant identifiers needed
+// to build a checkout URL. Populated by the caller (handlers.go) from
+// config, not read from config directly here.
+type CheckoutConfig struct {
+	PaymeMerchantID   string
+	PaymeCheckoutHost string
+	ClickServiceID    string
+	ClickMerchantID   string
+}
+
 // StartCheckout creates a 'created' payment for the tariff and returns the
-// Payme checkout URL. Amount is the tariff price (promo is applied in M2-05).
-func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffCode, merchantID, host, locale, returnURL string) (CheckoutResult, error) {
+// checkout URL for the requested provider ("payme" or "click"; anything
+// else falls back to Payme). Amount is the tariff price (promo is applied
+// in M2-05).
+func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffCode, provider string, cfg CheckoutConfig, locale, returnURL string) (CheckoutResult, error) {
 	tariff, err := s.Q.GetActiveTariffByCode(ctx, tariffCode)
 	if err != nil {
 		return CheckoutResult{}, fmt.Errorf("tariff %q: %w", tariffCode, err)
@@ -45,14 +73,21 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 		ProfileID:      profileID,
 		TariffID:       tariff.ID,
 		AmountUzs:      tariff.PriceUzs,
-		Provider:       "payme",
+		Provider:       provider,
 		IdempotencyKey: uuid.NewString(),
 	})
 	if err != nil {
 		return CheckoutResult{}, fmt.Errorf("create payment: %w", err)
 	}
+	var checkoutURL string
+	switch provider {
+	case "click":
+		checkoutURL = BuildClickURL(cfg.ClickServiceID, cfg.ClickMerchantID, paymentID.String(), tariff.PriceUzs, returnURL)
+	default:
+		checkoutURL = BuildPaymeURL(cfg.PaymeCheckoutHost, cfg.PaymeMerchantID, paymentID.String(), tariff.PriceUzs, locale, returnURL)
+	}
 	return CheckoutResult{
 		PaymentID:   paymentID,
-		CheckoutURL: BuildPaymeURL(host, merchantID, paymentID.String(), tariff.PriceUzs, locale, returnURL),
+		CheckoutURL: checkoutURL,
 	}, nil
 }

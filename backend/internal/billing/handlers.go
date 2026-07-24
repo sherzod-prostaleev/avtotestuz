@@ -21,6 +21,8 @@ type Handler struct {
 	Svc               Service
 	PaymeMerchantID   string
 	PaymeCheckoutHost string
+	ClickServiceID    string
+	ClickMerchantID   string
 }
 
 // Routes mounts the public, unauthenticated billing endpoints.
@@ -52,10 +54,12 @@ func (h *Handler) listTariffs(w http.ResponseWriter, r *http.Request) {
 
 type checkoutBody struct {
 	TariffCode string `json:"tariff_code"`
+	Provider   string `json:"provider"`
 }
 
-// checkout starts a Payme checkout for the authed profile: creates a
-// 'created' payment for the requested tariff and returns its checkout URL.
+// checkout starts a checkout (Payme or Click) for the authed profile:
+// creates a 'created' payment for the requested tariff and returns its
+// checkout URL. Provider defaults to "payme" when omitted.
 func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
@@ -72,7 +76,21 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
 		return
 	}
-	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, h.PaymeMerchantID, h.PaymeCheckoutHost, loc, "")
+	provider := body.Provider
+	if provider == "" {
+		provider = "payme"
+	}
+	if provider != "payme" && provider != "click" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme or click")
+		return
+	}
+	cfg := CheckoutConfig{
+		PaymeMerchantID:   h.PaymeMerchantID,
+		PaymeCheckoutHost: h.PaymeCheckoutHost,
+		ClickServiceID:    h.ClickServiceID,
+		ClickMerchantID:   h.ClickMerchantID,
+	}
+	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, "")
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")
