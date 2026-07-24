@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-11 tugagach)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-10 va M2 to'liq tugagach)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
@@ -6,10 +6,10 @@
 AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`.
 
 ## 1. Audit qilingan holat (2026-07-24, tekshirilgan)
-- Git: `main`, origin bilan sinxron (bu hujjatning o'zi committed va push qilingan holatda — `git log --oneline -1` bilan aniq HEAD'ni tekshiring, bu qator har doim bitta commit orqada qoladi, chunki hujjatning o'zi ham bitta commit). Ish daraxti **toza**.
-- Backend: `go build ./...` OK; `go test ./... -p 1 -count=1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, account, va boshqa hammasi).
-- Frontend: `npm run typecheck` OK; `npm run test` — **239/239 test o'tadi** (50 fayl); lint'da faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari (bu sessiyaga aloqasi yo'q).
-- DB migratsiya: **version 14**, dirty emas.
+- Git: `main`, barcha yangi imkoniyatlar (M2-06 backend referal, M2-10 to'lov tarixi va referal UI) committed. Ish daraxti **toza**.
+- Backend: `go build ./...` OK; `go test ./... -p 1 -count=1` — barcha 28 paket **o'tadi** (billing, referral, payme, click, account, va boshqa hammasi).
+- Frontend: `npm run typecheck` OK; `npm run test` — **243/243 test o'tadi** (52 fayl); lint'da faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari (bu sessiyaga aloqasi yo'q).
+- DB migratsiya: **version 15**, dirty emas.
 - Kontent: 1231 savol (3 til), 62 bilet, 285 belgi. Foydalanuvchi ma'lumoti pre-launch tozalangan.
 - **`./run.sh`** repo ildizida — bitta buyruq bilan Docker infra + backend (:8090) + frontend (:3000)ni ishga tushiradi (Ctrl+C to'xtatadi, infra ishlab qoladi; `--stop-infra` bilan uni ham to'xtatadi).
 
