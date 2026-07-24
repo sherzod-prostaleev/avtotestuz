@@ -71,6 +71,9 @@ describe("DemoQuestionBlock", () => {
 
     await waitFor(() => expect(screen.getByTestId("answer-correct-icon")).toBeInTheDocument());
     expect(screen.getByTestId("answer-incorrect-icon")).toBeInTheDocument();
+    expect(screen.getByText("Tushunish kaliti — izohda!")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Ro'yxatdan o'tish/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Yana bitta savol/i })).toBeInTheDocument();
   });
 
   it("offers an honest retry state when the real demo is unavailable", async () => {

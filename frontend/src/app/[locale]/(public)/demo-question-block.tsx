@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import { Button } from "@/components/ui/button";
+import { Sparkles, ArrowRight, RotateCw } from "lucide-react";
 
 interface DemoAnswer {
   id: string;
@@ -154,6 +156,36 @@ export function DemoQuestionBlock() {
           />
         ))}
       </div>
+
+      {grade && (
+        <div className={`mt-6 rounded-2xl border p-4 sm:p-5 ${grade.correct ? "border-success/40 bg-success/10" : "border-amber-500/40 bg-amber-500/10"}`}>
+          <div className="flex items-center gap-2 font-display text-sm font-bold">
+            <Sparkles className="h-4 w-4 text-gold shrink-0" />
+            {grade.correct ? t("demoSuccessTitle") : t("demoFailureTitle")}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+            {grade.correct ? t("demoSuccessBody") : t("demoFailureBody")}
+          </p>
+          <div className="mt-4 flex flex-col sm:flex-row gap-2">
+            <Link href={`/${locale}/login`} className="flex-1">
+              <Button type="button" variant="gold" size="sm" className="w-full gap-1.5 font-bold">
+                {t("demoRegisterCta")} <ArrowRight className="h-4 w-4" />
+              </Button>
+            </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => void loadQuestion()}
+            >
+              <RotateCw className="h-3.5 w-3.5" />
+              {t("demoNextQuestion")}
+            </Button>
+          </div>
+        </div>
+      )}
+
       {error && question && (
         <p role="alert" className="mt-3 text-sm text-destructive">
           {error}
