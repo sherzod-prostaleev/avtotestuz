@@ -577,6 +577,38 @@
     "logout": "Tizimdan chiqish",
     "logoutDescription": "Akkauntdan chiqish va joriy sessiyani yakunlash"
   },
+  "Referral": {
+    "title": "Referal Dasturi",
+    "subtitle": "Do'stlaringizni taklif qiling va har biriga +7 kunlik VIP bonus oling!",
+    "yourCode": "Sizning referal kodingiz",
+    "yourLink": "Sizning taklif havolangiz",
+    "copyLink": "Havolani nusxalash",
+    "linkCopied": "Taklif havolasi nusxalandi!",
+    "statInvited": "Jami taklif qilinganlar",
+    "statRewarded": "Mukofot berilgan do'stlar",
+    "statEarnedDays": "Qozonilgan VIP kunlar",
+    "applyTitle": "Referal kodni biriktirish",
+    "applyPlaceholder": "Masalan: ABC123",
+    "applyButton": "Biriktirish",
+    "applying": "Biriktirilmoqda...",
+    "applySuccess": "Referal kod muvaffaqiyatli biriktirildi!",
+    "applyError": "Referal kodni biriktirib bo'lmadi",
+    "note": "Do'stingiz taklif havolangiz orqali ro'yxatdan o'tib, birinchi marta pullik obuna xarid qilganda sizga avtomatik +7 kun VIP taqdim etiladi!"
+  },
+  "PaymentHistory": {
+    "title": "To'lovlar Tarixi",
+    "subtitle": "O'tgan to'lovlaringiz va VIP xaridlaringiz ro'yxati",
+    "empty": "Hali to'lovlar amalga oshirilmagan.",
+    "date": "Sana",
+    "tariff": "Tarif",
+    "provider": "Provayder",
+    "amount": "Summa",
+    "status": "Holat",
+    "statusPaid": "To'langan",
+    "statusPending": "Kutilmoqda",
+    "statusCanceled": "Bekor qilingan",
+    "statusFailed": "Xatolik"
+  },
   "Premium": {
     "title": "DriveGo Premium",
     "subtitle": "Imtihondan 100% birinchi urinishda o'tish uchun barcha imkoniyatlarni oching",

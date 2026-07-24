@@ -9,6 +9,8 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, User, Globe, LogOut, Check } from "lucide-react";
+import { ReferralCard } from "@/components/profile/referral-card";
+import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 
 interface UserProfileData {
   id: string;
@@ -230,6 +232,12 @@ export default function ProfilePage() {
             </div>
           </div>
         </Card>
+
+        {/* Referral Program Section */}
+        <ReferralCard />
+
+        {/* Payment History Section */}
+        <PaymentHistoryCard />
 
         {/* Logout Section */}
         <Card className="p-6 border-destructive/30 bg-destructive/5">
