@@ -1,20 +1,93 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
-import { Crown, CheckCircle2, ArrowLeft, Info, Sparkles, ShieldCheck, BookOpenText, TimerReset } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
+
+interface TariffDTO {
+  code: string;
+  days: number;
+  price_uzs: number;
+  old_price_uzs: number | null;
+  price_per_day_uzs: number;
+  discount_percent: number;
+  badge: string | null;
+  name: string;
+  description: string;
+}
+
+interface EntitlementDTO {
+  active: boolean;
+  until: string | null;
+}
+
+interface CheckoutResult {
+  payment_id: string;
+  checkout_url: string;
+}
+
+function formatSom(n: number): string {
+  return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+}
 
 export default function PremiumPage() {
   const t = useTranslations("Premium");
   const locale = useLocale();
 
-  const features = [
-    t("feature1"),
-    t("feature2"),
-    t("feature3"),
-    t("feature4"),
-  ];
+  const [tariffs, setTariffs] = useState<TariffDTO[] | null>(null);
+  const [entitlement, setEntitlement] = useState<EntitlementDTO | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  const [buyingCode, setBuyingCode] = useState<string | null>(null);
+  const [buyError, setBuyError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const [tariffData, entitlementData] = await Promise.all([
+        apiGet<TariffDTO[]>("tariffs"),
+        apiGet<EntitlementDTO>("me/entitlement"),
+      ]);
+      setTariffs(tariffData);
+      setEntitlement(entitlementData);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const handleBuy = async (code: string) => {
+    setBuyError(null);
+    setBuyingCode(code);
+    try {
+      const result = await apiPost<CheckoutResult>("me/checkout", {
+        tariff_code: code,
+        provider: "payme",
+      });
+      window.location.href = result.checkout_url;
+    } catch {
+      setBuyError(t("buyError"));
+      setBuyingCode(null);
+    }
+  };
+
+  const badgeLabel = (badge: string | null): string | null => {
+    if (badge === "popular") return t("badgePopular");
+    if (badge === "best_value") return t("badgeBestValue");
+    return null;
+  };
+
+  const features = [t("feature1"), t("feature2"), t("feature3"), t("feature4")];
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
@@ -22,66 +95,115 @@ export default function PremiumPage() {
         <Link href={`/${locale}/dashboard`} className="mb-2 flex items-center gap-1 text-sm text-accent hover:underline">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
+        <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-extrabold text-gold">
+          <Crown aria-hidden="true" className="h-3.5 w-3.5" />
+          {t("badge")}
+        </div>
+        <h1 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl">{t("title")}</h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{t("subtitle")}</p>
       </header>
 
-      <section className="relative overflow-hidden rounded-[2rem] border border-gold/30 bg-gradient-to-br from-gold/10 via-card to-card p-6 md:p-8 shadow-2xl">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gold/15 blur-3xl" />
-        <div className="pointer-events-none absolute -left-20 bottom-0 h-44 w-44 rounded-full bg-accent/10 blur-3xl" />
-
-        <div className="relative grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-extrabold text-gold">
-              <Crown aria-hidden="true" className="h-3.5 w-3.5" />
-              {t("badge")}
-            </div>
-
-            <h1 className="font-display text-3xl font-extrabold tracking-tight md:text-5xl">{t("title")}</h1>
-            <p className="max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{t("subtitle")}</p>
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/70 p-4">
-                <ShieldCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
-                <span className="text-sm font-medium text-foreground">{t("trust1")}</span>
-              </div>
-              <div className="flex items-start gap-3 rounded-2xl border border-border/60 bg-background/70 p-4">
-                <Sparkles aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-accent" />
-                <span className="text-sm font-medium text-foreground">{t("trust2")}</span>
-              </div>
-            </div>
-
-            <Link
-              href={`/${locale}/dashboard`}
-              className="inline-flex h-13 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-8 text-base font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none"
-            >
-              {t("backHome")}
-            </Link>
-          </div>
-
-          <Card className="border-gold/30 bg-background/85 p-5 md:p-6">
-            <div className="grid gap-3 sm:grid-cols-2">
-              {features.map((feat, idx) => (
-                <div key={idx} className="flex items-start gap-3 rounded-2xl border border-border/60 bg-card p-4">
-                  <CheckCircle2 aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-gold" />
-                  <span className="text-sm font-medium text-foreground">{feat}</span>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-left text-xs text-amber-500">
-              <TimerReset aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
-              <span>{t("m1Notice")}</span>
-            </div>
-
-            <div className="mt-4 rounded-2xl border border-border/60 bg-gradient-to-r from-card to-accent/5 p-4 text-sm text-muted-foreground">
-              <div className="mb-2 flex items-center gap-2 font-semibold text-foreground">
-                <BookOpenText aria-hidden="true" className="h-4 w-4 text-accent" />
-                {t("panelTitle")}
-              </div>
-              <p>{t("panelBody")}</p>
-            </div>
-          </Card>
+      {entitlement?.active && entitlement.until && (
+        <div role="status" className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success">
+          <ShieldCheck aria-hidden="true" className="h-5 w-5 shrink-0" />
+          {t("vipActiveBanner", { date: new Date(entitlement.until).toLocaleDateString(locale) })}
         </div>
-      </section>
+      )}
+
+      {loading && (
+        <div role="status" className="py-10 text-center text-sm text-muted-foreground">
+          {t("buyLoading")}
+        </div>
+      )}
+
+      {loadError && (
+        <div role="alert" className="mb-6 flex items-center justify-between rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+          <span>{t("loadError")}</span>
+          <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
+            {t("retry")}
+          </Button>
+        </div>
+      )}
+
+      {!loading && !loadError && (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <Card className="flex flex-col p-5">
+            <div className="mb-2 inline-flex w-fit items-center rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+              {t("matizFree")}
+            </div>
+            <h2 className="font-display text-xl font-bold">{t("matizTitle")}</h2>
+            <p className="mt-2 flex-1 text-sm text-muted-foreground">{t("matizDescription")}</p>
+            <Button type="button" variant="outline" size="sm" className="mt-4" disabled>
+              {t("matizCurrentPlan")}
+            </Button>
+          </Card>
+
+          {tariffs?.map((tariff) => {
+            const label = badgeLabel(tariff.badge);
+            return (
+              <Card
+                key={tariff.code}
+                className={`flex flex-col p-5 ${tariff.badge === "popular" ? "border-2 border-gold" : ""}`}
+              >
+                {label && (
+                  <div className="mb-2 inline-flex w-fit items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-[10px] font-extrabold text-gold">
+                    <Sparkles aria-hidden="true" className="h-3 w-3" />
+                    {label}
+                  </div>
+                )}
+                <h2 className="font-display text-xl font-bold">{tariff.name}</h2>
+                <p className="mt-1 text-xs text-muted-foreground">{tariff.description}</p>
+
+                <div className="mt-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="font-display text-2xl font-extrabold">{formatSom(tariff.price_per_day_uzs)}</span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      {t("somSuffix")} / {t("perDay")}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {formatSom(tariff.price_uzs)} {t("somSuffix")} / {tariff.days} {t("daysLabel")}
+                    </span>
+                    {tariff.old_price_uzs !== null && (
+                      <>
+                        <span className="line-through">{formatSom(tariff.old_price_uzs)}</span>
+                        <span className="font-bold text-success">-{tariff.discount_percent}%</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-4 flex-1 space-y-2">
+                  {features.map((feat) => (
+                    <div key={feat} className="flex items-start gap-2 text-xs text-foreground">
+                      <CheckCircle2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
+                      {feat}
+                    </div>
+                  ))}
+                </div>
+
+                {buyError && buyingCode === tariff.code && (
+                  <p role="alert" className="mt-2 text-xs text-destructive">
+                    {buyError}
+                  </p>
+                )}
+
+                <Button
+                  type="button"
+                  variant="gold"
+                  size="sm"
+                  className="mt-4"
+                  disabled={buyingCode === tariff.code}
+                  onClick={() => void handleBuy(tariff.code)}
+                >
+                  {buyingCode === tariff.code ? t("buyLoading") : t("buyButton")}
+                </Button>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
 }
