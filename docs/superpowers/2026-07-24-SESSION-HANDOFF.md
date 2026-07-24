@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-03 tugagach)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-04 tugagach)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
@@ -6,10 +6,11 @@
 AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`.
 
 ## 1. Audit qilingan holat (2026-07-24, tekshirilgan)
-- Git: `main`, origin bilan sinxron (`95d5f3a`, push qilingan). Ish daraxti **toza**.
-- Backend: `go build ./...` OK; `go test ./... -p 1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, va boshqa hammasi).
+- Git: `main`, origin bilan sinxron (`d4bfa50`, push qilingan). Ish daraxti **toza**.
+- Backend: `go build ./...` OK; `go test ./... -p 1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, account, va boshqa hammasi).
 - DB migratsiya: **version 14**, dirty emas.
 - Kontent: 1231 savol (3 til), 62 bilet, 285 belgi. Foydalanuvchi ma'lumoti pre-launch tozalangan.
+- **`./run.sh`** repo ildizida — bitta buyruq bilan Docker infra + backend (:8090) + frontend (:3000)ni ishga tushiradi (Ctrl+C to'xtatadi, infra ishlab qoladi; `--stop-infra` bilan uni ham to'xtatadi).
 
 ## 2. Hozirgacha nima TUGADI
 
@@ -23,6 +24,8 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 **Checkout endpoint umumlashtirilgan**: `POST /api/v1/me/checkout` endi `{"tariff_code":"gentra","provider":"payme"|"click"}` qabul qiladi (provider bo'sh bo'lsa `payme`ga default).
 
+**M2-04 (to'lov tarixi, read-side) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-04-payment-history-design.md`. `GET /api/v1/me/payments?limit=N` (auth) — `internal/account` paketiga qo'shildi, yangi migratsiya yo'q. Barcha statusdagi to'lovlarni (paid/failed/canceled/...) tarif nomi bilan (locale-fallback) qaytaradi, `created_at DESC`, default limit 20. Roadmap'dagi M2-04'ning "grant" qismi (T1) allaqachon M2-02/M2-03'da bajarilgan edi — bu faqat qolgan read-side qism edi.
+
 **MUHIM — real to'lov hali sinalmagan**: ikkala provayderning ENV kalitlari (`PAYME_MERCHANT_ID`/`PAYME_TEST_KEY`/`PAYME_KEY`, `CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`) hali **bo'sh**. Bo'sh-kalit bilan webhook doim rad etadi (Payme: -32504, Click: -1 SIGN CHECK FAILED) — bu KUTILGAN, xato emas. Foydalanuvchi har ikkala provayderning merchant-kabinetidan sandbox kalit olib ENV'ga qo'yishi, so'ng test.paycom.uz / Click sandbox tester orqali haqiqiy sinovni o'zi o'tkazishi kerak.
 
 ## 3. Roadmap'dagi asl tavsiya vs. haqiqiy bajarilish tartibi
@@ -33,15 +36,14 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 ## 4. KEYINGI ANIQ QADAM (tavsiya)
 
-Roadmap bo'yicha eng mantiqiy davom: qolgan Wave 1 + Wave 2 elementlarini bajarish, chunki ular "sayt haqiqatan pul qabul qila oladi" nuqtasini yopadi:
+M2-04 tugadi. Qolgan Wave 1 + Wave 2 elementlari:
 
-1. **M2-04** (BE, `02,03`ga bog'liq — ENDI OCHIQ): to'lov tarixi endpointi (`GET /me/payments`) + chek ma'lumoti. Eslatma: "to'lov→entitlement grant" qismi (roadmap'da T1) allaqachon M2-02/M2-03'ning o'zida amalga oshirilgan (`GrantDays` webhook'larda chaqiriladi) — M2-04 endi asosan **read-side tarix** qoladi, grant logikasi emas.
-2. **M2-08** (FE, `01`ga bog'liq): tarif UI (mashina-brend kartalar).
-3. **M2-05** (BE, `01`ga bog'liq): promo-kodlar.
-4. **M2-09** (FE, `04,08`ga bog'liq — 1 va 2 tugagach ochiladi): checkout oqimi (tanlash→promo→to'lov→qaytish) — bu FRONTEND'DA HAQIQATAN "SOTIB OLISH" tugmasini ishlatadi.
-5. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel) — demo-endpoint M1'da tayyor, faqat FE kerak.
+1. **M2-08** (FE, `01`ga bog'liq — HOZIR NAVBATDA): tarif UI (mashina-brend kartalar). Frontend dizayn qarorlari kerak bo'lishi mumkin — brainstorming'da user bilan tasdiqlash kerak (visual companion taklif qilish mumkin, kartalar layout savoli uchun).
+2. **M2-05** (BE, `01`ga bog'liq): promo-kodlar.
+3. **M2-09** (FE, `04,08`ga bog'liq — endi 04 tugadi, 08 tugagach to'liq ochiladi): checkout oqimi (tanlash→promo→to'lov→qaytish) — bu FRONTEND'DA HAQIQATAN "SOTIB OLISH" tugmasini ishlatadi.
+4. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel) — demo-endpoint M1'da tayyor, faqat FE kerak.
 
-M2-04+M2-09 tugagach — roadmap bo'yicha bu **"SHIPPABLE"** nuqta (Payme orqali haqiqiy pul qabul qilish mumkin bo'ladi, agar sandbox kalitlar qo'yilgan bo'lsa).
+M2-09 tugagach — roadmap bo'yicha bu **"SHIPPABLE"** nuqta (Payme orqali haqiqiy pul qabul qilish mumkin bo'ladi, agar sandbox kalitlar qo'yilgan bo'lsa).
 
 Keyin Wave 3'ning qolgan qismi: M2-06 (referal, `04`ga bog'liq), M2-07 (GRAND MOCK), M2-10 (tarix/referal UI, `04,06`ga bog'liq).
 
