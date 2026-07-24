@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, Copy, Check, Gift, Award, Sparkles } from "lucide-react";
 
 export interface ReferralResponse {
   referral_code: string;
+  invite_url: string;
   total_invited: number;
   total_rewarded: number;
   bonus_days_earned: number;
@@ -44,12 +45,10 @@ export function ReferralCard() {
   }, [loadReferralData]);
 
   const handleCopyLink = async () => {
-    if (!data?.referral_code) return;
-    const origin = typeof window !== "undefined" ? window.location.origin : "https://avtotest.uz";
-    const inviteUrl = `${origin}/login?ref=${data.referral_code}`;
+    if (!data?.invite_url) return;
 
     try {
-      await navigator.clipboard.writeText(inviteUrl);
+      await navigator.clipboard.writeText(data.invite_url);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch {
@@ -69,8 +68,23 @@ export function ReferralCard() {
       setInputCode("");
       void loadReferralData();
     } catch (err: unknown) {
-      const errMsg = err && typeof err === "object" && "message" in err ? String((err as { message: string }).message) : t("applyError");
-      setApplyMessage({ type: "error", text: errMsg || t("applyError") });
+      let errMsg = t("applyError");
+      if (err instanceof ApiError) {
+        switch (err.code) {
+          case "referral_self":
+            errMsg = t("errorSelf");
+            break;
+          case "referral_not_found":
+            errMsg = t("errorNotFound");
+            break;
+          case "referral_already_applied":
+            errMsg = t("errorAlreadyApplied");
+            break;
+          default:
+            errMsg = t("applyError");
+        }
+      }
+      setApplyMessage({ type: "error", text: errMsg });
     } finally {
       setApplying(false);
     }
@@ -84,7 +98,7 @@ export function ReferralCard() {
           <CardTitle className="text-base font-bold">{t("title")}</CardTitle>
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent">
-          <Sparkles aria-hidden="true" className="h-3 w-3" /> +7 kun VIP
+          <Sparkles aria-hidden="true" className="h-3 w-3" /> {t("bonusBadge", { days: 7 })}
         </span>
       </CardHeader>
 
@@ -92,13 +106,13 @@ export function ReferralCard() {
 
       {loading && (
         <div role="status" className="text-sm text-muted-foreground">
-          Yuklanmoqda...
+          {t("loading")}
         </div>
       )}
 
       {error && (
         <div role="alert" className="text-sm text-destructive">
-          Referal ma'lumotlarini yuklab bo'lmadi.
+          {t("loadError")}
         </div>
       )}
 

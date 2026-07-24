@@ -1,10 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { apiGet } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { formatDateWithTime } from "@/lib/date-format";
+
+const NUMBER_FORMAT_LOCALES: Record<string, string> = {
+  "uz-Latn": "uz-Latn-UZ",
+  "uz-Cyrl": "uz-Cyrl-UZ",
+  ru: "ru-RU",
+};
 
 export interface PaymentItem {
   id: string;
@@ -20,6 +27,7 @@ export interface PaymentItem {
 
 export function PaymentHistoryCard() {
   const t = useTranslations("PaymentHistory");
+  const locale = useLocale();
 
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -29,8 +37,8 @@ export function PaymentHistoryCard() {
     setLoading(true);
     setError(false);
     try {
-      const res = await apiGet<{ items: PaymentItem[] }>("me/payments?limit=20");
-      setPayments(res.items || []);
+      const res = await apiGet<PaymentItem[]>("me/payments?limit=20");
+      setPayments(res || []);
     } catch {
       setError(true);
     } finally {
@@ -43,23 +51,11 @@ export function PaymentHistoryCard() {
   }, [loadPayments]);
 
   const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat("uz-UZ").format(amount) + " so'm";
+    const intlLocale = NUMBER_FORMAT_LOCALES[locale] ?? "uz-UZ";
+    return new Intl.NumberFormat(intlLocale).format(amount) + " so'm";
   };
 
-  const formatDate = (dateStr: string) => {
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleDateString("uz-UZ", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  const formatDate = (dateStr: string) => formatDateWithTime(dateStr);
 
   const getStatusBadge = (status: string) => {
     switch (status.toLowerCase()) {
@@ -103,13 +99,13 @@ export function PaymentHistoryCard() {
 
       {loading && (
         <div role="status" className="text-sm text-muted-foreground">
-          To'lovlar tarixi yuklanmoqda...
+          {t("loading")}
         </div>
       )}
 
       {error && (
         <div role="alert" className="text-sm text-destructive">
-          To'lovlar tarixini yuklab bo'lmadi.
+          {t("loadError")}
         </div>
       )}
 

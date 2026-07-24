@@ -580,6 +580,9 @@
   "Referral": {
     "title": "Referal Dasturi",
     "subtitle": "Do'stlaringizni taklif qiling va har biriga +7 kunlik VIP bonus oling!",
+    "bonusBadge": "+{days} kun VIP",
+    "loading": "Yuklanmoqda...",
+    "loadError": "Referal ma'lumotlarini yuklab bo'lmadi.",
     "yourCode": "Sizning referal kodingiz",
     "yourLink": "Sizning taklif havolangiz",
     "copyLink": "Havolani nusxalash",
@@ -593,11 +596,16 @@
     "applying": "Biriktirilmoqda...",
     "applySuccess": "Referal kod muvaffaqiyatli biriktirildi!",
     "applyError": "Referal kodni biriktirib bo'lmadi",
+    "errorSelf": "O'zingizning referal kodingizni biriktira olmaysiz",
+    "errorNotFound": "Bunday referal kod topilmadi",
+    "errorAlreadyApplied": "Sizda allaqachon referal kod biriktirilgan",
     "note": "Do'stingiz taklif havolangiz orqali ro'yxatdan o'tib, birinchi marta pullik obuna xarid qilganda sizga avtomatik +7 kun VIP taqdim etiladi!"
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",
     "subtitle": "O'tgan to'lovlaringiz va VIP xaridlaringiz ro'yxati",
+    "loading": "To'lovlar tarixi yuklanmoqda...",
+    "loadError": "To'lovlar tarixini yuklab bo'lmadi.",
     "empty": "Hali to'lovlar amalga oshirilmagan.",
     "date": "Sana",
     "tariff": "Tarif",

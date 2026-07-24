@@ -19,7 +19,7 @@ describe("PaymentHistoryCard", () => {
   });
 
   it("renders empty state when no payments exist", async () => {
-    vi.spyOn(apiClient, "apiGet").mockResolvedValue({ items: [] });
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue([]);
 
     renderWithIntl();
 
@@ -27,21 +27,19 @@ describe("PaymentHistoryCard", () => {
   });
 
   it("renders list of payments", async () => {
-    vi.spyOn(apiClient, "apiGet").mockResolvedValue({
-      items: [
-        {
-          id: "p1",
-          amount_uzs: 59900,
-          provider: "payme",
-          status: "paid",
-          created_at: "2026-07-24T12:00:00Z",
-          paid_at: "2026-07-24T12:01:00Z",
-          tariff_code: "gentra",
-          tariff_days: 30,
-          tariff_name: "Gentra",
-        },
-      ],
-    });
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue([
+      {
+        id: "p1",
+        amount_uzs: 59900,
+        provider: "payme",
+        status: "paid",
+        created_at: "2026-07-24T12:00:00Z",
+        paid_at: "2026-07-24T12:01:00Z",
+        tariff_code: "gentra",
+        tariff_days: 30,
+        tariff_name: "Gentra",
+      },
+    ]);
 
     renderWithIntl();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ArrowLeft, CarFront, Phone, ShieldCheck } from "lucide-react";
+import { REFERRAL_CODE_STORAGE_KEY } from "@/lib/referral-storage";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -26,6 +27,22 @@ export default function LoginPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Capture a `?ref=CODE` referral code from the URL (e.g. from a shared invite
+  // link) and stash it so it can be applied automatically once the user
+  // completes signup. Read directly from window.location instead of
+  // next/navigation's useSearchParams to avoid requiring a Suspense boundary
+  // around this page. See verify/page.tsx for where it gets applied.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const ref = new URLSearchParams(window.location.search).get("ref");
+    if (!ref) return;
+    try {
+      window.localStorage.setItem(REFERRAL_CODE_STORAGE_KEY, ref.trim().toUpperCase());
+    } catch {
+      // ignore storage errors (e.g. private browsing / disabled storage)
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
