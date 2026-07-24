@@ -14,6 +14,7 @@ import (
 	"avtotest.uz/backend/internal/account"
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
+	"avtotest.uz/backend/internal/billing/payme"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -56,7 +57,11 @@ func New(cfg config.Config, deps Deps) http.Handler {
 			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
 			ch.Routes(api)
 
-			bh := &billing.Handler{Svc: billing.Service{Q: deps.Queries}}
+			bh := &billing.Handler{
+				Svc:               billing.Service{Q: deps.Queries},
+				PaymeMerchantID:   cfg.PaymeMerchantID,
+				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
+			}
 			bh.Routes(api)
 
 			if deps.Pool != nil && deps.Redis != nil {
@@ -81,6 +86,11 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				bh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				pmh := &payme.Handler{Q: deps.Queries, Svc: billing.Service{Q: deps.Queries}, Key: cfg.PaymeKey(), Pool: deps.Pool}
+				api.Post("/billing/payme", pmh.ServeHTTP)
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
