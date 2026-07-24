@@ -42,8 +42,32 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.Method {
-	// Tasks 4-6 add cases here: CheckPerformTransaction, CreateTransaction,
-	// PerformTransaction, CancelTransaction, CheckTransaction, GetStatement.
+	// Tasks 5-6 add cases here: PerformTransaction, CancelTransaction,
+	// CheckTransaction, GetStatement.
+	case "CheckPerformTransaction":
+		var p checkPerformParams
+		if err := json.Unmarshal(req.Params, &p); err != nil {
+			writeError(w, req.ID, errParse)
+			return
+		}
+		result, rpcErr := h.checkPerform(r.Context(), p)
+		if rpcErr != nil {
+			writeError(w, req.ID, rpcErr)
+			return
+		}
+		writeResult(w, req.ID, result)
+	case "CreateTransaction":
+		var p createTransactionParams
+		if err := json.Unmarshal(req.Params, &p); err != nil {
+			writeError(w, req.ID, errParse)
+			return
+		}
+		result, rpcErr := h.createTransaction(r.Context(), p)
+		if rpcErr != nil {
+			writeError(w, req.ID, rpcErr)
+			return
+		}
+		writeResult(w, req.ID, result)
 	default:
 		writeError(w, req.ID, errUnknownMethod)
 	}
