@@ -185,3 +185,47 @@ kontent-studio (savol/izoh/belgi CRUD + verify + import/export — **eslatma:** 
 - **Testlar:** har Plan review'dan o'tadi (`requesting-code-review`); TDD tavsiya.
 - **Sandbox→prod:** to'lovlar yuridik shaxs ochilgach production'ga o'tadi (kod tayyor turadi).
 - **Parallel bajarish:** mustaqil Plan'larni bir vaqtda subagentlarga bering; feature ichida API-kontrakt belgilangач BE+FE parallel.
+
+---
+
+## 9. Bajarilish tartibi + vaqt baholari (BOSHLASH REJASI)
+
+**Birlik:** `1 sessiya` = bitta fokuslangan spec→qurish→test→review sikli (~yarim kun AI + review). `S`≤1, `M`=1–2, `L`=3+ sessiya. **Wall-clock** = parallel treklar hisobga olinganda taxminiy davomiylik (sizning tempingizga bog'liq). Baholar **taxminiy** — tashqi bog'liqliklar (Payme/Click sandbox kaliti, yuridik shaxs, WebSocket-hosting) ta'sir qiladi.
+
+### Umumiy tartib (nega shunday)
+Revenue eng muhim → **M2 birinchi**. Kritik yo'l "foydalanuvchi to'lay oladi va VIP oladi" ni eng tez yopadi; qolgani atrofda parallel. Keyin retention (**M4**), so'ng **M5/M6/M7**, **admin oxirida**.
+
+### M2 — Monetizatsiya (~13 sessiya; parallel bilan wall-clock ~1–1.5 hafta)
+
+| Wave | Plan (parallel treklar) | Effort | Nima chiqadi |
+|------|------------------------|--------|--------------|
+| **0 — Poydevor** | M2-01 tarif modeli (solo) | S (1) | Tariflar API + seed; barcha M2 ochiladi |
+| **1 — Kritik yo'l** (parallel) | A: M2-02 Payme · B: M2-08 tarif UI · C: M2-11 demo + M2-05 promo | M/M/S+S (~4) | To'lov provayder + narx kartalar + promo |
+| **2 — Halqani yopish** | M2-04 grant→entitlement · M2-09 checkout (E2E) | S+M (~2.5) | **Payme bilan revenue to'liq ishlaydi — SHIPPABLE** ✅ |
+| **3 — To'ldirish** (parallel) | M2-03 Click · M2-06 referal · M2-07 GRAND MOCK · M2-10 tarix/referal UI | M+S+M+S (~5) | Ikkinchi provayder, referal, mock, tarix — **M2 tugadi** |
+
+> **Eng tez revenue nuqtasi:** Wave 0→1A→2. Ya'ni ~4–5 sessiyada Payme orqali pul qabul qilinadi. Qolgan hammasi shundan keyin parallel.
+> **Tashqi bloklar (oldindan tayyorlang):** Payme & Click sandbox merchant kalitlari; prod uchun yuridik shaxs (sandbox hozir yetarli).
+
+### M4 — Growth (~12.5 sessiya; wall-clock ~1.5–2 hafta)
+
+| Guruh | Plan | Effort |
+|-------|------|--------|
+| Leaderboard (parallel Arena bilan) | M4-01 BE (S) → M4-02 UI (S) | ~2 |
+| **Battle Arena** (eng og'ir) | M4-03 realtime infra (L, 3) → M4-04 match/medal (M) → M4-05 UI (M, 2) | ~6.5 |
+| Telegram bot (mustaqil, parallel) | M4-06 poydevor (S) → M4-07 quiz/notif (M) | ~2.5 |
+| Push | M4-08 (M) | ~1.5 |
+
+> Arena eng katta risk — uni **erta prototiplang** (WebSocket-hosting qarori). TG bot va leaderboard Arena bilan to'liq parallel.
+
+### M5 — B2B (~7 sessiya) · M6 — PWA (~3.5) · M7 — Miqyos (~5)
+Bu bosqichlar talab-aniqlashtirilganda detallashadi; hozircha Plan-darajali. M5 real B2B mijoz topilganda; M7 prod-launchdan oldin.
+
+### M3 — Super Admin (~13 sessiya, ENG OXIRIDA)
+8 quyi-tizim. RBAC + audit-log poydevor (M, ~2), keyin har vertikal (~1.5 dan).
+
+### Jami (adminGACHA): ~41 sessiya
+Parallel 2–3 trek bilan wall-clock **~4–6 hafta faol ish** (sizning review tempingiz + tashqi bloklarga bog'liq). Admin +~13 sessiya (~1.5 hafta).
+
+### Tavsiya: NIMADAN BOSHLAYMIZ
+**M2-01 (tarif modeli)** — solo, hech narsaga bog'liq emas, 1 sessiya, va butun M2 ni ochadi. Spec (brainstorming) → reja (writing-plans) → qurish. Undan keyin darhol Wave 1 ni parallel subagentlarga taqsimlaymiz.
