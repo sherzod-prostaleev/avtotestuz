@@ -289,12 +289,8 @@ func (h *Handler) performTransaction(ctx context.Context, p performTransactionPa
 		return performTransactionResult{}, errInternal
 	}
 
-	payment, err := q.GetPaymentForPayme(ctx, existing.PaymentID)
-	if err != nil {
-		return performTransactionResult{}, errInternal
-	}
 	txSvc := billing.Service{Q: q}
-	if _, err := txSvc.GrantDays(ctx, payment.ProfileID, int(payment.TariffDays), "purchase", "", uuid.NullUUID{}); err != nil {
+	if err := txSvc.ProcessPaymentGrant(ctx, existing.PaymentID); err != nil {
 		return performTransactionResult{}, errInternal
 	}
 

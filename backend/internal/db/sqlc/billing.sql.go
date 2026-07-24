@@ -42,6 +42,33 @@ func (q *Queries) ConfirmClickTransaction(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const countPromoRedemptions = `-- name: CountPromoRedemptions :one
+SELECT COUNT(*)::int AS count FROM promo_redemption WHERE promo_code_id = $1
+`
+
+func (q *Queries) CountPromoRedemptions(ctx context.Context, promoCodeID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countPromoRedemptions, promoCodeID)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countUserPromoRedemptions = `-- name: CountUserPromoRedemptions :one
+SELECT COUNT(*)::int AS count FROM promo_redemption WHERE promo_code_id = $1 AND profile_id = $2
+`
+
+type CountUserPromoRedemptionsParams struct {
+	PromoCodeID uuid.UUID `json:"promo_code_id"`
+	ProfileID   uuid.UUID `json:"profile_id"`
+}
+
+func (q *Queries) CountUserPromoRedemptions(ctx context.Context, arg CountUserPromoRedemptionsParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countUserPromoRedemptions, arg.PromoCodeID, arg.ProfileID)
+	var count int32
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createClickTransaction = `-- name: CreateClickTransaction :one
 INSERT INTO click_transaction (click_trans_id, click_paydoc_id, payment_id, amount_uzs)
 VALUES ($1, $2, $3, $4)
@@ -90,17 +117,18 @@ func (q *Queries) CreatePaymeTransaction(ctx context.Context, arg CreatePaymeTra
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-VALUES ($1, $2, $3, $4, 'created', $5)
+INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, promo_code_id)
+VALUES ($1, $2, $3, $4, 'created', $5, $6)
 RETURNING id
 `
 
 type CreatePaymentParams struct {
-	ProfileID      uuid.UUID `json:"profile_id"`
-	TariffID       uuid.UUID `json:"tariff_id"`
-	AmountUzs      int64     `json:"amount_uzs"`
-	Provider       string    `json:"provider"`
-	IdempotencyKey string    `json:"idempotency_key"`
+	ProfileID      uuid.UUID     `json:"profile_id"`
+	TariffID       uuid.UUID     `json:"tariff_id"`
+	AmountUzs      int64         `json:"amount_uzs"`
+	Provider       string        `json:"provider"`
+	IdempotencyKey string        `json:"idempotency_key"`
+	PromoCodeID    uuid.NullUUID `json:"promo_code_id"`
 }
 
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (uuid.UUID, error) {
@@ -110,10 +138,27 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (u
 		arg.AmountUzs,
 		arg.Provider,
 		arg.IdempotencyKey,
+		arg.PromoCodeID,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const createPromoRedemption = `-- name: CreatePromoRedemption :exec
+INSERT INTO promo_redemption (promo_code_id, profile_id, payment_id)
+VALUES ($1, $2, $3)
+`
+
+type CreatePromoRedemptionParams struct {
+	PromoCodeID uuid.UUID     `json:"promo_code_id"`
+	ProfileID   uuid.UUID     `json:"profile_id"`
+	PaymentID   uuid.NullUUID `json:"payment_id"`
+}
+
+func (q *Queries) CreatePromoRedemption(ctx context.Context, arg CreatePromoRedemptionParams) error {
+	_, err := q.db.Exec(ctx, createPromoRedemption, arg.PromoCodeID, arg.ProfileID, arg.PaymentID)
+	return err
 }
 
 const getActiveClickTxByPayment = `-- name: GetActiveClickTxByPayment :one
@@ -300,18 +345,19 @@ func (q *Queries) GetPaymeTransactionForUpdate(ctx context.Context, paymeID stri
 }
 
 const getPaymentForPayme = `-- name: GetPaymentForPayme :one
-SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, t.days AS tariff_days
+SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id, t.days AS tariff_days
 FROM payment p JOIN tariff t ON t.id = p.tariff_id
 WHERE p.id = $1
 `
 
 type GetPaymentForPaymeRow struct {
-	ID         uuid.UUID `json:"id"`
-	ProfileID  uuid.UUID `json:"profile_id"`
-	TariffID   uuid.UUID `json:"tariff_id"`
-	AmountUzs  int64     `json:"amount_uzs"`
-	Status     string    `json:"status"`
-	TariffDays int32     `json:"tariff_days"`
+	ID          uuid.UUID     `json:"id"`
+	ProfileID   uuid.UUID     `json:"profile_id"`
+	TariffID    uuid.UUID     `json:"tariff_id"`
+	AmountUzs   int64         `json:"amount_uzs"`
+	Status      string        `json:"status"`
+	PromoCodeID uuid.NullUUID `json:"promo_code_id"`
+	TariffDays  int32         `json:"tariff_days"`
 }
 
 func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaymentForPaymeRow, error) {
@@ -323,7 +369,56 @@ func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaym
 		&i.TariffID,
 		&i.AmountUzs,
 		&i.Status,
+		&i.PromoCodeID,
 		&i.TariffDays,
+	)
+	return i, err
+}
+
+const getPromoCodeByCode = `-- name: GetPromoCodeByCode :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE LOWER(code) = LOWER($1) AND active = true
+`
+
+func (q *Queries) GetPromoCodeByCode(ctx context.Context, lower string) (PromoCode, error) {
+	row := q.db.QueryRow(ctx, getPromoCodeByCode, lower)
+	var i PromoCode
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Value,
+		&i.MaxUses,
+		&i.PerUserLimit,
+		&i.ValidFrom,
+		&i.ValidTo,
+		&i.Active,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getPromoCodeByID = `-- name: GetPromoCodeByID :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE id = $1
+`
+
+func (q *Queries) GetPromoCodeByID(ctx context.Context, id uuid.UUID) (PromoCode, error) {
+	row := q.db.QueryRow(ctx, getPromoCodeByID, id)
+	var i PromoCode
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Value,
+		&i.MaxUses,
+		&i.PerUserLimit,
+		&i.ValidFrom,
+		&i.ValidTo,
+		&i.Active,
+		&i.CreatedBy,
 	)
 	return i, err
 }

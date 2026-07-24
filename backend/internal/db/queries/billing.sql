@@ -13,14 +13,35 @@ ORDER BY t.sort_order, t.code;
 SELECT id, days, price_uzs FROM tariff WHERE code = $1 AND active = true;
 
 -- name: CreatePayment :one
-INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-VALUES ($1, $2, $3, $4, 'created', $5)
+INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, promo_code_id)
+VALUES ($1, $2, $3, $4, 'created', $5, $6)
 RETURNING id;
 
 -- name: GetPaymentForPayme :one
-SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, t.days AS tariff_days
+SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id, t.days AS tariff_days
 FROM payment p JOIN tariff t ON t.id = p.tariff_id
 WHERE p.id = $1;
+
+-- name: GetPromoCodeByCode :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE LOWER(code) = LOWER($1) AND active = true;
+
+-- name: GetPromoCodeByID :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE id = $1;
+
+-- name: CountPromoRedemptions :one
+SELECT COUNT(*)::int AS count FROM promo_redemption WHERE promo_code_id = $1;
+
+-- name: CountUserPromoRedemptions :one
+SELECT COUNT(*)::int AS count FROM promo_redemption WHERE promo_code_id = $1 AND profile_id = $2;
+
+-- name: CreatePromoRedemption :exec
+INSERT INTO promo_redemption (promo_code_id, profile_id, payment_id)
+VALUES ($1, $2, $3);
+
 
 -- name: SetPaymentStatus :exec
 UPDATE payment SET status = $2 WHERE id = $1;

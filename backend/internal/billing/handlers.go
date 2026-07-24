@@ -35,6 +35,7 @@ func (h *Handler) Routes(r chi.Router) {
 // bh.AuthedRoutes(api.With(auth.Required(...))).
 func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Post("/me/checkout", h.checkout)
+	r.Post("/billing/promo/validate", h.validatePromo)
 }
 
 func (h *Handler) listTariffs(w http.ResponseWriter, r *http.Request) {
@@ -52,9 +53,54 @@ func (h *Handler) listTariffs(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, out)
 }
 
+type validatePromoBody struct {
+	Code       string `json:"code"`
+	TariffCode string `json:"tariff_code"`
+}
+
+func (h *Handler) validatePromo(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	var body validatePromoBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if body.Code == "" || body.TariffCode == "" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", "code and tariff_code are required")
+		return
+	}
+
+	res, err := h.Svc.ValidatePromo(r.Context(), claims.ProfileID, body.Code, body.TariffCode)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrPromoNotFound):
+			httpx.Error(w, http.StatusNotFound, "promo_not_found", "promo code not found or inactive")
+		case errors.Is(err, ErrPromoExpired):
+			httpx.Error(w, http.StatusBadRequest, "promo_expired", "promo code expired")
+		case errors.Is(err, ErrPromoNotStarted):
+			httpx.Error(w, http.StatusBadRequest, "promo_not_started", "promo code not yet active")
+		case errors.Is(err, ErrPromoLimitReached):
+			httpx.Error(w, http.StatusBadRequest, "promo_limit_reached", "promo code maximum usage limit reached")
+		case errors.Is(err, ErrPromoUserLimitReached):
+			httpx.Error(w, http.StatusBadRequest, "promo_user_limit_reached", "per-user promo code limit reached")
+		case errors.Is(err, pgx.ErrNoRows):
+			httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "promo validation failed")
+		}
+		return
+	}
+	httpx.Data(w, http.StatusOK, res)
+}
+
 type checkoutBody struct {
 	TariffCode string `json:"tariff_code"`
 	Provider   string `json:"provider"`
+	PromoCode  string `json:"promo_code,omitempty"`
 }
 
 // checkout starts a checkout (Payme or Click) for the authed profile:
@@ -90,7 +136,7 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		ClickServiceID:    h.ClickServiceID,
 		ClickMerchantID:   h.ClickMerchantID,
 	}
-	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, "")
+	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, "", body.PromoCode)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")

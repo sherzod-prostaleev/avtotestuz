@@ -5,10 +5,14 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -50,5 +54,61 @@ func TestTariffsEndpoint(t *testing.T) {
 	r.ServeHTTP(w2, req2)
 	if w2.Code != http.StatusBadRequest {
 		t.Errorf("bad locale status = %d, want 400", w2.Code)
+	}
+}
+
+func TestValidatePromoEndpoint(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	profileID := uuid.MustParse("55555555-5555-5555-5555-555555555555")
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000005')`, profileID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('SAVE20', 'percent', 20, true)`); err != nil {
+		t.Fatal(err)
+	}
+
+	const secret = "test-secret-12345"
+	tok, err := auth.IssueAccess([]byte(secret), profileID, "user", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &Handler{Svc: Service{Q: sqlc.New(pool)}}
+	r := chi.NewRouter()
+	r.Use(auth.Required([]byte(secret)))
+	h.AuthedRoutes(r)
+
+	// Valid promo
+	body := strings.NewReader(`{"code":"SAVE20","tariff_code":"gentra"}`)
+	req := httptest.NewRequest(http.MethodPost, "/billing/promo/validate?locale=uz-Latn", body)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", w.Code, w.Body.String())
+	}
+	var res struct {
+		Data ValidatePromoResult `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Data.DiscountUzs != 11980 || res.Data.FinalAmountUzs != 47920 {
+		t.Errorf("unexpected res: %+v", res.Data)
+	}
+
+	// Invalid promo code -> 404 promo_not_found
+	body2 := strings.NewReader(`{"code":"INVALIDCODE","tariff_code":"gentra"}`)
+	req2 := httptest.NewRequest(http.MethodPost, "/billing/promo/validate?locale=uz-Latn", body2)
+	req2.Header.Set("Authorization", "Bearer "+tok)
+	w2 := httptest.NewRecorder()
+	r.ServeHTTP(w2, req2)
+	if w2.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404; body=%s", w2.Code, w2.Body.String())
 	}
 }

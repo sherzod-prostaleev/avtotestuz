@@ -57,3 +57,29 @@ func (s Service) GrantDays(ctx context.Context, profileID uuid.UUID, days int, s
 	}
 	return end, nil
 }
+
+// ProcessPaymentGrant grants entitlement days for a paid payment, handling
+// any associated promo code bonus days and promo redemption creation.
+func (s Service) ProcessPaymentGrant(ctx context.Context, paymentID uuid.UUID) error {
+	payment, err := s.Q.GetPaymentForPayme(ctx, paymentID)
+	if err != nil {
+		return err
+	}
+	days := int(payment.TariffDays)
+	source := "purchase"
+	if payment.PromoCodeID.Valid {
+		promo, err := s.Q.GetPromoCodeByID(ctx, payment.PromoCodeID.UUID)
+		if err == nil && promo.Kind == "days" {
+			days += int(promo.Value)
+		}
+		if err := s.Q.CreatePromoRedemption(ctx, sqlc.CreatePromoRedemptionParams{
+			PromoCodeID: payment.PromoCodeID.UUID,
+			ProfileID:   payment.ProfileID,
+			PaymentID:   uuid.NullUUID{UUID: payment.ID, Valid: true},
+		}); err != nil {
+			return err
+		}
+	}
+	_, err = s.GrantDays(ctx, payment.ProfileID, days, source, "", uuid.NullUUID{})
+	return err
+}

@@ -173,10 +173,6 @@ func (h *Handler) confirmAndGrant(ctx context.Context, transactionID, paymentID 
 		return true, dbtx.Commit(ctx)
 	}
 
-	payment, err := q.GetPaymentForPayme(ctx, paymentID)
-	if err != nil {
-		return false, err
-	}
 	if err := q.ConfirmClickTransaction(ctx, transactionID); err != nil {
 		return false, err
 	}
@@ -184,7 +180,7 @@ func (h *Handler) confirmAndGrant(ctx context.Context, transactionID, paymentID 
 		return false, err
 	}
 	txSvc := billing.Service{Q: q}
-	if _, err := txSvc.GrantDays(ctx, payment.ProfileID, int(payment.TariffDays), "purchase", "", uuid.NullUUID{}); err != nil {
+	if err := txSvc.ProcessPaymentGrant(ctx, paymentID); err != nil {
 		return false, err
 	}
 	return false, dbtx.Commit(ctx)
