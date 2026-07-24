@@ -28,15 +28,10 @@ interface SavedQuestion {
 
 type LoadStatus = "loading" | "ready" | "error";
 
-function formatSavedDate(value: string, locale: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+import { formatDateShort } from "@/lib/date-format";
 
-  try {
-    return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(date);
-  } catch {
-    return date.toLocaleDateString();
-  }
+function formatSavedDate(value: string): string {
+  return formatDateShort(value);
 }
 
 export default function SavedPage() {
@@ -219,7 +214,7 @@ export default function SavedPage() {
                     <span className="inline-flex items-center gap-1">
                       <CalendarDays className="h-3.5 w-3.5" />
                       <span>{t("savedAt")}</span>
-                      <time dateTime={item.createdAt}>{formatSavedDate(item.createdAt, locale)}</time>
+                      <time dateTime={item.createdAt}>{formatSavedDate(item.createdAt)}</time>
                     </span>
                   </div>
 

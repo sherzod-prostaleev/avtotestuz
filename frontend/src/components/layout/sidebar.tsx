@@ -61,11 +61,11 @@ export function Sidebar() {
     <>
       {/* Mobile Top Header */}
       <div className="md:hidden sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md">
-        <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-2 font-display text-lg font-bold">
-          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-white shadow-3d">
-            <CarFront aria-hidden="true" className="h-5 w-5" />
+        <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-2.5 font-display text-xl font-bold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_12px_rgba(34,197,94,0.4)] overflow-hidden">
+            <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
           </div>
-          <span className="bg-gradient-to-r from-accent to-indigo-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-accent to-emerald-400 bg-clip-text text-transparent font-black">
             {t("brandName")}
           </span>
         </Link>
@@ -110,12 +110,12 @@ export function Sidebar() {
         <div className="space-y-6">
           {/* Brand Logo Header */}
           <div className="flex items-center justify-between pt-2 px-2">
-            <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-2.5 font-display text-xl font-black">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-accent text-white shadow-3d hover:scale-105 transition-transform">
-                <CarFront aria-hidden="true" className="h-6 w-6" />
+            <Link href={`/${currentLocale}/dashboard`} className="flex items-center gap-3 font-display text-2xl font-black">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] hover:scale-105 transition-transform overflow-hidden">
+                <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
               </div>
               <div className="flex flex-col">
-                <span className="bg-gradient-to-r from-accent via-indigo-500 to-accent bg-clip-text text-transparent">
+                <span className="bg-gradient-to-r from-accent via-emerald-400 to-accent bg-clip-text text-transparent">
                   {t("brandName")}
                 </span>
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">

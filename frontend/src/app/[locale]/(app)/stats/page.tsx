@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
+import { formatDateShort } from "@/lib/date-format";
 import { ResultRing } from "@/components/shared/result-ring";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
@@ -160,9 +161,7 @@ export default function StatsPage() {
                       return (
                         <tr key={item.id} className="border-b border-border/60 last:border-0">
                           <td className="py-3">
-                            {new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
-                              new Date(item.started_at)
-                            )}
+                            {formatDateShort(item.started_at)}
                           </td>
                           <td className="py-3 font-medium">{modeLabels[item.mode]}</td>
                           <td className="py-3">{statusLabels[item.status]}</td>

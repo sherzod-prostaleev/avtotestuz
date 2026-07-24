@@ -56,11 +56,11 @@ export default function LoginPage() {
     <div className="flex min-h-screen flex-col bg-background">
       {/* Mini top bar */}
       <header className="flex h-14 items-center justify-between px-4 border-b border-border/40">
-        <Link href={`/${locale}`} className="flex items-center gap-2 font-display text-lg font-bold">
-          <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-accent text-white shadow-3d">
-            <CarFront aria-hidden="true" className="h-4 w-4" />
-          </span>
-          <span className="bg-gradient-to-r from-accent to-indigo-500 bg-clip-text text-transparent">
+        <Link href={`/${locale}`} className="flex items-center gap-2.5 font-display text-xl font-bold">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_12px_rgba(34,197,94,0.4)] overflow-hidden">
+            <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
+          </div>
+          <span className="bg-gradient-to-r from-accent to-emerald-400 bg-clip-text text-transparent font-black">
             {t("brandName")}
           </span>
         </Link>

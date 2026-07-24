@@ -48,12 +48,16 @@ export function Header() {
         <Link
           href={`/${currentLocale}/dashboard`}
           aria-label={t("brandDashboardLabel")}
-          className="flex items-center gap-2 font-display text-xl font-extrabold tracking-tight"
+          className="flex items-center gap-3 font-display text-2xl font-black tracking-tight"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent text-white shadow-3d transition-transform hover:scale-105">
-            <CarFront aria-hidden="true" className="h-5 w-5" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] transition-transform hover:scale-105 overflow-hidden">
+            <img
+              src="/logo.svg"
+              alt="DriveGo Logo"
+              className="h-full w-full object-cover scale-110"
+            />
           </div>
-          <span className="bg-gradient-to-r from-accent to-indigo-500 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-accent via-emerald-400 to-accent bg-clip-text text-transparent font-black tracking-wide">
             {t("brandName")}
           </span>
         </Link>

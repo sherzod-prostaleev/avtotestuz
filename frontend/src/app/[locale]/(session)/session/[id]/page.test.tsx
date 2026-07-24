@@ -170,7 +170,7 @@ describe("SessionPage secure session flow", () => {
 
     renderPage();
 
-    expect(screen.getByText(/Javob qabul qilindi/)).toBeInTheDocument();
+    expect(screen.getByText("3.27 belgisi")).toBeInTheDocument();
     expect(screen.queryByTestId("answer-correct-icon")).not.toBeInTheDocument();
     expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /3.27 belgisi/ })).toBeDisabled();

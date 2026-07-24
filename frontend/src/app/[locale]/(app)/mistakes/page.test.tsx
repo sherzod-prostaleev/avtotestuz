@@ -85,7 +85,7 @@ describe("MistakesPage", () => {
     renderWithIntl();
 
     expect(await screen.findByText("Ajoyib — hozir takrorlash shart emas")).toBeInTheDocument();
-    expect(screen.getByText(/2026/)).toBeInTheDocument();
+    expect(screen.getByText(/23.07.26/)).toBeInTheDocument();
   });
 
   it("shows the premium path for a free profile without hiding real counters", async () => {

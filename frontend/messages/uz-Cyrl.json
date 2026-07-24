@@ -4,7 +4,7 @@
     "toDark": "Қоронғи темага ўтиш"
   },
   "Metadata": {
-    "title": "AvtoTest — ҳайдовчилик назарий имтиҳонига тайёргарлик",
+    "title": "DriveGo — ҳайдовчилик назарий имтиҳонига тайёргарлик",
     "description": "Ўзбекистон ЙҲҚ саволлари, расмий имтиҳон услубидаги билетлар ва ақлли такрорлаш билан назарий имтиҳонга тайёрланинг."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Бош саҳифага қайтиш"
   },
   "Landing": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "login": "Кириш",
     "updatedBadge": "2026-йил янгиланган расмий саволлар базаси",
     "heroTitleBefore": "Правани",
@@ -40,7 +40,7 @@
     "demoAnswerError": "Жавобни текшириб бўлмади. Қайта уриниб кўринг.",
     "demoRetry": "Қайта уриниш",
     "whyUsTitle": "Нега биз?",
-    "whyUsSubtitle": "Минглаб бўлажак ҳайдовчилар AvtoTest платформасини танлайди.",
+    "whyUsSubtitle": "Минглаб бўлажак ҳайдовчилар DriveGo платформасини танлайди.",
     "feature1Title": "FSRS ўқув двигатели",
     "feature1Text": "Ҳар савол сиз учун ақлли такрорлаш жадвали билан due бўлади.",
     "feature2Title": "Тайёрлик %",
@@ -68,7 +68,7 @@
     "faq4A": "A, B, C ва D асосий тоифалари учун расмий назарий имтиҳон саволлари қамраб олинган.",
     "bottomCtaTitle": "Ҳозироқ ўқишни бошланг!",
     "bottomCtaText": "Бепул рўйхатдан ўтинг ва биринчи уринишда имтиҳондан ўтинг.",
-    "footer": "AvtoTest — {year}",
+    "footer": "DriveGo — {year}",
     "footerDescription": "Ўзбекистон йўл ҳаракати қоидалари бўйича ўқув платформаси",
     "hold1Title": "Рўйхатсиз синаб кўринг",
     "hold1Text": "Қуйидаги демо саволни ҳозироқ ечинг — аккаунт керак эмас.",
@@ -157,7 +157,7 @@
     "viewAllCategories": "Барча йўналишлар ({count})"
   },
   "Sidebar": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "brandTagline": "Pro нашр",
     "userFallback": "Ўқувчи",
     "streakCount": "{count} кунлик стрик",
@@ -182,8 +182,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "AvtoTest",
-    "brandDashboardLabel": "AvtoTest бош саҳифаси",
+    "brandName": "DriveGo",
+    "brandDashboardLabel": "DriveGo бош саҳифаси",
     "navDashboard": "Бош саҳифа",
     "navTickets": "Билетлар",
     "navSigns": "Йўл белилари",
@@ -216,7 +216,7 @@
     "explanation": "Светофор ишламаган чорраҳада ЙҲҚнинг тегишли қоидасига кўра ўнгдан келаётган транспорт воситаси устунликка эга бўлади."
   },
   "Login": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "backHome": "Бош саҳифага қайтиш",
     "title": "Кириш",
     "subtitle": "Телефон рақамингиз билан киринг",
@@ -572,7 +572,7 @@
     "logoutDescription": "Аккаунтдан чиқиш ва жорий сессияни якунлаш"
   },
   "Premium": {
-    "title": "AvtoTest Премиум",
+    "title": "DriveGo Премиум",
     "subtitle": "Имтиҳондан 100% биринчи уринишда ўтиш учун барча имкониятларни очинг",
     "badge": "Premium VIP",
     "trust1": "Барча билетлар ва машқлар чекловсиз очилади.",

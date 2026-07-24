@@ -4,7 +4,7 @@
     "toDark": "Перейти к тёмной теме"
   },
   "Metadata": {
-    "title": "AvtoTest — подготовка к теоретическому экзамену",
+    "title": "DriveGo — подготовка к теоретическому экзамену",
     "description": "Готовьтесь к теоретическому экзамену по ПДД Узбекистана с билетами в формате экзамена и умными повторениями."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Вернуться на главную"
   },
   "Landing": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "login": "Войти",
     "updatedBadge": "Официальная база вопросов, обновлённая в 2026 году",
     "heroTitleBefore": "Получите",
@@ -40,7 +40,7 @@
     "demoAnswerError": "Не удалось проверить ответ. Попробуйте ещё раз.",
     "demoRetry": "Попробовать снова",
     "whyUsTitle": "Почему мы?",
-    "whyUsSubtitle": "Тысячи будущих водителей выбирают платформу AvtoTest.",
+    "whyUsSubtitle": "Тысячи будущих водителей выбирают платформу DriveGo.",
     "feature1Title": "Движок обучения FSRS",
     "feature1Text": "Каждый вопрос становится due по умному расписанию повторения.",
     "feature2Title": "Готовность %",
@@ -68,7 +68,7 @@
     "faq4A": "Охвачены официальные теоретические вопросы для основных категорий A, B, C и D.",
     "bottomCtaTitle": "Начните заниматься прямо сейчас!",
     "bottomCtaText": "Зарегистрируйтесь бесплатно и сдайте экзамен с первой попытки.",
-    "footer": "AvtoTest — {year}",
+    "footer": "DriveGo — {year}",
     "footerDescription": "Учебная платформа по правилам дорожного движения Узбекистана",
     "hold1Title": "Попробуйте без регистрации",
     "hold1Text": "Решите демо-вопрос прямо сейчас — аккаунт не нужен.",
@@ -157,7 +157,7 @@
     "viewAllCategories": "Все темы ({count})"
   },
   "Sidebar": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "brandTagline": "Pro-версия",
     "userFallback": "Ученик",
     "streakCount": "Серия: {count} дней",
@@ -182,8 +182,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "AvtoTest",
-    "brandDashboardLabel": "Главная AvtoTest",
+    "brandName": "DriveGo",
+    "brandDashboardLabel": "Главная DriveGo",
     "navDashboard": "Главная",
     "navTickets": "Билеты",
     "navSigns": "Дорожные знаки",
@@ -216,7 +216,7 @@
     "explanation": "На перекрёстке с неработающим светофором транспортное средство, приближающееся справа, имеет преимущество согласно соответствующему правилу ПДД."
   },
   "Login": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "backHome": "Вернуться на главную",
     "title": "Вход",
     "subtitle": "Войдите с помощью номера телефона",
@@ -572,7 +572,7 @@
     "logoutDescription": "Выйти из аккаунта и завершить текущую сессию"
   },
   "Premium": {
-    "title": "AvtoTest Премиум",
+    "title": "DriveGo Премиум",
     "subtitle": "Откройте все возможности для 100% сдачи экзамена с первой попытки",
     "badge": "Premium VIP",
     "trust1": "Все билеты и практика открываются без ограничений.",

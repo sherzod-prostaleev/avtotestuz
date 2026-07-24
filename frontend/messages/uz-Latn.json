@@ -4,7 +4,7 @@
     "toDark": "Qorong'i temaga o'tish"
   },
   "Metadata": {
-    "title": "AvtoTest — haydovchilik nazariy imtihoniga tayyorgarlik",
+    "title": "DriveGo — haydovchilik nazariy imtihoniga tayyorgarlik",
     "description": "O'zbekiston YHQ savollari, rasmiy imtihon uslubidagi biletlar va aqlli takrorlash bilan nazariy imtihonga tayyorlaning."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Bosh sahifaga qaytish"
   },
   "Landing": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "login": "Kirish",
     "updatedBadge": "2026-yil yangilangan rasmiy savollar bazasi",
     "heroTitleBefore": "Prava'ni",
@@ -40,7 +40,7 @@
     "demoAnswerError": "Javobni tekshirib bo'lmadi. Qayta urinib ko'ring.",
     "demoRetry": "Qayta urinish",
     "whyUsTitle": "Nega biz?",
-    "whyUsSubtitle": "Minglab bo'lajak haydovchilar AvtoTest platformasini tanlaydi.",
+    "whyUsSubtitle": "Minglab bo'lajak haydovchilar DriveGo platformasini tanlaydi.",
     "feature1Title": "FSRS o'quv dvigateli",
     "feature1Text": "Har savol siz uchun aqlli takrorlash jadvali bilan due bo'ladi.",
     "feature2Title": "Tayyorlik %",
@@ -68,7 +68,7 @@
     "faq4A": "A, B, C va D asosiy toifalari uchun rasmiy nazariy imtihon savollari qamrab olingan.",
     "bottomCtaTitle": "Hoziroq o'qishni boshlang!",
     "bottomCtaText": "Bepul ro'yxatdan o'ting va birinchi urinishda imtihondan o'ting.",
-    "footer": "AvtoTest — {year}",
+    "footer": "DriveGo — {year}",
     "footerDescription": "O'zbekiston yo'l harakati qoidalari bo'yicha o'quv platformasi",
     "hold1Title": "Ro'yxatsiz sinab ko'ring",
     "hold1Text": "Quyidagi demo savolni hoziroq yeching — akkaunt kerak emas.",
@@ -157,7 +157,7 @@
     "viewAllCategories": "Barcha yo'nalishlar ({count})"
   },
   "Sidebar": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "brandTagline": "Pro nashr",
     "userFallback": "O'quvchi",
     "streakCount": "{count} kunlik streak",
@@ -182,8 +182,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "AvtoTest",
-    "brandDashboardLabel": "AvtoTest bosh sahifasi",
+    "brandName": "DriveGo",
+    "brandDashboardLabel": "DriveGo bosh sahifasi",
     "navDashboard": "Bosh sahifa",
     "navTickets": "Biletlar",
     "navSigns": "Yo'l belgilari",
@@ -216,7 +216,7 @@
     "explanation": "Svetofor ishlamagan chorrahada YHQning tegishli qoidasiga ko'ra o'ngdan kelayotgan transport vositasi ustunlikka ega bo'ladi."
   },
   "Login": {
-    "brandName": "AvtoTest",
+    "brandName": "DriveGo",
     "backHome": "Bosh sahifaga qaytish",
     "title": "Kirish",
     "subtitle": "Telefon raqamingiz bilan kiring",
@@ -572,7 +572,7 @@
     "logoutDescription": "Akkauntdan chiqish va joriy sessiyani yakunlash"
   },
   "Premium": {
-    "title": "AvtoTest Premium",
+    "title": "DriveGo Premium",
     "subtitle": "Imtihondan 100% birinchi urinishda o'tish uchun barcha imkoniyatlarni oching",
     "badge": "Premium VIP",
     "trust1": "Barcha biletlar va mashqlar cheklovsiz ochiladi.",

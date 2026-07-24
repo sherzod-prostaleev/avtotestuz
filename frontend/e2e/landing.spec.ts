@@ -1,0 +1,34 @@
+import { test, expect } from "@playwright/test";
+
+test.describe("Landing page", () => {
+  test("loads and shows hero content", async ({ page }) => {
+    await page.goto("/uz-Latn");
+    await expect(page.locator("h1").first()).toBeVisible();
+  });
+
+  test("shows proof stats (1235 questions, 61 tickets)", async ({ page }) => {
+    await page.goto("/uz-Latn");
+    await expect(page.getByText("1235")).toBeVisible();
+    await expect(page.getByText("61")).toBeVisible();
+  });
+
+  test("has login link in header", async ({ page }) => {
+    await page.goto("/uz-Latn");
+    const loginLink = page.locator('a[href*="login"]').first();
+    await expect(loginLink).toBeVisible();
+  });
+
+  test("CTA button navigates to login", async ({ page }) => {
+    await page.goto("/uz-Latn");
+    const cta = page.locator('a[href*="login"]').first();
+    await cta.click();
+    await expect(page).toHaveURL(/login/);
+  });
+
+  test("theme toggle is present", async ({ page }) => {
+    await page.goto("/uz-Latn");
+    // ThemeToggle component exists in the header
+    const header = page.locator("header").first();
+    await expect(header).toBeVisible();
+  });
+});

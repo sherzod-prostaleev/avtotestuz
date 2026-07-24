@@ -4,6 +4,7 @@ import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
+import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -88,10 +89,7 @@ export default function DashboardPage() {
   const weakest = stats?.category_mastery ? weakestCategory(stats.category_mastery) : null;
   const resumeSession = newestInProgressSession(sessions);
   const resumeStartedAt = resumeSession
-    ? new Intl.DateTimeFormat(locale, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      }).format(new Date(resumeSession.started_at))
+    ? formatDateWithTime(resumeSession.started_at)
     : null;
   const nextAction = resumeSession
     ? {

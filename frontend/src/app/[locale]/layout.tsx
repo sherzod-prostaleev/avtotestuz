@@ -27,7 +27,15 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   if (!locales.includes(locale as Locale)) return {};
   const t = await getTranslations({ locale, namespace: "Metadata" });
-  return { title: t("title"), description: t("description") };
+  return {
+    title: t("title"),
+    description: t("description"),
+    icons: {
+      icon: "/logo.svg",
+      shortcut: "/logo.svg",
+      apple: "/logo.jpg",
+    },
+  };
 }
 
 export default async function LocaleLayout({
@@ -42,6 +50,11 @@ export default async function LocaleLayout({
 
   return (
     <html lang={locale} suppressHydrationWarning className={`${baloo.variable} ${manrope.variable}`}>
+      <head>
+        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+        <link rel="shortcut icon" href="/logo.svg" />
+        <link rel="apple-touch-icon" href="/logo.jpg" />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>

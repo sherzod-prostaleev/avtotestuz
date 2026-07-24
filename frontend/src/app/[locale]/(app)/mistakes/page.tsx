@@ -56,16 +56,12 @@ function isEntitlementData(value: unknown): value is EntitlementData {
   );
 }
 
-function formatNextDue(value: string | null, locale: string): string | null {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
+import { formatDateWithTime } from "@/lib/date-format";
 
-  return new Intl.DateTimeFormat(dateLocales[locale] ?? locale, {
-    dateStyle: "long",
-    timeStyle: "short",
-    timeZone: "Asia/Tashkent",
-  }).format(date);
+function formatNextDue(value: string | null): string | null {
+  if (!value) return null;
+  const formatted = formatDateWithTime(value);
+  return formatted || null;
 }
 
 const linkButtonClass =
@@ -114,7 +110,7 @@ export default function MistakesPage() {
     router.push(`/${locale}/session/start?mode=mistakes&count=${data.due_count}`);
   };
 
-  const nextDue = formatNextDue(data?.next_due_at ?? null, locale);
+  const nextDue = formatNextDue(data?.next_due_at ?? null);
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">

@@ -23,7 +23,7 @@ describe("PremiumPage", () => {
 
   it("renders premium header and features list", () => {
     renderWithIntl();
-    expect(screen.getByText("AvtoTest Premium")).toBeInTheDocument();
+    expect(screen.getByText("DriveGo Premium")).toBeInTheDocument();
     expect(screen.getByText("Barcha 61 ta bilet cheklovsiz ochiladi")).toBeInTheDocument();
   });
 });

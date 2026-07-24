@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  Clock3,
   Expand,
   LoaderCircle,
   Minimize2,
@@ -28,9 +27,9 @@ import {
   type SessionQuestionItem,
 } from "@/hooks/use-session-engine";
 import { type AnswerState } from "@/components/shared/answer-option";
-import { CountdownTimer } from "@/components/shared/countdown-timer";
 import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
+import { OfficialAvtotestExamView } from "@/components/exam/official-avtotest-exam-view";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -491,6 +490,21 @@ export default function TestSessionPage() {
   const canGoNext = currentAnswered && currentIndex < questions.length - 1;
   const isLast = currentIndex === questions.length - 1;
 
+  if (session.mode === "exam") {
+    return (
+      <OfficialAvtotestExamView
+        session={session}
+        currentIndex={currentIndex}
+        onSelectIndex={(index) => setCurrentIndex(index)}
+        onSelectAnswer={(questionId, answerId) => void handleSelectAnswer(questionId, answerId)}
+        onFinish={() => void handleFinish()}
+        answerStateFor={answerState}
+        submitting={submitting}
+        finishing={finishing}
+      />
+    );
+  }
+
   return (
     <main className="flex h-[100dvh] flex-col gap-3 overflow-hidden px-3 py-3 sm:px-4">
       <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 p-3 shadow-sm backdrop-blur-md">
@@ -508,13 +522,6 @@ export default function TestSessionPage() {
             {modeLabel(session.mode)}
           </span>
         </div>
-
-        {session.mode === "exam" && session.remaining_sec !== null && (
-          <div className="flex items-center gap-2" aria-label={t("timeRemaining")}>
-            <Clock3 className="h-4 w-4 text-gold" aria-hidden="true" />
-            <CountdownTimer seconds={session.remaining_sec} onExpire={() => void handleFinish()} />
-          </div>
-        )}
 
         <div className="flex items-center gap-1">
           <button
