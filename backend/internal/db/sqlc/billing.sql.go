@@ -33,6 +33,40 @@ func (q *Queries) CancelPaymeTransaction(ctx context.Context, arg CancelPaymeTra
 	return err
 }
 
+const confirmClickTransaction = `-- name: ConfirmClickTransaction :exec
+UPDATE click_transaction SET state = 1, confirmed_at = now() WHERE id = $1
+`
+
+func (q *Queries) ConfirmClickTransaction(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, confirmClickTransaction, id)
+	return err
+}
+
+const createClickTransaction = `-- name: CreateClickTransaction :one
+INSERT INTO click_transaction (click_trans_id, click_paydoc_id, payment_id, amount_uzs)
+VALUES ($1, $2, $3, $4)
+RETURNING id
+`
+
+type CreateClickTransactionParams struct {
+	ClickTransID  string      `json:"click_trans_id"`
+	ClickPaydocID pgtype.Text `json:"click_paydoc_id"`
+	PaymentID     uuid.UUID   `json:"payment_id"`
+	AmountUzs     int64       `json:"amount_uzs"`
+}
+
+func (q *Queries) CreateClickTransaction(ctx context.Context, arg CreateClickTransactionParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createClickTransaction,
+		arg.ClickTransID,
+		arg.ClickPaydocID,
+		arg.PaymentID,
+		arg.AmountUzs,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const createPaymeTransaction = `-- name: CreatePaymeTransaction :exec
 INSERT INTO payme_transaction (payme_id, payment_id, amount_tiyin, state, create_time)
 VALUES ($1, $2, $3, 1, $4)
@@ -57,7 +91,7 @@ func (q *Queries) CreatePaymeTransaction(ctx context.Context, arg CreatePaymeTra
 
 const createPayment = `-- name: CreatePayment :one
 INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-VALUES ($1, $2, $3, 'payme', 'created', $4)
+VALUES ($1, $2, $3, $4, 'created', $5)
 RETURNING id
 `
 
@@ -65,6 +99,7 @@ type CreatePaymentParams struct {
 	ProfileID      uuid.UUID `json:"profile_id"`
 	TariffID       uuid.UUID `json:"tariff_id"`
 	AmountUzs      int64     `json:"amount_uzs"`
+	Provider       string    `json:"provider"`
 	IdempotencyKey string    `json:"idempotency_key"`
 }
 
@@ -73,11 +108,28 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (u
 		arg.ProfileID,
 		arg.TariffID,
 		arg.AmountUzs,
+		arg.Provider,
 		arg.IdempotencyKey,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getActiveClickTxByPayment = `-- name: GetActiveClickTxByPayment :one
+SELECT id, state FROM click_transaction WHERE payment_id = $1 AND state IN (0, 1) LIMIT 1
+`
+
+type GetActiveClickTxByPaymentRow struct {
+	ID    uuid.UUID `json:"id"`
+	State int32     `json:"state"`
+}
+
+func (q *Queries) GetActiveClickTxByPayment(ctx context.Context, paymentID uuid.UUID) (GetActiveClickTxByPaymentRow, error) {
+	row := q.db.QueryRow(ctx, getActiveClickTxByPayment, paymentID)
+	var i GetActiveClickTxByPaymentRow
+	err := row.Scan(&i.ID, &i.State)
+	return i, err
 }
 
 const getActivePaymeTxByPayment = `-- name: GetActivePaymeTxByPayment :one
@@ -111,6 +163,75 @@ func (q *Queries) GetActiveTariffByCode(ctx context.Context, code string) (GetAc
 	row := q.db.QueryRow(ctx, getActiveTariffByCode, code)
 	var i GetActiveTariffByCodeRow
 	err := row.Scan(&i.ID, &i.Days, &i.PriceUzs)
+	return i, err
+}
+
+const getClickTransactionByClickTransID = `-- name: GetClickTransactionByClickTransID :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE click_trans_id = $1
+`
+
+func (q *Queries) GetClickTransactionByClickTransID(ctx context.Context, clickTransID string) (ClickTransaction, error) {
+	row := q.db.QueryRow(ctx, getClickTransactionByClickTransID, clickTransID)
+	var i ClickTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.ClickTransID,
+		&i.ClickPaydocID,
+		&i.PaymentID,
+		&i.AmountUzs,
+		&i.State,
+		&i.Reason,
+		&i.CreatedAt,
+		&i.ConfirmedAt,
+		&i.RejectedAt,
+	)
+	return i, err
+}
+
+const getClickTransactionByID = `-- name: GetClickTransactionByID :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE id = $1
+`
+
+func (q *Queries) GetClickTransactionByID(ctx context.Context, id uuid.UUID) (ClickTransaction, error) {
+	row := q.db.QueryRow(ctx, getClickTransactionByID, id)
+	var i ClickTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.ClickTransID,
+		&i.ClickPaydocID,
+		&i.PaymentID,
+		&i.AmountUzs,
+		&i.State,
+		&i.Reason,
+		&i.CreatedAt,
+		&i.ConfirmedAt,
+		&i.RejectedAt,
+	)
+	return i, err
+}
+
+const getClickTransactionByIDForUpdate = `-- name: GetClickTransactionByIDForUpdate :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetClickTransactionByIDForUpdate(ctx context.Context, id uuid.UUID) (ClickTransaction, error) {
+	row := q.db.QueryRow(ctx, getClickTransactionByIDForUpdate, id)
+	var i ClickTransaction
+	err := row.Scan(
+		&i.ID,
+		&i.ClickTransID,
+		&i.ClickPaydocID,
+		&i.PaymentID,
+		&i.AmountUzs,
+		&i.State,
+		&i.Reason,
+		&i.CreatedAt,
+		&i.ConfirmedAt,
+		&i.RejectedAt,
+	)
 	return i, err
 }
 
@@ -316,6 +437,20 @@ func (q *Queries) MarkPaymentPaid(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const markPaymentPending = `-- name: MarkPaymentPending :exec
+UPDATE payment SET status = 'pending', provider_txn_id = $2 WHERE id = $1
+`
+
+type MarkPaymentPendingParams struct {
+	ID            uuid.UUID   `json:"id"`
+	ProviderTxnID pgtype.Text `json:"provider_txn_id"`
+}
+
+func (q *Queries) MarkPaymentPending(ctx context.Context, arg MarkPaymentPendingParams) error {
+	_, err := q.db.Exec(ctx, markPaymentPending, arg.ID, arg.ProviderTxnID)
+	return err
+}
+
 const performPaymeTransaction = `-- name: PerformPaymeTransaction :exec
 UPDATE payme_transaction SET state = 2, perform_time = $2 WHERE payme_id = $1
 `
@@ -327,6 +462,20 @@ type PerformPaymeTransactionParams struct {
 
 func (q *Queries) PerformPaymeTransaction(ctx context.Context, arg PerformPaymeTransactionParams) error {
 	_, err := q.db.Exec(ctx, performPaymeTransaction, arg.PaymeID, arg.PerformTime)
+	return err
+}
+
+const rejectClickTransaction = `-- name: RejectClickTransaction :exec
+UPDATE click_transaction SET state = -1, rejected_at = now(), reason = $2 WHERE id = $1
+`
+
+type RejectClickTransactionParams struct {
+	ID     uuid.UUID   `json:"id"`
+	Reason pgtype.Text `json:"reason"`
+}
+
+func (q *Queries) RejectClickTransaction(ctx context.Context, arg RejectClickTransactionParams) error {
+	_, err := q.db.Exec(ctx, rejectClickTransaction, arg.ID, arg.Reason)
 	return err
 }
 

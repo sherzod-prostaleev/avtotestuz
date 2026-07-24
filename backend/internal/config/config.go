@@ -31,6 +31,10 @@ type Config struct {
 	PaymeEnv        string // test | prod (selects which key)
 	PaymeKeyProd    string // production cashbox KEY (Basic-auth password)
 	PaymeTestKey    string // sandbox TEST_KEY
+
+	ClickServiceID  string
+	ClickMerchantID string
+	ClickSecretKey  string
 }
 
 // PaymeKey returns the Basic-auth password (cashbox KEY) for the current
@@ -72,6 +76,10 @@ func Load() (Config, error) {
 		PaymeEnv:        getenv("PAYME_ENV", "test"),
 		PaymeKeyProd:    getenv("PAYME_KEY", ""),
 		PaymeTestKey:    getenv("PAYME_TEST_KEY", ""),
+
+		ClickServiceID:  getenv("CLICK_SERVICE_ID", ""),
+		ClickMerchantID: getenv("CLICK_MERCHANT_ID", ""),
+		ClickSecretKey:  getenv("CLICK_SECRET_KEY", ""),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

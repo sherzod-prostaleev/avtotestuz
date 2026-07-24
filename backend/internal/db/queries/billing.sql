@@ -14,7 +14,7 @@ SELECT id, days, price_uzs FROM tariff WHERE code = $1 AND active = true;
 
 -- name: CreatePayment :one
 INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-VALUES ($1, $2, $3, 'payme', 'created', $4)
+VALUES ($1, $2, $3, $4, 'created', $5)
 RETURNING id;
 
 -- name: GetPaymentForPayme :one
@@ -53,3 +53,32 @@ UPDATE payme_transaction SET state = $2, reason = $3, cancel_time = $4 WHERE pay
 -- name: ListPaymeTransactionsByTime :many
 SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
 FROM payme_transaction WHERE create_time >= $1 AND create_time <= $2 ORDER BY create_time;
+
+-- name: CreateClickTransaction :one
+INSERT INTO click_transaction (click_trans_id, click_paydoc_id, payment_id, amount_uzs)
+VALUES ($1, $2, $3, $4)
+RETURNING id;
+
+-- name: GetClickTransactionByClickTransID :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE click_trans_id = $1;
+
+-- name: GetClickTransactionByID :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE id = $1;
+
+-- name: GetClickTransactionByIDForUpdate :one
+SELECT id, click_trans_id, click_paydoc_id, payment_id, amount_uzs, state, reason, created_at, confirmed_at, rejected_at
+FROM click_transaction WHERE id = $1 FOR UPDATE;
+
+-- name: GetActiveClickTxByPayment :one
+SELECT id, state FROM click_transaction WHERE payment_id = $1 AND state IN (0, 1) LIMIT 1;
+
+-- name: ConfirmClickTransaction :exec
+UPDATE click_transaction SET state = 1, confirmed_at = now() WHERE id = $1;
+
+-- name: RejectClickTransaction :exec
+UPDATE click_transaction SET state = -1, rejected_at = now(), reason = $2 WHERE id = $1;
+
+-- name: MarkPaymentPending :exec
+UPDATE payment SET status = 'pending', provider_txn_id = $2 WHERE id = $1;

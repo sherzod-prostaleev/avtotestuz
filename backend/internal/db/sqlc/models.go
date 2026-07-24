@@ -62,6 +62,19 @@ type CategoryTranslation struct {
 	Status     string    `json:"status"`
 }
 
+type ClickTransaction struct {
+	ID            uuid.UUID          `json:"id"`
+	ClickTransID  string             `json:"click_trans_id"`
+	ClickPaydocID pgtype.Text        `json:"click_paydoc_id"`
+	PaymentID     uuid.UUID          `json:"payment_id"`
+	AmountUzs     int64              `json:"amount_uzs"`
+	State         int32              `json:"state"`
+	Reason        pgtype.Text        `json:"reason"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
+	RejectedAt    pgtype.Timestamptz `json:"rejected_at"`
+}
+
 type Device struct {
 	ID          uuid.UUID          `json:"id"`
 	ProfileID   uuid.UUID          `json:"profile_id"`

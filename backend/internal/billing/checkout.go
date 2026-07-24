@@ -45,6 +45,7 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 		ProfileID:      profileID,
 		TariffID:       tariff.ID,
 		AmountUzs:      tariff.PriceUzs,
+		Provider:       "payme",
 		IdempotencyKey: uuid.NewString(),
 	})
 	if err != nil {
