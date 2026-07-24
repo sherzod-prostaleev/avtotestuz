@@ -26,6 +26,27 @@ type Config struct {
 	TelegramGatewayToken    string
 	TelegramGatewayURL      string
 	ClientIPAssertionSecret string
+
+	PaymeMerchantID string // cashbox id for the checkout URL
+	PaymeEnv        string // test | prod (selects which key)
+	PaymeKeyProd    string // production cashbox KEY (Basic-auth password)
+	PaymeTestKey    string // sandbox TEST_KEY
+}
+
+// PaymeKey returns the Basic-auth password (cashbox KEY) for the current
+// PaymeEnv. Empty means Payme is not configured — the webhook rejects all
+// calls with -32504.
+func (c Config) PaymeKey() string {
+	if c.PaymeEnv == "prod" {
+		return c.PaymeKeyProd
+	}
+	return c.PaymeTestKey
+}
+
+// PaymeCheckoutHost is the base checkout host (same for test and prod; the
+// sandbox tester at test.paycom.uz drives the webhook, not this URL).
+func (c Config) PaymeCheckoutHost() string {
+	return "https://checkout.paycom.uz"
 }
 
 func Load() (Config, error) {
@@ -46,6 +67,11 @@ func Load() (Config, error) {
 		TelegramGatewayToken:    getenv("TELEGRAM_GATEWAY_TOKEN", ""),
 		TelegramGatewayURL:      getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 		ClientIPAssertionSecret: getenv("CLIENT_IP_ASSERTION_SECRET", ""),
+
+		PaymeMerchantID: getenv("PAYME_MERCHANT_ID", ""),
+		PaymeEnv:        getenv("PAYME_ENV", "test"),
+		PaymeKeyProd:    getenv("PAYME_KEY", ""),
+		PaymeTestKey:    getenv("PAYME_TEST_KEY", ""),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

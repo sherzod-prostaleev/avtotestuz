@@ -183,6 +183,18 @@ type OtpChallenge struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type PaymeTransaction struct {
+	PaymeID     string             `json:"payme_id"`
+	PaymentID   uuid.UUID          `json:"payment_id"`
+	AmountTiyin int64              `json:"amount_tiyin"`
+	State       int32              `json:"state"`
+	Reason      pgtype.Int4        `json:"reason"`
+	CreateTime  int64              `json:"create_time"`
+	PerformTime int64              `json:"perform_time"`
+	CancelTime  int64              `json:"cancel_time"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type Payment struct {
 	ID             uuid.UUID          `json:"id"`
 	ProfileID      uuid.UUID          `json:"profile_id"`

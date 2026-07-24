@@ -8,8 +8,172 @@ package sqlc
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const cancelPaymeTransaction = `-- name: CancelPaymeTransaction :exec
+UPDATE payme_transaction SET state = $2, reason = $3, cancel_time = $4 WHERE payme_id = $1
+`
+
+type CancelPaymeTransactionParams struct {
+	PaymeID    string      `json:"payme_id"`
+	State      int32       `json:"state"`
+	Reason     pgtype.Int4 `json:"reason"`
+	CancelTime int64       `json:"cancel_time"`
+}
+
+func (q *Queries) CancelPaymeTransaction(ctx context.Context, arg CancelPaymeTransactionParams) error {
+	_, err := q.db.Exec(ctx, cancelPaymeTransaction,
+		arg.PaymeID,
+		arg.State,
+		arg.Reason,
+		arg.CancelTime,
+	)
+	return err
+}
+
+const createPaymeTransaction = `-- name: CreatePaymeTransaction :exec
+INSERT INTO payme_transaction (payme_id, payment_id, amount_tiyin, state, create_time)
+VALUES ($1, $2, $3, 1, $4)
+`
+
+type CreatePaymeTransactionParams struct {
+	PaymeID     string    `json:"payme_id"`
+	PaymentID   uuid.UUID `json:"payment_id"`
+	AmountTiyin int64     `json:"amount_tiyin"`
+	CreateTime  int64     `json:"create_time"`
+}
+
+func (q *Queries) CreatePaymeTransaction(ctx context.Context, arg CreatePaymeTransactionParams) error {
+	_, err := q.db.Exec(ctx, createPaymeTransaction,
+		arg.PaymeID,
+		arg.PaymentID,
+		arg.AmountTiyin,
+		arg.CreateTime,
+	)
+	return err
+}
+
+const createPayment = `-- name: CreatePayment :one
+INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
+VALUES ($1, $2, $3, 'payme', 'created', $4)
+RETURNING id
+`
+
+type CreatePaymentParams struct {
+	ProfileID      uuid.UUID `json:"profile_id"`
+	TariffID       uuid.UUID `json:"tariff_id"`
+	AmountUzs      int64     `json:"amount_uzs"`
+	IdempotencyKey string    `json:"idempotency_key"`
+}
+
+func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, createPayment,
+		arg.ProfileID,
+		arg.TariffID,
+		arg.AmountUzs,
+		arg.IdempotencyKey,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getActivePaymeTxByPayment = `-- name: GetActivePaymeTxByPayment :one
+SELECT payme_id, state FROM payme_transaction
+WHERE payment_id = $1 AND state IN (1, 2) LIMIT 1
+`
+
+type GetActivePaymeTxByPaymentRow struct {
+	PaymeID string `json:"payme_id"`
+	State   int32  `json:"state"`
+}
+
+func (q *Queries) GetActivePaymeTxByPayment(ctx context.Context, paymentID uuid.UUID) (GetActivePaymeTxByPaymentRow, error) {
+	row := q.db.QueryRow(ctx, getActivePaymeTxByPayment, paymentID)
+	var i GetActivePaymeTxByPaymentRow
+	err := row.Scan(&i.PaymeID, &i.State)
+	return i, err
+}
+
+const getActiveTariffByCode = `-- name: GetActiveTariffByCode :one
+SELECT id, days, price_uzs FROM tariff WHERE code = $1 AND active = true
+`
+
+type GetActiveTariffByCodeRow struct {
+	ID       uuid.UUID `json:"id"`
+	Days     int32     `json:"days"`
+	PriceUzs int64     `json:"price_uzs"`
+}
+
+func (q *Queries) GetActiveTariffByCode(ctx context.Context, code string) (GetActiveTariffByCodeRow, error) {
+	row := q.db.QueryRow(ctx, getActiveTariffByCode, code)
+	var i GetActiveTariffByCodeRow
+	err := row.Scan(&i.ID, &i.Days, &i.PriceUzs)
+	return i, err
+}
+
+const getPaymeTransaction = `-- name: GetPaymeTransaction :one
+SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
+FROM payme_transaction WHERE payme_id = $1
+`
+
+type GetPaymeTransactionRow struct {
+	PaymeID     string      `json:"payme_id"`
+	PaymentID   uuid.UUID   `json:"payment_id"`
+	AmountTiyin int64       `json:"amount_tiyin"`
+	State       int32       `json:"state"`
+	Reason      pgtype.Int4 `json:"reason"`
+	CreateTime  int64       `json:"create_time"`
+	PerformTime int64       `json:"perform_time"`
+	CancelTime  int64       `json:"cancel_time"`
+}
+
+func (q *Queries) GetPaymeTransaction(ctx context.Context, paymeID string) (GetPaymeTransactionRow, error) {
+	row := q.db.QueryRow(ctx, getPaymeTransaction, paymeID)
+	var i GetPaymeTransactionRow
+	err := row.Scan(
+		&i.PaymeID,
+		&i.PaymentID,
+		&i.AmountTiyin,
+		&i.State,
+		&i.Reason,
+		&i.CreateTime,
+		&i.PerformTime,
+		&i.CancelTime,
+	)
+	return i, err
+}
+
+const getPaymentForPayme = `-- name: GetPaymentForPayme :one
+SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, t.days AS tariff_days
+FROM payment p JOIN tariff t ON t.id = p.tariff_id
+WHERE p.id = $1
+`
+
+type GetPaymentForPaymeRow struct {
+	ID         uuid.UUID `json:"id"`
+	ProfileID  uuid.UUID `json:"profile_id"`
+	TariffID   uuid.UUID `json:"tariff_id"`
+	AmountUzs  int64     `json:"amount_uzs"`
+	Status     string    `json:"status"`
+	TariffDays int32     `json:"tariff_days"`
+}
+
+func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaymentForPaymeRow, error) {
+	row := q.db.QueryRow(ctx, getPaymentForPayme, id)
+	var i GetPaymentForPaymeRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.TariffID,
+		&i.AmountUzs,
+		&i.Status,
+		&i.TariffDays,
+	)
+	return i, err
+}
 
 const listActiveTariffs = `-- name: ListActiveTariffs :many
 SELECT t.code, t.days, t.price_uzs, t.old_price_uzs, t.badge,
@@ -59,4 +223,91 @@ func (q *Queries) ListActiveTariffs(ctx context.Context, locale string) ([]ListA
 		return nil, err
 	}
 	return items, nil
+}
+
+const listPaymeTransactionsByTime = `-- name: ListPaymeTransactionsByTime :many
+SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
+FROM payme_transaction WHERE create_time >= $1 AND create_time <= $2 ORDER BY create_time
+`
+
+type ListPaymeTransactionsByTimeParams struct {
+	CreateTime   int64 `json:"create_time"`
+	CreateTime_2 int64 `json:"create_time_2"`
+}
+
+type ListPaymeTransactionsByTimeRow struct {
+	PaymeID     string      `json:"payme_id"`
+	PaymentID   uuid.UUID   `json:"payment_id"`
+	AmountTiyin int64       `json:"amount_tiyin"`
+	State       int32       `json:"state"`
+	Reason      pgtype.Int4 `json:"reason"`
+	CreateTime  int64       `json:"create_time"`
+	PerformTime int64       `json:"perform_time"`
+	CancelTime  int64       `json:"cancel_time"`
+}
+
+func (q *Queries) ListPaymeTransactionsByTime(ctx context.Context, arg ListPaymeTransactionsByTimeParams) ([]ListPaymeTransactionsByTimeRow, error) {
+	rows, err := q.db.Query(ctx, listPaymeTransactionsByTime, arg.CreateTime, arg.CreateTime_2)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPaymeTransactionsByTimeRow
+	for rows.Next() {
+		var i ListPaymeTransactionsByTimeRow
+		if err := rows.Scan(
+			&i.PaymeID,
+			&i.PaymentID,
+			&i.AmountTiyin,
+			&i.State,
+			&i.Reason,
+			&i.CreateTime,
+			&i.PerformTime,
+			&i.CancelTime,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markPaymentPaid = `-- name: MarkPaymentPaid :exec
+UPDATE payment SET status = 'paid', paid_at = now() WHERE id = $1
+`
+
+func (q *Queries) MarkPaymentPaid(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markPaymentPaid, id)
+	return err
+}
+
+const performPaymeTransaction = `-- name: PerformPaymeTransaction :exec
+UPDATE payme_transaction SET state = 2, perform_time = $2 WHERE payme_id = $1
+`
+
+type PerformPaymeTransactionParams struct {
+	PaymeID     string `json:"payme_id"`
+	PerformTime int64  `json:"perform_time"`
+}
+
+func (q *Queries) PerformPaymeTransaction(ctx context.Context, arg PerformPaymeTransactionParams) error {
+	_, err := q.db.Exec(ctx, performPaymeTransaction, arg.PaymeID, arg.PerformTime)
+	return err
+}
+
+const setPaymentStatus = `-- name: SetPaymentStatus :exec
+UPDATE payment SET status = $2 WHERE id = $1
+`
+
+type SetPaymentStatusParams struct {
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+}
+
+func (q *Queries) SetPaymentStatus(ctx context.Context, arg SetPaymentStatusParams) error {
+	_, err := q.db.Exec(ctx, setPaymentStatus, arg.ID, arg.Status)
+	return err
 }
