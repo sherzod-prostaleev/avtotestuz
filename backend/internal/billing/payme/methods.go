@@ -7,9 +7,18 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 )
+
+// paymeTxTimeoutMs is the 12-hour window Payme allows a pending (state=1)
+// transaction to stay unperformed before it must be treated as expired.
+const paymeTxTimeoutMs = 12 * 60 * 60 * 1000
+
+// cancelReasonTimeout is the Payme-defined cancel reason code for a
+// transaction auto-cancelled by PerformTransaction's 12h timeout.
+const cancelReasonTimeout = 4
 
 // accountParams is the `account` object Payme sends on every
 // account-bearing method: `{"account":{"order_id":"<payment id>"}}`.
@@ -160,4 +169,171 @@ func (h *Handler) validateAccountAmount(ctx context.Context, orderID string, amo
 	}
 
 	return payment, nil
+}
+
+// performTransactionParams is PerformTransaction's `params`: just the
+// Payme transaction id.
+type performTransactionParams struct {
+	ID string `json:"id"`
+}
+
+// performTransactionResult is PerformTransaction's result, both for the
+// real perform and for the idempotent replay of an already-performed one.
+type performTransactionResult struct {
+	Transaction string `json:"transaction"`
+	PerformTime int64  `json:"perform_time"`
+	State       int32  `json:"state"`
+}
+
+// performTransaction implements PerformTransaction: the transaction must
+// exist (else -31003). state==2 is an idempotent replay — return the
+// existing perform_time/state without granting entitlement again. A pending
+// (state==1) transaction older than the 12h window is auto-cancelled
+// (reason=4) and reported as -31008 rather than performed. Otherwise this is
+// the real success path: flip the transaction to state=2, mark the payment
+// paid, and grant the VIP entitlement via billing.Service.GrantDays — this
+// is the whole point of M2-02's revenue loop. Any other state (-1/-2,
+// already cancelled) can never be performed, so it's -31008 too.
+func (h *Handler) performTransaction(ctx context.Context, p performTransactionParams) (performTransactionResult, *rpcError) {
+	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return performTransactionResult{}, errTransactionNotFound
+		}
+		return performTransactionResult{}, errInternal
+	}
+
+	if existing.State == 2 {
+		return performTransactionResult{
+			Transaction: existing.PaymentID.String(),
+			PerformTime: existing.PerformTime,
+			State:       2,
+		}, nil
+	}
+
+	if existing.State != 1 {
+		// -1 or -2: already cancelled, can never be performed.
+		return performTransactionResult{}, errTransactionState
+	}
+
+	now := time.Now().UnixMilli()
+	if existing.CreateTime+paymeTxTimeoutMs < now {
+		if err := h.Q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
+			PaymeID:    p.ID,
+			State:      -1,
+			Reason:     pgtype.Int4{Int32: cancelReasonTimeout, Valid: true},
+			CancelTime: now,
+		}); err != nil {
+			return performTransactionResult{}, errInternal
+		}
+		if err := h.Q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
+			ID:     existing.PaymentID,
+			Status: "canceled",
+		}); err != nil {
+			return performTransactionResult{}, errInternal
+		}
+		return performTransactionResult{}, errTransactionState
+	}
+
+	if err := h.Q.PerformPaymeTransaction(ctx, sqlc.PerformPaymeTransactionParams{
+		PaymeID:     p.ID,
+		PerformTime: now,
+	}); err != nil {
+		return performTransactionResult{}, errInternal
+	}
+	if err := h.Q.MarkPaymentPaid(ctx, existing.PaymentID); err != nil {
+		return performTransactionResult{}, errInternal
+	}
+
+	payment, err := h.Q.GetPaymentForPayme(ctx, existing.PaymentID)
+	if err != nil {
+		return performTransactionResult{}, errInternal
+	}
+	if _, err := h.Svc.GrantDays(ctx, payment.ProfileID, int(payment.TariffDays), "purchase", "", uuid.NullUUID{}); err != nil {
+		return performTransactionResult{}, errInternal
+	}
+
+	return performTransactionResult{
+		Transaction: existing.PaymentID.String(),
+		PerformTime: now,
+		State:       2,
+	}, nil
+}
+
+// cancelTransactionParams is CancelTransaction's `params`: Payme's
+// transaction id plus an integer cancel-reason code, passed through
+// verbatim to payme_transaction.reason.
+type cancelTransactionParams struct {
+	ID     string `json:"id"`
+	Reason int32  `json:"reason"`
+}
+
+// cancelTransactionResult is CancelTransaction's result, both for a real
+// cancel and for the idempotent replay of an already-cancelled one.
+type cancelTransactionResult struct {
+	Transaction string `json:"transaction"`
+	CancelTime  int64  `json:"cancel_time"`
+	State       int32  `json:"state"`
+}
+
+// cancelTransaction implements CancelTransaction: the transaction must
+// exist (else -31003). state==-1/-2 is an idempotent replay — return the
+// existing cancel_time/state without re-writing. A pending (state==1)
+// transaction cancels to -1 and marks the payment 'canceled'; an already
+// performed (state==2) transaction cancels to -2 and marks the payment
+// 'refunded' — entitlement revoke on that path is deliberately deferred to
+// a future refund milestone (M2-04), not implemented here.
+func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionParams) (cancelTransactionResult, *rpcError) {
+	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return cancelTransactionResult{}, errTransactionNotFound
+		}
+		return cancelTransactionResult{}, errInternal
+	}
+
+	if existing.State == -1 || existing.State == -2 {
+		return cancelTransactionResult{
+			Transaction: existing.PaymentID.String(),
+			CancelTime:  existing.CancelTime,
+			State:       existing.State,
+		}, nil
+	}
+
+	var newState int32
+	var paymentStatus string
+	switch existing.State {
+	case 1:
+		newState = -1
+		paymentStatus = "canceled"
+	case 2:
+		newState = -2
+		paymentStatus = "refunded"
+	default:
+		// Not reachable given the 1/2/-1/-2 state machine, but guard
+		// rather than silently mis-cancel an unexpected state.
+		return cancelTransactionResult{}, errTransactionState
+	}
+
+	now := time.Now().UnixMilli()
+	if err := h.Q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
+		PaymeID:    p.ID,
+		State:      newState,
+		Reason:     pgtype.Int4{Int32: p.Reason, Valid: true},
+		CancelTime: now,
+	}); err != nil {
+		return cancelTransactionResult{}, errInternal
+	}
+	if err := h.Q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
+		ID:     existing.PaymentID,
+		Status: paymentStatus,
+	}); err != nil {
+		return cancelTransactionResult{}, errInternal
+	}
+
+	return cancelTransactionResult{
+		Transaction: existing.PaymentID.String(),
+		CancelTime:  now,
+		State:       newState,
+	}, nil
 }

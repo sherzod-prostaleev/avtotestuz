@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,6 +25,32 @@ const methodsTestKey = "test-cashbox-key"
 func newMethodsHandler(pool *pgxpool.Pool) *Handler {
 	q := sqlc.New(pool)
 	return &Handler{Q: q, Svc: billing.Service{Q: q}, Key: methodsTestKey}
+}
+
+// seedPaymeTransaction inserts a payme_transaction row directly (bypassing
+// CreateTransaction), so PerformTransaction/CancelTransaction tests can
+// control create_time precisely — e.g. to simulate a 12h-expired pending
+// transaction, which CreateTransaction's own "now" clock can't produce.
+func seedPaymeTransaction(t *testing.T, pool *pgxpool.Pool, paymeID string, paymentID uuid.UUID, state int32, createTime int64) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO payme_transaction (payme_id, payment_id, amount_tiyin, state, create_time)
+		 VALUES ($1, $2, 5990000, $3, $4)`,
+		paymeID, paymentID, state, createTime); err != nil {
+		t.Fatalf("seed payme_transaction: %v", err)
+	}
+}
+
+// profileOf looks up the profile_id owning paymentID, for entitlement
+// assertions (billing.Service.Status needs a profile id, not a payment id).
+func profileOf(t *testing.T, pool *pgxpool.Pool, paymentID uuid.UUID) uuid.UUID {
+	t.Helper()
+	var profileID uuid.UUID
+	if err := pool.QueryRow(context.Background(),
+		`SELECT profile_id FROM payment WHERE id = $1`, paymentID).Scan(&profileID); err != nil {
+		t.Fatalf("lookup profile_id: %v", err)
+	}
+	return profileID
 }
 
 // seedPayment inserts a profile + tariff (price 59900 so'm) + a payment row
@@ -339,5 +366,275 @@ func TestCreateTransaction_ConflictActiveTransaction(t *testing.T) {
 	}
 	if count != 0 {
 		t.Errorf("payme-txn-b row count = %d, want 0 (conflicting create must not insert)", count)
+	}
+}
+
+// --- PerformTransaction ---------------------------------------------------
+
+type performResult struct {
+	Transaction string `json:"transaction"`
+	PerformTime int64  `json:"perform_time"`
+	State       int32  `json:"state"`
+}
+
+func TestPerformTransaction_Success(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-perform-1"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, time.Now().UnixMilli())
+	profileID := profileOf(t, pool, paymentID)
+
+	resp := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var result performResult
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if result.Transaction != paymentID.String() {
+		t.Errorf("transaction = %q, want %q", result.Transaction, paymentID.String())
+	}
+	if result.State != 2 {
+		t.Errorf("state = %d, want 2", result.State)
+	}
+	if result.PerformTime == 0 {
+		t.Errorf("perform_time = 0, want nonzero")
+	}
+
+	var status string
+	var paidAt *time.Time
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status, paid_at FROM payment WHERE id = $1`, paymentID).Scan(&status, &paidAt); err != nil {
+		t.Fatal(err)
+	}
+	if status != "paid" {
+		t.Errorf("payment.status = %q, want paid", status)
+	}
+	if paidAt == nil {
+		t.Errorf("payment.paid_at = nil, want set")
+	}
+
+	active, until, err := h.Svc.Status(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	if !active {
+		t.Errorf("entitlement active = false, want true (GrantDays should have run)")
+	}
+	if until == nil {
+		t.Errorf("entitlement until = nil, want set")
+	}
+}
+
+func TestPerformTransaction_Idempotent(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-perform-2"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, time.Now().UnixMilli())
+	profileID := profileOf(t, pool, paymentID)
+
+	first := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+	var firstResult performResult
+	if err := json.Unmarshal(first["result"], &firstResult); err != nil {
+		t.Fatalf("decode first result: %v (resp=%v)", err, first)
+	}
+	_, until1, err := h.Svc.Status(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("Status (1): %v", err)
+	}
+
+	second := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+	if code, isErr := rpcErrorCode(t, second); isErr {
+		t.Fatalf("unexpected error on replay, code=%d", code)
+	}
+	var secondResult performResult
+	if err := json.Unmarshal(second["result"], &secondResult); err != nil {
+		t.Fatalf("decode second result: %v (resp=%v)", err, second)
+	}
+	if secondResult != firstResult {
+		t.Errorf("replay result = %+v, want same as first %+v", secondResult, firstResult)
+	}
+
+	_, until2, err := h.Svc.Status(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("Status (2): %v", err)
+	}
+	if until1 == nil || until2 == nil || !until1.Equal(*until2) {
+		t.Errorf("entitlement end changed on replay: %v -> %v, want unchanged (no double grant)", until1, until2)
+	}
+}
+
+func TestPerformTransaction_NotFound(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+
+	resp := rpcCall(t, h, "PerformTransaction", map[string]any{"id": "no-such-payme-id"})
+
+	code, isErr := rpcErrorCode(t, resp)
+	if !isErr {
+		t.Fatalf("expected error, got result=%s", resp["result"])
+	}
+	if code != -31003 {
+		t.Errorf("code = %d, want -31003", code)
+	}
+}
+
+func TestPerformTransaction_ExpiredPending(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-perform-expired"
+	oldCreateTime := time.Now().Add(-13 * time.Hour).UnixMilli()
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, oldCreateTime)
+
+	resp := rpcCall(t, h, "PerformTransaction", map[string]any{"id": paymeID})
+
+	code, isErr := rpcErrorCode(t, resp)
+	if !isErr {
+		t.Fatalf("expected error, got result=%s", resp["result"])
+	}
+	if code != -31008 {
+		t.Errorf("code = %d, want -31008", code)
+	}
+
+	var state int32
+	var reason int32
+	if err := pool.QueryRow(context.Background(),
+		`SELECT state, reason FROM payme_transaction WHERE payme_id = $1`, paymeID).Scan(&state, &reason); err != nil {
+		t.Fatal(err)
+	}
+	if state != -1 {
+		t.Errorf("payme_transaction.state = %d, want -1", state)
+	}
+	if reason != 4 {
+		t.Errorf("payme_transaction.reason = %d, want 4", reason)
+	}
+
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "canceled" {
+		t.Errorf("payment.status = %q, want canceled", status)
+	}
+}
+
+// --- CancelTransaction -----------------------------------------------------
+
+type cancelResult struct {
+	Transaction string `json:"transaction"`
+	CancelTime  int64  `json:"cancel_time"`
+	State       int32  `json:"state"`
+}
+
+func TestCancelTransaction_FromPending(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-cancel-1"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, time.Now().UnixMilli())
+
+	resp := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 5})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var result cancelResult
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if result.Transaction != paymentID.String() {
+		t.Errorf("transaction = %q, want %q", result.Transaction, paymentID.String())
+	}
+	if result.State != -1 {
+		t.Errorf("state = %d, want -1", result.State)
+	}
+	if result.CancelTime == 0 {
+		t.Errorf("cancel_time = 0, want nonzero")
+	}
+
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "canceled" {
+		t.Errorf("payment.status = %q, want canceled", status)
+	}
+}
+
+func TestCancelTransaction_FromPaid(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "paid")
+	paymeID := "payme-cancel-2"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 2, time.Now().UnixMilli())
+
+	resp := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 3})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var result cancelResult
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if result.State != -2 {
+		t.Errorf("state = %d, want -2", result.State)
+	}
+
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "refunded" {
+		t.Errorf("payment.status = %q, want refunded", status)
+	}
+}
+
+func TestCancelTransaction_Idempotent(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-cancel-3"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, time.Now().UnixMilli())
+
+	first := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 5})
+	var firstResult cancelResult
+	if err := json.Unmarshal(first["result"], &firstResult); err != nil {
+		t.Fatalf("decode first result: %v (resp=%v)", err, first)
+	}
+
+	second := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 5})
+	if code, isErr := rpcErrorCode(t, second); isErr {
+		t.Fatalf("unexpected error on replay, code=%d", code)
+	}
+	var secondResult cancelResult
+	if err := json.Unmarshal(second["result"], &secondResult); err != nil {
+		t.Fatalf("decode second result: %v (resp=%v)", err, second)
+	}
+	if secondResult != firstResult {
+		t.Errorf("replay result = %+v, want same as first %+v", secondResult, firstResult)
+	}
+}
+
+func TestCancelTransaction_NotFound(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+
+	resp := rpcCall(t, h, "CancelTransaction", map[string]any{"id": "no-such-payme-id", "reason": 1})
+
+	code, isErr := rpcErrorCode(t, resp)
+	if !isErr {
+		t.Fatalf("expected error, got result=%s", resp["result"])
+	}
+	if code != -31003 {
+		t.Errorf("code = %d, want -31003", code)
 	}
 }

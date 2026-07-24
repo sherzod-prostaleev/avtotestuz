@@ -42,8 +42,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch req.Method {
-	// Tasks 5-6 add cases here: PerformTransaction, CancelTransaction,
-	// CheckTransaction, GetStatement.
+	// Task 6 adds cases here: CheckTransaction, GetStatement.
 	case "CheckPerformTransaction":
 		var p checkPerformParams
 		if err := json.Unmarshal(req.Params, &p); err != nil {
@@ -63,6 +62,30 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		result, rpcErr := h.createTransaction(r.Context(), p)
+		if rpcErr != nil {
+			writeError(w, req.ID, rpcErr)
+			return
+		}
+		writeResult(w, req.ID, result)
+	case "PerformTransaction":
+		var p performTransactionParams
+		if err := json.Unmarshal(req.Params, &p); err != nil {
+			writeError(w, req.ID, errParse)
+			return
+		}
+		result, rpcErr := h.performTransaction(r.Context(), p)
+		if rpcErr != nil {
+			writeError(w, req.ID, rpcErr)
+			return
+		}
+		writeResult(w, req.ID, result)
+	case "CancelTransaction":
+		var p cancelTransactionParams
+		if err := json.Unmarshal(req.Params, &p); err != nil {
+			writeError(w, req.ID, errParse)
+			return
+		}
+		result, rpcErr := h.cancelTransaction(r.Context(), p)
 		if rpcErr != nil {
 			writeError(w, req.ID, rpcErr)
 			return

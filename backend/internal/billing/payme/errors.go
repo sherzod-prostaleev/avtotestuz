@@ -88,3 +88,14 @@ var (
 		"en": "Unable to perform the operation.",
 	}, "")
 )
+
+// Domain errors (Task 5): transaction lookup for PerformTransaction and
+// CancelTransaction.
+var (
+	// errTransactionNotFound: no payme_transaction row for params.id.
+	errTransactionNotFound = Error(-31003, map[string]string{
+		"ru": "Транзакция не найдена.",
+		"uz": "Tranzaksiya topilmadi.",
+		"en": "Transaction not found.",
+	}, "")
+)
