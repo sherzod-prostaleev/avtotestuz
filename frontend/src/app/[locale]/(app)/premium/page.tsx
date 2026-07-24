@@ -3,10 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
+import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
+import { PromoInput, ValidatePromoResult } from "@/components/checkout/promo-input";
 
 interface TariffDTO {
   code: string;
@@ -28,6 +31,7 @@ interface EntitlementDTO {
 interface CheckoutResult {
   payment_id: string;
   checkout_url: string;
+  free?: boolean;
 }
 
 function formatSom(n: number): string {
@@ -37,6 +41,7 @@ function formatSom(n: number): string {
 export default function PremiumPage() {
   const t = useTranslations("Premium");
   const locale = useLocale();
+  const router = useRouter();
 
   const [tariffs, setTariffs] = useState<TariffDTO[] | null>(null);
   const [entitlement, setEntitlement] = useState<EntitlementDTO | null>(null);
@@ -44,6 +49,9 @@ export default function PremiumPage() {
   const [loadError, setLoadError] = useState(false);
   const [buyingCode, setBuyingCode] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
+
+  const [provider, setProvider] = useState<PaymentProvider>("payme");
+  const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -69,12 +77,18 @@ export default function PremiumPage() {
   const handleBuy = async (code: string) => {
     setBuyError(null);
     setBuyingCode(code);
+    const promo = promoMap[code];
     try {
       const result = await apiPost<CheckoutResult>("me/checkout", {
         tariff_code: code,
-        provider: "payme",
+        provider: provider,
+        promo_code: promo?.code || undefined,
       });
-      window.location.href = result.checkout_url;
+      if (result.free) {
+        router.push(`/${locale}/checkout/success?free=true`);
+      } else if (result.checkout_url) {
+        window.location.href = result.checkout_url;
+      }
     } catch {
       setBuyError(t("buyError"));
       setBuyingCode(null);
@@ -140,6 +154,10 @@ export default function PremiumPage() {
 
           {tariffs?.map((tariff) => {
             const label = badgeLabel(tariff.badge);
+            const promo = promoMap[tariff.code];
+            const finalPrice = promo ? promo.final_amount_uzs : tariff.price_uzs;
+            const isFree = promo && finalPrice === 0;
+
             return (
               <Card
                 key={tariff.code}
@@ -156,31 +174,50 @@ export default function PremiumPage() {
 
                 <div className="mt-3">
                   <div className="flex items-baseline gap-1">
-                    <span className="font-display text-2xl font-extrabold">{formatSom(tariff.price_per_day_uzs)}</span>
+                    <span className="font-display text-2xl font-extrabold">{formatSom(isFree ? 0 : Math.round(finalPrice / tariff.days))}</span>
                     <span className="text-xs font-medium text-muted-foreground">
                       {t("somSuffix")} / {t("perDay")}
                     </span>
                   </div>
                   <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                     <span>
-                      {formatSom(tariff.price_uzs)} {t("somSuffix")} / {tariff.days} {t("daysLabel")}
+                      {formatSom(finalPrice)} {t("somSuffix")} / {tariff.days + (promo?.bonus_days || 0)} {t("daysLabel")}
                     </span>
-                    {tariff.old_price_uzs !== null && (
-                      <>
-                        <span className="line-through">{formatSom(tariff.old_price_uzs)}</span>
-                        <span className="font-bold text-success">-{tariff.discount_percent}%</span>
-                      </>
+                    {promo ? (
+                      <span className="font-bold text-success">-{formatSom(promo.discount_uzs)} {t("somSuffix")}</span>
+                    ) : (
+                      tariff.old_price_uzs !== null && (
+                        <>
+                          <span className="line-through">{formatSom(tariff.old_price_uzs)}</span>
+                          <span className="font-bold text-success">-{tariff.discount_percent}%</span>
+                        </>
+                      )
                     )}
                   </div>
                 </div>
 
-                <div className="mt-4 flex-1 space-y-2">
-                  {features.map((feat) => (
-                    <div key={feat} className="flex items-start gap-2 text-xs text-foreground">
-                      <CheckCircle2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
-                      {feat}
-                    </div>
-                  ))}
+                <div className="mt-4 flex-1 space-y-3">
+                  <div className="space-y-2">
+                    {features.map((feat) => (
+                      <div key={feat} className="flex items-start gap-2 text-xs text-foreground">
+                        <CheckCircle2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
+                        {feat}
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="border-t border-border/40 pt-3 space-y-3">
+                    <PromoInput
+                      tariffCode={tariff.code}
+                      onApplied={(res) => setPromoMap((prev) => ({ ...prev, [tariff.code]: res }))}
+                    />
+                    {!isFree && (
+                      <ProviderPicker
+                        selected={provider}
+                        onChange={(p) => setProvider(p)}
+                      />
+                    )}
+                  </div>
                 </div>
 
                 {buyError && buyingCode === tariff.code && (
@@ -191,13 +228,17 @@ export default function PremiumPage() {
 
                 <Button
                   type="button"
-                  variant="gold"
+                  variant={isFree ? "success" : "gold"}
                   size="sm"
                   className="mt-4"
                   disabled={buyingCode === tariff.code}
                   onClick={() => void handleBuy(tariff.code)}
                 >
-                  {buyingCode === tariff.code ? t("buyLoading") : t("buyButton")}
+                  {buyingCode === tariff.code
+                    ? t("buyLoading")
+                    : isFree
+                    ? t("freeCheckoutButton")
+                    : t("buyButton")}
                 </Button>
               </Card>
             );

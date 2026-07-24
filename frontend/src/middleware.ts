@@ -17,6 +17,7 @@ const PROTECTED_SEGMENTS = [
   "premium",
   "saved",
   "session",
+  "checkout",
 ];
 const AUTH_SEGMENTS = ["login"];
 
