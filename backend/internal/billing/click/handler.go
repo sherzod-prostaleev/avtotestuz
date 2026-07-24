@@ -35,11 +35,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch req.Action {
-	// Task 5 adds the Complete (action=1) case here, e.g.:
-	//   case "1":
-	//       writeClickResponse(w, h.complete(r.Context(), req))
 	case "0":
 		writeClickResponse(w, h.prepare(r.Context(), req))
+	case "1":
+		writeClickResponse(w, h.complete(r.Context(), req))
 	default:
 		writeClickResponse(w, errorResponse(req, errAction))
 	}
