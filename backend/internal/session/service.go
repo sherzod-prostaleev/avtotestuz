@@ -153,29 +153,6 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			if !active {
 				return SessionView{}, ErrRequiresVIP
 			}
-			previous, previousErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
-			if previousErr != nil {
-				if errors.Is(previousErr, pgx.ErrNoRows) {
-					return SessionView{}, ErrVariantLocked
-				}
-				return SessionView{}, previousErr
-			}
-			previousProgress, progressErr := s.Q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{
-				ProfileID: profileID, VariantID: previous.ID,
-			})
-			if progressErr != nil {
-				if errors.Is(progressErr, pgx.ErrNoRows) {
-					return SessionView{}, ErrVariantLocked
-				}
-				return SessionView{}, progressErr
-			}
-			cfg, cfgErr := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
-			if cfgErr != nil {
-				return SessionView{}, cfgErr
-			}
-			if !IsVariantUnlocked(false, int(previousProgress.BestCorrect), int(cfg.FreeValue)) {
-				return SessionView{}, ErrVariantLocked
-			}
 		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
@@ -466,6 +443,17 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	}
 
 	if row.Mode == "exam" {
+		// Compute per-answer correct/wrong feedback so the exam UI can show
+		// green/red immediately, matching the official Avtotest desktop app.
+		examCorrectID := answerID
+		if !ans.IsCorrect {
+			examCorrectID, err = s.Q.GetCorrectAnswerID(ctx, questionID)
+			if err != nil {
+				return AnswerResult{}, err
+			}
+		}
+		examCorrect := ans.IsCorrect
+
 		after, err := s.Q.CountSessionAnswers(ctx, sessionID)
 		if err != nil {
 			return AnswerResult{}, err
@@ -475,9 +463,9 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 			if _, err := s.finishInternal(ctx, row, true, false); err != nil {
 				return AnswerResult{}, err
 			}
-			return AnswerResult{Recorded: true, Stopped: true, StopReason: "too_many_errors"}, nil
+			return AnswerResult{Recorded: true, Correct: &examCorrect, CorrectAnswerID: &examCorrectID, Stopped: true, StopReason: "too_many_errors"}, nil
 		}
-		return AnswerResult{Recorded: true}, nil
+		return AnswerResult{Recorded: true, Correct: &examCorrect, CorrectAnswerID: &examCorrectID}, nil
 	}
 
 	correctID := answerID
@@ -801,6 +789,11 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		progressByVariant[p.VariantID] = p
 	}
 
+	active, _, statusErr := s.Billing.Status(ctx, profileID)
+	if statusErr != nil {
+		return nil, statusErr
+	}
+
 	cfg, err := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
 	if err != nil {
 		return nil, err
@@ -818,7 +811,7 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		status := VariantStatus{
 			Number:        v.Number,
 			QuestionCount: int(v.QuestionCount),
-			Unlocked:      IsVariantUnlocked(i == 0, prevBestCorrect, threshold),
+			Unlocked:      IsVariantUnlocked(i == 0, active, prevBestCorrect, threshold),
 		}
 
 		bestCorrect := 0

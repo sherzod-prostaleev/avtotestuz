@@ -11,10 +11,11 @@ const (
 )
 
 // IsVariantUnlocked reports whether a variant is unlocked. The first variant
-// in the sequence (isFirst) is always unlocked; every other one requires the
-// previous variant's best_correct to meet the configured threshold.
-func IsVariantUnlocked(isFirst bool, prevBestCorrect, threshold int) bool {
-	if isFirst {
+// in the sequence (isFirst) and any VIP/Premium profile (isVIP) are always
+// unlocked; otherwise it requires the previous variant's best_correct to meet
+// the configured threshold.
+func IsVariantUnlocked(isFirst, isVIP bool, prevBestCorrect, threshold int) bool {
+	if isFirst || isVIP {
 		return true
 	}
 	return prevBestCorrect >= threshold

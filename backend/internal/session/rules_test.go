@@ -3,13 +3,16 @@ package session
 import "testing"
 
 func TestIsVariantUnlocked(t *testing.T) {
-	if !IsVariantUnlocked(true, 0, 10) {
+	if !IsVariantUnlocked(true, false, 0, 10) {
 		t.Fatal("first variant must always be unlocked")
 	}
-	if IsVariantUnlocked(false, 9, 10) {
+	if !IsVariantUnlocked(false, true, 0, 10) {
+		t.Fatal("VIP variant must always be unlocked")
+	}
+	if IsVariantUnlocked(false, false, 9, 10) {
 		t.Fatal("9 < threshold 10 must stay locked")
 	}
-	if !IsVariantUnlocked(false, 10, 10) {
+	if !IsVariantUnlocked(false, false, 10, 10) {
 		t.Fatal("10 >= threshold 10 must unlock")
 	}
 }

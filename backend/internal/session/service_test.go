@@ -277,7 +277,7 @@ func TestSubmitAnswerRejectsQuestionOutsideSession(t *testing.T) {
 	}
 }
 
-func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
+func TestSubmitAnswerExamModeRealSubmissionProvidesFeedback(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
@@ -293,11 +293,15 @@ func TestSubmitAnswerExamModeRealSubmissionWithholdsFeedback(t *testing.T) {
 	if !res.Recorded {
 		t.Fatalf("expected Recorded=true, got %+v", res)
 	}
-	if res.Correct != nil {
-		t.Fatalf("exam mode must withhold Correct, got %+v", res)
+	// Exam mode now returns per-answer feedback (matching official Avtotest desktop app).
+	if res.Correct == nil || *res.Correct != true {
+		t.Fatalf("exam mode should report correct=true for right answer, got %+v", res)
 	}
-	if res.CorrectAnswerID != nil {
-		t.Fatalf("exam mode must withhold CorrectAnswerID, got %+v", res)
+	if res.CorrectAnswerID == nil {
+		t.Fatalf("exam mode should report correct_answer_id, got %+v", res)
+	}
+	if *res.CorrectAnswerID != correctID {
+		t.Fatalf("expected correct_answer_id=%v, got %+v", correctID, res.CorrectAnswerID)
 	}
 }
 
@@ -385,11 +389,12 @@ func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
 		if err != nil {
 			t.Fatalf("submit %d: %v", i, err)
 		}
-		if res.Correct != nil {
-			t.Fatalf("exam mode must withhold Correct, i=%d got %+v", i, res)
+		// Exam mode now returns per-answer feedback.
+		if res.Correct == nil || *res.Correct != false {
+			t.Fatalf("exam mode should report correct=false for wrong answer, i=%d got %+v", i, res)
 		}
-		if res.CorrectAnswerID != nil {
-			t.Fatalf("exam mode must withhold CorrectAnswerID, i=%d got %+v", i, res)
+		if res.CorrectAnswerID == nil {
+			t.Fatalf("exam mode should report correct_answer_id, i=%d got %+v", i, res)
 		}
 		if i < 2 {
 			if res.Stopped {
@@ -609,7 +614,7 @@ func TestGetSessionOwnershipIsEnforced(t *testing.T) {
 	}
 }
 
-func TestListVariantStatusesSequentialUnlock(t *testing.T) {
+func TestListVariantStatusesVIPUnlocksAll(t *testing.T) {
 	q, svc, profileID := seed(t)
 	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
 	if err != nil {
@@ -622,26 +627,17 @@ func TestListVariantStatusesSequentialUnlock(t *testing.T) {
 		t.Fatal("variant 1 must always be unlocked")
 	}
 	if statuses[1].Unlocked {
-		t.Fatal("variant 2 must be locked before variant 1 is passed")
+		t.Fatal("variant 2 must be locked for non-VIP profiles")
 	}
 
-	view := startVariantSession(t, q, svc, profileID)
-	for _, qid := range view.QuestionIDs {
-		correctID := correctAnswerID(t, q, qid)
-		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
-			t.Fatalf("submit: %v", err)
-		}
-	}
-	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
-		t.Fatalf("finish: %v", err)
-	}
+	grantVIP(t, q, profileID)
 
 	statuses, err = svc.ListVariantStatuses(context.Background(), profileID)
 	if err != nil {
 		t.Fatalf("ListVariantStatuses: %v", err)
 	}
 	if !statuses[1].Unlocked {
-		t.Fatal("variant 2 must unlock after variant 1 hits the threshold")
+		t.Fatal("variant 2 must unlock for VIP profiles")
 	}
 }
 
@@ -658,7 +654,7 @@ func TestStartSessionVariantTwoRequiresVIP(t *testing.T) {
 	}
 }
 
-func TestStartSessionVariantEnforcesSequentialUnlock(t *testing.T) {
+func TestStartSessionVariantVIPUnlocksAll(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
 	v2, err := q.GetVariantByNumber(context.Background(), 2)
@@ -667,24 +663,8 @@ func TestStartSessionVariantEnforcesSequentialUnlock(t *testing.T) {
 	}
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
 		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
-	}); !errors.Is(err, session.ErrVariantLocked) {
-		t.Fatalf("variant 2 before variant 1 threshold: err=%v want ErrVariantLocked", err)
-	}
-
-	v1Session := startVariantSession(t, q, svc, profileID)
-	for _, questionID := range v1Session.QuestionIDs[:10] {
-		answerID := correctAnswerID(t, q, questionID)
-		if _, err := svc.SubmitAnswer(context.Background(), profileID, v1Session.ID, questionID, answerID); err != nil {
-			t.Fatalf("submit variant 1: %v", err)
-		}
-	}
-	if _, err := svc.FinishSession(context.Background(), profileID, v1Session.ID); err != nil {
-		t.Fatalf("finish variant 1: %v", err)
-	}
-	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
-		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
 	}); err != nil {
-		t.Fatalf("variant 2 must unlock after variant 1 reaches threshold: %v", err)
+		t.Fatalf("VIP profile must be able to start variant 2: %v", err)
 	}
 }
 

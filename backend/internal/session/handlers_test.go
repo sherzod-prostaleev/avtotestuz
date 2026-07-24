@@ -337,7 +337,22 @@ func TestExamSessionQuestionDetailRedactsUntilCompletion(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("submit exam answer status=%d env=%+v", status, env)
 	}
-	assertNoFeedbackLeak(t, env.Data, sentinel)
+	// The exam submit answer response now returns correct/correct_answer_id
+	// per-answer (matching the official Avtotest desktop app), but the
+	// explanation is still withheld until finish.
+	var submitFields map[string]json.RawMessage
+	if err := json.Unmarshal(env.Data, &submitFields); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := submitFields["correct"]; !ok {
+		t.Fatalf("exam submit should now disclose correctness: %s", env.Data)
+	}
+	if _, ok := submitFields["correct_answer_id"]; !ok {
+		t.Fatalf("exam submit should now disclose correct_answer_id: %s", env.Data)
+	}
+	if explanation, ok := submitFields["explanation"]; ok && string(explanation) != "null" {
+		t.Fatalf("exam submit should NOT disclose explanation before finish: %s", env.Data)
+	}
 
 	status, env = doReq(t, ts, http.MethodGet, path, tok, nil)
 	if status != http.StatusOK {
