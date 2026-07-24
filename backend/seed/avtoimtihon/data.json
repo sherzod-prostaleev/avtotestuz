@@ -35893,45 +35893,6 @@
       "source": "avtoimtihon"
     },
     {
-      "ext_id": "avtoimtihon-851",
-      "category": "accidents_first_aid_dynamics",
-      "texts": {
-        "ru": "В случае потери сцепления колёс с дорогой из-за образования «водяного клина» водителю следует:",
-        "uz-Cyrl": "Ғилдиракларни йўл билан илашиши йўқолганда (кучли ёмғир, сел ёки сув тошган йўл қисмлари) ҳайдовчи:",
-        "uz-Latn": "G'ildiraklarni yo'l bilan ilashishi yo'qolganda (kuchli yomg'ir, sel yoki suv toshgan yo'l qismlari) haydovchi:"
-      },
-      "answers": [
-        {
-          "position": 1,
-          "correct": false,
-          "texts": {
-            "ru": "Увеличить скорость",
-            "uz-Cyrl": "Тезликни ошириши лозим",
-            "uz-Latn": "Tezlikni oshirishi lozim"
-          }
-        },
-        {
-          "position": 2,
-          "correct": false,
-          "texts": {
-            "ru": "Он должен снизить скорость, резко нажав на педаль тормоза",
-            "uz-Cyrl": "Тормоз тепкисини кескин босиш билан тезликни камайтириши лозим",
-            "uz-Latn": "Tormoz tepkisini keskin bosish bilan tezlikni kamaytirishi lozim"
-          }
-        },
-        {
-          "position": 3,
-          "correct": true,
-          "texts": {
-            "ru": "Он должен снизить скорость, затормозив двигателем",
-            "uz-Cyrl": "Двигатель билан тормозлаш орқали тезликни камайтириши лозим",
-            "uz-Latn": "Dvigatel bilan tormozlash orqali tezlikni kamaytirishi lozim"
-          }
-        }
-      ],
-      "source": "avtoimtihon"
-    },
-    {
       "ext_id": "avtoimtihon-852",
       "category": "accidents_first_aid_dynamics",
       "texts": {
@@ -37674,45 +37635,6 @@
             "ru": "Водитель автомобиля",
             "uz-Cyrl": "Aвтомобиль ҳайдовчиси",
             "uz-Latn": "Avtomobil haydovchisi"
-          }
-        }
-      ],
-      "source": "avtoimtihon"
-    },
-    {
-      "ext_id": "avtoimtihon-898",
-      "category": "accidents_first_aid_dynamics",
-      "texts": {
-        "ru": "В случае, когда правые колёса автомобиля наезжают на мокрую, влажную обочину, рекомендуется:",
-        "uz-Cyrl": "Aгар автомобилнинг ўнг ғилдираклари нам қопламали йўл ёқасига чиқиб қолса, тавсия этилади:",
-        "uz-Latn": "Agar avtomobilning o'ng g'ildiraklari nam qoplamali yo'l yoqasiga chiqib qolsa, tavsiya etiladi:"
-      },
-      "answers": [
-        {
-          "position": 1,
-          "correct": true,
-          "texts": {
-            "ru": "Мягко и плавно поворачивайте автомобиль на проезжую часть дороги без торможения",
-            "uz-Cyrl": "Aвтомобилни тормозламасдан йўлнинг қатнов қисмига оҳиста равон буриш",
-            "uz-Latn": "Avtomobilni tormozlamasdan yo'lning qatnov qismiga ohista ravon burish"
-          }
-        },
-        {
-          "position": 2,
-          "correct": false,
-          "texts": {
-            "ru": "Торможение и полная остановка транспортного средства",
-            "uz-Cyrl": "Aвтомобилни тормозлаш ва тўлиқ тўхтатиш",
-            "uz-Latn": "Avtomobilni tormozlash va to'liq to'xtatish"
-          }
-        },
-        {
-          "position": 3,
-          "correct": false,
-          "texts": {
-            "ru": "Торможение автомобиля и плавный поворот на проезжую часть дороги",
-            "uz-Cyrl": "Aвтомобилни тормозлаб, йўлнинг қатнов қисмига оҳиста равон буриш",
-            "uz-Latn": "Avtomobilni tormozlab, yo'lning qatnov qismiga ohista ravon burish"
           }
         }
       ],
@@ -39846,45 +39768,6 @@
             "ru": "Запрещается",
             "uz-Cyrl": "Тақиқланади",
             "uz-Latn": "Taqiqlanadi"
-          }
-        }
-      ],
-      "source": "avtoimtihon"
-    },
-    {
-      "ext_id": "avtoimtihon-950",
-      "category": "pedestrians_public_transport",
-      "texts": {
-        "ru": "Пешеходы при пересечении дороги с какой стороны обязаны обходить стоящий автобус и троллейбус?",
-        "uz-Cyrl": "Пиёдалар тўхтаб турган автобус ва троллейбуснинг қайси томонидан йўлни кесиб ўтишлари керак?",
-        "uz-Latn": "Piyodalar to'xtab turgan avtobus va trolleybusning qaysi tomonidan yo'lni kesib o'tishlari kerak?"
-      },
-      "answers": [
-        {
-          "position": 1,
-          "correct": false,
-          "texts": {
-            "ru": "С любой стороны",
-            "uz-Cyrl": "Исталган томонидан",
-            "uz-Latn": "Istalgan tomonidan"
-          }
-        },
-        {
-          "position": 2,
-          "correct": false,
-          "texts": {
-            "ru": "Спереди",
-            "uz-Cyrl": "Олди томонидан",
-            "uz-Latn": "Oldi tomonidan"
-          }
-        },
-        {
-          "position": 3,
-          "correct": true,
-          "texts": {
-            "ru": "Сзади",
-            "uz-Cyrl": "Орқа томонидан",
-            "uz-Latn": "Orqa tomonidan"
           }
         }
       ],
@@ -52925,7 +52808,6 @@
         "avtoimtihon-848",
         "avtoimtihon-849",
         "avtoimtihon-850",
-        "avtoimtihon-851",
         "avtoimtihon-852",
         "avtoimtihon-853",
         "avtoimtihon-854",
@@ -52934,7 +52816,8 @@
         "avtoimtihon-857",
         "avtoimtihon-858",
         "avtoimtihon-859",
-        "avtoimtihon-860"
+        "avtoimtihon-860",
+        "avtoimtihon-1221"
       ]
     },
     {
@@ -52982,9 +52865,9 @@
         "avtoimtihon-895",
         "avtoimtihon-896",
         "avtoimtihon-897",
-        "avtoimtihon-898",
         "avtoimtihon-899",
-        "avtoimtihon-900"
+        "avtoimtihon-900",
+        "avtoimtihon-1222"
       ]
     },
     {
@@ -53049,7 +52932,6 @@
         "avtoimtihon-947",
         "avtoimtihon-948",
         "avtoimtihon-949",
-        "avtoimtihon-950",
         "avtoimtihon-951",
         "avtoimtihon-952",
         "avtoimtihon-953",
@@ -53059,7 +52941,8 @@
         "avtoimtihon-957",
         "avtoimtihon-958",
         "avtoimtihon-959",
-        "avtoimtihon-960"
+        "avtoimtihon-960",
+        "avtoimtihon-1223"
       ]
     },
     {
@@ -53134,7 +53017,7 @@
         "avtoimtihon-1017",
         "avtoimtihon-1018",
         "avtoimtihon-1019",
-        "avtoimtihon-109"
+        "avtoimtihon-1224"
       ]
     },
     {
@@ -53385,6 +53268,22 @@
         "avtoimtihon-1218",
         "avtoimtihon-1219",
         "avtoimtihon-1220"
+      ]
+    },
+    {
+      "number": 62,
+      "questions": [
+        "avtoimtihon-1225",
+        "avtoimtihon-1226",
+        "avtoimtihon-1227",
+        "avtoimtihon-1228",
+        "avtoimtihon-1229",
+        "avtoimtihon-1230",
+        "avtoimtihon-1231",
+        "avtoimtihon-1232",
+        "avtoimtihon-1233",
+        "avtoimtihon-1234",
+        "avtoimtihon-1235"
       ]
     }
   ],
