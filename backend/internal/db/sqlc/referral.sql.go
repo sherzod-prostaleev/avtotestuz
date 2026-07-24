@@ -11,6 +11,35 @@ import (
 	"github.com/google/uuid"
 )
 
+const claimPendingReferralForReferee = `-- name: ClaimPendingReferralForReferee :one
+UPDATE referral
+SET status = 'rewarded', rewarded_at = NOW()
+WHERE referee_id = $1 AND status = 'pending'
+RETURNING id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at
+`
+
+// Atomically claims (marks rewarded) the referee's pending referral in one
+// statement. The UPDATE takes a row lock as part of the write: under READ
+// COMMITTED, a concurrent claim for the same referee blocks until the first
+// commits, then re-evaluates WHERE status = 'pending' against the now-
+// committed row and returns zero rows (pgx.ErrNoRows) since it was already
+// claimed. This makes claim-then-grant safe without a separate SELECT FOR
+// UPDATE round trip.
+func (q *Queries) ClaimPendingReferralForReferee(ctx context.Context, refereeID uuid.UUID) (Referral, error) {
+	row := q.db.QueryRow(ctx, claimPendingReferralForReferee, refereeID)
+	var i Referral
+	err := row.Scan(
+		&i.ID,
+		&i.ReferrerID,
+		&i.RefereeID,
+		&i.ReferralCode,
+		&i.Status,
+		&i.CreatedAt,
+		&i.RewardedAt,
+	)
+	return i, err
+}
+
 const createReferral = `-- name: CreateReferral :one
 INSERT INTO referral (referrer_id, referee_id, referral_code, status)
 VALUES ($1, $2, $3, 'pending')
@@ -54,27 +83,6 @@ func (q *Queries) CreateUserReferralCode(ctx context.Context, arg CreateUserRefe
 	row := q.db.QueryRow(ctx, createUserReferralCode, arg.UserID, arg.Code)
 	var i UserReferralCode
 	err := row.Scan(&i.UserID, &i.Code, &i.CreatedAt)
-	return i, err
-}
-
-const getPendingReferralForReferee = `-- name: GetPendingReferralForReferee :one
-SELECT id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at
-FROM referral
-WHERE referee_id = $1 AND status = 'pending'
-`
-
-func (q *Queries) GetPendingReferralForReferee(ctx context.Context, refereeID uuid.UUID) (Referral, error) {
-	row := q.db.QueryRow(ctx, getPendingReferralForReferee, refereeID)
-	var i Referral
-	err := row.Scan(
-		&i.ID,
-		&i.ReferrerID,
-		&i.RefereeID,
-		&i.ReferralCode,
-		&i.Status,
-		&i.CreatedAt,
-		&i.RewardedAt,
-	)
 	return i, err
 }
 
@@ -122,15 +130,4 @@ func (q *Queries) GetUserReferralCode(ctx context.Context, userID uuid.UUID) (Us
 	var i UserReferralCode
 	err := row.Scan(&i.UserID, &i.Code, &i.CreatedAt)
 	return i, err
-}
-
-const markReferralRewarded = `-- name: MarkReferralRewarded :exec
-UPDATE referral
-SET status = 'rewarded', rewarded_at = NOW()
-WHERE id = $1 AND status = 'pending'
-`
-
-func (q *Queries) MarkReferralRewarded(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markReferralRewarded, id)
-	return err
 }

@@ -19,15 +19,18 @@ INSERT INTO referral (referrer_id, referee_id, referral_code, status)
 VALUES ($1, $2, $3, 'pending')
 RETURNING id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at;
 
--- name: GetPendingReferralForReferee :one
-SELECT id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at
-FROM referral
-WHERE referee_id = $1 AND status = 'pending';
-
--- name: MarkReferralRewarded :exec
+-- name: ClaimPendingReferralForReferee :one
+-- Atomically claims (marks rewarded) the referee's pending referral in one
+-- statement. The UPDATE takes a row lock as part of the write: under READ
+-- COMMITTED, a concurrent claim for the same referee blocks until the first
+-- commits, then re-evaluates WHERE status = 'pending' against the now-
+-- committed row and returns zero rows (pgx.ErrNoRows) since it was already
+-- claimed. This makes claim-then-grant safe without a separate SELECT FOR
+-- UPDATE round trip.
 UPDATE referral
 SET status = 'rewarded', rewarded_at = NOW()
-WHERE id = $1 AND status = 'pending';
+WHERE referee_id = $1 AND status = 'pending'
+RETURNING id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at;
 
 -- name: GetReferralStatsForUser :one
 SELECT 

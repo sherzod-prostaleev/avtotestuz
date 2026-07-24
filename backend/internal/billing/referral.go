@@ -127,22 +127,22 @@ func (s Service) GetReferralStats(ctx context.Context, userID uuid.UUID) (*Refer
 }
 
 func (s Service) processReferralRewardOnPayment(ctx context.Context, refereeID uuid.UUID) error {
-	pending, err := s.Q.GetPendingReferralForReferee(ctx, refereeID)
+	// Claim the pending referral first: the UPDATE...RETURNING atomically
+	// flips status to 'rewarded' and takes a row lock as part of the write,
+	// so if two payments for the same referee race here, only one of them
+	// gets a row back — the other gets pgx.ErrNoRows and no-ops. This
+	// prevents a double grant of the referrer's bonus days (see referral.sql).
+	claimed, err := s.Q.ClaimPendingReferralForReferee(ctx, refereeID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil // No pending referral for this user
+			return nil // No pending referral for this user (or already claimed)
 		}
 		return err
 	}
 
-	// Grant +7 VIP days to referrer
-	if _, err := s.GrantDays(ctx, pending.ReferrerID, 7, "referral", "Referral bonus for inviting friend", uuid.NullUUID{}); err != nil {
+	// Grant +7 VIP days to referrer, now that we own the claim.
+	if _, err := s.GrantDays(ctx, claimed.ReferrerID, 7, "referral", "Referral bonus for inviting friend", uuid.NullUUID{}); err != nil {
 		return fmt.Errorf("failed to grant referral bonus days to referrer: %w", err)
-	}
-
-	// Mark referral as rewarded
-	if err := s.Q.MarkReferralRewarded(ctx, pending.ID); err != nil {
-		return fmt.Errorf("failed to mark referral as rewarded: %w", err)
 	}
 
 	return nil
