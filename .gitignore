@@ -2,6 +2,9 @@
 Снимок*
 photo_*_2026-*.jpg
 
+# run.sh working files
+.run/
+
 # Go
 backend/bin/
 backend/seed/sample/
