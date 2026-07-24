@@ -5,6 +5,7 @@ package account
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -14,6 +15,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/i18n"
 )
 
 type Handler struct {
@@ -25,6 +27,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me", h.getMe)
 	r.Patch("/me", h.patchMe)
 	r.Get("/me/entitlement", h.getEntitlement)
+	r.Get("/me/payments", h.listMyPayments)
 }
 
 type profileDTO struct {
@@ -187,4 +190,68 @@ func (h *Handler) getEntitlement(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, toVIPDTO(active, until))
+}
+
+type paymentHistoryDTO struct {
+	ID         string     `json:"id"`
+	TariffCode string     `json:"tariff_code"`
+	TariffName string     `json:"tariff_name"`
+	TariffDays int        `json:"tariff_days"`
+	AmountUzs  int64      `json:"amount_uzs"`
+	Provider   string     `json:"provider"`
+	Status     string     `json:"status"`
+	CreatedAt  time.Time  `json:"created_at"`
+	PaidAt     *time.Time `json:"paid_at"`
+}
+
+func (h *Handler) listMyPayments(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	loc, ok := i18n.Parse(r)
+	if !ok {
+		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
+		return
+	}
+	limit := 20
+	if s := r.URL.Query().Get("limit"); s != "" {
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid_request", "limit must be an integer")
+			return
+		}
+		if n > 0 {
+			limit = n
+		}
+	}
+	rows, err := h.Q.ListMyPayments(r.Context(), sqlc.ListMyPaymentsParams{
+		ProfileID: claims.ProfileID,
+		Locale:    loc,
+		Limit:     int32(limit),
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "payment history query failed")
+		return
+	}
+	out := make([]paymentHistoryDTO, len(rows))
+	for i, row := range rows {
+		dto := paymentHistoryDTO{
+			ID:         row.ID.String(),
+			TariffCode: row.TariffCode,
+			TariffName: row.TariffName,
+			TariffDays: int(row.TariffDays),
+			AmountUzs:  row.AmountUzs,
+			Provider:   row.Provider,
+			Status:     row.Status,
+			CreatedAt:  row.CreatedAt.Time,
+		}
+		if row.PaidAt.Valid {
+			t := row.PaidAt.Time
+			dto.PaidAt = &t
+		}
+		out[i] = dto
+	}
+	httpx.Data(w, http.StatusOK, out)
 }

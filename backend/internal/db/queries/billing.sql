@@ -82,3 +82,15 @@ UPDATE click_transaction SET state = -1, rejected_at = now(), reason = $2 WHERE 
 
 -- name: MarkPaymentPending :exec
 UPDATE payment SET status = 'pending', provider_txn_id = $2 WHERE id = $1;
+
+-- name: ListMyPayments :many
+SELECT p.id, p.amount_uzs, p.provider, p.status, p.created_at, p.paid_at,
+       t.code AS tariff_code, t.days AS tariff_days,
+       COALESCE(tr.name, ftr.name, t.code) AS tariff_name
+FROM payment p
+JOIN tariff t ON t.id = p.tariff_id
+LEFT JOIN tariff_translation tr ON tr.tariff_id = t.id AND tr.locale = $2
+LEFT JOIN tariff_translation ftr ON ftr.tariff_id = t.id AND ftr.locale = 'uz-Latn'
+WHERE p.profile_id = $1
+ORDER BY p.created_at DESC
+LIMIT $3;

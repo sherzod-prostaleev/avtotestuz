@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/account"
 	"avtotest.uz/backend/internal/auth"
@@ -21,7 +22,12 @@ import (
 
 const testSecret = "test-secret"
 
-func setup(t *testing.T) (*httptest.Server, sqlc.Profile) {
+// setup returns the pool alongside the server/profile so tests that need to
+// seed data sqlc has no query for yet (e.g. tariff/tariff_translation rows,
+// see payments_test.go) can do so directly, without opening a second pool
+// (testdb.New truncates on every call, which would wipe the profile/rows
+// already created via the first pool).
+func setup(t *testing.T) (*httptest.Server, sqlc.Profile, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.New(t)
 	q := sqlc.New(pool)
@@ -39,7 +45,7 @@ func setup(t *testing.T) (*httptest.Server, sqlc.Profile) {
 
 	ts := httptest.NewServer(r)
 	t.Cleanup(ts.Close)
-	return ts, profile
+	return ts, profile, pool
 }
 
 type respEnvelope struct {
@@ -77,7 +83,7 @@ func doReq(t *testing.T, ts *httptest.Server, method, path, token string, body [
 }
 
 func TestMeRequiresAuth(t *testing.T) {
-	ts, _ := setup(t)
+	ts, _, _ := setup(t)
 	status, _ := doReq(t, ts, http.MethodGet, "/me", "", nil)
 	if status != http.StatusUnauthorized {
 		t.Fatalf("status=%d want 401", status)
@@ -85,7 +91,7 @@ func TestMeRequiresAuth(t *testing.T) {
 }
 
 func TestMeGetPatchRoundtrip(t *testing.T) {
-	ts, profile := setup(t)
+	ts, profile, _ := setup(t)
 	tok, err := auth.IssueAccess([]byte(testSecret), profile.ID, "user", time.Minute)
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +155,7 @@ func TestMeGetPatchRoundtrip(t *testing.T) {
 }
 
 func TestPatchMeInvalidBirthDate(t *testing.T) {
-	ts, profile := setup(t)
+	ts, profile, _ := setup(t)
 	tok, err := auth.IssueAccess([]byte(testSecret), profile.ID, "user", time.Minute)
 	if err != nil {
 		t.Fatal(err)

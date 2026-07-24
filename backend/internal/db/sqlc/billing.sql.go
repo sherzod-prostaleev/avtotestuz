@@ -378,6 +378,67 @@ func (q *Queries) ListActiveTariffs(ctx context.Context, locale string) ([]ListA
 	return items, nil
 }
 
+const listMyPayments = `-- name: ListMyPayments :many
+SELECT p.id, p.amount_uzs, p.provider, p.status, p.created_at, p.paid_at,
+       t.code AS tariff_code, t.days AS tariff_days,
+       COALESCE(tr.name, ftr.name, t.code) AS tariff_name
+FROM payment p
+JOIN tariff t ON t.id = p.tariff_id
+LEFT JOIN tariff_translation tr ON tr.tariff_id = t.id AND tr.locale = $2
+LEFT JOIN tariff_translation ftr ON ftr.tariff_id = t.id AND ftr.locale = 'uz-Latn'
+WHERE p.profile_id = $1
+ORDER BY p.created_at DESC
+LIMIT $3
+`
+
+type ListMyPaymentsParams struct {
+	ProfileID uuid.UUID `json:"profile_id"`
+	Locale    string    `json:"locale"`
+	Limit     int32     `json:"limit"`
+}
+
+type ListMyPaymentsRow struct {
+	ID         uuid.UUID          `json:"id"`
+	AmountUzs  int64              `json:"amount_uzs"`
+	Provider   string             `json:"provider"`
+	Status     string             `json:"status"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	PaidAt     pgtype.Timestamptz `json:"paid_at"`
+	TariffCode string             `json:"tariff_code"`
+	TariffDays int32              `json:"tariff_days"`
+	TariffName string             `json:"tariff_name"`
+}
+
+func (q *Queries) ListMyPayments(ctx context.Context, arg ListMyPaymentsParams) ([]ListMyPaymentsRow, error) {
+	rows, err := q.db.Query(ctx, listMyPayments, arg.ProfileID, arg.Locale, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMyPaymentsRow
+	for rows.Next() {
+		var i ListMyPaymentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AmountUzs,
+			&i.Provider,
+			&i.Status,
+			&i.CreatedAt,
+			&i.PaidAt,
+			&i.TariffCode,
+			&i.TariffDays,
+			&i.TariffName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPaymeTransactionsByTime = `-- name: ListPaymeTransactionsByTime :many
 SELECT payme_id, payment_id, amount_tiyin, state, reason, create_time, perform_time, cancel_time
 FROM payme_transaction WHERE create_time >= $1 AND create_time <= $2 ORDER BY create_time
