@@ -438,6 +438,46 @@ func TestCreateTransaction_ConflictActiveTransaction(t *testing.T) {
 	}
 }
 
+// TestPaymeTransaction_OneActivePerPaymentIndex proves the
+// payme_transaction_one_active_per_payment partial unique index itself
+// blocks a second active (state 1/2) row for the same payment at the DB
+// level — independent of, and as a backstop for, the application-level
+// GetActivePaymeTxByPayment check already covered by
+// TestCreateTransaction_ConflictActiveTransaction above. It simulates the
+// race the index defends against: two different payme_ids for the same
+// payment both getting past the app-level check and both attempting to
+// insert a state=1 row.
+func TestPaymeTransaction_OneActivePerPaymentIndex(t *testing.T) {
+	pool := testdb.New(t)
+	paymentID := seedPayment(t, pool, "created")
+
+	// First insert (simulating the winner of the race) succeeds normally.
+	seedPaymeTransaction(t, pool, "payme-race-a", paymentID, 1, time.Now().UnixMilli())
+
+	// Second insert for the SAME payment with a DIFFERENT payme_id,
+	// bypassing the Go application's own active-tx check entirely (as a
+	// genuine race would), must be rejected by the DB itself.
+	_, err := pool.Exec(context.Background(),
+		`INSERT INTO payme_transaction (payme_id, payment_id, amount_tiyin, state, create_time)
+		 VALUES ($1, $2, 5990000, $3, $4)`,
+		"payme-race-b", paymentID, 1, time.Now().UnixMilli())
+	if err == nil {
+		t.Fatal("expected unique-violation error inserting a second active transaction for the same payment, got nil")
+	}
+	if !isUniqueViolation(err) {
+		t.Errorf("insert error = %v, want a 23505 unique-violation (payme_transaction_one_active_per_payment)", err)
+	}
+
+	var count int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM payme_transaction WHERE payment_id = $1`, paymentID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Errorf("payme_transaction row count for payment = %d, want 1 (second insert must not persist)", count)
+	}
+}
+
 // --- PerformTransaction ---------------------------------------------------
 
 type performResult struct {

@@ -1,0 +1,1 @@
+DROP INDEX payme_transaction_one_active_per_payment;

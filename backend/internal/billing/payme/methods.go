@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/billing"
@@ -114,6 +115,14 @@ func (h *Handler) createTransaction(ctx context.Context, p createTransactionPara
 		AmountTiyin: p.Amount,
 		CreateTime:  createTime,
 	}); err != nil {
+		if isUniqueViolation(err) {
+			// The payme_transaction_one_active_per_payment partial unique
+			// index caught a race the application-level GetActivePaymeTxByPayment
+			// check above missed: another transaction became active for
+			// this payment between that check and this insert. This is
+			// exactly the -31008 conflict, not an internal error.
+			return createTransactionResult{}, errTransactionState
+		}
 		return createTransactionResult{}, errInternal
 	}
 
@@ -129,6 +138,16 @@ func (h *Handler) createTransaction(ctx context.Context, p createTransactionPara
 		Transaction: payment.ID.String(),
 		State:       1,
 	}, nil
+}
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint
+// violation (SQLSTATE 23505) — e.g. the payme_transaction_one_active_per_payment
+// partial unique index rejecting a second concurrent active transaction for
+// the same payment. Duplicated from auth.isUniqueViolation rather than
+// imported: payme has no other reason to depend on the auth package.
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
 
 // validateAccountAmount is the account+amount check shared by
