@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-09 tugagach)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-11 tugagach)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
@@ -31,26 +31,27 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 **M2-09 (checkout oqimi UI, frontend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-09-checkout-ui-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-09-checkout-ui.md`. `/premium` sahifasi kengaytirildi: `ProviderPicker` (Payme/Click brend tanlovi) va `PromoInput` (promo-kod tekshirish va dinamik narx prevyusi). Promo 100% chegirma bergan holatda (`free: true`) to'lov darhol bepul faollashtirilib `/checkout/success?free=true` sahifasiga o'tiladi. Natija sahifalari: `/checkout/success` (VIP nishon/mashqlarga o'tish), `/checkout/failure` (qayta urinish), `/checkout/pending` (automatik status polling).
 
-> **🎉 ROADMAPDA "SHIPPABLE" NUQTASIGA ERISHILDI!** (Tariflar, Payme, Click, to'lov tarixi, promo-kodlar, tarif UI va to'liq checkout oqimi bitdi. Merchant sandbox kalitlari qo'yilsa, to'liq to'lov tizimi live rejimda ishlaydi.)
+**M2-11 (mehmon-demo landing funnel, frontend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-11-guest-demo-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-11-guest-demo.md`. Landing sahifasida (`/`) `DemoQuestionBlock` kengaytirildi: mehmon foydalanuvchi demo savolni yechgach, unga to'g'ri/xato izohi, FSRS aqlli xatolar bankining afzalliklari va ro'yxatdan o'tish chaqiruvi (`/login`) ko'rsatiladi. Mehmon ro'yxatdan o'tmasdan "Yana bitta savol sinab ko'rish" tugmasi orqali bir nechta demo savolni ketma-ket yechib ko'rishi mumkin.
+
+> **🎉 ROADMAPDA "SHIPPABLE" NUQTASIGA ERISHILDI!** (Tariflar, Payme, Click, to'lov tarixi, promo-kodlar, tarif UI, checkout oqimi va landing demo funnel bitdi. Merchant sandbox kalitlari qo'yilsa, to'liq to'lov tizimi live rejimda ishlaydi.)
 
 **MUHIM — real to'lov hali sinalmagan**: ikkala provayderning ENV kalitlari (`PAYME_MERCHANT_ID`/`PAYME_TEST_KEY`/`PAYME_KEY`, `CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`) hali **bo'sh**. Bo'sh-kalit bilan webhook doim rad etadi (Payme: -32504, Click: -1 SIGN CHECK FAILED) — bu KUTILGAN, xato emas. Foydalanuvchi har ikkala provayderning merchant-kabinetidan sandbox kalit olib ENV'ga qo'yishi, so'ng test.paycom.uz / Click sandbox tester orqali haqiqiy sinovni o'zi o'tkazishi kerak.
 
 ## 3. Roadmap'dagi asl tavsiya vs. haqiqiy bajarilish tartibi
 
-`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → Wave 1 (M2-02 Payme, M2-08 UI, M2-05 promo) → Wave 2 (M2-04 tarix, M2-09 checkout) → Wave 3 (M2-03 Click, M2-06 referal, M2-07 GRAND MOCK, M2-10 tarix UI, M2-11 demo).
+`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → Wave 1 (M2-02 Payme, M2-08 UI, M2-05 promo, M2-11 demo) → Wave 2 (M2-04 tarix, M2-09 checkout) → Wave 3 (M2-03 Click, M2-06 referal, M2-07 GRAND MOCK, M2-10 tarix UI).
 
-**Bajarildi**: Wave 0, Wave 1, Wave 2 elementlari va M2-03 (Click) **TO'LIQ BITDI**.
+**Bajarildi**: Wave 0, Wave 1, Wave 2 barcha elementlari va M2-03 (Click) **TO'LIQ BITDI**.
 
 ## 4. KEYINGI ANIQ QADAM (tavsiya)
 
-M2 monetizatsiyaning qolgan elementlari (Wave 3 / qo'shimcha):
+M2 monetizatsiyaning qolgan elementlari (Wave 3 / referal & grand mock):
 
-1. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel — ro'yxatdan o'tmasdan 1-bilet demo, mavjud demo-endpoint bilan).
-2. **M2-06** (BE, `04`ga bog'liq): referal dasturi (anti-fraud, referee to'lovidan keyin mukofot).
-3. **M2-07** (BE+FE, mastery ≥85%): GRAND MOCK.
-4. **M2-10** (FE, `04,06`ga bog'liq): to'lov tarixi + referal UI.
+1. **M2-06** (BE, `04`ga bog'liq — HOZIR NAVBATDA): referal dasturi backend (anti-fraud, referee birinchi to'lovidan keyin bonus kunlar taqdim etish).
+2. **M2-07** (BE+FE, mastery ≥85%): GRAND MOCK.
+3. **M2-10** (FE, `04,06`ga bog'liq): to'lov tarixi + referal UI.
 
-Tavsiya: **M2-11 (mehmon-demo)** yoki **M2-06 (referal dasturi backend)** bilan davom ettirish.
+Tavsiya: **M2-06 (referal dasturi backend)** bilan davom ettirish.
 
 Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `superpowers:writing-plans` → `superpowers:subagent-driven-development` bilan bajarish.
 
@@ -58,7 +59,7 @@ Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `su
 - **Go PATH:** har `go`/`sqlc` buyrug'iga `export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH"` prefiks (interaktiv bo'lmagan PATH'da yo'q).
 - **sqlc generate:** `make generate` (repo ildizidan).
 - **DB testlar:** `-p 1 -count=1` (bitta test-DB `avtotest_test`); `testdb.New(t)` migratsiya qo'llaydi + `Truncate` qiladi. Testlar o'z fixture'ini insert qiladi.
-- **`pool.Exec` parametr bilan bir nechta SQL buyrug'ini QO'LLAMAYDI** (prepared statement) — parametrli insert'larni alohida `Exec`ga bo'ling.
+- **`pool.Exec` parametr bilan bir nechta SQL buyrug'ini QO me O'LLAMAYDI** (prepared statement) — parametrli insert'larni alohida `Exec`ga bo'ling.
 - **Dev API restart:** `pkill -f "cmd/api"` KENG pattern shell'ni o'ldiradi (exit 144) — o'rniga `ss -ltnp | grep :8090` bilan aniq PID topib kill qiling; yangi binarni `run_in_background` bilan ishga tushiring.
 - **Infra:** `docker compose` (postgres:5432, redis:6379, minio:9000) ishlab turibdi; backend compose'da EMAS.
 - **Payme kalitlari:** ENV bo'sh, webhook -32504 qaytaradi (kutilgan).
@@ -68,4 +69,4 @@ Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `su
 Har Plan: `brainstorming` (spec) → `writing-plans` (reja) → TDD implementatsiya (`subagent-driven-development`) → whole-branch review → push. Mustaqil Plan'lar (yoki bitta Plan ichidagi fayllar jihatidan mustaqil task'lar) parallel subagentlarga berish mumkin.
 
 ## 7. Keyingi Plan'lar to'liq ro'yxati (roadmap'dan)
-M2-06 (BE, referal, 04'ga bog'liq) · M2-07 (BE+FE, GRAND MOCK) · M2-10 (FE, tarix/referal UI, 04+06'ga bog'liq) · M2-11 (FE, demo). Har biri roadmapda (`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`, bo'lim 2 va 9) dekompozitsiya qilingan. M2 tugagach: M4 (Growth) → M5/M6/M7 → **M3 (Super Admin) ENG OXIRIDA**.
+M2-06 (BE, referal, 04'ga bog'liq) · M2-07 (BE+FE, GRAND MOCK) · M2-10 (FE, tarix/referal UI, 04+06'ga bog'liq). Har biri roadmapda (`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`, bo'lim 2 va 9) dekompozitsiya qilingan. M2 tugagach: M4 (Growth) → M5/M6/M7 → **M3 (Super Admin) ENG OXIRIDA**.
