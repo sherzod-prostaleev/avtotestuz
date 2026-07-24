@@ -1,65 +1,66 @@
-# SESSION HANDOFF — bu yerdan boshlang (2026-07-24)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-03 tugagach)
 
-> Yangi sessiya uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang.
+> Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
 ## 0. Maqsad (kontekst)
-AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`.
-
-**Hozir qayerdamiz:** M1 (backend + kontent + frontend asosiy) TUGADI. Endi **M2 — Monetizatsiya** ustida ishlayapmiz. Ichida **M2-02 (Payme to'lov)** ni quryapmiz.
-
-To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` (M2→M7, admin oxirida; bajarilish tartibi + vaqt baholari 9-bo'limda).
+AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`.
 
 ## 1. Audit qilingan holat (2026-07-24, tekshirilgan)
-- Git: `main`, origin bilan sinxron (push qilingandan keyin). Ish daraxti **toza**.
-- Backend: `go build ./...` OK; `go test ./internal/billing/... -p 1` **o'tadi**.
-- DB migratsiya: **version 12**, dirty emas.
-- Dev API: `/tmp/avtotest-api-new` binardan 8090-portда ishlaydi (health 200).
-- Kontent: 1231 savol (3 til), 62 bilet, 285 belgi (3 til, rasm). Foydalanuvchi ma'lumoti pre-launch tozalangan (0 profile).
+- Git: `main`, origin bilan sinxron (`95d5f3a`, push qilingan). Ish daraxti **toza**.
+- Backend: `go build ./...` OK; `go test ./... -p 1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, va boshqa hammasi).
+- DB migratsiya: **version 14**, dirty emas.
+- Kontent: 1231 savol (3 til), 62 bilet, 285 belgi. Foydalanuvchi ma'lumoti pre-launch tozalangan.
 
-## 2. Bu sessiyada bajarilgan ish (xulosa)
-1. **Belgilar bazasi** to'liq: 285 belgi, 3 til (uz-Cyrl transliterator), haqiqiy rasmlar, importer MIME tuzatildi.
-2. **Savol kontenti QA**: 1231 savol audit + dedup; 62 bilet (61×20 + 11); 5 matn tuzatildi; pre-launch user-wipe.
-3. **Repo tozalandi** (~1.8GB o'lik Flutter worktree'lar).
-4. **Roadmap** (M2→M7) to'liq dekompozitsiya + vaqt baholari.
-5. **M2-01 (tarif modeli) TUGADI va LIVE**: `GET /api/v1/tariffs` — Nexia(7k)/Gentra(30k)/Malibu(75k), 3 til, hisoblangan per-day/discount. Spec+plan+4 TDD commit.
-6. **M2-02 (Payme) — Task 1-2 TUGADI** (pastga qarang).
+## 2. Hozirgacha nima TUGADI
 
-## 3. M2-02 Payme — ANIQ HOLAT va KEYINGI QADAM
+**M1 (backend+kontent+frontend asosiy) — TO'LIQ.**
 
-**Spec:** `docs/superpowers/specs/2026-07-24-m2-02-payme-design.md` (Payme protokoli rasmiy `developer.help.paycom.uz` dan; account=order_id=payment.id; summa tiyin=so'm×100; Perform'da GrantDays VIP beradi; sandbox rejim, ENV placeholder kalitlar).
+**M2-01 (tarif modeli) — TUGADI, LIVE.** `GET /api/v1/tariffs`: Nexia(7 kun/24 900) / Gentra(30/59 900) / Malibu(75/109 900) + Matiz=bepul. 3 til, hisoblangan per-day/discount.
 
-**Reja (7 TDD task):** `docs/superpowers/plans/2026-07-24-m2-02-payme.md`
+**M2-02 (Payme integratsiyasi, sandbox) — TO'LIQ TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-02-payme-design.md`. `internal/billing/payme/` — JSON-RPC 2.0 webhook (`POST /api/v1/billing/payme`, Basic-auth, doim HTTP 200), 6 metod (CheckPerform/Create/Perform+GrantDays/Cancel/Check/GetStatement). Money-critical fix (non-atomic write + concurrent double-grant) topilib **keyin** tuzatilgan (post-hoc) — migratsiya 12+13.
 
-| Task | Holat |
-|------|-------|
-| 1. Config + `payme_transaction` sxema + sqlc query | ✅ TUGADI (migratsiya 12) |
-| 2. Checkout URL builder + `StartCheckout` | ✅ TUGADI (testlar o'tdi) |
-| **3. JSON-RPC skelet (auth -32504, non-POST -32300, dispatcher, xato tiplari)** | ⏭️ **KEYINGI** |
-| 4. CheckPerformTransaction + CreateTransaction | ⬜ |
-| 5. PerformTransaction (**VIP beradi**) + CancelTransaction | ⬜ |
-| 6. CheckTransaction + GetStatement | ⬜ |
-| 7. Route ulash (`POST /me/checkout` auth, `POST /billing/payme` public) + to'liq oqim integration testi | ⬜ |
+**M2-03 (Click integratsiyasi, sandbox) — TO'LIQ TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-03-click-design.md` (Click LLC'ning rasmiy GitHub kutubxonasidan tasdiqlangan protokol). `internal/billing/click/` — form-urlencoded webhook (`POST /api/v1/billing/click`, MD5 `sign_string` o'zi autentifikatsiya, faqat 2 metod: Prepare/Complete). M2-02'ning saboqlari **boshidanoq** qo'llanildi (tranzaksiya+row-lock birinchi commitdan bor) — whole-branch review birinchi urinishdayoq toza o'tdi, qo'shimcha fix kerak bo'lmadi. Migratsiya 14.
 
-**➡️ KEYINGI ANIQ QADAM:** M2-02 reja faylining **Task 3** ini bajaring — `internal/billing/payme/` sub-paketida JSON-RPC skelet (`rpc.go`, `errors.go`, `handler.go` + test). Rejadagi kod-eskizlar va test-holatlariga amal qiling. Har task TDD + alohida commit.
+**Checkout endpoint umumlashtirilgan**: `POST /api/v1/me/checkout` endi `{"tariff_code":"gentra","provider":"payme"|"click"}` qabul qiladi (provider bo'sh bo'lsa `payme`ga default).
 
-**Tayyor primitivlar (Task 3+ ishlatadi):**
-- Config: `cfg.PaymeKey()` (env bo'yicha kalit), `cfg.PaymeMerchantID`, `cfg.PaymeCheckoutHost()`.
-- sqlc query'lar (billing.sql): `GetPaymentForPayme` (payment+tariff.days), `SetPaymentStatus`, `MarkPaymentPaid`, `CreatePaymeTransaction`, `GetPaymeTransaction`, `GetActivePaymeTxByPayment`, `PerformPaymeTransaction`, `CancelPaymeTransaction`, `ListPaymeTransactionsByTime`.
-- `billing.Service.GrantDays(ctx, profileID, days, source, note, by)` — Perform'da VIP berish.
-- `billing.Service.StartCheckout(...)` + `BuildPaymeURL(...)` (Task 2).
-- Auth kontekst: `auth.FromContext(ctx)` → `claims.ProfileID` (checkout handler uchun, T7).
+**MUHIM — real to'lov hali sinalmagan**: ikkala provayderning ENV kalitlari (`PAYME_MERCHANT_ID`/`PAYME_TEST_KEY`/`PAYME_KEY`, `CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`) hali **bo'sh**. Bo'sh-kalit bilan webhook doim rad etadi (Payme: -32504, Click: -1 SIGN CHECK FAILED) — bu KUTILGAN, xato emas. Foydalanuvchi har ikkala provayderning merchant-kabinetidan sandbox kalit olib ENV'ga qo'yishi, so'ng test.paycom.uz / Click sandbox tester orqali haqiqiy sinovni o'zi o'tkazishi kerak.
 
-## 4. Operatsion faktlar (MUHIM — vaqt tejaydi)
+## 3. Roadmap'dagi asl tavsiya vs. haqiqiy bajarilish tartibi
+
+`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → **Wave 1** (M2-02 Payme + M2-08 tarif UI + M2-11 demo + M2-05 promo, parallel) → **Wave 2** (M2-04 grant+tarix + M2-09 checkout FE — bu yerda "Payme bilan revenue to'liq ishlaydi, SHIPPABLE") → **Wave 3** (M2-03 Click + M2-06 referal + M2-07 GRAND MOCK + M2-10 tarix UI).
+
+**Haqiqatda bajarildi**: foydalanuvchi so'rovi bilan M2-03 (Click) Wave-2'dan OLDIN, to'g'ridan-to'g'ri M2-02'dan keyin qurildi. Bu noto'g'ri emas (ataylab tanlov), lekin natijada **Wave 1 ning qolgan qismi (M2-08, M2-05, M2-11) va butun Wave 2 (M2-04, M2-09) hali BOSHLANMAGAN** — ya'ni backend to'lov protokoli 2 ta provayder uchun ham tayyor, lekin foydalanuvchi saytda haqiqatan "sotib olish" tugmasini bosa oladigan frontend oqim, tarif kartalari UI, promo-kod, va to'lov tarixi endpointi hali yo'q.
+
+## 4. KEYINGI ANIQ QADAM (tavsiya)
+
+Roadmap bo'yicha eng mantiqiy davom: qolgan Wave 1 + Wave 2 elementlarini bajarish, chunki ular "sayt haqiqatan pul qabul qila oladi" nuqtasini yopadi:
+
+1. **M2-04** (BE, `02,03`ga bog'liq — ENDI OCHIQ): to'lov tarixi endpointi (`GET /me/payments`) + chek ma'lumoti. Eslatma: "to'lov→entitlement grant" qismi (roadmap'da T1) allaqachon M2-02/M2-03'ning o'zida amalga oshirilgan (`GrantDays` webhook'larda chaqiriladi) — M2-04 endi asosan **read-side tarix** qoladi, grant logikasi emas.
+2. **M2-08** (FE, `01`ga bog'liq): tarif UI (mashina-brend kartalar).
+3. **M2-05** (BE, `01`ga bog'liq): promo-kodlar.
+4. **M2-09** (FE, `04,08`ga bog'liq — 1 va 2 tugagach ochiladi): checkout oqimi (tanlash→promo→to'lov→qaytish) — bu FRONTEND'DA HAQIQATAN "SOTIB OLISH" tugmasini ishlatadi.
+5. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel) — demo-endpoint M1'da tayyor, faqat FE kerak.
+
+M2-04+M2-09 tugagach — roadmap bo'yicha bu **"SHIPPABLE"** nuqta (Payme orqali haqiqiy pul qabul qilish mumkin bo'ladi, agar sandbox kalitlar qo'yilgan bo'lsa).
+
+Keyin Wave 3'ning qolgan qismi: M2-06 (referal, `04`ga bog'liq), M2-07 (GRAND MOCK), M2-10 (tarix/referal UI, `04,06`ga bog'liq).
+
+Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `superpowers:writing-plans` → `superpowers:subagent-driven-development` bilan bajarish. Fayllar jihatidan mustaqil (disjoint) task'lar bo'lsa, foydalanuvchi so'rasa `Agent(isolation:"worktree")` bilan haqiqiy parallel dispatch qilish mumkin (M2-03'da sinalgan, ishlaydi — bo'lim 6ga qarang).
+
+## 5. Operatsion faktlar (MUHIM — vaqt tejaydi)
 - **Go PATH:** har `go`/`sqlc` buyrug'iga `export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH"` prefiks (interaktiv bo'lmagan PATH'da yo'q).
 - **sqlc generate:** `make generate` (repo ildizidan).
-- **DB testlar:** `-p 1` (bitta test-DB `avtotest_test`); `testdb.New(t)` migratsiya qo'llaydi + `Truncate` qiladi. **`Truncate` `tariff`/`payment`/`payme_transaction`ni ham o'chiradi** → DB testlar o'z fixture'ini insert qiladi.
+- **DB testlar:** `-p 1 -count=1` (bitta test-DB `avtotest_test`); `testdb.New(t)` migratsiya qo'llaydi + `Truncate` qiladi. Testlar o'z fixture'ini insert qiladi.
 - **`pool.Exec` parametr bilan bir nechta SQL buyrug'ini QO'LLAMAYDI** (prepared statement) — parametrli insert'larni alohida `Exec`ga bo'ling.
-- **Dev API restart:** `pkill -f "cmd/api"` KENG pattern shell'ni o'ldiradi (exit 144) — o'rniga `ss -ltnp | grep :8090` bilan aniq PID topib kill qiling; yangi binarni `run_in_background` bilan ishga tushiring (`nohup &` emas). Migratsiyalar API/importer start'da avtomatik qo'llanadi.
-- **Infra:** `docker compose` (postgres:5432, redis:6379, minio:9000) ishlab turibdi; backend compose'da EMAS (`go run ./cmd/api` yoki binar).
-- **Payme kalitlari:** hozircha ENV bo'sh (placeholder). Webhook auth bo'sh-kalitni rad etadi (-32504) — bu KUTILGAN. Foydalanuvchi Payme kabinetdan cashbox ochib TEST_KEY olgach, ENV'ga qo'yadi va test.paycom.uz sandbox tester'ni o'zi o'tkazadi.
+- **Dev API restart:** `pkill -f "cmd/api"` KENG pattern shell'ni o'ldiradi (exit 144) — o'rniga `ss -ltnp | grep :8090` bilan aniq PID topib kill qiling; yangi binarni `run_in_background` bilan ishga tushiring.
+- **Infra:** `docker compose` (postgres:5432, redis:6379, minio:9000) ishlab turibdi; backend compose'da EMAS.
+- **Payme kalitlari:** ENV bo'sh, webhook -32504 qaytaradi (kutilgan).
+- **Click kalitlari:** ENV bo'sh (`CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`), webhook -1 (SIGN CHECK FAILED) qaytaradi (kutilgan). Click webhook Payme'dan farqli — Basic-Auth emas, `sign_string` (MD5) o'zi autentifikatsiya; so'rov `application/x-www-form-urlencoded` (JSON fallback bilan), javob flat JSON (JSON-RPC emas).
 
-## 5. Ish uslubi (skill'lar)
-Har Plan: `brainstorming` (spec) → `writing-plans` (reja) → TDD implementatsiya → `requesting-code-review`. Mustaqil Plan'larni parallel subagentlarga berish mumkin (roadmap 0-bo'lim). Kelajakdagi Plan tartibi va vaqt baholari roadmap 9-bo'limda.
+## 6. Ish uslubi (skill'lar)
+Har Plan: `brainstorming` (spec) → `writing-plans` (reja) → TDD implementatsiya (`subagent-driven-development`) → whole-branch review → push. Mustaqil Plan'lar (yoki bitta Plan ichidagi fayllar jihatidan mustaqil task'lar) parallel subagentlarga berish mumkin.
 
-## 6. Keyingi bir necha Plan (M2 Wave 1, parallel)
-M2-02 (Payme) tugagach: **M2-03 Click** · **M2-08 tarif UI** (FE) · **M2-05 promo** · **M2-04 to'lov tarixi** · **M2-11 demo**. Har biri roadmapda dekompozitsiya qilingan.
+**M2-03'da tasdiqlangan yangi texnika**: foydalanuvchi aniq "multi agentda ishla, agar bir-biriga xalaqit qilmasa" desa — rejadagi disjoint-fayl task'larni `Agent(isolation:"worktree", run_in_background:true)` bilan alohida git worktree'larda parallel dispatch qilish mumkin. Tugagach: fast-forward mumkin bo'lsa `git merge --ff-only`, aks holda (branch eskirgan, lekin fayllar overlap qilmasa) `git cherry-pick`. Worktree'larni `git worktree remove --force` + `git branch -D` bilan tozalash.
+
+## 7. Keyingi Plan'lar to'liq ro'yxati (roadmap'dan)
+M2-04 (BE, tarix) · M2-05 (BE, promo) · M2-06 (BE, referal, 04'ga bog'liq) · M2-07 (BE+FE, GRAND MOCK) · M2-08 (FE, tarif UI) · M2-09 (FE, checkout, 04+08'ga bog'liq) · M2-10 (FE, tarix/referal UI, 04+06'ga bog'liq) · M2-11 (FE, demo). Har biri roadmapda (`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`, bo'lim 2 va 9) dekompozitsiya qilingan. M2 tugagach: M4 (Growth) → M5/M6/M7 → **M3 (Super Admin) ENG OXIRIDA**.
