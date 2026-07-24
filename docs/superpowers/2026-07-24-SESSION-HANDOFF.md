@@ -6,7 +6,7 @@
 AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`.
 
 ## 1. Audit qilingan holat (2026-07-24, tekshirilgan)
-- Git: `main`, origin bilan sinxron (`970a4a1`, push qilingan). Ish daraxti **toza**.
+- Git: `main`, origin bilan sinxron (bu hujjatning o'zi committed va push qilingan holatda — `git log --oneline -1` bilan aniq HEAD'ni tekshiring, bu qator har doim bitta commit orqada qoladi, chunki hujjatning o'zi ham bitta commit). Ish daraxti **toza**.
 - Backend: `go build ./...` OK; `go test ./... -p 1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, account, va boshqa hammasi).
 - Frontend: `npm run typecheck` OK; `npm run test` — **233/233 test o'tadi** (47 fayl); lint'da faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari (bu sessiyaga aloqasi yo'q).
 - DB migratsiya: **version 14**, dirty emas.
