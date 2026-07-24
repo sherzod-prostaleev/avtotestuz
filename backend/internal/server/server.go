@@ -14,6 +14,7 @@ import (
 	"avtotest.uz/backend/internal/account"
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
+	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
@@ -61,6 +62,8 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				Svc:               billing.Service{Q: deps.Queries},
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
+				ClickServiceID:    cfg.ClickServiceID,
+				ClickMerchantID:   cfg.ClickMerchantID,
 			}
 			bh.Routes(api)
 
@@ -91,6 +94,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				pmh := &payme.Handler{Q: deps.Queries, Svc: billing.Service{Q: deps.Queries}, Key: cfg.PaymeKey(), Pool: deps.Pool}
 				api.Post("/billing/payme", pmh.ServeHTTP)
+
+				cmh := &click.Handler{Q: deps.Queries, Svc: billing.Service{Q: deps.Queries}, ServiceID: cfg.ClickServiceID, SecretKey: cfg.ClickSecretKey, Pool: deps.Pool}
+				api.Post("/billing/click", cmh.ServeHTTP)
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
