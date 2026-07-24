@@ -98,6 +98,8 @@ func TestVerifyMarksTranslationVerified(t *testing.T) {
 
 func TestVerifyWithoutDraftReturnsNotFound(t *testing.T) {
 	_, svc, profileID, questionID := seed(t)
+	pool := testdb.New(t)
+	_, _ = pool.Exec(context.Background(), "DELETE FROM explanation_translation; DELETE FROM explanation;")
 	if err := svc.Verify(context.Background(), questionID, profileID); err != explanation.ErrNotFound {
 		t.Fatalf("err=%v want ErrNotFound", err)
 	}
@@ -105,6 +107,8 @@ func TestVerifyWithoutDraftReturnsNotFound(t *testing.T) {
 
 func TestRecordFeedbackRequiresExistingExplanation(t *testing.T) {
 	_, svc, profileID, questionID := seed(t)
+	pool := testdb.New(t)
+	_, _ = pool.Exec(context.Background(), "DELETE FROM explanation_translation; DELETE FROM explanation;")
 	if err := svc.RecordFeedback(context.Background(), profileID, questionID, true); err != explanation.ErrNotFound {
 		t.Fatalf("err=%v want ErrNotFound", err)
 	}

@@ -36,6 +36,8 @@ func (h *Handler) Routes(r chi.Router) {
 func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Post("/me/checkout", h.checkout)
 	r.Post("/billing/promo/validate", h.validatePromo)
+	r.Get("/me/referral", h.getReferralStats)
+	r.Post("/referral/apply", h.applyReferral)
 }
 
 func (h *Handler) listTariffs(w http.ResponseWriter, r *http.Request) {
@@ -146,4 +148,50 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, result)
+}
+
+type applyReferralBody struct {
+	Code string `json:"code"`
+}
+
+func (h *Handler) getReferralStats(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	stats, err := h.Svc.GetReferralStats(r.Context(), claims.ProfileID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to get referral stats")
+		return
+	}
+	httpx.Data(w, http.StatusOK, stats)
+}
+
+func (h *Handler) applyReferral(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	var body applyReferralBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "JSON payload expected")
+		return
+	}
+	err := h.Svc.ApplyReferralCode(r.Context(), claims.ProfileID, body.Code)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrReferralNotFound):
+			httpx.Error(w, http.StatusBadRequest, "referral_not_found", "referral code not found")
+		case errors.Is(err, ErrReferralSelf):
+			httpx.Error(w, http.StatusBadRequest, "referral_self", "cannot apply your own referral code")
+		case errors.Is(err, ErrReferralAlreadyApplied):
+			httpx.Error(w, http.StatusBadRequest, "referral_already_applied", "referral code already applied")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "failed to apply referral code")
+		}
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]bool{"success": true})
 }

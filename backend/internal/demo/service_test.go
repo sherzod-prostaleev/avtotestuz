@@ -93,6 +93,7 @@ func TestGetQuestionReturnsWhitelistedQuestion(t *testing.T) {
 
 func TestGetQuestionEmptyDBNotFound(t *testing.T) {
 	pool := testdb.New(t) // no seed
+	_, _ = pool.Exec(context.Background(), "DELETE FROM question_sign; DELETE FROM variant_question; DELETE FROM question_memory; DELETE FROM saved_question; DELETE FROM session_answer; DELETE FROM answer_translation; DELETE FROM answer; DELETE FROM question_translation; DELETE FROM question;")
 	svc, _ := newService(t, pool)
 
 	_, _, err := svc.GetQuestion(context.Background(), "uz-Latn")

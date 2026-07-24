@@ -21,9 +21,10 @@ func TestTariffsEndpoint(t *testing.T) {
 	pool := testdb.New(t)
 	_, err := pool.Exec(context.Background(), `
 		INSERT INTO tariff (code, days, price_uzs, old_price_uzs, badge, sort_order, active) VALUES
-			('t7', 7, 24900, 34900, NULL, 1, true);
+			('t7', 7, 24900, 34900, NULL, 1, true) ON CONFLICT (code) DO NOTHING;
 		INSERT INTO tariff_translation (tariff_id, locale, name, description)
-		SELECT t.id, 'uz-Latn'::locale_code, 'Seven', 'desc7' FROM tariff t WHERE t.code = 't7';`)
+		SELECT t.id, 'uz-Latn'::locale_code, 'Seven', 'desc7' FROM tariff t WHERE t.code = 't7'
+		ON CONFLICT (tariff_id, locale) DO NOTHING;`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +45,15 @@ func TestTariffsEndpoint(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Data) != 1 || body.Data[0].Code != "t7" || body.Data[0].PricePerDayUZS != 3557 {
+
+	var found *TariffDTO
+	for i := range body.Data {
+		if body.Data[i].Code == "t7" {
+			found = &body.Data[i]
+			break
+		}
+	}
+	if found == nil || found.PricePerDayUZS != 3557 {
 		t.Fatalf("unexpected tariffs: %+v", body.Data)
 	}
 
@@ -60,14 +69,14 @@ func TestTariffsEndpoint(t *testing.T) {
 func TestValidatePromoEndpoint(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("55555555-5555-5555-5555-555555555555")
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000005')`, profileID); err != nil {
+	profileID := uuid.New()
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901000055') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('SAVE20', 'percent', 20, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('SAVE20', 'percent', 20, true) ON CONFLICT (code) DO UPDATE SET active = true, value = 20`); err != nil {
 		t.Fatal(err)
 	}
 

@@ -8,25 +8,30 @@ import (
 	"avtotest.uz/backend/internal/testdb"
 )
 
-// testdb.Truncate wipes the migration seed, so ListTariffs behaviour is
-// verified against a test-owned fixture inserted below.
+// testdb.Truncate wipes user data while keeping seed tariffs.
+// We deactivate seeded tariffs for this specific fixture test.
 func TestListTariffs(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 
 	_, err := pool.Exec(ctx, `
+		UPDATE tariff SET active = false;
 		INSERT INTO tariff (code, days, price_uzs, old_price_uzs, badge, sort_order, active) VALUES
 			('t7',  7,  24900, 34900, NULL,      1, true),
 			('t30', 30, 59900, 99900, 'popular', 2, true),
 			('t0',  30, 50000, NULL,  NULL,      3, true),
-			('tOff',10, 10000, NULL,  NULL,      0, false);
+			('tOff',10, 10000, NULL,  NULL,      0, false)
+		ON CONFLICT (code) DO UPDATE SET
+			days = EXCLUDED.days, price_uzs = EXCLUDED.price_uzs, old_price_uzs = EXCLUDED.old_price_uzs,
+			badge = EXCLUDED.badge, sort_order = EXCLUDED.sort_order, active = EXCLUDED.active;
 		INSERT INTO tariff_translation (tariff_id, locale, name, description)
 		SELECT t.id, v.locale, v.name, v.description FROM tariff t JOIN (VALUES
 			('t7', 'uz-Latn'::locale_code, 'Seven',  'desc7 uz'),
 			('t30','uz-Latn'::locale_code, 'Thirty', 'desc30 uz'),
 			('t30','ru'::locale_code,      'Thirty', 'desc30 ru'),
 			('t0', 'uz-Latn'::locale_code, 'Zero',   'desc0 uz')
-		) AS v(code, locale, name, description) ON v.code = t.code;`)
+		) AS v(code, locale, name, description) ON v.code = t.code
+		ON CONFLICT (tariff_id, locale) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description;`)
 	if err != nil {
 		t.Fatal(err)
 	}

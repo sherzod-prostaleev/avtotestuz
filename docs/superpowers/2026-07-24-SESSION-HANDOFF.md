@@ -27,13 +27,15 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 **M2-05 (promo-kodlar, backend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-05-promo-codes-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-05-promo-codes.md`. `POST /api/v1/billing/promo/validate` (auth) — promo-kodni va tarif kodi bo'yicha chegirma (`percent`, `fixed`, `days`) va anti-fraud cheklovlarni (`active`, `valid_from/to`, `max_uses`, `per_user_limit`) tekshiradi. `POST /api/v1/me/checkout` `promo_code` parametrini qabul qiladi. Agar promo-kod bilan narx 0 so'm bo'lsa (100% chegirma yoki 0 so'mlik promo), checkout provayderga redirect qilmasdan to'lovni darhol `paid` qiladi, VIP entitlement grant etadi, va `promo_redemption` yozuvini yaratadi.
 
+**M2-06 (referal dasturi, backend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-06-referral-backend-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-06-referral-backend.md`. `user_referral_code` va `referral` jadvallari (migratsiya 15). `GET /api/v1/me/referral` (referal kod yaratadi/oladi va taklif statistikasi: total_invited, total_rewarded, bonus_days_earned), `POST /api/v1/referral/apply` (referal kodni biriktiradi, self-referral va takroriy biriktirish anti-fraud cheklovlari bilan). Referal taklif qilgan foydalanuvchiga referee birinchi marta haqiqiy to'lov qilganda avtomatik +7 kunlik VIP entitlement beriladi va stat rewarded ga o'tkaziladi.
+
 **M2-08 (tarif UI) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-08-tariff-ui-design.md`. `/premium` sahifasi statikdan qayta qurildi: Matiz (bepul, frontend-only static) + Nexia/Gentra/Malibu (`GET /tariffs`dan), kunlik-narx freyming, eski narx+tejash%, "Ommabop" badge highlight.
 
 **M2-09 (checkout oqimi UI, frontend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-09-checkout-ui-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-09-checkout-ui.md`. `/premium` sahifasi kengaytirildi: `ProviderPicker` (Payme/Click brend tanlovi) va `PromoInput` (promo-kod tekshirish va dinamik narx prevyusi). Promo 100% chegirma bergan holatda (`free: true`) to'lov darhol bepul faollashtirilib `/checkout/success?free=true` sahifasiga o'tiladi. Natija sahifalari: `/checkout/success` (VIP nishon/mashqlarga o'tish), `/checkout/failure` (qayta urinish), `/checkout/pending` (automatik status polling).
 
 **M2-11 (mehmon-demo landing funnel, frontend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-11-guest-demo-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-11-guest-demo.md`. Landing sahifasida (`/`) `DemoQuestionBlock` kengaytirildi: mehmon foydalanuvchi demo savolni yechgach, unga to'g'ri/xato izohi, FSRS aqlli xatolar bankining afzalliklari va ro'yxatdan o'tish chaqiruvi (`/login`) ko'rsatiladi. Mehmon ro'yxatdan o'tmasdan "Yana bitta savol sinab ko'rish" tugmasi orqali bir nechta demo savolni ketma-ket yechib ko'rishi mumkin.
 
-> **🎉 ROADMAPDA "SHIPPABLE" NUQTASIGA ERISHILDI!** (Tariflar, Payme, Click, to'lov tarixi, promo-kodlar, tarif UI, checkout oqimi va landing demo funnel bitdi. Merchant sandbox kalitlari qo'yilsa, to'liq to'lov tizimi live rejimda ishlaydi.)
+> **🎉 ROADMAPDA "SHIPPABLE" NUQTASIGA ERISHILDI!** (Tariflar, Payme, Click, to'lov tarixi, promo-kodlar, referal backend, tarif UI, checkout oqimi va landing demo funnel bitdi. Merchant sandbox kalitlari qo'yilsa, to'liq to'lov tizimi live rejimda ishlaydi.)
 
 **MUHIM — real to'lov hali sinalmagan**: ikkala provayderning ENV kalitlari (`PAYME_MERCHANT_ID`/`PAYME_TEST_KEY`/`PAYME_KEY`, `CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`) hali **bo'sh**. Bo'sh-kalit bilan webhook doim rad etadi (Payme: -32504, Click: -1 SIGN CHECK FAILED) — bu KUTILGAN, xato emas. Foydalanuvchi har ikkala provayderning merchant-kabinetidan sandbox kalit olib ENV'ga qo'yishi, so'ng test.paycom.uz / Click sandbox tester orqali haqiqiy sinovni o'zi o'tkazishi kerak.
 
@@ -41,17 +43,16 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → Wave 1 (M2-02 Payme, M2-08 UI, M2-05 promo, M2-11 demo) → Wave 2 (M2-04 tarix, M2-09 checkout) → Wave 3 (M2-03 Click, M2-06 referal, M2-07 GRAND MOCK, M2-10 tarix UI).
 
-**Bajarildi**: Wave 0, Wave 1, Wave 2 barcha elementlari va M2-03 (Click) **TO'LIQ BITDI**.
+**Bajarildi**: Wave 0, Wave 1, Wave 2 barcha elementlari hamda M2-03 (Click) va M2-06 (Referal Backend) **TO'LIQ BITDI**.
 
 ## 4. KEYINGI ANIQ QADAM (tavsiya)
 
-M2 monetizatsiyaning qolgan elementlari (Wave 3 / referal & grand mock):
+M2 monetizatsiyaning qolgan elementlari (Wave 3 / grand mock & UI):
 
-1. **M2-06** (BE, `04`ga bog'liq — HOZIR NAVBATDA): referal dasturi backend (anti-fraud, referee birinchi to'lovidan keyin bonus kunlar taqdim etish).
-2. **M2-07** (BE+FE, mastery ≥85%): GRAND MOCK.
-3. **M2-10** (FE, `04,06`ga bog'liq): to'lov tarixi + referal UI.
+1. **M2-10** (FE, `04,06`ga bog'liq — HOZIR NAVBATDA): To'lov tarixi + Referal UI (`/account/billing` yoki `/me/referral` sahifasi: taklif havolasini nusxalash, takliflar statistikasi, to'lovlar tarixi).
+2. **M2-07** (BE+FE, mastery ≥85%): GRAND MOCK (Imtihon simulyatsiyasi, barcha shartlar bilan).
 
-Tavsiya: **M2-06 (referal dasturi backend)** bilan davom ettirish.
+Tavsiya: **M2-10 (To'lov tarixi va Referal UI frontend)** yoki **M2-07 (Grand Mock)** bilan davom ettirish.
 
 Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `superpowers:writing-plans` → `superpowers:subagent-driven-development` bilan bajarish.
 

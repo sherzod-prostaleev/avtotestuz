@@ -81,5 +81,11 @@ func (s Service) ProcessPaymentGrant(ctx context.Context, paymentID uuid.UUID) e
 		}
 	}
 	_, err = s.GrantDays(ctx, payment.ProfileID, days, source, "", uuid.NullUUID{})
-	return err
+	if err != nil {
+		return err
+	}
+	if err := s.processReferralRewardOnPayment(ctx, payment.ProfileID); err != nil {
+		return err
+	}
+	return nil
 }

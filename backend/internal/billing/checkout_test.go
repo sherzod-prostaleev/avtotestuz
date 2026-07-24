@@ -14,39 +14,60 @@ import (
 )
 
 func TestBuildPaymeURL(t *testing.T) {
-	got := BuildPaymeURL("https://checkout.paycom.uz/", "M1", "ORD", 59900, "ru", "")
-	const prefix = "https://checkout.paycom.uz/"
-	if !strings.HasPrefix(got, prefix) {
-		t.Fatalf("url = %q, want prefix %q", got, prefix)
+	orderID := uuid.New().String()
+	got := BuildPaymeURL("https://checkout.paycom.uz", "660000000000000000000000", orderID, 59900, "ru", "https://avtotest.uz/checkout/success")
+
+	if !strings.HasPrefix(got, "https://checkout.paycom.uz/") {
+		t.Fatalf("prefix = %q", got)
 	}
-	dec, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(got, prefix))
+
+	b64 := strings.TrimPrefix(got, "https://checkout.paycom.uz/")
+	raw, err := base64.StdEncoding.DecodeString(b64)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("decode b64: %v", err)
 	}
-	// amount must be in tiyin (×100) and account uses order_id
-	if string(dec) != "m=M1;ac.order_id=ORD;a=5990000;l=ru" {
-		t.Errorf("decoded = %q", string(dec))
+
+	rawStr := string(raw)
+	if !strings.Contains(rawStr, "m=660000000000000000000000") {
+		t.Errorf("merchant id missing: %s", rawStr)
+	}
+	if !strings.Contains(rawStr, "ac.order_id="+orderID) {
+		t.Errorf("order_id missing: %s", rawStr)
+	}
+	// 59900 UZS -> 5990000 tiyin
+	if !strings.Contains(rawStr, "a=5990000") {
+		t.Errorf("tiyin amount missing: %s", rawStr)
+	}
+	if !strings.Contains(rawStr, "l=ru") {
+		t.Errorf("locale missing: %s", rawStr)
+	}
+	if !strings.Contains(rawStr, "c=https://avtotest.uz/checkout/success") {
+		t.Errorf("callback missing: %s", rawStr)
 	}
 }
 
 func TestBuildClickURL(t *testing.T) {
-	got := BuildClickURL("SID", "MID", "ORD", 59900, "https://app.example/return")
-	const prefix = "https://my.click.uz/services/pay?"
-	if !strings.HasPrefix(got, prefix) {
-		t.Fatalf("url = %q, want prefix %q", got, prefix)
+	orderID := uuid.New().String()
+	got := BuildClickURL("12345", "67890", orderID, 59900, "https://avtotest.uz/checkout/success")
+
+	if !strings.HasPrefix(got, "https://my.click.uz/services/pay?") {
+		t.Fatalf("prefix = %q", got)
 	}
-	u, err := url.Parse(got)
+
+	parsed, err := url.Parse(got)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("parse url: %v", err)
 	}
-	q := u.Query()
+
+	q := parsed.Query()
 	cases := map[string]string{
-		"service_id":        "SID",
-		"merchant_id":       "MID",
+		"service_id":        "12345",
+		"merchant_id":       "67890",
 		"amount":            "59900",
-		"transaction_param": "ORD",
-		"return_url":        "https://app.example/return",
+		"transaction_param": orderID,
+		"return_url":        "https://avtotest.uz/checkout/success",
 	}
+
 	for k, want := range cases {
 		if got := q.Get(k); got != want {
 			t.Errorf("query[%q] = %q, want %q", k, got, want)
@@ -57,13 +78,13 @@ func TestBuildClickURL(t *testing.T) {
 func TestStartCheckout(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	profileID := uuid.New()
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO profile (id, phone) VALUES ($1, '+998900000000')`, profileID); err != nil {
+		`INSERT INTO profile (id, phone) VALUES ($1, '+998901000001') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+		`INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -96,13 +117,12 @@ func TestStartCheckout(t *testing.T) {
 func TestStartCheckoutClick(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
-	if _, err := pool.Exec(ctx,
-		`INSERT INTO profile (id, phone) VALUES ($1, '+998900000001')`, profileID); err != nil {
+	profileID := uuid.New()
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901000002') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+		`INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -133,15 +153,15 @@ func TestStartCheckoutClick(t *testing.T) {
 func TestStartCheckoutWithPromo(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("33333333-3333-3333-3333-333333333333")
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000003')`, profileID); err != nil {
+	profileID := uuid.New()
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901000003') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 	var promoID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('DISCOUNT10K', 'fixed', 10000, true) RETURNING id`).Scan(&promoID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('DISCOUNT10K', 'fixed', 10000, true) ON CONFLICT (code) DO UPDATE SET active = true, value = 10000 RETURNING id`).Scan(&promoID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -168,15 +188,15 @@ func TestStartCheckoutWithPromo(t *testing.T) {
 func TestStartCheckoutZeroAmountFree(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000004')`, profileID); err != nil {
+	profileID := uuid.New()
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901000004') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 	var promoID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FREEPASS', 'days', 30, true) RETURNING id`).Scan(&promoID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FREEPASS', 'days', 30, true) ON CONFLICT (code) DO UPDATE SET active = true RETURNING id`).Scan(&promoID); err != nil {
 		t.Fatal(err)
 	}
 

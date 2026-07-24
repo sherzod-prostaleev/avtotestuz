@@ -298,6 +298,16 @@ type QuestionTranslation struct {
 	Source     string    `json:"source"`
 }
 
+type Referral struct {
+	ID           uuid.UUID          `json:"id"`
+	ReferrerID   uuid.UUID          `json:"referrer_id"`
+	RefereeID    uuid.UUID          `json:"referee_id"`
+	ReferralCode string             `json:"referral_code"`
+	Status       string             `json:"status"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	RewardedAt   pgtype.Timestamptz `json:"rewarded_at"`
+}
+
 type ReferralAttribution struct {
 	RefereeID    uuid.UUID          `json:"referee_id"`
 	ReferrerID   uuid.UUID          `json:"referrer_id"`
@@ -397,6 +407,12 @@ type TelegramAccount struct {
 	TgUserID  int64              `json:"tg_user_id"`
 	Username  string             `json:"username"`
 	LinkedAt  pgtype.Timestamptz `json:"linked_at"`
+}
+
+type UserReferralCode struct {
+	UserID    uuid.UUID          `json:"user_id"`
+	Code      string             `json:"code"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type Variant struct {

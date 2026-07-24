@@ -20,10 +20,11 @@ import (
 // billing/payme's methods_test.go already uses for the same reason.
 func seedTariff(t *testing.T, pool *pgxpool.Pool, code string, days int) uuid.UUID {
 	t.Helper()
-	id := uuid.New()
-	if _, err := pool.Exec(context.Background(),
-		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, $2, $3, 59900, 1, true)`,
-		id, code, days); err != nil {
+	var id uuid.UUID
+	if err := pool.QueryRow(context.Background(),
+		`INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ($1, $2, 59900, 1, true)
+		 ON CONFLICT (code) DO UPDATE SET active = true, days = EXCLUDED.days RETURNING id`,
+		code, days).Scan(&id); err != nil {
 		t.Fatalf("seed tariff: %v", err)
 	}
 	return id
@@ -32,7 +33,8 @@ func seedTariff(t *testing.T, pool *pgxpool.Pool, code string, days int) uuid.UU
 func seedTariffTranslation(t *testing.T, pool *pgxpool.Pool, tariffID uuid.UUID, locale, name string) {
 	t.Helper()
 	if _, err := pool.Exec(context.Background(),
-		`INSERT INTO tariff_translation (tariff_id, locale, name, description) VALUES ($1, $2, $3, '')`,
+		`INSERT INTO tariff_translation (tariff_id, locale, name, description) VALUES ($1, $2, $3, '')
+		 ON CONFLICT (tariff_id, locale) DO UPDATE SET name = EXCLUDED.name`,
 		tariffID, locale, name); err != nil {
 		t.Fatalf("seed tariff_translation: %v", err)
 	}

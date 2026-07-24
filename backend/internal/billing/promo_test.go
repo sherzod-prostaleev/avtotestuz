@@ -15,15 +15,15 @@ import (
 func TestValidatePromoPercent(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	profileID := uuid.New()
 
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000000')`, profileID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998902000001') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('SUMMER20', 'percent', 20, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('SUMMER20', 'percent', 20, true) ON CONFLICT (code) DO UPDATE SET active = true, value = 20`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -47,15 +47,15 @@ func TestValidatePromoPercent(t *testing.T) {
 func TestValidatePromoFixed(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	profileID := uuid.New()
 
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000000')`, profileID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998902000002') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FIXED10K', 'fixed', 10000, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FIXED10K', 'fixed', 10000, true) ON CONFLICT (code) DO UPDATE SET active = true, value = 10000`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -76,15 +76,15 @@ func TestValidatePromoFixed(t *testing.T) {
 func TestValidatePromoDays(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	profileID := uuid.New()
 
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000000')`, profileID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998902000003') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FREE7DAYS', 'days', 7, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, active) VALUES ('FREE7DAYS', 'days', 7, true) ON CONFLICT (code) DO UPDATE SET active = true, value = 7`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -105,12 +105,12 @@ func TestValidatePromoDays(t *testing.T) {
 func TestValidatePromoNotFoundAndExpired(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	profileID := uuid.New()
 
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000000')`, profileID); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998902000004') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,7 +124,7 @@ func TestValidatePromoNotFoundAndExpired(t *testing.T) {
 
 	// Expired
 	past := time.Now().Add(-24 * time.Hour)
-	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, valid_to, active) VALUES ('EXPIRED', 'percent', 10, $1, true)`, past); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO promo_code (code, kind, value, valid_to, active) VALUES ('EXPIRED', 'percent', 10, $1, true) ON CONFLICT (code) DO UPDATE SET valid_to = EXCLUDED.valid_to, active = true`, past); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,19 +137,19 @@ func TestValidatePromoNotFoundAndExpired(t *testing.T) {
 func TestValidatePromoLimits(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	profileID1 := uuid.MustParse("11111111-1111-1111-1111-111111111111")
-	profileID2 := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+	profileID1 := uuid.New()
+	profileID2 := uuid.New()
 
-	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998900000001'), ($2, '+998900000002')`, profileID1, profileID2); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998902000005'), ($2, '+998902000006') ON CONFLICT (phone) DO UPDATE SET id = EXCLUDED.id`, profileID1, profileID2); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true)`); err != nil {
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true, price_uzs = 59900, days = 30`); err != nil {
 		t.Fatal(err)
 	}
 
 	// Promo with max_uses = 1
 	var promoID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, max_uses, per_user_limit, active) VALUES ('MAX1', 'fixed', 5000, 1, 1, true) RETURNING id`).Scan(&promoID); err != nil {
+	if err := pool.QueryRow(ctx, `INSERT INTO promo_code (code, kind, value, max_uses, per_user_limit, active) VALUES ('MAX1', 'fixed', 5000, 1, 1, true) ON CONFLICT (code) DO UPDATE SET max_uses = 1, active = true RETURNING id`).Scan(&promoID); err != nil {
 		t.Fatal(err)
 	}
 
