@@ -27,6 +27,16 @@ SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, ac
 FROM promo_code
 WHERE LOWER(code) = LOWER($1) AND active = true;
 
+-- name: GetPromoCodeByCodeForUpdate :one
+-- Row-locking twin of GetPromoCodeByCode, for the redeem path (checkout.go's
+-- StartCheckout): locks the promo_code row for the duration of the
+-- validate+redeem transaction so concurrent redemptions of the same code
+-- serialize instead of all reading a stale max_uses/per_user_limit count.
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE LOWER(code) = LOWER($1) AND active = true
+FOR UPDATE;
+
 -- name: GetPromoCodeByID :one
 SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
 FROM promo_code

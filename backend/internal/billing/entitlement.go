@@ -10,12 +10,23 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
+// Service is billing's core, reused both non-transactionally (Q backed
+// directly by the pool — most reads, and writes with no cross-statement
+// invariant to protect) and transactionally (Q backed by a pgx.Tx, built
+// fresh per-transaction — see payme.performTransaction, click.confirmAndGrant,
+// and StartCheckout for the pattern: sqlc.New(tx) then Service{Q: q}).
+// Pool is only needed by methods that must themselves open a transaction
+// (currently just StartCheckout, for its row-locked promo redemption) — it
+// is nil, harmlessly, for the tx-bound Service values those methods never
+// call.
 type Service struct {
-	Q *sqlc.Queries
+	Q    *sqlc.Queries
+	Pool *pgxpool.Pool
 }
 
 // Status reports whether profileID currently has an active entitlement.

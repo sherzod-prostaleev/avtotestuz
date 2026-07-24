@@ -399,6 +399,35 @@ func (q *Queries) GetPromoCodeByCode(ctx context.Context, lower string) (PromoCo
 	return i, err
 }
 
+const getPromoCodeByCodeForUpdate = `-- name: GetPromoCodeByCodeForUpdate :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE LOWER(code) = LOWER($1) AND active = true
+FOR UPDATE
+`
+
+// Row-locking twin of GetPromoCodeByCode, for the redeem path (checkout.go's
+// StartCheckout): locks the promo_code row for the duration of the
+// validate+redeem transaction so concurrent redemptions of the same code
+// serialize instead of all reading a stale max_uses/per_user_limit count.
+func (q *Queries) GetPromoCodeByCodeForUpdate(ctx context.Context, lower string) (PromoCode, error) {
+	row := q.db.QueryRow(ctx, getPromoCodeByCodeForUpdate, lower)
+	var i PromoCode
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Value,
+		&i.MaxUses,
+		&i.PerUserLimit,
+		&i.ValidFrom,
+		&i.ValidTo,
+		&i.Active,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const getPromoCodeByID = `-- name: GetPromoCodeByID :one
 SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
 FROM promo_code

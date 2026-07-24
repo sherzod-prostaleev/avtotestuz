@@ -1,0 +1,1 @@
+DROP INDEX promo_redemption_one_per_payment;

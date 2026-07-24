@@ -32,6 +32,14 @@ type ValidatePromoResult struct {
 	BonusDays         int       `json:"bonus_days"`
 }
 
+// ValidatePromo is the read-only preview check used by the standalone
+// POST /billing/promo/validate endpoint: it tells the client what a code
+// would do, without granting or reserving anything. Because nothing is
+// redeemed here, a plain (non-locking, non-transactional) read is correct —
+// there is no decision to protect against a concurrent redeemer. The actual
+// redemption path (StartCheckout, in checkout.go) does NOT call this: it
+// re-validates under a row lock via validatePromoLocked so the limit checks
+// below can't race. See that function's doc comment for why.
 func (s Service) ValidatePromo(ctx context.Context, profileID uuid.UUID, code string, tariffCode string) (ValidatePromoResult, error) {
 	code = strings.TrimSpace(code)
 	if code == "" {
@@ -45,7 +53,38 @@ func (s Service) ValidatePromo(ctx context.Context, profileID uuid.UUID, code st
 		}
 		return ValidatePromoResult{}, fmt.Errorf("get promo code: %w", err)
 	}
+	return s.evaluatePromo(ctx, promo, profileID, tariffCode)
+}
 
+// validatePromoLocked is ValidatePromo's sibling for the actual redemption
+// path: it fetches the promo_code row via GetPromoCodeByCodeForUpdate
+// (SELECT ... FOR UPDATE), which locks the row for the rest of the caller's
+// transaction. Called from StartCheckout with a tx-bound Service (s.Q
+// backed by a pgx.Tx), so two concurrent StartCheckout calls for the same
+// promo code serialize on this row: the second one's FOR UPDATE blocks
+// until the first commits or rolls back, and then re-reads the
+// post-commit redemption counts — closing exactly the race that plain
+// SELECT COUNT(*) (no lock, no tx) left open.
+func (s Service) validatePromoLocked(ctx context.Context, profileID uuid.UUID, code, tariffCode string) (ValidatePromoResult, error) {
+	code = strings.TrimSpace(code)
+	if code == "" {
+		return ValidatePromoResult{}, ErrPromoNotFound
+	}
+
+	promo, err := s.Q.GetPromoCodeByCodeForUpdate(ctx, code)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ValidatePromoResult{}, ErrPromoNotFound
+		}
+		return ValidatePromoResult{}, fmt.Errorf("get promo code for update: %w", err)
+	}
+	return s.evaluatePromo(ctx, promo, profileID, tariffCode)
+}
+
+// evaluatePromo is the validity/limit/discount logic shared by ValidatePromo
+// and validatePromoLocked — identical either way, the only difference is
+// whether the caller already holds a row lock on promo.
+func (s Service) evaluatePromo(ctx context.Context, promo sqlc.PromoCode, profileID uuid.UUID, tariffCode string) (ValidatePromoResult, error) {
 	now := time.Now()
 	if promo.ValidFrom.Valid && now.Before(promo.ValidFrom.Time) {
 		return ValidatePromoResult{}, ErrPromoNotStarted

@@ -59,7 +59,7 @@ func New(cfg config.Config, deps Deps) http.Handler {
 			ch.Routes(api)
 
 			bh := &billing.Handler{
-				Svc:               billing.Service{Q: deps.Queries},
+				Svc:               billing.Service{Q: deps.Queries, Pool: deps.Pool},
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
 				ClickServiceID:    cfg.ClickServiceID,

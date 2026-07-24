@@ -88,7 +88,7 @@ func TestStartCheckout(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := Service{Q: sqlc.New(pool)}
+	svc := Service{Q: sqlc.New(pool), Pool: pool}
 	res, err := svc.StartCheckout(ctx, profileID, "gentra", "payme", CheckoutConfig{PaymeMerchantID: "M1", PaymeCheckoutHost: "https://checkout.paycom.uz"}, "ru", "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -126,7 +126,7 @@ func TestStartCheckoutClick(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := Service{Q: sqlc.New(pool)}
+	svc := Service{Q: sqlc.New(pool), Pool: pool}
 	res, err := svc.StartCheckout(ctx, profileID, "gentra", "click", CheckoutConfig{ClickServiceID: "S1", ClickMerchantID: "M1"}, "ru", "", "")
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +165,7 @@ func TestStartCheckoutWithPromo(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := Service{Q: sqlc.New(pool)}
+	svc := Service{Q: sqlc.New(pool), Pool: pool}
 	res, err := svc.StartCheckout(ctx, profileID, "gentra", "payme", CheckoutConfig{PaymeMerchantID: "M1", PaymeCheckoutHost: "https://checkout.paycom.uz"}, "ru", "", "DISCOUNT10K")
 	if err != nil {
 		t.Fatal(err)
@@ -200,7 +200,7 @@ func TestStartCheckoutZeroAmountFree(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := Service{Q: sqlc.New(pool)}
+	svc := Service{Q: sqlc.New(pool), Pool: pool}
 	res, err := svc.StartCheckout(ctx, profileID, "gentra", "payme", CheckoutConfig{PaymeMerchantID: "M1", PaymeCheckoutHost: "https://checkout.paycom.uz"}, "ru", "", "FREEPASS")
 	if err != nil {
 		t.Fatal(err)
