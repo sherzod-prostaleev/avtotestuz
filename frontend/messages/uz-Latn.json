@@ -117,6 +117,7 @@
     "resumeModeExam": "Imtihon",
     "resumeModePractice": "Mashq",
     "resumeModeMistakes": "Xatolar ustida ishlash",
+    "resumeModeGrandMock": "Bosh Imtihon",
     "resumeStartedAt": "Boshlangan: {date}",
     "resumeTotal": "Jami: {total} savol",
     "modesTitle": "O'quv rejimlari",
@@ -392,6 +393,7 @@
     "modeExam": "Rasmiy imtihon",
     "modePractice": "Mashq",
     "modeMistakes": "Xatolar takrori",
+    "modeGrandMock": "Bosh Imtihon",
     "resultPendingTitle": "Natija serverdan olinmoqda",
     "resultPendingBody": "Imtihon serverda yakunlangan. Natijani taxmin qilmaymiz — qayta yuklab tekshiring.",
     "reloadResult": "Natijani qayta yuklash",
@@ -455,6 +457,19 @@
     "explanationRule": "YHQ qoidasi",
     "expertAnalysis": "Ekspert tahlili",
     "closeExplanation": "Yopish"
+  },
+  "GrandMock": {
+    "title": "BOSH IMTIHON",
+    "subtitle": "Rasmiy DYXX imtihonining to'liq simulyatsiyasi",
+    "loading": "Tekshirilmoqda...",
+    "loadError": "Bosh imtihon holatini yuklab bo'lmadi. Qayta urinib ko'ring.",
+    "lockedMasteryReason": "Bosh imtihonni ochish uchun bilim darajangiz kamida {min}% bo'lishi kerak. Hozircha: {current}%.",
+    "lockedVipReason": "Bosh imtihon faqat VIP obunachilar uchun. Obunani faollashtiring.",
+    "progressLabel": "{current}% / {min}%",
+    "startButton": "Bosh Imtihonni Boshlash",
+    "certificateTitle": "Tabriklaymiz! Siz tayyorsiz!",
+    "certificateBody": "Siz Bosh Imtihonni {score}/{total} ball bilan muvaffaqiyatli topshirdingiz. Bu rasmiy DYXX imtihonidan o'tishga tayyor ekanligingizni bildiradi.",
+    "certificateClose": "Yopish"
   },
   "SessionStart": {
     "starting": "Test sessiyasi tayyorlanmoqda...",
@@ -543,6 +558,7 @@
     "modeExam": "Imtihon",
     "modePractice": "Mashq",
     "modeMistakes": "Xatolar takrori",
+    "modeGrandMock": "Bosh Imtihon",
     "statusInProgress": "Jarayonda",
     "statusPassed": "Muvaffaqiyatli",
     "statusFailed": "O'tilmadi",

@@ -30,8 +30,16 @@ import { type AnswerState } from "@/components/shared/answer-option";
 import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
 import { OfficialAvtotestExamView } from "@/components/exam/official-avtotest-exam-view";
+import { GrandMockCertificateDialog } from "@/components/mock/grand-mock-certificate-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+
+/** Modes that share the strict timed/anti-cheat exam pipeline — timer,
+ * answer redaction until finish, F-key exam UI. Currently "exam" and
+ * "grand_mock" (mirrors backend session.IsExamLike). */
+function isExamLikeMode(mode: SessionMode): boolean {
+  return mode === "exam" || mode === "grand_mock";
+}
 
 interface SavedItemDTO {
   question_id: string;
@@ -72,8 +80,10 @@ export default function TestSessionPage() {
   const [bookmarkError, setBookmarkError] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [certificateOpen, setCertificateOpen] = useState(false);
   const initializedSessionRef = useRef<string | null>(null);
   const viewedQuestionsRef = useRef<Set<string>>(new Set());
+  const certificateShownForRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (sessionId) void loadSession(sessionId, locale);
@@ -104,6 +114,22 @@ export default function TestSessionPage() {
   useEffect(() => {
     setExplanationOpen(false);
   }, [currentIndex]);
+
+  // Grand Mock's reward theater (confetti + certificate) is additive on top
+  // of the shared exam-like result screen — shown once per passed session,
+  // never for exam/practice/etc.
+  useEffect(() => {
+    if (
+      session &&
+      session.mode === "grand_mock" &&
+      session.status === "completed" &&
+      session.passed === true &&
+      certificateShownForRef.current !== session.id
+    ) {
+      certificateShownForRef.current = session.id;
+      setCertificateOpen(true);
+    }
+  }, [session]);
 
   useEffect(() => {
     const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
@@ -157,12 +183,11 @@ export default function TestSessionPage() {
         trackEvent("session_finish", {
           session_id: completed.id,
           mode: completed.mode,
-          status:
-            completed.mode === "exam"
-              ? completed.passed
-                ? "passed"
-                : "failed"
-              : "completed",
+          status: isExamLikeMode(completed.mode)
+            ? completed.passed
+              ? "passed"
+              : "failed"
+            : "completed",
           score: completed.score,
           total: completed.total,
           stopped_reason: completed.stopped_reason,
@@ -265,11 +290,15 @@ export default function TestSessionPage() {
   };
 
   const modeLabel = (mode: SessionMode) => {
-    const keys: Record<SessionMode, "modeVariant" | "modeExam" | "modePractice" | "modeMistakes"> = {
+    const keys: Record<
+      SessionMode,
+      "modeVariant" | "modeExam" | "modePractice" | "modeMistakes" | "modeGrandMock"
+    > = {
       variant: "modeVariant",
       exam: "modeExam",
       practice: "modePractice",
       mistakes: "modeMistakes",
+      grand_mock: "modeGrandMock",
     };
     return t(keys[mode]);
   };
@@ -360,16 +389,16 @@ export default function TestSessionPage() {
     const total = session.total ?? questions.length;
     const percentage = total > 0 ? Math.round((score / total) * 100) : 0;
     const passed = session.passed === true;
-    const isExam = session.mode === "exam";
-    const positiveResult = isExam ? passed : true;
+    const isExamResult = isExamLikeMode(session.mode);
+    const positiveResult = isExamResult ? passed : true;
     const completedBodyKey =
       session.mode === "variant"
         ? "completedVariantBody"
         : session.mode === "practice"
           ? "completedPracticeBody"
           : "completedMistakesBody";
-    const resultTitle = isExam ? (passed ? t("passedTitle") : t("failedTitle")) : t("completedTitle");
-    const resultBody = isExam ? (passed ? t("passedBody") : t("failedBody")) : t(completedBodyKey);
+    const resultTitle = isExamResult ? (passed ? t("passedTitle") : t("failedTitle")) : t("completedTitle");
+    const resultBody = isExamResult ? (passed ? t("passedBody") : t("failedBody")) : t(completedBodyKey);
     const primaryRoute =
       session.mode === "practice"
         ? `/${locale}/practice`
@@ -400,7 +429,7 @@ export default function TestSessionPage() {
           <h1 className="mt-5 font-display text-3xl font-extrabold">{resultTitle}</h1>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{resultBody}</p>
 
-          {isExam && session.stopped_reason && session.stopped_reason !== "completed" && (
+          {isExamResult && session.stopped_reason && session.stopped_reason !== "completed" && (
             <p className="mx-auto mt-4 max-w-lg rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm">
               {session.stopped_reason === "too_many_errors" ? t("stoppedTooMany") : t("stoppedTime")}
             </p>
@@ -482,6 +511,15 @@ export default function TestSessionPage() {
             })}
           </section>
         )}
+
+        {session.mode === "grand_mock" && (
+          <GrandMockCertificateDialog
+            open={certificateOpen}
+            onClose={() => setCertificateOpen(false)}
+            score={score}
+            total={total}
+          />
+        )}
       </main>
     );
   }
@@ -490,7 +528,7 @@ export default function TestSessionPage() {
   const canGoNext = currentAnswered && currentIndex < questions.length - 1;
   const isLast = currentIndex === questions.length - 1;
 
-  if (session.mode === "exam") {
+  if (isExamLikeMode(session.mode)) {
     return (
       <OfficialAvtotestExamView
         session={session}

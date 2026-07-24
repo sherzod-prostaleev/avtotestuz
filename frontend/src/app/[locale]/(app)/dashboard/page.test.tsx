@@ -14,6 +14,12 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// GrandMockCard makes its own network call (GET /me/mock-eligibility) and has
+// its own dedicated test suite (grand-mock-card.test.tsx); stubbing it here
+// keeps this file focused on the dashboard's own chrome/i18n/resume-banner
+// behavior instead of also driving that unrelated request to resolution.
+vi.mock("@/components/mock/grand-mock-card", () => ({ GrandMockCard: () => null }));
+
 const localeCases = [
   {
     locale: "uz-Latn",

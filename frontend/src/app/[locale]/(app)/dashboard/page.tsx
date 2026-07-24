@@ -6,6 +6,7 @@ import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
+import { GrandMockCard } from "@/components/mock/grand-mock-card";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -29,12 +30,13 @@ import {
   Route,
 } from "lucide-react";
 
-const resumableModes: SessionSummary["mode"][] = ["variant", "exam", "practice", "mistakes"];
+const resumableModes: SessionSummary["mode"][] = ["variant", "exam", "practice", "mistakes", "grand_mock"];
 const resumeModeKeys: Record<SessionSummary["mode"], string> = {
   variant: "resumeModeVariant",
   exam: "resumeModeExam",
   practice: "resumeModePractice",
   mistakes: "resumeModeMistakes",
+  grand_mock: "resumeModeGrandMock",
 };
 
 function newestInProgressSession(sessions: SessionSummary[]): SessionSummary | null {
@@ -379,6 +381,11 @@ export default function DashboardPage() {
             </Card>
           </Link>
         </div>
+      </section>
+
+      {/* Grand Mock — gated full exam simulation */}
+      <section>
+        <GrandMockCard />
       </section>
 
       {/* Road Signs Banner */}

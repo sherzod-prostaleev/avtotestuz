@@ -117,6 +117,7 @@
     "resumeModeExam": "Экзамен",
     "resumeModePractice": "Практика",
     "resumeModeMistakes": "Работа над ошибками",
+    "resumeModeGrandMock": "Генеральный экзамен",
     "resumeStartedAt": "Начата: {date}",
     "resumeTotal": "Всего: {total, plural, one {# вопрос} few {# вопроса} many {# вопросов} other {# вопроса}}",
     "modesTitle": "Режимы обучения",
@@ -392,6 +393,7 @@
     "modeExam": "Официальный экзамен",
     "modePractice": "Практика",
     "modeMistakes": "Повтор ошибок",
+    "modeGrandMock": "Генеральный экзамен",
     "resultPendingTitle": "Результат загружается с сервера",
     "resultPendingBody": "Экзамен завершён на сервере. Мы не будем угадывать результат — загрузите его снова.",
     "reloadResult": "Загрузить результат снова",
@@ -455,6 +457,19 @@
     "explanationRule": "Правило ПДД",
     "expertAnalysis": "Экспертный разбор",
     "closeExplanation": "Закрыть"
+  },
+  "GrandMock": {
+    "title": "ГЕНЕРАЛЬНЫЙ ЭКЗАМЕН",
+    "subtitle": "Полная симуляция официального экзамена ГУБДД",
+    "loading": "Проверяется...",
+    "loadError": "Не удалось загрузить статус генерального экзамена. Попробуйте снова.",
+    "lockedMasteryReason": "Для открытия генерального экзамена ваш уровень знаний должен быть не менее {min}%. Сейчас: {current}%.",
+    "lockedVipReason": "Генеральный экзамен доступен только подписчикам VIP. Активируйте подписку.",
+    "progressLabel": "{current}% / {min}%",
+    "startButton": "Начать Генеральный Экзамен",
+    "certificateTitle": "Поздравляем! Вы готовы!",
+    "certificateBody": "Вы успешно сдали Генеральный экзамен с результатом {score}/{total}. Это значит, что вы готовы к официальному экзамену ГУБДД.",
+    "certificateClose": "Закрыть"
   },
   "SessionStart": {
     "starting": "Готовим тестовую сессию...",
@@ -543,6 +558,7 @@
     "modeExam": "Экзамен",
     "modePractice": "Практика",
     "modeMistakes": "Работа над ошибками",
+    "modeGrandMock": "Генеральный экзамен",
     "statusInProgress": "В процессе",
     "statusPassed": "Сдано",
     "statusFailed": "Не сдано",
