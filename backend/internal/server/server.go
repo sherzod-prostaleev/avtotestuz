@@ -56,6 +56,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
 			ch.Routes(api)
 
+			bh := &billing.Handler{Svc: billing.Service{Q: deps.Queries}}
+			bh.Routes(api)
+
 			if deps.Pool != nil && deps.Redis != nil {
 				log := deps.Log
 				if log == nil {
