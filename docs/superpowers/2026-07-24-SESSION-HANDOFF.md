@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-05 tugagach)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-24, M2-09 tugagach)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
@@ -8,7 +8,7 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 ## 1. Audit qilingan holat (2026-07-24, tekshirilgan)
 - Git: `main`, origin bilan sinxron (bu hujjatning o'zi committed va push qilingan holatda — `git log --oneline -1` bilan aniq HEAD'ni tekshiring, bu qator har doim bitta commit orqada qoladi, chunki hujjatning o'zi ham bitta commit). Ish daraxti **toza**.
 - Backend: `go build ./...` OK; `go test ./... -p 1 -count=1` — barcha 27 paket **o'tadi** (billing, billing/payme, billing/click, account, va boshqa hammasi).
-- Frontend: `npm run typecheck` OK; `npm run test` — **233/233 test o'tadi** (47 fayl); lint'da faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari (bu sessiyaga aloqasi yo'q).
+- Frontend: `npm run typecheck` OK; `npm run test` — **239/239 test o'tadi** (50 fayl); lint'da faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari (bu sessiyaga aloqasi yo'q).
 - DB migratsiya: **version 14**, dirty emas.
 - Kontent: 1231 savol (3 til), 62 bilet, 285 belgi. Foydalanuvchi ma'lumoti pre-launch tozalangan.
 - **`./run.sh`** repo ildizida — bitta buyruq bilan Docker infra + backend (:8090) + frontend (:3000)ni ishga tushiradi (Ctrl+C to'xtatadi, infra ishlab qoladi; `--stop-infra` bilan uni ham to'xtatadi).
@@ -23,32 +23,34 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 
 **M2-03 (Click integratsiyasi, sandbox) — TO'LIQ TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-03-click-design.md` (Click LLC'ning rasmiy GitHub kutubxonasidan tasdiqlangan protokol). `internal/billing/click/` — form-urlencoded webhook (`POST /api/v1/billing/click`, MD5 `sign_string` o'zi autentifikatsiya, faqat 2 metod: Prepare/Complete). M2-02'ning saboqlari **boshidanoq** qo'llanildi (tranzaksiya+row-lock birinchi commitdan bor) — whole-branch review birinchi urinishdayoq toza o'tdi, qo'shimcha fix kerak bo'lmadi. Migratsiya 14.
 
-**Checkout endpoint umumlashtirilgan**: `POST /api/v1/me/checkout` endi `{"tariff_code":"gentra","provider":"payme"|"click"}` qabul qiladi (provider bo'sh bo'lsa `payme`ga default).
+**M2-04 (to'lov tarixi, read-side) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-04-payment-history-design.md`. `GET /api/v1/me/payments?limit=N` (auth) — `internal/account` paketiga qo'shildi, yangi migratsiya yo'q. Barcha statusdagi to'lovlarni (paid/failed/canceled/...) tarif nomi bilan (locale-fallback) qaytaradi, `created_at DESC`, default limit 20.
 
-**M2-04 (to'lov tarixi, read-side) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-04-payment-history-design.md`. `GET /api/v1/me/payments?limit=N` (auth) — `internal/account` paketiga qo'shildi, yangi migratsiya yo'q. Barcha statusdagi to'lovlarni (paid/failed/canceled/...) tarif nomi bilan (locale-fallback) qaytaradi, `created_at DESC`, default limit 20. Roadmap'dagi M2-04'ning "grant" qismi (T1) allaqachon M2-02/M2-03'da bajarilgan edi — bu faqat qolgan read-side qism edi.
+**M2-05 (promo-kodlar, backend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-05-promo-codes-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-05-promo-codes.md`. `POST /api/v1/billing/promo/validate` (auth) — promo-kodni va tarif kodi bo'yicha chegirma (`percent`, `fixed`, `days`) va anti-fraud cheklovlarni (`active`, `valid_from/to`, `max_uses`, `per_user_limit`) tekshiradi. `POST /api/v1/me/checkout` `promo_code` parametrini qabul qiladi. Agar promo-kod bilan narx 0 so'm bo'lsa (100% chegirma yoki 0 so'mlik promo), checkout provayderga redirect qilmasdan to'lovni darhol `paid` qiladi, VIP entitlement grant etadi, va `promo_redemption` yozuvini yaratadi.
 
-**M2-05 (promo-kodlar, backend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-05-promo-codes-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-05-promo-codes.md`. `POST /api/v1/billing/promo/validate` (auth) — promo-kodni va tarif kodi bo'yicha chegirma (`percent`, `fixed`, `days`) va anti-fraud cheklovlarni (`active`, `valid_from/to`, `max_uses`, `per_user_limit`) tekshiradi. `POST /api/v1/me/checkout` `promo_code` parametrini qabul qiladi. Agar promo-kod bilan narx 0 so'm bo'lsa (100% chegirma yoki 0 so'mlik promo), checkout provayderga redirect qilmasdan to'lovni darhol `paid` qiladi, VIP entitlement grant etadi, va `promo_redemption` yozuvini yaratadi. Aks holda to'lov provayder orqali amalga oshirilganda webhook `GrantDays` da `promo_redemption` va bonus kunlarni avtomatik ishlatadi.
+**M2-08 (tarif UI) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-08-tariff-ui-design.md`. `/premium` sahifasi statikdan qayta qurildi: Matiz (bepul, frontend-only static) + Nexia/Gentra/Malibu (`GET /tariffs`dan), kunlik-narx freyming, eski narx+tejash%, "Ommabop" badge highlight.
 
-**M2-08 (tarif UI) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-08-tariff-ui-design.md`. `/premium` sahifasi statikdan qayta qurildi: Matiz (bepul, frontend-only static) + Nexia/Gentra/Malibu (`GET /tariffs`dan), kunlik-narx freyming, eski narx+tejash%, "Ommabop" badge highlight. **"Sotib olish" tugmasi haqiqatan ishlaydi**: `POST /me/checkout`ni chaqirib qaytgan `checkout_url`ga redirect qiladi (default provider=payme — provider tanlash M2-09'da). Ya'ni hozirning o'zida frontend orqali TO'LIQ ishlaydigan (minimal) xarid yo'li bor, sandbox kalitlar qo'yilishini kutish shart emas buni tekshirish uchun (checkout URL generatsiya qilinadi, faqat webhook tomoni ENV kalit talab qiladi). Minor: VIP banner sanasi `toLocaleDateString` bilan formatlangan — loyihada allaqachon mavjud `src/lib/date-format.ts` (`formatDateShort`, DD.MM.YY) helper'i ishlatilmagan (funksional muammo emas, kelajakda birlashtirish mumkin).
+**M2-09 (checkout oqimi UI, frontend) — TUGADI.** Spec: `docs/superpowers/specs/2026-07-24-m2-09-checkout-ui-design.md`. Plan: `docs/superpowers/plans/2026-07-24-m2-09-checkout-ui.md`. `/premium` sahifasi kengaytirildi: `ProviderPicker` (Payme/Click brend tanlovi) va `PromoInput` (promo-kod tekshirish va dinamik narx prevyusi). Promo 100% chegirma bergan holatda (`free: true`) to'lov darhol bepul faollashtirilib `/checkout/success?free=true` sahifasiga o'tiladi. Natija sahifalari: `/checkout/success` (VIP nishon/mashqlarga o'tish), `/checkout/failure` (qayta urinish), `/checkout/pending` (automatik status polling).
+
+> **🎉 ROADMAPDA "SHIPPABLE" NUQTASIGA ERISHILDI!** (Tariflar, Payme, Click, to'lov tarixi, promo-kodlar, tarif UI va to'liq checkout oqimi bitdi. Merchant sandbox kalitlari qo'yilsa, to'liq to'lov tizimi live rejimda ishlaydi.)
 
 **MUHIM — real to'lov hali sinalmagan**: ikkala provayderning ENV kalitlari (`PAYME_MERCHANT_ID`/`PAYME_TEST_KEY`/`PAYME_KEY`, `CLICK_SERVICE_ID`/`CLICK_MERCHANT_ID`/`CLICK_SECRET_KEY`) hali **bo'sh**. Bo'sh-kalit bilan webhook doim rad etadi (Payme: -32504, Click: -1 SIGN CHECK FAILED) — bu KUTILGAN, xato emas. Foydalanuvchi har ikkala provayderning merchant-kabinetidan sandbox kalit olib ENV'ga qo'yishi, so'ng test.paycom.uz / Click sandbox tester orqali haqiqiy sinovni o'zi o'tkazishi kerak.
 
 ## 3. Roadmap'dagi asl tavsiya vs. haqiqiy bajarilish tartibi
 
-`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → **Wave 1** (M2-02 Payme + M2-08 tarif UI + M2-11 demo + M2-05 promo, parallel) → **Wave 2** (M2-04 grant+tarix + M2-09 checkout FE — bu yerda "Payme bilan revenue to'liq ishlaydi, SHIPPABLE") → **Wave 3** (M2-03 Click + M2-06 referal + M2-07 GRAND MOCK + M2-10 tarix UI).
+`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` bo'lim 9 (Wave jadvali) asl tavsiyasi: Wave 0 (M2-01) → Wave 1 (M2-02 Payme, M2-08 UI, M2-05 promo) → Wave 2 (M2-04 tarix, M2-09 checkout) → Wave 3 (M2-03 Click, M2-06 referal, M2-07 GRAND MOCK, M2-10 tarix UI, M2-11 demo).
 
-**Haqiqatda bajarildi**: foydalanuvchi so'rovi bilan M2-03 (Click), M2-04 (payment history) va M2-05 (promo backend) Wave 1/2 interfeyslaridan oldin bitirildi.
+**Bajarildi**: Wave 0, Wave 1, Wave 2 elementlari va M2-03 (Click) **TO'LIQ BITDI**.
 
 ## 4. KEYINGI ANIQ QADAM (tavsiya)
 
-M2-04, M2-05 va M2-08 tugadi. Qolgan Wave 1 + Wave 2 elementlari:
+M2 monetizatsiyaning qolgan elementlari (Wave 3 / qo'shimcha):
 
-1. **M2-09** (FE, `04,05,08`ga bog'liq — HOZIR NAVBATDA): checkout oqimi (tanlash→promo apply/validate UI→**provider (Payme/Click) tanlash**→qaytish/callback sahifalari→holat polling). M2-08 allaqachon "tanlash→to'lov(faqat payme, promo'siz)→redirect"ning eng oddiy versiyasini beradi — M2-09 buning ustiga qo'shiladi: provider picker, promo input/preview maydoni, `/checkout/success`/`/checkout/failure`/`/checkout/pending` sahifalari, to'lov holatini polling qilish.
-2. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel) — demo-endpoint M1'da tayyor, faqat FE kerak.
+1. **M2-11** (FE, mustaqil): mehmon-demo (landing funnel — ro'yxatdan o'tmasdan 1-bilet demo, mavjud demo-endpoint bilan).
+2. **M2-06** (BE, `04`ga bog'liq): referal dasturi (anti-fraud, referee to'lovidan keyin mukofot).
+3. **M2-07** (BE+FE, mastery ≥85%): GRAND MOCK.
+4. **M2-10** (FE, `04,06`ga bog'liq): to'lov tarixi + referal UI.
 
-M2-09 tugagach — roadmap bo'yicha bu **"SHIPPABLE"** nuqta (Payme/Click va promo orqali haqiqiy pul qabul qilish va promo ishlatish mumkin bo'ladi).
-
-Keyin Wave 3'ning qolgan qismi: M2-06 (referal, `04`ga bog'liq), M2-07 (GRAND MOCK), M2-10 (tarix/referal UI, `04,06`ga bog'liq).
+Tavsiya: **M2-11 (mehmon-demo)** yoki **M2-06 (referal dasturi backend)** bilan davom ettirish.
 
 Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `superpowers:writing-plans` → `superpowers:subagent-driven-development` bilan bajarish.
 
@@ -66,4 +68,4 @@ Har biri: avval `superpowers:brainstorming` (agar spec hali yo'q bo'lsa) → `su
 Har Plan: `brainstorming` (spec) → `writing-plans` (reja) → TDD implementatsiya (`subagent-driven-development`) → whole-branch review → push. Mustaqil Plan'lar (yoki bitta Plan ichidagi fayllar jihatidan mustaqil task'lar) parallel subagentlarga berish mumkin.
 
 ## 7. Keyingi Plan'lar to'liq ro'yxati (roadmap'dan)
-M2-04 (BE, tarix) · M2-05 (BE, promo) · M2-06 (BE, referal, 04'ga bog'liq) · M2-07 (BE+FE, GRAND MOCK) · M2-08 (FE, tarif UI) · M2-09 (FE, checkout, 04+05+08'ga bog'liq) · M2-10 (FE, tarix/referal UI, 04+06'ga bog'liq) · M2-11 (FE, demo). Har biri roadmapda (`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`, bo'lim 2 va 9) dekompozitsiya qilingan. M2 tugagach: M4 (Growth) → M5/M6/M7 → **M3 (Super Admin) ENG OXIRIDA**.
+M2-06 (BE, referal, 04'ga bog'liq) · M2-07 (BE+FE, GRAND MOCK) · M2-10 (FE, tarix/referal UI, 04+06'ga bog'liq) · M2-11 (FE, demo). Har biri roadmapda (`docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`, bo'lim 2 va 9) dekompozitsiya qilingan. M2 tugagach: M4 (Growth) → M5/M6/M7 → **M3 (Super Admin) ENG OXIRIDA**.
