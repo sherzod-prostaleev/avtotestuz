@@ -367,3 +367,113 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 		State:       newState,
 	}, nil
 }
+
+// checkTransactionParams is CheckTransaction's `params`: just the Payme
+// transaction id.
+type checkTransactionParams struct {
+	ID string `json:"id"`
+}
+
+// checkTransactionResult is CheckTransaction's result: the full lifecycle
+// timestamps plus the current terminal state for a single transaction.
+// perform_time/cancel_time are naturally 0 when unset (payme_transaction's
+// columns default to 0, not NULL) and reason is 0 when unset (Reason is a
+// nullable pgtype.Int4; !Valid maps to 0).
+type checkTransactionResult struct {
+	CreateTime  int64  `json:"create_time"`
+	PerformTime int64  `json:"perform_time"`
+	CancelTime  int64  `json:"cancel_time"`
+	Transaction string `json:"transaction"`
+	State       int32  `json:"state"`
+	Reason      int32  `json:"reason"`
+}
+
+// checkTransaction implements CheckTransaction: a read-only status lookup
+// by params.id, not found -> -31003. Unlike performTransaction/
+// cancelTransaction this never mutates state, so a plain (non-locking,
+// non-transactional) read via GetPaymeTransaction is correct — there is no
+// decision to protect against a concurrent writer.
+func (h *Handler) checkTransaction(ctx context.Context, p checkTransactionParams) (checkTransactionResult, *rpcError) {
+	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return checkTransactionResult{}, errTransactionNotFound
+		}
+		return checkTransactionResult{}, errInternal
+	}
+
+	var reason int32
+	if existing.Reason.Valid {
+		reason = existing.Reason.Int32
+	}
+
+	return checkTransactionResult{
+		CreateTime:  existing.CreateTime,
+		PerformTime: existing.PerformTime,
+		CancelTime:  existing.CancelTime,
+		Transaction: existing.PaymentID.String(),
+		State:       existing.State,
+		Reason:      reason,
+	}, nil
+}
+
+// getStatementParams is GetStatement's `params`: an inclusive [from, to]
+// window (ms) over payme_transaction.create_time.
+type getStatementParams struct {
+	From int64 `json:"from"`
+	To   int64 `json:"to"`
+}
+
+// statementEntry is one entry of GetStatement's result array. Time mirrors
+// CreateTime: our schema never persisted Payme's own per-request `time`
+// field from CreateTransaction's params (createTransaction discards
+// params.Time — see its params struct's doc comment), so create_time is
+// the only "when was this created" timestamp we have, and it's the
+// conventional stand-in for the statement's `time` field too.
+type statementEntry struct {
+	ID          string        `json:"id"`
+	Time        int64         `json:"time"`
+	Amount      int64         `json:"amount"`
+	Account     accountParams `json:"account"`
+	CreateTime  int64         `json:"create_time"`
+	PerformTime int64         `json:"perform_time"`
+	CancelTime  int64         `json:"cancel_time"`
+	Transaction string        `json:"transaction"`
+	State       int32         `json:"state"`
+	Reason      int32         `json:"reason"`
+}
+
+// getStatement implements GetStatement: every transaction with create_time
+// in [from, to] (both inclusive), ascending by create_time. Always returns
+// a non-nil slice, even for a range matching nothing, so the JSON result is
+// `[]` rather than `null`.
+func (h *Handler) getStatement(ctx context.Context, p getStatementParams) ([]statementEntry, *rpcError) {
+	rows, err := h.Q.ListPaymeTransactionsByTime(ctx, sqlc.ListPaymeTransactionsByTimeParams{
+		CreateTime:   p.From,
+		CreateTime_2: p.To,
+	})
+	if err != nil {
+		return nil, errInternal
+	}
+
+	entries := make([]statementEntry, 0, len(rows))
+	for _, row := range rows {
+		var reason int32
+		if row.Reason.Valid {
+			reason = row.Reason.Int32
+		}
+		entries = append(entries, statementEntry{
+			ID:          row.PaymeID,
+			Time:        row.CreateTime,
+			Amount:      row.AmountTiyin,
+			Account:     accountParams{OrderID: row.PaymentID.String()},
+			CreateTime:  row.CreateTime,
+			PerformTime: row.PerformTime,
+			CancelTime:  row.CancelTime,
+			Transaction: row.PaymentID.String(),
+			State:       row.State,
+			Reason:      reason,
+		})
+	}
+	return entries, nil
+}

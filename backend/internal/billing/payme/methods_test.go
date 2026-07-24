@@ -84,6 +84,39 @@ func seedPayment(t *testing.T, pool *pgxpool.Pool, status string) uuid.UUID {
 	return paymentID
 }
 
+// seedPaymentTariffCode is seedPayment with a caller-chosen tariff code, for
+// tests (like GetStatement's) that seed more than one payment in a single
+// database: seedPayment's hardcoded 'gentra' code would collide with itself
+// on a second call within the same test.
+func seedPaymentTariffCode(t *testing.T, pool *pgxpool.Pool, status, tariffCode string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+
+	profileID := uuid.New()
+	phone := fmt.Sprintf("+9989%08d", int(profileID.ID())%100000000)
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO profile (id, phone) VALUES ($1, $2)`, profileID, phone); err != nil {
+		t.Fatalf("seed profile: %v", err)
+	}
+
+	tariffID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, $2, 30, 59900, 1, true)`,
+		tariffID, tariffCode); err != nil {
+		t.Fatalf("seed tariff: %v", err)
+	}
+
+	paymentID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
+		 VALUES ($1, $2, $3, 59900, 'payme', $4, $5)`,
+		paymentID, profileID, tariffID, status, uuid.New().String()); err != nil {
+		t.Fatalf("seed payment: %v", err)
+	}
+
+	return paymentID
+}
+
 // seedPaymentWithTariffDays is seedPayment with a caller-chosen tariff.days,
 // for TestPerformTransaction_GrantDaysFailureRollsBack: a huge days value
 // overflows the int64-nanosecond time.Duration arithmetic in
@@ -735,5 +768,156 @@ func TestCancelTransaction_NotFound(t *testing.T) {
 	}
 	if code != -31003 {
 		t.Errorf("code = %d, want -31003", code)
+	}
+}
+
+// --- CheckTransaction -------------------------------------------------------
+
+func TestCheckTransaction_Pending(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	paymeID := "payme-check-1"
+	createTime := time.Now().UnixMilli()
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, createTime)
+
+	resp := rpcCall(t, h, "CheckTransaction", map[string]any{"id": paymeID})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var result checkTransactionResult
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if result.CreateTime != createTime {
+		t.Errorf("create_time = %d, want %d", result.CreateTime, createTime)
+	}
+	if result.PerformTime != 0 {
+		t.Errorf("perform_time = %d, want 0", result.PerformTime)
+	}
+	if result.CancelTime != 0 {
+		t.Errorf("cancel_time = %d, want 0", result.CancelTime)
+	}
+	if result.Transaction != paymentID.String() {
+		t.Errorf("transaction = %q, want %q", result.Transaction, paymentID.String())
+	}
+	if result.State != 1 {
+		t.Errorf("state = %d, want 1", result.State)
+	}
+	if result.Reason != 0 {
+		t.Errorf("reason = %d, want 0", result.Reason)
+	}
+}
+
+func TestCheckTransaction_Performed(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "paid")
+	paymeID := "payme-check-2"
+	createTime := time.Now().Add(-time.Hour).UnixMilli()
+	performTime := time.Now().UnixMilli()
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 1, createTime)
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE payme_transaction SET state = 2, perform_time = $1 WHERE payme_id = $2`,
+		performTime, paymeID); err != nil {
+		t.Fatalf("update payme_transaction: %v", err)
+	}
+
+	resp := rpcCall(t, h, "CheckTransaction", map[string]any{"id": paymeID})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var result checkTransactionResult
+	if err := json.Unmarshal(resp["result"], &result); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if result.CreateTime != createTime {
+		t.Errorf("create_time = %d, want %d", result.CreateTime, createTime)
+	}
+	if result.PerformTime != performTime {
+		t.Errorf("perform_time = %d, want %d", result.PerformTime, performTime)
+	}
+	if result.State != 2 {
+		t.Errorf("state = %d, want 2", result.State)
+	}
+}
+
+func TestCheckTransaction_NotFound(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+
+	resp := rpcCall(t, h, "CheckTransaction", map[string]any{"id": "no-such-payme-id"})
+
+	code, isErr := rpcErrorCode(t, resp)
+	if !isErr {
+		t.Fatalf("expected error, got result=%s", resp["result"])
+	}
+	if code != -31003 {
+		t.Errorf("code = %d, want -31003", code)
+	}
+}
+
+// --- GetStatement ------------------------------------------------------------
+
+func TestGetStatement_Range(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	payment1 := seedPayment(t, pool, "pending")
+	payment2 := seedPaymentTariffCode(t, pool, "paid", "gentra-stmt-2")
+	base := time.Now().UnixMilli()
+	seedPaymeTransaction(t, pool, "payme-stmt-1", payment1, 1, base)
+	seedPaymeTransaction(t, pool, "payme-stmt-2", payment2, 2, base+1000)
+
+	resp := rpcCall(t, h, "GetStatement", map[string]any{"from": base - 1, "to": base + 2000})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	var entries []statementEntry
+	if err := json.Unmarshal(resp["result"], &entries); err != nil {
+		t.Fatalf("decode result: %v (resp=%v)", err, resp)
+	}
+	if len(entries) != 2 {
+		t.Fatalf("len(entries) = %d, want 2", len(entries))
+	}
+	if entries[0].ID != "payme-stmt-1" || entries[1].ID != "payme-stmt-2" {
+		t.Errorf("order = [%s, %s], want ascending by create_time", entries[0].ID, entries[1].ID)
+	}
+	if entries[0].Account.OrderID != payment1.String() {
+		t.Errorf("account.order_id = %q, want %q", entries[0].Account.OrderID, payment1.String())
+	}
+	if entries[0].Amount != 5990000 {
+		t.Errorf("amount = %d, want 5990000", entries[0].Amount)
+	}
+	if entries[0].CreateTime != base {
+		t.Errorf("create_time = %d, want %d", entries[0].CreateTime, base)
+	}
+	if entries[0].Time != base {
+		t.Errorf("time = %d, want %d", entries[0].Time, base)
+	}
+	if entries[0].Transaction != payment1.String() {
+		t.Errorf("transaction = %q, want %q", entries[0].Transaction, payment1.String())
+	}
+	if entries[1].State != 2 {
+		t.Errorf("entries[1].state = %d, want 2", entries[1].State)
+	}
+}
+
+func TestGetStatement_EmptyRange(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "pending")
+	base := time.Now().UnixMilli()
+	seedPaymeTransaction(t, pool, "payme-stmt-empty", paymentID, 1, base)
+
+	resp := rpcCall(t, h, "GetStatement", map[string]any{"from": base + 100000, "to": base + 200000})
+
+	if code, isErr := rpcErrorCode(t, resp); isErr {
+		t.Fatalf("unexpected error, code=%d", code)
+	}
+	if string(resp["result"]) != "[]" {
+		t.Errorf("result = %s, want []", resp["result"])
 	}
 }
