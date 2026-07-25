@@ -915,7 +915,8 @@
     "back": "Бошқарувга қайтиш",
     "eyebrow": "Ops",
     "title": "Тизим ҳолати",
-    "subtitle": "API /healthz, /readyz ва /metrics (сўров ҳисоблагичлари) — M3 monitoring stub.",
+    "subtitle": "DEPRECATED — prefer Admin Monitoring. API /healthz, /readyz ва /metrics stub.",
+    "adminHomeLink": "Admin → System health (асосий уй)",
     "navHealth": "Ҳолат",
     "refresh": "Янгилаш",
     "refreshing": "Текширилмоқда...",
@@ -1236,5 +1237,26 @@
     "errorSave": "Сақлаш амалга ошмади.",
     "errorForbiddenRead": "cms.read рухсати йўқ.",
     "errorForbiddenWrite": "cms.write рухсати йўқ."
+  },
+  "AdminMonitoring": {
+    "healthTitle": "System health",
+    "healthSubtitle": "Admin-gated Postgres/Redis readiness (monitoring.read). Public /healthz қолади.",
+    "perfTitle": "API & DB",
+    "perfSubtitle": "Жараён ичидаги сўров ҳисоблагичлари (U-41). Prometheus/tracing йўқ.",
+    "perfNote": "Қайта ишга тушганда нолга тушади. Multi-instance агрегация йўқ.",
+    "jobsTitle": "Jobs",
+    "jobsSubtitle": "Маълум CLI/manual ишлар каталоги — pause/resume invent қилинмаган.",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "autoRefresh": "Ҳар 10 сонияда",
+    "lastChecked": "Охирги: {time}",
+    "liveTitle": "Liveness",
+    "liveHint": "Admin API жараёни жавоб бермоқда",
+    "readyTitle": "Readiness",
+    "metricsUptime": "Uptime",
+    "metricsTotal": "Requests",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorDegraded": "Баъзи текширувлар муваффақиятсиз.",
+    "errorForbidden": "monitoring.read рухсати йўқ."
   }
 }

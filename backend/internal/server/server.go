@@ -77,10 +77,12 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	if deps.Pool != nil {
 		adminStore := admin.Store{Pool: deps.Pool}
 		adminH := &admin.Handler{
-			Svc:     admin.Service{Store: adminStore, Secret: []byte(cfg.JWTSecret)},
-			Pool:    deps.Pool,
-			Secret:  []byte(cfg.JWTSecret),
-			Billing: billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+			Svc:             admin.Service{Store: adminStore, Secret: []byte(cfg.JWTSecret)},
+			Pool:            deps.Pool,
+			Redis:           deps.Redis,
+			Secret:          []byte(cfg.JWTSecret),
+			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+			MetricsSnapshot: metrics.Snapshot,
 		}
 		r.Route("/admin/v1", adminH.Routes)
 	}

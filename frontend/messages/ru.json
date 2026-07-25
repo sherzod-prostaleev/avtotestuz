@@ -915,7 +915,8 @@
     "back": "Назад в кабинет",
     "eyebrow": "Ops",
     "title": "Состояние системы",
-    "subtitle": "API /healthz, /readyz и /metrics (счётчики запросов) — заглушка M3 monitoring.",
+    "subtitle": "DEPRECATED — prefer Admin Monitoring. API /healthz, /readyz и /metrics stub.",
+    "adminHomeLink": "Admin → System health (основной дом)",
     "navHealth": "Здоровье",
     "refresh": "Обновить",
     "refreshing": "Проверка...",
@@ -1236,5 +1237,26 @@
     "errorSave": "Не удалось сохранить.",
     "errorForbiddenRead": "Нет права cms.read.",
     "errorForbiddenWrite": "Нет права cms.write."
+  },
+  "AdminMonitoring": {
+    "healthTitle": "System health",
+    "healthSubtitle": "Готовность Postgres/Redis за admin auth (monitoring.read).",
+    "perfTitle": "API & DB",
+    "perfSubtitle": "Счётчики запросов процесса (U-41). Без Prometheus/tracing.",
+    "perfNote": "Сбрасываются при рестарте. Нет агрегации по инстансам.",
+    "jobsTitle": "Jobs",
+    "jobsSubtitle": "Каталог известных CLI/manual jobs — pause/resume не выдуман.",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "autoRefresh": "Каждые 10 с",
+    "lastChecked": "Последняя: {time}",
+    "liveTitle": "Liveness",
+    "liveHint": "Admin API отвечает",
+    "readyTitle": "Readiness",
+    "metricsUptime": "Uptime",
+    "metricsTotal": "Requests",
+    "errorLoad": "Не удалось загрузить.",
+    "errorDegraded": "Часть проверок не прошла.",
+    "errorForbidden": "Нет права monitoring.read."
   }
 }

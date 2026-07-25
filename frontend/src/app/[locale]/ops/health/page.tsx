@@ -114,6 +114,14 @@ export default function OpsHealthPage() {
         </div>
         <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
+        <p className="mt-2 text-sm">
+          <Link
+            href={`/${locale}/admin/monitoring/health`}
+            className="font-semibold text-accent underline-offset-2 hover:underline"
+          >
+            {t("adminHomeLink")}
+          </Link>
+        </p>
       </header>
 
       <OpsNav

@@ -915,7 +915,8 @@
     "back": "Boshqaruvga qaytish",
     "eyebrow": "Ops",
     "title": "Tizim holati",
-    "subtitle": "API /healthz, /readyz va /metrics (so‘rov hisoblagichlari) — M3 monitoring stub.",
+    "subtitle": "DEPRECATED — prefer Admin Monitoring. API /healthz, /readyz va /metrics stub.",
+    "adminHomeLink": "Admin → System health (asosiy uy)",
     "navHealth": "Holat",
     "refresh": "Yangilash",
     "refreshing": "Tekshirilmoqda...",
@@ -1236,5 +1237,26 @@
     "errorSave": "Saqlash amalga oshmadi.",
     "errorForbiddenRead": "cms.read ruxsati yo‘q.",
     "errorForbiddenWrite": "cms.write ruxsati yo‘q."
+  },
+  "AdminMonitoring": {
+    "healthTitle": "System health",
+    "healthSubtitle": "Admin-gated Postgres/Redis readiness (monitoring.read). Public /healthz qoladi.",
+    "perfTitle": "API & DB",
+    "perfSubtitle": "Jarayon ichidagi so‘rov hisoblagichlari (U-41). Prometheus/tracing yo‘q.",
+    "perfNote": "Qayta ishga tushganda nolga tushadi. Multi-instance agregatsiya yo‘q.",
+    "jobsTitle": "Jobs",
+    "jobsSubtitle": "Ma’lum CLI/manual ishlar katalogi — pause/resume invent qilinmagan.",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "autoRefresh": "Har 10 soniyada",
+    "lastChecked": "Oxirgi: {time}",
+    "liveTitle": "Liveness",
+    "liveHint": "Admin API jarayoni javob bermoqda",
+    "readyTitle": "Readiness",
+    "metricsUptime": "Uptime",
+    "metricsTotal": "Requests",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorDegraded": "Ba’zi tekshiruvlar muvaffaqiyatsiz.",
+    "errorForbidden": "monitoring.read ruxsati yo‘q."
   }
 }

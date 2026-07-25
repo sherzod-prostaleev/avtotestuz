@@ -22,10 +22,10 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       title: "Monitoring",
       items: [
-        { href: `${base}/monitoring/health`, label: "System health", stub: true },
-        { href: `${base}/monitoring/perf`, label: "API & DB", stub: true },
+        { href: `${base}/monitoring/health`, label: "System health" },
+        { href: `${base}/monitoring/perf`, label: "API & DB" },
         { href: `${base}/monitoring/logs`, label: "Live logs", stub: true },
-        { href: `${base}/monitoring/jobs`, label: "Jobs", stub: true },
+        { href: `${base}/monitoring/jobs`, label: "Jobs" },
         { href: `${base}/monitoring/alerts`, label: "Alerts", stub: true },
       ],
     },

@@ -9,8 +9,8 @@ export default function AdminStubOrOverviewPage({
       <main className="mx-auto max-w-4xl space-y-4">
         <h1 className="font-display text-2xl font-extrabold tracking-tight">Overview</h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          Driver Go Super Admin control center. Users, Content, Payments va CMS chrome (footer
-          contacts) live. Monitoring va boshqa sidebar modullar keyingi M3 bosqichlarida.
+          Driver Go Super Admin control center. Users, Content, Payments, CMS chrome va Monitoring
+          (health/metrics/jobs) live. Logs/alerts va boshqa sidebar stublari keyingi bosqichlarda.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
@@ -18,7 +18,7 @@ export default function AdminStubOrOverviewPage({
             { label: "Content", hint: "M3-2 ✓" },
             { label: "Payments", hint: "M3-3 ✓" },
             { label: "CMS", hint: "M3-4 ✓" },
-            { label: "Monitoring", hint: "M3-5" },
+            { label: "Monitoring", hint: "M3-5 ✓" },
             { label: "Security", hint: "M3-0+" },
           ].map((tile) => (
             <div key={tile.label} className="rounded-xl border border-border bg-card px-4 py-3">

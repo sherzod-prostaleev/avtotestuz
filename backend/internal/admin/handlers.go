@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/httpx"
@@ -19,10 +20,12 @@ import (
 
 // Handler mounts /admin/v1 routes.
 type Handler struct {
-	Svc     Service
-	Pool    *pgxpool.Pool
-	Secret  []byte
-	Billing billing.Service
+	Svc             Service
+	Pool            *pgxpool.Pool
+	Redis           *redis.Client
+	Secret          []byte
+	Billing         billing.Service
+	MetricsSnapshot MetricsSnapshot
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -88,6 +91,13 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("cms.write"))
 			cr.Put("/cms/contacts", h.putCMSContacts)
+		})
+
+		pr.Group(func(mr chi.Router) {
+			mr.Use(RequirePermission("monitoring.read"))
+			mr.Get("/monitoring/health", h.getMonitoringHealth)
+			mr.Get("/monitoring/metrics", h.getMonitoringMetrics)
+			mr.Get("/monitoring/jobs", h.listMonitoringJobs)
 		})
 	})
 }
