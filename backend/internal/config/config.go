@@ -56,6 +56,12 @@ type Config struct {
 	// OpsAdminToken gates thin ops endpoints (payment provider kill-switches)
 	// until the full M3 admin control center ships. Empty disables those routes.
 	OpsAdminToken string
+
+	// Web Push (M4-08 / U-11). Empty public+private disables subscribe/send;
+	// same optional pattern as Telegram bot username.
+	VAPIDPublicKey  string
+	VAPIDPrivateKey string
+	VAPIDSubject    string // mailto: or https: contact for push services
 }
 
 // PaymeKey returns the Basic-auth password (cashbox KEY) for the current
@@ -110,6 +116,10 @@ func Load() (Config, error) {
 		ClickSecretKey:  getenv("CLICK_SECRET_KEY", ""),
 
 		OpsAdminToken: getenv("OPS_ADMIN_TOKEN", ""),
+
+		VAPIDPublicKey:  getenv("VAPID_PUBLIC_KEY", ""),
+		VAPIDPrivateKey: getenv("VAPID_PRIVATE_KEY", ""),
+		VAPIDSubject:    getenv("VAPID_SUBJECT", "mailto:ops@avtotest.uz"),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -187,6 +197,12 @@ func (c Config) validate() error {
 		}
 	default:
 		return fmt.Errorf("invalid TELEGRAM_BOT_MODE %q: must be off, webhook, or longpoll", c.TelegramBotMode)
+	}
+
+	pub := strings.TrimSpace(c.VAPIDPublicKey)
+	priv := strings.TrimSpace(c.VAPIDPrivateKey)
+	if (pub == "") != (priv == "") {
+		return fmt.Errorf("VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY must both be set or both empty")
 	}
 
 	return nil

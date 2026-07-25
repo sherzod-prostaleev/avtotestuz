@@ -678,6 +678,27 @@
     "copyLink": "Nusxalash",
     "copied": "Nusxalandi"
   },
+  "WebPush": {
+    "title": "Brauzer bildirishnomalari",
+    "subtitle": "Takrorlash eslatmalari va muhim yangiliklar uchun web push yoqing. VAPID kalitlari serverda sozlanishi kerak.",
+    "loading": "Holat yuklanmoqda...",
+    "loadError": "Push holatini yuklab bo'lmadi.",
+    "enableError": "Pushni yoqib bo'lmadi. Qayta urinib ko'ring.",
+    "disableError": "Pushni o'chirib bo'lmadi.",
+    "unconfigured": "Web push hozircha sozlanmagan. Keyinroq qayta urinib ko'ring.",
+    "unsupported": "Bu brauzer web pushni qo'llab-quvvatlamaydi.",
+    "denied": "Bildirishnoma ruxsati berilmadi.",
+    "testError": "Sinov bildirishnomasini yuborib bo'lmadi.",
+    "testSent": "Sinov bildirishnomasi yuborildi.",
+    "refresh": "Yangilash",
+    "notEnabled": "Brauzer bildirishnomalari o'chirilgan.",
+    "enabledHere": "Bu qurilmada push yoqilgan.",
+    "enabledElsewhere": "Boshqa qurilmada push yoqilgan.",
+    "deviceCount": "Ulangan qurilmalar: {count}",
+    "enable": "Yoqish",
+    "disable": "O'chirish",
+    "test": "Sinov yuborish"
+  },
   "Referral": {
     "title": "Referal Dasturi",
     "subtitle": "Do'stlaringizni taklif qiling va har biriga +7 kunlik VIP bonus oling!",

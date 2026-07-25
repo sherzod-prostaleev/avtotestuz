@@ -309,6 +309,17 @@ type PromoRedemption struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type PushSubscription struct {
+	ID        uuid.UUID          `json:"id"`
+	ProfileID uuid.UUID          `json:"profile_id"`
+	Endpoint  string             `json:"endpoint"`
+	P256dh    string             `json:"p256dh"`
+	Auth      string             `json:"auth"`
+	UserAgent string             `json:"user_agent"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	LastSeen  pgtype.Timestamptz `json:"last_seen"`
+}
+
 type Question struct {
 	ID               uuid.UUID          `json:"id"`
 	SourceExtID      string             `json:"source_ext_id"`

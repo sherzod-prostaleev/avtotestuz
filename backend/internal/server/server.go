@@ -31,6 +31,7 @@ import (
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/ops"
 	"avtotest.uz/backend/internal/progress"
+	"avtotest.uz/backend/internal/push"
 	"avtotest.uz/backend/internal/session"
 )
 
@@ -159,6 +160,14 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
 				tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
 				tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				pushSvc := push.NewService(deps.Pool, deps.Queries, push.Config{
+					PublicKey:  cfg.VAPIDPublicKey,
+					PrivateKey: cfg.VAPIDPrivateKey,
+					Subject:    cfg.VAPIDSubject,
+				}, nil)
+				phPush := &push.Handler{Svc: pushSvc}
+				phPush.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)

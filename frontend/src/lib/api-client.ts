@@ -49,11 +49,12 @@ export async function apiPatch<T, B = unknown>(path: string, body?: B): Promise<
   return handleResponse<T>(res);
 }
 
-export async function apiDelete<T>(path: string): Promise<T> {
+export async function apiDelete<T, B = unknown>(path: string, body?: B): Promise<T> {
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "DELETE",
     headers: { "Content-Type": "application/json" },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
 }

@@ -25,7 +25,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"exam_session", "session_question", "session_answer", "variant_progress", "question_memory",
 		"category_mastery", "saved_question", "streak",
 		// system
-		"audit_log", "event", "notification",
+		"audit_log", "event", "notification", "push_subscription",
 	} {
 		var reg *string
 		err := pool.QueryRow(context.Background(),
