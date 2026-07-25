@@ -116,8 +116,10 @@
     "footerLegal": "Driver Go — mustaqil o'quv platformasi. Rasmiy GAI imtihoni emas.",
     "footerNavOferta": "Oferta",
     "footerNavPrivacy": "Maxfiylik",
-    "footerNavPricing": "Narxlar"
+    "footerNavPricing": "Narxlar",
+    "footerNavFines": "Jarimalar"
   },
+
   "Dashboard": {
     "welcome": "Xush kelibsiz",
     "welcomeUser": "Xush kelibsiz, {name}!",
@@ -907,5 +909,20 @@
     "ctaLogin": "Kirish va sotib olish",
     "ctaOferta": "Ofertani o'qish",
     "backHome": "Bosh sahifaga"
+  },
+  "Jarimalar": {
+    "title": "Yo'l jarimalari",
+    "updated": "Yangilangan: 2026-07-26",
+    "backHome": "Bosh sahifaga",
+    "s1Title": "1. Bu sahifa nima?",
+    "s1Body": "Driver Go — O'zbekiston YHQ nazariy imtihoniga tayyorgarlik platformasi. Ushbu sahifa yo'l qoidalari bilan bog'liq jarimalar mavzusiga SEO kirish nuqtasi bo'lib, o'quvchilarni rasmiy manbalarga va platformadagi mashqqa yo'naltiradi.",
+    "s2Title": "2. Katalog holati",
+    "s2Body": "To'liq jarimalar jadvali (summalar, moddalar, yangilanishlar) hali e'lon qilinmagan: backendda jarimalar API yo'q va inventarizatsiyada tasdiqlangan rasmiy ma'lumotnoma kontenti yo'q. Biz uydirma summalar yoki eskirgan ro'yxat chiqarmaymiz.",
+    "s3Title": "3. Rasmiy manba",
+    "s3Body": "Joriy jarima miqdorlari va tartibni davlat organlarining rasmiy nashrlari (lex.uz, tegishli vazirlik/YBXX e'lonlari) orqali tekshiring. Driver Go rasmiy GAI/YBXX reestri emas; qoidalar va jarimalar o'zgarishi mumkin.",
+    "s4Title": "4. O'qishga qanday bog'lanadi?",
+    "s4Body": "Nazariy bilish jarimalardan oldin keladi: belgilar katalogi va bilet mashqi qoidalarni eslashga yordam beradi. Katalog qo'shilganda shu sahifa rasmiy manbaga bog'langan ma'lumotnoma bo'ladi.",
+    "ctaSigns": "Belgilarni ko'rish",
+    "ctaPractice": "Mashqqa kirish"
   }
 }

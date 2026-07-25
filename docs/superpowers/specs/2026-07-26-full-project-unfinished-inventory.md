@@ -68,7 +68,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-29** | P2 | Content | **15 biletsiz leftover questions** | partial | Import design | Valid for practice/FSRS; not in numbered bilets — product copy/UX may under-explain. |
 | **U-30** | P2 | Content | **Signs catalog licensing pipeline** | partial | Research ✅ | Live catalog exists (gensigns / seed path); research still flags lex.uz extraction **UNVERIFIED** pieces — harden provenance for legal comfort. |
 | **U-31** | P2 | Content | **Category name native review** | partial | Taxonomy | Older handoff: user said “edits coming” for 13 category names — confirm closed. |
-| **U-32** | P2 | FE | **SEO public pages (jarimalar, oferta, privacy, narxlar)** | **partial** | Marketing | Public `/{locale}/oferta`, `/privacy`, `/narxlar` (+ footer links, i18n, vitest/e2e). **Jarimalar** SEO reference still missing. |
+| **U-32** | P2 | FE | **SEO public pages (jarimalar, oferta, privacy, narxlar)** | **done** | Marketing | Public `/{locale}/oferta`, `/privacy`, `/narxlar`, `/jarimalar` (+ footer links, i18n, vitest/e2e). Jarimalar is an **honest SEO shell** (no fines API/catalog yet — no invented amounts); full lex.uz-backed reference remains a content follow-up. |
 | **U-33** | P2 | FE | **`exam-mockup` route** | **done** | Legacy | Kept as auth-gated **dev/visual QA** component playground (`QuestionCard` states); real exam = session engine. Not linked from sidebar. |
 | **U-34** | P2 | i18n | **Backend `kaa` locale** | partial | Product decision | BE `i18n.Supported` includes `kaa`; FE messages = uz-Latn/uz-Cyrl/ru only. Incomplete Karakalpak. |
 | **U-35** | P2 | FE | **Grand Mock “certificate”** | partial | M2-07 ✅ | UI dialog + confetti only — **no** persisted certificate, PDF, shareable ID, or admin-issued credential. |
@@ -124,7 +124,7 @@ A3  Ops MVP (can parallel): Dockerfiles + D18 staging; add Redis + Playwright to
  ├─ Learning/content track (parallel with Growth)
  │   C1  FE due-FSRS / learn/next UX (U-16)
  │   C2  Real LLM draft OR expert batch-verify path (U-12/U-13)
- │   C3  SEO/legal pages + real footer contacts (U-32/U-17)
+ │   C3  SEO/legal pages + real footer contacts (U-32 done shell; U-17 contacts still partial)
  │
  ├─ Prod money flip (external gate)
  │   D1  Legal entity → Payme/Click prod keys (U-03) + recon job (U-27)

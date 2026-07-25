@@ -19,10 +19,17 @@ test.describe("Public legal & pricing pages", () => {
     await expect(page.getByRole("heading", { level: 1 })).toContainText(/tarif/i);
   });
 
+  test("jarimalar loads without auth", async ({ page }) => {
+    await page.goto("/uz-Latn/jarimalar");
+    await expect(page).not.toHaveURL(/login/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(/jarima/i);
+  });
+
   test("landing footer links to legal pages", async ({ page }) => {
     await page.goto("/uz-Latn");
     await expect(page.locator('footer a[href*="/oferta"]').first()).toBeVisible();
     await expect(page.locator('footer a[href*="/privacy"]').first()).toBeVisible();
     await expect(page.locator('footer a[href*="/narxlar"]').first()).toBeVisible();
+    await expect(page.locator('footer a[href*="/jarimalar"]').first()).toBeVisible();
   });
 });
