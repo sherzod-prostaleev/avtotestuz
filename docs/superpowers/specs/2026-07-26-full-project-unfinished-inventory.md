@@ -63,7 +63,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-24** | P2 | FE | **Demo multi-question strength** | partial | Demo BE | `demoQuestionCount=2` — weaker than “multi-question guest funnel” promise. |
 | **U-25** | P2 | BE | **SMS OTP (Eskiz/PlayMobile)** | deferred | Config | `OTP_CHANNEL=sms` rejected — “no sender implementation”. Telegram Gateway + sandbox only. |
 | **U-26** | P2 | BE | **Anonymous / pre-login event capture** | deferred | Events M1 | Authenticated-only `POST /events`; anon deferred in Plan 05. |
-| **U-27** | P2 | BE | **Payment provider reconciliation job** | missing | Prod payments | Master design: daily provider statement vs local payments → admin queue. `GetStatement` RPC exists for Payme; **no scheduled recon**. |
+| **U-27** | P2 | BE | **Payment provider reconciliation job** | **partial** | Prod payments | Local dry-run skeleton: `cmd/payrecon` + `internal/billing/recon` (payment vs payme/click txn consistency; mirrors GetStatement window). Live outbound provider APIs + admin findings queue still need prod keys / M3. |
 | **U-28** | P2 | Content | **LegalRefs machine extraction** | partial | Import | Comments imported as prose; structured `legal_refs` largely empty (honest gap in import handoff). |
 | **U-29** | P2 | Content | **15 biletsiz leftover questions** | partial | Import design | Valid for practice/FSRS; not in numbered bilets — product copy/UX may under-explain. |
 | **U-30** | P2 | Content | **Signs catalog licensing pipeline** | partial | Research ✅ | Live catalog exists (gensigns / seed path); research still flags lex.uz extraction **UNVERIFIED** pieces — harden provenance for legal comfort. |
