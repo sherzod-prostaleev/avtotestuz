@@ -29,7 +29,7 @@
 
 | SHA | What |
 |-----|------|
-| *(this commit)* | `metrics.go` staticcheck; Button variants on admin providers/flags; support-banner null-safe dismiss; proxy CSV-only passthrough (restore 502 on malformed JSON); harden teacher/invites cards for non-array API payloads |
+| `0bd114f` | `metrics.go` staticcheck; Button variants on admin providers/flags; support-banner null-safe dismiss; proxy CSV-only passthrough (restore 502 on malformed JSON); harden teacher/invites cards for non-array API payloads |
 
 **Prior B2B M5 completion (Phase 1):** `551c51d` — invite/enroll, teacher write, stats+CSV, admin completeness, U-40 inventory.
 
