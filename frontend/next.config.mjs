@@ -15,6 +15,8 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Required by frontend/Dockerfile (copies .next/standalone into the runner).
+  output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
   async headers() {

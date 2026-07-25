@@ -302,13 +302,19 @@ export default function TestSessionPage() {
   const modeLabel = (mode: SessionMode) => {
     const keys: Record<
       SessionMode,
-      "modeVariant" | "modeExam" | "modePractice" | "modeMistakes" | "modeGrandMock"
+      | "modeVariant"
+      | "modeExam"
+      | "modePractice"
+      | "modeMistakes"
+      | "modeGrandMock"
+      | "modeReview"
     > = {
       variant: "modeVariant",
       exam: "modeExam",
       practice: "modePractice",
       mistakes: "modeMistakes",
       grand_mock: "modeGrandMock",
+      review: "modeReview",
     };
     return t(keys[mode]);
   };

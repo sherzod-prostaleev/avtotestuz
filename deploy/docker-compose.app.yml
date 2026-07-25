@@ -1,0 +1,75 @@
+# App services (API + Next.js) — overlay on the root infra compose.
+#
+# Infra (postgres / redis / minio) stays in the repo-root docker-compose.yml.
+# This file only adds the application containers so local staging can reuse
+# an already-running `make up` stack.
+#
+# Usage (from repo root):
+#   make up
+#   cp deploy/app.env.example deploy/app.env   # edit secrets / URLs
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
+#     --env-file deploy/app.env up -d --build api web
+#
+# Health / smoke:
+#   ./deploy/smoke.sh http://localhost:8080 http://localhost:3000
+#
+# Tear down apps only (keep infra):
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml stop api web
+
+services:
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: avtotest-api:local
+    ports:
+      - "${API_HOST_PORT:-8080}:8080"
+    environment:
+      ENV: ${ENV:-dev}
+      PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:-postgres://avtotest:avtotest@postgres:5432/avtotest?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-http://localhost:9000/media}
+      # Frontend origin users browse (referral invite links, payment return URLs).
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+      OTP_CHANNEL: ${OTP_CHANNEL:-sandbox}
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET:-}
+      TELEGRAM_GATEWAY_TOKEN: ${TELEGRAM_GATEWAY_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_BOT_MODE: ${TELEGRAM_BOT_MODE:-off}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
+      PAYME_ENV: ${PAYME_ENV:-test}
+      PAYME_KEY: ${PAYME_KEY:-}
+      PAYME_TEST_KEY: ${PAYME_TEST_KEY:-}
+      CLICK_SERVICE_ID: ${CLICK_SERVICE_ID:-}
+      CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID:-}
+      CLICK_SECRET_KEY: ${CLICK_SECRET_KEY:-}
+      OPS_ADMIN_TOKEN: ${OPS_ADMIN_TOKEN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: avtotest-web:local
+    ports:
+      - "${WEB_HOST_PORT:-3000}:3000"
+    environment:
+      # Server-side BFF → API (compose DNS name, not localhost).
+      BACKEND_URL: ${BACKEND_URL:-http://api:8080}
+      # Required in the production Next image; must match API.
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET:-}
+      # Direct browser→Next (no reverse proxy in this overlay) → use a
+      # front proxy in real staging and set hops accordingly (see README).
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+    depends_on:
+      - api
+    restart: unless-stopped

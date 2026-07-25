@@ -1,0 +1,11 @@
+seed/
+.env
+.env.*
+!.env.example
+*.md
+.git
+.gitignore
+.golangci.yml
+sqlc.yaml
+**/*_test.go
+**/testdata/
