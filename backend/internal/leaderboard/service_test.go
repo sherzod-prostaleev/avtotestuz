@@ -277,6 +277,77 @@ func TestRebuildPeriodReconstructsFromPostgres(t *testing.T) {
 	}
 }
 
+func TestRebuildPeriodAppliesDailyCap(t *testing.T) {
+	svc, q := newTestService(t)
+	// testdb.New truncates all app tables unconditionally on every call (see
+	// internal/testdb/testdb.go — no per-test caching or idempotency), so
+	// the pool must be captured here, before any data is inserted below,
+	// and reused rather than re-fetched later in the test (a second call
+	// after createProfile/CreateExamSession would truncate the very rows
+	// this test just created and break the FK inserts that follow).
+	pool := testdb.New(t)
+	ctx := context.Background()
+	profileID := createProfile(t, q, "+998901111111")
+
+	// Seed a category/question/correct-answer directly via raw SQL: unlike
+	// internal/session and internal/learning tests, this package's
+	// newTestService does not load the fixture dataset, so there is no
+	// pre-existing "signs" category to look up via GetCategoryIDByCode.
+	var categoryID, questionID, correctAnswerID uuid.UUID
+	if err := pool.QueryRow(ctx, `INSERT INTO category (code) VALUES ('leaderboard-cap-test') RETURNING id`).Scan(&categoryID); err != nil {
+		t.Fatalf("insert category: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO question (source_ext_id, category_id, content_hash)
+		VALUES ('leaderboard-cap-test-q', $1, 'leaderboard-cap-test-h') RETURNING id`, categoryID).Scan(&questionID); err != nil {
+		t.Fatalf("insert question: %v", err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO answer (question_id, position, is_correct) VALUES ($1, 1, true) RETURNING id`,
+		questionID,
+	).Scan(&correctAnswerID); err != nil {
+		t.Fatalf("insert answer: %v", err)
+	}
+
+	// Seed 35 correct answers "today" via 35 separate single-question
+	// sessions — more than the free daily cap (30) — bypassing RecordPoint
+	// entirely so Postgres has uncapped history, exactly like a real
+	// profile that exceeded its cap on the live board before Redis was
+	// lost. 35 separate sessions (not 35 session_answer rows in one
+	// session) because session_answer's PRIMARY KEY is
+	// (session_id, question_id) — one row per question per session, so a
+	// single session can't hold 35 answers to the same question.
+	for i := 0; i < 35; i++ {
+		session, err := q.CreateExamSession(ctx, sqlc.CreateExamSessionParams{
+			ProfileID: profileID, Mode: "practice", Locale: "uz-Latn",
+			QuestionIds: []uuid.UUID{questionID},
+		})
+		if err != nil {
+			t.Fatalf("create session %d: %v", i, err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO session_answer (session_id, question_id, answer_id, is_correct, position, answered_at)
+			 VALUES ($1, $2, $3, true, 0, now())`,
+			session.ID, questionID, correctAnswerID,
+		); err != nil {
+			t.Fatalf("seed answer %d: %v", i, err)
+		}
+	}
+
+	now := time.Now().UTC()
+	if err := svc.RebuildPeriod(ctx, leaderboard.PeriodDaily, now); err != nil {
+		t.Fatalf("RebuildPeriod: %v", err)
+	}
+
+	res, err := svc.GetLeaderboard(ctx, profileID, leaderboard.PeriodDaily)
+	if err != nil {
+		t.Fatalf("GetLeaderboard: %v", err)
+	}
+	if res.YouScore != 30 {
+		t.Errorf("YouScore after rebuild = %d, want 30 (capped, not 35 uncapped)", res.YouScore)
+	}
+}
+
 // TestRebuildPeriodPurgesStaleRedisMembers reproduces the reconciliation gap
 // found in code review: RebuildPeriod must fully reconstruct the Redis key
 // from Postgres, which means any member present in Redis but absent from

@@ -211,24 +211,72 @@ func (s *Service) GetLeaderboard(ctx context.Context, profileID uuid.UUID, p Per
 func (s *Service) RebuildPeriod(ctx context.Context, p Period, at time.Time) error {
 	from := PeriodStart(p, at)
 	to := PeriodEnd(p, at)
-	rows, err := s.Q.CountCorrectAnswersByProfileInRange(ctx, sqlc.CountCorrectAnswersByProfileInRangeParams{
+	dayRows, err := s.Q.CountCorrectAnswersByProfileByDayInRange(ctx, sqlc.CountCorrectAnswersByProfileByDayInRangeParams{
 		FromTs: pgtype.Timestamptz{Time: from, Valid: true},
 		ToTs:   pgtype.Timestamptz{Time: to, Valid: true},
 	})
 	if err != nil {
 		return err
 	}
+
 	key := RedisKey(p, at)
 	pipe := s.Redis.Pipeline()
 	pipe.Del(ctx, key)
-	if len(rows) == 0 {
+	if len(dayRows) == 0 {
 		_, err = pipe.Exec(ctx)
 		return err
 	}
-	for _, row := range rows {
-		lastAt := row.LastAnsweredAt.Time
-		score := EncodeScore(int(row.CorrectCount), lastAt)
-		pipe.ZAdd(ctx, key, redis.Z{Score: score, Member: row.ProfileID.String()})
+
+	cfg, err := s.Q.GetLimitConfig(ctx, dailyPointsConfigKey)
+	if err != nil {
+		return err
+	}
+
+	// Reapply the same daily cap RecordPoint enforces live, per day, before
+	// summing across the period — otherwise a rebuild would retroactively
+	// un-cap any profile that hit its daily limit before Redis was lost.
+	// Uses each profile's CURRENT VIP status and the CURRENT cap value as
+	// an approximation (neither is tracked historically in this schema);
+	// see docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md
+	// section 4/7 for why this bounded approximation — not perfect
+	// historical fidelity — is the accepted trade-off.
+	type profileTotal struct {
+		points int
+		lastAt time.Time
+	}
+	totals := make(map[uuid.UUID]*profileTotal)
+	vipCache := make(map[uuid.UUID]bool)
+	for _, row := range dayRows {
+		active, cached := vipCache[row.ProfileID]
+		if !cached {
+			active, _, err = s.Billing.Status(ctx, row.ProfileID)
+			if err != nil {
+				return err
+			}
+			vipCache[row.ProfileID] = active
+		}
+		dailyCap := int(cfg.FreeValue)
+		if active {
+			dailyCap = int(cfg.VipValue)
+		}
+		dayCount := int(row.CorrectCount)
+		if dayCount > dailyCap {
+			dayCount = dailyCap
+		}
+		t, ok := totals[row.ProfileID]
+		if !ok {
+			t = &profileTotal{}
+			totals[row.ProfileID] = t
+		}
+		t.points += dayCount
+		if row.LastAnsweredAt.Time.After(t.lastAt) {
+			t.lastAt = row.LastAnsweredAt.Time
+		}
+	}
+
+	for profileID, t := range totals {
+		score := EncodeScore(t.points, t.lastAt)
+		pipe.ZAdd(ctx, key, redis.Z{Score: score, Member: profileID.String()})
 	}
 	if ttl := TTL(p); ttl > 0 {
 		pipe.Expire(ctx, key, ttl)

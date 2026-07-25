@@ -12,6 +12,62 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countCorrectAnswersByProfileByDayInRange = `-- name: CountCorrectAnswersByProfileByDayInRange :many
+SELECT
+  es.profile_id,
+  date_trunc('day', sa.answered_at)::timestamptz AS day,
+  count(*)::int AS correct_count,
+  max(sa.answered_at)::timestamptz AS last_answered_at
+FROM session_answer sa
+JOIN exam_session es ON es.id = sa.session_id
+WHERE sa.is_correct
+  AND sa.answered_at >= $1
+  AND sa.answered_at < $2
+GROUP BY es.profile_id, date_trunc('day', sa.answered_at)
+`
+
+type CountCorrectAnswersByProfileByDayInRangeParams struct {
+	FromTs pgtype.Timestamptz `json:"from_ts"`
+	ToTs   pgtype.Timestamptz `json:"to_ts"`
+}
+
+type CountCorrectAnswersByProfileByDayInRangeRow struct {
+	ProfileID      uuid.UUID          `json:"profile_id"`
+	Day            pgtype.Timestamptz `json:"day"`
+	CorrectCount   int32              `json:"correct_count"`
+	LastAnsweredAt pgtype.Timestamptz `json:"last_answered_at"`
+}
+
+// Per-profile, per-day correct-answer counts within [from_ts, to_ts) —
+// used by RebuildPeriod to reapply the daily point cap when reconstructing
+// a period's leaderboard from Postgres (the single per-profile total from
+// CountCorrectAnswersByProfileInRange can't distinguish "30 in one day"
+// from "10 a day for 3 days," and only the former should ever be capped).
+func (q *Queries) CountCorrectAnswersByProfileByDayInRange(ctx context.Context, arg CountCorrectAnswersByProfileByDayInRangeParams) ([]CountCorrectAnswersByProfileByDayInRangeRow, error) {
+	rows, err := q.db.Query(ctx, countCorrectAnswersByProfileByDayInRange, arg.FromTs, arg.ToTs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountCorrectAnswersByProfileByDayInRangeRow
+	for rows.Next() {
+		var i CountCorrectAnswersByProfileByDayInRangeRow
+		if err := rows.Scan(
+			&i.ProfileID,
+			&i.Day,
+			&i.CorrectCount,
+			&i.LastAnsweredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countCorrectAnswersByProfileInRange = `-- name: CountCorrectAnswersByProfileInRange :many
 SELECT
   es.profile_id,

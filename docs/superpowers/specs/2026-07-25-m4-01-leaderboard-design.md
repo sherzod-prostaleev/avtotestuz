@@ -42,12 +42,16 @@ Kalitlar (barchasi `lb:` prefiksi bilan, UTC kun chegarasi — loyihada allaqach
 
 ## 5. Tiklanish (rezilience): `RebuildPeriod`
 
-`leaderboard.Service.RebuildPeriod(ctx, period Period, periodKey string, from, to time.Time) error` — berilgan davr oralig'ida `session_answer JOIN exam_session ON session_id=exam_session.id WHERE is_correct AND answered_at BETWEEN from AND to GROUP BY profile_id` so'rovini bajarib, natijadagi har bir `(profileID, count)` juftligi uchun mos Redis kalitiga `ZADD` qiladi (tie-break uchun guruh ichidagi **oxirgi** `answered_at`dan foydalaniladi — `MAX(answered_at)` bir xil so'rovda).
+`leaderboard.Service.RebuildPeriod(ctx, period Period, periodKey string, from, to time.Time) error` — berilgan davr oralig'ida `session_answer JOIN exam_session ON session_id=exam_session.id WHERE is_correct AND answered_at BETWEEN from AND to GROUP BY profile_id, date_trunc('day', answered_at)` so'rovini bajarib, **har bir profil-kun** juftligi uchun alohida hisoblaydi, so'ng har bir kunlik sonni o'sha profilning joriy kunlik chegarasiga (`leaderboard_daily_points`, VIP/free) kesib (cap qilib), keyin kesilgan kunlik sonlarni davr bo'yicha yig'ib, natijadagi har bir `(profileID, cappedTotal)` juftligi uchun mos Redis kalitiga `ZADD` qiladi (tie-break uchun profilning barcha kunlari bo'yicha **eng katta** `answered_at` ishlatiladi — Go xaritasi tartibidan mustaqil "max shu paytgacha" taqqoslash orqali).
+
+**Nima uchun kunlik cap qayta qo'llanadi**: jonli yo'l (`RecordPoint`) profilning kunlik ball soni chegaraga (`leaderboard_daily_points`) yetgach yozishni to'xtatadi — bu farming'ga qarshi himoya. Agar `RebuildPeriod` oddiy `GROUP BY profile_id` bilan **butun davr** bo'yicha yig'sa (cap'siz), Redis yo'qolib qayta qurilgandan keyin chegaraga allaqachon yetgan profil **yuqoriroq, cap qilinmagan** ball bilan qaytadi — bu anti-fraud chegarani sukut bo'yicha yengib o'tadi. Shu sababli kunlik cap endi rebuild vaqtida ham qayta qo'llanadi (Task 8, 2026-07-25).
+
+**Muhim cheklov (aniq tarixiy mosliksiz)**: cap profilning **joriy** (bugungi) VIP holati va `limit_config`dagi **joriy** cap qiymati bilan qo'llanadi — sxema tarixiy VIP holatini yoki tarixiy cap qiymatini saqlamaydi, shuning uchun bu aniq tarixiy proyeksiya emas, balki chegaralangan approksimatsiya. Bu shuni kafolatlaydi: rebuild **hech qachon** cap'siz portlash bermaydi (eng yomon holatda — profilning VIP holati yoki cap konfiguratsiyasi rebuild qilinayotgan oyna ichida o'zgargan bo'lsa, ozgina chetlanish bo'lishi mumkin — tor, past-xavfli, vaqt o'tishi bilan o'z-o'zidan tuzaladigan holat), lekin **bayt-baytiga** jonli holatdagi bilan bir xil ball kafolatlanmaydi agar shu oyna ichida VIP holati yoki cap qiymati o'zgargan bo'lsa.
 
 Bu funksiya:
-- Redis butunlay yo'qolgan/tozalangan holatda **to'liq tiklaydi** (ma'lumot yo'qolmaydi, chunki Postgres — asl manba).
+- Redis butunlay yo'qolgan/tozalangan holatda **to'liq tiklaydi** (ma'lumot yo'qolmaydi, chunki Postgres — asl manba; ball hisoblash yuqoridagi cap approksimatsiyasiga bo'ysunadi).
 - Yangi CLI orqali qo'lda ishga tushiriladi: `cmd/rebuildleaderboard` (mavjud `cmd/grantvip`ning bir xil naqshi — flag'lar bilan, `db.Migrate`+`db.NewPool`+`redisx.New` ochib, keyin yopib chiqadi).
-- **Yangi migratsiya kerak**: `session_answer`da hozircha `answered_at`/`is_correct` ustida indeks yo'q — davr bo'yicha `GROUP BY profile_id` so'rovi katta jadvalda sekin ishlaydi. Qo'shiladi: `CREATE INDEX session_answer_correct_answered_idx ON session_answer(answered_at) WHERE is_correct;` (qisman indeks — faqat to'g'ri javoblar, chunki faqat ular kerak).
+- **Yangi migratsiya kerak**: `session_answer`da hozircha `answered_at`/`is_correct` ustida indeks yo'q — davr bo'yicha `GROUP BY profile_id, date_trunc('day', answered_at)` so'rovi katta jadvalda sekin ishlaydi. Qo'shiladi: `CREATE INDEX session_answer_correct_answered_idx ON session_answer(answered_at) WHERE is_correct;` (qisman indeks — faqat to'g'ri javoblar, chunki faqat ular kerak).
 
 ## 6. API
 
@@ -83,7 +87,7 @@ Response:
 
 ## 7. Testlash rejasi
 - `internal/leaderboard/rules_test.go`: tie-break formula (teng ballda avvalroq erishgan yuqorida), kunlik chegara mantiqi — sof funksiyalar, Redis'siz.
-- `internal/leaderboard/service_test.go` (`redisx.NewTest(t)` + `testdb.New(t)`): `RecordPoint` → 4 kalitga ham yoziladi; kunlik chegaraga yetgach yozilmasligi; `GetLeaderboard` top-N+you+around_you to'g'ri qaytarishi; `RebuildPeriod` Redis'ni tozalab qayta qurgach bir xil natija berishi (determinizm testi — bu rezilience'ning haqiqiy isboti).
+- `internal/leaderboard/service_test.go` (`redisx.NewTest(t)` + `testdb.New(t)`): `RecordPoint` → 4 kalitga ham yoziladi; kunlik chegaraga yetgach yozilmasligi; `GetLeaderboard` top-N+you+around_you to'g'ri qaytarishi; `RebuildPeriod` Redis'ni tozalab qayta qurishi (determinizm testi — bu rezilience'ning isboti; §5da tushuntirilganidek, natija chegaraga yetmagan profillar uchun aniq bir xil bo'ladi, chegaraga yetgan profillar uchun esa "cap qilingan, cap'siz emas" — bayt-baytiga aynan bir xil emas, balki teng darajada himoyalangan; buni alohida tasdiqlaydi `TestRebuildPeriodAppliesDailyCap`, Task 8).
 - `internal/session/service_test.go`ga integratsion test: to'g'ri javobdan keyin `leaderboard.Service` orqali ball haqiqatan qo'shilishi (nil bo'lsa esa `SubmitAnswer` xatosiz ishlashi — orqaga moslik).
 
 ## 8. Doiradan tashqari (keyingi Plan'larga)
