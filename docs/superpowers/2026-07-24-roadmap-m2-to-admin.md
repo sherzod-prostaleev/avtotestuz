@@ -155,7 +155,7 @@
 | Plan | Nomi |
 |------|------|
 | M6-01 | PWA poydevor (manifest, service-worker, o'rnatiladigan, offline shell) |
-| M6-02 | Offline kontent (savol/belgi cache — offline mashq), sinxronlash |
+| M6-02 | Offline kontent — **partial**: meta/CMS + recently-opened `variants/{n}`; full exam sync open |
 | M6-03 | Web-push bildirishnomalar (agar M4-08 da qilinmagan bo'lsa) |
 
 ---
@@ -164,7 +164,7 @@
 
 | Plan | Nomi |
 |------|------|
-| M7-01 | Observability — **partial**: Prometheus text `/metrics` + admin ops feed/alerts; tracing/Sentry SDK/pager open |
+| M7-01 | Observability — **partial**: Prometheus text `/metrics` + optional Sentry SDK (DSN-gated, no pager) + admin ops feed/alerts; tracing/pager/Grafana open |
 | M7-02 | Load-test — **partial**: k6 smoke + `make load-test`; soak/perf audit + host open |
 | M7-03 | Xavfsizlik auditi (authz review, rate-limit audit, dependency scan, secrets, OWASP checklist) — dep-scan **partial** |
 | M7-04 | Backup + DR — **partial**: local pg_dump + restore drill + RPO/RTO placeholders; off-site/WAL open |

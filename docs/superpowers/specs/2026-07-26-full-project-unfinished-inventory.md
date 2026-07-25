@@ -20,14 +20,14 @@
 | **C — Growth incomplete** | Arena infra→rating→UI (M4-03…05 / J10); TG quiz+notif (M4-07); FE Telegram link; web push (M4-08) | **L** (Arena alone ~6.5 sessions in roadmap) |
 | **D — Content / explanations** | Real LLM (not stub); expert verify at scale; LegalRefs extraction; leftover bilets; signs licensing pipeline hardening | M–L |
 | **E — Learning depth** | FE use of `GET /learn/next` / due-FSRS practice UX; weak-area surfacing beyond stats bars | S–M |
-| **F — Ship / ops** | Staging host (D18), observability depth (Sentry SDK/tracing), off-site backup, soak load-test; smoke metrics/backup/k6 **partial** | L |
-| **G — PWA (M6)** | Manifest, SW, offline shell, offline content sync | M |
+| **F — Ship / ops** | Staging host (D18), tracing/pager depth, off-site backup, soak load-test; Sentry SDK **init** + Prometheus/k6/backup smoke **partial** | L |
+| **G — PWA (M6)** | Manifest, SW, offline shell, recently-opened variant cache; full offline exam sync still large | M |
 | **H — B2B (M5)** | Orgs, seats, teacher dashboard — **requirements thin until a school customer** | L when scoped |
 | **I — Super Admin (M3)** | Contenteditor, users, billing/refund UI, investor metrics, RBAC, audit — **intentionally last** | **L** (~13 sessions) |
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
 
-**Doc drift (U-50, 2026-07-26 #4):** SESSION-HANDOFF §⚡ refreshed after U-42 k6 smoke / U-44 backup drill / U-41 Prometheus `/metrics` / U-39 site CMS cache. Prefer **code + this inventory** if any older plan row still lags.
+**Doc drift (U-50, 2026-07-26 #5):** SESSION-HANDOFF §⚡ refreshed after U-41 Sentry SDK init + U-39 recently-opened variant detail cache (M4-07 still skipped). Prefer **code + this inventory** if any older plan row still lags.
 
 ---
 
@@ -75,9 +75,9 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
-| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** (done-enough) | U-38 | Shell + meta lists + site CMS chrome cache + `/support` shell. Full offline exam/question sync still **large**/open. |
+| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + meta/CMS + `/support` + **recently-opened `variants/{n}`** (prefetch + SW, max 20). Full offline exam/session/images still **large**/open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin grant + teacher read portal** (`/{locale}/teacher`, `/me/teacher/orgs*`). School customer sales / self-serve seats still open. |
-| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Prometheus text on `/metrics` + JSON compat + `SENTRY_DSN` stub + admin ops feed/alerts. Still no tracing/Grafana/Sentry SDK/pager. |
+| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Prometheus text `/metrics` + JSON + **optional Sentry SDK** (DSN-gated, no pager) + admin ops feed/alerts. Still no tracing/Grafana/pager. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | **partial** | Staging | k6 smoke + `make load-test` + dispatch CI. Soak/perf audit + real host still open. |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | **partial** | Host | `scripts/backup` pg_dump + restore drill + RPO/RTO placeholders. Off-site/WAL/host still open (U-02). |
@@ -86,7 +86,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags + product gates + maintenance_mode FE + broadcast + support inbox stub** (`support_ticket`). Telegram forward / SLA still open. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #4: U-42/44/41 + U-39 site CMS cache. Re-run after major waves. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #5: Sentry SDK + U-39 variant detail cache; M4-07 still skipped. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 
@@ -100,7 +100,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 - **i18n** — 3 UI locales mostly; `kaa` half-supported; bot copy single-locale; some historical hardcode risks.
 - **E2E CI / staging / Docker / monitoring / backup** — ship blockers independent of Arena.
 - **Content pipeline** — stub AI, LegalRefs, leftover questions, signs provenance.
-- **PWA + B2B** — PWA foundation + offline shell **partial** (U-38/U-39); full offline content sync + B2B still open.
+- **PWA + B2B** — PWA foundation + offline shell + recently-opened variant cache **partial** (U-38/U-39); full offline exam + B2B sales still open.
 
 ---
 

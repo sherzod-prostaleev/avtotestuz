@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after ops wave U-42/44/41 + U-39 CMS cache)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after Sentry SDK + U-39 variant cache)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 >
@@ -39,14 +39,13 @@
 | M4-08 | Web push | **partial** (foundation + FSRS digest + admin broadcast stub; VAPID ops) |
 | M3 | Super Admin | **partial** M3-0…M3-7 + audit + broadcast + limits + **inbox** + **homepage CMS** + **ops feed/alerts** + **investors stub** |
 | M5 | B2B | **partial** U-40 admin grant + teacher read portal (`/teacher`) |
-| M6 | PWA | **partial** (shell + meta/CMS lists + `/support`; **U-39 done-enough** — full offline exam open) |
+| M6 | PWA | **partial** (shell + meta/CMS + recently-opened **variant detail** cache; **U-39 partial** — full offline exam still open) |
 
-### Shu to‘lqinda yopilgan (2026-07-26 #4 — ops)
-- **U-42** k6 smoke + `make load-test` + dispatch-only CI (not prod soak)
-- **U-44** `scripts/backup` pg_dump + restore drill + RPO/RTO placeholders
-- **U-41** Prometheus text `/metrics` (+ JSON compat) + `SENTRY_DSN` stub
-- **U-39** site CMS list cache (`site/contacts|banner|home`) + remaining exam-sync gap restated
-- Prior #3 still stands: inbox, homepage CMS, ops feed/alerts, investors stub
+### Shu to‘lqinda yopilgan (2026-07-26 #5 — Sentry + variant cache)
+- **U-41** optional Sentry SDK (FE+BE) when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` set; empty = no-op; **no pager**
+- **U-39** recently-opened ticket `variants/{n}` SW cache + prefetch (not full offline exam)
+- **M4-07 / U-10** re-checked — still **skipped** (design defers quiz/cron; no tiny vertical)
+- Prior #4 still stands: k6 smoke, backup drill, Prometheus `/metrics`, site CMS cache
 
 ### Footer aloqa — CMS (U-17 / M3-4)
 Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero: `/{locale}/admin/cms/home` + `GET /site/home`. Bo‘sh maydonlar Landing i18n. Ops `/ops/*` deprecated bridges.
@@ -56,7 +55,7 @@ Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero:
 Inventory: pick smallest honest complete still open (legal CMS / content signs stub /
 U-35 admin credential PDF / U-27 live recon when keys exist / FE Next majors).
 Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales,
-full offline exam sync, inventing Metabase/Grafana.
+full offline exam sync, inventing Metabase/Grafana / pager.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
@@ -66,7 +65,7 @@ Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.m
 - Staging remote host / registry (U-02 D18)
 - Real LLM explanations (U-12); M4-07 quiz (U-10 skipped until scoped)
 - Full offline exam sync (U-39 remainder) — **large**
-- BI Metabase/Grafana (U-46 depth); Sentry SDK + tracing/pager (U-41 remainder)
+- BI Metabase/Grafana (U-46 depth); tracing / **pager** (U-41 remainder after SDK)
 - Off-site backup/WAL + soak load-test on real host (U-44/U-42 remainders; need U-02)
 - B2B school sales / self-serve seats
 
@@ -128,7 +127,7 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 | U-27 payrecon | partial dry-run skeleton |
 | U-32 SEO shells | ✅ (jarimalar honest shell) |
 | U-35 Grand Mock certificate | partial (share page; PDF/admin open) |
-| U-38/39 PWA | foundation + meta list cache; U-39 **done-enough** |
+| U-38/39 PWA | foundation + meta/CMS + recently-opened variant detail; exam sync large |
 | U-45 M3 | M3-0…M3-7 + audit + broadcast + flags + limits + inbox + home CMS + ops feed/alerts + investors stub |
 | U-40 B2B | admin grant + teacher read portal |
 
