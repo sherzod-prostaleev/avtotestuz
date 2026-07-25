@@ -177,6 +177,7 @@
     "navSigns": "Дорожные знаки",
     "navMistakes": "Банк ошибок",
     "navSaved": "Сохранённые вопросы",
+    "navLeaderboard": "Рейтинг",
     "navStats": "Статистика и анализ",
     "navProfile": "Профиль и настройки",
     "navPremium": "Premium VIP",
@@ -701,5 +702,27 @@
     "expiredTitle": "Пробный период закончился",
     "expiredBody": "Оформите подписку для безлимитной практики и всех билетов.",
     "upgrade": "Получить Premium"
+  },
+  "Leaderboard": {
+    "backHome": "Вернуться на главную",
+    "title": "Рейтинг",
+    "subtitle": "Соревнуйтесь с другими учениками — очки начисляются за каждый правильный ответ.",
+    "periodGroupLabel": "Выбор периода рейтинга",
+    "periodDaily": "День",
+    "periodWeekly": "Неделя",
+    "periodMonthly": "Месяц",
+    "periodAlltime": "Всё время",
+    "loading": "Загружаем рейтинг...",
+    "loadError": "Не удалось загрузить рейтинг.",
+    "retry": "Попробовать снова",
+    "yourPositionLabel": "Ваша позиция",
+    "rankValue": "#{rank}",
+    "rankNone": "—",
+    "scoreUnit": "{score, plural, one {# очко} few {# очка} many {# очков} other {# очка}}",
+    "notRankedYet": "Вы ещё не заработали очков в этом периоде. Отвечайте правильно, чтобы попасть в рейтинг!",
+    "topTitle": "Топ-10",
+    "topEmpty": "В этом периоде пока никто не набрал очков. Будьте первым!",
+    "aroundYouTitle": "Ваши соседи по рейтингу",
+    "youBadge": "Вы"
   }
 }

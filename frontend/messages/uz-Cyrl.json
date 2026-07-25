@@ -177,6 +177,7 @@
     "navSigns": "Йўл белгилари",
     "navMistakes": "Хатолар банки",
     "navSaved": "Сақланган саволлар",
+    "navLeaderboard": "Рейтинг",
     "navStats": "Статистика ва таҳлил",
     "navProfile": "Профил ва созламалар",
     "navPremium": "Premium VIP",
@@ -701,5 +702,27 @@
     "expiredTitle": "Синов муддати тугади",
     "expiredBody": "Чексиз машқ ва барча билетлар учун обунани расмийлаштиринг.",
     "upgrade": "Premium олиш"
+  },
+  "Leaderboard": {
+    "backHome": "Бош саҳифага қайтиш",
+    "title": "Рейтинг",
+    "subtitle": "Бошқа ўқувчилар билан беллашинг — ҳар бир тўғри жавоб учун балл берилади.",
+    "periodGroupLabel": "Рейтинг даврини танлаш",
+    "periodDaily": "Кун",
+    "periodWeekly": "Ҳафта",
+    "periodMonthly": "Ой",
+    "periodAlltime": "Барча вақт",
+    "loading": "Рейтингни юклаяпмиз...",
+    "loadError": "Рейтингни юклаб бўлмади.",
+    "retry": "Қайта уриниб кўринг",
+    "yourPositionLabel": "Сизнинг ўрнингиз",
+    "rankValue": "#{rank}",
+    "rankNone": "—",
+    "scoreUnit": "{score} балл",
+    "notRankedYet": "Сиз бу даврда ҳали балл тўпламадингиз. Рейтингга киришиш учун тўғри жавоб беринг!",
+    "topTitle": "ТОП-10",
+    "topEmpty": "Бу даврда ҳали ҳеч ким балл тўпламади. Биринчи бўлинг!",
+    "aroundYouTitle": "Рейтингдаги қўшниларингиз",
+    "youBadge": "Сиз"
   }
 }
