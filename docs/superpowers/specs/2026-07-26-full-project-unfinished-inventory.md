@@ -75,7 +75,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
-| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** (done-enough) | U-38 | Shell + **bilets/categories/signs** meta cache + public `/support` shell. Full offline exam/question sync still **large**/open. |
+| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** (done-enough) | U-38 | Shell + meta lists + site CMS chrome cache + `/support` shell. Full offline exam/question sync still **large**/open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin grant + teacher read portal** (`/{locale}/teacher`, `/me/teacher/orgs*`). School customer sales / self-serve seats still open. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Prometheus text on `/metrics` + JSON compat + `SENTRY_DSN` stub + admin ops feed/alerts. Still no tracing/Grafana/Sentry SDK/pager. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | **partial** | Staging | k6 smoke + `make load-test` + dispatch CI. Soak/perf audit + real host still open. |

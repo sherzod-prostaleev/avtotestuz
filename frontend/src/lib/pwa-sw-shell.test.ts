@@ -23,6 +23,9 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain("networkFirstMetaList");
     expect(sw).toContain("categories");
     expect(sw).toContain("signs");
+    expect(sw).toContain("site");
+    expect(sw).toContain("contacts");
+    expect(sw).toContain('META_CACHE = "dg-meta-v2"');
     expect(sw).toContain('pathname.startsWith("/api/")');
     expect(sw).toContain('pathname.startsWith("/bff/")');
   });
@@ -35,6 +38,7 @@ describe("PWA offline shell service worker", () => {
 
   it("does not claim full offline exam/content sync", () => {
     expect(sw).toMatch(/No full offline exam/);
+    expect(sw).toMatch(/gap remains large/);
     expect(sw).not.toMatch(/IndexedDB|questions.?catalog/i);
   });
 });

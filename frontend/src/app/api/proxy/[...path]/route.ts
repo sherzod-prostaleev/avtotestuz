@@ -14,9 +14,8 @@ function isPublicPath(path: string[]): boolean {
   if (publicPaths.has(path[0])) return true;
   // GET /billing/providers — kill-switch status for checkout UI
   if (path[0] === "billing" && path[1] === "providers") return true;
-  // GET /site/contacts — public footer chrome (no secrets)
-  // GET /site/banner — public support in-app banner
-  if (path[0] === "site" && (path[1] === "contacts" || path[1] === "banner")) return true;
+  // GET /site/contacts|banner|home — public CMS chrome (no secrets)
+  if (path[0] === "site" && (path[1] === "contacts" || path[1] === "banner" || path[1] === "home")) return true;
   // GET /flags — public feature-flag snapshot
   return path[0] === "flags";
 }

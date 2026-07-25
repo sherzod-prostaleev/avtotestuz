@@ -1,10 +1,10 @@
 /* Driver Go — push + offline shell service worker (M4-08 / M6 U-38/U-39).
- * Shell cache + thin content-metadata API cache (variants / categories / signs lists).
- * No full offline exam / question catalog sync.
+ * Shell cache + thin metadata/CMS API cache (variants / categories / signs / site chrome).
+ * No full offline exam / question catalog sync — that gap remains large (U-39).
  */
 const SHELL_CACHE = "dg-shell-v2";
 const RUNTIME_CACHE = "dg-runtime-v2";
-const META_CACHE = "dg-meta-v1";
+const META_CACHE = "dg-meta-v2";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -20,9 +20,9 @@ const PRECACHE_URLS = [
 const SHELL_PATH_RE =
   /^\/(?:(uz-Latn|uz-Cyrl|ru)(?:\/(?:login|oferta|privacy|narxlar|jarimalar|support)?)?)?\/?$/;
 
-/** Metadata list endpoints safe to cache (not question bodies / exam payloads). */
+/** Metadata / public CMS list endpoints safe to cache (not question bodies / exam payloads). */
 const META_LIST_RE =
-  /^\/api\/proxy\/(?:variants|me\/variants|categories|signs)(?:\?|$)/;
+  /^\/api\/proxy\/(?:variants|me\/variants|categories|signs|site\/(?:contacts|banner|home))(?:\?|$)/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

@@ -9,6 +9,7 @@
 | Shell | Precache offline.html + icons; network-first nav for public shells |
 | Public shells | login, oferta, privacy, narxlar, jarimalar, **support** |
 | Meta lists | network-first `/api/proxy/{variants,me/variants,categories,signs}` |
+| Site CMS | network-first `/api/proxy/site/{contacts,banner,home}` (2026-07-26 follow-up) |
 | Honesty | SW comment + tests: no IndexedDB question catalog |
 
 ## Explicitly NOT done (large / separate plan)
@@ -23,3 +24,5 @@
 | Check | Result |
 |-------|--------|
 | vitest `pwa-sw-shell.test.ts` | pass |
+
+**Follow-up:** see `2026-07-26-u39-site-cms-cache-devops-audit.md` — remaining exam-sync gap still large.
