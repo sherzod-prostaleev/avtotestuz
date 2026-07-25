@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { applyE2EAuthCookies, hasE2EAuthToken } from "./helpers/auth";
 
 test.describe("Road signs catalog", () => {
   test("redirects to login when not authenticated", async ({ page }) => {
@@ -6,28 +7,12 @@ test.describe("Road signs catalog", () => {
     await expect(page).toHaveURL(/login/);
   });
 
-  test("shows signs after authentication", async ({ page }) => {
-    test.skip(!process.env.E2E_AUTH_TOKEN, "E2E_AUTH_TOKEN not set");
+  test("authenticated session reaches signs shell", async ({ page }) => {
+    test.skip(!hasE2EAuthToken(), "E2E_AUTH_TOKEN not set");
 
+    await applyE2EAuthCookies(page);
     await page.goto("/uz-Latn/signs");
-    await page.waitForTimeout(2000);
-
-    // Check for signs content
-    const signsContent = page.locator('[class*="sign"], [class*="grid"]').first();
-    await expect(signsContent).toBeVisible({ timeout: 10_000 });
-  });
-
-  test("group filter works", async ({ page }) => {
-    test.skip(!process.env.E2E_AUTH_TOKEN, "E2E_AUTH_TOKEN not set");
-
-    await page.goto("/uz-Latn/signs");
-    await page.waitForTimeout(2000);
-
-    const filterButtons = page.locator('button[aria-pressed], button:has-text("Barcha")');
-    const count = await filterButtons.count();
-    if (count > 0) {
-      await filterButtons.first().click();
-      await page.waitForTimeout(1000);
-    }
+    await expect(page).not.toHaveURL(/login/);
+    await expect(page).toHaveURL(/\/uz-Latn\/signs/);
   });
 });

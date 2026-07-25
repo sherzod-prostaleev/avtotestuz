@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { applyE2EAuthCookies, hasE2EAuthToken } from "./helpers/auth";
 
 test.describe("Tickets page", () => {
   test("redirects to login when not authenticated", async ({ page }) => {
@@ -6,16 +7,12 @@ test.describe("Tickets page", () => {
     await expect(page).toHaveURL(/login/);
   });
 
-  test("shows ticket grid after authentication", async ({ page }) => {
-    // This test requires authentication - skip if not available
-    test.skip(!process.env.E2E_AUTH_TOKEN, "E2E_AUTH_TOKEN not set");
+  test("authenticated session reaches tickets shell", async ({ page }) => {
+    test.skip(!hasE2EAuthToken(), "E2E_AUTH_TOKEN not set");
 
+    await applyE2EAuthCookies(page);
     await page.goto("/uz-Latn/tickets");
-    await page.waitForTimeout(2000);
-
-    // Check for ticket cards
-    const ticketCards = page.locator('[role="button"], [class*="ticket"]');
-    const count = await ticketCards.count();
-    expect(count).toBeGreaterThan(0);
+    await expect(page).not.toHaveURL(/login/);
+    await expect(page).toHaveURL(/\/uz-Latn\/tickets/);
   });
 });

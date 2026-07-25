@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { applyE2EAuthCookies, hasE2EAuthToken } from "./helpers/auth";
 
 test.describe("Session flow", () => {
   test("redirects to login when not authenticated", async ({ page }) => {
@@ -6,16 +7,12 @@ test.describe("Session flow", () => {
     await expect(page).toHaveURL(/login/);
   });
 
-  test("session start page shows mode options", async ({ page }) => {
-    test.skip(!process.env.E2E_AUTH_TOKEN, "E2E_AUTH_TOKEN not set");
+  test("authenticated session reaches session start shell", async ({ page }) => {
+    test.skip(!hasE2EAuthToken(), "E2E_AUTH_TOKEN not set");
 
+    await applyE2EAuthCookies(page);
     await page.goto("/uz-Latn/session/start?mode=variant&variant_id=1");
-    await page.waitForTimeout(2000);
-
-    // Check for session start content
-    const startContent = page.locator('button:has-text("Boshlash"), button:has-text("Start")').first();
-    if (await startContent.isVisible()) {
-      await expect(startContent).toBeVisible();
-    }
+    await expect(page).not.toHaveURL(/login/);
+    await expect(page).toHaveURL(/\/uz-Latn\/session\/start/);
   });
 });

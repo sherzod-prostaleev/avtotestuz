@@ -77,9 +77,10 @@ jobs:
         run: npm run build
 
   # FE-only Playwright smoke (landing + auth shells + unauth redirects).
-  # Auth-gated cases skip unless E2E_AUTH_TOKEN is set — full-stack e2e still
-  # needs staging/compose (documented in inventory U-14 notes). Runs on every
-  # CI trigger; Chromium-only to keep the job lean.
+  # Auth-gated session-shell cases run only when repo secret E2E_AUTH_TOKEN is
+  # set (injected as the `at` cookie — see frontend/e2e/helpers/auth.ts).
+  # Absent secret → those tests skip; job stays green. Do not commit tokens.
+  # Full-stack API journeys still need staging/compose (inventory U-14).
   e2e:
     runs-on: ubuntu-latest
     defaults:
@@ -102,3 +103,6 @@ jobs:
           CI: true
           # Avoid colliding with anything else on the runner; webServer reads PORT.
           PORT: "3000"
+          # Empty when the secret is unset → auth-gated specs skip.
+          E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
+          E2E_REFRESH_TOKEN: ${{ secrets.E2E_REFRESH_TOKEN }}
