@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 status refresh)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after Admin/B2B wave)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 >
@@ -35,29 +35,30 @@
 | M4-01/02 | Leaderboard BE + UI | ✅ |
 | M4-03/04 | Arena infra + rating/history | ✅ |
 | M4-06 | Telegram bot poydevor + FE bog‘lash (U-09) | ✅ |
-| M4-07 | TG daily quiz + notif | ⬜ deferred (U-10) |
+| M4-07 | TG daily quiz + notif | ⬜ **skipped** (U-10 — no tiny vertical) |
 | M4-08 | Web push | **partial** (foundation + FSRS digest send; VAPID/campaigns open) |
-| M3 | Super Admin | **partial** M3-0…M3-7 flags (analytics + feature_flag); broadcast/inbox next; ops stubs deprecated |
-| M6 | PWA | **partial** (manifest/SW/icons + bilets list cache; full offline exam open) |
+| M3 | Super Admin | **partial** M3-0…M3-7 + analytics + ops→admin deprecation; broadcast/inbox/logs/alerts open |
+| M5 | B2B | **partial** U-40 org/seats/admin b2b grant; teacher dashboard open |
+| M6 | PWA | **partial** (shell + variants/categories/signs meta cache; full offline exam open) |
 
 ### Footer aloqa — CMS (U-17 / M3-4)
-Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydonlar `Landing.footer*` i18n placeholder. Ops `/ops/contacts` deprecated bridge.
+Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydonlar `Landing.footer*` i18n placeholder. Ops `/ops/*` deprecated bridges.
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx: U-10 TG quiz — skip with note if no tiny vertical;
-then U-35 certificate PDF/share, U-39 offline, U-27 payrecon, U-50 refresh.
-Skip external: U-03 keys, U-02 host, U-12 LLM.
+Inventory: support broadcast stub OR admin audit log UI OR wire feature flags
+into product gates; teacher dashboard only if school customer appears.
+Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
+Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
 
 ### Qoldiq (tashqi / katta)
 - Payme/Click **prod** keys + yuridik shaxs (U-03)
 - Staging remote host / registry (U-02 D18)
-- Real LLM explanations (U-12); M4-07 quiz (U-10)
-- Full M3 Admin, BI, backup/DR, load-test
-- `referral_attribution` dead table — **dropped** (U-23 / `0028`)
-- Observability: `/metrics` process counters shipped (U-41 slice); Prometheus/Sentry/alerting still open
+- Real LLM explanations (U-12); M4-07 quiz (U-10 skipped until scoped)
+- Admin broadcast/inbox, BI (U-46), backup/DR (U-44), load-test (U-42)
+- Prometheus/Sentry/alerting beyond process `/metrics` + M3-5
 
 ---
 

@@ -86,7 +86,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags table+UI done (M3-7).** Support inbox/broadcast still missing. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26: SESSION-HANDOFF §⚡/§4, roadmap M4, design-system J10 aligned to code. Re-run after major waves. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26: Admin M3-4…M3-7, B2B U-40, U-10 skip, U-35 share/print, U-39 meta cache, U-27 admin recon. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 
