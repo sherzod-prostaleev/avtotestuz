@@ -23,7 +23,7 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...buildClientIPAssertionHeaders(request),
+        ...buildClientIPAssertionHeaders(request, "/auth/register"),
       },
       body,
     });

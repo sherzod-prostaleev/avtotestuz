@@ -1,7 +1,6 @@
 import { createHmac } from "node:crypto";
 import { isIP } from "node:net";
 
-const ASSERTION_PATH = "/api/v1/auth/otp/request";
 const MIN_SECRET_BYTES = 32;
 const MAX_TRUSTED_PROXY_HOPS = 10;
 
@@ -62,26 +61,40 @@ function trustedClientIP(request: Request, trustedProxyHops: number): string {
   return clientIP;
 }
 
-function signingPayload(timestamp: string, clientIP: string): string {
-  return ["v1", timestamp, clientIP, "POST", ASSERTION_PATH].join("\n");
+function normalizeAssertionPath(backendPath: string): string {
+  if (backendPath.startsWith("/api/v1/")) return backendPath;
+  if (backendPath.startsWith("/api/v1")) return backendPath;
+  const trimmed = backendPath.startsWith("/") ? backendPath : `/${backendPath}`;
+  return `/api/v1${trimmed}`;
+}
+
+function signingPayload(timestamp: string, clientIP: string, backendPath: string): string {
+  return ["v1", timestamp, clientIP, "POST", normalizeAssertionPath(backendPath)].join("\n");
 }
 
 /**
- * Builds a short-lived, server-only assertion for the OTP backend.
+ * Builds a short-lived, server-only assertion for auth rate-limit IP binding.
+ *
+ * `backendPath` must match the backend route path the BFF will call (e.g.
+ * `/auth/login` or `/api/v1/auth/login`) — the HMAC covers method+path so a
+ * signature minted for OTP cannot be replayed onto login/register.
  *
  * In development the mechanism is disabled when both env vars are absent, so
  * the backend safely rate-limits the BFF socket address. In production, or
  * whenever either env var is supplied, incomplete/untrusted input throws and
  * the route returns its existing network_error response instead of forwarding.
  */
-export function buildClientIPAssertionHeaders(request: Request): Record<string, string> {
+export function buildClientIPAssertionHeaders(
+  request: Request,
+  backendPath: string
+): Record<string, string> {
   const config = loadConfig();
   if (config === null) return {};
 
   const clientIP = trustedClientIP(request, config.trustedProxyHops);
   const timestamp = Math.floor(Date.now() / 1000).toString();
   const signature = createHmac("sha256", config.secret)
-    .update(signingPayload(timestamp, clientIP))
+    .update(signingPayload(timestamp, clientIP, backendPath))
     .digest("base64url");
 
   return {

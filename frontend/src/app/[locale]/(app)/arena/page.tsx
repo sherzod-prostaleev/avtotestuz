@@ -187,10 +187,12 @@ export default function ArenaPage() {
     if (!socketRef.current) {
       socketRef.current = new ArenaSocket();
     }
-    setPhase("connecting");
+    if (!socketRef.current.isOpen()) {
+      setPhase("connecting");
+    }
     await socketRef.current.connect({
       onMessage: handleEnv,
-      onOpen: () => setPhase("lobby"),
+      onOpen: () => setPhase((p) => (p === "connecting" || p === "idle" ? "lobby" : p)),
       onError: () => {
         setPhase("error");
         setStatusMsg(t("connectError"));
@@ -204,7 +206,11 @@ export default function ArenaPage() {
   const findMatch = async () => {
     try {
       await ensureSocket();
-      socketRef.current?.send("queue.join", { locale });
+      const ok = socketRef.current?.send("queue.join", { locale }) ?? false;
+      if (!ok) {
+        setPhase("error");
+        setStatusMsg(t("connectError"));
+      }
     } catch {
       setPhase("error");
       setStatusMsg(t("connectError"));
@@ -220,7 +226,8 @@ export default function ArenaPage() {
   const createInvite = async () => {
     try {
       await ensureSocket();
-      socketRef.current?.send("invite.create");
+      const ok = socketRef.current?.send("invite.create") ?? false;
+      if (!ok) setStatusMsg(t("connectError"));
     } catch {
       setStatusMsg(t("connectError"));
     }
@@ -230,7 +237,9 @@ export default function ArenaPage() {
     if (!joinCode.trim()) return;
     try {
       await ensureSocket();
-      socketRef.current?.send("invite.join", { code: joinCode.trim(), locale });
+      const ok =
+        socketRef.current?.send("invite.join", { code: joinCode.trim(), locale }) ?? false;
+      if (!ok) setStatusMsg(t("connectError"));
     } catch {
       setStatusMsg(t("connectError"));
     }

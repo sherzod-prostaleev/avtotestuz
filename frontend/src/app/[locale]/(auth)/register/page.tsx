@@ -52,25 +52,49 @@ export default function RegisterPage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phone: normalizePhone(phone),
-          password,
-          name: name.trim() || undefined,
-        }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error?.code ?? "unknown");
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            phone: normalizePhone(phone),
+            password,
+            name: name.trim() || undefined,
+          }),
+        });
+      } catch {
+        setError("network_error");
         return;
       }
-      await applyPendingReferralCode();
-      await migrateDemoProgressOnLogin();
+
+      let code = "unknown";
+      try {
+        const json = (await res.json()) as { error?: { code?: string } };
+        code = json.error?.code ?? "unknown";
+      } catch {
+        if (!res.ok) {
+          setError("network_error");
+          return;
+        }
+      }
+
+      if (!res.ok) {
+        setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
+        return;
+      }
+
+      try {
+        await applyPendingReferralCode();
+      } catch {
+        /* best-effort */
+      }
+      try {
+        await migrateDemoProgressOnLogin();
+      } catch {
+        /* best-effort */
+      }
       router.push(`/${locale}/dashboard`);
-    } catch {
-      setError("network_error");
     } finally {
       setSubmitting(false);
     }

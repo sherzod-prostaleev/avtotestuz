@@ -38,8 +38,17 @@ export default function LoginPage() {
   }, []);
 
   async function finishAuth() {
-    await applyPendingReferralCode();
-    await migrateDemoProgressOnLogin();
+    // Side-effects must never block a successful login — cookies are already set.
+    try {
+      await applyPendingReferralCode();
+    } catch {
+      /* best-effort */
+    }
+    try {
+      await migrateDemoProgressOnLogin();
+    } catch {
+      /* best-effort */
+    }
     router.push(`/${locale}/dashboard`);
   }
 
@@ -49,23 +58,37 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const endpoint = setPasswordMode ? "/api/auth/set-password" : "/api/auth/login";
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: normalizePhone(phone), password }),
-      });
-      const json = await res.json();
+      let res: Response;
+      try {
+        res = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizePhone(phone), password }),
+        });
+      } catch {
+        setError("network_error");
+        return;
+      }
+
+      let code = "unknown";
+      try {
+        const json = (await res.json()) as { error?: { code?: string } };
+        code = json.error?.code ?? "unknown";
+      } catch {
+        if (!res.ok) {
+          setError("network_error");
+          return;
+        }
+      }
+
       if (!res.ok) {
-        const code = json.error?.code ?? "unknown";
         if (code === "password_not_set") {
           setSetPasswordMode(true);
         }
-        setError(code);
+        setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
         return;
       }
       await finishAuth();
-    } catch {
-      setError("network_error");
     } finally {
       setSubmitting(false);
     }
