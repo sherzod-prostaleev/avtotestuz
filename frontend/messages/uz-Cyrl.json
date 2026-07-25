@@ -1325,5 +1325,17 @@
     "errorGrant": "Grant амалга ошмади.",
     "errorForbiddenRead": "users.read рухсати йўқ.",
     "errorForbiddenGrant": "users.entitlements.grant рухсати йўқ."
+  },
+  "AdminRecon": {
+    "title": "Payment recon",
+    "subtitle": "Local payment↔provider txn dry-run (U-27). Live merchant API йўқ.",
+    "note": "Payme/Click statement fetch invent қилинмаган — фақат DB қаторлари.",
+    "hours": "Соат",
+    "run": "Ишга тушириш",
+    "idle": "Натижа учун Run босинг.",
+    "empty": "Finding йўқ.",
+    "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "payments.read рухсати йўқ."
   }
 }

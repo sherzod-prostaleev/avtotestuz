@@ -1325,5 +1325,17 @@
     "errorGrant": "Grant не выполнен.",
     "errorForbiddenRead": "Нет права users.read.",
     "errorForbiddenGrant": "Нет права users.entitlements.grant."
+  },
+  "AdminRecon": {
+    "title": "Payment recon",
+    "subtitle": "Локальный dry-run payment↔provider txn (U-27). Без live merchant API.",
+    "note": "Statement fetch не выдуман — только строки БД.",
+    "hours": "Часы",
+    "run": "Запустить",
+    "idle": "Нажмите Run для результата.",
+    "empty": "Findings нет.",
+    "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права payments.read."
   }
 }

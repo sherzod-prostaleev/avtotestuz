@@ -58,6 +58,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
         { href: `${base}/payments/transactions`, label: "Transactions" },
         { href: `${base}/payments/refunds`, label: "Refunds" },
         { href: `${base}/payments/providers`, label: "Providers" },
+        { href: `${base}/payments/recon`, label: "Recon dry-run" },
       ],
     },
     {

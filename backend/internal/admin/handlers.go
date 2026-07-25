@@ -15,6 +15,7 @@ import (
 	"github.com/redis/go-redis/v9"
 
 	"avtotest.uz/backend/internal/billing"
+	"avtotest.uz/backend/internal/billing/recon"
 	"avtotest.uz/backend/internal/httpx"
 )
 
@@ -78,6 +79,7 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Get("/payments/transactions", h.listPayments)
 			prr.Get("/payments/transactions/{id}", h.getPayment)
 			prr.Get("/payments/providers", h.listPaymentProviders)
+			prr.Get("/payments/recon", h.runPaymentRecon)
 		})
 		pr.Group(func(prr chi.Router) {
 			prr.Use(RequirePermission("payments.keys.manage"))
@@ -546,6 +548,28 @@ func (h *Handler) listPaymentProviders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) runPaymentRecon(w http.ResponseWriter, r *http.Request) {
+	hours, _ := strconv.Atoi(r.URL.Query().Get("hours"))
+	if hours <= 0 {
+		hours = 24
+	}
+	if hours > 168 {
+		hours = 168
+	}
+	to := time.Now().UTC()
+	from := to.Add(-time.Duration(hours) * time.Hour)
+	out, err := recon.Run(r.Context(), h.Pool, recon.Options{From: from, To: to})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "recon failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"dry_run":  true,
+		"note":     "Local payment↔provider txn consistency only — no live Payme/Click API calls",
+		"result":   out,
+	})
 }
 
 type patchProviderBody struct {

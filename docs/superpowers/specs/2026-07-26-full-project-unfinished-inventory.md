@@ -63,7 +63,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-24** | P2 | FE | **Demo multi-question strength** | **done** | Demo BE | `demoQuestionCount=5` (first 5 of free bilet 1); random draw + whitelist enforcement tests updated. |
 | **U-25** | P2 | BE | **SMS OTP (Eskiz/PlayMobile)** | deferred | Config | `OTP_CHANNEL=sms` rejected — “no sender implementation”. Telegram Gateway + sandbox only. |
 | **U-26** | P2 | BE | **Anonymous / pre-login event capture** | deferred | Events M1 | Authenticated-only `POST /events`; anon deferred in Plan 05. |
-| **U-27** | P2 | BE | **Payment provider reconciliation job** | **partial** | Prod payments | Local dry-run skeleton: `cmd/payrecon` + `internal/billing/recon` (payment vs payme/click txn consistency; mirrors GetStatement window). Live outbound provider APIs + admin findings queue still need prod keys / M3. |
+| **U-27** | P2 | BE | **Payment provider reconciliation job** | **partial** | Prod payments | Local dry-run + **Admin `/payments/recon`** (U-27). Live outbound provider APIs still need prod keys. |
 | **U-28** | P2 | Content | **LegalRefs machine extraction** | partial | Import | Comments imported as prose; structured `legal_refs` largely empty (honest gap in import handoff). |
 | **U-29** | P2 | Content | **15 biletsiz leftover questions** | **done** (UX copy) | Import design | Still valid for practice/FSRS; not in numbered bilets. Tickets + Practice copy now explain this honestly. |
 | **U-30** | P2 | Content | **Signs catalog licensing pipeline** | partial | Research ✅ | Live catalog exists (gensigns / seed path); research still flags lex.uz extraction **UNVERIFIED** pieces — harden provenance for legal comfort. |
@@ -77,7 +77,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
 | **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + **bilets/categories/signs list** network-first cache. Full offline exam/question sync still open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin b2b grant landed** (mig `0033`, `/admin/v1/b2b/orgs*`, UI). Teacher dashboard / school portal still open. |
-| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | `/healthz`+`/readyz`+`GET /metrics` (U-41). **M3-5 Admin:** `/admin/v1/monitoring/{health,metrics,jobs}` + UI. Still no Prometheus/Sentry/tracing/alerting. |
+| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Covered for this wave by U-41 metrics + **M3-5 admin monitoring**. Still no Prometheus/Sentry/tracing/alerting. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |

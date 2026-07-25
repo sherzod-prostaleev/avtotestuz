@@ -1325,5 +1325,17 @@
     "errorGrant": "Grant amalga oshmadi.",
     "errorForbiddenRead": "users.read ruxsati yo‘q.",
     "errorForbiddenGrant": "users.entitlements.grant ruxsati yo‘q."
+  },
+  "AdminRecon": {
+    "title": "Payment recon",
+    "subtitle": "Local payment↔provider txn dry-run (U-27). Live merchant API yo‘q.",
+    "note": "Payme/Click statement fetch invent qilinmagan — faqat DB qatorlari.",
+    "hours": "Soat",
+    "run": "Ishga tushirish",
+    "idle": "Natija uchun Run bosing.",
+    "empty": "Finding yo‘q.",
+    "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "payments.read ruxsati yo‘q."
   }
 }

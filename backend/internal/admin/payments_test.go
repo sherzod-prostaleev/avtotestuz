@@ -224,4 +224,25 @@ func TestAdminPaymentsListDetailProviders(t *testing.T) {
 			t.Fatalf("finance patch providers status=%d want 403 (keys.manage)", w.Code)
 		}
 	})
+
+	t.Run("recon dry-run", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/admin/v1/payments/recon?hours=24", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("recon status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data struct {
+				DryRun bool `json:"dry_run"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if !env.Data.DryRun {
+			t.Fatal("expected dry_run true")
+		}
+	})
 }
