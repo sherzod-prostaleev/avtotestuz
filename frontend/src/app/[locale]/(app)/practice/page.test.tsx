@@ -31,6 +31,7 @@ function mockEndpoints(overrides: Partial<Record<string, unknown>> = {}) {
     if (path.startsWith("categories")) return (overrides.categories ?? CATEGORIES) as never;
     if (path.startsWith("variants")) return (overrides.variants ?? VARIANTS) as never;
     if (path.startsWith("me/practice-allowance")) return (overrides.allowance ?? ALLOWANCE) as never;
+    if (path.startsWith("me/stats")) return (overrides.stats ?? { due_count: 0 }) as never;
     return [] as never;
   });
 }
@@ -113,6 +114,16 @@ describe("PracticePage", () => {
     expect(pushMock).toHaveBeenCalledWith(
       "/uz-Latn/session/start?mode=practice&count=20&has_image=false"
     );
+  });
+
+  it("starts an FSRS review session from the due source", async () => {
+    mockEndpoints({ stats: { due_count: 7 } });
+    renderWithIntl();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(FSRS\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=review&count=7");
   });
 
   it("accepts a custom question count", async () => {

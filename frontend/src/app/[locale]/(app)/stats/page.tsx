@@ -32,6 +32,7 @@ export default function StatsPage() {
     practice: t("modePractice"),
     mistakes: t("modeMistakes"),
     grand_mock: t("modeGrandMock"),
+    review: t("modeReview"),
   };
   const statusLabels: Record<SessionSummary["status"], string> = {
     in_progress: t("statusInProgress"),

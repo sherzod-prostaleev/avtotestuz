@@ -20,12 +20,13 @@ import {
   Play,
   RefreshCw,
   Signpost,
+  BrainCircuit,
 } from "lucide-react";
 
 const COUNT_PRESETS = [20, 50, 100] as const;
 const MAX_CUSTOM_COUNT = 200;
 
-type Source = "category" | "variant" | "image" | "sign";
+type Source = "due" | "category" | "variant" | "image" | "sign";
 
 interface CategoryItem {
   code: string;
@@ -36,6 +37,10 @@ interface CategoryItem {
 
 interface VariantItem {
   number: number;
+}
+
+interface StatsDTO {
+  due_count: number;
 }
 
 export default function PracticePage() {
@@ -54,6 +59,7 @@ export default function PracticePage() {
   const [customCount, setCustomCount] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<boolean>(false);
+  const [dueCount, setDueCount] = useState<number>(0);
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
@@ -63,13 +69,15 @@ export default function PracticePage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [cats, variants] = await Promise.all([
+      const [cats, variants, stats] = await Promise.all([
         apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
         apiGet<VariantItem[]>("variants"),
+        apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0 })),
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       setCategories(ordered);
       setSelectedCategory(ordered[0]?.code ?? "");
+      setDueCount(Number.isInteger(stats.due_count) ? stats.due_count : 0);
 
       const highest = variants.reduce((max, item) => Math.max(max, item.number), 0);
       setVariantCount(highest);
@@ -81,6 +89,7 @@ export default function PracticePage() {
       setCategories([]);
       setSelectedCategory("");
       setVariantCount(0);
+      setDueCount(0);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -109,7 +118,9 @@ export default function PracticePage() {
   const clamped = Boolean(allowance && !allowance.unlimited && !exhausted && effectiveCount < count);
 
   const canStart = (() => {
-    if (loading || exhausted) return false;
+    if (loading) return false;
+    if (source === "due") return dueCount > 0;
+    if (exhausted) return false;
     if (source === "category") return Boolean(selectedCategory);
     if (source === "variant") return rangeValid;
     if (source === "sign") return signsAvailable;
@@ -117,6 +128,11 @@ export default function PracticePage() {
   })();
 
   const handleStart = () => {
+    if (source === "due") {
+      const reviewCount = Math.min(20, Math.max(dueCount, 1));
+      router.push(`/${locale}/session/start?mode=review&count=${reviewCount}`);
+      return;
+    }
     const base = `/${locale}/session/start?mode=practice&count=${count}`;
     if (source === "category") {
       router.push(`${base}&category_id=${encodeURIComponent(selectedCategory)}`);
@@ -142,6 +158,13 @@ export default function PracticePage() {
   };
 
   const sources: { value: Source; icon: typeof BookOpen; label: string; hint: string; disabled?: boolean }[] = [
+    {
+      value: "due",
+      icon: BrainCircuit,
+      label: t("sourceDue"),
+      hint: dueCount > 0 ? t("sourceDueHint", { count: dueCount }) : t("sourceDueEmpty"),
+      disabled: dueCount <= 0,
+    },
     { value: "category", icon: BookOpen, label: t("sourceCategory"), hint: t("sourceCategoryHint") },
     { value: "variant", icon: Layers, label: t("sourceVariant"), hint: t("sourceVariantHint") },
     { value: "image", icon: ImageIcon, label: t("sourceImage"), hint: t("sourceImageHint") },
@@ -182,7 +205,7 @@ export default function PracticePage() {
         <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
           {t("sourceLabel")}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {sources.map((item) => {
             const Icon = item.icon;
             const isSelected = source === item.value;
@@ -212,6 +235,17 @@ export default function PracticePage() {
       </section>
 
       {/* Source-specific selection */}
+      {source === "due" && (
+        <Card className="space-y-2 p-5">
+          <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+            {t("sourceDue")}
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            {dueCount > 0 ? t("sourceDueReady", { count: dueCount }) : t("sourceDueEmpty")}
+          </p>
+        </Card>
+      )}
+
       {source === "category" && (
         <Card className="space-y-3 p-5">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
@@ -315,7 +349,7 @@ export default function PracticePage() {
       )}
 
       {/* Question count + allowance */}
-      {source !== "sign" && (
+      {source !== "sign" && source !== "due" && (
         <Card className="space-y-4 p-5">
           <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("countLabel")}

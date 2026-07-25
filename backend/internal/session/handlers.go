@@ -519,6 +519,8 @@ func writeSessionError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusConflict, "session_finished", "session already finished")
 	case errors.Is(err, ErrRequiresVIP):
 		httpx.Error(w, http.StatusPaymentRequired, "vip_required", "active entitlement required")
+	case errors.Is(err, ErrNothingDue):
+		httpx.Error(w, http.StatusBadRequest, "nothing_due", "no due reviews right now")
 	case errors.Is(err, ErrMockNotEligible):
 		// English like every other message here: the client localizes by code
 		// (see GET /me/mock-eligibility for the specific reason and numbers).

@@ -30,13 +30,14 @@ import {
   Route,
 } from "lucide-react";
 
-const resumableModes: SessionSummary["mode"][] = ["variant", "exam", "practice", "mistakes", "grand_mock"];
+const resumableModes: SessionSummary["mode"][] = ["variant", "exam", "practice", "mistakes", "grand_mock", "review"];
 const resumeModeKeys: Record<SessionSummary["mode"], string> = {
   variant: "resumeModeVariant",
   exam: "resumeModeExam",
   practice: "resumeModePractice",
   mistakes: "resumeModeMistakes",
   grand_mock: "resumeModeGrandMock",
+  review: "resumeModeReview",
 };
 
 function newestInProgressSession(sessions: SessionSummary[]): SessionSummary | null {
@@ -125,7 +126,7 @@ export default function DashboardPage() {
           title: t("nextActionReviewTitle"),
           description: t("nextActionReviewDesc", { count: dueQuestionsCount }),
           cta: t("nextActionReviewCta"),
-          href: `/${locale}/mistakes`,
+          href: `/${locale}/session/start?mode=review&count=${Math.min(dueQuestionsCount, 20)}`,
           tone: "danger" as const,
         }
       : readinessPct >= 80

@@ -29,6 +29,7 @@ var (
 	ErrRequiresVIP         = errors.New("active entitlement required")
 	ErrVariantLocked       = errors.New("variant is locked")
 	ErrMockNotEligible     = errors.New("grand mock study requirements not met")
+	ErrNothingDue          = errors.New("no due reviews")
 )
 
 type Service struct {
@@ -268,6 +269,21 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		ids, err = s.Q.ListMistakeBankQuestionIDs(ctx, sqlc.ListMistakeBankQuestionIDsParams{
 			ProfileID: profileID, LimitCount: int32(count),
 		})
+
+	case "review":
+		// FSRS due queue (learning.NextDue) — not VIP-gated; distinct from the
+		// mistakes bank which requires lapses > 0.
+		if s.Learning == nil {
+			return SessionView{}, ErrInvalidRequest
+		}
+		count := req.Count
+		if count <= 0 {
+			count = 20
+		}
+		ids, err = s.Learning.NextDue(ctx, profileID, count)
+		if err == nil && len(ids) == 0 {
+			return SessionView{}, ErrNothingDue
+		}
 
 	default:
 		return SessionView{}, ErrInvalidRequest

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/blob"
@@ -778,6 +779,57 @@ func TestStartSessionMistakesRequiresVIP(t *testing.T) {
 		Mode: "mistakes", Locale: "uz-Latn",
 	}); err != session.ErrRequiresVIP {
 		t.Fatalf("err=%v want ErrRequiresVIP", err)
+	}
+}
+
+func TestStartSessionReviewNothingDue(t *testing.T) {
+	_, svc, profileID := seed(t)
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "review", Locale: "uz-Latn", Count: 10,
+	}); !errors.Is(err, session.ErrNothingDue) {
+		t.Fatalf("err=%v want ErrNothingDue", err)
+	}
+}
+
+func TestStartSessionReviewUsesDueQueueWithoutVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	ctx := context.Background()
+	ids, err := q.RandomQuestionIDs(ctx, 5)
+	if err != nil || len(ids) < 3 {
+		t.Fatalf("need fixture questions: %v len=%d", err, len(ids))
+	}
+	l := learning.NewService(q)
+	for _, qid := range ids[:3] {
+		if _, err := l.RecordReview(ctx, profileID, qid, learning.Again); err != nil {
+			t.Fatalf("RecordReview: %v", err)
+		}
+		// Force due now so the session start does not depend on FSRS timing.
+		if _, err := q.UpsertQuestionMemory(ctx, sqlc.UpsertQuestionMemoryParams{
+			ProfileID:      profileID,
+			QuestionID:     qid,
+			Stability:      0.1,
+			Difficulty:     5,
+			DueAt:          pgtype.Timestamptz{Time: time.Now().Add(-time.Minute), Valid: true},
+			LastReviewedAt: pgtype.Timestamptz{Time: time.Now().Add(-time.Hour), Valid: true},
+			Reps:           1,
+			Lapses:         1,
+			State:          1,
+		}); err != nil {
+			t.Fatalf("backdate due: %v", err)
+		}
+	}
+
+	view, err := svc.StartSession(ctx, profileID, session.StartRequest{
+		Mode: "review", Locale: "uz-Latn", Count: 10,
+	})
+	if err != nil {
+		t.Fatalf("StartSession review: %v", err)
+	}
+	if view.Mode != "review" {
+		t.Fatalf("mode=%q want review", view.Mode)
+	}
+	if view.Total < 1 || len(view.QuestionIDs) < 1 {
+		t.Fatalf("want due questions in review session, got %+v", view)
 	}
 }
 

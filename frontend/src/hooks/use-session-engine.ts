@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { defaultLocale } from "@/i18n/config";
 
-export type SessionMode = "variant" | "exam" | "practice" | "mistakes" | "grand_mock";
+export type SessionMode = "variant" | "exam" | "practice" | "mistakes" | "grand_mock" | "review";
 
 export interface AnswerOptionItem {
   id: string;

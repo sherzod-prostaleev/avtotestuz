@@ -12,7 +12,7 @@ import {
   type StartSessionOptions,
 } from "@/hooks/use-session-engine";
 
-const SESSION_MODES: SessionMode[] = ["variant", "exam", "practice", "mistakes", "grand_mock"];
+const SESSION_MODES: SessionMode[] = ["variant", "exam", "practice", "mistakes", "grand_mock", "review"];
 
 function isSessionMode(value: string | null): value is SessionMode {
   return value !== null && SESSION_MODES.includes(value as SessionMode);
@@ -96,6 +96,11 @@ function SessionStartContent() {
         destination = `/${locale}/dashboard`;
         actionLabel = t("backToDashboard");
         message = t("mockNotEligible");
+        break;
+      case "nothing_due":
+        destination = `/${locale}/practice`;
+        actionLabel = t("backToPractice");
+        message = t("nothingDue");
         break;
     }
 

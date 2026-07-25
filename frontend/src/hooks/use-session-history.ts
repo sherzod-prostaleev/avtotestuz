@@ -3,7 +3,7 @@ import { apiGet, ApiError } from "@/lib/api-client";
 
 export interface SessionSummary {
   id: string;
-  mode: "variant" | "exam" | "practice" | "mistakes" | "grand_mock";
+  mode: "variant" | "exam" | "practice" | "mistakes" | "grand_mock" | "review";
   status: "in_progress" | "passed" | "failed" | "abandoned";
   score?: number;
   total: number;

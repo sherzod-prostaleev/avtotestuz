@@ -52,7 +52,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-13** | P1 | Content/Admin | **Explanation expert verify at product scale** | partial | U-12, M3 UI | CLI `gendraft` / `verifyexplanation` exist; **no** admin queue UI (M3). User sees only `verified`. |
 | **U-14** | P1 | Ops/CI | **Playwright e2e in CI** | partial | Staging or compose in GHA | `frontend/e2e/*.spec.ts` + `npm run test:e2e` exist; **CI workflow does not run them**. |
 | **U-15** | P1 | Ops/CI | **Redis service in GitHub Actions** | missing | — | Backend CI = Postgres only. Packages using `redisx.NewTest` expect `localhost:6379` (`make up`). CI may be green only if Redis-touching tests aren’t exercised the same way as local — **ops gap to verify/fix**. |
-| **U-16** | P1 | FE | **FSRS due practice UX (`GET /learn/next`)** | partial | Learning BE ✅ | Backend interleaving due queue exists; **frontend never calls `/learn/next`**. Practice is category/sign session start, not due-card flow. |
+| **U-16** | P1 | FE | **FSRS due practice UX (`GET /learn/next`)** | **done** | Learning BE ✅ | Session `mode=review` uses `learning.NextDue`; Practice “Takrorlash” source + dashboard CTA. |
 | **U-17** | P1 | Docs/FE | **Landing footer real contacts** | partial | Marketing inputs | Placeholder phone/address/TG/IG in `messages/*` (`+998 71 200 00 00`, etc.). |
 | **U-18** | P2 | Design | **J8 Figma SoT** | deferred | Optional | Explicitly optional in next-wave; not a gate for Arena or N2. |
 | **U-19** | P2 | Design/FE | **J7 residual / visual QA depth** | partial | Sibling | Checklist largely signed in `visual-qa-checklist.md`; deeper dark×locale pixel walk open; handoff J-table may still lag. Do not thrash sibling hot files. |
