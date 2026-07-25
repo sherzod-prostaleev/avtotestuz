@@ -6,20 +6,23 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/httpx"
 )
 
 // Handler mounts /admin/v1 routes.
 type Handler struct {
-	Svc    Service
-	Pool   *pgxpool.Pool
-	Secret []byte
+	Svc     Service
+	Pool    *pgxpool.Pool
+	Secret  []byte
+	Billing billing.Service
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -65,6 +68,17 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("content.verify"))
 			cr.Post("/content/questions/{id}/explanation/verify", h.verifyQuestionExplanation)
+		})
+
+		pr.Group(func(prr chi.Router) {
+			prr.Use(RequirePermission("payments.read"))
+			prr.Get("/payments/transactions", h.listPayments)
+			prr.Get("/payments/transactions/{id}", h.getPayment)
+			prr.Get("/payments/providers", h.listPaymentProviders)
+		})
+		pr.Group(func(prr chi.Router) {
+			prr.Use(RequirePermission("payments.keys.manage"))
+			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
 		})
 	})
 }
@@ -439,6 +453,112 @@ func (h *Handler) verifyQuestionExplanation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	httpx.Data(w, http.StatusOK, detail)
+}
+
+func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	from, errFrom := parseOptionalTime(r.URL.Query().Get("from"))
+	to, errTo := parseOptionalTime(r.URL.Query().Get("to"))
+	if errFrom != nil || errTo != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_date", "from/to must be RFC3339 or YYYY-MM-DD")
+		return
+	}
+	out, err := h.Svc.Store.ListPayments(r.Context(), PaymentListFilter{
+		Status:   r.URL.Query().Get("status"),
+		Provider: r.URL.Query().Get("provider"),
+		From:     from,
+		To:       to,
+		Page:     page,
+		Limit:    limit,
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "payments query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getPayment(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	out, err := h.Svc.Store.GetPayment(r.Context(), id)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "payment not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "payment query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listPaymentProviders(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Billing.ListProviderStatuses(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "providers query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+type patchProviderBody struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (h *Handler) patchPaymentProvider(w http.ResponseWriter, r *http.Request) {
+	provider := chi.URLParam(r, "provider")
+	var body patchProviderBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	before, _ := h.Billing.ListProviderStatuses(r.Context())
+	var beforeEnabled *bool
+	for _, row := range before {
+		if row.Provider == provider {
+			v := row.Enabled
+			beforeEnabled = &v
+			break
+		}
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	updatedBy := "admin:" + adminID.String()
+	out, err := h.Billing.SetProviderEnabled(r.Context(), provider, body.Enabled, updatedBy)
+	if err != nil {
+		if strings.Contains(err.Error(), "unknown provider") {
+			httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme or click")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update provider")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "payments.providers.patch", "payment_provider", provider,
+		map[string]any{"enabled": beforeEnabled},
+		map[string]any{"enabled": out.Enabled},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func parseOptionalTime(raw string) (*time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	if t, err := time.Parse(time.RFC3339, raw); err == nil {
+		u := t.UTC()
+		return &u, nil
+	}
+	if t, err := time.Parse("2006-01-02", raw); err == nil {
+		u := t.UTC()
+		return &u, nil
+	}
+	return nil, strconv.ErrSyntax
 }
 
 func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {

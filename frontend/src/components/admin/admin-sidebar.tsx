@@ -47,9 +47,9 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       title: "Payments",
       items: [
-        { href: `${base}/payments/transactions`, label: "Transactions", stub: true },
-        { href: `${base}/payments/refunds`, label: "Refunds", stub: true },
-        { href: `${base}/payments/providers`, label: "Providers", stub: true },
+        { href: `${base}/payments/transactions`, label: "Transactions" },
+        { href: `${base}/payments/refunds`, label: "Refunds" },
+        { href: `${base}/payments/providers`, label: "Providers" },
       ],
     },
     {
