@@ -19,6 +19,7 @@ type HealthPayload = {
   checked_at: string;
   live: ProbeResult;
   ready: ProbeResult;
+  metrics?: ProbeResult;
 };
 
 function checkMap(data: unknown): Record<string, string> | null {
@@ -28,6 +29,21 @@ function checkMap(data: unknown): Record<string, string> | null {
   const checks = (inner as { checks?: unknown }).checks;
   if (!checks || typeof checks !== "object") return null;
   return checks as Record<string, string>;
+}
+
+function metricsSnapshot(data: unknown): {
+  uptime_seconds?: number;
+  requests_total?: number;
+  requests_by_status_class?: Record<string, number>;
+} | null {
+  if (!data || typeof data !== "object") return null;
+  const inner = (data as { data?: unknown }).data;
+  if (!inner || typeof inner !== "object") return null;
+  return inner as {
+    uptime_seconds?: number;
+    requests_total?: number;
+    requests_by_status_class?: Record<string, number>;
+  };
 }
 
 function probeStatus(ok: boolean, okLabel: string, failLabel: string): string {
@@ -82,6 +98,7 @@ export default function OpsHealthPage() {
   }, [auto, load]);
 
   const readyChecks = payload ? checkMap(payload.ready.data) : null;
+  const metrics = payload?.metrics ? metricsSnapshot(payload.metrics.data) : null;
 
   return (
     <main className="page-shell-tight mx-auto max-w-lg">
@@ -184,6 +201,48 @@ export default function OpsHealthPage() {
                     </dd>
                   </div>
                 ))}
+              </dl>
+            )}
+          </li>
+
+          <li className="rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-display text-lg font-bold">{t("metricsTitle")}</p>
+                <p className="text-xs text-muted-foreground">{t("metricsHint")}</p>
+              </div>
+              <span
+                className={`rounded-lg px-2.5 py-1 text-xs font-bold ${
+                  payload.metrics?.ok ? "bg-accent/15 text-accent" : "bg-destructive/15 text-destructive"
+                }`}
+              >
+                {probeStatus(Boolean(payload.metrics?.ok), t("statusOk"), t("statusFail"))}
+              </span>
+            </div>
+            <p className="mt-2 font-mono text-xs text-muted-foreground">
+              HTTP {payload.metrics?.status ?? "—"}
+            </p>
+            {metrics && (
+              <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
+                  <dt className="font-semibold text-muted-foreground">{t("metricsUptime")}</dt>
+                  <dd className="mt-0.5 font-mono font-bold text-foreground">
+                    {metrics.uptime_seconds ?? "—"}s
+                  </dd>
+                </div>
+                <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
+                  <dt className="font-semibold text-muted-foreground">{t("metricsTotal")}</dt>
+                  <dd className="mt-0.5 font-mono font-bold text-foreground">
+                    {metrics.requests_total ?? "—"}
+                  </dd>
+                </div>
+                {metrics.requests_by_status_class &&
+                  Object.entries(metrics.requests_by_status_class).map(([name, value]) => (
+                    <div key={name} className="rounded-lg border border-border/70 bg-background px-3 py-2">
+                      <dt className="font-semibold text-muted-foreground">{name}</dt>
+                      <dd className="mt-0.5 font-mono font-bold text-foreground">{value}</dd>
+                    </div>
+                  ))}
               </dl>
             )}
           </li>

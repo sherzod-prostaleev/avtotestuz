@@ -124,6 +124,7 @@ buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 
 - `GET /healthz` — liveness (process up; dependency ping yo'q)
 - `GET /readyz` — readiness (`checks.postgres` / `checks.redis`; wired bo'lsa ping, aks holda `skipped`; fail → 503)
+- `GET /metrics` — process-local so‘rov hisoblagichlari (`requests_total`, status-class, `uptime_seconds`); Prometheus/Sentry emas; `/healthz|/readyz|/metrics` o‘zi hisobga kirmaydi
 - `GET /api/v1/categories?locale=`
 - `GET /api/v1/variants` · `GET /api/v1/variants/{n}?locale=`
 - `GET /api/v1/signs?group=&q=&locale=` · `GET /api/v1/signs/{code}`
@@ -135,7 +136,7 @@ Kontent javoblarida to'g'ri javob maydonlari hech qachon qaytmaydi (anti-cheat).
 Ops (ixtiyoriy, `OPS_ADMIN_TOKEN` berilganda): `GET|PATCH /api/v1/ops/payment-providers`
 (+ `X-Ops-Token`) — to'lov provayderlari kill-switch. FE: `/{locale}/ops/providers`.
 Tizim holati stub (token shart emas): FE `/{locale}/ops/health` → BFF `GET /api/ops/health`
-(`/{healthz,readyz}` agregatsiya).
+(`/{healthz,readyz,metrics}` agregatsiya).
 
 ## Demo (public, auth talab qilinmaydi)
 

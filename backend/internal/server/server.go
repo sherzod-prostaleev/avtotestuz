@@ -58,12 +58,18 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
 	}))
 
+	// U-41: process-local request counters (not Prometheus). Must wrap before
+	// routes so status classes are visible; Hijacker-safe for Arena WS.
+	metrics := NewRequestMetrics()
+	r.Use(metrics.Middleware)
+
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	// /readyz = process can serve traffic (Postgres + Redis when wired).
 	// /healthz stays a cheap liveness probe that does not touch dependencies.
 	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
+	r.Get("/metrics", metrics.Handler())
 
 	var arenaSvc *arena.Service
 	if deps.Queries != nil {

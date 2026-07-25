@@ -26,6 +26,15 @@ describe("GET /api/ops/health", () => {
       if (path === "/healthz") {
         return jsonResponse(200, { data: { status: "ok" } });
       }
+      if (path === "/metrics") {
+        return jsonResponse(200, {
+          data: {
+            uptime_seconds: 12,
+            requests_total: 3,
+            requests_by_status_class: { "2xx": 2, "3xx": 0, "4xx": 1, "5xx": 0, other: 0 },
+          },
+        });
+      }
       return jsonResponse(200, {
         data: { status: "ok", checks: { postgres: "ok", redis: "ok" } },
       });
@@ -37,6 +46,8 @@ describe("GET /api/ops/health", () => {
     expect(body.data.status).toBe("ok");
     expect(body.data.live.ok).toBe(true);
     expect(body.data.ready.ok).toBe(true);
+    expect(body.data.metrics.ok).toBe(true);
+    expect(body.data.metrics.data.data.requests_total).toBe(3);
     expect(body.data.checked_at).toMatch(/^\d{4}-/);
   });
 
@@ -44,6 +55,9 @@ describe("GET /api/ops/health", () => {
     mockedFetch.mockImplementation(async (path: string) => {
       if (path === "/healthz") {
         return jsonResponse(200, { data: { status: "ok" } });
+      }
+      if (path === "/metrics") {
+        return jsonResponse(200, { data: { uptime_seconds: 1, requests_total: 0 } });
       }
       return jsonResponse(503, {
         data: { status: "not_ready", checks: { postgres: "fail", redis: "ok" } },

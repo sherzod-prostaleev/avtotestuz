@@ -157,6 +157,7 @@ documented as comments in the overlay (uncomment when the host size is known).
 |-------|--------|
 | `GET {API}/healthz` | JSON envelope with `"status":"ok"` (liveness — no DB/Redis) |
 | `GET {API}/readyz` | `"status":"ok"` and `checks.postgres` / `checks.redis` = `"ok"` (readiness) |
+| `GET {API}/metrics` | Process-local counters (`requests_total`, status classes, `uptime_seconds`) — not Prometheus |
 | `GET {WEB}/{locale}` e.g. `/uz-Latn` | HTTP 200 |
 | Compose | `api` / `web` `running` (`restart: unless-stopped`) |
 
@@ -173,7 +174,7 @@ When `OPS_ADMIN_TOKEN` is set on the API:
 |-------|--------|
 | `GET {API}/api/v1/ops/payment-providers` + header `X-Ops-Token` | Payme/Click enabled flags |
 | FE `/{locale}/ops/providers` | Operator UI (token in sessionStorage — never commit) |
-| FE `/{locale}/ops/health` | Aggregates public `/healthz` + `/readyz` (no ops token; M3 monitoring stub) |
+| FE `/{locale}/ops/health` | Aggregates public `/healthz` + `/readyz` + `/metrics` (no ops token; M3 monitoring stub) |
 
 Absent token → payment-provider ops routes are not mounted (`ops_disabled` / 404 depending on path). Health page still works via BFF → public probes.
 

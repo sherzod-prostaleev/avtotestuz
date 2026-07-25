@@ -45,9 +45,10 @@ Landing footerdagi telefon/manzil/Telegram/Instagram (`+998 71 200 00 00`, `t.me
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx dan code-completable keyingi: U-41 metrics slice,
-keyin U-45/U-29/U-22. Skip external: U-03 keys, U-02 host,
-U-12 LLM, U-17 contacts, U-40 B2B, U-44 backup, U-46 BI, inventing U-10 quiz.
+Inventory U-xx dan code-completable keyingi: U-45 M3 stub kengaytirish,
+U-29 bilets UX copy, yoki U-22 leaderboard rebuild docs.
+Skip external: U-03 keys, U-02 host, U-12 LLM, U-17 contacts, U-40 B2B,
+U-44 backup, U-46 BI, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
@@ -58,7 +59,7 @@ Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.m
 - Real LLM explanations (U-12); M4-07 quiz (U-10)
 - Full M3 Admin, BI, backup/DR, load-test
 - `referral_attribution` dead table — **dropped** (U-23 / `0028`)
-- Observability beyond healthz/readyz (U-41)
+- Observability: `/metrics` process counters shipped (U-41 slice); Prometheus/Sentry/alerting still open
 
 ---
 
@@ -161,7 +162,7 @@ To‘liq U-xx jadval: inventory §2.
 - **Infra:** `docker compose` (postgres:5432, redis:6379, minio:9000).
 - **Payme/Click:** ENV bo‘sh → webhook rad.
 - **ENV:** `backend/.env.example`. `ENV=staging|prod` → `JWT_SECRET`, `CLIENT_IP_ASSERTION_SECRET` (≥32), non-sandbox `OTP_CHANNEL` majburiy.
-- **Health:** `/healthz` liveness, `/readyz` Postgres+Redis.
+- **Health:** `/healthz` liveness, `/readyz` Postgres+Redis, `/metrics` process-local request counters (U-41).
 - **Money-critical naqsh:** `pool.Begin` + `SELECT...FOR UPDATE` / claim-`RETURNING` + tx-bound Service.
 
 ## 6. Ish uslubi

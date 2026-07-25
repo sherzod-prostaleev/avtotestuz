@@ -31,11 +31,15 @@ async function probe(path: string): Promise<ProbeResult> {
 }
 
 /**
- * Aggregates public API liveness + readiness for the thin ops health stub
- * (M3 monitoring precursor — no admin RBAC yet).
+ * Aggregates public API liveness + readiness + process metrics for the thin
+ * ops health stub (M3 monitoring precursor — no Prometheus/Sentry yet).
  */
 export async function GET() {
-  const [live, ready] = await Promise.all([probe("/healthz"), probe("/readyz")]);
+  const [live, ready, metrics] = await Promise.all([
+    probe("/healthz"),
+    probe("/readyz"),
+    probe("/metrics"),
+  ]);
   const overallOk = live.ok && ready.ok;
   return NextResponse.json(
     {
@@ -44,6 +48,7 @@ export async function GET() {
         checked_at: new Date().toISOString(),
         live,
         ready,
+        metrics,
       },
     },
     { status: overallOk ? 200 : 503 }
