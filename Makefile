@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
-.PHONY: up down test lint generate seed seed-real validate-real run check
+.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real validate-real run check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -9,9 +9,24 @@ up:
 down:
 	$(COMPOSE) down
 
-# -p 1: DB test packages share one database and must not run in parallel
+# -p 1 is a resource choice, not a correctness one: internal/testdb gives each
+# test package its own database, so a parallel run produces the same results —
+# it just migrates and pools several databases at once. Use test-parallel when
+# wall-clock matters more than load.
 test:
 	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... -count=1
+
+test-parallel:
+	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./... -count=1
+
+# Per-package test databases are reused across runs (re-migrating from scratch
+# is the slow part). Drop them after changing a migration in place, or to
+# reclaim disk.
+test-db-reset:
+	$(COMPOSE) exec -T postgres psql -U avtotest -d postgres -tAc \
+		"SELECT 'DROP DATABASE IF EXISTS ' || quote_ident(datname) || ';' \
+		 FROM pg_database WHERE datname LIKE 'avtotest\_test\_%'" \
+	| $(COMPOSE) exec -T postgres psql -U avtotest -d postgres
 
 lint:
 	cd backend && golangci-lint run
