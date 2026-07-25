@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS b2b_org_license;
+DROP TABLE IF EXISTS b2b_org_member;
+DROP TABLE IF EXISTS b2b_org;

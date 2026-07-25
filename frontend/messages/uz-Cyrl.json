@@ -1298,5 +1298,29 @@
     "enable": "Ёқиш",
     "disable": "Ўчириш",
     "noDescription": "Тавсиф йўқ."
+  },
+  "AdminB2B": {
+    "title": "B2B ташкилотлар",
+    "subtitle": "Org / аъзо / лицензия + entitlement.source=b2b grant (U-40).",
+    "note": "Ўқитувчи dashboard йўқ — фақат admin grant.",
+    "create": "Яратиш",
+    "namePlaceholder": "Автомактаб номи",
+    "loading": "Юкланмоқда…",
+    "empty": "Org йўқ.",
+    "open": "Очиш",
+    "back": "Рўйхатга",
+    "membersSeats": "{members} аъзо · {seats} seat",
+    "licenseTitle": "Лицензия",
+    "addLicense": "License қўшиш",
+    "membersTitle": "Аъзолар",
+    "profilePlaceholder": "profile UUID",
+    "addMember": "Аъзо қўшиш",
+    "grantDays": "Grant кунлари",
+    "grant": "B2B grant",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorCreate": "Яратиб бўлмади.",
+    "errorGrant": "Grant амалга ошмади.",
+    "errorForbiddenRead": "users.read рухсати йўқ.",
+    "errorForbiddenGrant": "users.entitlements.grant рухсати йўқ."
   }
 }

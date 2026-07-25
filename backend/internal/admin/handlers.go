@@ -110,6 +110,19 @@ func (h *Handler) Routes(r chi.Router) {
 			fr.Get("/settings/flags", h.listFeatureFlags)
 			fr.Patch("/settings/flags/{key}", h.patchFeatureFlag)
 		})
+
+		pr.Group(func(br chi.Router) {
+			br.Use(RequirePermission("users.read"))
+			br.Get("/b2b/orgs", h.listB2BOrgs)
+			br.Get("/b2b/orgs/{id}", h.getB2BOrg)
+		})
+		pr.Group(func(br chi.Router) {
+			br.Use(RequirePermission("users.entitlements.grant"))
+			br.Post("/b2b/orgs", h.createB2BOrg)
+			br.Post("/b2b/orgs/{id}/members", h.addB2BMember)
+			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
+			br.Post("/b2b/orgs/{id}/members/{profileID}/grant", h.grantB2BMember)
+		})
 	})
 }
 

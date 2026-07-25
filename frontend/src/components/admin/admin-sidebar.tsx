@@ -34,6 +34,10 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [{ href: `${base}/analytics/overview`, label: "Overview" }],
     },
     {
+      title: "B2B",
+      items: [{ href: `${base}/b2b/orgs`, label: "Organizations" }],
+    },
+    {
       title: "Users",
       items: [
         { href: `${base}/users`, label: "Directory" },

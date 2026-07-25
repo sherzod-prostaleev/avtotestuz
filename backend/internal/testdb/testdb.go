@@ -204,7 +204,8 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				variant_question, variant, answer_translation, question_translation,
 				answer, question, image, category_translation, category,
 				site_settings,
-				admin_audit_log, admin_session, admin_user_role, admin_user
+				admin_audit_log, admin_session, admin_user_role, admin_user,
+				b2b_org_license, b2b_org_member, b2b_org
 			RESTART IDENTITY CASCADE`)
 		if err == nil {
 			return

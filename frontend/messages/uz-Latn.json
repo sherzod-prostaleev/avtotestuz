@@ -1298,5 +1298,29 @@
     "enable": "Yoqish",
     "disable": "O‘chirish",
     "noDescription": "Tavsif yo‘q."
+  },
+  "AdminB2B": {
+    "title": "B2B tashkilotlar",
+    "subtitle": "Org / a’zo / litsenziya + entitlement.source=b2b grant (U-40).",
+    "note": "O‘qituvchi dashboard yo‘q — faqat admin grant. Seat limitleari active license bo‘yicha.",
+    "create": "Yaratish",
+    "namePlaceholder": "Avtomaktab nomi",
+    "loading": "Yuklanmoqda…",
+    "empty": "Org yo‘q.",
+    "open": "Ochish",
+    "back": "Ro‘yxatga",
+    "membersSeats": "{members} a’zo · {seats} seat",
+    "licenseTitle": "Litsenziya",
+    "addLicense": "License qo‘shish",
+    "membersTitle": "A’zolar",
+    "profilePlaceholder": "profile UUID",
+    "addMember": "A’zo qo‘shish",
+    "grantDays": "Grant kunlari",
+    "grant": "B2B grant",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorCreate": "Yaratib bo‘lmadi.",
+    "errorGrant": "Grant amalga oshmadi.",
+    "errorForbiddenRead": "users.read ruxsati yo‘q.",
+    "errorForbiddenGrant": "users.entitlements.grant ruxsati yo‘q."
   }
 }

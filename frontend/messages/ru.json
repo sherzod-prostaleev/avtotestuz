@@ -1298,5 +1298,29 @@
     "enable": "Включить",
     "disable": "Выключить",
     "noDescription": "Без описания."
+  },
+  "AdminB2B": {
+    "title": "B2B организации",
+    "subtitle": "Org / участник / лицензия + grant entitlement.source=b2b (U-40).",
+    "note": "Teacher dashboard нет — только admin grant. Seats по active license.",
+    "create": "Создать",
+    "namePlaceholder": "Название автошколы",
+    "loading": "Загрузка…",
+    "empty": "Организаций нет.",
+    "open": "Открыть",
+    "back": "К списку",
+    "membersSeats": "{members} уч. · {seats} seat",
+    "licenseTitle": "Лицензия",
+    "addLicense": "Добавить license",
+    "membersTitle": "Участники",
+    "profilePlaceholder": "profile UUID",
+    "addMember": "Добавить",
+    "grantDays": "Дни grant",
+    "grant": "B2B grant",
+    "errorLoad": "Не удалось загрузить.",
+    "errorCreate": "Не удалось создать.",
+    "errorGrant": "Grant не выполнен.",
+    "errorForbiddenRead": "Нет права users.read.",
+    "errorForbiddenGrant": "Нет права users.entitlements.grant."
   }
 }
