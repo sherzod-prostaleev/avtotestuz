@@ -30,6 +30,16 @@ export async function generateMetadata({
   return {
     title: t("title"),
     description: t("description"),
+    manifest: "/manifest.webmanifest",
+    themeColor: [
+      { media: "(prefers-color-scheme: dark)", color: "#0E1218" },
+      { media: "(prefers-color-scheme: light)", color: "#F1F3F6" },
+    ],
+    appleWebApp: {
+      capable: true,
+      title: "Driver Go",
+      statusBarStyle: "black-translucent",
+    },
     icons: {
       icon: "/logo.svg",
       shortcut: "/logo.svg",

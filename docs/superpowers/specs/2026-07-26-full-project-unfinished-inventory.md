@@ -74,7 +74,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-35** | P2 | FE | **Grand Mock “certificate”** | partial | M2-07 ✅ | UI dialog + confetti only — **no** persisted certificate, PDF, shareable ID, or admin-issued credential. |
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
-| **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | missing | — | Roadmap M6-01. |
+| **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **partial** | — | Manifest + early SW register + appleWebApp meta done (shares push-only `sw.js`). Offline shell / install UX polish still open. |
 | **U-39** | P3 | M6 | **Offline content cache + sync** | missing | U-38 | M6-02. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | missing | Customer + entitlement `b2b` source already in CHECK | Schema allows `source='b2b'`; no org tables/packages. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | partial | — | Liveness `/healthz` + readiness `/readyz` (Postgres/Redis checks) documented in README + STAGING-RUNBOOK + smoke. No Prometheus/Sentry yet. |
