@@ -30,6 +30,10 @@ export function adminNav(locale: string): AdminNavGroup[] {
       ],
     },
     {
+      title: "Analytics",
+      items: [{ href: `${base}/analytics/overview`, label: "Overview" }],
+    },
+    {
       title: "Users",
       items: [
         { href: `${base}/users`, label: "Directory" },

@@ -1258,5 +1258,26 @@
     "errorLoad": "Yuklab bo‘lmadi.",
     "errorDegraded": "Ba’zi tekshiruvlar muvaffaqiyatsiz.",
     "errorForbidden": "monitoring.read ruxsati yo‘q."
+  },
+  "AdminAnalytics": {
+    "title": "Analytics overview",
+    "subtitle": "Mahsulot va revenue tile’lar — DB dan honest agregatlar.",
+    "note": "MRR/churn/LTV BI invent qilinmagan. Funnel chart yo‘q.",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "analytics.read ruxsati yo‘q.",
+    "tileProfiles": "Profiles (jami)",
+    "tileProfiles24h": "Yangi (24s)",
+    "tileProfiles7d": "Yangi (7 kun)",
+    "tilePaid": "Paid to‘lovlar",
+    "tilePaid7d": "Paid (7 kun)",
+    "tileRevenue": "Revenue paid",
+    "tileRevenue7d": "Revenue (7 kun)",
+    "tileEntitlements": "Faol entitlement",
+    "tileEvents7d": "Events (7 kun)",
+    "eventsTitle": "Top event names (7 kun)",
+    "eventsEmpty": "Event yo‘q.",
+    "generatedAt": "Hisoblangan: {time}"
   }
 }

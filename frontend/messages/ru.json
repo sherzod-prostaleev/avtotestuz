@@ -1258,5 +1258,26 @@
     "errorLoad": "Не удалось загрузить.",
     "errorDegraded": "Часть проверок не прошла.",
     "errorForbidden": "Нет права monitoring.read."
+  },
+  "AdminAnalytics": {
+    "title": "Analytics overview",
+    "subtitle": "Плитки продукта и выручки — честные SQL-агрегаты.",
+    "note": "MRR/churn/LTV BI не выдуманы. Воронки нет.",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права analytics.read.",
+    "tileProfiles": "Profiles (всего)",
+    "tileProfiles24h": "Новые (24ч)",
+    "tileProfiles7d": "Новые (7д)",
+    "tilePaid": "Paid платежи",
+    "tilePaid7d": "Paid (7д)",
+    "tileRevenue": "Revenue paid",
+    "tileRevenue7d": "Revenue (7д)",
+    "tileEntitlements": "Активные entitlement",
+    "tileEvents7d": "Events (7д)",
+    "eventsTitle": "Top event names (7д)",
+    "eventsEmpty": "Событий нет.",
+    "generatedAt": "Посчитано: {time}"
   }
 }

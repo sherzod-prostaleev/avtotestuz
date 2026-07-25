@@ -99,6 +99,11 @@ func (h *Handler) Routes(r chi.Router) {
 			mr.Get("/monitoring/metrics", h.getMonitoringMetrics)
 			mr.Get("/monitoring/jobs", h.listMonitoringJobs)
 		})
+
+		pr.Group(func(ar chi.Router) {
+			ar.Use(RequirePermission("analytics.read"))
+			ar.Get("/analytics/overview", h.getAnalyticsOverview)
+		})
 	})
 }
 
@@ -561,6 +566,15 @@ func (h *Handler) patchPaymentProvider(w http.ResponseWriter, r *http.Request) {
 		map[string]any{"enabled": out.Enabled},
 		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
 	)
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.Store.GetAnalyticsOverview(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "analytics query failed")
+		return
+	}
 	httpx.Data(w, http.StatusOK, out)
 }
 

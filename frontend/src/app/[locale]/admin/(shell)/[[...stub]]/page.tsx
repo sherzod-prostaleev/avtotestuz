@@ -19,6 +19,7 @@ export default function AdminStubOrOverviewPage({
             { label: "Payments", hint: "M3-3 ✓" },
             { label: "CMS", hint: "M3-4 ✓" },
             { label: "Monitoring", hint: "M3-5 ✓" },
+            { label: "Analytics", hint: "M3-6 ✓" },
             { label: "Security", hint: "M3-0+" },
           ].map((tile) => (
             <div key={tile.label} className="rounded-xl border border-border bg-card px-4 py-3">

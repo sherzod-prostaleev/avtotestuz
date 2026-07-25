@@ -1258,5 +1258,26 @@
     "errorLoad": "Юклаб бўлмади.",
     "errorDegraded": "Баъзи текширувлар муваффақиятсиз.",
     "errorForbidden": "monitoring.read рухсати йўқ."
+  },
+  "AdminAnalytics": {
+    "title": "Analytics overview",
+    "subtitle": "Маҳсулот ва revenue tile’лар — DB дан honest агрегатлар.",
+    "note": "MRR/churn/LTV BI invent қилинмаган. Funnel chart йўқ.",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "analytics.read рухсати йўқ.",
+    "tileProfiles": "Profiles (жами)",
+    "tileProfiles24h": "Янги (24с)",
+    "tileProfiles7d": "Янги (7 кун)",
+    "tilePaid": "Paid тўловлар",
+    "tilePaid7d": "Paid (7 кун)",
+    "tileRevenue": "Revenue paid",
+    "tileRevenue7d": "Revenue (7 кун)",
+    "tileEntitlements": "Фаол entitlement",
+    "tileEvents7d": "Events (7 кун)",
+    "eventsTitle": "Top event names (7 кун)",
+    "eventsEmpty": "Event йўқ.",
+    "generatedAt": "Ҳисобланган: {time}"
   }
 }
