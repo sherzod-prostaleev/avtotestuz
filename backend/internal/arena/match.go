@@ -1,0 +1,437 @@
+package arena
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// Match is the single writer for one duel. All mutations happen on Run's goroutine.
+type Match struct {
+	svc         *Service
+	id          uuid.UUID
+	a, b        uuid.UUID
+	localeA     string
+	localeB     string
+	questions   []uuid.UUID
+	correct     map[uuid.UUID]uuid.UUID
+	validAns    map[uuid.UUID]map[uuid.UUID]struct{}
+	score       map[uuid.UUID]int
+	correctN    map[uuid.UUID]int
+	responseSum map[uuid.UUID]int64
+	answers     map[uuid.UUID][]playerAnswer
+	index       int
+	deadline    time.Time
+	phase       string // pending|active|reveal|finished
+	endReason   string
+	discSince   map[uuid.UUID]time.Time
+	quitter     uuid.UUID
+
+	inbox     chan matchEvent
+	retimer   chan struct{}
+	countdown time.Duration
+	qTime     time.Duration
+	revealFor time.Duration
+	grace     time.Duration
+	reconGrace time.Duration
+}
+
+type playerAnswer struct {
+	answered   bool
+	answerID   uuid.UUID
+	correct    bool
+	responseMs int64
+	points     int
+	at         time.Time
+}
+
+type matchEvent struct {
+	kind      string
+	profileID uuid.UUID
+	index     int
+	answerID  uuid.UUID
+}
+
+func NewMatch(
+	svc *Service,
+	id, a, b uuid.UUID,
+	localeA, localeB string,
+	questions []uuid.UUID,
+	correct map[uuid.UUID]uuid.UUID,
+) *Match {
+	return &Match{
+		svc:         svc,
+		id:          id,
+		a:           a,
+		b:           b,
+		localeA:     localeA,
+		localeB:     localeB,
+		questions:   questions,
+		correct:     correct,
+		validAns:    map[uuid.UUID]map[uuid.UUID]struct{}{},
+		score:       map[uuid.UUID]int{a: 0, b: 0},
+		correctN:    map[uuid.UUID]int{a: 0, b: 0},
+		responseSum: map[uuid.UUID]int64{a: 0, b: 0},
+		answers: map[uuid.UUID][]playerAnswer{
+			a: make([]playerAnswer, len(questions)),
+			b: make([]playerAnswer, len(questions)),
+		},
+		phase:      "pending",
+		discSince:  map[uuid.UUID]time.Time{},
+		inbox:      make(chan matchEvent, 64),
+		retimer:    make(chan struct{}, 1),
+		countdown:  3 * time.Second,
+		qTime:      time.Duration(QuestionTimeSec) * time.Second,
+		revealFor:  2500 * time.Millisecond,
+		grace:      AnswerGrace,
+		reconGrace: ReconnectGrace,
+	}
+}
+
+func (m *Match) now() time.Time {
+	if m.svc != nil && m.svc.Now != nil {
+		return m.svc.Now()
+	}
+	return time.Now()
+}
+
+func (m *Match) kickTimer() {
+	select {
+	case m.retimer <- struct{}{}:
+	default:
+	}
+}
+
+func (m *Match) SubmitAnswer(profileID uuid.UUID, index int, answerID uuid.UUID) {
+	select {
+	case m.inbox <- matchEvent{kind: "answer", profileID: profileID, index: index, answerID: answerID}:
+	default:
+	}
+}
+
+func (m *Match) NotifyDisconnect(profileID uuid.UUID) {
+	select {
+	case m.inbox <- matchEvent{kind: "disconnect", profileID: profileID}:
+	default:
+	}
+}
+
+func (m *Match) Rejoin(profileID uuid.UUID) {
+	select {
+	case m.inbox <- matchEvent{kind: "reconnect", profileID: profileID}:
+	default:
+	}
+}
+
+func (m *Match) Leave(profileID uuid.UUID) {
+	select {
+	case m.inbox <- matchEvent{kind: "leave", profileID: profileID}:
+	default:
+	}
+}
+
+func (m *Match) AbortShutdown() {
+	select {
+	case m.inbox <- matchEvent{kind: "abort"}:
+	default:
+	}
+}
+
+func (m *Match) Run() {
+	ctx := context.Background()
+	next := time.NewTimer(m.countdown)
+	defer next.Stop()
+
+	for m.phase != "finished" {
+		select {
+		case ev := <-m.inbox:
+			m.handle(ctx, ev)
+			if m.phase == "finished" {
+				return
+			}
+		case <-m.retimer:
+			m.resetTimer(next)
+		case <-next.C:
+			m.onTimer(ctx)
+			if m.phase == "finished" {
+				return
+			}
+			m.resetTimer(next)
+		}
+	}
+}
+
+func (m *Match) resetTimer(timer *time.Timer) {
+	var d time.Duration
+	switch m.phase {
+	case "active":
+		d = time.Until(m.deadline.Add(m.grace))
+		if d < 0 {
+			d = 0
+		}
+	case "reveal":
+		d = m.revealFor
+	case "pending":
+		d = m.countdown
+	default:
+		return
+	}
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	timer.Reset(d)
+}
+
+func (m *Match) onTimer(ctx context.Context) {
+	switch m.phase {
+	case "pending":
+		m.startQuestion(ctx, 0)
+	case "active":
+		m.reveal(ctx)
+	case "reveal":
+		nextIdx := m.index + 1
+		if nextIdx >= len(m.questions) {
+			m.finish(ctx, "completed")
+			return
+		}
+		m.startQuestion(ctx, nextIdx)
+	}
+}
+
+func (m *Match) handle(ctx context.Context, ev matchEvent) {
+	switch ev.kind {
+	case "answer":
+		m.onAnswer(ctx, ev)
+	case "disconnect":
+		m.discSince[ev.profileID] = m.now()
+		opp := m.opponentOf(ev.profileID)
+		_ = m.svc.sendJSON(opp, "opponent.status", OpponentStatusData{State: "disconnected"})
+		if bothDisconnected(m) {
+			m.finish(ctx, "both_disconnected")
+			return
+		}
+		pid := ev.profileID
+		go func() {
+			time.Sleep(m.reconGrace)
+			select {
+			case m.inbox <- matchEvent{kind: "forfeit_check", profileID: pid}:
+			default:
+			}
+		}()
+	case "forfeit_check":
+		if _, still := m.discSince[ev.profileID]; still && m.phase != "finished" {
+			m.quitter = ev.profileID
+			m.finish(ctx, "forfeit")
+		}
+	case "reconnect":
+		delete(m.discSince, ev.profileID)
+		opp := m.opponentOf(ev.profileID)
+		_ = m.svc.sendJSON(opp, "opponent.status", OpponentStatusData{State: "connected"})
+		_ = m.svc.sendJSON(ev.profileID, "match.state", m.stateSnapshot(ev.profileID))
+	case "leave":
+		m.quitter = ev.profileID
+		m.finish(ctx, "forfeit")
+	case "abort":
+		m.finish(ctx, "server_shutdown")
+	}
+}
+
+func (m *Match) onAnswer(ctx context.Context, ev matchEvent) {
+	if m.phase != "active" {
+		_ = m.svc.sendJSON(ev.profileID, "error", ErrorData{Code: "wrong_question", Message: "not active"})
+		return
+	}
+	if ev.index != m.index {
+		_ = m.svc.sendJSON(ev.profileID, "error", ErrorData{Code: "wrong_question", Message: "index mismatch"})
+		return
+	}
+	if m.answers[ev.profileID][m.index].answered {
+		_ = m.svc.sendJSON(ev.profileID, "error", ErrorData{Code: "already_answered", Message: "already answered"})
+		return
+	}
+	now := m.now()
+	if now.After(m.deadline.Add(m.grace)) {
+		_ = m.svc.sendJSON(ev.profileID, "error", ErrorData{Code: "too_late", Message: "deadline passed"})
+		return
+	}
+	qid := m.questions[m.index]
+	if set := m.validAns[qid]; set != nil {
+		if _, ok := set[ev.answerID]; !ok {
+			_ = m.svc.sendJSON(ev.profileID, "error", ErrorData{Code: "invalid_answer", Message: "answer not for question"})
+			return
+		}
+	}
+	resp := now.Sub(m.deadline.Add(-m.qTime)).Milliseconds()
+	if resp < 0 {
+		resp = 0
+	}
+	window := m.qTime.Milliseconds()
+	if resp > window {
+		resp = window
+	}
+	ok := m.correct[qid] == ev.answerID
+	pts := AnswerPoints(ok, resp, window)
+	m.answers[ev.profileID][m.index] = playerAnswer{
+		answered: true, answerID: ev.answerID, correct: ok, responseMs: resp, points: pts, at: now,
+	}
+	m.score[ev.profileID] += pts
+	if ok {
+		m.correctN[ev.profileID]++
+	}
+	m.responseSum[ev.profileID] += resp
+	_ = m.svc.sendJSON(ev.profileID, "answer.ack", AnswerAckData{Index: m.index, ResponseMs: resp})
+	if m.answers[m.a][m.index].answered && m.answers[m.b][m.index].answered {
+		m.reveal(ctx)
+		m.kickTimer()
+	}
+}
+
+func (m *Match) startQuestion(ctx context.Context, index int) {
+	m.index = index
+	m.phase = "active"
+	m.deadline = m.now().Add(m.qTime)
+	qid := m.questions[index]
+	m.pushQuestion(ctx, m.a, m.localeA, qid, index)
+	m.pushQuestion(ctx, m.b, m.localeB, qid, index)
+}
+
+func (m *Match) pushQuestion(ctx context.Context, profileID uuid.UUID, locale string, qid uuid.UUID, index int) {
+	var detail any
+	if m.svc.Content != nil {
+		d, ok, err := m.svc.Content.LoadQuestionDetail(ctx, qid, locale)
+		if err == nil && ok {
+			d.Explanation = nil
+			detail = d
+			if m.validAns[qid] == nil {
+				set := map[uuid.UUID]struct{}{}
+				for _, a := range d.Answers {
+					if id, err := uuid.Parse(a.ID); err == nil {
+						set[id] = struct{}{}
+					}
+				}
+				m.validAns[qid] = set
+			}
+		}
+	}
+	if detail == nil {
+		detail = map[string]any{"id": qid.String()}
+	}
+	_ = m.svc.sendJSON(profileID, "question", QuestionData{
+		Index: index, Total: len(m.questions),
+		DeadlineMs: ms(m.deadline), ServerTimeMs: ms(m.now()),
+		Question: detail,
+	})
+}
+
+func (m *Match) reveal(ctx context.Context) {
+	if m.phase != "active" {
+		return
+	}
+	m.phase = "reveal"
+	qid := m.questions[m.index]
+	correctID := m.correct[qid]
+	for _, pid := range []uuid.UUID{m.a, m.b} {
+		opp := m.opponentOf(pid)
+		_ = m.svc.sendJSON(pid, "question.result", QuestionResultData{
+			Index: m.index, CorrectAnswerID: correctID,
+			You: PlayerRoundData{
+				Answered: m.answers[pid][m.index].answered,
+				Correct:  m.answers[pid][m.index].correct,
+				Points:   m.answers[pid][m.index].points,
+			},
+			Opponent: PlayerRoundData{
+				Answered: m.answers[opp][m.index].answered,
+				Correct:  m.answers[opp][m.index].correct,
+				Points:   m.answers[opp][m.index].points,
+			},
+			Score: struct {
+				You      int `json:"you"`
+				Opponent int `json:"opponent"`
+			}{You: m.score[pid], Opponent: m.score[opp]},
+		})
+	}
+	_ = ctx
+}
+
+func (m *Match) finish(ctx context.Context, reason string) {
+	if m.phase == "finished" {
+		return
+	}
+	m.phase = "finished"
+	m.endReason = reason
+	outA, outB := OutcomeFromScores(m.score[m.a], m.score[m.b])
+	switch reason {
+	case "both_disconnected", "server_shutdown":
+		outA, outB = "draw", "draw"
+	case "forfeit":
+		if m.quitter == m.a {
+			outA, outB = "lost", "won"
+		} else if m.quitter == m.b {
+			outA, outB = "won", "lost"
+		}
+	}
+	da, db := 0, 0
+	if reason != "both_disconnected" && reason != "server_shutdown" && m.svc.Rating != nil {
+		da, db, _ = m.svc.Rating.ApplyResult(ctx, m.id, m.a, m.b, m.score[m.a], m.score[m.b])
+	}
+	_ = m.svc.sendJSON(m.a, "match.end", MatchEndData{
+		MatchID: m.id, Outcome: outA, Reason: reason, RatingDelta: da,
+		Medal: MedalForRating(1000 + da),
+		Score: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.score[m.a], m.score[m.b]},
+		Correct: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.correctN[m.a], m.correctN[m.b]},
+	})
+	_ = m.svc.sendJSON(m.b, "match.end", MatchEndData{
+		MatchID: m.id, Outcome: outB, Reason: reason, RatingDelta: db,
+		Medal: MedalForRating(1000 + db),
+		Score: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.score[m.b], m.score[m.a]},
+		Correct: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.correctN[m.b], m.correctN[m.a]},
+	})
+	_ = m.svc.FinishPersist(ctx, m, da, db)
+}
+
+func (m *Match) opponentOf(id uuid.UUID) uuid.UUID {
+	if id == m.a {
+		return m.b
+	}
+	return m.a
+}
+
+func bothDisconnected(m *Match) bool {
+	_, aGone := m.discSince[m.a]
+	_, bGone := m.discSince[m.b]
+	return aGone && bGone
+}
+
+func (m *Match) stateSnapshot(forProfile uuid.UUID) MatchStateData {
+	opp := m.opponentOf(forProfile)
+	return MatchStateData{
+		MatchID:    m.id,
+		Index:      m.index,
+		Phase:      m.phase,
+		DeadlineMs: ms(m.deadline),
+		Score: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.score[forProfile], m.score[opp]},
+		Correct: struct {
+			You      int `json:"you"`
+			Opponent int `json:"opponent"`
+		}{m.correctN[forProfile], m.correctN[opp]},
+	}
+}

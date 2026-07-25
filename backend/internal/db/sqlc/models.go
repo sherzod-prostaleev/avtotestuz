@@ -27,6 +27,45 @@ type AnswerTranslation struct {
 	Status   string    `json:"status"`
 }
 
+type ArenaAnswer struct {
+	MatchID    uuid.UUID          `json:"match_id"`
+	ProfileID  uuid.UUID          `json:"profile_id"`
+	QuestionID uuid.UUID          `json:"question_id"`
+	Position   int16              `json:"position"`
+	AnswerID   uuid.NullUUID      `json:"answer_id"`
+	IsCorrect  bool               `json:"is_correct"`
+	ResponseMs pgtype.Int4        `json:"response_ms"`
+	Points     int16              `json:"points"`
+	AnsweredAt pgtype.Timestamptz `json:"answered_at"`
+}
+
+type ArenaMatch struct {
+	ID              uuid.UUID          `json:"id"`
+	Status          string             `json:"status"`
+	QuestionIds     []uuid.UUID        `json:"question_ids"`
+	QuestionTimeSec int16              `json:"question_time_sec"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+	EndReason       pgtype.Text        `json:"end_reason"`
+}
+
+type ArenaMatchPlayer struct {
+	MatchID         uuid.UUID          `json:"match_id"`
+	ProfileID       uuid.UUID          `json:"profile_id"`
+	Slot            int16              `json:"slot"`
+	Locale          string             `json:"locale"`
+	Score           int32              `json:"score"`
+	CorrectCount    int16              `json:"correct_count"`
+	TotalResponseMs int32              `json:"total_response_ms"`
+	Outcome         pgtype.Text        `json:"outcome"`
+	RatingBefore    pgtype.Int4        `json:"rating_before"`
+	RatingAfter     pgtype.Int4        `json:"rating_after"`
+	RatingDelta     pgtype.Int4        `json:"rating_delta"`
+	DisconnectedAt  pgtype.Timestamptz `json:"disconnected_at"`
+	JoinedAt        pgtype.Timestamptz `json:"joined_at"`
+}
+
 type AuditLog struct {
 	ID        uuid.UUID          `json:"id"`
 	ActorID   uuid.NullUUID      `json:"actor_id"`

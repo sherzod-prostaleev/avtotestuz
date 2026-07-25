@@ -31,6 +31,8 @@ var testDBByPackage = map[string]int{
 	"internal_leaderboard": 3,
 	"internal_session":     4,
 	"internal_server":      5,
+	// Spec asked for slot 5; that is already taken by internal_server.
+	"internal_arena": 6,
 }
 
 // baseRedisURL is the connection string whose database index gets replaced with

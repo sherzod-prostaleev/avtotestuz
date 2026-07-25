@@ -43,7 +43,7 @@ func setupDemoServer(t *testing.T, seed bool) (*httptest.Server, *sqlc.Queries, 
 		_, _ = pool.Exec(context.Background(), "DELETE FROM question_sign; DELETE FROM variant_question; DELETE FROM question_memory; DELETE FROM saved_question; DELETE FROM session_answer; DELETE FROM answer_translation; DELETE FROM answer; DELETE FROM question_translation; DELETE FROM question;")
 	}
 	rc := redisx.NewTest(t)
-	h := server.New(config.Config{Env: "test", MediaBaseURL: "http://media.test"},
+	h, _ := server.New(config.Config{Env: "test", MediaBaseURL: "http://media.test"},
 		server.Deps{Queries: sqlc.New(pool), Pool: pool, Redis: rc})
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)

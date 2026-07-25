@@ -47,7 +47,7 @@ func main() {
 	}
 	defer func() { _ = redisClient.Close() }()
 
-	h := server.New(cfg, server.Deps{
+	h, arenaSvc := server.New(cfg, server.Deps{
 		Queries: sqlc.New(pool),
 		Pool:    pool,
 		Redis:   redisClient,
@@ -89,6 +89,9 @@ func main() {
 	<-ctx.Done()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	if arenaSvc != nil {
+		arenaSvc.Drain(shutdownCtx)
+	}
 	_ = srv.Shutdown(shutdownCtx)
 	logger.Info("stopped")
 }

@@ -1,0 +1,587 @@
+package arena
+
+import (
+	"context"
+	_ "embed"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
+
+	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/billing"
+	"avtotest.uz/backend/internal/content"
+	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/leaderboard"
+	"avtotest.uz/backend/internal/learning"
+	"avtotest.uz/backend/internal/progress"
+)
+
+//go:embed arena_join.lua
+var arenaJoinLua string
+
+var (
+	ErrRequiresVIP    = errors.New("vip_required")
+	ErrAlreadyQueued  = errors.New("already_queued")
+	ErrAlreadyInMatch = errors.New("already_in_match")
+	ErrTicketInvalid  = errors.New("ticket_invalid")
+	ErrInviteInvalid  = errors.New("invite_invalid")
+)
+
+// RatingProvider supplies ratings for matchmaking (M4-04 fills real ELO).
+type RatingProvider interface {
+	Rating(ctx context.Context, profileID uuid.UUID) (int, error)
+	ApplyResult(ctx context.Context, matchID uuid.UUID, a, b uuid.UUID, scoreA, scoreB int) (deltaA, deltaB int, err error)
+}
+
+// FixedRating is the M4-03 stub (everyone starts at 1000).
+type FixedRating struct{ Value int }
+
+func (f FixedRating) Rating(context.Context, uuid.UUID) (int, error) {
+	if f.Value == 0 {
+		return 1000, nil
+	}
+	return f.Value, nil
+}
+func (f FixedRating) ApplyResult(context.Context, uuid.UUID, uuid.UUID, uuid.UUID, int, int) (int, int, error) {
+	return 0, 0, nil
+}
+
+// EloStore persists and updates arena ratings in Redis (M4-04).
+type EloStore struct {
+	R *redis.Client
+	K float64
+}
+
+func (e EloStore) key(id uuid.UUID) string { return "arena:rating:" + id.String() }
+
+func (e EloStore) Rating(ctx context.Context, profileID uuid.UUID) (int, error) {
+	v, err := e.R.Get(ctx, e.key(profileID)).Int()
+	if err == redis.Nil {
+		return 1000, nil
+	}
+	return v, err
+}
+
+func (e EloStore) ApplyResult(ctx context.Context, _ uuid.UUID, a, b uuid.UUID, scoreA, scoreB int) (int, int, error) {
+	ra, err := e.Rating(ctx, a)
+	if err != nil {
+		return 0, 0, err
+	}
+	rb, err := e.Rating(ctx, b)
+	if err != nil {
+		return 0, 0, err
+	}
+	var sa, sb float64
+	switch {
+	case scoreA > scoreB:
+		sa, sb = 1, 0
+	case scoreA < scoreB:
+		sa, sb = 0, 1
+	default:
+		sa, sb = 0.5, 0.5
+	}
+	k := e.K
+	if k <= 0 {
+		k = 32
+	}
+	da := EloDelta(ra, rb, sa, k)
+	db := EloDelta(rb, ra, sb, k)
+	if err := e.R.Set(ctx, e.key(a), ra+da, 0).Err(); err != nil {
+		return 0, 0, err
+	}
+	if err := e.R.Set(ctx, e.key(b), rb+db, 0).Err(); err != nil {
+		return 0, 0, err
+	}
+	return da, db, nil
+}
+
+// Service owns tickets, matchmaking, and match lifecycle.
+type Service struct {
+	Q        *sqlc.Queries
+	Pool     *pgxpool.Pool
+	R        *redis.Client
+	Lim      auth.Limiter
+	Billing  billing.Service
+	Content  *content.Handler
+	Learning *learning.Service
+	Progress *progress.Service
+	Rating   RatingProvider
+	Hub      *Hub
+	Log      *zap.Logger
+	Now      func() time.Time
+	Instance string
+
+	mu      sync.Mutex
+	matches map[uuid.UUID]*Match
+	locales sync.Map // profileID string → locale
+}
+
+func NewService(
+	q *sqlc.Queries,
+	pool *pgxpool.Pool,
+	r *redis.Client,
+	billingSvc billing.Service,
+	contentH *content.Handler,
+	learningSvc *learning.Service,
+	progressSvc *progress.Service,
+	log *zap.Logger,
+) *Service {
+	if log == nil {
+		log = zap.NewNop()
+	}
+	host, _ := os.Hostname()
+	return &Service{
+		Q:        q,
+		Pool:     pool,
+		R:        r,
+		Lim:      auth.Limiter{R: r},
+		Billing:  billingSvc,
+		Content:  contentH,
+		Learning: learningSvc,
+		Progress: progressSvc,
+		Rating:   FixedRating{Value: 1000},
+		Hub:      NewHub(),
+		Log:      log,
+		Now:      time.Now,
+		Instance: host,
+		matches:  make(map[uuid.UUID]*Match),
+	}
+}
+
+func (s *Service) ticketKey(tok string) string { return "arena:ticket:" + tok }
+
+func (s *Service) MintTicket(ctx context.Context, profileID uuid.UUID) (string, int, error) {
+	ok, err := s.Lim.Allow(ctx, "arena:rl:ticket:"+profileID.String(), 30, time.Minute)
+	if err != nil {
+		return "", 0, err
+	}
+	if !ok {
+		return "", 0, fmt.Errorf("rate_limited")
+	}
+	tok := auth.NewRefreshToken()
+	if err := s.R.Set(ctx, s.ticketKey(tok), profileID.String(), TicketTTL).Err(); err != nil {
+		return "", 0, err
+	}
+	return tok, int(TicketTTL.Seconds()), nil
+}
+
+func (s *Service) RedeemTicket(ctx context.Context, tok string) (uuid.UUID, error) {
+	val, err := s.R.GetDel(ctx, s.ticketKey(tok)).Result()
+	if err == redis.Nil || val == "" {
+		return uuid.Nil, ErrTicketInvalid
+	}
+	if err != nil {
+		return uuid.Nil, err
+	}
+	id, err := uuid.Parse(val)
+	if err != nil {
+		return uuid.Nil, ErrTicketInvalid
+	}
+	return id, nil
+}
+
+func (s *Service) requireVIP(ctx context.Context, profileID uuid.UUID) error {
+	active, _, err := s.Billing.Status(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	if !active {
+		return ErrRequiresVIP
+	}
+	return nil
+}
+
+func (s *Service) JoinQueue(ctx context.Context, profileID uuid.UUID, locale string) error {
+	if err := s.requireVIP(ctx, profileID); err != nil {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "vip_required", Message: "VIP required"})
+		return err
+	}
+	ok, err := s.Lim.Allow(ctx, "arena:rl:join:"+profileID.String(), 20, 5*time.Minute)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "rate_limited", Message: "join rate limited"})
+		return fmt.Errorf("rate_limited")
+	}
+	if s.Hub.InMatch(profileID) {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "already_in_match", Message: "already in match"})
+		return ErrAlreadyInMatch
+	}
+	if v, _ := s.R.Exists(ctx, "arena:match:"+profileID.String()).Result(); v > 0 {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "already_in_match", Message: "already in match"})
+		return ErrAlreadyInMatch
+	}
+	if v, _ := s.R.Exists(ctx, "arena:queued:"+profileID.String()).Result(); v > 0 {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "already_queued", Message: "already queued"})
+		return ErrAlreadyQueued
+	}
+	locale = normalizeLocale(locale)
+	s.locales.Store(profileID.String(), locale)
+
+	rating, err := s.Rating.Rating(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	bucket := Bucket(rating)
+	now := s.Now().UTC().UnixMilli()
+	ownKey := fmt.Sprintf("arena:q:%d", bucket)
+	keys := []string{ownKey}
+	for _, b := range SearchBuckets(bucket, 0)[1:] {
+		keys = append(keys, fmt.Sprintf("arena:q:%d", b))
+	}
+	res, err := s.R.Eval(ctx, arenaJoinLua, keys, profileID.String(), now, ownKey).Result()
+	if err != nil {
+		return err
+	}
+	arr, ok := res.([]interface{})
+	if !ok || len(arr) < 1 {
+		return fmt.Errorf("bad_join_result")
+	}
+	kind, _ := arr[0].(string)
+	switch kind {
+	case "queued":
+		_ = s.sendJSON(profileID, "queue.joined", QueueJoinedData{
+			QueuedAtMs: now,
+			TimeoutMs:  QueueTimeout.Milliseconds(),
+		})
+		go s.watchQueueTimeout(profileID, bucket, now)
+		return nil
+	case "paired":
+		oppStr, _ := arr[1].(string)
+		oppID, err := uuid.Parse(oppStr)
+		if err != nil {
+			return err
+		}
+		if !s.Hub.Alive(oppID) {
+			// Stale opponent — re-queue self
+			_ = s.R.Del(ctx, "arena:queued:"+oppID.String()).Err()
+			return s.JoinQueue(ctx, profileID, locale)
+		}
+		return s.startMatch(ctx, profileID, oppID)
+	default:
+		return fmt.Errorf("unknown_join_kind")
+	}
+}
+
+func (s *Service) LeaveQueue(ctx context.Context, profileID uuid.UUID) error {
+	bucket, err := s.R.Get(ctx, "arena:queued:"+profileID.String()).Result()
+	if err == redis.Nil {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "not_queued", Message: "not queued"})
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	_ = s.R.ZRem(ctx, "arena:q:"+bucket, profileID.String()).Err()
+	_ = s.R.Del(ctx, "arena:queued:"+profileID.String()).Err()
+	return nil
+}
+
+func (s *Service) CreateInvite(ctx context.Context, profileID uuid.UUID) error {
+	if err := s.requireVIP(ctx, profileID); err != nil {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "vip_required", Message: "VIP required"})
+		return err
+	}
+	code := strings.ToUpper(auth.NewRefreshToken()[:8])
+	if err := s.R.Set(ctx, "arena:invite:"+code, profileID.String(), 10*time.Minute).Err(); err != nil {
+		return err
+	}
+	return s.sendJSON(profileID, "invite.created", InviteCreatedData{Code: code, ExpiresInSec: 600})
+}
+
+func (s *Service) JoinInvite(ctx context.Context, profileID uuid.UUID, code, locale string) error {
+	if err := s.requireVIP(ctx, profileID); err != nil {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "vip_required", Message: "VIP required"})
+		return err
+	}
+	val, err := s.R.GetDel(ctx, "arena:invite:"+strings.ToUpper(code)).Result()
+	if err == redis.Nil || val == "" {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "invite_invalid", Message: "invalid invite"})
+		return ErrInviteInvalid
+	}
+	if err != nil {
+		return err
+	}
+	hostID, err := uuid.Parse(val)
+	if err != nil || hostID == profileID {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "invite_invalid", Message: "invalid invite"})
+		return ErrInviteInvalid
+	}
+	if err := s.requireVIP(ctx, hostID); err != nil {
+		_ = s.sendJSON(profileID, "error", ErrorData{Code: "vip_required", Message: "host not VIP"})
+		return err
+	}
+	locale = normalizeLocale(locale)
+	s.locales.Store(profileID.String(), locale)
+	return s.startMatch(ctx, hostID, profileID)
+}
+
+func (s *Service) watchQueueTimeout(profileID uuid.UUID, bucket int, queuedAt int64) {
+	deadline := time.UnixMilli(queuedAt).Add(QueueTimeout)
+	timer := time.NewTimer(time.Until(deadline))
+	defer timer.Stop()
+	<-timer.C
+	ctx := context.Background()
+	still, _ := s.R.Get(ctx, "arena:queued:"+profileID.String()).Result()
+	if still == "" {
+		return
+	}
+	_ = s.R.ZRem(ctx, fmt.Sprintf("arena:q:%d", bucket), profileID.String()).Err()
+	_ = s.R.Del(ctx, "arena:queued:"+profileID.String()).Err()
+	_ = s.sendJSON(profileID, "queue.timeout", QueueTimeoutData{WaitedMs: QueueTimeout.Milliseconds()})
+}
+
+func (s *Service) localeOf(id uuid.UUID) string {
+	if v, ok := s.locales.Load(id.String()); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return "uz-Latn"
+}
+
+func (s *Service) startMatch(ctx context.Context, a, b uuid.UUID) error {
+	ids, err := s.Q.RandomQuestionIDs(ctx, int32(QuestionCount))
+	if err != nil || len(ids) < QuestionCount {
+		_ = s.sendJSON(a, "error", ErrorData{Code: "not_enough_questions", Message: "bank too small"})
+		_ = s.sendJSON(b, "error", ErrorData{Code: "not_enough_questions", Message: "bank too small"})
+		return fmt.Errorf("not_enough_questions")
+	}
+	qids := make([]uuid.UUID, len(ids))
+	copy(qids, ids)
+
+	correctRows, err := s.Q.ListCorrectAnswerIDsForQuestions(ctx, qids)
+	if err != nil {
+		return err
+	}
+	correct := map[uuid.UUID]uuid.UUID{}
+	for _, row := range correctRows {
+		correct[row.QuestionID] = row.AnswerID
+	}
+
+	matchRow, err := s.Q.InsertArenaMatch(ctx, sqlc.InsertArenaMatchParams{
+		QuestionIds:     qids,
+		QuestionTimeSec: int16(QuestionTimeSec),
+	})
+	if err != nil {
+		return err
+	}
+
+	ttl := time.Duration(QuestionCount)*(time.Duration(QuestionTimeSec)*time.Second+5*time.Second) + ReconnectGrace
+	_ = s.R.Set(ctx, "arena:match:"+a.String(), matchRow.ID.String(), ttl).Err()
+	_ = s.R.Set(ctx, "arena:match:"+b.String(), matchRow.ID.String(), ttl).Err()
+	_ = s.R.Del(ctx, "arena:queued:"+a.String(), "arena:queued:"+b.String()).Err()
+
+	nameA := leaderboard.DisplayName("", a.String())
+	nameB := leaderboard.DisplayName("", b.String())
+	if p, err := s.Q.GetProfileByID(ctx, a); err == nil {
+		nameA = leaderboard.DisplayName(p.Name, a.String())
+	}
+	if p, err := s.Q.GetProfileByID(ctx, b); err == nil {
+		nameB = leaderboard.DisplayName(p.Name, b.String())
+	}
+
+	foundA := MatchFoundData{
+		MatchID: matchRow.ID, QuestionCount: QuestionCount,
+		QuestionTimeMs: int64(QuestionTimeSec) * 1000, StartsInMs: 3000,
+	}
+	foundA.Opponent.Name = nameB
+	foundB := foundA
+	foundB.Opponent.Name = nameA
+	_ = s.sendJSON(a, "match.found", foundA)
+	_ = s.sendJSON(b, "match.found", foundB)
+
+	m := NewMatch(s, matchRow.ID, a, b, s.localeOf(a), s.localeOf(b), qids, correct)
+	s.mu.Lock()
+	s.matches[matchRow.ID] = m
+	s.Hub.SetMatch(a, matchRow.ID)
+	s.Hub.SetMatch(b, matchRow.ID)
+	s.mu.Unlock()
+	go m.Run()
+	return nil
+}
+
+func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
+	ctx := context.Background()
+	switch env.T {
+	case "queue.join":
+		locale := "uz-Latn"
+		var d QueueJoinClientData
+		if json.Unmarshal(env.D, &d) == nil && d.Locale != "" {
+			locale = d.Locale
+		}
+		_ = s.JoinQueue(ctx, profileID, locale)
+	case "queue.leave":
+		_ = s.LeaveQueue(ctx, profileID)
+	case "invite.create":
+		_ = s.CreateInvite(ctx, profileID)
+	case "invite.join":
+		var d InviteJoinClientData
+		if json.Unmarshal(env.D, &d) != nil || d.Code == "" {
+			_ = s.sendJSON(profileID, "error", ErrorData{Code: "invite_invalid", Message: "code required"})
+			return
+		}
+		_ = s.JoinInvite(ctx, profileID, d.Code, d.Locale)
+	case "answer":
+		var d AnswerClientData
+		if json.Unmarshal(env.D, &d) != nil {
+			return
+		}
+		s.mu.Lock()
+		m := s.matches[d.MatchID]
+		s.mu.Unlock()
+		if m != nil {
+			m.SubmitAnswer(profileID, d.Index, d.AnswerID)
+		}
+	case "match.rejoin":
+		var d MatchRejoinData
+		if json.Unmarshal(env.D, &d) != nil {
+			return
+		}
+		s.mu.Lock()
+		m := s.matches[d.MatchID]
+		s.mu.Unlock()
+		if m != nil {
+			m.Rejoin(profileID)
+		}
+	case "match.leave":
+		if mid, ok := s.Hub.MatchOf(profileID); ok {
+			s.mu.Lock()
+			m := s.matches[mid]
+			s.mu.Unlock()
+			if m != nil {
+				m.Leave(profileID)
+			}
+		}
+	}
+}
+
+func (s *Service) OnDisconnect(profileID uuid.UUID) {
+	ctx := context.Background()
+	_ = s.LeaveQueue(ctx, profileID)
+	if mid, ok := s.Hub.MatchOf(profileID); ok {
+		s.mu.Lock()
+		m := s.matches[mid]
+		s.mu.Unlock()
+		if m != nil {
+			m.NotifyDisconnect(profileID)
+		}
+	}
+}
+
+func (s *Service) sendJSON(profileID uuid.UUID, t string, d any) error {
+	b, err := Encode(t, d)
+	if err != nil {
+		return err
+	}
+	return s.Hub.Send(profileID, b)
+}
+
+func (s *Service) FinishPersist(ctx context.Context, m *Match, da, db int) error {
+	outA, outB := OutcomeFromScores(m.score[m.a], m.score[m.b])
+	switch m.endReason {
+	case "both_disconnected", "server_shutdown":
+		outA, outB = "draw", "draw"
+	case "forfeit":
+		if m.quitter == m.a {
+			outA, outB = "lost", "won"
+		} else if m.quitter == m.b {
+			outA, outB = "won", "lost"
+		}
+	}
+	ra, _ := s.Rating.Rating(ctx, m.a)
+	rb, _ := s.Rating.Rating(ctx, m.b)
+	beforeA, beforeB := ra-da, rb-db
+
+	_ = s.Q.FinishArenaMatch(ctx, sqlc.FinishArenaMatchParams{
+		ID: m.id, EndReason: pgtype.Text{String: m.endReason, Valid: true},
+	})
+	_ = s.Q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
+		MatchID: m.id, ProfileID: m.a, Slot: 1, Locale: m.localeA,
+		Score: int32(m.score[m.a]), CorrectCount: int16(m.correctN[m.a]), TotalResponseMs: int32(m.responseSum[m.a]),
+		Outcome:      pgtype.Text{String: outA, Valid: true},
+		RatingBefore: pgtype.Int4{Int32: int32(beforeA), Valid: true},
+		RatingAfter:  pgtype.Int4{Int32: int32(ra), Valid: true},
+		RatingDelta:  pgtype.Int4{Int32: int32(da), Valid: true},
+	})
+	_ = s.Q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
+		MatchID: m.id, ProfileID: m.b, Slot: 2, Locale: m.localeB,
+		Score: int32(m.score[m.b]), CorrectCount: int16(m.correctN[m.b]), TotalResponseMs: int32(m.responseSum[m.b]),
+		Outcome:      pgtype.Text{String: outB, Valid: true},
+		RatingBefore: pgtype.Int4{Int32: int32(beforeB), Valid: true},
+		RatingAfter:  pgtype.Int4{Int32: int32(rb), Valid: true},
+		RatingDelta:  pgtype.Int4{Int32: int32(db), Valid: true},
+	})
+	for i, qid := range m.questions {
+		for _, pid := range []uuid.UUID{m.a, m.b} {
+			ans := m.answers[pid][i]
+			var answerID uuid.NullUUID
+			var resp pgtype.Int4
+			var answeredAt pgtype.Timestamptz
+			if ans.answered {
+				answerID = uuid.NullUUID{UUID: ans.answerID, Valid: true}
+				resp = pgtype.Int4{Int32: int32(ans.responseMs), Valid: true}
+				answeredAt = pgtype.Timestamptz{Time: ans.at, Valid: true}
+			}
+			_ = s.Q.InsertArenaAnswer(ctx, sqlc.InsertArenaAnswerParams{
+				MatchID: m.id, ProfileID: pid, QuestionID: qid, Position: int16(i + 1),
+				AnswerID: answerID, IsCorrect: ans.correct, ResponseMs: resp, Points: int16(ans.points), AnsweredAt: answeredAt,
+			})
+			if ans.answered && !ans.correct && s.Learning != nil {
+				_, _ = s.Learning.RecordReview(ctx, pid, qid, learning.Again)
+			}
+		}
+	}
+	if s.Progress != nil {
+		_, _ = s.Progress.RecordActivity(ctx, m.a)
+		_, _ = s.Progress.RecordActivity(ctx, m.b)
+	}
+	_ = s.R.Del(ctx, "arena:match:"+m.a.String(), "arena:match:"+m.b.String()).Err()
+	s.Hub.ClearMatch(m.a)
+	s.Hub.ClearMatch(m.b)
+	s.mu.Lock()
+	delete(s.matches, m.id)
+	s.mu.Unlock()
+	return nil
+}
+
+func (s *Service) Drain(ctx context.Context) {
+	s.mu.Lock()
+	list := make([]*Match, 0, len(s.matches))
+	for _, m := range s.matches {
+		list = append(list, m)
+	}
+	s.mu.Unlock()
+	for _, m := range list {
+		m.AbortShutdown()
+	}
+	s.Hub.CloseAll(CloseShutdown)
+	_ = ctx
+}
+
+func (s *Service) ListHistory(ctx context.Context, profileID uuid.UUID, limit int32) ([]sqlc.ListArenaMatchesForProfileRow, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	return s.Q.ListArenaMatchesForProfile(ctx, sqlc.ListArenaMatchesForProfileParams{ProfileID: profileID, Limit: limit})
+}
+
+func normalizeLocale(loc string) string {
+	switch loc {
+	case "uz-Latn", "uz-Cyrl", "ru", "kaa":
+		return loc
+	default:
+		return "uz-Latn"
+	}
+}

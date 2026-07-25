@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/account"
+	"avtotest.uz/backend/internal/arena"
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
@@ -37,7 +38,9 @@ type Deps struct {
 	Log     *zap.Logger
 }
 
-func New(cfg config.Config, deps Deps) http.Handler {
+// New wires HTTP routes. The optional *arena.Service is non-nil when Redis+DB
+// are configured; callers should Drain it before http.Server.Shutdown.
+func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r := chi.NewRouter()
 	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
 	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
@@ -55,6 +58,7 @@ func New(cfg config.Config, deps Deps) http.Handler {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	var arenaSvc *arena.Service
 	if deps.Queries != nil {
 		r.Route("/api/v1", func(api chi.Router) {
 			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
@@ -129,6 +133,12 @@ func New(cfg config.Config, deps Deps) http.Handler {
 				evh := &events.Handler{Svc: events.NewService(deps.Queries)}
 				evh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
+				arenaSvc = arena.NewService(deps.Queries, deps.Pool, deps.Redis,
+					billing.Service{Q: deps.Queries}, ch, learningSvc, progressSvc, log)
+				ahArena := &arena.Handler{Svc: arenaSvc, PublicURL: cfg.PublicBaseURL}
+				ahArena.PublicRoutes(api)
+				ahArena.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
 				if cfg.TelegramBotMode != "off" {
 					linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
 					tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
@@ -153,5 +163,5 @@ func New(cfg config.Config, deps Deps) http.Handler {
 		})
 	}
 
-	return r
+	return r, arenaSvc
 }
