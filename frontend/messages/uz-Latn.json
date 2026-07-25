@@ -177,6 +177,7 @@
     "navSigns": "Yo'l belgilari",
     "navMistakes": "Xatolar banki",
     "navSaved": "Saqlangan savollar",
+    "navLeaderboard": "Reyting",
     "navStats": "Statistika va tahlil",
     "navProfile": "Profil va sozlamalar",
     "navPremium": "Premium VIP",
@@ -701,5 +702,27 @@
     "expiredTitle": "Sinov muddati tugadi",
     "expiredBody": "Cheksiz mashq va barcha biletlar uchun obunani rasmiylashtiring.",
     "upgrade": "Premium olish"
+  },
+  "Leaderboard": {
+    "backHome": "Bosh sahifaga qaytish",
+    "title": "Reyting",
+    "subtitle": "Boshqa o'quvchilar bilan bellashing — har bir to'g'ri javob uchun ball beriladi.",
+    "periodGroupLabel": "Reyting davrini tanlash",
+    "periodDaily": "Kun",
+    "periodWeekly": "Hafta",
+    "periodMonthly": "Oy",
+    "periodAlltime": "Barcha vaqt",
+    "loading": "Reytingni yuklayapmiz...",
+    "loadError": "Reytingni yuklab bo'lmadi.",
+    "retry": "Qayta urinib ko'ring",
+    "yourPositionLabel": "Sizning o'rningiz",
+    "rankValue": "#{rank}",
+    "rankNone": "—",
+    "scoreUnit": "{score} ball",
+    "notRankedYet": "Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!",
+    "topTitle": "TOP-10",
+    "topEmpty": "Bu davrda hali hech kim ball to'plamadi. Birinchi bo'ling!",
+    "aroundYouTitle": "Reytingdagi qo'shnilaringiz",
+    "youBadge": "Siz"
   }
 }

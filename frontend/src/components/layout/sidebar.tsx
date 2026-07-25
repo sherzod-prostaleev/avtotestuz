@@ -23,6 +23,7 @@ import {
   Sparkles,
   Bookmark,
   CarFront,
+  Trophy,
 } from "lucide-react";
 
 export function Sidebar() {
@@ -52,6 +53,7 @@ export function Sidebar() {
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
     { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
+    { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy },
     { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
     { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
