@@ -129,7 +129,7 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 - `referral_attribution` (0003) — **dropped** (U-23 / mig `0028`); live jadval `referral` (0015).
 - M4-01 rebuild cap approximation (U-22) — joriy VIP/cap; tarixiy fidelity yo‘q.
 - Promo pro-rating: entitlement.note + FE notice (U-21); avtomatik refund yo‘q.
-- 15 biletsiz leftover savollar (U-29) — practice/FSRS OK; UX copy yetarli emas bo‘lishi mumkin.
+- 15 biletsiz leftover savollar (U-29) — practice/FSRS OK; UX copy tickets/practice da tushuntirilgan.
 - Checkout `returnURL` — **tuzatildi** (endi `checkoutPendingReturnURL`); eski §3 “hardcoded empty” yozuvi eskirgan.
 
 ## 3.1 MUHIM TUZATISH — M4-01 ≠ streak

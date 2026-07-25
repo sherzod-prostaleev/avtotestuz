@@ -123,6 +123,9 @@ export default function TicketsPage() {
               <p className="max-w-xl text-sm text-muted-foreground">
                 {t("heroDescription")}
               </p>
+              <p className="max-w-xl text-xs leading-5 text-muted-foreground/90">
+                {t("leftoverNote")}
+              </p>
               <div
                 className="h-2 w-full overflow-hidden rounded-full bg-border"
                 role="progressbar"

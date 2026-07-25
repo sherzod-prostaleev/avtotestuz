@@ -44,6 +44,9 @@ describe("TicketsPage", () => {
     renderWithIntl();
 
     expect(screen.getByText("Biletlar")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Ba'zi savollar hech qaysi raqamli biletga kirmagan/i)
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Hammasi" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Tugallangan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Jarayonda" })).toBeInTheDocument();
