@@ -1403,5 +1403,8 @@
     "profileCardTitle": "B2B / o‘qituvchi",
     "profileCardBody": "{count} ta tashkilot",
     "profileCardCta": "Dashboard ochish"
+  },
+  "MaintenanceBanner": {
+    "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."
   }
 }

@@ -1403,5 +1403,8 @@
     "profileCardTitle": "B2B / ўқитувчи",
     "profileCardBody": "{count} та ташкилот",
     "profileCardCta": "Dashboard очиш"
+  },
+  "MaintenanceBanner": {
+    "message": "Техник ишлар: баъзи функциялар вақтинча чекланган бўлиши мумкин."
   }
 }

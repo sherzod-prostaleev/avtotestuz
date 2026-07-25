@@ -83,7 +83,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
 | **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + ops→admin + audit UI + support broadcast stub.** Inbox, logs/alerts, homepage CMS, limits write still open. |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
-| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags table+UI (M3-7) + product gates** (arena/checkout/digest). **Broadcast stub done.** Support **inbox** still missing. |
+| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags + product gates + maintenance_mode FE banner.** Broadcast stub done. Support **inbox** still missing. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
 | **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #2: audit UI, broadcast stub, flag gates, teacher portal. Re-run after major waves. |
