@@ -11,12 +11,15 @@ Manba: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` §3 (M4-03 T1–T4),
 
 | # | Qaror | Qiymat |
 |---|--------|--------|
-| Q1 | Kim o'ynaydi | Bepul **3 duel/kun**, VIP **cheksiz** (`arena_daily_matches` 3/-1) |
-| Q2 | Match uzunligi | **10 savol × 15 soniya** (rasmli savollar uchun 15s saqlanadi; 10 ta savol ≈ 2.5–3 daq) |
-| Q3 | FSRS / mastery | **Faqat xato → `learning.Again`** (mistake-bank). To'g'ri javobda RecordReview **yo'q**. Streak: ha |
-| Q6 | Disconnect | **20s grace → forfeit = mag'lubiyat**; ataylab chiqish — darhol forfeit; ikkalasi uzilsa — durang |
+| Q1 | Kim o'ynaydi | **Faqat VIP.** Bepul foydalanuvchi battle qila olmaydi (`402 vip_required`). VIP — kunlik limit yo'q |
+| Q2 | Match uzunligi | **10 savol × 15 soniya** (~2.5–3 daq) |
+| Q3 | FSRS / mastery | **Xato → `learning.Again`**. To'g'ri → hech narsa. Streak → ha |
+| Q6 | Disconnect | **20s grace → forfeit**; ataylab leave → darhol forfeit; ikkalasi → durang |
+| Q7 | Do'st invite transport | **T2'da quriladi** (keyin matchmaking'ni qayta yozmaslik uchun) |
+| Q10 | Bot raqib | **M4-03'da yo'q.** Bo'sh navbat → timeout; oshkora bot faqat M4-05 |
+| Q11 | Multi-instance | **Launch — bitta API + `LocalTransport`.** `RedisTransport` — horizontal scale kerak bo'lganda (M7) |
 
-Q4 (leaderboard'ga emas), Q5 (durang OK), Q8–Q10 tavsiyalar o'z kuchida. Q7/Q11 — hali deploy/UI bilan bog'liq, sxemani to'xtatmaydi.
+Q4 (leaderboard yo'q), Q5 (durang OK), Q8–Q9 — default tavsiyalar o'z kuchida.
 
 ---
 
@@ -79,7 +82,7 @@ A playable, server-authoritative 1v1 duel:
 | ELO/rating math, medal tiers (Bronza→Brilliant), win streaks | **M4-04** | M4-03 defines `RatingProvider` + persists nullable `rating_before/after/delta` columns. M4-04 fills them in; no schema change needed later. |
 | Match history API (`GET /me/arena/matches`), season resets | **M4-04** | The rows M4-04 reads are written by M4-03. Reading them is trivial once they exist and outcome semantics are settled. |
 | Any UI: matchmaking screen, live duel, result, friend invite | **M4-05** | M4-03 ships a documented wire protocol (§2.4); M4-05 consumes it. |
-| Private/friend matches ("do'stni chaqirish") | **M4-05** per roadmap, but the *transport* hook must be decided now — see §12 Q7 |
+| Private/friend matches ("do'stni chaqirish") | **Transport in M4-03 T2** (locked Q7); UI in M4-05 |
 | Spectating, tournaments, 3+ player rooms | not planned | Protocol keeps `slot` as a smallint (not a boolean "is_player_a") so a 3rd slot is not schema-blocked, but nothing else accommodates it. |
 | Leaderboard coupling | never (recommended) | §6.1 / §12 Q4 |
 
@@ -347,19 +350,20 @@ migration — only a new `RatingProvider` implementation and a post-match update
 M4-01's leaderboard score: duel rating and "correct answers this week" measure different things, and the leaderboard's
 Redis sorted set is documented as a rebuildable cache, not a rating store.
 
-### 3.5 Eligibility and daily cap
+### 3.5 Eligibility — **LOCKED (Q1): VIP only**
 
-Checked at `queue.join`, not at connect (a socket may idle):
+Checked at `queue.join` (and again at friend-invite redeem), not at connect (a socket may idle):
 
-1. Not already in a live match (`arena:match:<profileID>` absent) → else `already_in_match`.
-2. Not already queued → else `already_queued`.
-3. Daily match budget from `limit_config` key `arena_daily_matches` (**locked** `free_value=3, vip_value=-1`;
-   `-1` is this schema's existing "unlimited" convention, see migration `0003`). Counted from
-   `arena_match_player` rows joined today (UTC day boundary, matching `progress.todayUTC()` and
-   `leaderboard.PeriodStart`). Exceeded → `daily_limit_reached`, and the client routes to `/premium` the same way
-   `402 vip_required` already does. **This is Q1 in §12** — if Arena is fully free, this check disappears; if it is
-   VIP-only, it becomes `billing.Service.Status` exactly as `session.StartSession`'s `case "exam"` does.
-4. Rate limit on join churn via `auth.Limiter` (`arena:rl:join:<profileID>`, e.g. 20 per 5 minutes).
+1. **Active VIP** via `billing.Service.Status` — same gate as `session.StartSession` `case "exam"`. Not VIP →
+   `ErrRequiresVIP` → client `402 vip_required` → `/premium`. **No free battles, ever, in M4-03.** Free users
+   see the Arena entry point as locked/upsell; they do not enter the queue.
+2. Not already in a live match (`arena:match:<profileID>` absent) → else `already_in_match`.
+3. Not already queued → else `already_queued`.
+4. Rate limit on join churn via `auth.Limiter` (`arena:rl:join:<profileID>`, e.g. 20 per 5 minutes) — this is the
+   anti-spam control; there is **no** per-day match budget for VIP (unlimited play once subscribed).
+
+`arena_daily_matches` is **not** seeded for launch. A free/VIP limit_config row would imply a free tier that does
+not exist; reintroduce it only if product later opens a free trial quota.
 
 ### 3.6 Locale is not a matchmaking constraint
 
@@ -415,8 +419,8 @@ ArenaMaxSpeedBonus     = 50
 These live in `arena/rules.go` as constants, **not** in `limit_config`. `limit_config` is a two-column
 free/VIP *limits* table (`free_value`, `vip_value`) — a question count has no free/VIP dimension, and forcing it in
 would repeat the mistake migration `0018`'s comment describes (a seeded row that nothing reads, or a constant that
-silently wins over the row). Only `arena_daily_matches` is genuinely free/VIP-shaped, so only that goes in
-`limit_config`. Match length is **locked** (Q2).
+silently wins over the row). Arena is VIP-only with unlimited matches (§3.5), so **no** match-budget row belongs in
+`limit_config` at launch. Match length is **locked** (Q2).
 
 10×15s ≈ 2.5 minutes of answer windows; with countdown/reveals typically ~3 minutes wall-clock (less when both
 answer early). Rationale: 10 questions is more decisive than 7; **per-question time stays 15s** rather than being
@@ -590,11 +594,11 @@ CREATE TABLE arena_answer (
   CHECK (answer_id IS NOT NULL OR NOT is_correct)
 );
 
-INSERT INTO limit_config (key, free_value, vip_value) VALUES
-  ('arena_daily_matches', 3, -1);   -- -1 = unlimited, existing convention
+-- No arena_daily_matches row: Arena is VIP-only with unlimited play (§3.5 / Q1).
+-- Reintroduce a free/VIP budget only if product later opens a free trial quota.
 ```
 
-Down migration drops the three tables and deletes the `limit_config` row — and note the operational rule from the
+Down migration drops the three tables — and note the operational rule from the
 handoff: editing a migration **in place** requires `make test-db-reset`, because per-package test databases are
 reused.
 
@@ -655,7 +659,7 @@ in answered questions; a 10-question duel is meaningful activity, not a loophole
 ### 6.4 Practice daily limit
 
 `CountPracticeAnswersToday` filters `es.mode = 'practice'`, so arena cannot consume or be consumed by the practice
-budget regardless of any other decision. Arena's own budget is `arena_daily_matches` (§3.5).
+budget. Arena itself has no per-day budget: VIP-only + join rate-limit (§3.5).
 
 ### 6.5 Logging: arena is the first service that needs a logger
 
@@ -833,24 +837,33 @@ tiers, and the two requirements recorded above — forfeits count as losses (§4
 
 ---
 
-## 12. Mahsulot qarorlari
+## 12. Mahsulot qarorlari — **HAMMASI QULFLANDI** (2026-07-25)
 
-**Q1, Q2, Q3, Q6 — 2026-07-25 da QULFLANDI** (Sherzod). Kod yozish shu qiymatlar bilan boshlanadi.
-Qolganlari (Q7, Q11) T2/T4 hajmiga ta'sir qiladi, lekin sxema/scoring'ni to'xtatmaydi.
+Sherzod: VIP-only battle; 10×15s; Again-only learning; forfeit disconnect. Q7/Q10/Q11 — eng to'g'ri logika bilan
+qulflandi (pastda).
 
 | # | Savol | Qaror | Holat |
 |---|---|---|---|
-| **Q1** | Arena kimga ochiq? | **Bepul 3 duel/kun, VIP cheksiz** (`arena_daily_matches` 3/-1) | **LOCKED** |
-| **Q2** | Duel uzunligi? | **10 savol × 15s** (~2.5–3 daq). 15s qisqartirilmadi — rasmli savollar uchun. | **LOCKED** |
-| **Q3** | FSRS / xato-banki / streak? | **Xato → `Again`**; to'g'ri → hech narsa; streak → ha. To'g'ri bilan Grand Mock farm yo'q. | **LOCKED** |
-| **Q4** | Leaderboard'ga qo'shilsinmi? | **Yo'q** (M4-04 reytingi alohida) | Tavsiya qabul (default) |
-| **Q5** | Durang? | **Ha**, sudden-death keyinroq | Tavsiya qabul (default) |
-| **Q6** | Uzilish? | **20s grace → forfeit=loss**; ataylab leave → darhol forfeit; ikkalasi → durang | **LOCKED** |
-| **Q7** | Do'st invite transporti T2'da? | Tavsiya: ha, kichik T2.6 | Hali ochiq (hajm) |
-| **Q8** | Fake reyting ko'rsatilsinmi? | **Yo'q** | Tavsiya qabul |
-| **Q9** | Deploy o'rtasida match? | **Bekor** (`server_shutdown`) | Tavsiya qabul |
-| **Q10** | Bot raqib? | M4-05, oshkora bot | Keyinga |
-| **Q11** | Multi-instance launch? | Deploy manifesti yo'q — javob kerak | Ochiq (T4 hajmi) |
+| **Q1** | Kim o'ynaydi? | **Faqat VIP.** Bepul — battle yo'q (`402`). VIP — cheksiz | **LOCKED** |
+| **Q2** | Duel uzunligi? | **10 × 15s** | **LOCKED** |
+| **Q3** | FSRS / streak? | Xato→`Again`; to'g'ri→noop; streak→ha | **LOCKED** |
+| **Q4** | Leaderboard? | **Yo'q** | **LOCKED** (default) |
+| **Q5** | Durang? | **Ha** | **LOCKED** (default) |
+| **Q6** | Disconnect? | 20s grace→forfeit; leave→darhol; ikkalasi→durang | **LOCKED** |
+| **Q7** | Do'st invite transport? | **T2'da qur** (`arena:invite:<code>`). Keyinroq qo'shish matchmaking'ni qayta yozadi | **LOCKED** |
+| **Q8** | Fake reyting? | **Yo'q** | **LOCKED** (default) |
+| **Q9** | Deploy o'rtasida? | **Bekor** (`server_shutdown`) | **LOCKED** (default) |
+| **Q10** | Bot raqib? | **M4-03'da yo'q.** Timeout / do'stni chaqirish. Oshkora bot — M4-05 | **LOCKED** |
+| **Q11** | Multi-instance? | **Launch: 1 instance + LocalTransport.** RedisTransport — scale kerak bo'lganda (M7) | **LOCKED** |
+
+### Q7 / Q10 / Q11 — nima uchun shu (qisqa)
+
+- **Q7 ha:** "Do'stni chaqirish" retention uchun asosiy yo'l (ayniqsa VIP-only bozorda hovuz kichik). Transportni
+  M4-05'ga qoldirish = keyin public-queue assumption'larini sindirish. T2.6 kichik, lekin majburiy.
+- **Q10 yo'q (M4-03):** Yashirin bot ishonchni o'ldiradi; oshkora bot UI'siz ma'nosiz. Bo'sh navbatda 45s timeout +
+  "do'stingni chaqir" (Q7) — to'g'ri mahsulot javobi.
+- **Q11 bitta instance:** Repoda deploy manifesti yo'q; Redis pub/sub'ni "ehtimol" uchun yozish YAGNI. `Transport`
+  interfeysi T1'dayoq qoladi — horizontal scale kelganda `RedisTransport` qo'shiladi, match actor o'zgarmaydi.
 
 ---
 
@@ -874,8 +887,8 @@ resulting script — it is the T2 deliverable.
 
 - Rating/ELO, medals, seasons, match history endpoint → M4-04.
 - All UI → M4-05.
-- Bot opponents (Q10), spectating, tournaments, 3+ players, rematch flow.
-- Multi-instance `RedisTransport` (unless Q11 says otherwise) → M7 alongside observability/load-testing.
+- Bot opponents (Q10) — deferred to M4-05 as an **overt** practice bot; spectating, tournaments, 3+ players, rematch.
+- Multi-instance `RedisTransport` (Q11) → when horizontal scale is real (typically M7); launch uses `LocalTransport`.
 - Push/Telegram notification of a duel invite → M4-07/M4-08.
 - Arena metrics (queue wait histogram, match duration, forfeit rate) → M7-01 observability; the fields to derive them
   from are all persisted by T3.

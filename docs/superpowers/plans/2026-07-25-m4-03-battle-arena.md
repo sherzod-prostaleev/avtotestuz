@@ -1,14 +1,13 @@
 # M4-03 Battle Arena — Realtime Infra Implementation Plan (SKELETON)
 
-> **STATUS: PRODUCT DECISIONS LOCKED (Q1–Q3, Q6).** Spec §12 is no longer blocking those four. Expand this
-> skeleton into a full TDD plan with `superpowers:writing-plans` before coding T1. Remaining soft opens: Q7
-> (friend-invite transport in T2?), Q11 (multi-instance → RedisTransport in T4?).
+> **STATUS: ALL PRODUCT DECISIONS LOCKED.** Expand into a full TDD plan with `superpowers:writing-plans`
+> before coding T1. Soft opens closed: Q7=yes (invite in T2), Q10=no bot in M4-03, Q11=single-instance LocalTransport.
 
-**Spec:** `docs/superpowers/specs/2026-07-25-m4-03-battle-arena-design.md` — read it fully first; every task below
-cites a section rather than restating it.
+**Spec:** `docs/superpowers/specs/2026-07-25-m4-03-battle-arena-design.md`
 
-**Locked constants:** `ArenaQuestionCount=10`, `ArenaQuestionTimeSec=15`, `ArenaReconnectGraceSec=20`,
-`arena_daily_matches` free=3 / vip=-1. Learning: wrong→`Again`, correct→noop, streak→yes.
+**Locked:** VIP-only (`402` if free); `ArenaQuestionCount=10`, `ArenaQuestionTimeSec=15`,
+`ArenaReconnectGraceSec=20`; learning wrong→`Again` / correct→noop / streak→yes; friend-invite transport in T2;
+no bot in M4-03; launch on one API instance.
 
 **Goal:** Server-authoritative live 1v1 duel infrastructure: WebSocket transport with ticket auth, Redis matchmaking,
 and a match state machine with persistence. No rating/medals (M4-04), no UI (M4-05).
@@ -80,9 +79,10 @@ exactly 10 matches with no profile twice, under `-race`; cancel and disconnect-w
       the Go wrapper. **The atomicity test is the deliverable here**, not the happy path.
 - [ ] **T2.4** `arena/matchmaker.go` — `queue.join`/`queue.leave`, reverse index `arena:queued:<profileID>`,
       500ms widening ticker, 45s timeout eviction, stale-candidate skip with bounded retry, dequeue on disconnect.
-- [ ] **T2.5** Eligibility gate (spec §3.5) — already-in-match, already-queued, `arena_daily_matches` from
-      `limit_config`, join rate limit. **Depends on spec Q1.**
-- [ ] **T2.6** *(only if spec Q7 = yes)* Friend-invite codes: `arena:invite:<code>` create/redeem, bypassing buckets.
+- [ ] **T2.5** Eligibility gate (spec §3.5) — **VIP required** (`billing.Status` → `ErrRequiresVIP`),
+      already-in-match, already-queued, join rate limit. No daily match budget.
+- [ ] **T2.6** Friend-invite codes (**locked Q7**): `arena:invite:<code>` create/redeem, VIP check on both sides,
+      bypasses public buckets, same match actor as ranked queue.
 
 ## T3 — Match state machine and persistence
 
@@ -113,7 +113,8 @@ review passes (required by the handoff §6 before anything is marked done).
 
 - [ ] **T4.1** Graceful arena drain on SIGTERM before `srv.Shutdown` (spec §8.4) — hijacked connections are invisible
       to `srv.Shutdown`, so this does not come for free. **Depends on spec Q9** for how the match is scored.
-- [ ] **T4.2** `Transport` interface + `LocalTransport` (spec §8.2). `RedisTransport` **only if spec Q11 = multi-instance.**
+- [ ] **T4.2** `Transport` interface + `LocalTransport` (spec §8.2). `RedisTransport` deferred (locked Q11:
+      single-instance launch).
 - [ ] **T4.3** Win-trading guard (spec §7.4a): refuse to pair on simultaneous enqueue + shared device fingerprint +
       shared asserted IP, and **re-queue rather than reject** (false positives are expected — CGNAT, shared family
       connections, internet cafés).
