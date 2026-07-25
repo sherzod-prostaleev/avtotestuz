@@ -16,7 +16,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"sign_group", "sign", "sign_translation", "question_sign",
 		"explanation", "explanation_translation",
 		// identity
-		"profile", "otp_challenge", "telegram_account", "device", "refresh_token",
+		"profile", "otp_challenge", "telegram_account", "telegram_link_token", "device", "refresh_token",
 		"explanation_feedback",
 		// billing
 		"tariff", "tariff_translation", "promo_code", "payment", "entitlement",

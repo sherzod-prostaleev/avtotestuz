@@ -16,6 +16,11 @@ var configEnvKeys = []string{
 	"TELEGRAM_GATEWAY_TOKEN",
 	"TELEGRAM_GATEWAY_URL",
 	"CLIENT_IP_ASSERTION_SECRET",
+	"TELEGRAM_BOT_TOKEN",
+	"TELEGRAM_BOT_API_BASE_URL",
+	"TELEGRAM_BOT_USERNAME",
+	"TELEGRAM_BOT_MODE",
+	"TELEGRAM_WEBHOOK_SECRET",
 }
 
 func isolateConfigEnv(t *testing.T) {
@@ -42,6 +47,12 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.TelegramGatewayToken != "" || cfg.TelegramGatewayURL != "https://gatewayapi.telegram.org" {
 		t.Errorf("unexpected telegram defaults: %+v", cfg)
+	}
+	if cfg.TelegramBotMode != "off" || cfg.TelegramBotAPIBaseURL != "https://api.telegram.org" {
+		t.Errorf("unexpected telegram bot defaults: %+v", cfg)
+	}
+	if cfg.TelegramBotToken != "" || cfg.TelegramBotUsername != "" || cfg.TelegramWebhookSecret != "" {
+		t.Errorf("unexpected telegram bot secrets: %+v", cfg)
 	}
 }
 
@@ -142,6 +153,76 @@ func TestLoadValidation(t *testing.T) {
 				"CLIENT_IP_ASSERTION_SECRET": "too-short",
 			},
 			wantErr: "CLIENT_IP_ASSERTION_SECRET must be at least 32 bytes",
+		},
+		{
+			name: "unknown telegram bot mode",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE": "polling-ish",
+			},
+			wantErr: `invalid TELEGRAM_BOT_MODE "polling-ish"`,
+		},
+		{
+			name: "webhook mode requires a bot token",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE": "webhook",
+			},
+			wantErr: "TELEGRAM_BOT_MODE webhook requires TELEGRAM_BOT_TOKEN",
+		},
+		{
+			name: "webhook mode requires a webhook secret",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE":  "webhook",
+				"TELEGRAM_BOT_TOKEN": "tok",
+			},
+			wantErr: "TELEGRAM_BOT_MODE webhook requires TELEGRAM_WEBHOOK_SECRET",
+		},
+		{
+			name: "webhook mode with token and secret is valid",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE":       "webhook",
+				"TELEGRAM_BOT_TOKEN":      "tok",
+				"TELEGRAM_WEBHOOK_SECRET": "s3cr3t",
+			},
+		},
+		{
+			name: "longpoll mode requires a bot token",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE": "longpoll",
+			},
+			wantErr: "TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_TOKEN",
+		},
+		{
+			name: "longpoll mode is valid in dev",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE":  "longpoll",
+				"TELEGRAM_BOT_TOKEN": "tok",
+			},
+		},
+		{
+			name: "longpoll mode is rejected in prod",
+			env: map[string]string{
+				"ENV":                        "prod",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"TELEGRAM_BOT_MODE":          "longpoll",
+				"TELEGRAM_BOT_TOKEN":         "tok",
+			},
+			wantErr: "TELEGRAM_BOT_MODE longpoll is not allowed when ENV=prod",
+		},
+		{
+			name: "webhook mode is valid in prod",
+			env: map[string]string{
+				"ENV":                        "prod",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"TELEGRAM_BOT_MODE":          "webhook",
+				"TELEGRAM_BOT_TOKEN":         "tok",
+				"TELEGRAM_WEBHOOK_SECRET":    "s3cr3t",
+			},
 		},
 		{
 			name: "staging rejects sandbox OTP",

@@ -16,6 +16,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
+	"avtotest.uz/backend/internal/bot"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -126,6 +127,27 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				evh := &events.Handler{Svc: events.NewService(deps.Queries)}
 				evh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				if cfg.TelegramBotMode != "off" {
+					linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
+					tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
+					tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+					if cfg.TelegramBotMode == "webhook" {
+						tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
+						botSvc := &bot.Bot{
+							Link:     linkSvc,
+							Billing:  billing.Service{Q: deps.Queries},
+							Progress: progressSvc,
+							TG:       tgClient,
+							Log:      log,
+						}
+						wh := &bot.WebhookHandler{Bot: botSvc, Secret: cfg.TelegramWebhookSecret, Log: log}
+						api.Post("/telegram/webhook", wh.ServeHTTP)
+					}
+					// longpoll mode registers no HTTP route — cmd/api starts
+					// bot.RunLongPoll instead (design §5.1).
+				}
 			}
 		})
 	}
