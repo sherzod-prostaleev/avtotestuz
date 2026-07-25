@@ -104,6 +104,12 @@ func (h *Handler) Routes(r chi.Router) {
 			ar.Use(RequirePermission("analytics.read"))
 			ar.Get("/analytics/overview", h.getAnalyticsOverview)
 		})
+
+		pr.Group(func(fr chi.Router) {
+			fr.Use(RequirePermission("settings.flags"))
+			fr.Get("/settings/flags", h.listFeatureFlags)
+			fr.Patch("/settings/flags/{key}", h.patchFeatureFlag)
+		})
 	})
 }
 
@@ -576,6 +582,56 @@ func (h *Handler) getAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listFeatureFlags(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.Store.ListFeatureFlags(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "flags query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+type patchFlagBody struct {
+	Value json.RawMessage `json:"value"`
+}
+
+func (h *Handler) patchFeatureFlag(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(chi.URLParam(r, "key"))
+	if key == "" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_key", "key is required")
+		return
+	}
+	var body patchFlagBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || len(body.Value) == 0 {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body or missing value")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	before, after, err := h.Svc.Store.SetFeatureFlagValue(r.Context(), key, body.Value, "admin:"+adminID.String())
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "flag not found")
+			return
+		}
+		if strings.Contains(err.Error(), "boolean") ||
+			strings.Contains(err.Error(), "percentage") ||
+			strings.Contains(err.Error(), "allowlist") ||
+			strings.Contains(err.Error(), "invalid value") {
+			httpx.Error(w, http.StatusBadRequest, "invalid_value", err.Error())
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "flag update failed")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "settings.flags.patch", "feature_flag", key,
+		map[string]any{"value": json.RawMessage(before.Value), "type": before.Type},
+		map[string]any{"value": json.RawMessage(after.Value), "type": after.Type},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, after)
 }
 
 func parseOptionalTime(raw string) (*time.Time, error) {

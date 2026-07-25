@@ -1279,5 +1279,18 @@
     "eventsTitle": "Top event names (7 кун)",
     "eventsEmpty": "Event йўқ.",
     "generatedAt": "Ҳисобланган: {time}"
+  },
+  "AdminFlags": {
+    "title": "Feature flags",
+    "subtitle": "Runtime feature_flag жадвали (M3-7). Boolean toggle + audit.",
+    "note": "Flagлар ҳали ҳамма жойда ўқилмайди — сақлаш/audit тайёр.",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "settings.flags рухсати йўқ.",
+    "errorToggle": "Flagни ўзгартириб бўлмади.",
+    "enable": "Ёқиш",
+    "disable": "Ўчириш",
+    "noDescription": "Тавсиф йўқ."
   }
 }

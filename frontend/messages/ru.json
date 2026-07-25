@@ -1279,5 +1279,18 @@
     "eventsTitle": "Top event names (7д)",
     "eventsEmpty": "Событий нет.",
     "generatedAt": "Посчитано: {time}"
+  },
+  "AdminFlags": {
+    "title": "Feature flags",
+    "subtitle": "Таблица feature_flag (M3-7). Boolean toggle + audit.",
+    "note": "Флаги ещё не везде читаются в продукте — storage/audit готовы.",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права settings.flags.",
+    "errorToggle": "Не удалось изменить флаг.",
+    "enable": "Включить",
+    "disable": "Выключить",
+    "noDescription": "Без описания."
   }
 }

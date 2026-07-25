@@ -1279,5 +1279,18 @@
     "eventsTitle": "Top event names (7 kun)",
     "eventsEmpty": "Event yo‘q.",
     "generatedAt": "Hisoblangan: {time}"
+  },
+  "AdminFlags": {
+    "title": "Feature flags",
+    "subtitle": "Runtime feature_flag jadvali (M3-7). Boolean toggle + audit.",
+    "note": "Flaglar hali hamma FE/BE joyda o‘qilmaydi — saqlash/audit tayyor; consumerlar keyin ulanadi.",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "settings.flags ruxsati yo‘q.",
+    "errorToggle": "Flagni o‘zgartirib bo‘lmadi.",
+    "enable": "Yoqish",
+    "disable": "O‘chirish",
+    "noDescription": "Tavsif yo‘q."
   }
 }
