@@ -78,7 +78,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** (done-enough) | U-38 | Shell + **bilets/categories/signs** meta cache + public `/support` shell. Full offline exam/question sync still **large**/open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin grant + teacher read portal** (`/{locale}/teacher`, `/me/teacher/orgs*`). School customer sales / self-serve seats still open. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | U-41 metrics + M3-5 monitoring + **ops feed** (`admin_audit` + payment fails) + **alert_rule** live eval. Still no Prometheus/Sentry/tracing/pager. |
-| **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
+| **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | **partial** | Staging | k6 smoke + `make load-test` + dispatch CI. Soak/perf audit + real host still open. |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
 | **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + audit + broadcast + limits + inbox + home CMS + ops feed/alerts + investors stub.** Legal CMS / deeper content studios still open. |

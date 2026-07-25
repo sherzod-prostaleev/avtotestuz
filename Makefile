@@ -2,7 +2,7 @@ COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
-	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan
+	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test
 
 up:
 	$(COMPOSE) up -d --wait
@@ -91,3 +91,13 @@ fe-check: fe-lint fe-typecheck fe-test fe-build
 dep-scan:
 	cd backend && govulncheck ./...
 	cd frontend && (npm audit --audit-level=high || true)
+
+# U-42 — k6 smoke against a running API (not a prod soak). Requires k6 on PATH.
+# Defaults match ./run.sh API port; override API_BASE / VUS / DURATION as needed.
+API_BASE ?= http://localhost:8090
+VUS ?= 5
+DURATION ?= 30s
+
+load-test:
+	@command -v k6 >/dev/null || { echo "k6 not found — install from https://k6.io/docs/get-started/installation/" >&2; exit 1; }
+	API_BASE="$(API_BASE)" VUS="$(VUS)" DURATION="$(DURATION)" k6 run -e API_BASE="$(API_BASE)" -e VUS="$(VUS)" -e DURATION="$(DURATION)" deploy/load-test/smoke.js

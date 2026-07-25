@@ -97,3 +97,10 @@ seeded content + proxy headers); use API-level checks once the host is ready.
   before deploy; adding a `workflow_dispatch` build/push once D18 secrets exist
   is documented in the runbook.
 - Do not commit `deploy/app.env` (gitignored).
+
+## Load-test smoke (U-42)
+
+```bash
+make load-test                          # needs k6 + running API
+# docs: deploy/load-test/README.md
+```

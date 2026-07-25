@@ -245,3 +245,20 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
 - [ ] `smoke.sh` green against public URLs
 - [ ] Rollback tag/digest recorded
 - [ ] Content strategy decided (existing DB vs one-time import) — no casual seed
+
+---
+
+## Load-test smoke (U-42)
+
+**Honest scope:** light k6 smoke (`deploy/load-test/smoke.js`) against a **running**
+API — healthz/readyz/metrics + public content list GETs. Not a production soak,
+auth journey, payment, or Arena WS test.
+
+```bash
+# API must already be up (./run.sh → :8090, or compose overlay → :8080)
+make load-test
+API_BASE=http://localhost:8080 make load-test
+```
+
+See `deploy/load-test/README.md`. Optional CI: `.github/workflows/load-test.yml`
+(`workflow_dispatch` only — no staging host invented).
