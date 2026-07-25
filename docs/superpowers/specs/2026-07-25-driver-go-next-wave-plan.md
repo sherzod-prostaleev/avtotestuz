@@ -17,8 +17,8 @@ After J7 sign-off: close **demo → account investment continuity**, optionally 
 
 | # | Item | Priority | Est. order | Depends on |
 |---|------|----------|------------|------------|
-| **N1** | **J7 close-out** — visual QA matrix sign-off + residual chrome/flicker fixes | P0 | 0 (sibling) | — |
-| **N2** | **Demo investment continuity** — localStorage → real account progress (beyond bookmarks) | P0 | 1 | J7 done (or parallel if BE-only) |
+| **N1** | **J7 close-out** — visual QA matrix sign-off + residual chrome/flicker fixes | P0 | 0 | ✅ done |
+| **N2** | **Demo investment continuity** — localStorage → real account progress (beyond bookmarks) | P0 | 1 | ✅ done |
 | **N3** | **J8 Figma SoT** (optional) — tokens + key chrome screens only | P2 | 2 | N1 preferred |
 | **N4** | **Tech debt** from chrome wave (footer placeholders, leftover raw colors, a11y leftovers) | P2 | 2–3 | N1 |
 | **N5** | **M4-03 Arena infra** — expand TDD plan → T1–T4 code (no UI) | P1 | 3 | Spec locked ✅ |
