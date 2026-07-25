@@ -13,6 +13,7 @@ const PROTECTED_SEGMENTS = [
   "mistakes",
   "signs",
   "leaderboard",
+  "arena",
   "stats",
   "profile",
   "premium",

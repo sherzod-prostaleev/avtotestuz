@@ -23,6 +23,7 @@ import {
   Bookmark,
   Trophy,
   ChevronDown,
+  Swords,
 } from "lucide-react";
 
 type NavLink = {
@@ -48,6 +49,7 @@ export function Sidebar() {
   const primaryLinks: NavLink[] = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
+    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
     { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: 61 }), icon: BookOpen },
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
