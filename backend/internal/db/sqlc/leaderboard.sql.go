@@ -15,7 +15,7 @@ import (
 const countCorrectAnswersByProfileByDayInRange = `-- name: CountCorrectAnswersByProfileByDayInRange :many
 SELECT
   es.profile_id,
-  date_trunc('day', sa.answered_at)::timestamptz AS day,
+  date_trunc('day', sa.answered_at AT TIME ZONE 'UTC')::timestamptz AS day,
   count(*)::int AS correct_count,
   max(sa.answered_at)::timestamptz AS last_answered_at
 FROM session_answer sa
@@ -23,7 +23,7 @@ JOIN exam_session es ON es.id = sa.session_id
 WHERE sa.is_correct
   AND sa.answered_at >= $1
   AND sa.answered_at < $2
-GROUP BY es.profile_id, date_trunc('day', sa.answered_at)
+GROUP BY es.profile_id, date_trunc('day', sa.answered_at AT TIME ZONE 'UTC')
 `
 
 type CountCorrectAnswersByProfileByDayInRangeParams struct {
