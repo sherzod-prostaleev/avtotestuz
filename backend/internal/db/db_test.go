@@ -20,7 +20,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"explanation_feedback",
 		// billing
 		"tariff", "tariff_translation", "promo_code", "payment", "entitlement",
-		"promo_redemption", "referral_attribution", "limit_config", "payment_provider_status",
+		"promo_redemption", "referral", "user_referral_code", "limit_config", "payment_provider_status",
 		// learning
 		"exam_session", "session_question", "session_answer", "variant_progress", "question_memory",
 		"category_mastery", "saved_question", "streak",
@@ -33,6 +33,15 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		if err != nil || reg == nil {
 			t.Errorf("table %s missing (err=%v)", tbl, err)
 		}
+	}
+	// U-23: dead parallel table from 0003 must be gone; live path is referral (0015).
+	var dead *string
+	if err := pool.QueryRow(context.Background(),
+		"SELECT to_regclass($1)::text", "public.referral_attribution").Scan(&dead); err != nil {
+		t.Fatalf("referral_attribution probe: %v", err)
+	}
+	if dead != nil {
+		t.Errorf("referral_attribution still present (%s); expected dropped by 0028", *dead)
 	}
 }
 

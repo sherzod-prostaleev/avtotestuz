@@ -59,7 +59,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-20** | P2 | FE | **N4 chrome tech debt** | partial | U-19 | Sticky-CTA gaps closed (Premium mobile buy + Stats due→`mode=review`). Provider picker dots on Asphalt tokens. Static `/logo.svg` chrome → `BrandLogo` (`next/image`). Remaining: content `no-img-element` on dynamic MinIO/CDN media (accepted); footer contacts = U-17. |
 | **U-21** | P2 | BE | **Promo pro-rate user communication** | **done** | Billing | `me/entitlement.proration` + checkout success notice when promo exhausted mid-flight. |
 | **U-22** | P2 | BE | **Leaderboard rebuild cap approximation** | partial | M4-01 ✅ | Documented low-risk: rebuild uses current VIP/cap, not perfect historical fidelity. |
-| **U-23** | P2 | BE | **Drop or document dead `referral_attribution`** | deferred | U-05 | Parallel unused table vs live `referral` (0015). Antifraud design recommends drop later. |
+| **U-23** | P2 | BE | **Drop or document dead `referral_attribution`** | **done** | U-05 | Migration `0028` drops unused 0003 table; live path remains `referral` (0015). sqlc model removed; db test asserts absence. |
 | **U-24** | P2 | FE | **Demo multi-question strength** | **done** | Demo BE | `demoQuestionCount=5` (first 5 of free bilet 1); random draw + whitelist enforcement tests updated. |
 | **U-25** | P2 | BE | **SMS OTP (Eskiz/PlayMobile)** | deferred | Config | `OTP_CHANNEL=sms` rejected — “no sender implementation”. Telegram Gateway + sandbox only. |
 | **U-26** | P2 | BE | **Anonymous / pre-login event capture** | deferred | Events M1 | Authenticated-only `POST /events`; anon deferred in Plan 05. |

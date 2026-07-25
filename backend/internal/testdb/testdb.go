@@ -195,7 +195,7 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				notification, event, audit_log, push_subscription, grand_mock_certificate,
 				streak, saved_question, category_mastery, question_memory,
 				variant_progress, session_answer, exam_session,
-				referral_attribution, referral, user_referral_code, promo_redemption, entitlement, payment,
+				referral, user_referral_code, promo_redemption, entitlement, payment,
 				promo_code, tariff_translation, tariff,
 				explanation_feedback, refresh_token, device, telegram_account, telegram_link_token,
 				otp_challenge, profile,

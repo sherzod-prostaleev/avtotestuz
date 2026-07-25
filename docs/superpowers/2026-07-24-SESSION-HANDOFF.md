@@ -45,8 +45,8 @@ Landing footerdagi telefon/manzil/Telegram/Instagram (`+998 71 200 00 00`, `t.me
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx dan code-completable keyingi: U-23 dead referral_attribution drop,
-keyin U-41 metrics slice, keyin U-45/U-29/U-22. Skip external: U-03 keys, U-02 host,
+Inventory U-xx dan code-completable keyingi: U-41 metrics slice,
+keyin U-45/U-29/U-22. Skip external: U-03 keys, U-02 host,
 U-12 LLM, U-17 contacts, U-40 B2B, U-44 backup, U-46 BI, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
@@ -57,7 +57,7 @@ Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.m
 - Staging remote host / registry (U-02 D18)
 - Real LLM explanations (U-12); M4-07 quiz (U-10)
 - Full M3 Admin, BI, backup/DR, load-test
-- `referral_attribution` dead table — drop yoki document (U-23, keyingi)
+- `referral_attribution` dead table — **dropped** (U-23 / `0028`)
 - Observability beyond healthz/readyz (U-41)
 
 ---
@@ -125,7 +125,7 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 
 ## 3. Qoldiq — past-xavfli / hujjatlashtirilgan
 - Referal antifraud **attach window** ship bo‘ldi (U-05); yanada kuchli signal/fraud_flags — kelajak.
-- `referral_attribution` (0003) — **dead**; live jadval `referral` (0015). Drop = U-23.
+- `referral_attribution` (0003) — **dropped** (U-23 / mig `0028`); live jadval `referral` (0015).
 - M4-01 rebuild cap approximation (U-22) — joriy VIP/cap; tarixiy fidelity yo‘q.
 - Promo pro-rating: entitlement.note + FE notice (U-21); avtomatik refund yo‘q.
 - 15 biletsiz leftover savollar (U-29) — practice/FSRS OK; UX copy yetarli emas bo‘lishi mumkin.

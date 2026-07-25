@@ -378,14 +378,6 @@ type Referral struct {
 	RewardedAt   pgtype.Timestamptz `json:"rewarded_at"`
 }
 
-type ReferralAttribution struct {
-	RefereeID    uuid.UUID          `json:"referee_id"`
-	ReferrerID   uuid.UUID          `json:"referrer_id"`
-	RewardStatus string             `json:"reward_status"`
-	FraudFlags   json.RawMessage    `json:"fraud_flags"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
 type RefreshToken struct {
 	ID        uuid.UUID          `json:"id"`
 	ProfileID uuid.UUID          `json:"profile_id"`
