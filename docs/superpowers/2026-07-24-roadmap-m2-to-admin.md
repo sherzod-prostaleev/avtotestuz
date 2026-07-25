@@ -164,10 +164,10 @@
 
 | Plan | Nomi |
 |------|------|
-| M7-01 | Observability (metrics/Prometheus, structured logs, tracing, alerting) |
-| M7-02 | Load-test (k6) + performance (DB index audit, N+1, cache) |
-| M7-03 | Xavfsizlik auditi (authz review, rate-limit audit, dependency scan, secrets, OWASP checklist) |
-| M7-04 | Backup + DR (DB + blob backup, restore-drill, retention) |
+| M7-01 | Observability — **partial**: Prometheus text `/metrics` + admin ops feed/alerts; tracing/Sentry SDK/pager open |
+| M7-02 | Load-test — **partial**: k6 smoke + `make load-test`; soak/perf audit + host open |
+| M7-03 | Xavfsizlik auditi (authz review, rate-limit audit, dependency scan, secrets, OWASP checklist) — dep-scan **partial** |
+| M7-04 | Backup + DR — **partial**: local pg_dump + restore drill + RPO/RTO placeholders; off-site/WAL open |
 
 ---
 

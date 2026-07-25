@@ -20,14 +20,14 @@
 | **C — Growth incomplete** | Arena infra→rating→UI (M4-03…05 / J10); TG quiz+notif (M4-07); FE Telegram link; web push (M4-08) | **L** (Arena alone ~6.5 sessions in roadmap) |
 | **D — Content / explanations** | Real LLM (not stub); expert verify at scale; LegalRefs extraction; leftover bilets; signs licensing pipeline hardening | M–L |
 | **E — Learning depth** | FE use of `GET /learn/next` / due-FSRS practice UX; weak-area surfacing beyond stats bars | S–M |
-| **F — Ship / ops** | Dockerfiles, staging host (D18), Playwright in CI, Redis in CI, observability, backup/DR, load-test | L |
+| **F — Ship / ops** | Staging host (D18), observability depth (Sentry SDK/tracing), off-site backup, soak load-test; smoke metrics/backup/k6 **partial** | L |
 | **G — PWA (M6)** | Manifest, SW, offline shell, offline content sync | M |
 | **H — B2B (M5)** | Orgs, seats, teacher dashboard — **requirements thin until a school customer** | L when scoped |
 | **I — Super Admin (M3)** | Contenteditor, users, billing/refund UI, investor metrics, RBAC, audit — **intentionally last** | **L** (~13 sessions) |
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
 
-**Doc drift (U-50, 2026-07-26 #3):** SESSION-HANDOFF §⚡ refreshed after support inbox / homepage CMS / monitoring feed+alerts / U-39 done-enough / investors stub. Prefer **code + this inventory** if any older plan row still lags.
+**Doc drift (U-50, 2026-07-26 #4):** SESSION-HANDOFF §⚡ refreshed after U-42 k6 smoke / U-44 backup drill / U-41 Prometheus `/metrics` / U-39 site CMS cache. Prefer **code + this inventory** if any older plan row still lags.
 
 ---
 
@@ -86,7 +86,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags + product gates + maintenance_mode FE + broadcast + support inbox stub** (`support_ticket`). Telegram forward / SLA still open. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #3: inbox, home CMS, monitoring feed/alerts, U-39 done-enough, investors stub. Re-run after major waves. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #4: U-42/44/41 + U-39 site CMS cache. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 

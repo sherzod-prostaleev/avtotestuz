@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after inbox/CMS/monitoring/investors)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after ops wave U-42/44/41 + U-39 CMS cache)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 >
@@ -39,14 +39,14 @@
 | M4-08 | Web push | **partial** (foundation + FSRS digest + admin broadcast stub; VAPID ops) |
 | M3 | Super Admin | **partial** M3-0…M3-7 + audit + broadcast + limits + **inbox** + **homepage CMS** + **ops feed/alerts** + **investors stub** |
 | M5 | B2B | **partial** U-40 admin grant + teacher read portal (`/teacher`) |
-| M6 | PWA | **partial** (shell + meta lists + `/support` shell; **U-39 done-enough** — full offline exam open) |
+| M6 | PWA | **partial** (shell + meta/CMS lists + `/support`; **U-39 done-enough** — full offline exam open) |
 
-### Shu to‘lqinda yopilgan (2026-07-26 #3)
-- Support inbox stub (`support_ticket`, profile + `/support`, admin triage)
-- Homepage CMS (`site_settings.home_hero`)
-- Monitoring ops feed + `alert_rule` live eval
-- U-39 done-enough note (+ `/support` shell cache)
-- Investors read-only stub (same analytics SQL, `investors.read`)
+### Shu to‘lqinda yopilgan (2026-07-26 #4 — ops)
+- **U-42** k6 smoke + `make load-test` + dispatch-only CI (not prod soak)
+- **U-44** `scripts/backup` pg_dump + restore drill + RPO/RTO placeholders
+- **U-41** Prometheus text `/metrics` (+ JSON compat) + `SENTRY_DSN` stub
+- **U-39** site CMS list cache (`site/contacts|banner|home`) + remaining exam-sync gap restated
+- Prior #3 still stands: inbox, homepage CMS, ops feed/alerts, investors stub
 
 ### Footer aloqa — CMS (U-17 / M3-4)
 Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero: `/{locale}/admin/cms/home` + `GET /site/home`. Bo‘sh maydonlar Landing i18n. Ops `/ops/*` deprecated bridges.
@@ -54,19 +54,21 @@ Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero:
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
 Inventory: pick smallest honest complete still open (legal CMS / content signs stub /
-U-35 admin credential PDF / U-27 live recon with keys when available).
+U-35 admin credential PDF / U-27 live recon when keys exist / FE Next majors).
 Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales,
-full offline exam sync.
+full offline exam sync, inventing Metabase/Grafana.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
 
-### Qoldiq (tashqi / katta)
+### Qoldiq (tashqi / katta — user/secrets yoki huge product)
 - Payme/Click **prod** keys + yuridik shaxs (U-03)
 - Staging remote host / registry (U-02 D18)
 - Real LLM explanations (U-12); M4-07 quiz (U-10 skipped until scoped)
-- Full offline exam sync (U-39 remainder), BI Metabase (U-46 depth), backup/DR (U-44), load-test (U-42)
-- Prometheus/Sentry beyond process `/metrics` + admin ops feed/alerts
+- Full offline exam sync (U-39 remainder) — **large**
+- BI Metabase/Grafana (U-46 depth); Sentry SDK + tracing/pager (U-41 remainder)
+- Off-site backup/WAL + soak load-test on real host (U-44/U-42 remainders; need U-02)
+- B2B school sales / self-serve seats
 
 ---
 
@@ -170,7 +172,7 @@ To‘liq U-xx jadval: inventory §2.
 - **Infra:** `docker compose` (postgres:5432, redis:6379, minio:9000).
 - **Payme/Click:** ENV bo‘sh → webhook rad.
 - **ENV:** `backend/.env.example`. `ENV=staging|prod` → `JWT_SECRET`, `CLIENT_IP_ASSERTION_SECRET` (≥32), non-sandbox `OTP_CHANNEL` majburiy.
-- **Health:** `/healthz` liveness, `/readyz` Postgres+Redis, `/metrics` process-local request counters (U-41).
+- **Health:** `/healthz` liveness, `/readyz` Postgres+Redis, `/metrics` Prometheus text (JSON via Accept) (U-41).
 - **Money-critical naqsh:** `pool.Begin` + `SELECT...FOR UPDATE` / claim-`RETURNING` + tx-bound Service.
 
 ## 6. Ish uslubi
