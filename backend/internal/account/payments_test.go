@@ -52,8 +52,12 @@ func seedPayment(t *testing.T, pool *pgxpool.Pool, profileID, tariffID uuid.UUID
 		paid = pgtype.Timestamptz{Time: *paidAt, Valid: true}
 	}
 	if _, err := pool.Exec(context.Background(),
-		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, created_at, paid_at)
-		 VALUES ($1, $2, $3, $4, 'payme', $5, $6, $7, $8)`,
+		// The tariff snapshot is read from the tariff row rather than hardcoded
+		// so the fixture keeps matching the seeded tariff if it ever changes.
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, created_at, paid_at,
+		                      tariff_days_snapshot, tariff_price_uzs_snapshot)
+		 SELECT $1, $2, t.id, $4, 'payme', $5, $6, $7, $8, t.days, t.price_uzs
+		 FROM tariff t WHERE t.id = $3`,
 		id, profileID, tariffID, amountUZS, status, uuid.New().String(), createdAt, paid); err != nil {
 		t.Fatalf("seed payment: %v", err)
 	}

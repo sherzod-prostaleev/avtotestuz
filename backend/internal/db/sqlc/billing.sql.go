@@ -117,20 +117,26 @@ func (q *Queries) CreatePaymeTransaction(ctx context.Context, arg CreatePaymeTra
 }
 
 const createPayment = `-- name: CreatePayment :one
-INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, promo_code_id)
-VALUES ($1, $2, $3, $4, 'created', $5, $6)
+INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempotency_key, promo_code_id,
+                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+VALUES ($1, $2, $3, $4, 'created', $5, $6, $7, $8)
 RETURNING id
 `
 
 type CreatePaymentParams struct {
-	ProfileID      uuid.UUID     `json:"profile_id"`
-	TariffID       uuid.UUID     `json:"tariff_id"`
-	AmountUzs      int64         `json:"amount_uzs"`
-	Provider       string        `json:"provider"`
-	IdempotencyKey string        `json:"idempotency_key"`
-	PromoCodeID    uuid.NullUUID `json:"promo_code_id"`
+	ProfileID              uuid.UUID     `json:"profile_id"`
+	TariffID               uuid.UUID     `json:"tariff_id"`
+	AmountUzs              int64         `json:"amount_uzs"`
+	Provider               string        `json:"provider"`
+	IdempotencyKey         string        `json:"idempotency_key"`
+	PromoCodeID            uuid.NullUUID `json:"promo_code_id"`
+	TariffDaysSnapshot     int32         `json:"tariff_days_snapshot"`
+	TariffPriceUzsSnapshot int64         `json:"tariff_price_uzs_snapshot"`
 }
 
+// tariff_days_snapshot / tariff_price_uzs_snapshot freeze what the customer is
+// being sold; see migration 0019 for why the live tariff row must not be
+// consulted again after this point.
 func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createPayment,
 		arg.ProfileID,
@@ -139,6 +145,8 @@ func (q *Queries) CreatePayment(ctx context.Context, arg CreatePaymentParams) (u
 		arg.Provider,
 		arg.IdempotencyKey,
 		arg.PromoCodeID,
+		arg.TariffDaysSnapshot,
+		arg.TariffPriceUzsSnapshot,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)
@@ -345,21 +353,31 @@ func (q *Queries) GetPaymeTransactionForUpdate(ctx context.Context, paymeID stri
 }
 
 const getPaymentForPayme = `-- name: GetPaymentForPayme :one
-SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id, t.days AS tariff_days
-FROM payment p JOIN tariff t ON t.id = p.tariff_id
+SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id,
+       p.tariff_days_snapshot AS tariff_days,
+       p.tariff_price_uzs_snapshot AS tariff_price_uzs
+FROM payment p
 WHERE p.id = $1
 `
 
 type GetPaymentForPaymeRow struct {
-	ID          uuid.UUID     `json:"id"`
-	ProfileID   uuid.UUID     `json:"profile_id"`
-	TariffID    uuid.UUID     `json:"tariff_id"`
-	AmountUzs   int64         `json:"amount_uzs"`
-	Status      string        `json:"status"`
-	PromoCodeID uuid.NullUUID `json:"promo_code_id"`
-	TariffDays  int32         `json:"tariff_days"`
+	ID             uuid.UUID     `json:"id"`
+	ProfileID      uuid.UUID     `json:"profile_id"`
+	TariffID       uuid.UUID     `json:"tariff_id"`
+	AmountUzs      int64         `json:"amount_uzs"`
+	Status         string        `json:"status"`
+	PromoCodeID    uuid.NullUUID `json:"promo_code_id"`
+	TariffDays     int32         `json:"tariff_days"`
+	TariffPriceUzs int64         `json:"tariff_price_uzs"`
 }
 
+// Both tariff figures come from the payment's own snapshot, NOT from a join on
+// tariff: a 'created' payment never expires, so re-reading a mutable tariff at
+// completion time would let a later price or term edit change what an
+// in-flight purchase is worth (migration 0019). tariff_price_uzs is the
+// undiscounted list price at checkout, needed alongside the possibly
+// promo-discounted amount_uzs so billing.ProcessPaymentGrant can pro-rate the
+// grant when a promo is no longer redeemable at completion (see proRatedDays).
 func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaymentForPaymeRow, error) {
 	row := q.db.QueryRow(ctx, getPaymentForPayme, id)
 	var i GetPaymentForPaymeRow
@@ -371,6 +389,7 @@ func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaym
 		&i.Status,
 		&i.PromoCodeID,
 		&i.TariffDays,
+		&i.TariffPriceUzs,
 	)
 	return i, err
 }
@@ -452,6 +471,40 @@ func (q *Queries) GetPromoCodeByID(ctx context.Context, id uuid.UUID) (PromoCode
 	return i, err
 }
 
+const getPromoCodeByIDForUpdate = `-- name: GetPromoCodeByIDForUpdate :one
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+FROM promo_code
+WHERE id = $1
+FOR UPDATE
+`
+
+// Row-locking lookup by id, for the completion path
+// (billing.ProcessPaymentGrant, called inside the payme/click webhook
+// transactions). StartCheckout's FOR UPDATE only protects the counts as they
+// were when checkout STARTED; the promo_redemption row is not written until
+// the payment completes, so without re-validating under the same lock here a
+// single user can bank an unlimited number of discounted 'created' payments
+// and complete them all. Deliberately does NOT filter on active = true: an
+// admin deactivating a code mid-flight must be visible to the caller as
+// "no longer redeemable", not as a missing row.
+func (q *Queries) GetPromoCodeByIDForUpdate(ctx context.Context, id uuid.UUID) (PromoCode, error) {
+	row := q.db.QueryRow(ctx, getPromoCodeByIDForUpdate, id)
+	var i PromoCode
+	err := row.Scan(
+		&i.ID,
+		&i.Code,
+		&i.Kind,
+		&i.Value,
+		&i.MaxUses,
+		&i.PerUserLimit,
+		&i.ValidFrom,
+		&i.ValidTo,
+		&i.Active,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const listActiveTariffs = `-- name: ListActiveTariffs :many
 SELECT t.code, t.days, t.price_uzs, t.old_price_uzs, t.badge,
        COALESCE(tr.name, ftr.name, t.code) AS name,
@@ -504,7 +557,7 @@ func (q *Queries) ListActiveTariffs(ctx context.Context, locale string) ([]ListA
 
 const listMyPayments = `-- name: ListMyPayments :many
 SELECT p.id, p.amount_uzs, p.provider, p.status, p.created_at, p.paid_at,
-       t.code AS tariff_code, t.days AS tariff_days,
+       t.code AS tariff_code, p.tariff_days_snapshot AS tariff_days,
        COALESCE(tr.name, ftr.name, t.code) AS tariff_name
 FROM payment p
 JOIN tariff t ON t.id = p.tariff_id
@@ -533,6 +586,9 @@ type ListMyPaymentsRow struct {
 	TariffName string             `json:"tariff_name"`
 }
 
+// tariff_days comes from the payment snapshot so history shows the term the
+// customer actually bought, even if the tariff was edited since. code/name
+// still come from tariff — those are labels, not terms.
 func (q *Queries) ListMyPayments(ctx context.Context, arg ListMyPaymentsParams) ([]ListMyPaymentsRow, error) {
 	rows, err := q.db.Query(ctx, listMyPayments, arg.ProfileID, arg.Locale, arg.Limit)
 	if err != nil {
@@ -611,6 +667,25 @@ func (q *Queries) ListPaymeTransactionsByTime(ctx context.Context, arg ListPayme
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockProfileForGrant = `-- name: LockProfileForGrant :one
+SELECT id FROM profile WHERE id = $1 FOR UPDATE
+`
+
+// Serializes entitlement grants for one profile. billing.GrantDays is a
+// read-modify-write (ActiveEntitlementEnd, then InsertEntitlement stacking on
+// top of it); under READ COMMITTED two concurrent grants both read the same
+// pre-existing end and both write the same interval, so the second grant's
+// days are silently lost. There is no entitlement row to lock (the conflict is
+// over a row that does not exist yet), so the profile row stands in as the
+// serialization point. Only effective when the caller's Queries is bound to a
+// transaction — see GrantDays' doc comment.
+func (q *Queries) LockProfileForGrant(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockProfileForGrant, id)
+	var id_2 uuid.UUID
+	err := row.Scan(&id_2)
+	return id_2, err
 }
 
 const markPaymentPaid = `-- name: MarkPaymentPaid :exec

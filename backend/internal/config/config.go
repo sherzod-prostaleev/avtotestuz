@@ -21,6 +21,13 @@ type Config struct {
 	RedisURL     string
 	MediaBaseURL string // public base for image storage keys
 
+	// PublicBaseURL is the origin users actually browse — the frontend, not
+	// this API. Used to build shareable links (referral invite URLs). Without
+	// it those were hardcoded to the production domain, so every invite link
+	// generated in dev or staging pointed at a host that wasn't being served,
+	// making the referral flow impossible to test end-to-end.
+	PublicBaseURL string
+
 	JWTSecret               string
 	OTPChannel              string // sandbox | telegram
 	TelegramGatewayToken    string
@@ -60,11 +67,12 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid PORT %q: %w", portStr, err)
 	}
 	cfg := Config{
-		Env:          getenv("ENV", "dev"),
-		Port:         port,
-		DatabaseURL:  getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
-		RedisURL:     getenv("REDIS_URL", "redis://localhost:6379/0"),
-		MediaBaseURL: getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
+		Env:           getenv("ENV", "dev"),
+		Port:          port,
+		DatabaseURL:   getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
+		RedisURL:      getenv("REDIS_URL", "redis://localhost:6379/0"),
+		MediaBaseURL:  getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
+		PublicBaseURL: strings.TrimRight(getenv("PUBLIC_BASE_URL", "http://localhost:3000"), "/"),
 
 		JWTSecret:               getenv("JWT_SECRET", defaultJWTSecret),
 		OTPChannel:              getenv("OTP_CHANNEL", "sandbox"),

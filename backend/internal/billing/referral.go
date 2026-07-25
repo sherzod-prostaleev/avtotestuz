@@ -52,8 +52,10 @@ func (s Service) GetOrCreateReferralCode(ctx context.Context, userID uuid.UUID) 
 		return "", err
 	}
 
-	// Create new code with collision retry loop
-	for attempts := 0; attempts < 20; attempts++ {
+	// Create new code with collision retry loop.
+	const maxAttempts = 20
+	var lastErr error
+	for attempts := 0; attempts < maxAttempts; attempts++ {
 		code := generateRandomCode()
 		created, err := s.Q.CreateUserReferralCode(ctx, sqlc.CreateUserReferralCodeParams{
 			UserID: userID,
@@ -62,13 +64,17 @@ func (s Service) GetOrCreateReferralCode(ctx context.Context, userID uuid.UUID) 
 		if err == nil {
 			return created.Code, nil
 		}
+		lastErr = err
 		// If user_id already got created concurrently, fetch it
 		existing, fetchErr := s.Q.GetUserReferralCode(ctx, userID)
 		if fetchErr == nil {
 			return existing.Code, nil
 		}
 	}
-	return "", fmt.Errorf("failed to generate unique referral code after 5 attempts")
+	// Report the real reason: a persistent non-collision failure (bad
+	// connection, permissions) used to surface as "collisions exhausted",
+	// pointing every future debugger at the random generator instead.
+	return "", fmt.Errorf("generate unique referral code after %d attempts: %w", maxAttempts, lastErr)
 }
 
 func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, rawCode string) error {
@@ -95,8 +101,16 @@ func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, raw
 		ReferralCode: owner.Code,
 	})
 	if err != nil {
-		// Unique constraint violation on referee_id
-		return ErrReferralAlreadyApplied
+		// Only a unique violation on referral.referee_id means "already
+		// applied". This used to map *every* failure to that, so a deleted
+		// profile (FK violation), the chk_no_self_referral CHECK, a dropped
+		// connection or a statement timeout all told a user who had never
+		// applied a code that they already had — with no path forward, and
+		// with the infrastructure error invisible to monitoring.
+		if isUniqueViolation(err) {
+			return ErrReferralAlreadyApplied
+		}
+		return fmt.Errorf("create referral: %w", err)
 	}
 
 	return nil
@@ -119,7 +133,7 @@ func (s Service) GetReferralStats(ctx context.Context, userID uuid.UUID) (*Refer
 
 	return &ReferralStats{
 		ReferralCode:    code,
-		InviteURL:       fmt.Sprintf("https://avtotest.uz/r/%s", code),
+		InviteURL:       fmt.Sprintf("%s/r/%s", s.publicBaseURL(), code),
 		TotalInvited:    totalInvited,
 		TotalRewarded:   totalRewarded,
 		BonusDaysEarned: bonusDays,

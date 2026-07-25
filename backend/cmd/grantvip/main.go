@@ -47,9 +47,19 @@ func main() {
 	}
 	fatal(err)
 
-	svc := billing.Service{Q: q}
-	until, err := svc.GrantDays(context.Background(), profile.ID, *days, "admin", *note, uuid.NullUUID{})
+	// In a transaction so GrantDays' FOR UPDATE on the profile row actually
+	// holds: outside one, each statement auto-commits and the lock is released
+	// before the stacking insert, which would let this admin grant race a
+	// webhook completing at the same moment and lose one of the two.
+	ctx := context.Background()
+	tx, err := pool.Begin(ctx)
 	fatal(err)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	svc := billing.Service{Q: sqlc.New(tx)}
+	until, err := svc.GrantDays(ctx, profile.ID, *days, "admin", *note, uuid.NullUUID{})
+	fatal(err)
+	fatal(tx.Commit(ctx))
 	fmt.Printf("VIP until: %s\n", until.Format("2006-01-02T15:04:05Z07:00"))
 }
 

@@ -94,20 +94,20 @@ type CheckoutConfig struct {
 // statements commit or fail together, which putting them in this same tx
 // achieves either way.
 //
-// Residual, pre-existing gap (unchanged by this fix, out of scope here):
-// for a non-zero-amount checkout, the promo_code row lock only protects the
-// count *at StartCheckout time* — the actual promo_redemption row for a
-// paid checkout isn't created until the payment completes, in
-// entitlement.ProcessPaymentGrant (called from payme.performTransaction /
-// click.confirmAndGrant), which does not re-check promo limits. So N
-// concurrent *paying* customers can still all start checkout with a
-// max_uses=1 discount code before any of them finishes paying, and all N
-// completions will succeed. This is a real limit-enforcement gap, but a
-// fundamentally different (and much lower-severity — it requires N genuine
-// payments, not a free multiplication) class of bug than the confirmed
-// critical one this fix closes, and fixing it would mean re-validating
-// promo limits inside the payme/click completion transactions, not this
-// function.
+// For a non-zero-amount checkout this lock is NOT the limit-enforcement
+// point, and must not be mistaken for one: the promo_redemption row that
+// max_uses / per_user_limit are counted from is only written when the payment
+// completes, in entitlement.ProcessPaymentGrant. Until then the counts read
+// here stay at their pre-checkout value and a 'created' payment never
+// expires, so this check alone was bypassable with no concurrency at all —
+// an auditor banked five sequential discounted checkouts on a
+// max_uses=1, per_user_limit=1 code and completed all five. Enforcement
+// therefore lives in ProcessPaymentGrant, which re-validates under the same
+// promo_code lock and pro-rates the grant when the code is no longer
+// redeemable; see its doc comment. What this lock does buy is a correct,
+// immediate answer for the common case (so a legitimate customer is told
+// "limit reached" at checkout rather than after paying) and full protection
+// for the zero-amount branch below, where the redemption row IS written here.
 func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffCode, provider string, cfg CheckoutConfig, locale, returnURL, promoCode string) (CheckoutResult, error) {
 	tariff, err := s.Q.GetActiveTariffByCode(ctx, tariffCode)
 	if err != nil {
@@ -147,6 +147,11 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 		Provider:       provider,
 		IdempotencyKey: uuid.NewString(),
 		PromoCodeID:    promoID,
+		// Frozen here on purpose: the tariff row is mutable and this payment
+		// may not complete for an unbounded time, so the completion path must
+		// grant what was sold now, not what the tariff says later.
+		TariffDaysSnapshot:     tariff.Days,
+		TariffPriceUzsSnapshot: tariff.PriceUzs,
 	})
 	if err != nil {
 		return CheckoutResult{}, fmt.Errorf("create payment: %w", err)

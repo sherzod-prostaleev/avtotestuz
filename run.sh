@@ -90,7 +90,12 @@ if [[ ! -d "$SCRIPT_DIR/frontend/node_modules" ]]; then
 fi
 
 echo "3/4 — Backend ishga tushirilmoqda (port $BACKEND_PORT; DB migratsiyalar avtomatik qo'llanadi)..."
-(cd "$SCRIPT_DIR/backend" && PORT="$BACKEND_PORT" ENV=dev go run ./cmd/api) > "$BACKEND_LOG" 2>&1 &
+# PUBLIC_BASE_URL — referal invite havolalari shu origin ustiga quriladi va u
+# FRONTEND'ga ishora qilishi kerak, backendga emas. $FRONTEND_PORT'dan olinadi,
+# aks holda portni o'zgartirgan odam ishlamaydigan havolalar oladi.
+(cd "$SCRIPT_DIR/backend" && PORT="$BACKEND_PORT" ENV=dev \
+  PUBLIC_BASE_URL="http://localhost:$FRONTEND_PORT" \
+  go run ./cmd/api) > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 printf "   Backend tayyor bo'lishini kutmoqda"

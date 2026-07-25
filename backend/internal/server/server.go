@@ -60,7 +60,9 @@ func New(cfg config.Config, deps Deps) http.Handler {
 			ch.Routes(api)
 
 			bh := &billing.Handler{
-				Svc:               billing.Service{Q: deps.Queries, Pool: deps.Pool},
+				// PublicBaseURL only matters on this Service — it serves
+				// GET /me/referral, the one endpoint that builds a shareable link.
+				Svc:               billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
 				ClickServiceID:    cfg.ClickServiceID,

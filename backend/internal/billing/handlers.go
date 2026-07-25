@@ -78,25 +78,40 @@ func (h *Handler) validatePromo(w http.ResponseWriter, r *http.Request) {
 
 	res, err := h.Svc.ValidatePromo(r.Context(), claims.ProfileID, body.Code, body.TariffCode)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrPromoNotFound):
-			httpx.Error(w, http.StatusNotFound, "promo_not_found", "promo code not found or inactive")
-		case errors.Is(err, ErrPromoExpired):
-			httpx.Error(w, http.StatusBadRequest, "promo_expired", "promo code expired")
-		case errors.Is(err, ErrPromoNotStarted):
-			httpx.Error(w, http.StatusBadRequest, "promo_not_started", "promo code not yet active")
-		case errors.Is(err, ErrPromoLimitReached):
-			httpx.Error(w, http.StatusBadRequest, "promo_limit_reached", "promo code maximum usage limit reached")
-		case errors.Is(err, ErrPromoUserLimitReached):
-			httpx.Error(w, http.StatusBadRequest, "promo_user_limit_reached", "per-user promo code limit reached")
-		case errors.Is(err, pgx.ErrNoRows):
-			httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")
-		default:
+		if !writePromoOrTariffError(w, err) {
 			httpx.Error(w, http.StatusInternalServerError, "internal", "promo validation failed")
 		}
 		return
 	}
 	httpx.Data(w, http.StatusOK, res)
+}
+
+// writePromoOrTariffError writes the client-facing response for a promo
+// rejection or an unknown tariff and reports whether it recognized err.
+// Shared by validatePromo and checkout: the two used to disagree, with
+// checkout collapsing every promo domain error into 500 "checkout failed".
+// That mattered beyond UX — a promo limit correctly rejected by the row lock
+// looked exactly like a server fault, so the alert for "someone is hammering
+// a promo code" was indistinguishable from a real outage, and the on-call
+// instinct would be to hunt for a bug in the lock itself.
+func writePromoOrTariffError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, ErrPromoNotFound):
+		httpx.Error(w, http.StatusNotFound, "promo_not_found", "promo code not found or inactive")
+	case errors.Is(err, ErrPromoExpired):
+		httpx.Error(w, http.StatusBadRequest, "promo_expired", "promo code expired")
+	case errors.Is(err, ErrPromoNotStarted):
+		httpx.Error(w, http.StatusBadRequest, "promo_not_started", "promo code not yet active")
+	case errors.Is(err, ErrPromoLimitReached):
+		httpx.Error(w, http.StatusBadRequest, "promo_limit_reached", "promo code maximum usage limit reached")
+	case errors.Is(err, ErrPromoUserLimitReached):
+		httpx.Error(w, http.StatusBadRequest, "promo_user_limit_reached", "per-user promo code limit reached")
+	case errors.Is(err, pgx.ErrNoRows):
+		httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")
+	default:
+		return false
+	}
+	return true
 }
 
 type checkoutBody struct {
@@ -140,11 +155,9 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, "", body.PromoCode)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			httpx.Error(w, http.StatusBadRequest, "invalid_tariff", "unknown or inactive tariff code")
-			return
+		if !writePromoOrTariffError(w, err) {
+			httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, result)

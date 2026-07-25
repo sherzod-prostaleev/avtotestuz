@@ -166,8 +166,10 @@ func TestProcessReferralRewardOnPayment(t *testing.T) {
 
 	// Create paid payment for referee
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key)
-		VALUES ($1, $2, (SELECT id FROM tariff WHERE code = 'gentra'), 59900, 'payme', 'paid', NOW(), $3)
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		SELECT $1, $2, t.id, 59900, 'payme', 'paid', NOW(), $3, t.days, t.price_uzs
+		FROM tariff t WHERE t.code = 'gentra'
 	`, paymentID, referee, uuid.New().String()); err != nil {
 		t.Fatalf("create payment failed: %v", err)
 	}
@@ -198,8 +200,10 @@ func TestProcessReferralRewardOnPayment(t *testing.T) {
 	// Second payment by same referee does not double grant referral reward
 	payment2ID := uuid.New()
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key)
-		VALUES ($1, $2, (SELECT id FROM tariff WHERE code = 'gentra'), 59900, 'payme', 'paid', NOW(), $3)
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		SELECT $1, $2, t.id, 59900, 'payme', 'paid', NOW(), $3, t.days, t.price_uzs
+		FROM tariff t WHERE t.code = 'gentra'
 	`, payment2ID, referee, uuid.New().String()); err != nil {
 		t.Fatalf("create second payment failed: %v", err)
 	}
@@ -257,8 +261,10 @@ func TestProcessReferralRewardOnPayment_ConcurrentDoubleGrant(t *testing.T) {
 	for i := range paymentIDs {
 		paymentIDs[i] = uuid.New()
 		if _, err := pool.Exec(ctx, `
-			INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key)
-			VALUES ($1, $2, (SELECT id FROM tariff WHERE code = 'gentra'), 59900, 'payme', 'paid', NOW(), $3)
+			INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key,
+			                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+			SELECT $1, $2, t.id, 59900, 'payme', 'paid', NOW(), $3, t.days, t.price_uzs
+			FROM tariff t WHERE t.code = 'gentra'
 		`, paymentIDs[i], referee, uuid.New().String()); err != nil {
 			t.Fatalf("create payment %d failed: %v", i, err)
 		}

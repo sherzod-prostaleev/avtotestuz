@@ -75,8 +75,10 @@ func seedPayment(t *testing.T, pool *pgxpool.Pool, status string) uuid.UUID {
 
 	paymentID := uuid.New()
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-		 VALUES ($1, $2, $3, 59900, 'payme', $4, $5)`,
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                      tariff_days_snapshot, tariff_price_uzs_snapshot)
+		 SELECT $1, $2, t.id, 59900, 'payme', $4, $5, t.days, t.price_uzs
+		 FROM tariff t WHERE t.id = $3`,
 		paymentID, profileID, tariffID, status, uuid.New().String()); err != nil {
 		t.Fatalf("seed payment: %v", err)
 	}
@@ -108,8 +110,10 @@ func seedPaymentTariffCode(t *testing.T, pool *pgxpool.Pool, status, tariffCode 
 
 	paymentID := uuid.New()
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-		 VALUES ($1, $2, $3, 59900, 'payme', $4, $5)`,
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                      tariff_days_snapshot, tariff_price_uzs_snapshot)
+		 SELECT $1, $2, t.id, 59900, 'payme', $4, $5, t.days, t.price_uzs
+		 FROM tariff t WHERE t.id = $3`,
 		paymentID, profileID, tariffID, status, uuid.New().String()); err != nil {
 		t.Fatalf("seed payment: %v", err)
 	}
@@ -144,8 +148,10 @@ func seedPaymentWithTariffDays(t *testing.T, pool *pgxpool.Pool, status string, 
 
 	paymentID := uuid.New()
 	if _, err := pool.Exec(ctx,
-		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key)
-		 VALUES ($1, $2, $3, 59900, 'payme', $4, $5)`,
+		`INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                      tariff_days_snapshot, tariff_price_uzs_snapshot)
+		 SELECT $1, $2, t.id, 59900, 'payme', $4, $5, t.days, t.price_uzs
+		 FROM tariff t WHERE t.id = $3`,
 		paymentID, profileID, tariffID, status, uuid.New().String()); err != nil {
 		t.Fatalf("seed payment: %v", err)
 	}

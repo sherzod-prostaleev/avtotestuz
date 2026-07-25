@@ -209,18 +209,20 @@ type PaymeTransaction struct {
 }
 
 type Payment struct {
-	ID             uuid.UUID          `json:"id"`
-	ProfileID      uuid.UUID          `json:"profile_id"`
-	TariffID       uuid.UUID          `json:"tariff_id"`
-	AmountUzs      int64              `json:"amount_uzs"`
-	Provider       string             `json:"provider"`
-	Status         string             `json:"status"`
-	ProviderTxnID  pgtype.Text        `json:"provider_txn_id"`
-	IdempotencyKey string             `json:"idempotency_key"`
-	PromoCodeID    uuid.NullUUID      `json:"promo_code_id"`
-	Meta           json.RawMessage    `json:"meta"`
-	CreatedAt      pgtype.Timestamptz `json:"created_at"`
-	PaidAt         pgtype.Timestamptz `json:"paid_at"`
+	ID                     uuid.UUID          `json:"id"`
+	ProfileID              uuid.UUID          `json:"profile_id"`
+	TariffID               uuid.UUID          `json:"tariff_id"`
+	AmountUzs              int64              `json:"amount_uzs"`
+	Provider               string             `json:"provider"`
+	Status                 string             `json:"status"`
+	ProviderTxnID          pgtype.Text        `json:"provider_txn_id"`
+	IdempotencyKey         string             `json:"idempotency_key"`
+	PromoCodeID            uuid.NullUUID      `json:"promo_code_id"`
+	Meta                   json.RawMessage    `json:"meta"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	PaidAt                 pgtype.Timestamptz `json:"paid_at"`
+	TariffDaysSnapshot     int32              `json:"tariff_days_snapshot"`
+	TariffPriceUzsSnapshot int64              `json:"tariff_price_uzs_snapshot"`
 }
 
 type Profile struct {
