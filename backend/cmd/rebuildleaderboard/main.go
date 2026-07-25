@@ -1,7 +1,11 @@
 // Command rebuildleaderboard recomputes one or all leaderboard periods'
 // Redis sorted sets from session_answer (the durable source of truth) —
-// the recovery path for a lost/flushed/evicted Redis leaderboard key. See
-// docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md section 5.
+// the recovery path for a lost/flushed/evicted Redis leaderboard key.
+//
+// Cap note (U-22): RebuildPeriod reapplies the daily points cap using each
+// profile's CURRENT VIP status and CURRENT limit_config values — not perfect
+// historical fidelity. See docs/superpowers/specs/2026-07-26-u22-leaderboard-rebuild-cap.md
+// and m4-01 design §5.
 package main
 
 import (
@@ -31,6 +35,7 @@ func main() {
 		periods = []leaderboard.Period{leaderboard.Period(*periodFlag)}
 	default:
 		fmt.Fprintln(os.Stderr, "usage: rebuildleaderboard [-period daily|weekly|monthly|alltime|all]")
+		fmt.Fprintln(os.Stderr, "note: daily cap uses current VIP/limit_config (see U-22 rebuild-cap doc)")
 		os.Exit(2)
 	}
 
