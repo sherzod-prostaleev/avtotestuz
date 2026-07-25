@@ -32,7 +32,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       title: "Users",
       items: [
-        { href: `${base}/users`, label: "Directory", stub: true },
+        { href: `${base}/users`, label: "Directory" },
       ],
     },
     {

@@ -9,14 +9,14 @@ export default function AdminStubOrOverviewPage({
       <main className="mx-auto max-w-4xl space-y-4">
         <h1 className="font-display text-2xl font-extrabold tracking-tight">Overview</h1>
         <p className="text-sm leading-6 text-muted-foreground">
-          Driver Go Super Admin control center (M3-0). Sidebar modules are stubs until each M3 phase
-          ships. Contacts hozircha Ops bridge orqali:{" "}
+          Driver Go Super Admin control center. Users directory is live; other sidebar modules are
+          stubs until each M3 phase ships. Contacts hozircha Ops bridge orqali:{" "}
           <code className="rounded bg-card px-1.5 py-0.5 text-xs">/ops/contacts</code> — keyin Admin
           CMS chrome.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {[
-            { label: "Users", hint: "M3-1" },
+            { label: "Users", hint: "M3-1 ✓" },
             { label: "Payments", hint: "M3-3" },
             { label: "CMS", hint: "M3-4" },
             { label: "Monitoring", hint: "M3-5" },

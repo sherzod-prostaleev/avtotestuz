@@ -4,10 +4,12 @@ import (
 	"encoding/json"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/httpx"
@@ -32,6 +34,23 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Use(Required(h.Secret, store))
 		pr.Get("/me", h.me)
 		pr.Get("/ping", h.ping)
+
+		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.read"))
+			ur.Get("/users", h.listUsers)
+			ur.Get("/users/{id}", h.getUser)
+			ur.Get("/users/{id}/sessions", h.listUserSessions)
+		})
+		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.block"))
+			ur.Post("/users/{id}/block", h.blockUser)
+			ur.Post("/users/{id}/unblock", h.unblockUser)
+		})
+		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.sessions.revoke"))
+			ur.Post("/users/{id}/sessions/revoke-all", h.revokeAllUserSessions)
+			ur.Post("/users/{id}/sessions/{sessionID}/revoke", h.revokeUserSession)
+		})
 	})
 }
 
@@ -112,6 +131,187 @@ func (h *Handler) ping(w http.ResponseWriter, r *http.Request) {
 		"status":      "ok",
 		"permissions": PermsFromContext(r.Context()),
 	})
+}
+
+type reasonBody struct {
+	Reason string `json:"reason"`
+}
+
+func (h *Handler) listUsers(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	q := r.URL.Query().Get("q")
+	out, err := h.Svc.Store.ListLearners(r.Context(), q, page, limit)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "users query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	out, err := h.Svc.Store.GetLearner(r.Context(), id)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listUserSessions(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	exists, err := h.Svc.Store.LearnerExists(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
+		return
+	}
+	if !exists {
+		httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+		return
+	}
+	out, err := h.Svc.Store.ListLearnerSessions(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "sessions query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) blockUser(w http.ResponseWriter, r *http.Request) {
+	h.setUserBlocked(w, r, true)
+}
+
+func (h *Handler) unblockUser(w http.ResponseWriter, r *http.Request) {
+	h.setUserBlocked(w, r, false)
+}
+
+func (h *Handler) setUserBlocked(w http.ResponseWriter, r *http.Request, block bool) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body reasonBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	reason := strings.TrimSpace(body.Reason)
+	if reason == "" {
+		httpx.Error(w, http.StatusBadRequest, "reason_required", "reason is required")
+		return
+	}
+	target := "banned"
+	action := "users.block"
+	if !block {
+		target = "active"
+		action = "users.unblock"
+	}
+	before, after, err := h.Svc.Store.SetLearnerStatus(r.Context(), id, target)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "status update failed")
+		return
+	}
+	revoked := int64(0)
+	if block {
+		revoked, _ = h.Svc.Store.RevokeAllLearnerSessions(r.Context(), id)
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, action, "profile", id.String(),
+		map[string]any{"status": mapLearnerStatus(before)},
+		map[string]any{"status": mapLearnerStatus(after), "reason": reason, "sessions_revoked": revoked},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	detail, err := h.Svc.Store.GetLearner(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{
+			"status":           mapLearnerStatus(after),
+			"sessions_revoked": revoked,
+		})
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"user":             detail,
+		"sessions_revoked": revoked,
+	})
+}
+
+func (h *Handler) revokeAllUserSessions(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	exists, err := h.Svc.Store.LearnerExists(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
+		return
+	}
+	if !exists {
+		httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+		return
+	}
+	n, err := h.Svc.Store.RevokeAllLearnerSessions(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "revoke failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "users.sessions.revoke_all", "profile", id.String(),
+		nil, map[string]any{"revoked": n}, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"revoked": n})
+}
+
+func (h *Handler) revokeUserSession(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	sessionID, ok := parseUUIDParam(w, r, "sessionID")
+	if !ok {
+		return
+	}
+	okRevoke, err := h.Svc.Store.RevokeLearnerSession(r.Context(), id, sessionID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "revoke failed")
+		return
+	}
+	if !okRevoke {
+		httpx.Error(w, http.StatusNotFound, "not_found", "session not found or already revoked")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "users.sessions.revoke", "refresh_token", sessionID.String(),
+		nil, map[string]any{"profile_id": id.String()}, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
+	raw := chi.URLParam(r, name)
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid "+name)
+		return uuid.Nil, false
+	}
+	return id, true
 }
 
 func clientIP(r *http.Request) *net.IP {
