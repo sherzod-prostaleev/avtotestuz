@@ -104,6 +104,7 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
+				progressSvc.Learning = learningSvc
 				lbSvc := leaderboard.NewService(deps.Redis, deps.Queries, billing.Service{Q: deps.Queries})
 				sessSvc := session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)
 				sessSvc.Leaderboard = lbSvc

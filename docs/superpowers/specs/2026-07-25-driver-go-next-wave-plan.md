@@ -69,11 +69,11 @@ North-star after chrome: **anon demo → signed-in habit loop unbroken** (Hooked
 
 ### 3.4 Acceptance criteria (N2)
 
-- [ ] Guest answers survive reload (already true) and survive OTP → dashboard without silent total loss of incorrect items.
-- [ ] Incorrect demo Qs appear in **mistakes** (or documented Saved decision) after login; retry-safe under network blip.
-- [ ] Correct-only guest progress does not claim mastery/readiness inflation unless product explicitly allows it.
-- [ ] Vitest + Go handler tests for migrate idempotency and bad IDs.
-- [ ] Visual QA checklist item for demo note still passes (no flicker regression).
+- [x] Guest answers survive reload (already true) and survive OTP → dashboard without silent total loss of incorrect items.
+- [x] Incorrect demo Qs appear in **mistakes** (FSRS Again via `POST /me/demo-progress/migrate`) after login; retry-safe under network blip.
+- [x] Correct-only guest progress does not claim mastery/readiness inflation.
+- [x] Vitest + Go handler tests for migrate idempotency and bad IDs.
+- [x] Visual QA checklist item for demo note still passes (no flicker regression).
 
 ---
 

@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/learning"
 )
 
 // dailyGoalDefaultConfigKey is the limit_config key holding the default
@@ -18,7 +19,8 @@ import (
 const dailyGoalDefaultConfigKey = "daily_goal_default"
 
 type Service struct {
-	Q *sqlc.Queries
+	Q        *sqlc.Queries
+	Learning *learning.Service // required for MigrateDemoProgress
 }
 
 func NewService(q *sqlc.Queries) *Service {

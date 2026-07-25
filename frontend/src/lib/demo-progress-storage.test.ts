@@ -94,25 +94,55 @@ describe("demo-progress-storage", () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it("bookmarks incorrect answers then clears progress", async () => {
-    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true });
-    recordDemoAnswer({ questionId: "wrong-1", answerId: "a1", correct: false });
-    recordDemoAnswer({ questionId: "right-1", answerId: "a2", correct: true });
+  it("posts full payload to migrate endpoint then clears progress", async () => {
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ migrated: 1, skipped: 1 });
+    recordDemoAnswer({
+      questionId: "wrong-1",
+      answerId: "a1",
+      correct: false,
+      answeredAt: "2026-07-25T10:00:00.000Z",
+    });
+    recordDemoAnswer({
+      questionId: "right-1",
+      answerId: "a2",
+      correct: true,
+      answeredAt: "2026-07-25T10:01:00.000Z",
+    });
 
     await migrateDemoProgressOnLogin();
 
     expect(post).toHaveBeenCalledTimes(1);
-    expect(post).toHaveBeenCalledWith("me/saved", { question_id: "wrong-1" });
+    expect(post).toHaveBeenCalledWith("me/demo-progress/migrate", {
+      answers: [
+        {
+          question_id: "wrong-1",
+          answer_id: "a1",
+          correct: false,
+          answered_at: "2026-07-25T10:00:00.000Z",
+        },
+        {
+          question_id: "right-1",
+          answer_id: "a2",
+          correct: true,
+          answered_at: "2026-07-25T10:01:00.000Z",
+        },
+      ],
+    });
     expect(readDemoProgress().answers).toHaveLength(0);
   });
 
-  it("clears correct-only progress without posting", async () => {
-    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true });
-    recordDemoAnswer({ questionId: "right-1", answerId: "a2", correct: true });
+  it("still posts correct-only progress so server can ack-and-skip", async () => {
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ migrated: 0, skipped: 1 });
+    recordDemoAnswer({
+      questionId: "right-1",
+      answerId: "a2",
+      correct: true,
+      answeredAt: "2026-07-25T10:01:00.000Z",
+    });
 
     await migrateDemoProgressOnLogin();
 
-    expect(post).not.toHaveBeenCalled();
+    expect(post).toHaveBeenCalledTimes(1);
     expect(readDemoProgress().answers).toHaveLength(0);
   });
 

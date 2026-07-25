@@ -5,10 +5,9 @@ import { ApiError, apiPost } from "@/lib/api-client";
 /**
  * Guest demo answers held until the visitor signs in.
  *
- * There is no dedicated POST /demo/migrate (or guest-progress ingest) API.
- * Anonymous continuity is localStorage across reloads; on login we migrate what
- * is feasible — incorrect answers → POST me/saved bookmarks — then clear.
- * Correct-only progress has no server home outside a real session.
+ * On login, POST /me/demo-progress/migrate applies incorrect answers to the
+ * mistake bank (FSRS Again). Correct answers are acknowledged but do not
+ * inflate mastery / Grand Mock gates. Clear localStorage only after 2xx ack.
  */
 export const DEMO_PROGRESS_STORAGE_KEY = "drivergo:demo-progress";
 
@@ -121,27 +120,28 @@ export function demoProgressCount(progress: DemoProgress = readDemoProgress()): 
 /**
  * Best-effort migration after OTP verify / authenticated load.
  *
- * Safe to call repeatedly: no stored progress → no-op. Incorrect demo questions
- * are bookmarked via me/saved (idempotent). Transient failures keep storage so
- * the next authenticated page can retry; after a successful pass (or nothing
- * left to migrate) we clear-and-ack.
+ * Safe to call repeatedly: no stored progress → no-op. Posts the full guest
+ * payload to me/demo-progress/migrate (incorrect → mistakes/Again; correct
+ * skipped server-side). Clear local only on 2xx; keep storage on transient
+ * failures so DemoProgressCapture can retry.
  */
 export async function migrateDemoProgressOnLogin(): Promise<void> {
   if (typeof window === "undefined") return;
   const progress = readDemoProgress();
   if (progress.answers.length === 0) return;
 
-  const incorrect = progress.answers.filter((a) => !a.correct);
   try {
-    for (const answer of incorrect) {
-      await apiPost<{ ok: boolean }>("me/saved", { question_id: answer.questionId });
-    }
-    // Ack: no full demo→account session ingest exists; bookmarks are the only
-    // feasible server write. Clear so we do not re-POST forever.
+    await apiPost<{ migrated: number; skipped: number }>("me/demo-progress/migrate", {
+      answers: progress.answers.map((a) => ({
+        question_id: a.questionId,
+        answer_id: a.answerId,
+        correct: a.correct,
+        answered_at: a.answeredAt,
+      })),
+    });
     clearDemoProgress();
   } catch (err) {
     if (err instanceof ApiError && (err.status === 400 || err.status === 404)) {
-      // Unusable question ids — drop local copy rather than retry forever.
       clearDemoProgress();
       return;
     }

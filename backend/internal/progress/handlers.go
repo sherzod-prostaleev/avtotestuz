@@ -2,6 +2,7 @@ package progress
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -21,6 +22,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/me/saved", h.saveQuestion)
 	r.Delete("/me/saved/{question_id}", h.unsaveQuestion)
 	r.Get("/me/streak", h.getStreak)
+	r.Post("/me/demo-progress/migrate", h.migrateDemoProgress)
 }
 
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -140,4 +142,48 @@ func (h *Handler) getStreak(w http.ResponseWriter, r *http.Request) {
 		dto.LastActiveDate = &s
 	}
 	httpx.Data(w, http.StatusOK, dto)
+}
+
+type demoMigrateBody struct {
+	Answers []struct {
+		QuestionID uuid.UUID `json:"question_id"`
+		AnswerID   uuid.UUID `json:"answer_id"`
+		Correct    bool      `json:"correct"`
+		AnsweredAt string    `json:"answered_at"`
+	} `json:"answers"`
+}
+
+func (h *Handler) migrateDemoProgress(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	var body demoMigrateBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	answers := make([]DemoMigrateAnswer, 0, len(body.Answers))
+	for _, raw := range body.Answers {
+		item := DemoMigrateAnswer{
+			QuestionID: raw.QuestionID,
+			AnswerID:   raw.AnswerID,
+			Correct:    raw.Correct,
+		}
+		if raw.AnsweredAt != "" {
+			if t, err := time.Parse(time.RFC3339, raw.AnsweredAt); err == nil {
+				item.AnsweredAt = t
+			}
+		}
+		answers = append(answers, item)
+	}
+	result, err := h.Svc.MigrateDemoProgress(r.Context(), claims.ProfileID, answers)
+	if err != nil {
+		if errors.Is(err, ErrLearningUnavailable) {
+			httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
+		return
+	}
+	httpx.Data(w, http.StatusOK, result)
 }
