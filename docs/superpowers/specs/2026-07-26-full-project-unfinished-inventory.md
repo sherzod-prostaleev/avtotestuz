@@ -27,7 +27,7 @@
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
 
-**Doc drift (U-50, 2026-07-26):** SESSION-HANDOFF §⚡/§4, roadmap M4 table, and design-system J10 refreshed to match code. Prefer **code + this inventory** if any older plan row still lags.
+**Doc drift (U-50, 2026-07-26 #2):** SESSION-HANDOFF §⚡ refreshed after audit UI / broadcast / flag gates / teacher portal. Prefer **code + this inventory** if any older plan row still lags.
 
 ---
 
@@ -86,7 +86,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags table+UI (M3-7) + product gates** (arena/checkout/digest). **Broadcast stub done.** Support **inbox** still missing. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26: Admin M3-4…M3-7, B2B U-40, U-10 skip, U-35 share/print, U-39 meta cache, U-27 admin recon. Re-run after major waves. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #2: audit UI, broadcast stub, flag gates, teacher portal. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 

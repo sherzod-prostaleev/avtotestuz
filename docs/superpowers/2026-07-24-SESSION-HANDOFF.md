@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after Admin/B2B wave)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after audit/broadcast/flags/teacher)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 >
@@ -36,19 +36,25 @@
 | M4-03/04 | Arena infra + rating/history | ✅ |
 | M4-06 | Telegram bot poydevor + FE bog‘lash (U-09) | ✅ |
 | M4-07 | TG daily quiz + notif | ⬜ **skipped** (U-10 — no tiny vertical) |
-| M4-08 | Web push | **partial** (foundation + FSRS digest send; VAPID/campaigns open) |
-| M3 | Super Admin | **partial** M3-0…M3-7 + analytics + ops→admin deprecation; broadcast/inbox/logs/alerts open |
-| M5 | B2B | **partial** U-40 org/seats/admin b2b grant; teacher dashboard open |
+| M4-08 | Web push | **partial** (foundation + FSRS digest + admin broadcast stub; VAPID ops) |
+| M3 | Super Admin | **partial** M3-0…M3-7 + audit UI + support broadcast; inbox/logs/alerts/homepage CMS open |
+| M5 | B2B | **partial** U-40 admin grant + teacher read portal (`/teacher`) |
 | M6 | PWA | **partial** (shell + variants/categories/signs meta cache; full offline exam open) |
+
+### Shu to‘lqinda yopilgan (2026-07-26)
+- Admin audit log UI (`security.audit.read`)
+- Support broadcast stub (in-app banner + web-push dry-run/live)
+- `feature_flag` → arena / checkout / digest product gates + `GET /flags`
+- Teacher/B2B read portal for org owner/teacher
 
 ### Footer aloqa — CMS (U-17 / M3-4)
 Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydonlar `Landing.footer*` i18n placeholder. Ops `/ops/*` deprecated bridges.
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory: support broadcast stub OR admin audit log UI OR wire feature flags
-into product gates; teacher dashboard only if school customer appears.
-Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz.
+Inventory: support inbox stub OR maintenance_mode FE chrome OR admin limits write
+OR homepage CMS stub — pick smallest honest complete.
+Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
@@ -57,7 +63,7 @@ Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.m
 - Payme/Click **prod** keys + yuridik shaxs (U-03)
 - Staging remote host / registry (U-02 D18)
 - Real LLM explanations (U-12); M4-07 quiz (U-10 skipped until scoped)
-- Admin broadcast/inbox, BI (U-46), backup/DR (U-44), load-test (U-42)
+- Admin inbox, logs/alerts, homepage CMS, BI (U-46), backup/DR (U-44), load-test (U-42)
 - Prometheus/Sentry/alerting beyond process `/metrics` + M3-5
 
 ---
@@ -108,7 +114,7 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 | M4-01/02 Leaderboard | ✅ |
 | M4-03…05 Arena | ✅ (U-48 RedisTransport / U-49 practice bot deferred) |
 | M4-06 bot + U-09 FE link | ✅ |
-| M4-08 push | partial (U-11) |
+| M4-08 push | partial (U-11 digest + admin broadcast stub) |
 | U-04 refund revoke | ✅ (Payme path) |
 | U-05 referral antifraud window | ✅ |
 | U-01 demo migrate | ✅ |
@@ -119,7 +125,8 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 | U-32 SEO shells | ✅ (jarimalar honest shell) |
 | U-35 Grand Mock certificate | partial (share page; PDF/admin open) |
 | U-38/39 PWA | done foundation + bilets list cache partial |
-| U-45 M3 thin ops | providers/health/users/payments/audit stubs |
+| U-45 M3 thin ops | providers/health/users/payments/audit + broadcast + flags gates |
+| U-40 B2B | admin grant + teacher read portal |
 
 > Merchant sandbox kalitlari qo‘yilsa to‘lov live; **prod** keys = U-03 tashqi blocker.
 
@@ -145,9 +152,9 @@ Streak/gamification M1’da. M4-01 = Leaderboard. Shubhali Plan nomida roadmap +
 | M4-05 | Arena UI | **TUGADI** |
 | M4-06 | Telegram bot poydevor | **TUGADI** (+ FE link U-09) |
 | M4-07 | TG quiz + notif | deferred (U-10) |
-| M4-08 | Web push | **partial** (U-11) |
+| M4-08 | Web push | **partial** (U-11 + broadcast stub) |
 
-**Tavsiya (code-completable, tashqi blocker’siz):** U-23 → U-41 → U-45 stub kengaytirish / U-29 bilets UX / U-22 docs. Skip: U-03, U-02 host, U-12, U-17, U-40, U-44, U-46, inventing U-10.
+**Tavsiya (code-completable, tashqi blocker’siz):** support inbox stub / maintenance_mode FE / admin limits write / homepage CMS stub. Skip: U-03, U-02 host, U-12, inventing U-10, B2B school sales.
 
 To‘liq U-xx jadval: inventory §2.
 
