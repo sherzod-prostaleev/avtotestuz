@@ -63,6 +63,13 @@ type CheckoutConfig struct {
 	ClickMerchantID   string
 }
 
+// checkoutPendingReturnURL is where Payme/Click send the user after they finish
+// on the provider side. Built from PUBLIC_BASE_URL + locale so checkout clients
+// cannot supply an open-redirect target.
+func (s Service) checkoutPendingReturnURL(locale string) string {
+	return fmt.Sprintf("%s/%s/checkout/pending", s.publicBaseURL(), locale)
+}
+
 // StartCheckout creates a 'created' payment for the tariff and returns the
 // checkout URL for the requested provider ("payme" or "click"; anything
 // else falls back to Payme). Amount is the final price after applying

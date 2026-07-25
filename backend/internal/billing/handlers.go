@@ -153,7 +153,11 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		ClickServiceID:    h.ClickServiceID,
 		ClickMerchantID:   h.ClickMerchantID,
 	}
-	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, "", body.PromoCode)
+	// Server-built return URL: Payme/Click redirect here after payment so the
+	// pending page can poll entitlement. Never taken from the client — that
+	// would be an open-redirect vector.
+	returnURL := h.Svc.checkoutPendingReturnURL(loc)
+	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, returnURL, body.PromoCode)
 	if err != nil {
 		if !writePromoOrTariffError(w, err) {
 			httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")

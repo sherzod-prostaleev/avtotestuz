@@ -46,6 +46,20 @@ func TestBuildPaymeURL(t *testing.T) {
 	}
 }
 
+func TestCheckoutPendingReturnURL(t *testing.T) {
+	svc := Service{PublicBaseURL: "https://avtotest.uz"}
+	got := svc.checkoutPendingReturnURL("uz-Latn")
+	want := "https://avtotest.uz/uz-Latn/checkout/pending"
+	if got != want {
+		t.Errorf("checkoutPendingReturnURL = %q, want %q", got, want)
+	}
+
+	defaultSvc := Service{}
+	if got := defaultSvc.checkoutPendingReturnURL("ru"); got != "http://localhost:3000/ru/checkout/pending" {
+		t.Errorf("default base checkoutPendingReturnURL = %q", got)
+	}
+}
+
 func TestBuildClickURL(t *testing.T) {
 	orderID := uuid.New().String()
 	got := BuildClickURL("12345", "67890", orderID, 59900, "https://avtotest.uz/checkout/success")
