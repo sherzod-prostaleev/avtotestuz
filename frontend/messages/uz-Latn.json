@@ -813,6 +813,18 @@
     "checkoutPendingTitle": "To me to'lov kutilmoqda...",
     "checkoutPendingSubtitle": "To'lov holati tekshirilmoqda. Iltimos biroz kuting."
   },
+  "OpsUsers": {
+    "back": "Boshqaruvga qaytish",
+    "eyebrow": "Ops",
+    "title": "Foydalanuvchilar",
+    "subtitle": "M3 users directory stub — telefon maskalanadi. To‘liq admin panel keyinroq.",
+    "navUsers": "Foydalanuvchilar",
+    "searchPlaceholder": "Telefon yoki id…",
+    "search": "Qidirish",
+    "empty": "Hech kim topilmadi.",
+    "errorUnauthorized": "Token noto'g'ri.",
+    "errorLoad": "Ro'yxatni yuklab bo'lmadi."
+  },
   "OpsProviders": {
     "back": "Boshqaruvga qaytish",
     "eyebrow": "Ops",

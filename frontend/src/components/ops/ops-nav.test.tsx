@@ -13,10 +13,18 @@ vi.mock("next/link", () => ({
 describe("OpsNav", () => {
   it("marks the active ops section", () => {
     render(
-      <OpsNav locale="uz-Latn" active="health" healthLabel="Holat" providersLabel="Provayderlar" />
+      <OpsNav
+        locale="uz-Latn"
+        active="health"
+        labels={{ health: "Holat", providers: "Provayderlar", users: "Foydalanuvchilar" }}
+      />,
     );
     expect(screen.getByRole("link", { name: "Holat" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Provayderlar" })).not.toHaveAttribute("aria-current");
     expect(screen.getByRole("link", { name: "Holat" })).toHaveAttribute("href", "/uz-Latn/ops/health");
+    expect(screen.getByRole("link", { name: "Foydalanuvchilar" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/ops/users",
+    );
   });
 });

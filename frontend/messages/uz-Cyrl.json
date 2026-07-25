@@ -813,6 +813,18 @@
     "checkoutPendingTitle": "Тўлов кутилмоқда...",
     "checkoutPendingSubtitle": "Тўлов ҳолати текширилмоқда. Илтимос бироз кутинг."
   },
+  "OpsUsers": {
+    "back": "Бошқарувга қайтиш",
+    "eyebrow": "Ops",
+    "title": "Фойдаланувчилар",
+    "subtitle": "M3 users directory stub — телефон маскаланиди. Тўлиқ админ панель кейинроқ.",
+    "navUsers": "Фойдаланувчилар",
+    "searchPlaceholder": "Телефон ёки id…",
+    "search": "Қидириш",
+    "empty": "Ҳеч ким топилмади.",
+    "errorUnauthorized": "Токен нотўғри.",
+    "errorLoad": "Рўйхатни юклаб бўлмади."
+  },
   "OpsProviders": {
     "back": "Бошқарувга қайтиш",
     "eyebrow": "Ops",

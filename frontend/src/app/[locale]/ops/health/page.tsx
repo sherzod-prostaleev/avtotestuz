@@ -37,6 +37,7 @@ function probeStatus(ok: boolean, okLabel: string, failLabel: string): string {
 export default function OpsHealthPage() {
   const t = useTranslations("OpsHealth");
   const tProviders = useTranslations("OpsProviders");
+  const tUsers = useTranslations("OpsUsers");
   const locale = useLocale();
   const [payload, setPayload] = useState<HealthPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -97,8 +98,11 @@ export default function OpsHealthPage() {
       <OpsNav
         locale={locale}
         active="health"
-        healthLabel={t("navHealth")}
-        providersLabel={tProviders("navProviders")}
+        labels={{
+          health: t("navHealth"),
+          providers: tProviders("navProviders"),
+          users: tUsers("navUsers"),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

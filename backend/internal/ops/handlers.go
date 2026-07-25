@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/httpx"
@@ -15,6 +16,7 @@ import (
 // Handler exposes thin operational controls until M3 Super Admin ships.
 type Handler struct {
 	Billing billing.Service
+	Pool    *pgxpool.Pool
 	Token   string
 }
 
@@ -22,6 +24,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/ops/payment-providers", h.requireToken(h.listProviders))
 	r.Patch("/ops/payment-providers/{provider}", h.requireToken(h.setProvider))
+	r.Get("/ops/users", h.requireToken(h.listUsers))
 }
 
 func (h *Handler) requireToken(next http.HandlerFunc) http.HandlerFunc {

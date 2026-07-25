@@ -1,14 +1,25 @@
 import Link from "next/link";
 
+export type OpsNavKey = "health" | "providers" | "users" | "payments" | "audit";
+
 type OpsNavProps = {
   locale: string;
-  active: "providers" | "health";
-  providersLabel: string;
-  healthLabel: string;
+  active: OpsNavKey;
+  labels: Partial<Record<OpsNavKey, string>>;
 };
 
-export function OpsNav({ locale, active, providersLabel, healthLabel }: OpsNavProps) {
-  const linkClass = (key: OpsNavProps["active"]) =>
+const ORDER: OpsNavKey[] = ["health", "providers", "users", "payments", "audit"];
+
+const HREF: Record<OpsNavKey, string> = {
+  health: "health",
+  providers: "providers",
+  users: "users",
+  payments: "payments",
+  audit: "audit",
+};
+
+export function OpsNav({ locale, active, labels }: OpsNavProps) {
+  const linkClass = (key: OpsNavKey) =>
     `rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
       active === key
         ? "bg-accent/15 text-accent"
@@ -17,16 +28,20 @@ export function OpsNav({ locale, active, providersLabel, healthLabel }: OpsNavPr
 
   return (
     <nav aria-label="Ops" className="mb-6 flex flex-wrap gap-1 border-b border-border pb-3">
-      <Link href={`/${locale}/ops/health`} className={linkClass("health")} aria-current={active === "health" ? "page" : undefined}>
-        {healthLabel}
-      </Link>
-      <Link
-        href={`/${locale}/ops/providers`}
-        className={linkClass("providers")}
-        aria-current={active === "providers" ? "page" : undefined}
-      >
-        {providersLabel}
-      </Link>
+      {ORDER.map((key) => {
+        const label = labels[key];
+        if (!label) return null;
+        return (
+          <Link
+            key={key}
+            href={`/${locale}/ops/${HREF[key]}`}
+            className={linkClass(key)}
+            aria-current={active === key ? "page" : undefined}
+          >
+            {label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -85,6 +85,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			if cfg.OpsAdminToken != "" {
 				oh := &ops.Handler{
 					Billing: billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+					Pool:    deps.Pool,
 					Token:   cfg.OpsAdminToken,
 				}
 				oh.Routes(api)

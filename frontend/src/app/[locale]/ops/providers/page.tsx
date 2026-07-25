@@ -14,6 +14,7 @@ const TOKEN_KEY = "drivergo:ops-admin-token";
 export default function OpsPaymentProvidersPage() {
   const t = useTranslations("OpsProviders");
   const tHealth = useTranslations("OpsHealth");
+  const tUsers = useTranslations("OpsUsers");
   const locale = useLocale();
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
@@ -131,8 +132,11 @@ export default function OpsPaymentProvidersPage() {
       <OpsNav
         locale={locale}
         active="providers"
-        healthLabel={tHealth("navHealth")}
-        providersLabel={t("navProviders")}
+        labels={{
+          health: tHealth("navHealth"),
+          providers: t("navProviders"),
+          users: tUsers("navUsers"),
+        }}
       />
 
       <section className="mb-6 space-y-3 rounded-2xl border border-border bg-card p-5">

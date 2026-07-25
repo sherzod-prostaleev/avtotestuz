@@ -813,6 +813,18 @@
     "checkoutPendingTitle": "Ожидание оплаты...",
     "checkoutPendingSubtitle": "Проверяем статус оплаты. Пожалуйста, подождите."
   },
+  "OpsUsers": {
+    "back": "Назад в кабинет",
+    "eyebrow": "Ops",
+    "title": "Пользователи",
+    "subtitle": "Заглушка каталога M3 — телефон маскируется. Полная админка позже.",
+    "navUsers": "Пользователи",
+    "searchPlaceholder": "Телефон или id…",
+    "search": "Найти",
+    "empty": "Никого не найдено.",
+    "errorUnauthorized": "Неверный токен.",
+    "errorLoad": "Не удалось загрузить список."
+  },
   "OpsProviders": {
     "back": "Назад в кабинет",
     "eyebrow": "Ops",
