@@ -1,10 +1,11 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import uzLatnMessages from "../../../messages/uz-Latn.json";
 import uzCyrlMessages from "../../../messages/uz-Cyrl.json";
 import ruMessages from "../../../messages/ru.json";
 import { Sidebar } from "./sidebar";
+import * as useUserStatsModule from "@/hooks/use-user-stats";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -17,9 +18,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-vi.mock("@/hooks/use-user-stats", () => ({
-  useUserStats: () => ({ user: null, entitlement: null, streak: null }),
-}));
+vi.mock("@/hooks/use-user-stats", () => ({ useUserStats: vi.fn() }));
 
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
 
@@ -65,6 +64,18 @@ function renderWithIntl(localeCase: (typeof localeCases)[number]) {
 }
 
 describe("Sidebar i18n and accessibility", () => {
+  beforeEach(() => {
+    vi.mocked(useUserStatsModule.useUserStats).mockReturnValue({
+      user: null,
+      entitlement: null,
+      streak: null,
+      stats: null,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+  });
+
   it.each(localeCases)("renders translated navigation for $locale", (localeCase) => {
     const { container } = renderWithIntl(localeCase);
 
@@ -101,5 +112,42 @@ describe("Sidebar i18n and accessibility", () => {
     expect(container.textContent).not.toContain("Kunlik Streak");
     expect(container.textContent).not.toContain("Profilni ko'rish");
     expect(container.textContent).not.toContain("Yo'l belgilari");
+  });
+
+  // Regression test for the F5 flicker: entitlement defaults to "not VIP"
+  // before the fetch resolves, so a VIP user briefly saw "Upgrade to VIP"
+  // and the trial countdown panel vanish on every refresh. While loading,
+  // neither claim should render.
+  it("shows a neutral placeholder instead of the free/VIP badge while entitlement is loading", () => {
+    vi.mocked(useUserStatsModule.useUserStats).mockReturnValue({
+      user: null,
+      entitlement: null,
+      streak: null,
+      stats: null,
+      loading: true,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithIntl(localeCases[2]);
+
+    expect(screen.queryByText("VIP")).not.toBeInTheDocument();
+    expect(screen.queryByText("Оформить VIP")).not.toBeInTheDocument();
+  });
+
+  it("renders the real VIP badge once the entitlement finishes loading", () => {
+    vi.mocked(useUserStatsModule.useUserStats).mockReturnValue({
+      user: { id: "u1", phone: "+998901234567" },
+      entitlement: { is_vip: true, valid_until: null },
+      streak: { current_streak: 3, max_streak: 3, today_answered: 1, daily_target: 10 },
+      stats: null,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithIntl(localeCases[2]);
+
+    expect(screen.getByText("VIP")).toBeInTheDocument();
   });
 });

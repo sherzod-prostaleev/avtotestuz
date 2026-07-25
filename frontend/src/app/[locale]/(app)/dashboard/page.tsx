@@ -72,12 +72,29 @@ function weakestCategory(categories: CategoryMasteryItem[]) {
   return weakestCategories(categories)[0] ?? null;
 }
 
+// Reserves the same footprint as a filled-in hero stat card (label + big
+// number + caption) so those cards don't resize once real numbers replace
+// the "0" defaults that `useUserStats` starts with.
+function StatCardSkeleton() {
+  return (
+    <div aria-hidden="true" className="animate-pulse space-y-2">
+      <div className="h-3.5 w-24 rounded bg-border/60" />
+      <div className="h-7 w-14 rounded bg-border/60" />
+      <div className="h-3 w-32 rounded bg-border/50" />
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const t = useTranslations("Dashboard");
   const savedT = useTranslations("Saved");
   const locale = useLocale();
-  const { user, entitlement, streak, stats, error } = useUserStats();
+  const { user, entitlement, streak, stats, loading, error } = useUserStats();
   const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
+
+  // Both hooks feed the hero/next-action UI below; treat them as loaded
+  // together so those sections settle once instead of updating piecemeal.
+  const isPersonalizationLoading = loading || historyLoading;
 
   const userName = user?.name || t("guestUser");
   const isVip = entitlement?.is_vip ?? false;
@@ -157,7 +174,12 @@ export default function DashboardPage() {
                   <BrainCircuit aria-hidden="true" className="h-3.5 w-3.5 text-accent" />
                   {t("todayTitle")}
                 </span>
-                {isVip ? (
+                {loading ? (
+                  <span
+                    aria-hidden="true"
+                    className="inline-flex h-[26px] w-24 animate-pulse items-center rounded-full border border-border bg-background/70 px-3 py-1"
+                  />
+                ) : isVip ? (
                   <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-3 py-1 text-xs font-bold text-gold border border-gold/40">
                     <Crown aria-hidden="true" className="h-3.5 w-3.5" /> {t("vipBadge")}
                   </span>
@@ -174,7 +196,14 @@ export default function DashboardPage() {
                 <Hand aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-accent" />
                 <div>
                   <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
-                    {t("welcomeUser", { name: userName })}
+                    {loading ? (
+                      <span
+                        aria-hidden="true"
+                        className="inline-block h-8 w-56 max-w-full animate-pulse rounded-lg bg-background/70 align-middle"
+                      />
+                    ) : (
+                      t("welcomeUser", { name: userName })
+                    )}
                   </h1>
                   <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("welcomeSubtitle")}</p>
                 </div>
@@ -183,57 +212,99 @@ export default function DashboardPage() {
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                  <Flame aria-hidden="true" className="h-4 w-4 text-streak" />
-                  {t("streakCount", { count: currentStreak })}
-                </div>
-                <p className="mt-2 text-2xl font-display font-extrabold">{todayAnswered}</p>
-                <p className="text-xs text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
+                {loading ? (
+                  <StatCardSkeleton />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                      <Flame aria-hidden="true" className="h-4 w-4 text-streak" />
+                      {t("streakCount", { count: currentStreak })}
+                    </div>
+                    <p className="mt-2 text-2xl font-display font-extrabold">{todayAnswered}</p>
+                    <p className="text-xs text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
+                  </>
+                )}
               </div>
 
               <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                  <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
-                  {t("readinessLabel")}
-                </div>
-                <p className="mt-2 text-2xl font-display font-extrabold">{readinessPct}%</p>
-                <p className="text-xs text-muted-foreground">{readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}</p>
+                {loading ? (
+                  <StatCardSkeleton />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                      <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
+                      {t("readinessLabel")}
+                    </div>
+                    <p className="mt-2 text-2xl font-display font-extrabold">{readinessPct}%</p>
+                    <p className="text-xs text-muted-foreground">{readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}</p>
+                  </>
+                )}
               </div>
 
               <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                  <AlertTriangle aria-hidden="true" className="h-4 w-4 text-rose-500" />
-                  {t("dueQuestionsLabel")}
-                </div>
-                <p className="mt-2 text-2xl font-display font-extrabold">{dueQuestionsCount}</p>
-                <p className="text-xs text-muted-foreground">
-                  {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
-                </p>
+                {loading ? (
+                  <StatCardSkeleton />
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+                      <AlertTriangle aria-hidden="true" className="h-4 w-4 text-rose-500" />
+                      {t("dueQuestionsLabel")}
+                    </div>
+                    <p className="mt-2 text-2xl font-display font-extrabold">{dueQuestionsCount}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
+                    </p>
+                  </>
+                )}
               </div>
             </div>
           </div>
         </section>
 
         <aside className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg md:p-7">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{t("nextActionLabel")}</p>
-              <h2 className="mt-2 font-display text-xl font-extrabold tracking-tight">{nextAction.title}</h2>
+          {isPersonalizationLoading ? (
+            // The recommendation below depends on stats + session history
+            // together (readiness, weakest category, resumable session).
+            // Rendering a guess from partial defaults would pick the wrong
+            // action and then swap to the real one once both requests
+            // settle, so this placeholder waits for both instead.
+            <div aria-hidden="true" className="animate-pulse">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-2">
+                  <div className="h-3 w-28 rounded-full bg-border/60" />
+                  <div className="h-6 w-44 rounded bg-border/60" />
+                </div>
+                <div className="h-12 w-12 rounded-2xl bg-border/60" />
+              </div>
+              <div className="mt-4 space-y-2">
+                <div className="h-3.5 w-full rounded bg-border/50" />
+                <div className="h-3.5 w-3/4 rounded bg-border/50" />
+              </div>
+              <div className="mt-6 h-12 w-full rounded-2xl bg-border/60" />
             </div>
-            <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${nextActionToneClass}`}>
-              <NextActionIcon aria-hidden="true" className="h-6 w-6" />
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{t("nextActionLabel")}</p>
+                  <h2 className="mt-2 font-display text-xl font-extrabold tracking-tight">{nextAction.title}</h2>
+                </div>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${nextActionToneClass}`}>
+                  <NextActionIcon aria-hidden="true" className="h-6 w-6" />
+                </div>
+              </div>
 
-          <p className="mt-4 text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
+              <p className="mt-4 text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
 
-          <Link
-            href={nextAction.href}
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-6 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
-          >
-            {nextAction.cta}
-            <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-          </Link>
+              <Link
+                href={nextAction.href}
+                className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-6 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+              >
+                {nextAction.cta}
+                <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
+              </Link>
+            </>
+          )}
 
           <div className="mt-6 rounded-2xl border border-border bg-background/70 p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("studyLoopTitle")}</p>
@@ -434,31 +505,53 @@ export default function DashboardPage() {
         </Link>
       </section>
 
-      {/* Weakest Category Mastery */}
-      {masteryCategories.length > 0 && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-display text-xl font-bold tracking-tight">
-              {t("weakestCategoriesTitle", { count: masteryCategories.length })}
-            </h2>
-            {totalCategories > masteryCategories.length && (
-              <Link
-                href={`/${locale}/stats`}
-                className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-              >
-                {t("viewAllCategories", { count: totalCategories })}
-                <ChevronRight aria-hidden="true" className="h-4 w-4" />
-              </Link>
-            )}
-          </div>
+      {/* Weakest Category Mastery — while stats are loading, `stats` is
+          null and this section would otherwise be fully absent, then pop in
+          below the signs/saved banners once the fetch resolves. A skeleton
+          of the same shape keeps that spot reserved instead. */}
+      {loading ? (
+        <section className="space-y-4" aria-hidden="true">
+          <div className="h-6 w-64 max-w-full animate-pulse rounded bg-border/60" />
           <Card className="p-6">
-            <div className="grid gap-4 sm:grid-cols-2">
-              {masteryCategories.map((cat) => (
-                <MasteryBar key={cat.code} categoryName={cat.name} masteryPercent={cat.mastery_pct} />
+            <div className="grid animate-pulse gap-4 sm:grid-cols-2">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3.5 w-28 rounded bg-border/60" />
+                    <div className="h-3.5 w-8 rounded bg-border/60" />
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-border/50" />
+                </div>
               ))}
             </div>
           </Card>
         </section>
+      ) : (
+        masteryCategories.length > 0 && (
+          <section className="space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="font-display text-xl font-bold tracking-tight">
+                {t("weakestCategoriesTitle", { count: masteryCategories.length })}
+              </h2>
+              {totalCategories > masteryCategories.length && (
+                <Link
+                  href={`/${locale}/stats`}
+                  className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+                >
+                  {t("viewAllCategories", { count: totalCategories })}
+                  <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                </Link>
+              )}
+            </div>
+            <Card className="p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                {masteryCategories.map((cat) => (
+                  <MasteryBar key={cat.code} categoryName={cat.name} masteryPercent={cat.mastery_pct} />
+                ))}
+              </div>
+            </Card>
+          </section>
+        )
       )}
     </main>
   );

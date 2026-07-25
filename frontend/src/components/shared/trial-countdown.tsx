@@ -8,6 +8,15 @@ import { Crown, Timer } from "lucide-react";
 interface TrialCountdownProps {
   isVip: boolean;
   validUntil?: string | null;
+  /**
+   * True while the entitlement is still being fetched. `isVip`/`validUntil`
+   * default to falsy values before that fetch resolves, which used to make
+   * this panel vanish on every mount (e.g. an F5 refresh) and pop back in
+   * once the real entitlement arrived. Rendering a same-shaped placeholder
+   * here instead keeps the sidebar layout stable and avoids asserting
+   * "not VIP" before we actually know that.
+   */
+  loading?: boolean;
 }
 
 function remainingMs(validUntil: string): number {
@@ -30,7 +39,7 @@ function formatRemaining(ms: number): string {
  * decrementing a local counter, so a suspended tab resumes showing the truth
  * instead of however long it managed to tick.
  */
-export function TrialCountdown({ isVip, validUntil }: TrialCountdownProps) {
+export function TrialCountdown({ isVip, validUntil, loading = false }: TrialCountdownProps) {
   const t = useTranslations("Trial");
   const locale = useLocale();
   const [remaining, setRemaining] = useState(() => (validUntil ? remainingMs(validUntil) : 0));
@@ -41,6 +50,19 @@ export function TrialCountdown({ isVip, validUntil }: TrialCountdownProps) {
     const id = setInterval(() => setRemaining(remainingMs(validUntil)), 1000);
     return () => clearInterval(id);
   }, [validUntil]);
+
+  if (loading) {
+    return (
+      <div
+        aria-hidden="true"
+        className="animate-pulse rounded-2xl border border-border/60 bg-background/40 p-3"
+      >
+        <div className="h-2.5 w-20 rounded-full bg-border/70" />
+        <div className="mt-2 h-5 w-28 rounded bg-border/70" />
+        <div className="mt-1.5 h-2.5 w-16 rounded-full bg-border/50" />
+      </div>
+    );
+  }
 
   if (!isVip || !validUntil) return null;
 
