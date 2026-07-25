@@ -60,5 +60,29 @@ describe("StatsPage", () => {
     expect(screen.getByText("Muvaffaqiyatli")).toBeInTheDocument();
     expect(screen.getByText("18/20")).toBeInTheDocument();
     expect(screen.getByText("20 daq")).toBeInTheDocument();
+
+    const dueCta = screen.getByRole("link", { name: "Hozir takrorlash" });
+    expect(dueCta).toHaveAttribute("href", "/uz-Latn/session/start?mode=review&count=3");
+  });
+
+  it("hides the due sticky CTA when there are no due questions", () => {
+    vi.spyOn(useUserStatsModule, "useUserStats").mockReturnValue({
+      user: { id: "u1", phone: "+998901234567" },
+      entitlement: null,
+      streak: { current_streak: 1, max_streak: 1, today_answered: 0, daily_target: 10 },
+      stats: { readiness_pct: 40, due_questions_count: 0, total_answered: 10, total_correct: 5, category_mastery: [] },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    vi.spyOn(useSessionHistoryModule, "useSessionHistory").mockReturnValue({
+      sessions: [],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithIntl();
+    expect(screen.queryByRole("link", { name: "Hozir takrorlash" })).not.toBeInTheDocument();
   });
 });

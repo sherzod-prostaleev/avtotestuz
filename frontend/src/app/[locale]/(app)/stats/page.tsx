@@ -89,17 +89,9 @@ export default function StatsPage() {
               </p>
             </div>
 
-            <div className="mt-6 rounded-md border border-border bg-background p-4 flex items-center justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground">{t("dueLabel")}</p>
-                <p className="font-display text-xl font-bold text-accent">{t("questionCount", { count: dueCount })}</p>
-              </div>
-              <Link
-                href={`/${locale}/mistakes`}
-                className="inline-flex min-h-11 items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 text-xs font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {t("startRepeat")}
-              </Link>
+            <div className="mt-6 rounded-md border border-border bg-background p-4">
+              <p className="text-xs text-muted-foreground">{t("dueLabel")}</p>
+              <p className="font-display text-xl font-bold text-accent">{t("questionCount", { count: dueCount })}</p>
             </div>
           </Card>
         </div>
@@ -182,6 +174,17 @@ export default function StatsPage() {
             )}
           </CardContent>
         </Card>
+
+        {dueCount > 0 && (
+          <div className="sticky-cta-bar">
+            <Link
+              href={`/${locale}/session/start?mode=review&count=${Math.min(dueCount, 20)}`}
+              className="inline-flex h-12 min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {t("startRepeat")}
+            </Link>
+          </div>
+        )}
       </div>
       )}
     </main>

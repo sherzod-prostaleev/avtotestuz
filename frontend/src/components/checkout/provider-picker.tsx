@@ -38,7 +38,7 @@ export function ProviderPicker({ selected, onChange, enabled }: ProviderPickerPr
           }`}
         >
           <span className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-cyan-400" aria-hidden="true" />
+            <span className="h-2 w-2 rounded-full bg-accent" aria-hidden="true" />
             {t("paymeName")}
           </span>
           {!paymeOn && (
@@ -64,7 +64,7 @@ export function ProviderPicker({ selected, onChange, enabled }: ProviderPickerPr
           }`}
         >
           <span className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-blue-500" aria-hidden="true" />
+            <span className="h-2 w-2 rounded-full bg-gold" aria-hidden="true" />
             {t("clickName")}
           </span>
           {!clickOn && (
