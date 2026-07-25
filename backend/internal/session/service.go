@@ -13,6 +13,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/i18n"
+	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/progress"
 )
@@ -31,11 +32,12 @@ var (
 )
 
 type Service struct {
-	Q        *sqlc.Queries
-	Billing  billing.Service
-	Learning *learning.Service
-	Progress *progress.Service
-	Now      func() time.Time
+	Q           *sqlc.Queries
+	Billing     billing.Service
+	Learning    *learning.Service
+	Progress    *progress.Service
+	Leaderboard *leaderboard.Service // optional; nil-safe, see SubmitAnswer
+	Now         func() time.Time
 }
 
 func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service, p *progress.Service) *Service {
@@ -463,6 +465,16 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	}
 	if _, err := s.Progress.RecordActivity(ctx, profileID); err != nil {
 		return AnswerResult{}, err
+	}
+
+	// Best-effort: leaderboard standing is a side effect, never the source
+	// of truth for anything else (session_answer already recorded this
+	// answer above, via the code preceding this block). This codebase has
+	// no logging framework — the error is deliberately discarded rather
+	// than failing the request or introducing a new logging dependency for
+	// a single low-stakes call site.
+	if ans.IsCorrect && s.Leaderboard != nil {
+		_ = s.Leaderboard.RecordPoint(ctx, profileID)
 	}
 
 	if IsExamLike(row.Mode) {

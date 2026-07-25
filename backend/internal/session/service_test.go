@@ -14,8 +14,10 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/fixture"
 	"avtotest.uz/backend/internal/importer"
+	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/progress"
+	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -944,5 +946,58 @@ func TestSubmitAnswerBumpsStreak(t *testing.T) {
 	}
 	if streakView.Current != 1 || streakView.TodayDone != 1 {
 		t.Fatalf("expected streak bumped after answering, got %+v", streakView)
+	}
+}
+
+func TestSubmitAnswerRecordsLeaderboardPointOnCorrectAnswer(t *testing.T) {
+	q, svc, profileID := seed(t)
+	rdb := redisx.NewTest(t)
+	svc.Leaderboard = leaderboard.NewService(rdb, q, billing.Service{Q: q})
+
+	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	if err != nil {
+		t.Fatalf("category lookup: %v", err)
+	}
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 1})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	correctAnswerID, err := q.GetCorrectAnswerID(context.Background(), view.QuestionIDs[0])
+	if err != nil {
+		t.Fatalf("GetCorrectAnswerID: %v", err)
+	}
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID); err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+
+	res, err := svc.Leaderboard.GetLeaderboard(context.Background(), profileID, leaderboard.PeriodDaily)
+	if err != nil {
+		t.Fatalf("GetLeaderboard: %v", err)
+	}
+	if res.YouScore != 1 {
+		t.Errorf("YouScore = %d, want 1", res.YouScore)
+	}
+}
+
+func TestSubmitAnswerWorksWithNilLeaderboard(t *testing.T) {
+	// svc.Leaderboard defaults to nil (seed() doesn't set it) — confirms
+	// existing/unrelated tests and any caller that never wires a
+	// leaderboard.Service keep working unchanged.
+	q, svc, profileID := seed(t)
+	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	if err != nil {
+		t.Fatalf("category lookup: %v", err)
+	}
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 1})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	correctAnswerID, err := q.GetCorrectAnswerID(context.Background(), view.QuestionIDs[0])
+	if err != nil {
+		t.Fatalf("GetCorrectAnswerID: %v", err)
+	}
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID); err != nil {
+		t.Fatalf("SubmitAnswer with nil Leaderboard: %v", err)
 	}
 }

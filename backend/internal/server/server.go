@@ -23,6 +23,7 @@ import (
 	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/session"
@@ -100,11 +101,17 @@ func New(cfg config.Config, deps Deps) http.Handler {
 
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
+				lbSvc := leaderboard.NewService(deps.Redis, deps.Queries, billing.Service{Q: deps.Queries})
+				sessSvc := session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)
+				sessSvc.Leaderboard = lbSvc
 				sess := &session.Handler{
-					Svc:     session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc),
+					Svc:     sessSvc,
 					Content: ch,
 				}
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				lbh := &leaderboard.Handler{Svc: lbSvc}
+				lbh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				lh := &learning.Handler{Svc: learningSvc}
 				lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
