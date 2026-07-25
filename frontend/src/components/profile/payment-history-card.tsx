@@ -4,13 +4,59 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { apiGet } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
-import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle } from "lucide-react";
+import { CreditCard, CheckCircle2, Clock, XCircle, AlertCircle, RotateCcw, type LucideIcon } from "lucide-react";
 import { formatDateWithTime } from "@/lib/date-format";
 
 const NUMBER_FORMAT_LOCALES: Record<string, string> = {
   "uz-Latn": "uz-Latn-UZ",
   "uz-Cyrl": "uz-Cyrl-UZ",
   ru: "ru-RU",
+};
+
+/**
+ * Presentation for each value of payment.status (see the CHECK constraint in
+ * 0003_billing.up.sql). "refunded" is deliberately not lumped in with the
+ * failure styling: a refund means the charge went through and was later
+ * reversed, and showing it in red as "payment failed" reads as an error the
+ * user should retry.
+ */
+const STATUS_STYLES: Record<string, { icon: LucideIcon; labelKey: string; className: string }> = {
+  paid: {
+    icon: CheckCircle2,
+    labelKey: "statusPaid",
+    className: "bg-success/10 text-success border-success/20",
+  },
+  created: {
+    icon: Clock,
+    labelKey: "statusPending",
+    className: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  },
+  pending: {
+    icon: Clock,
+    labelKey: "statusPending",
+    className: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  },
+  canceled: {
+    icon: XCircle,
+    labelKey: "statusCanceled",
+    className: "bg-muted text-muted-foreground border-border",
+  },
+  cancelled: {
+    icon: XCircle,
+    labelKey: "statusCanceled",
+    className: "bg-muted text-muted-foreground border-border",
+  },
+  refunded: {
+    icon: RotateCcw,
+    labelKey: "statusRefunded",
+    className: "bg-sky-500/10 text-sky-500 border-sky-500/20",
+  },
+};
+
+const FAILED_STATUS_STYLE = {
+  icon: AlertCircle,
+  labelKey: "statusFailed",
+  className: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
 export interface PaymentItem {
@@ -52,40 +98,21 @@ export function PaymentHistoryCard() {
 
   const formatAmount = (amount: number) => {
     const intlLocale = NUMBER_FORMAT_LOCALES[locale] ?? "uz-UZ";
-    return new Intl.NumberFormat(intlLocale).format(amount) + " so'm";
+    return t("amountWithCurrency", { amount: new Intl.NumberFormat(intlLocale).format(amount) });
   };
 
   const formatDate = (dateStr: string) => formatDateWithTime(dateStr);
 
   const getStatusBadge = (status: string) => {
-    switch (status.toLowerCase()) {
-      case "paid":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-bold text-success border border-success/20">
-            <CheckCircle2 aria-hidden="true" className="h-3 w-3" /> {t("statusPaid")}
-          </span>
-        );
-      case "pending":
-      case "created":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-bold text-amber-500 border border-amber-500/20">
-            <Clock aria-hidden="true" className="h-3 w-3" /> {t("statusPending")}
-          </span>
-        );
-      case "cancelled":
-      case "canceled":
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground border border-border">
-            <XCircle aria-hidden="true" className="h-3 w-3" /> {t("statusCanceled")}
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2.5 py-0.5 text-xs font-bold text-destructive border border-destructive/20">
-            <AlertCircle aria-hidden="true" className="h-3 w-3" /> {t("statusFailed")}
-          </span>
-        );
-    }
+    const { icon: Icon, labelKey, className } =
+      STATUS_STYLES[status.toLowerCase()] ?? FAILED_STATUS_STYLE;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${className}`}
+      >
+        <Icon aria-hidden="true" className="h-3 w-3" /> {t(labelKey)}
+      </span>
+    );
   };
 
   return (
@@ -134,7 +161,7 @@ export function PaymentHistoryCard() {
                     {formatDate(item.created_at)}
                   </td>
                   <td className="py-3 px-3 font-bold text-foreground">
-                    {item.tariff_name || item.tariff_code} ({item.tariff_days} kun)
+                    {item.tariff_name || item.tariff_code} ({t("daysCount", { days: item.tariff_days })})
                   </td>
                   <td className="py-3 px-3 uppercase font-bold text-muted-foreground">
                     {item.provider}

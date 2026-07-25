@@ -6,40 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { KeyRound } from "lucide-react";
-import { apiPost } from "@/lib/api-client";
-import { REFERRAL_CODE_STORAGE_KEY } from "@/lib/referral-storage";
-
-/**
- * Best-effort application of a referral code captured earlier on the login
- * page (see (auth)/login/page.tsx). Fire-and-forget: applying is idempotent
- * on the backend (unique constraint per referee), so calling it on every
- * successful verify is safe even for returning users. Any failure
- * (self-referral, already applied, unknown code, network error) is silently
- * ignored since this is a background bonus, not a user-facing action here.
- *
- * NOTE: this is deliberately non-blocking and does not surface errors or a
- * loading state — see the parent task's bug report for why a fully robust
- * capture-through-apply flow (e.g. retrying on failure, showing a toast on
- * success) was intentionally left out of scope for this fix.
- */
-function applyPendingReferralCode() {
-  if (typeof window === "undefined") return;
-  let code: string | null = null;
-  try {
-    code = window.localStorage.getItem(REFERRAL_CODE_STORAGE_KEY);
-  } catch {
-    return;
-  }
-  if (!code) return;
-  try {
-    window.localStorage.removeItem(REFERRAL_CODE_STORAGE_KEY);
-  } catch {
-    // ignore
-  }
-  void apiPost("referral/apply", { code }).catch(() => {
-    // best-effort only, see comment above
-  });
-}
+import { applyPendingReferralCode } from "@/lib/referral-storage";
 
 const CODE_LENGTH = 6;
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -97,7 +64,10 @@ function VerifyForm() {
         setError(json.error?.code ?? "unknown");
         return;
       }
-      applyPendingReferralCode();
+      // Awaited, not fired and forgotten: navigating away mid-request would
+      // abort it. A failure here is not fatal — ReferralCapture retries any
+      // code still in storage on the next authenticated page load.
+      await applyPendingReferralCode();
       router.push(`/${locale}/dashboard`);
     } catch {
       setError("network_error");

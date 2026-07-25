@@ -47,6 +47,22 @@ describe("middleware auth guard", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard");
   });
 
+  // An invite link (/r/{code} -> /login?ref=CODE) opened by someone who is
+  // already signed in gets bounced off /login. Dropping the query here loses
+  // the referral outright, since nothing downstream can recover the code.
+  it("carries ?ref across the login redirect for an authenticated visitor", () => {
+    const response = middleware(makeRequest("/uz-Latn/login?ref=FRIEND01", `${AUTH_COOKIE}=some-token`));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard?ref=FRIEND01");
+  });
+
+  it("forwards only ref, not arbitrary query params, on that redirect", () => {
+    const response = middleware(
+      makeRequest("/uz-Latn/login?ref=FRIEND01&next=%2Fevil", `${AUTH_COOKIE}=some-token`)
+    );
+    expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard?ref=FRIEND01");
+  });
+
   it("does not touch the public landing page regardless of session state", () => {
     const withSession = middleware(makeRequest("/uz-Latn", `${AUTH_COOKIE}=some-token`));
     const withoutSession = middleware(makeRequest("/uz-Latn"));

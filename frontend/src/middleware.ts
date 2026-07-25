@@ -41,7 +41,15 @@ export default function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
   if (matchesAny(pathname, AUTH_SEGMENTS) && hasSession) {
-    return NextResponse.redirect(new URL(`/${locale}/dashboard`, request.url));
+    // Carry `?ref=` across: an invite link (/r/{code} -> /login?ref=CODE)
+    // opened by someone who is already signed in gets bounced here, and
+    // dropping the query would silently discard the referral. ReferralCapture
+    // in the authenticated layout redeems it. Only this one param is forwarded
+    // so the redirect target stays predictable.
+    const target = new URL(`/${locale}/dashboard`, request.url);
+    const ref = request.nextUrl.searchParams.get("ref");
+    if (ref) target.searchParams.set("ref", ref);
+    return NextResponse.redirect(target);
   }
 
   return intlMiddleware(request);

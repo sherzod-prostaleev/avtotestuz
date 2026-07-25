@@ -69,25 +69,32 @@ function SessionStartContent() {
   }, [searchParams, router, locale, startSession]);
 
   if (error) {
-    const isVipRequired = error.code === "vip_required";
-    const isDailyLimitReached = error.code === "daily_limit_reached";
-    const destination = isVipRequired
-      ? `/${locale}/premium`
-      : isDailyLimitReached
-        ? `/${locale}/practice`
-        : `/${locale}/tickets`;
-    const actionLabel = isVipRequired
-      ? t("goToPremium")
-      : isDailyLimitReached
-        ? t("backToPractice")
-        : t("backToTickets");
-    const message = isVipRequired
-      ? t("vipRequired")
-      : isDailyLimitReached
-        ? practiceT("dailyLimitReached")
-        : error.code === "network_error"
-          ? sessionT("networkError")
-          : sessionT("genericError");
+    // Each recoverable server code gets its own message *and* its own exit, so
+    // the button always leads somewhere the user can act on the problem —
+    // 402 to the tariffs, 403 on grand mock back to the dashboard where the
+    // card shows exactly how much study is still missing.
+    let destination = `/${locale}/tickets`;
+    let actionLabel = t("backToTickets");
+    let message =
+      error.code === "network_error" ? sessionT("networkError") : sessionT("genericError");
+
+    switch (error.code) {
+      case "vip_required":
+        destination = `/${locale}/premium`;
+        actionLabel = t("goToPremium");
+        message = t("vipRequired");
+        break;
+      case "daily_limit_reached":
+        destination = `/${locale}/practice`;
+        actionLabel = t("backToPractice");
+        message = practiceT("dailyLimitReached");
+        break;
+      case "mock_not_eligible":
+        destination = `/${locale}/dashboard`;
+        actionLabel = t("backToDashboard");
+        message = t("mockNotEligible");
+        break;
+    }
 
     return (
       <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center text-destructive">

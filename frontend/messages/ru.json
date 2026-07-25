@@ -465,8 +465,11 @@
     "loadError": "Не удалось загрузить статус генерального экзамена. Попробуйте снова.",
     "lockedMasteryReason": "Для открытия генерального экзамена ваш уровень знаний должен быть не менее {min}%. Сейчас: {current}%.",
     "lockedVipReason": "Генеральный экзамен доступен только подписчикам VIP. Активируйте подписку.",
+    "lockedStudiedReason": "Чтобы открыть генеральный экзамен, нужно изучить минимум {min} вопросов. Сейчас: {current}.",
     "progressLabel": "{current}% / {min}%",
+    "progressLabelQuestions": "{current} / {min} вопросов",
     "startButton": "Начать Генеральный Экзамен",
+    "upgradeButton": "Активировать подписку VIP",
     "certificateTitle": "Поздравляем! Вы готовы!",
     "certificateBody": "Вы успешно сдали Генеральный экзамен с результатом {score}/{total}. Это значит, что вы готовы к официальному экзамену ГУБДД.",
     "certificateClose": "Закрыть"
@@ -476,8 +479,10 @@
     "loading": "Загрузка...",
     "errorTitle": "Не удалось начать сессию",
     "vipRequired": "Для запуска этой сессии требуется VIP-подписка.",
+    "mockNotEligible": "Генеральный экзамен пока закрыт: объём изученных вопросов и уровень знаний ниже требуемого. Сколько осталось — видно на карточке в панели.",
     "goToPremium": "Посмотреть VIP-тарифы",
     "backToPractice": "Вернуться к практике",
+    "backToDashboard": "Вернуться в панель",
     "backToTickets": "Вернуться к билетам"
   },
   "Saved": {
@@ -628,9 +633,12 @@
     "provider": "Провайдер",
     "amount": "Сумма",
     "status": "Статус",
+    "amountWithCurrency": "{amount} сум",
+    "daysCount": "{days} дн.",
     "statusPaid": "Оплачено",
     "statusPending": "В ожидании",
     "statusCanceled": "Отменено",
+    "statusRefunded": "Возвращён",
     "statusFailed": "Ошибка"
   },
   "Premium": {

@@ -465,8 +465,11 @@
     "loadError": "Bosh imtihon holatini yuklab bo'lmadi. Qayta urinib ko'ring.",
     "lockedMasteryReason": "Bosh imtihonni ochish uchun bilim darajangiz kamida {min}% bo'lishi kerak. Hozircha: {current}%.",
     "lockedVipReason": "Bosh imtihon faqat VIP obunachilar uchun. Obunani faollashtiring.",
+    "lockedStudiedReason": "Bosh imtihonga kirish uchun kamida {min} ta savolni o'rganishingiz kerak. Hozircha: {current} ta.",
     "progressLabel": "{current}% / {min}%",
+    "progressLabelQuestions": "{current} / {min} savol",
     "startButton": "Bosh Imtihonni Boshlash",
+    "upgradeButton": "VIP obunani faollashtirish",
     "certificateTitle": "Tabriklaymiz! Siz tayyorsiz!",
     "certificateBody": "Siz Bosh Imtihonni {score}/{total} ball bilan muvaffaqiyatli topshirdingiz. Bu rasmiy DYXX imtihonidan o'tishga tayyor ekanligingizni bildiradi.",
     "certificateClose": "Yopish"
@@ -476,8 +479,10 @@
     "loading": "Yuklanmoqda...",
     "errorTitle": "Sessiyani boshlashda xatolik",
     "vipRequired": "Bu sessiyani boshlash uchun VIP obunasi kerak.",
+    "mockNotEligible": "Bosh imtihon hali ochilmagan: o'rganilgan savollar hajmi va bilim darajasi talabga yetmagan. Boshqaruv panelidagi kartada qancha qolganini ko'rishingiz mumkin.",
     "goToPremium": "VIP tariflarini ko'rish",
     "backToPractice": "Mashqqa qaytish",
+    "backToDashboard": "Boshqaruv paneliga qaytish",
     "backToTickets": "Biletlarga qaytish"
   },
   "Saved": {
@@ -628,9 +633,12 @@
     "provider": "Provayder",
     "amount": "Summa",
     "status": "Holat",
+    "amountWithCurrency": "{amount} so'm",
+    "daysCount": "{days} kun",
     "statusPaid": "To'langan",
     "statusPending": "Kutilmoqda",
     "statusCanceled": "Bekor qilingan",
+    "statusRefunded": "Qaytarilgan",
     "statusFailed": "Xatolik"
   },
   "Premium": {

@@ -465,8 +465,11 @@
     "loadError": "Бош имтиҳон ҳолатини юклаб бўлмади. Қайта уриниб кўринг.",
     "lockedMasteryReason": "Бош имтиҳонни очиш учун билим даражангиз камида {min}% бўлиши керак. Ҳозирча: {current}%.",
     "lockedVipReason": "Бош имтиҳон фақат VIP обуначилар учун. Обунани фаоллаштиринг.",
+    "lockedStudiedReason": "Бош имтиҳонга киришиш учун камида {min} та саволни ўрганишингиз керак. Ҳозирча: {current} та.",
     "progressLabel": "{current}% / {min}%",
+    "progressLabelQuestions": "{current} / {min} савол",
     "startButton": "Бош Имтиҳонни Бошлаш",
+    "upgradeButton": "VIP обунани фаоллаштириш",
     "certificateTitle": "Табриклаймиз! Сиз тайёрсиз!",
     "certificateBody": "Сиз Бош Имтиҳонни {score}/{total} балл билан муваффақиятли топширдингиз. Бу расмий ДЙХХ имтиҳонидан ўтишга тайёр эканлигингизни билдиради.",
     "certificateClose": "Ёпиш"
@@ -476,8 +479,10 @@
     "loading": "Юкланмоқда...",
     "errorTitle": "Сессияни бошлашда хатолик",
     "vipRequired": "Бу сессияни бошлаш учун VIP обунаси керак.",
+    "mockNotEligible": "Бош имтиҳон ҳали очилмаган: ўрганилган саволлар ҳажми ва билим даражаси талабга етмаган. Бошқарув панелидаги картада қанча қолганини кўришингиз мумкин.",
     "goToPremium": "VIP тарифларини кўриш",
     "backToPractice": "Машққа қайтиш",
+    "backToDashboard": "Бошқарув панелига қайтиш",
     "backToTickets": "Билетларга қайтиш"
   },
   "Saved": {
@@ -628,9 +633,12 @@
     "provider": "Провайдер",
     "amount": "Сумма",
     "status": "Ҳолат",
+    "amountWithCurrency": "{amount} сўм",
+    "daysCount": "{days} кун",
     "statusPaid": "Тўланган",
     "statusPending": "Кутилмоқда",
     "statusCanceled": "Бекор қилинган",
+    "statusRefunded": "Қайтарилган",
     "statusFailed": "Хатолик"
   },
   "Premium": {
