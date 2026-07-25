@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowRight, RotateCw } from "lucide-react";
+import { demoProgressCount, recordDemoAnswer } from "@/lib/demo-progress-storage";
+import { Sparkles, ArrowRight, RotateCw, BookmarkCheck } from "lucide-react";
 
 interface DemoAnswer {
   id: string;
@@ -48,6 +49,7 @@ export function DemoQuestionBlock() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [triedCount, setTriedCount] = useState(0);
 
   const loadQuestion = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -71,6 +73,10 @@ export function DemoQuestionBlock() {
   }, [locale, t]);
 
   useEffect(() => {
+    setTriedCount(demoProgressCount());
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     void loadQuestion(controller.signal);
     return () => controller.abort();
@@ -88,7 +94,15 @@ export function DemoQuestionBlock() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question_id: question.id, answer_id: answerId }),
       });
-      setGrade(await readData<DemoGrade>(response));
+      const nextGrade = await readData<DemoGrade>(response);
+      setGrade(nextGrade);
+      // Guest investment: stash the graded answer locally so login can migrate it.
+      const progress = recordDemoAnswer({
+        questionId: question.id,
+        answerId,
+        correct: nextGrade.correct,
+      });
+      setTriedCount(demoProgressCount(progress));
     } catch {
       setError(t("demoAnswerError"));
     } finally {
@@ -166,11 +180,26 @@ export function DemoQuestionBlock() {
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
             {grade.correct ? t("demoSuccessBody") : t("demoFailureBody")}
           </p>
+          <p className="mt-3 flex items-start gap-2 text-xs font-semibold leading-relaxed text-foreground">
+            <BookmarkCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+            <span>
+              {t("demoProgressNote")}
+              {triedCount > 0 ? (
+                <>
+                  {" "}
+                  · {t("demoProgressCount", { count: triedCount })}
+                </>
+              ) : null}
+            </span>
+          </p>
           <div className="mt-4 flex flex-col sm:flex-row gap-2">
-            <Link href={`/${locale}/login`} className="flex-1">
-              <Button type="button" variant="gold" size="sm" className="w-full gap-1.5 font-bold">
-                {t("demoRegisterCta")} <ArrowRight className="h-4 w-4" />
-              </Button>
+            {/* Accent (not gold): gold is reserved for VIP surfaces. Styled link
+                instead of a nested <Link><Button> interactive-in-interactive. */}
+            <Link
+              href={`/${locale}/login`}
+              className="inline-flex h-11 min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-b-4 border-accent-shadow bg-accent px-4 text-xs font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none"
+            >
+              {t("demoRegisterCta")} <ArrowRight className="h-4 w-4" />
             </Link>
             <Button
               type="button"

@@ -196,6 +196,28 @@ describe("SessionPage secure session flow", () => {
     );
   });
 
+  it("shows optimistic selected state while answer submit is in flight", async () => {
+    let resolveSubmit: (value: { recorded: boolean; correct: boolean; correct_answer_id: string }) => void =
+      () => undefined;
+    const submitAnswer = vi.fn(
+      () =>
+        new Promise<{ recorded: boolean; correct: boolean; correct_answer_id: string }>((resolve) => {
+          resolveSubmit = resolve;
+        })
+    );
+    mockEngine(activeSession({ mode: "practice" }), { submitAnswer, submitting: false });
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /3.28 belgisi/ }));
+
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalledWith("sess-123", "q-1", "a-2"));
+    // Pending selection must paint immediately — no neutral→dim→wrong flash.
+    expect(screen.getByRole("button", { name: /3.28 belgisi/ }).className).toMatch(/border-accent/);
+    expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
+
+    resolveSubmit({ recorded: true, correct: false, correct_answer_id: "a-1" });
+  });
+
   it("persists a bookmark before changing its visible state", async () => {
     mockEngine(activeSession());
     const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);

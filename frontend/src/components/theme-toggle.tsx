@@ -15,7 +15,7 @@ export function ThemeToggle() {
   }, []);
 
   if (!mounted) {
-    return <span className="inline-block h-9 w-9" aria-hidden />;
+    return <span className="inline-block h-11 w-11" aria-hidden />;
   }
 
   const isDark = theme === "dark";
@@ -25,7 +25,7 @@ export function ThemeToggle() {
       type="button"
       aria-label={isDark ? t("toLight") : t("toDark")}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-card"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card"
     >
       {isDark ? (
         <Sun data-testid="theme-toggle-sun" className="h-4 w-4" />

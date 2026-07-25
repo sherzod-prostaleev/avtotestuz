@@ -54,10 +54,19 @@ function hasAnswer(question: SessionQuestionItem): boolean {
   return question.answered === true || Boolean(question.user_answer_id);
 }
 
-function answerState(question: SessionQuestionItem, answerId: string): AnswerState {
+function answerState(
+  question: SessionQuestionItem,
+  answerId: string,
+  pending?: PendingAnswer | null
+): AnswerState {
   if (question.correct_answer_id === answerId) return "correct";
   if (question.user_answer_id === answerId) {
     return question.correct === false ? "wrong" : "selected";
+  }
+  // Optimistic selection while the grade request is in flight — avoids the
+  // neutral→dim→wrong flash that reads as a full-window flicker.
+  if (pending && pending.questionId === question.id && pending.answerId === answerId) {
+    return "selected";
   }
   return "neutral";
 }
@@ -144,9 +153,10 @@ export default function TestSessionPage() {
         return;
       }
 
+      setPendingAnswer({ questionId, answerId });
       const response = await submitAnswer(sessionId, questionId, answerId);
       if (!response) {
-        setPendingAnswer({ questionId, answerId });
+        // Keep pending for retry UI when the network/API call fails.
         return;
       }
 
@@ -544,7 +554,7 @@ export default function TestSessionPage() {
         onSelectIndex={(index) => setCurrentIndex(index)}
         onSelectAnswer={(questionId, answerId) => void handleSelectAnswer(questionId, answerId)}
         onFinish={() => void handleFinish()}
-        answerStateFor={answerState}
+        answerStateFor={(question, answerId) => answerState(question, answerId, pendingAnswer)}
         submitting={submitting}
         finishing={finishing}
       />
@@ -709,7 +719,7 @@ export default function TestSessionPage() {
               totalQuestions={questions.length}
               answered={currentAnswered}
               disabled={currentAnswered || submitting}
-              answerStateFor={(answerId) => answerState(currentQuestion, answerId)}
+              answerStateFor={(answerId) => answerState(currentQuestion, answerId, pendingAnswer)}
               onSelectAnswer={(answerId) => void handleSelectAnswer(currentQuestion.id, answerId)}
               onZoomImage={() => setZoomImageUrl(currentQuestion.image_url ?? null)}
               onOpenExplanation={() => setExplanationOpen(true)}

@@ -75,7 +75,7 @@ export default function LoginPage() {
         <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-8">
           <Link
             href={`/${locale}`}
-            className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+            className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" /> {t("backHome")}
           </Link>

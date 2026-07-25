@@ -129,9 +129,9 @@ export function Header() {
                 key={lang.code}
                 onClick={() => handleLanguageChange(lang.code)}
                 aria-pressed={currentLocale === lang.code}
-                className={`rounded px-2 py-0.5 text-[11px] font-bold transition-all ${
+                className={`rounded px-2 py-0.5 text-[11px] font-bold transition-all min-h-9 min-w-9 ${
                   currentLocale === lang.code
-                    ? "bg-accent text-white"
+                    ? "bg-accent text-accent-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >

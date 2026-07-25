@@ -25,4 +25,17 @@ describe("AnswerOption", () => {
     expect(screen.queryByTestId("answer-correct-icon")).not.toBeInTheDocument();
     expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
   });
+
+  it("does not dim disabled options (avoids submit flicker)", () => {
+    render(<AnswerOption shortcutLabel="F1" text="Variant" state="selected" disabled />);
+    expect(screen.getByRole("button").className).not.toMatch(/disabled:opacity/);
+    expect(screen.getByRole("button").className).not.toMatch(/active:scale/);
+  });
+
+  it("applies wrong-answer shake class only for wrong/incorrect states", () => {
+    const { rerender } = render(<AnswerOption shortcutLabel="F1" text="Variant" state="selected" />);
+    expect(screen.getByRole("button").className).not.toContain("answer-wrong-shake");
+    rerender(<AnswerOption shortcutLabel="F1" text="Variant" state="wrong" disabled />);
+    expect(screen.getByRole("button").className).toContain("answer-wrong-shake");
+  });
 });

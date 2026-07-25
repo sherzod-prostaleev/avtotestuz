@@ -36,8 +36,7 @@ export function AnswerOption({
   const normalizedState = state === "incorrect" ? "wrong" : state === "hidden" ? "selected" : state;
 
   const stateStyles: Record<string, string> = {
-    neutral:
-      "border-border bg-card text-foreground hover:border-accent active:bg-accent/5",
+    neutral: "border-border bg-card text-foreground hover:border-accent",
     selected: "border-accent bg-accent/15 text-foreground font-bold ring-2 ring-accent/35",
     correct: "border-success bg-success/15 text-foreground font-bold ring-2 ring-success/35",
     wrong: "answer-wrong-shake border-danger bg-danger/15 text-foreground font-bold ring-2 ring-danger/35",
@@ -50,12 +49,18 @@ export function AnswerOption({
     wrong: "border-danger/40 bg-danger text-danger-foreground font-bold",
   };
 
+  // Avoid opacity/scale blink while grading: disabled dim + active:scale fight
+  // answer-wrong-shake's transform and read as a full-surface flicker.
+  const pressable = normalizedState === "neutral" && !disabled;
+
   return (
     <button
       type="button"
       onClick={handleClick}
       disabled={disabled}
-      className={`group relative flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-colors duration-150 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-80 sm:min-h-[3.5rem] sm:gap-4 sm:px-4 ${stateStyles[normalizedState]}`}
+      className={`group relative flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow] duration-150 disabled:cursor-not-allowed sm:min-h-[3.5rem] sm:gap-4 sm:px-4 ${
+        pressable ? "active:bg-accent/5" : ""
+      } ${stateStyles[normalizedState]}`}
     >
       <div className="flex min-w-0 items-center gap-3">
         {keyLabel && (

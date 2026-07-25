@@ -37,7 +37,7 @@ function PhoneMock({
 }) {
   return (
     <div aria-hidden="true" className="relative mx-auto w-[240px] sm:w-[260px]">
-      <div className="animate-float rounded-[2rem] border border-border bg-card p-2 shadow-glass">
+      <div className="animate-float rounded-[2rem] border border-border bg-card p-2 shadow-modal">
         <div className="overflow-hidden rounded-[1.5rem] border border-border bg-background">
           <div className="flex items-center justify-between border-b border-border px-4 py-3">
             <span className="font-display text-sm font-black text-foreground">Driver Go</span>

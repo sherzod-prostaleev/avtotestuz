@@ -169,7 +169,7 @@ export function Sidebar() {
               type="button"
               aria-label={t("closeMenu")}
               onClick={() => setMobileOpen(false)}
-              className="text-muted-foreground md:hidden"
+              className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </button>
@@ -236,7 +236,8 @@ export function Sidebar() {
                   type="button"
                   key={lang.code}
                   onClick={() => handleLanguageChange(lang.code)}
-                  className={`rounded px-2 py-0.5 text-[10px] font-bold transition-colors ${
+                  aria-pressed={currentLocale === lang.code}
+                  className={`min-h-10 rounded-md px-3 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     currentLocale === lang.code
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:text-foreground"

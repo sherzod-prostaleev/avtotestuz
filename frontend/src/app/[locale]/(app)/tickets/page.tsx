@@ -146,17 +146,27 @@ export default function TicketsPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {t("nextTicketLabel")}
               </p>
-              <h3 className="mt-2 font-display text-3xl font-black tracking-tight tabular-nums">
-                {nextTicket ? t("ticketNumber", { number: nextTicket.ticket.number }) : t("allDoneTitle")}
-              </h3>
-              <p className="mt-2 text-xs text-muted-foreground">
-                {nextTicket
-                  ? t("nextTicketBest", {
-                      best: nextTicket.bestCorrect,
-                      total: nextTicket.ticket.total_questions ?? 20,
-                    })
-                  : t("heroEmpty")}
-              </p>
+              {loading ? (
+                // Same footprint skeleton: never flash "all done" before data lands.
+                <>
+                  <span aria-hidden="true" className="mt-2 block h-9 w-32 animate-pulse rounded-lg bg-border/60" />
+                  <span aria-hidden="true" className="mt-2 block h-4 w-40 animate-pulse rounded bg-border/60" />
+                </>
+              ) : (
+                <>
+                  <h3 className="mt-2 font-display text-3xl font-black tracking-tight tabular-nums">
+                    {nextTicket ? t("ticketNumber", { number: nextTicket.ticket.number }) : t("allDoneTitle")}
+                  </h3>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {nextTicket
+                      ? t("nextTicketBest", {
+                          best: nextTicket.bestCorrect,
+                          total: nextTicket.ticket.total_questions ?? 20,
+                        })
+                      : t("heroEmpty")}
+                  </p>
+                </>
+              )}
             </div>
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-accent/15 text-accent">
               <Play aria-hidden="true" className="h-6 w-6" />
@@ -172,8 +182,12 @@ export default function TicketsPage() {
             </span>
           </div>
 
-          <div className="sticky-cta-bar mt-5 sm:mt-5">
-            {nextTicket ? (
+          {/* Desktop/tablet CTA lives in the hero card; the mobile twin is a
+              page-end sticky bar so it stays in the thumb zone over the grid. */}
+          <div className="mt-5 hidden sm:block">
+            {loading ? (
+              <span aria-hidden="true" className="block h-12 w-full animate-pulse rounded-2xl bg-border/60" />
+            ) : nextTicket ? (
               <Button
                 type="button"
                 variant="game"
@@ -279,6 +293,26 @@ export default function TicketsPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {!loading && !error && (
+        <div className="sticky-cta-bar sm:hidden">
+          {nextTicket ? (
+            <Button
+              type="button"
+              variant="game"
+              size="lg"
+              className="w-full"
+              onClick={() => handleStartTicket(nextTicket.ticket)}
+            >
+              {t("solve")}
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(`/${locale}/practice`)}>
+              {t("goToPractice")}
+            </Button>
+          )}
         </div>
       )}
     </main>

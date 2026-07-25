@@ -151,8 +151,10 @@ export function QuestionStage({
         {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
+          key={question.id}
           src={question.image_url ?? ""}
           alt={t("questionImageAlt", { number: questionNumber })}
+          decoding="async"
           className="h-full max-h-[32dvh] w-full object-contain lg:max-h-full"
         />
         <span className="absolute bottom-2 right-2 inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-foreground/90 px-3 py-1.5 text-xs font-bold text-background">

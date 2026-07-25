@@ -382,35 +382,37 @@ export default function PracticePage() {
               )}
             </div>
           )}
-
-          <div className="sticky-cta-bar">
-            <Button
-              variant="game"
-              size="lg"
-              className="w-full text-base"
-              onClick={handleStart}
-              disabled={!canStart}
-            >
-              <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" /> {t("startPractice")}
-            </Button>
-          </div>
         </Card>
       )}
 
       {source === "sign" && signsAvailable && (
-        <Card className="space-y-4 p-5 text-center">
+        <Card className="p-5 text-center">
           <p className="text-sm text-muted-foreground">{t("sourceSignHint")}</p>
-          <div className="sticky-cta-bar">
-            <Button variant="game" size="lg" className="w-full text-base" onClick={handleStart}>
-              <Signpost aria-hidden="true" className="mr-2 h-5 w-5" /> {t("startPractice")}
-            </Button>
-          </div>
         </Card>
       )}
 
       {imageCounts === 0 && !loading && !loadError && (
         <p className="text-center text-xs text-muted-foreground">{t("categoryCountUnavailable")}</p>
       )}
+
+      {/* Page-level so `sticky bottom-0` can pin to the viewport for the whole
+          scroll (inside a Card it could never leave the card's box). */}
+      <div className="sticky-cta-bar">
+        <Button
+          variant="game"
+          size="lg"
+          className="w-full text-base"
+          onClick={handleStart}
+          disabled={!canStart}
+        >
+          {source === "sign" ? (
+            <Signpost aria-hidden="true" className="mr-2 h-5 w-5" />
+          ) : (
+            <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" />
+          )}
+          {t("startPractice")}
+        </Button>
+      </div>
     </main>
   );
 }
