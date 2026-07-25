@@ -5,7 +5,10 @@ import messages from "../../../../../messages/uz-Latn.json";
 import TicketsPage from "./page";
 import * as useTicketsModule from "@/hooks/use-tickets";
 
-const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
+const { pushMock, prefetchMock } = vi.hoisted(() => ({
+  pushMock: vi.fn(),
+  prefetchMock: vi.fn(),
+}));
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
@@ -14,6 +17,10 @@ vi.mock("next/link", () => ({
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn() }),
   usePathname: () => "/uz-Latn/tickets",
+}));
+
+vi.mock("@/lib/prefetch-variant", () => ({
+  prefetchVariantDetail: prefetchMock,
 }));
 
 function renderWithIntl() {
@@ -28,6 +35,7 @@ describe("TicketsPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     pushMock.mockReset();
+    prefetchMock.mockReset();
   });
 
   it("renders tickets header and grid", () => {
@@ -56,6 +64,7 @@ describe("TicketsPage", () => {
     expect(screen.getByText("Bilet 2")).toBeInTheDocument();
 
     fireEvent.keyDown(screen.getByRole("button", { name: "1-biletni ochish" }), { key: "Enter" });
+    expect(prefetchMock).toHaveBeenCalledWith(1, "uz-Latn");
     expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=variant&variant_id=1");
   });
 });

@@ -171,4 +171,21 @@ describe("proxy route", () => {
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe("network_error");
   });
+
+  it("forwards public variants detail without auth cookies", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: { number: 1, questions: [] } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(new Request("http://localhost/api/proxy/variants/1?locale=uz-Latn"), {
+      params: { path: ["variants", "1"] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8090/api/v1/variants/1?locale=uz-Latn",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
 });

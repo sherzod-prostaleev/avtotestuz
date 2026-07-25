@@ -1,10 +1,13 @@
 /* Driver Go — push + offline shell service worker (M4-08 / M6 U-38/U-39).
  * Shell cache + thin metadata/CMS API cache (variants / categories / signs / site chrome).
- * No full offline exam / question catalog sync — that gap remains large (U-39).
+ * Plus network-first cache for recently opened ticket (variant) question payloads.
+ * No full offline exam / session create / answer grading — that gap remains large (U-39).
  */
 const SHELL_CACHE = "dg-shell-v2";
 const RUNTIME_CACHE = "dg-runtime-v2";
 const META_CACHE = "dg-meta-v2";
+const VARIANT_CACHE = "dg-variant-v1";
+const VARIANT_CACHE_MAX = 20;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -24,6 +27,9 @@ const SHELL_PATH_RE =
 const META_LIST_RE =
   /^\/api\/proxy\/(?:variants|me\/variants|categories|signs|site\/(?:contacts|banner|home))(?:\?|$)/;
 
+/** Ticket/bilet detail: GET /api/proxy/variants/{n}?locale=… — grading-neutral question text. */
+const VARIANT_DETAIL_RE = /^\/api\/proxy\/variants\/\d+(?:\?|$)/;
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
@@ -34,15 +40,12 @@ self.addEventListener("install", (event) => {
 });
 
 self.addEventListener("activate", (event) => {
+  const keep = new Set([SHELL_CACHE, RUNTIME_CACHE, META_CACHE, VARIANT_CACHE]);
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys
-            .filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE && key !== META_CACHE)
-            .map((key) => caches.delete(key))
-        )
+        Promise.all(keys.filter((key) => !keep.has(key)).map((key) => caches.delete(key)))
       )
       .then(() => self.clients.claim())
   );
@@ -55,7 +58,14 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
 
-  if (META_LIST_RE.test(url.pathname + (url.search || ""))) {
+  const pathAndQuery = url.pathname + (url.search || "");
+
+  if (VARIANT_DETAIL_RE.test(pathAndQuery)) {
+    event.respondWith(networkFirstVariantDetail(req));
+    return;
+  }
+
+  if (META_LIST_RE.test(pathAndQuery)) {
     event.respondWith(networkFirstMetaList(req));
     return;
   }
@@ -96,6 +106,43 @@ async function networkFirstMetaList(req) {
       status: 503,
       headers: { "Content-Type": "application/json; charset=utf-8" },
     });
+  }
+}
+
+async function networkFirstVariantDetail(req) {
+  const cache = await caches.open(VARIANT_CACHE);
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) {
+      await cache.put(req, fresh.clone());
+      void trimVariantCache(cache);
+    }
+    return fresh;
+  } catch {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    return new Response(
+      JSON.stringify({
+        error: {
+          code: "offline",
+          message: "variant detail unavailable offline (open this ticket online once first)",
+        },
+      }),
+      {
+        status: 503,
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+      }
+    );
+  }
+}
+
+/** Drop oldest entries when over VARIANT_CACHE_MAX (insertion order ≈ Cache.keys). */
+async function trimVariantCache(cache) {
+  const keys = await cache.keys();
+  if (keys.length <= VARIANT_CACHE_MAX) return;
+  const excess = keys.length - VARIANT_CACHE_MAX;
+  for (let i = 0; i < excess; i++) {
+    await cache.delete(keys[i]);
   }
 }
 

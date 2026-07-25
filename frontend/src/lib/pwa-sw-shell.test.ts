@@ -36,6 +36,15 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain("support");
   });
 
+  it("caches recently opened variant/ticket detail payloads", () => {
+    expect(sw).toContain("VARIANT_DETAIL_RE");
+    expect(sw).toContain("networkFirstVariantDetail");
+    expect(sw).toContain('VARIANT_CACHE = "dg-variant-v1"');
+    expect(sw).toContain("VARIANT_CACHE_MAX");
+    expect(sw).toContain("trimVariantCache");
+    expect(sw).toMatch(/variants\\\/\\d+/);
+  });
+
   it("does not claim full offline exam/content sync", () => {
     expect(sw).toMatch(/No full offline exam/);
     expect(sw).toMatch(/gap remains large/);

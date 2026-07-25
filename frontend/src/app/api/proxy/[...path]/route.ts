@@ -7,7 +7,8 @@ import { callBackendRefresh } from "@/lib/backend-refresh";
 
 type TokenPair = { accessToken: string; refreshToken: string };
 
-const publicPaths = new Set(["signs", "categories", "demo", "tariffs"]);
+// Content list/detail under variants|signs|categories is grading-neutral on the API.
+const publicPaths = new Set(["signs", "categories", "variants", "demo", "tariffs"]);
 
 function isPublicPath(path: string[]): boolean {
   if (path.length === 0) return false;

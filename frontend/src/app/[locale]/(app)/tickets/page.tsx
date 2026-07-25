@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useTickets, TicketItem } from "@/hooks/use-tickets";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { prefetchVariantDetail } from "@/lib/prefetch-variant";
 import { ArrowLeft, Search, Lock, Star, Play, RefreshCw } from "lucide-react";
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
@@ -55,6 +56,8 @@ export default function TicketsPage() {
       router.push(`/${locale}/premium`);
       return;
     }
+    // Warm SW variant-detail cache for this ticket (offline re-read later).
+    prefetchVariantDetail(ticket.number, locale);
     router.push(`/${locale}/session/start?mode=variant&variant_id=${ticket.number}`);
   };
 
