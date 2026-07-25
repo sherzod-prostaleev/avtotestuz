@@ -13,6 +13,7 @@ import { ReferralCard } from "@/components/profile/referral-card";
 import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
 import { WebPushCard } from "@/components/profile/web-push-card";
+import { TeacherPortalCard } from "@/components/profile/teacher-portal-card";
 
 interface UserProfileData {
   id: string;
@@ -237,6 +238,7 @@ export default function ProfilePage() {
 
         <TelegramLinkCard />
         <WebPushCard />
+        <TeacherPortalCard />
         <ReferralCard />
         <PaymentHistoryCard />
 

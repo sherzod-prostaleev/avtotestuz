@@ -1306,7 +1306,7 @@
   "AdminB2B": {
     "title": "B2B организации",
     "subtitle": "Org / участник / лицензия + grant entitlement.source=b2b (U-40).",
-    "note": "Teacher dashboard нет — только admin grant. Seats по active license.",
+    "note": "Teacher dashboard: /{locale}/teacher (owner/teacher read-only). Grant всё ещё в Admin.",
     "create": "Создать",
     "namePlaceholder": "Название автошколы",
     "loading": "Загрузка…",
@@ -1387,5 +1387,21 @@
   "SupportBanner": {
     "cta": "Подробнее",
     "dismiss": "Закрыть"
+  },
+  "Teacher": {
+    "title": "Учитель / B2B",
+    "subtitle": "Список участников и seats для owner/teacher (M5 stub).",
+    "note": "Grant/лицензии только через Admin. Здесь — чтение.",
+    "back": "В профиль",
+    "loading": "Загрузка…",
+    "empty": "Вы не owner/teacher — организаций нет.",
+    "errorLoad": "Не удалось загрузить.",
+    "membersSeats": "{members} уч. · {seats} seat",
+    "membersTitle": "Участники",
+    "licensesTitle": "Лицензии",
+    "noLicenses": "Лицензий нет.",
+    "profileCardTitle": "B2B / учитель",
+    "profileCardBody": "Организаций: {count}",
+    "profileCardCta": "Открыть dashboard"
   }
 }

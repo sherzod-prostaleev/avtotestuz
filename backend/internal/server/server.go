@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/admin"
 	"avtotest.uz/backend/internal/arena"
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
@@ -151,6 +152,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
 				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				tb2b := &b2b.Handler{Pool: deps.Pool}
+				tb2b.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				bh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 

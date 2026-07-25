@@ -1306,7 +1306,7 @@
   "AdminB2B": {
     "title": "B2B ташкилотлар",
     "subtitle": "Org / аъзо / лицензия + entitlement.source=b2b grant (U-40).",
-    "note": "Ўқитувчи dashboard йўқ — фақат admin grant.",
+    "note": "Ўқитувчи dashboard: /{locale}/teacher (owner/teacher read-only). Grant ҳали admin.",
     "create": "Яратиш",
     "namePlaceholder": "Автомактаб номи",
     "loading": "Юкланмоқда…",
@@ -1387,5 +1387,21 @@
   "SupportBanner": {
     "cta": "Батафсил",
     "dismiss": "Ёпиш"
+  },
+  "Teacher": {
+    "title": "Ўқитувчи / B2B",
+    "subtitle": "Org owner/teacher учун аъзолар ва seat кўриниши (M5 stub).",
+    "note": "Grant/лицензия фақат Admin орқали. Бу ерда ўқиш.",
+    "back": "Профилга",
+    "loading": "Юкланмоқда…",
+    "empty": "Сиз owner/teacher эмассиз — org йўқ.",
+    "errorLoad": "Юклаб бўлмади.",
+    "membersSeats": "{members} аъзо · {seats} seat",
+    "membersTitle": "Аъзолар",
+    "licensesTitle": "Лицензиялар",
+    "noLicenses": "License йўқ.",
+    "profileCardTitle": "B2B / ўқитувчи",
+    "profileCardBody": "{count} та ташкилот",
+    "profileCardCta": "Dashboard очиш"
   }
 }

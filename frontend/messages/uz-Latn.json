@@ -1306,7 +1306,7 @@
   "AdminB2B": {
     "title": "B2B tashkilotlar",
     "subtitle": "Org / a’zo / litsenziya + entitlement.source=b2b grant (U-40).",
-    "note": "O‘qituvchi dashboard yo‘q — faqat admin grant. Seat limitleari active license bo‘yicha.",
+    "note": "O‘qituvchi dashboard: /{locale}/teacher (owner/teacher read-only). Grant hali admin.",
     "create": "Yaratish",
     "namePlaceholder": "Avtomaktab nomi",
     "loading": "Yuklanmoqda…",
@@ -1387,5 +1387,21 @@
   "SupportBanner": {
     "cta": "Batafsil",
     "dismiss": "Yopish"
+  },
+  "Teacher": {
+    "title": "O‘qituvchi / B2B",
+    "subtitle": "Org owner/teacher uchun a’zolar va seat ko‘rinishi (M5 stub).",
+    "note": "Grant/litsenziya faqat Admin orqali. Bu yerda o‘qish.",
+    "back": "Profilga",
+    "loading": "Yuklanmoqda…",
+    "empty": "Siz owner/teacher emassiz — org yo‘q.",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "membersSeats": "{members} a’zo · {seats} seat",
+    "membersTitle": "A’zolar",
+    "licensesTitle": "Litsenziyalar",
+    "noLicenses": "License yo‘q.",
+    "profileCardTitle": "B2B / o‘qituvchi",
+    "profileCardBody": "{count} ta tashkilot",
+    "profileCardCta": "Dashboard ochish"
   }
 }
