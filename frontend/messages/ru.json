@@ -979,6 +979,7 @@
     "subtitle": "VIP дуэль 1v1 — 10 вопросов по 15 секунд. Скорость и точность дают очки.",
     "loading": "Загрузка...",
     "vipLockBody": "Арена только для VIP. Сразитесь с соперником в реальном времени.",
+    "disabledBody": "Арена временно отключена (feature flag). Попробуйте позже.",
     "goPremium": "Получить VIP",
     "findMatch": "Найти соперника",
     "searching": "Ищем соперника...",
@@ -1292,7 +1293,7 @@
   "AdminFlags": {
     "title": "Feature flags",
     "subtitle": "Таблица feature_flag (M3-7). Boolean toggle + audit.",
-    "note": "Флаги ещё не везде читаются в продукте — storage/audit готовы.",
+    "note": "Флаги подключены к product gates: arena_enabled, checkout_payme/click, web_push_digest (+ maintenance_mode snapshot).",
     "refresh": "Обновить",
     "loading": "Загрузка…",
     "errorLoad": "Не удалось загрузить.",

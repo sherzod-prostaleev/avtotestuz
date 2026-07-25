@@ -60,6 +60,13 @@ export default function ArenaPage() {
   const [rating, setRating] = useState<RatingDTO | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [remaining, setRemaining] = useState(15);
+  const [arenaEnabled, setArenaEnabled] = useState(true);
+
+  useEffect(() => {
+    void apiGet<{ arena_enabled: boolean }>("flags")
+      .then((f) => setArenaEnabled(f.arena_enabled !== false))
+      .catch(() => setArenaEnabled(true));
+  }, []);
 
   const refreshMeta = useCallback(async () => {
     try {
@@ -295,6 +302,24 @@ export default function ArenaPage() {
           >
             {t("goPremium")}
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (!arenaEnabled) {
+    return (
+      <div className="mx-auto max-w-xl px-4 py-10">
+        <Link
+          href={`/${locale}/dashboard`}
+          className="mb-6 inline-flex min-h-11 items-center gap-2 text-sm font-bold text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" /> {t("back")}
+        </Link>
+        <div className="rounded-2xl border border-border bg-card p-8 text-center">
+          <Swords className="mx-auto mb-4 h-10 w-10 text-muted-foreground" aria-hidden />
+          <h1 className="font-display text-2xl font-extrabold text-foreground">{t("title")}</h1>
+          <p className="mt-3 text-sm text-muted-foreground">{t("disabledBody")}</p>
         </div>
       </div>
     );

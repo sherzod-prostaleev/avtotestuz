@@ -33,6 +33,24 @@ func seedDigestFixture(t *testing.T) (*Service, *sqlc.Queries, *FakeSender) {
 	return svc, q, fake
 }
 
+func TestRunFSRSDueDigestRespectsFlag(t *testing.T) {
+	svc, _, _ := seedDigestFixture(t)
+	ctx := context.Background()
+	if _, err := svc.Pool.Exec(ctx, `
+		UPDATE feature_flag SET value_json = 'false'::jsonb WHERE key = 'web_push_digest'`); err != nil {
+		t.Fatal(err)
+	}
+	_, err := svc.RunFSRSDueDigest(ctx, DigestOpts{DryRun: false, Limit: 10})
+	if err != ErrFeatureDisabled {
+		t.Fatalf("want ErrFeatureDisabled, got %v", err)
+	}
+	// dry-run still allowed
+	if _, err := svc.RunFSRSDueDigest(ctx, DigestOpts{DryRun: true, Limit: 10}); err != nil {
+		t.Fatal(err)
+	}
+	_, _ = svc.Pool.Exec(ctx, `UPDATE feature_flag SET value_json = 'true'::jsonb WHERE key = 'web_push_digest'`)
+}
+
 func TestRunFSRSDueDigestDryRunAndSend(t *testing.T) {
 	svc, q, fake := seedDigestFixture(t)
 	ctx := context.Background()

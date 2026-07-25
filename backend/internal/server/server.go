@@ -27,6 +27,7 @@ import (
 	"avtotest.uz/backend/internal/demo"
 	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
+	"avtotest.uz/backend/internal/flags"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
@@ -115,6 +116,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)
+
+			fh := &flags.Handler{Pool: deps.Pool}
+			fh.PublicRoutes(api)
 
 			if cfg.OpsAdminToken != "" {
 				oh := &ops.Handler{

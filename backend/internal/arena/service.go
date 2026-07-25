@@ -21,6 +21,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/flags"
 	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/progress"
@@ -30,11 +31,12 @@ import (
 var arenaJoinLua string
 
 var (
-	ErrRequiresVIP    = errors.New("vip_required")
-	ErrAlreadyQueued  = errors.New("already_queued")
-	ErrAlreadyInMatch = errors.New("already_in_match")
-	ErrTicketInvalid  = errors.New("ticket_invalid")
-	ErrInviteInvalid  = errors.New("invite_invalid")
+	ErrRequiresVIP      = errors.New("vip_required")
+	ErrAlreadyQueued    = errors.New("already_queued")
+	ErrAlreadyInMatch   = errors.New("already_in_match")
+	ErrTicketInvalid    = errors.New("ticket_invalid")
+	ErrInviteInvalid    = errors.New("invite_invalid")
+	ErrFeatureDisabled  = errors.New("feature_disabled")
 )
 
 // RatingProvider supplies ratings for matchmaking (M4-04 fills real ELO).
@@ -161,6 +163,13 @@ func NewService(
 func (s *Service) ticketKey(tok string) string { return "arena:ticket:" + tok }
 
 func (s *Service) MintTicket(ctx context.Context, profileID uuid.UUID) (string, int, error) {
+	enabled, err := flags.Bool(ctx, s.Pool, flags.KeyArenaEnabled, true)
+	if err != nil {
+		return "", 0, err
+	}
+	if !enabled {
+		return "", 0, ErrFeatureDisabled
+	}
 	ok, err := s.Lim.Allow(ctx, "arena:rl:ticket:"+profileID.String(), 30, time.Minute)
 	if err != nil {
 		return "", 0, err

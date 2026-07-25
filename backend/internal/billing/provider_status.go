@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"avtotest.uz/backend/internal/flags"
 )
 
 // ErrProviderDisabled means new checkouts for this provider are turned off
@@ -20,6 +22,7 @@ type ProviderStatus struct {
 
 // ListProviderStatuses returns Payme/Click enablement. Missing rows (pre-migration
 // race) are treated as enabled so a half-applied deploy does not hard-stop sales.
+// Feature flags checkout_payme / checkout_click AND with the kill-switch.
 func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, error) {
 	if s.Pool == nil {
 		return []ProviderStatus{
@@ -55,10 +58,27 @@ func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, er
 			out = append(out, ProviderStatus{Provider: name, Enabled: true})
 		}
 	}
+	paymeFlag, err := flags.Bool(ctx, s.Pool, flags.KeyCheckoutPayme, true)
+	if err != nil {
+		return nil, err
+	}
+	clickFlag, err := flags.Bool(ctx, s.Pool, flags.KeyCheckoutClick, true)
+	if err != nil {
+		return nil, err
+	}
+	for i := range out {
+		switch out[i].Provider {
+		case "payme":
+			out[i].Enabled = out[i].Enabled && paymeFlag
+		case "click":
+			out[i].Enabled = out[i].Enabled && clickFlag
+		}
+	}
 	return out, nil
 }
 
-// EnsureProviderEnabled fails with ErrProviderDisabled when the kill-switch is off.
+// EnsureProviderEnabled fails with ErrProviderDisabled when the kill-switch is off
+// or the matching checkout_* feature flag is false.
 func (s Service) EnsureProviderEnabled(ctx context.Context, provider string) error {
 	if provider != "payme" && provider != "click" {
 		return nil
@@ -66,8 +86,19 @@ func (s Service) EnsureProviderEnabled(ctx context.Context, provider string) err
 	if s.Pool == nil {
 		return nil
 	}
+	flagKey := flags.KeyCheckoutPayme
+	if provider == "click" {
+		flagKey = flags.KeyCheckoutClick
+	}
+	flagOn, err := flags.Bool(ctx, s.Pool, flagKey, true)
+	if err != nil {
+		return err
+	}
+	if !flagOn {
+		return ErrProviderDisabled
+	}
 	var enabled bool
-	err := s.Pool.QueryRow(ctx, `
+	err = s.Pool.QueryRow(ctx, `
 		SELECT enabled FROM payment_provider_status WHERE provider = $1`, provider).Scan(&enabled)
 	if err != nil {
 		// No row / table not ready → fail open for paid checkouts only after

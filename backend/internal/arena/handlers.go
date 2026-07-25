@@ -1,6 +1,7 @@
 package arena
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"time"
@@ -37,6 +38,10 @@ func (h *Handler) mintTicket(w http.ResponseWriter, r *http.Request) {
 	}
 	tok, exp, err := h.Svc.MintTicket(r.Context(), claims.ProfileID)
 	if err != nil {
+		if errors.Is(err, ErrFeatureDisabled) {
+			httpx.Error(w, http.StatusForbidden, "feature_disabled", "arena is temporarily disabled")
+			return
+		}
 		if err.Error() == "rate_limited" {
 			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many ticket requests")
 			return

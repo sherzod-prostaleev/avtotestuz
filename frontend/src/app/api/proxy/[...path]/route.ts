@@ -16,7 +16,9 @@ function isPublicPath(path: string[]): boolean {
   if (path[0] === "billing" && path[1] === "providers") return true;
   // GET /site/contacts — public footer chrome (no secrets)
   // GET /site/banner — public support in-app banner
-  return path[0] === "site" && (path[1] === "contacts" || path[1] === "banner");
+  if (path[0] === "site" && (path[1] === "contacts" || path[1] === "banner")) return true;
+  // GET /flags — public feature-flag snapshot
+  return path[0] === "flags";
 }
 
 function safePath(path: string[]): string | null {

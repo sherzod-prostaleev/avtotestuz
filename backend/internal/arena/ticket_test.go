@@ -11,7 +11,34 @@ import (
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/redisx"
+	"avtotest.uz/backend/internal/testdb"
 )
+
+func TestMintTicketRespectsArenaFlag(t *testing.T) {
+	pool := testdb.New(t)
+	r := redisx.NewTest(t)
+	svc := &Service{
+		Pool: pool,
+		R:    r,
+		Lim:  auth.Limiter{R: r},
+		Hub:  NewHub(),
+		Now:  time.Now,
+	}
+	ctx := context.Background()
+	if _, err := pool.Exec(ctx, `
+		UPDATE feature_flag SET value_json = 'false'::jsonb WHERE key = 'arena_enabled'`); err != nil {
+		t.Fatal(err)
+	}
+	_, _, err := svc.MintTicket(ctx, uuid.New())
+	if err != ErrFeatureDisabled {
+		t.Fatalf("want ErrFeatureDisabled, got %v", err)
+	}
+	_, _ = pool.Exec(ctx, `UPDATE feature_flag SET value_json = 'true'::jsonb WHERE key = 'arena_enabled'`)
+	tok, _, err := svc.MintTicket(ctx, uuid.New())
+	if err != nil || tok == "" {
+		t.Fatalf("re-enabled mint: %v %q", err, tok)
+	}
+}
 
 func TestMintRedeemTicketSingleUse(t *testing.T) {
 	r := redisx.NewTest(t)

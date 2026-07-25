@@ -65,6 +65,10 @@ func main() {
 			fmt.Fprintln(os.Stderr, "error: VAPID keys not configured — set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY")
 			os.Exit(1)
 		}
+		if err == push.ErrFeatureDisabled {
+			fmt.Fprintln(os.Stderr, "error: feature_flag web_push_digest is off")
+			os.Exit(1)
+		}
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}

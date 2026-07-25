@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	ErrUnconfigured = errors.New("web push is not configured")
-	ErrBadEndpoint  = errors.New("invalid push endpoint")
-	ErrBadKeys      = errors.New("invalid push keys")
-	ErrNoSubs       = errors.New("no push subscriptions")
-	ErrRateLimited  = errors.New("push test rate limited")
+	ErrUnconfigured    = errors.New("web push is not configured")
+	ErrBadEndpoint     = errors.New("invalid push endpoint")
+	ErrBadKeys         = errors.New("invalid push keys")
+	ErrNoSubs          = errors.New("no push subscriptions")
+	ErrRateLimited     = errors.New("push test rate limited")
+	ErrFeatureDisabled = errors.New("feature_disabled")
 )
 
 // TestCooldown is the minimum gap between learner self-test pushes.

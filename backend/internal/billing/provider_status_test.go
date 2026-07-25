@@ -39,4 +39,22 @@ func TestProviderKillSwitch(t *testing.T) {
 	if err := svc.EnsureProviderEnabled(ctx, "payme"); err != nil {
 		t.Fatalf("payme re-enabled: %v", err)
 	}
+
+	if _, err := pool.Exec(ctx, `
+		UPDATE feature_flag SET value_json = 'false'::jsonb WHERE key = 'checkout_payme'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.EnsureProviderEnabled(ctx, "payme"); !errors.Is(err, ErrProviderDisabled) {
+		t.Fatalf("feature flag off = %v, want ErrProviderDisabled", err)
+	}
+	list, err = svc.ListProviderStatuses(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range list {
+		if p.Provider == "payme" && p.Enabled {
+			t.Fatal("payme should be disabled by feature flag")
+		}
+	}
+	_, _ = pool.Exec(ctx, `UPDATE feature_flag SET value_json = 'true'::jsonb WHERE key = 'checkout_payme'`)
 }

@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"avtotest.uz/backend/internal/flags"
 )
 
 const (
@@ -96,6 +98,15 @@ func (s *Service) ListFSRSDueCandidates(ctx context.Context, limit int) ([]Diges
 // Per-profile delivery errors are counted; the batch continues.
 // Gone/expired endpoints are pruned inside Notify.
 func (s *Service) RunFSRSDueDigest(ctx context.Context, opts DigestOpts) (DigestResult, error) {
+	if !opts.DryRun {
+		enabled, err := flags.Bool(ctx, s.Pool, flags.KeyWebPushDigest, true)
+		if err != nil {
+			return DigestResult{}, err
+		}
+		if !enabled {
+			return DigestResult{}, ErrFeatureDisabled
+		}
+	}
 	if !opts.DryRun && !s.Cfg.Configured() {
 		return DigestResult{}, ErrUnconfigured
 	}

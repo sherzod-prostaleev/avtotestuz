@@ -979,6 +979,7 @@
     "subtitle": "VIP 1v1 дуэль — 10 савол, ҳар бири 15 сония. Тез ва тўғри жавоб балл беради.",
     "loading": "Юкланмоқда...",
     "vipLockBody": "Арена фақат VIP обуначилар учун. Рақиб билан жонли беллашинг.",
+    "disabledBody": "Арена вақтинча ўчирилган (feature flag). Кейинроқ қайта уриниб кўринг.",
     "goPremium": "VIP олиш",
     "findMatch": "Рақиб топиш",
     "searching": "Рақиб қидирилмоқда...",
@@ -1292,7 +1293,7 @@
   "AdminFlags": {
     "title": "Feature flags",
     "subtitle": "Runtime feature_flag жадвали (M3-7). Boolean toggle + audit.",
-    "note": "Flagлар ҳали ҳамма жойда ўқилмайди — сақлаш/audit тайёр.",
+    "note": "Flagлар product gate’ларга уланган: arena_enabled, checkout_payme/click, web_push_digest (+ maintenance_mode snapshot).",
     "refresh": "Янгилаш",
     "loading": "Юкланмоқда…",
     "errorLoad": "Юклаб бўлмади.",
