@@ -5,7 +5,7 @@
 SELECT
   es.profile_id,
   count(*)::int AS correct_count,
-  max(sa.answered_at) AS last_answered_at
+  max(sa.answered_at)::timestamptz AS last_answered_at
 FROM session_answer sa
 JOIN exam_session es ON es.id = sa.session_id
 WHERE sa.is_correct

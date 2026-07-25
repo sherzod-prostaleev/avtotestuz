@@ -16,7 +16,7 @@ const countCorrectAnswersByProfileInRange = `-- name: CountCorrectAnswersByProfi
 SELECT
   es.profile_id,
   count(*)::int AS correct_count,
-  max(sa.answered_at) AS last_answered_at
+  max(sa.answered_at)::timestamptz AS last_answered_at
 FROM session_answer sa
 JOIN exam_session es ON es.id = sa.session_id
 WHERE sa.is_correct
@@ -31,9 +31,9 @@ type CountCorrectAnswersByProfileInRangeParams struct {
 }
 
 type CountCorrectAnswersByProfileInRangeRow struct {
-	ProfileID      uuid.UUID   `json:"profile_id"`
-	CorrectCount   int32       `json:"correct_count"`
-	LastAnsweredAt interface{} `json:"last_answered_at"`
+	ProfileID      uuid.UUID          `json:"profile_id"`
+	CorrectCount   int32              `json:"correct_count"`
+	LastAnsweredAt pgtype.Timestamptz `json:"last_answered_at"`
 }
 
 // Used by leaderboard.Service.RebuildPeriod to recompute a Redis sorted
