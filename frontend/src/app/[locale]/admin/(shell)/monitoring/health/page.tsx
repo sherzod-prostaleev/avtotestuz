@@ -10,6 +10,15 @@ type HealthData = {
   live: string;
   checks: Record<string, string>;
   checked_at: string;
+  alerts?: {
+    id: string;
+    name: string;
+    kind: string;
+    enabled: boolean;
+    description: string;
+    status: string;
+    detail?: string;
+  }[];
 };
 
 export default function AdminMonitoringHealthPage() {
@@ -113,6 +122,35 @@ export default function AdminMonitoringHealthPage() {
               {t("lastChecked", { time: new Date(data.checked_at).toLocaleTimeString() })}
             </p>
           </li>
+          {(data.alerts ?? []).length > 0 ? (
+            <li className="rounded-xl border border-border bg-card px-4 py-3">
+              <p className="font-bold">{t("alertsOnHealth")}</p>
+              <ul className="mt-2 space-y-2">
+                {data.alerts!.map((a) => (
+                  <li
+                    key={a.id}
+                    className="flex items-start justify-between gap-2 rounded-lg border border-border/70 bg-background px-3 py-2 text-xs"
+                  >
+                    <div>
+                      <p className="font-semibold">{a.name}</p>
+                      <p className="text-muted-foreground">{a.detail ?? a.description}</p>
+                    </div>
+                    <span
+                      className={`shrink-0 font-bold ${
+                        a.status === "ok" || a.status === "skipped"
+                          ? "text-accent"
+                          : a.status === "warn"
+                            ? "text-foreground"
+                            : "text-destructive"
+                      }`}
+                    >
+                      {a.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ) : null}
         </ul>
       ) : (
         <p className="text-sm text-muted-foreground">{t("loading")}</p>

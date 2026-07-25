@@ -1276,7 +1276,15 @@
     "metricsTotal": "Requests",
     "errorLoad": "Yuklab bo‘lmadi.",
     "errorDegraded": "Ba’zi tekshiruvlar muvaffaqiyatsiz.",
-    "errorForbidden": "monitoring.read ruxsati yo‘q."
+    "errorForbidden": "monitoring.read ruxsati yo‘q.",
+    "alertsOnHealth": "Alert rules (live)",
+    "logsTitle": "Ops feed",
+    "logsSubtitle": "Recent admin_audit_log + payment fails — zap log tail emas.",
+    "logsNote": "Merged newest-first. Prometheus/Sentry yo‘q.",
+    "logsEmpty": "Hali event yo‘q.",
+    "alertsTitle": "Alerts",
+    "alertsSubtitle": "alert_rule jadvalidagi 1–2 static rule — live evaluate.",
+    "alertsNote": "Pager/webhook invent qilinmagan. Health sahifasida ham ko‘rinadi."
   },
   "AdminAnalytics": {
     "title": "Analytics overview",

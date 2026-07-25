@@ -1276,7 +1276,15 @@
     "metricsTotal": "Requests",
     "errorLoad": "Юклаб бўлмади.",
     "errorDegraded": "Баъзи текширувлар муваффақиятсиз.",
-    "errorForbidden": "monitoring.read рухсати йўқ."
+    "errorForbidden": "monitoring.read рухсати йўқ.",
+    "alertsOnHealth": "Alert rules (live)",
+    "logsTitle": "Ops feed",
+    "logsSubtitle": "Recent admin_audit_log + payment fails — zap log tail эмас.",
+    "logsNote": "Merged newest-first. Prometheus/Sentry йўқ.",
+    "logsEmpty": "Ҳали event йўқ.",
+    "alertsTitle": "Alerts",
+    "alertsSubtitle": "alert_rule жадвалидаги 1–2 static rule — live evaluate.",
+    "alertsNote": "Pager/webhook invent қилинмаган. Health саҳифасида ҳам кўринади."
   },
   "AdminAnalytics": {
     "title": "Analytics overview",

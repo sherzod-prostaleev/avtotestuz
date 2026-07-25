@@ -49,7 +49,22 @@ func (h *Handler) getMonitoringHealth(w http.ResponseWriter, r *http.Request) {
 		"live":       "ok",
 		"checks":     checks,
 		"checked_at": time.Now().UTC().Format(time.RFC3339),
+		"alerts":     alertSummaries(h, r.Context()),
 	})
+}
+
+func alertSummaries(h *Handler, ctx context.Context) []AlertEval {
+	out, err := h.evaluateAlertRules(ctx)
+	if err != nil {
+		return []AlertEval{{
+			ID:     "evaluate_error",
+			Name:   "Alert evaluation",
+			Kind:   "error",
+			Status: "fail",
+			Detail: err.Error(),
+		}}
+	}
+	return out
 }
 
 func (h *Handler) getMonitoringMetrics(w http.ResponseWriter, r *http.Request) {

@@ -116,6 +116,57 @@ func TestAdminMonitoring(t *testing.T) {
 		}
 	})
 
+	t.Run("feed and alerts", func(t *testing.T) {
+		if err := store.WriteAudit(context.Background(), nil, "monitoring.test", "probe", "1",
+			nil, map[string]any{"ok": true}, nil, "", ""); err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodGet, "/admin/v1/monitoring/feed", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("feed status=%d body=%s", w.Code, w.Body.String())
+		}
+		var feedEnv struct {
+			Data OpsFeedResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &feedEnv); err != nil {
+			t.Fatal(err)
+		}
+		if len(feedEnv.Data.Items) < 1 {
+			t.Fatalf("feed empty: %+v", feedEnv.Data)
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/admin/v1/monitoring/alerts", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("alerts status=%d", w.Code)
+		}
+		var alertEnv struct {
+			Data struct {
+				Items []AlertEval `json:"items"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &alertEnv); err != nil {
+			t.Fatal(err)
+		}
+		if len(alertEnv.Data.Items) < 2 {
+			t.Fatalf("alerts=%+v", alertEnv.Data.Items)
+		}
+		foundPG := false
+		for _, a := range alertEnv.Data.Items {
+			if a.ID == "postgres_ready" && a.Status == "ok" {
+				foundPG = true
+			}
+		}
+		if !foundPG {
+			t.Fatalf("postgres_ready missing/ok: %+v", alertEnv.Data.Items)
+		}
+	})
+
 	t.Run("finance denied; analyst allowed", func(t *testing.T) {
 		hash, err := auth.HashPassword("password123")
 		if err != nil {

@@ -104,6 +104,8 @@ func (h *Handler) Routes(r chi.Router) {
 			mr.Get("/monitoring/health", h.getMonitoringHealth)
 			mr.Get("/monitoring/metrics", h.getMonitoringMetrics)
 			mr.Get("/monitoring/jobs", h.listMonitoringJobs)
+			mr.Get("/monitoring/feed", h.getMonitoringFeed)
+			mr.Get("/monitoring/alerts", h.getMonitoringAlerts)
 		})
 
 		pr.Group(func(ar chi.Router) {

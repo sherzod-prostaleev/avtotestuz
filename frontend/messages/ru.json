@@ -1276,7 +1276,15 @@
     "metricsTotal": "Requests",
     "errorLoad": "Не удалось загрузить.",
     "errorDegraded": "Часть проверок не прошла.",
-    "errorForbidden": "Нет права monitoring.read."
+    "errorForbidden": "Нет права monitoring.read.",
+    "alertsOnHealth": "Alert rules (live)",
+    "logsTitle": "Ops feed",
+    "logsSubtitle": "Недавние admin_audit_log + payment fails — не хвост zap-логов.",
+    "logsNote": "Слито newest-first. Нет Prometheus/Sentry.",
+    "logsEmpty": "Пока нет событий.",
+    "alertsTitle": "Alerts",
+    "alertsSubtitle": "1–2 static rule из alert_rule — live evaluate.",
+    "alertsNote": "Pager/webhook не изобретены. Также на health."
   },
   "AdminAnalytics": {
     "title": "Analytics overview",

@@ -24,9 +24,9 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [
         { href: `${base}/monitoring/health`, label: "System health" },
         { href: `${base}/monitoring/perf`, label: "API & DB" },
-        { href: `${base}/monitoring/logs`, label: "Live logs", stub: true },
+        { href: `${base}/monitoring/logs`, label: "Live logs" },
         { href: `${base}/monitoring/jobs`, label: "Jobs" },
-        { href: `${base}/monitoring/alerts`, label: "Alerts", stub: true },
+        { href: `${base}/monitoring/alerts`, label: "Alerts" },
       ],
     },
     {
