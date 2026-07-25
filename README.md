@@ -27,6 +27,8 @@ majburiy qiladi — faylning o'zida yozilgan.
 make test          # -p 1 (bitta migratsiya/pool navbatda; kamroq resurs)
 make test-parallel # to'liq parallel (~2.5x tezroq)
 make test-db-reset # paketga xos test bazalarini o'chirish
+make fe-check      # frontend lint + typecheck + vitest + build (CI frontend job)
+make fe-e2e        # Playwright Chromium smoke (ixtiyoriy E2E_AUTH_TOKEN)
 ```
 
 Ikkalasi ham **bir xil** natija beradi: `internal/testdb` har test paketiga
@@ -120,7 +122,8 @@ buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 
 ## API (M1 Plan 01 holati)
 
-- `GET /healthz`
+- `GET /healthz` — liveness (process up; dependency ping yo'q)
+- `GET /readyz` — readiness (`checks.postgres` / `checks.redis`; wired bo'lsa ping, aks holda `skipped`; fail → 503)
 - `GET /api/v1/categories?locale=`
 - `GET /api/v1/variants` · `GET /api/v1/variants/{n}?locale=`
 - `GET /api/v1/signs?group=&q=&locale=` · `GET /api/v1/signs/{code}`
@@ -128,6 +131,9 @@ buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 
 Javob konverti: `{"data":..., "meta":{...}}` yoki `{"error":{"code","message"}}`.
 Kontent javoblarida to'g'ri javob maydonlari hech qachon qaytmaydi (anti-cheat).
+
+Ops (ixtiyoriy, `OPS_ADMIN_TOKEN` berilganda): `GET|PATCH /api/v1/ops/payment-providers`
+(+ `X-Ops-Token`) — to'lov provayderlari kill-switch. FE: `/{locale}/ops/providers`.
 
 ## Demo (public, auth talab qilinmaydi)
 

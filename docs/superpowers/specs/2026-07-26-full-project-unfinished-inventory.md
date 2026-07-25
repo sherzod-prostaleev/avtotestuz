@@ -38,13 +38,13 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | ID | Priority | Area | Item | Status | Depends on | Notes |
 |----|----------|------|------|--------|------------|-------|
 | **U-01** | P0 | FE/BE | **N2 Demo→account investment migrate** | **done** | Auth, progress/learning | `POST /me/demo-progress/migrate` — incorrect→FSRS Again; correct skipped (no mastery inflate). |
-| **U-02** | P0 | Ops | **Staging / production deploy path** | **partial** | D18 host decision | Dockerfiles + `deploy/` overlay/smoke + **STAGING-RUNBOOK** (registry push, host layout, health, rollback) + hardened compose (restart, log rotate, web healthcheck, `API_IMAGE`/`WEB_IMAGE`). Remote host + registry credentials still blocked on D18. |
+| **U-02** | P0 | Ops | **Staging / production deploy path** | **partial** | D18 host decision | Dockerfiles + `deploy/` overlay/smoke + **STAGING-RUNBOOK** (registry push, host layout, health/**readyz**, rollback) + hardened compose (restart, log rotate, web healthcheck, `API_IMAGE`/`WEB_IMAGE`). Remote host + registry credentials still blocked on D18. |
 | **U-03** | P0 | Ops | **Payme/Click production merchant keys + legal entity** | deferred | External / yuridik shaxs | Sandbox adapters **done**. ENV empty → webhooks reject. Master prompt: sandbox until legal entity. |
 | **U-04** | P0 | BE | **Refund → entitlement revoke** | deferred | Billing audit | Payme can mark `refunded`; comment in `payme/methods.go`: revoke **deliberately deferred**. Money integrity gap for real ops. |
 | **U-05** | P0 | BE | **Referral antifraud (retroactive attach)** | **done** | Design locked | Attach requires no prior `paid` payment + `created_at` within `referral_attach_window_days` (30). Terminal FE codes clear localStorage. |
-| **U-06** | P1 | BE | **M4-03 Arena realtime infra** | missing | Spec ✅; plan skeleton | **No** `internal/arena`. Migration next = **0021**. Redis `arena:`. Plan must be expanded to full TDD before code. |
-| **U-07** | P1 | BE | **M4-04 Arena rating / medals / history API** | missing | U-06 | ELO, Bronza→Brilliant, match history. |
-| **U-08** | P1 | FE | **J10 / M4-05 Arena UI** | missing | U-06 (+ U-07 for chrome) | No FE routes/components; not in sidebar. Asphalt tokens only when built. |
+| **U-06** | P1 | BE | **M4-03 Arena realtime infra** | **done** | Spec ✅ | `internal/arena` + mig `0021_battle_arena` + Redis `arena:` + WS ticket/match hub. |
+| **U-07** | P1 | BE | **M4-04 Arena rating / medals / history API** | **done** | U-06 | `GET /me/arena/rating`, `GET /me/arena/matches` + ELO/medals in arena package. |
+| **U-08** | P1 | FE | **J10 / M4-05 Arena UI** | **done** | U-06 (+ U-07) | `/(app)/arena` + sidebar + protocol client; VIP gate → premium. |
 | **U-09** | P1 | FE | **Telegram “bog‘lash” UI** | **done** | M4-06 BE ✅ | Profile `TelegramLinkCard`: `GET /me/telegram` + `POST /me/telegram/link-token` deep link. |
 | **U-10** | P1 | Bot | **M4-07 TG daily quiz + notifications** | deferred | M4-06 ✅ | Spec defers quiz, outbound cron, rich keyboards, multi-locale bot copy, `/unlink`, flood limits. |
 | **U-11** | P1 | BE/FE | **M4-08 Web push / campaigns** | missing | M4-06? | `notification` table exists (0005); **no** app package writing/sending. |
@@ -73,11 +73,11 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-34** | P2 | i18n | **Backend `kaa` locale** | partial | Product decision | BE `i18n.Supported` includes `kaa`; FE messages = uz-Latn/uz-Cyrl/ru only. Incomplete Karakalpak. |
 | **U-35** | P2 | FE | **Grand Mock “certificate”** | partial | M2-07 ✅ | UI dialog + confetti only — **no** persisted certificate, PDF, shareable ID, or admin-issued credential. |
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
-| **U-37** | P2 | Ops | **Makefile frontend targets** | missing | — | `make` covers BE/infra; FE via npm/`run.sh` only. |
+| **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | missing | — | Roadmap M6-01. |
 | **U-39** | P3 | M6 | **Offline content cache + sync** | missing | U-38 | M6-02. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | missing | Customer + entitlement `b2b` source already in CHECK | Schema allows `source='b2b'`; no org tables/packages. |
-| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | missing | — | Healthz only; no Prometheus/Sentry wiring documented in repo. |
+| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | partial | — | Liveness `/healthz` + readiness `/readyz` (Postgres/Redis checks) documented in README + STAGING-RUNBOOK + smoke. No Prometheus/Sentry yet. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | missing | — | Ad-hoc audits done historically; no standing checklist/CI gate. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
@@ -92,9 +92,10 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 
 - **Admin (M3)** — largest intentional backlog; content verify + billing ops cannot scale without it.
 - **Production payments** — keys, legal entity, refund revoke, recon.
-- **Telegram** — foundation ≠ product: FE link + M4-07 quiz/notif.
-- **FSRS gaps** — engine present; **due-queue FE** missing; mistakes UX depends on FSRS timing (documented, easy to misread as bugs).
-- **Referral antifraud** — design ready, code not.
+- **Telegram** — foundation ≠ product: FE link **done** (U-09); M4-07 quiz/notif still deferred.
+- **FSRS gaps** — engine + due-queue FE (**U-16 done**); mistakes UX depends on FSRS timing (documented, easy to misread as bugs).
+- **Arena** — BE infra + rating/history + FE UI **done** (U-06…08); RedisTransport multi-instance + practice bot still deferred (U-48/U-49).
+- **Referral antifraud** — **done** (U-05).
 - **Grand Mock** — eligibility/session **done**; certificate is **theater**, not a credential system.
 - **i18n** — 3 UI locales mostly; `kaa` half-supported; bot copy single-locale; some historical hardcode risks.
 - **E2E CI / staging / Docker / monitoring / backup** — ship blockers independent of Arena.

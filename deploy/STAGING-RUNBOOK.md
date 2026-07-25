@@ -155,13 +155,26 @@ documented as comments in the overlay (uncomment when the host size is known).
 
 | Check | Expect |
 |-------|--------|
-| `GET {API}/healthz` | JSON envelope with `"status":"ok"` |
+| `GET {API}/healthz` | JSON envelope with `"status":"ok"` (liveness — no DB/Redis) |
+| `GET {API}/readyz` | `"status":"ok"` and `checks.postgres` / `checks.redis` = `"ok"` (readiness) |
 | `GET {WEB}/{locale}` e.g. `/uz-Latn` | HTTP 200 |
 | Compose | `api` / `web` `running` (`restart: unless-stopped`) |
 
-`deploy/smoke.sh` covers the two HTTP checks. In-container Docker
+`deploy/smoke.sh` covers healthz + readyz + optional web. In-container Docker
 `HEALTHCHECK` for the API image is omitted (distroless has no curl/shell);
-rely on smoke + process restart policy.
+rely on smoke + process restart policy. Orchestrators should probe **/readyz**
+before sending traffic; use **/healthz** only for process liveness.
+
+### Ops kill-switch (optional)
+
+When `OPS_ADMIN_TOKEN` is set on the API:
+
+| Check | Expect |
+|-------|--------|
+| `GET {API}/api/v1/ops/payment-providers` + header `X-Ops-Token` | Payme/Click enabled flags |
+| FE `/{locale}/ops/providers` | Operator UI (token in sessionStorage — never commit) |
+
+Absent token → ops routes are not mounted (`ops_disabled` / 404 depending on path).
 
 ### Rollback
 

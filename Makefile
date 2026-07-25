@@ -1,7 +1,8 @@
 COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
-.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real validate-real run check
+.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real validate-real run check \
+	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -54,3 +55,27 @@ run:
 	cd backend && go run ./cmd/api
 
 check: lint test
+
+# Frontend (Next.js) — mirrors CI `frontend` / `e2e` jobs. Prefer these over
+# ad-hoc `cd frontend && npm …` so local + docs stay aligned.
+fe-install:
+	cd frontend && npm ci
+
+fe-lint:
+	cd frontend && npm run lint
+
+fe-typecheck:
+	cd frontend && npm run typecheck
+
+fe-test:
+	cd frontend && npm run test
+
+fe-build:
+	cd frontend && npm run build
+
+# Playwright Chromium smoke. Optional E2E_AUTH_TOKEN / E2E_REFRESH_TOKEN for
+# session-gate shells (same as CI — never commit real JWTs).
+fe-e2e:
+	cd frontend && npm run test:e2e
+
+fe-check: fe-lint fe-typecheck fe-test fe-build

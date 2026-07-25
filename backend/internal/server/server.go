@@ -2,7 +2,9 @@
 package server
 
 import (
+	"context"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -58,6 +60,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
+	// /readyz = process can serve traffic (Postgres + Redis when wired).
+	// /healthz stays a cheap liveness probe that does not touch dependencies.
+	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
 
 	var arenaSvc *arena.Service
 	if deps.Queries != nil {
@@ -174,4 +179,42 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	}
 
 	return r, arenaSvc
+}
+
+const readinessProbeTimeout = 2 * time.Second
+
+func readinessHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		checks := map[string]string{}
+		ready := true
+
+		ctx, cancel := context.WithTimeout(r.Context(), readinessProbeTimeout)
+		defer cancel()
+
+		if pool == nil {
+			checks["postgres"] = "skipped"
+		} else if err := pool.Ping(ctx); err != nil {
+			checks["postgres"] = "fail"
+			ready = false
+		} else {
+			checks["postgres"] = "ok"
+		}
+
+		if rdb == nil {
+			checks["redis"] = "skipped"
+		} else if err := rdb.Ping(ctx).Err(); err != nil {
+			checks["redis"] = "fail"
+			ready = false
+		} else {
+			checks["redis"] = "ok"
+		}
+
+		status := "ok"
+		code := http.StatusOK
+		if !ready {
+			status = "not_ready"
+			code = http.StatusServiceUnavailable
+		}
+		httpx.Data(w, code, map[string]any{"status": status, "checks": checks})
+	}
 }
