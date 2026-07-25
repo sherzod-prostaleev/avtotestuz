@@ -2,7 +2,7 @@ COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real validate-real run check \
-	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check
+	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan
 
 up:
 	$(COMPOSE) up -d --wait
@@ -79,3 +79,10 @@ fe-e2e:
 	cd frontend && npm run test:e2e
 
 fe-check: fe-lint fe-typecheck fe-test fe-build
+
+# Dependency vulnerability scan (mirrors CI `dependency-scan` job / U-43).
+# Go: hard fail on reachable vulns. npm: prints report; exit 0 locally so
+# deferred Next/next-intl majors do not block day-to-day checks.
+dep-scan:
+	cd backend && govulncheck ./...
+	cd frontend && (npm audit --audit-level=high || true)

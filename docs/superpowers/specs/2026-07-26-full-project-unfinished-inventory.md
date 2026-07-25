@@ -79,7 +79,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | missing | Customer + entitlement `b2b` source already in CHECK | Schema allows `source='b2b'`; no org tables/packages. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | partial | — | Liveness `/healthz` + readiness `/readyz` (Postgres/Redis checks) documented in README + STAGING-RUNBOOK + smoke. No Prometheus/Sentry yet. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
-| **U-43** | P3 | M7 | **Security audit + dependency scan** | missing | — | Ad-hoc audits done historically; no standing checklist/CI gate. |
+| **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
 | **U-45** | P3 | M3 | **Super Admin entire vertical** | missing | Most product features | **SoT locked:** [`2026-07-26-m3-super-admin-control-center.md`](./2026-07-26-m3-super-admin-control-center.md) (brain+hand scope, TS/shadcn, RBAC, CMS, monitoring). Roadmap still schedules M3 last; requirements no longer TBD. |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
