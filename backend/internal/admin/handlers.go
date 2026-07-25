@@ -127,6 +127,13 @@ func (h *Handler) Routes(r chi.Router) {
 		})
 
 		pr.Group(func(sr chi.Router) {
+			sr.Use(RequirePermission("support.inbox"))
+			sr.Get("/support/tickets", h.listSupportTickets)
+			sr.Get("/support/tickets/{id}", h.getSupportTicket)
+			sr.Patch("/support/tickets/{id}", h.patchSupportTicket)
+		})
+
+		pr.Group(func(sr chi.Router) {
 			sr.Use(RequirePermission("support.broadcast"))
 			sr.Get("/support/banner", h.getSupportBanner)
 			sr.Put("/support/banner", h.putSupportBanner)

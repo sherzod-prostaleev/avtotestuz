@@ -37,6 +37,7 @@ import (
 	"avtotest.uz/backend/internal/push"
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/site"
+	"avtotest.uz/backend/internal/support"
 )
 
 type Deps struct {
@@ -117,6 +118,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)
+
+			sup := &support.Handler{Pool: deps.Pool}
+			sup.PublicRoutes(api)
 
 			fh := &flags.Handler{Pool: deps.Pool}
 			fh.PublicRoutes(api)
@@ -214,6 +218,8 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				}
 				phPush := &push.Handler{Svc: pushSvc}
 				phPush.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+
+				sup.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
