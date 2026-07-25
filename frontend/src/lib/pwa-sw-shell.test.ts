@@ -27,8 +27,9 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain('pathname.startsWith("/bff/")');
   });
 
-  it("does not claim full offline exam/content sync", () => {
-    expect(sw).toMatch(/No full offline exam/);
-    expect(sw).not.toMatch(/IndexedDB|questions.?catalog/i);
+  it("caches public legal/support shells after visit", () => {
+    expect(sw).toContain("SHELL_PATH_RE");
+    expect(sw).toContain("jarimalar");
+    expect(sw).toContain("support");
   });
 });

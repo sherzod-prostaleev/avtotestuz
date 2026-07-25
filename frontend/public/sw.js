@@ -18,7 +18,7 @@ const PRECACHE_URLS = [
 
 /** Public / shell paths worth keeping after a successful visit (locale-aware). */
 const SHELL_PATH_RE =
-  /^\/(?:(uz-Latn|uz-Cyrl|ru)(?:\/(?:login|oferta|privacy|narxlar|jarimalar)?)?)?\/?$/;
+  /^\/(?:(uz-Latn|uz-Cyrl|ru)(?:\/(?:login|oferta|privacy|narxlar|jarimalar|support)?)?)?\/?$/;
 
 /** Metadata list endpoints safe to cache (not question bodies / exam payloads). */
 const META_LIST_RE =
