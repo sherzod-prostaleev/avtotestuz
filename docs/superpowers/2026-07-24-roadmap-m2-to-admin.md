@@ -79,10 +79,10 @@
 - T2: **Mukofot faqat referee birinchi TO'LOVIDAN keyin** (`reward_status` pending→granted), anti-fraud (self-referral, bir qurilma).
 - T3: `GET /me/referrals` (statistika), testlar.
 
-### M2-07 GRAND MOCK (BE+FE)
-- T1 (BE): Ochilish sharti — o'rtacha o'zlashtirish ≥85% (`/me/stats` mastery). To'liq imtihon-mock sessiya turi.
-- T2 (FE): Locked/unlocked holat UI, mock oqimi (natija ekrani), konfetti.
-- T3: Testlar (eligibility, mock scoring).
+### M2-07 GRAND MOCK (BE+FE) — TUGADI
+- T1 (BE): Ochilish sharti. **Diqqat**: "o'rtacha o'zlashtirish ≥85%" yolg'iz **yetarli emas** — bu ko'rsatkich o'ynab bo'ladigan (har kategoriyadan 1 savol → 100%). Amalda uchta shart qurilgan: VIP + bank hajmining ≥25%i o'rganilgan + mastery ≥85%. Spec: `specs/2026-07-24-m2-07-grand-mock-design.md`.
+- T2 (FE): Locked/unlocked holat UI, mock oqimi (natija ekrani), konfetti. VIP to'siqda `/premium` CTA (402), o'qish to'siqda progress.
+- T3: Testlar (eligibility — uch shart alohida, mock scoring).
 
 ### M2-08 Tarif UI (FE)
 - T1: Tarif-kartalar — mashina-brend, "kuniga ~X so'm" freyming, eski narx (chizilgan) + tejash %, "eng ommabop" badge, dizayn-tizim (pill, 3D).
@@ -108,16 +108,16 @@
 
 **Parallel-guruhlar:** `{M4-01, M4-06}` parallel (mustaqil). `M4-03` (Arena infra) katta — o'zi bir necha task. `M4-06`→`M4-07`.
 
-| Plan | Nomi | Bog'liqlik | BE/FE |
-|------|------|-----------|-------|
-| M4-01 | Leaderboard (Redis sorted-set, kunlik/haftalik/oylik/all-time) | — | BE |
-| M4-02 | Leaderboard UI | 01 | FE |
-| M4-03 | Battle Arena — realtime infra (WebSocket, matchmaking) | 01? | BE |
-| M4-04 | Battle Arena — match logic + medallar (Bronza→Brilliant, rating) | 03 | BE |
-| M4-05 | Battle Arena UI (matchmaking, jonli 1v1, natija, do'stni chaqirish) | 03,04 | FE |
-| M4-06 | Telegram bot — poydevor (auth-link, komandalar) | — | BE |
-| M4-07 | Telegram bot — kunlik quiz + bildirishnomalar | 06 | BE |
-| M4-08 | Push-kampaniyalar / notifications (web push) | 06? | BE+FE |
+| Plan | Nomi | Bog'liqlik | BE/FE | Holat |
+|------|------|-----------|-------|-------|
+| M4-01 | Leaderboard (Redis sorted-set, kunlik/haftalik/oylik/all-time) | — | BE | **TUGADI** |
+| M4-02 | Leaderboard UI | 01 | FE | **KEYINGI QADAM** |
+| M4-03 | Battle Arena — realtime infra (WebSocket, matchmaking) | 01? | BE | Navbatda |
+| M4-04 | Battle Arena — match logic + medallar (Bronza→Brilliant, rating) | 03 | BE | Navbatda |
+| M4-05 | Battle Arena UI (matchmaking, jonli 1v1, natija, do'stni chaqirish) | 03,04 | FE | Navbatda |
+| M4-06 | Telegram bot — poydevor (auth-link, komandalar) | — | BE | Navbatda (mustaqil) |
+| M4-07 | Telegram bot — kunlik quiz + bildirishnomalar | 06 | BE | Navbatda |
+| M4-08 | Push-kampaniyalar / notifications (web push) | 06? | BE+FE | Navbatda |
 
 ### M4-03 Battle Arena infra (katta — bo'laklar)
 - T1: WebSocket server (gorilla/ws yoki nhooyr), ulanish auth (JWT), connection registry.

@@ -16,6 +16,25 @@ make run       # API :8080 (PORT env bilan o'zgartiriladi)
 make check     # lint + testlar
 ```
 
+Sozlash: `backend/.env.example` — `config.Load()` o'qiydigan har bir env
+o'zgaruvchisi default qiymati bilan. Devda hech biri majburiy emas (default'lar
+`docker-compose.yml`ga mos); `ENV=staging|prod` esa bir nechta secret'ni
+majburiy qiladi — faylning o'zida yozilgan.
+
+### Testlar
+
+```bash
+make test          # -p 1 (bitta migratsiya/pool navbatda; kamroq resurs)
+make test-parallel # to'liq parallel (~2.5x tezroq)
+make test-db-reset # paketga xos test bazalarini o'chirish
+```
+
+Ikkalasi ham **bir xil** natija beradi: `internal/testdb` har test paketiga
+alohida Postgres bazasi, `internal/redisx` esa alohida Redis DB'sini beradi,
+shuning uchun paketlar bir-birining ma'lumotini o'chirmaydi. `-p 1` to'g'rilik
+sharti emas. Migratsiyani **joyida** o'zgartirsangiz `make test-db-reset`
+qiling — hosila bazalar runlar orasida qayta ishlatiladi.
+
 Sinash: `curl "localhost:8080/api/v1/variants/1?locale=uz-Latn"`
 
 ## Tuzilma
@@ -170,6 +189,8 @@ baytli `CLIENT_IP_ASSERTION_SECRET`. Devda oxirgi qiymat bo'sh qolishi mumkin:
 backend imzosiz/spoof qilingan client-IP headerlarini e'tiborsiz qoldirib,
 ulanish IP'ini xavfsiz fallback sifatida ishlatadi. `ENV=staging|prod`da secret
 majburiy; frontendda ayni secret bilan `TRUSTED_PROXY_HOPS` ham sozlanadi.
+Referal havolalari `PUBLIC_BASE_URL` (frontend origin'i, default
+`http://localhost:3000`) ustiga quriladi. To'liq ro'yxat: `backend/.env.example`.
 
 VIP grant (to'lovsiz, admin tomonidan): foydalanuvchi kamida bir marta OTP
 orqali kirgan bo'lishi kerak (profil yaratilgan bo'lishi shart), so'ng:
@@ -179,11 +200,14 @@ cd backend && go run ./cmd/grantvip -phone 901112233 -days 30 -note "promo"
 ```
 
 Grantlar stacking qilinadi — yangi grant `max(hozir, joriy tugash vaqti)`dan
-boshlanadi (bir necha grant ketma-ket qo'shilsa, muddat cho'ziladi).
+boshlanadi (bir necha grant ketma-ket qo'shilsa, muddat cho'ziladi). Stacking
+profil qatorini `FOR UPDATE` bilan qulflab hisoblanadi, shuning uchun `GrantDays`
+har doim tranzaksiya ichida chaqirilishi kerak — aks holda qulf darhol bo'shab,
+bir vaqtda tugagan ikki to'lov bir-birining kunini bosib ketadi.
 
 ## Sessiya / test yechish (M1 Plan 03 holati)
 
-Test yechish 4 rejimda ishlaydi (`POST /api/v1/sessions`ning `mode` maydoni):
+Test yechish 5 rejimda ishlaydi (`POST /api/v1/sessions`ning `mode` maydoni):
 
 - **`variant`** (bilet) — bitta biletning 20 ta savoli, tayinlangan tartibda
   (`variant_id` majburiy). Faqat ochilgan biletlar yechilishi mumkin.
@@ -206,8 +230,16 @@ Test yechish 4 rejimda ishlaydi (`POST /api/v1/sessions`ning `mode` maydoni):
 - **`mistakes`** (xatolar banki) — foydalanuvchi noto'g'ri javob bergan
   savollardan tuzilgan shaxsiy to'plam (`count`, default 10).
 
-Grand Mock (to'liq simulyatsiya rejimi) M1'da yo'q — M2/VIP-gated funksiya
-sifatida rejalashtirilgan.
+- **`grand_mock`** (bosh imtihon simulyatsiyasi) — `exam` bilan bir xil qoidalar
+  (20 savol / 25 daqiqa / ≤2 xato), lekin uchta shart bajarilganda ochiladi:
+  VIP obuna, savol bankining kamida `grand_mock_min_studied_pct` (25%) qismi
+  o'rganilgan, va mastery ≥ `grand_mock_threshold_pct` (85%). Hajm sharti
+  mastery'ni o'ynashga qarshi: u bo'lmasa har kategoriyadan bittagina savolga
+  to'g'ri javob berib "100% tayyor" ko'rinish mumkin edi. Ikkala chegara ham
+  `limit_config`dan o'qiladi (kod konstantalari faqat zaxira).
+  `GET /api/v1/me/mock-eligibility` — joriy holat va qancha qolganini qaytaradi;
+  bloklovchi sabab VIP bo'lsa start `402 vip_required` (upsell), o'qish
+  talablari bo'lsa `403 mock_not_eligible` beradi.
 
 ### Endpointlar (Bearer talab qilinadi)
 

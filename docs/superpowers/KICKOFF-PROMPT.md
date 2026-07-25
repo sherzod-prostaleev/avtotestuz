@@ -45,11 +45,22 @@ bergan):
    idempotentlik tekshiruvlari majburiy. M2-02 (Payme)da bu saboq keyin
    review orqali topilib tuzatilgan edi; M2-03 (Click)da boshidanoq to'g'ri
    qurilib, birinchi urinishdayoq toza o'tgan — shu ikkinchi yondashuvni
-   qo'lla.
+   qo'lla. Va limit/kvota tekshirganda (promo max_uses, kunlik cheklovlar)
+   savolni ANIQ ber: "tekshiruv o'qiyotgan qator qachon yoziladi?" Agar u
+   keyinroq, boshqa tranzaksiyada yozilsa, qulf hech narsani himoya
+   qilmaydi va tekshiruvni parallellik ham kerak bo'lmaydigan darajada
+   oson chetlab o'tiladi — audit aynan shu xatoni topdi (SESSION-HANDOFF
+   §1.-1 Critical #1).
 4. Testlar doim yashil bo'lsin, build/lint/typecheck toza bo'lsin — har
    task oxirida va butun ish tugagach to'liq tekshir (backend: `go build
-   ./... && go test ./... -p 1`; frontend: `npm run typecheck && npm run
-   lint && npm run test`).
+   ./... && make test`; frontend: `npm run typecheck && npm run lint &&
+   npm run test`). Faqat o'z paketini ishga tushirish YETARLI EMAS —
+   bir necha marta faqat to'liq run buzilgan narsani ochib bergan.
+   Test-infratuzilma: `internal/testdb` har paketga alohida DB beradi va
+   `internal/redisx` alohida Redis DB'sini beradi, shuning uchun
+   `make test-parallel` ham to'g'ri ishlaydi. Redis ishlatadigan YANGI
+   paket qo'shsangiz, `internal/redisx/testhelper.go`dagi
+   `testDBByPackage`ga yozing (aks holda test tushunarli xato beradi).
 5. Har commit'ni git'ga push qil. Ish (Plan) to'liq tugagach —
    `docs/superpowers/2026-07-24-SESSION-HANDOFF.md`ni YANGILA: nima
    tugaganini yoz, "KEYINGI ANIQ QADAM" bo'limini yangi holatga moslab
