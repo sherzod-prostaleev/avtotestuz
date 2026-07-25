@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Gauge, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsNav } from "@/components/ops/ops-nav";
+import { OpsDeprecatedBanner } from "@/components/ops/ops-deprecated-banner";
 
 type LimitRow = {
   key: string;
@@ -109,7 +110,19 @@ export default function OpsLimitsPage() {
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      <OpsNav locale={locale} active="limits" labels={navLabels} />
+      <OpsNav
+        locale={locale}
+        active="limits"
+        adminLabel={tHealth("navAdmin")}
+        labels={navLabels}
+      />
+
+      <OpsDeprecatedBanner
+        locale={locale}
+        href="settings/config"
+        label={t("adminHomeLink")}
+        note="DEPRECATED"
+      />
 
       <div className="mb-4 space-y-3 rounded-2xl border border-border bg-card p-4">
         <label className="block text-xs font-medium text-muted-foreground">

@@ -45,8 +45,8 @@ Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydon
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx: harden critical /ops/* → /admin deprecation links,
-then U-40 B2B org/member/license entitlement grant.
+Inventory U-xx: U-40 B2B org/member/license + admin grant entitlement.source=b2b,
+then U-10 skip-note, U-35 PDF/share, U-39 offline, U-27 payrecon, U-50 refresh.
 Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md

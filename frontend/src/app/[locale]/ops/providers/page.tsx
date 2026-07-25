@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, CreditCard, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsNav } from "@/components/ops/ops-nav";
+import { OpsDeprecatedBanner } from "@/components/ops/ops-deprecated-banner";
 
 type ProviderRow = { provider: string; enabled: boolean };
 
@@ -136,6 +137,7 @@ export default function OpsPaymentProvidersPage() {
       <OpsNav
         locale={locale}
         active="providers"
+        adminLabel={tHealth("navAdmin")}
         labels={{
           health: tHealth("navHealth"),
           providers: t("navProviders"),
@@ -145,6 +147,13 @@ export default function OpsPaymentProvidersPage() {
           audit: tAudit("navAudit"),
           limits: tLimits("navLimits"),
         }}
+      />
+
+      <OpsDeprecatedBanner
+        locale={locale}
+        href="payments/providers"
+        label={t("adminHomeLink")}
+        note="DEPRECATED"
       />
 
       <section className="mb-6 space-y-3 rounded-2xl border border-border bg-card p-5">

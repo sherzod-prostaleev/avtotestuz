@@ -154,7 +154,12 @@ export default function OpsContactsPage() {
         </p>
       </header>
 
-      <OpsNav locale={locale} active="contacts" labels={navLabels} />
+      <OpsNav
+        locale={locale}
+        active="contacts"
+        adminLabel={tHealth("navAdmin")}
+        labels={navLabels}
+      />
 
       <section className="mb-6 space-y-3 rounded-2xl border border-border bg-card p-5">
         <label className="block text-xs font-semibold text-muted-foreground" htmlFor="ops-token">

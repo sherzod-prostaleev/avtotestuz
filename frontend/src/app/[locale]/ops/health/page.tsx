@@ -127,6 +127,7 @@ export default function OpsHealthPage() {
       <OpsNav
         locale={locale}
         active="health"
+        adminLabel={t("navAdmin")}
         labels={{
           health: t("navHealth"),
           providers: tProviders("navProviders"),

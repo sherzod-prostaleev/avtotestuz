@@ -6,6 +6,7 @@ type OpsNavProps = {
   locale: string;
   active: OpsNavKey;
   labels: Partial<Record<OpsNavKey, string>>;
+  adminLabel?: string;
 };
 
 const ORDER: OpsNavKey[] = ["health", "providers", "contacts", "users", "payments", "audit", "limits"];
@@ -20,7 +21,7 @@ const HREF: Record<OpsNavKey, string> = {
   limits: "limits",
 };
 
-export function OpsNav({ locale, active, labels }: OpsNavProps) {
+export function OpsNav({ locale, active, labels, adminLabel }: OpsNavProps) {
   const linkClass = (key: OpsNavKey) =>
     `rounded-lg px-3 py-2 text-xs font-bold transition-colors ${
       active === key
@@ -44,6 +45,14 @@ export function OpsNav({ locale, active, labels }: OpsNavProps) {
           </Link>
         );
       })}
+      {adminLabel ? (
+        <Link
+          href={`/${locale}/admin`}
+          className="ml-auto rounded-lg px-3 py-2 text-xs font-bold text-accent hover:bg-card"
+        >
+          {adminLabel}
+        </Link>
+      ) : null}
     </nav>
   );
 }

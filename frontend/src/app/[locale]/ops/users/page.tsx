@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, RefreshCw, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsNav } from "@/components/ops/ops-nav";
+import { OpsDeprecatedBanner } from "@/components/ops/ops-deprecated-banner";
 
 type UserRow = {
   id: string;
@@ -107,6 +108,7 @@ export default function OpsUsersPage() {
       <OpsNav
         locale={locale}
         active="users"
+        adminLabel={tHealth("navAdmin")}
         labels={{
           health: tHealth("navHealth"),
           providers: tProviders("navProviders"),
@@ -116,6 +118,13 @@ export default function OpsUsersPage() {
           audit: tAudit("navAudit"),
           limits: tLimits("navLimits"),
         }}
+      />
+
+      <OpsDeprecatedBanner
+        locale={locale}
+        href="users"
+        label={t("adminHomeLink")}
+        note="DEPRECATED"
       />
 
       <div className="mb-4 space-y-3 rounded-2xl border border-border bg-card p-4">
