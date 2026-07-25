@@ -75,7 +75,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
-| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + **bilets list** network-first cache (`/api/proxy/variants`, `/api/proxy/me/variants`). Full offline exam/question sync still open. |
+| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + **bilets/categories/signs list** network-first cache. Full offline exam/question sync still open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin b2b grant landed** (mig `0033`, `/admin/v1/b2b/orgs*`, UI). Teacher dashboard / school portal still open. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | `/healthz`+`/readyz`+`GET /metrics` (U-41). **M3-5 Admin:** `/admin/v1/monitoring/{health,metrics,jobs}` + UI. Still no Prometheus/Sentry/tracing/alerting. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |

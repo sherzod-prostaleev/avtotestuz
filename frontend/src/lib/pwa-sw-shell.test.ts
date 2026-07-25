@@ -16,11 +16,13 @@ describe("PWA offline shell service worker", () => {
     expect(offline).toContain("Internet aloqasi");
   });
 
-  it("keeps push handlers and caches bilets list API thinly", () => {
+  it("keeps push handlers and caches metadata lists thinly", () => {
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain('addEventListener("notificationclick"');
-    expect(sw).toContain("BILETS_LIST_RE");
-    expect(sw).toContain("networkFirstBiletsList");
+    expect(sw).toContain("META_LIST_RE");
+    expect(sw).toContain("networkFirstMetaList");
+    expect(sw).toContain("categories");
+    expect(sw).toContain("signs");
     expect(sw).toContain('pathname.startsWith("/api/")');
     expect(sw).toContain('pathname.startsWith("/bff/")');
   });
