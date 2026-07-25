@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 )
 
 // Client is a minimal Telegram Bot API client — only the handful of methods
@@ -25,6 +26,21 @@ func NewClient(baseURL, token string, hc *http.Client) *Client {
 	return &Client{BaseURL: baseURL, Token: token, HC: hc}
 }
 
+// redactToken strips the bot token from error strings. Telegram's API puts
+// the token in the URL path (/bot<TOKEN>/method), and net/http's *url.Error
+// embeds that full URL — so an unredacted transport failure would write the
+// live bot credential into application logs (and anything that scrapes them).
+func (c *Client) redactToken(err error) error {
+	if err == nil || c.Token == "" {
+		return err
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, c.Token) {
+		return err
+	}
+	return fmt.Errorf("%s", strings.ReplaceAll(msg, c.Token, "<redacted>"))
+}
+
 func (c *Client) call(ctx context.Context, method string, payload any, out any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -33,13 +49,13 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 	url := fmt.Sprintf("%s/bot%s/%s", c.BaseURL, c.Token, method)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return err
+		return c.redactToken(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.HC.Do(req)
 	if err != nil {
-		return err
+		return c.redactToken(err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 

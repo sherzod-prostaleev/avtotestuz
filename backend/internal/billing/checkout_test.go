@@ -58,6 +58,11 @@ func TestCheckoutPendingReturnURL(t *testing.T) {
 	if got := defaultSvc.checkoutPendingReturnURL("ru"); got != "http://localhost:3000/ru/checkout/pending" {
 		t.Errorf("default base checkoutPendingReturnURL = %q", got)
 	}
+
+	// kaa is a valid API locale but has no web route — clamp to default.
+	if got := svc.checkoutPendingReturnURL("kaa"); got != "https://avtotest.uz/uz-Latn/checkout/pending" {
+		t.Errorf("kaa checkoutPendingReturnURL = %q, want uz-Latn fallback", got)
+	}
 }
 
 func TestBuildClickURL(t *testing.T) {

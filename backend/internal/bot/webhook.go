@@ -32,6 +32,15 @@ func (h *WebhookHandler) logger() *zap.Logger {
 }
 
 func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// ConstantTimeCompare returns 1 for two empty slices, so an empty
+	// Secret would authenticate any request that simply omits the header.
+	// Config validation rejects empty secrets in live modes, but the
+	// handler must be safe on its own if constructed without that gate.
+	if h.Secret == "" {
+		h.logger().Error("bot webhook: refusing request, no secret configured")
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
 	got := r.Header.Get("X-Telegram-Bot-Api-Secret-Token")
 	if subtle.ConstantTimeCompare([]byte(got), []byte(h.Secret)) != 1 {
 		w.WriteHeader(http.StatusUnauthorized)

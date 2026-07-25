@@ -41,6 +41,22 @@ func TestWebhook_RejectsMissingSecret(t *testing.T) {
 	}
 }
 
+func TestWebhook_RejectsEmptyConfiguredSecret(t *testing.T) {
+	h, fake := newTestWebhookHandler(t)
+	h.Secret = ""
+	req := httptest.NewRequest(http.MethodPost, "/telegram/webhook", strings.NewReader(`{}`))
+	rr := httptest.NewRecorder()
+
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want 401", rr.Code)
+	}
+	if fake.lastMessage() != "" {
+		t.Error("empty secret must not authenticate omitted headers")
+	}
+}
+
 func TestWebhook_RejectsWrongSecret(t *testing.T) {
 	h, _ := newTestWebhookHandler(t)
 	req := httptest.NewRequest(http.MethodPost, "/telegram/webhook", strings.NewReader(`{}`))

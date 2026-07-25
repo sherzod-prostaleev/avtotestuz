@@ -11,6 +11,7 @@ var configEnvKeys = []string{
 	"DATABASE_URL",
 	"REDIS_URL",
 	"MEDIA_BASE_URL",
+	"PUBLIC_BASE_URL",
 	"JWT_SECRET",
 	"OTP_CHANNEL",
 	"TELEGRAM_GATEWAY_TOKEN",
@@ -171,16 +172,27 @@ func TestLoadValidation(t *testing.T) {
 		{
 			name: "webhook mode requires a webhook secret",
 			env: map[string]string{
-				"TELEGRAM_BOT_MODE":  "webhook",
-				"TELEGRAM_BOT_TOKEN": "tok",
+				"TELEGRAM_BOT_MODE":     "webhook",
+				"TELEGRAM_BOT_TOKEN":    "tok",
+				"TELEGRAM_BOT_USERNAME": "AvtoTestBot",
 			},
 			wantErr: "TELEGRAM_BOT_MODE webhook requires TELEGRAM_WEBHOOK_SECRET",
 		},
 		{
-			name: "webhook mode with token and secret is valid",
+			name: "webhook mode requires a bot username",
 			env: map[string]string{
 				"TELEGRAM_BOT_MODE":       "webhook",
 				"TELEGRAM_BOT_TOKEN":      "tok",
+				"TELEGRAM_WEBHOOK_SECRET": "s3cr3t",
+			},
+			wantErr: "TELEGRAM_BOT_MODE webhook requires TELEGRAM_BOT_USERNAME",
+		},
+		{
+			name: "webhook mode with token, username and secret is valid",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE":       "webhook",
+				"TELEGRAM_BOT_TOKEN":      "tok",
+				"TELEGRAM_BOT_USERNAME":   "AvtoTestBot",
 				"TELEGRAM_WEBHOOK_SECRET": "s3cr3t",
 			},
 		},
@@ -192,10 +204,19 @@ func TestLoadValidation(t *testing.T) {
 			wantErr: "TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_TOKEN",
 		},
 		{
-			name: "longpoll mode is valid in dev",
+			name: "longpoll mode requires a bot username",
 			env: map[string]string{
 				"TELEGRAM_BOT_MODE":  "longpoll",
 				"TELEGRAM_BOT_TOKEN": "tok",
+			},
+			wantErr: "TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_USERNAME",
+		},
+		{
+			name: "longpoll mode is valid in dev",
+			env: map[string]string{
+				"TELEGRAM_BOT_MODE":     "longpoll",
+				"TELEGRAM_BOT_TOKEN":    "tok",
+				"TELEGRAM_BOT_USERNAME": "AvtoTestBot",
 			},
 		},
 		{
@@ -206,8 +227,10 @@ func TestLoadValidation(t *testing.T) {
 				"OTP_CHANNEL":                "telegram",
 				"TELEGRAM_GATEWAY_TOKEN":     "token",
 				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://avtotest.uz",
 				"TELEGRAM_BOT_MODE":          "longpoll",
 				"TELEGRAM_BOT_TOKEN":         "tok",
+				"TELEGRAM_BOT_USERNAME":      "AvtoTestBot",
 			},
 			wantErr: "TELEGRAM_BOT_MODE longpoll is not allowed when ENV=prod",
 		},
@@ -219,8 +242,10 @@ func TestLoadValidation(t *testing.T) {
 				"OTP_CHANNEL":                "telegram",
 				"TELEGRAM_GATEWAY_TOKEN":     "token",
 				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://avtotest.uz",
 				"TELEGRAM_BOT_MODE":          "webhook",
 				"TELEGRAM_BOT_TOKEN":         "tok",
+				"TELEGRAM_BOT_USERNAME":      "AvtoTestBot",
 				"TELEGRAM_WEBHOOK_SECRET":    "s3cr3t",
 			},
 		},
@@ -267,6 +292,7 @@ func TestLoadValidation(t *testing.T) {
 				"OTP_CHANNEL":                "telegram",
 				"TELEGRAM_GATEWAY_TOKEN":     "token",
 				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://staging.avtotest.uz",
 			},
 		},
 		{
@@ -280,6 +306,17 @@ func TestLoadValidation(t *testing.T) {
 			wantErr: "CLIENT_IP_ASSERTION_SECRET is required when ENV=staging",
 		},
 		{
+			name: "staging rejects localhost PUBLIC_BASE_URL",
+			env: map[string]string{
+				"ENV":                        "staging",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+			},
+			wantErr: "PUBLIC_BASE_URL must be a real public origin",
+		},
+		{
 			name: "production accepts complete real sender config",
 			env: map[string]string{
 				"ENV":                        "prod",
@@ -287,6 +324,7 @@ func TestLoadValidation(t *testing.T) {
 				"OTP_CHANNEL":                "telegram",
 				"TELEGRAM_GATEWAY_TOKEN":     "token",
 				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://avtotest.uz",
 			},
 		},
 	}

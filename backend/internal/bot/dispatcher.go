@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/billing"
@@ -113,14 +114,18 @@ func normalizeCommand(cmd string) string {
 
 func (b *Bot) handleStart(ctx context.Context, tgUserID int64) (string, error) {
 	account, err := b.Link.Q.GetTelegramAccountByTgUserID(ctx, tgUserID)
-	if err == nil {
+	switch {
+	case err == nil:
 		name := account.Username
 		if name == "" {
 			name = "do'stim"
 		}
 		return fmt.Sprintf(msgStartLinkedFmt, name), nil
+	case errors.Is(err, pgx.ErrNoRows):
+		return msgStartUnlinked, nil
+	default:
+		return "", err
 	}
-	return msgStartUnlinked, nil
 }
 
 func (b *Bot) handleLink(ctx context.Context, token string, tgUserID int64, username string) (string, error) {
@@ -159,8 +164,13 @@ func linkErrorMessage(err error) string {
 
 func (b *Bot) handleStatus(ctx context.Context, tgUserID int64) (string, error) {
 	account, err := b.Link.Q.GetTelegramAccountByTgUserID(ctx, tgUserID)
-	if err != nil {
+	switch {
+	case err == nil:
+		// linked — continue below
+	case errors.Is(err, pgx.ErrNoRows):
 		return msgStatusUnlinked, nil
+	default:
+		return "", err
 	}
 
 	active, until, err := b.Billing.Status(ctx, account.ProfileID)

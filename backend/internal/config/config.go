@@ -143,6 +143,10 @@ func (c Config) validate() error {
 		if strings.TrimSpace(c.ClientIPAssertionSecret) == "" {
 			return fmt.Errorf("CLIENT_IP_ASSERTION_SECRET is required when ENV=%s", c.Env)
 		}
+		// Payme/Click redirect here after payment; localhost would strand payers.
+		if strings.TrimSpace(c.PublicBaseURL) == "" || strings.HasPrefix(c.PublicBaseURL, "http://localhost") {
+			return fmt.Errorf("PUBLIC_BASE_URL must be a real public origin when ENV=%s", c.Env)
+		}
 	}
 	if secret := strings.TrimSpace(c.ClientIPAssertionSecret); secret != "" && len([]byte(secret)) < minClientIPAssertionSecretLen {
 		return fmt.Errorf("CLIENT_IP_ASSERTION_SECRET must be at least %d bytes", minClientIPAssertionSecretLen)
@@ -154,12 +158,18 @@ func (c Config) validate() error {
 		if strings.TrimSpace(c.TelegramBotToken) == "" {
 			return fmt.Errorf("TELEGRAM_BOT_MODE webhook requires TELEGRAM_BOT_TOKEN")
 		}
+		if strings.TrimSpace(c.TelegramBotUsername) == "" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE webhook requires TELEGRAM_BOT_USERNAME")
+		}
 		if strings.TrimSpace(c.TelegramWebhookSecret) == "" {
 			return fmt.Errorf("TELEGRAM_BOT_MODE webhook requires TELEGRAM_WEBHOOK_SECRET")
 		}
 	case "longpoll":
 		if strings.TrimSpace(c.TelegramBotToken) == "" {
 			return fmt.Errorf("TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_TOKEN")
+		}
+		if strings.TrimSpace(c.TelegramBotUsername) == "" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_USERNAME")
 		}
 		// Long-poll is a single-consumer model: Telegram hands updates to
 		// whichever getUpdates call is currently open. Running it from more

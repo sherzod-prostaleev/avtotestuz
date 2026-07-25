@@ -41,7 +41,7 @@ describe("PromoInput", () => {
     fireEvent.click(applyBtn);
 
     await waitFor(() => {
-      expect(apiClient.apiPost).toHaveBeenCalledWith("billing/promo/validate", {
+      expect(apiClient.apiPost).toHaveBeenCalledWith("billing/promo/validate?locale=uz-Latn", {
         code: "TEST20",
         tariff_code: "gentra",
       });

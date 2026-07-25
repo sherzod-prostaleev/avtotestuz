@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/i18n"
 )
 
 // BuildPaymeURL builds the base64 GET checkout URL for Payme. amountUZS is in
@@ -63,10 +64,18 @@ type CheckoutConfig struct {
 	ClickMerchantID   string
 }
 
+// webCheckoutLocales are the locale segments the Next.js app actually routes.
+// i18n.Supported also includes "kaa", but the web frontend has no /kaa tree —
+// minting /kaa/checkout/pending would 404 the payer after a successful charge.
+var webCheckoutLocales = map[string]bool{"uz-Latn": true, "uz-Cyrl": true, "ru": true}
+
 // checkoutPendingReturnURL is where Payme/Click send the user after they finish
 // on the provider side. Built from PUBLIC_BASE_URL + locale so checkout clients
 // cannot supply an open-redirect target.
 func (s Service) checkoutPendingReturnURL(locale string) string {
+	if !webCheckoutLocales[locale] {
+		locale = i18n.Default
+	}
 	return fmt.Sprintf("%s/%s/checkout/pending", s.publicBaseURL(), locale)
 }
 

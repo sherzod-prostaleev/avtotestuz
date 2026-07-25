@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -53,6 +54,23 @@ func TestClientSendMessageTransportError(t *testing.T) {
 	err := c.SendMessage(context.Background(), 42, "salom")
 	if err == nil {
 		t.Fatal("want error on a non-JSON/5xx response")
+	}
+}
+
+func TestClientSendMessageRedactsTokenOnDialError(t *testing.T) {
+	// Point at a closed listener so HC.Do fails with a *url.Error that
+	// embeds the request URL (and therefore the bot token in the path).
+	c := NewClient("http://127.0.0.1:1", "super-secret-bot-token", &http.Client{})
+	err := c.SendMessage(context.Background(), 42, "salom")
+	if err == nil {
+		t.Fatal("want dial error")
+	}
+	msg := err.Error()
+	if strings.Contains(msg, "super-secret-bot-token") {
+		t.Fatalf("token leaked into error: %q", msg)
+	}
+	if !strings.Contains(msg, "<redacted>") {
+		t.Fatalf("expected <redacted> marker in error: %q", msg)
 	}
 }
 

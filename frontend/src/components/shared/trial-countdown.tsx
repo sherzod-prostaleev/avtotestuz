@@ -9,12 +9,13 @@ interface TrialCountdownProps {
   isVip: boolean;
   validUntil?: string | null;
   /**
-   * True while the entitlement is still being fetched. `isVip`/`validUntil`
-   * default to falsy values before that fetch resolves, which used to make
-   * this panel vanish on every mount (e.g. an F5 refresh) and pop back in
-   * once the real entitlement arrived. Rendering a same-shaped placeholder
-   * here instead keeps the sidebar layout stable and avoids asserting
-   * "not VIP" before we actually know that.
+   * True while the entitlement is still being fetched. We intentionally
+   * render nothing while loading: a free user used to stay empty→empty
+   * (stable), and showing a skeleton here made that majority path flash a
+   * box that then vanished. VIP users still see the panel appear once the
+   * fetch resolves — appearing is less jarring than the F5 vanish this
+   * change originally targeted. The VIP/free *badge* in the sidebar is
+   * what reserves layout during loading.
    */
   loading?: boolean;
 }
@@ -51,20 +52,9 @@ export function TrialCountdown({ isVip, validUntil, loading = false }: TrialCoun
     return () => clearInterval(id);
   }, [validUntil]);
 
-  if (loading) {
-    return (
-      <div
-        aria-hidden="true"
-        className="animate-pulse rounded-2xl border border-border/60 bg-background/40 p-3"
-      >
-        <div className="h-2.5 w-20 rounded-full bg-border/70" />
-        <div className="mt-2 h-5 w-28 rounded bg-border/70" />
-        <div className="mt-1.5 h-2.5 w-16 rounded-full bg-border/50" />
-      </div>
-    );
-  }
-
-  if (!isVip || !validUntil) return null;
+  // Prefer free-user layout stability over reserving a VIP-only slot we
+  // usually leave empty. See prop docs above.
+  if (loading || !isVip || !validUntil) return null;
 
   if (remaining <= 0) {
     return (

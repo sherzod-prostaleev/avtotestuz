@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { apiPost } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Tag, CheckCircle2, AlertCircle } from "lucide-react";
@@ -28,6 +28,7 @@ function formatSom(n: number): string {
 
 export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
   const t = useTranslations("Premium");
+  const locale = useLocale();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidatePromoResult | null>(null);
@@ -39,10 +40,13 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await apiPost<ValidatePromoResult>("billing/promo/validate", {
-        code: trimmed,
-        tariff_code: tariffCode,
-      });
+      const res = await apiPost<ValidatePromoResult>(
+        `billing/promo/validate?locale=${encodeURIComponent(locale)}`,
+        {
+          code: trimmed,
+          tariff_code: tariffCode,
+        }
+      );
       setResult(res);
       onApplied(res);
     } catch (err: unknown) {

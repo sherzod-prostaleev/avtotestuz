@@ -26,7 +26,7 @@ const tariffs = [
 
 function mockApiGet(entitlement: { active: boolean; until: string | null }) {
   vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-    if (path === "tariffs") return tariffs as never;
+    if (path === "tariffs?locale=uz-Latn") return tariffs as never;
     if (path === "me/entitlement") return entitlement as never;
     throw new Error(`unexpected path ${path}`);
   });
@@ -82,7 +82,12 @@ describe("PremiumPage", () => {
     const buyButtons = await screen.findAllByText("Sotib olish");
     fireEvent.click(buyButtons[0]);
 
-    await waitFor(() => expect(postSpy).toHaveBeenCalledWith("me/checkout", { tariff_code: "nexia", provider: "payme" }));
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("me/checkout?locale=uz-Latn", {
+        tariff_code: "nexia",
+        provider: "payme",
+      })
+    );
     await waitFor(() => expect(window.location.href).toBe("https://checkout.paycom.uz/abc123"));
   });
 

@@ -58,7 +58,7 @@ export default function PremiumPage() {
     setLoadError(false);
     try {
       const [tariffData, entitlementData] = await Promise.all([
-        apiGet<TariffDTO[]>("tariffs"),
+        apiGet<TariffDTO[]>(`tariffs?locale=${encodeURIComponent(locale)}`),
         apiGet<EntitlementDTO>("me/entitlement"),
       ]);
       setTariffs(tariffData);
@@ -68,7 +68,7 @@ export default function PremiumPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void load();
@@ -79,11 +79,14 @@ export default function PremiumPage() {
     setBuyingCode(code);
     const promo = promoMap[code];
     try {
-      const result = await apiPost<CheckoutResult>("me/checkout", {
-        tariff_code: code,
-        provider: provider,
-        promo_code: promo?.code || undefined,
-      });
+      const result = await apiPost<CheckoutResult>(
+        `me/checkout?locale=${encodeURIComponent(locale)}`,
+        {
+          tariff_code: code,
+          provider: provider,
+          promo_code: promo?.code || undefined,
+        }
+      );
       if (result.free) {
         router.push(`/${locale}/checkout/success?free=true`);
       } else if (result.checkout_url) {

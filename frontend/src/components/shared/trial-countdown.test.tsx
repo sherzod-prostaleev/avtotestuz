@@ -33,6 +33,17 @@ describe("TrialCountdown", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  // Free users stay empty→empty across the entitlement fetch; a loading
+  // skeleton here would flash a box that then vanishes for the majority path.
+  it("renders nothing while entitlement is still loading", () => {
+    const { container } = renderCountdown({
+      isVip: false,
+      validUntil: null,
+      loading: true,
+    });
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("renders nothing when the entitlement has no end date", () => {
     const { container } = renderCountdown({ isVip: true, validUntil: null });
     expect(container).toBeEmptyDOMElement();
