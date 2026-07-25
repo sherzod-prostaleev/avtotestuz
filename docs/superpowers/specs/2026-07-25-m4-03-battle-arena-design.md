@@ -4,8 +4,19 @@ Sana: 2026-07-25 · Milestone: M4 (Growth) · Plan: M4-03 · Qatlam: backend
 Manba: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` §3 (M4-03 T1–T4), `AVTOTEST-MASTER-PROMPT.txt` (Battle Arena PvP)
 
 > Bu hujjat **dizayn**, implementatsiya emas. Hech qanday WebSocket/matchmaking kodi bu to'lqinda yozilmaydi.
-> Til: texnik qism ingliz tilida (kod izohlari va `plans/2026-07-25-m4-01-leaderboard.md` bilan bir xil), §0 va §12 —
-> qaror talab qiladigan qismlar — o'zbekcha, chunki ular Sherzodning javobini kutadi.
+> Til: texnik qism ingliz tilida (kod izohlari va `plans/2026-07-25-m4-01-leaderboard.md` bilan bir xil); §12 —
+> mahsulot qarorlari.
+
+### Qulflangan mahsulot qarorlari (2026-07-25, Sherzod)
+
+| # | Qaror | Qiymat |
+|---|--------|--------|
+| Q1 | Kim o'ynaydi | Bepul **3 duel/kun**, VIP **cheksiz** (`arena_daily_matches` 3/-1) |
+| Q2 | Match uzunligi | **10 savol × 15 soniya** (rasmli savollar uchun 15s saqlanadi; 10 ta savol ≈ 2.5–3 daq) |
+| Q3 | FSRS / mastery | **Faqat xato → `learning.Again`** (mistake-bank). To'g'ri javobda RecordReview **yo'q**. Streak: ha |
+| Q6 | Disconnect | **20s grace → forfeit = mag'lubiyat**; ataylab chiqish — darhol forfeit; ikkalasi uzilsa — durang |
+
+Q4 (leaderboard'ga emas), Q5 (durang OK), Q8–Q10 tavsiyalar o'z kuchida. Q7/Q11 — hali deploy/UI bilan bog'liq, sxemani to'xtatmaydi.
 
 ---
 
@@ -342,7 +353,7 @@ Checked at `queue.join`, not at connect (a socket may idle):
 
 1. Not already in a live match (`arena:match:<profileID>` absent) → else `already_in_match`.
 2. Not already queued → else `already_queued`.
-3. Daily match budget from `limit_config` key `arena_daily_matches` (recommended `free_value=3, vip_value=-1`;
+3. Daily match budget from `limit_config` key `arena_daily_matches` (**locked** `free_value=3, vip_value=-1`;
    `-1` is this schema's existing "unlimited" convention, see migration `0003`). Counted from
    `arena_match_player` rows joined today (UTC day boundary, matching `progress.todayUTC()` and
    `leaderboard.PeriodStart`). Exceeded → `daily_limit_reached`, and the client routes to `/premium` the same way
@@ -382,7 +393,7 @@ notice, a reconnect, a timer firing, a shutdown signal — arrives on that gorou
   stated in the package doc comment, because it is the kind of thing a later contributor silently breaks by adding
   "just one" accessor method.)
 - The clock is injected: `Now func() time.Time` (the exact convention `session.Service` already uses) plus a small
-  timer interface, so a full 7-question match can be tested in microseconds with zero `time.Sleep`. Any test that
+  timer interface, so a full 10-question match can be tested in microseconds with zero `time.Sleep`. Any test that
   needs real sleeps to pass will be flaky in CI forever; this is the design decision that prevents that.
 - Timers are per-match `time.Timer`s, not a global tick loop. At hundreds of concurrent matches this is cheaper and
   much simpler to reason about; a global 100ms tick loop would also make every match's timing quantized to the tick.
@@ -390,7 +401,7 @@ notice, a reconnect, a timer firing, a shutdown signal — arrives on that gorou
 ### 4.2 Constants (Go, not `limit_config`)
 
 ```go
-ArenaQuestionCount     = 7
+ArenaQuestionCount     = 10
 ArenaQuestionTimeSec   = 15
 ArenaCountdownMs       = 3000
 ArenaRevealMs          = 2500
@@ -405,10 +416,12 @@ These live in `arena/rules.go` as constants, **not** in `limit_config`. `limit_c
 free/VIP *limits* table (`free_value`, `vip_value`) — a question count has no free/VIP dimension, and forcing it in
 would repeat the mistake migration `0018`'s comment describes (a seeded row that nothing reads, or a constant that
 silently wins over the row). Only `arena_daily_matches` is genuinely free/VIP-shaped, so only that goes in
-`limit_config`. Match length is Q2 in §12.
+`limit_config`. Match length is **locked** (Q2).
 
-7×15s ≈ 2 minutes end to end including countdown and reveals. Rationale: the platform already has a 20-question /
-25-minute exam and a Grand Mock; Arena's job is retention through a short, repeatable loop, not a second exam.
+10×15s ≈ 2.5 minutes of answer windows; with countdown/reveals typically ~3 minutes wall-clock (less when both
+answer early). Rationale: 10 questions is more decisive than 7; **per-question time stays 15s** rather than being
+shortened to "fit" — many bank items are image/diagram questions, and stealing seconds would punish careful reading.
+Still far shorter than the 20-question / 25-minute exam; Arena remains a repeatable retention loop, not a second exam.
 
 ### 4.3 Question selection
 
@@ -448,25 +461,30 @@ answers; then by lower total response time; then it is a genuine `draw`. Whether
 trigger a sudden-death question is Q5 in §12 — the schema supports both (`outcome` CHECK includes `'draw'`,
 `arena_match.question_ids` is an array so an 8th question can be appended).
 
-### 4.5 Disconnect, reconnect, forfeit
+### 4.5 Disconnect, reconnect, forfeit — **LOCKED (Q6)**
+
+The binding rule: **disconnecting must never be the optimal move when losing.** Everything below follows from that.
 
 - **On disconnect** the match does not pause. The server clock keeps running; unanswered questions score 0. The
-  opponent gets `opponent.status{state:"disconnected"}` — they must not be left staring at a frozen screen, which is
-  indistinguishable from the *server* being broken.
+  opponent gets `opponent.status{state:"disconnected"}` — they must not be left staring at a frozen screen (that is
+  indistinguishable from the *server* being broken).
 - **Reconnect** = mint a new ticket, connect, send `match.rejoin{match_id}`. The server replies `match.state` with a
   full snapshot: current index, `deadline_ms`, both scores, and the already-revealed per-question results (never the
   active question's answer key). Reconnect is validated against `arena:match:<profileID>`, so a client cannot rejoin
-  a match it is not a player in.
-- **Grace `ArenaReconnectGraceSec = 20`.** If the player is not back within 20s *and* questions remain, the match ends
-  as a forfeit: `arena_match.end_reason = 'forfeit'`, opponent `outcome='won'`, quitter `outcome='lost'`. Forfeits
-  must count as losses in M4-04's rating, otherwise rage-quitting becomes the optimal strategy when losing — that is
-  a hand-off requirement to M4-04, recorded here so it is not rediscovered later.
+  a match it is not a player in. On resume the **remaining** question timer continues (not reset) — resetting would
+  reward disconnecting mid-question.
+- **Grace `ArenaReconnectGraceSec = 20`.** Mobile networks drop briefly; 20s is enough to recover without making the
+  opponent wait an eternity on a ~3-minute duel. If the player is not back within 20s *and* questions remain, the
+  match ends as a forfeit: `end_reason='forfeit'`, opponent `won`, quitter `lost`. Forfeits **must** count as losses
+  in M4-04 rating (hand-off requirement).
+- **Intentional leave** (`match.leave` or equivalent UI): **immediate** forfeit — no 20s grace. Grace exists for
+  involuntary drops, not for "I am losing, wait out the timer".
 - If the disconnect happens after the last answer, the match simply finishes normally.
-- **Both disconnected** → `end_reason='both_disconnected'`, both `outcome='draw'`, no rating change (M4-04).
+- **Both disconnected** → `end_reason='both_disconnected'`, both `outcome='draw'`, no rating change — punishing a
+  shared network failure as a loss for either side would be wrong.
 - `finish()` is guarded by a state check and is idempotent — the same discipline as
-  `session.finishInternal`'s `if row.Status != "in_progress"` early return, which exists precisely because two paths
-  (3rd-mistake stop and explicit finish) can both reach it. Arena has *four* such paths (last question, forfeit,
-  both-disconnected, shutdown), so the guard matters more, not less.
+  `session.finishInternal`'s `if row.Status != "in_progress"` early return. Arena has *four* such paths (last question,
+  forfeit, both-disconnected, shutdown), so the guard matters more, not less.
 
 ### 4.6 Persistence
 
@@ -598,7 +616,7 @@ Because arena answers never touch `session_answer`, they are invisible to both `
 (Q4). The positive case for coupling — "duels should raise your weekly rank" — is better served by M4-04's rating,
 which is the metric that actually means "good at duels".
 
-### 6.2 FSRS / mistake bank / mastery — and the Grand Mock gate
+### 6.2 FSRS / mistake bank / mastery — **LOCKED (Q3)**
 
 `learning.RecordReview` writes `question_memory` **and** `category_mastery`. That reaches further than it looks:
 
@@ -607,24 +625,32 @@ which is the metric that actually means "good at duels".
 - `category_mastery` feeds `learning.Stats().ReadinessPct`, which is the **Grand Mock mastery gate** (`≥85%`).
 - `question_memory.lapses > 0 AND due_at <= now()` is the **mistake bank** (`ListMistakeBankQuestionIDs`).
 
-So if arena answers call `RecordReview`, a 2-minute duel becomes a way to advance the Grand Mock volume floor
-(~44 duels ≈ 308 distinct questions), while free-tier practice is capped at `daily_practice_questions`. Grand Mock
-is VIP-gated so the practical exposure is limited, but migration `0018` exists *specifically* because that gate was
-gameable once already — introducing a second route into it without deciding on purpose would be repeating that
-mistake. There is also a quality argument: FSRS treats a 15-second rushed answer identically to a considered one, so
-duel answers arguably pollute scheduling.
+So if arena answers call full `RecordReview(Good)` on wins, a 3-minute duel becomes a way to farm both Grand Mock
+gates while free-tier practice is capped at `daily_practice_questions`. Migration `0018` exists *specifically*
+because that gate was gameable once already.
 
-Options (Q3): (a) no learning-engine integration at all — arena is pure competition; (b) mistake bank only — feed
-`learning.Again` on wrong answers so duels surface weak spots, but never credit `Good`, so nothing can be farmed
-upward; (c) full `RecordReview` both ways. **Recommendation: (b)** — it is the only option that is strictly
-beneficial to the learner and cannot inflate any gate, and it needs no new query (`RecordReview` with
-`learning.Again` is one call).
+**Locked policy (most correct pedagogically + anti-farm):**
+
+| Event | Call | Why |
+|-------|------|-----|
+| Correct duel answer | **nothing** | A 15s rushed hit must not advance FSRS intervals or readiness. Wins never inflate Grand Mock. |
+| Wrong duel answer | `RecordReview(..., learning.Again)` | Surfaces the weak spot in the existing mistake bank; Again cannot raise readiness. |
+| Streak | `progress.RecordActivity` **yes** | A duel is real activity; killing streak for competing would punish engagement. |
+
+Honest caveat on volume floor: `Again` may **create** a `question_memory` row, so `CountStudiedQuestions` can bump by 1
+per *new* wrong question. That is acceptable and intentional — the player genuinely encountered the item under
+pressure. What we forbid is farming volume/mastery by *winning* short duels. Farming 308 distinct wrongs via Arena
+to unlock Grand Mock is possible in theory and self-punishing in practice (you fill your mistake bank and lower
+mastery). Do **not** invent a parallel mistake table just to avoid that bump; reuse `Again`.
+
+Rejected alternatives: (a) zero learning integration — wastes pedagogy; (c) full Good/Again both ways — reopens the
+Grand Mock exploit route.
 
 ### 6.3 Streak (`progress.RecordActivity`)
 
-Independent of `exam_session`, so arena can call it. Should a duel keep a streak alive? Probably yes (it is genuine
-activity and streak protection is a retention feature), but the daily goal is measured in answered questions and a
-duel is only 7 — folded into Q3.
+Independent of `exam_session`, so arena can call it. **Locked: yes** — keep the streak alive. Daily goal is measured
+in answered questions; a 10-question duel is meaningful activity, not a loophole around practice limits
+(`CountPracticeAnswersToday` already filters `mode='practice'` only — §6.4).
 
 ### 6.4 Practice daily limit
 
@@ -807,24 +833,24 @@ tiers, and the two requirements recorded above — forfeits count as losses (§4
 
 ---
 
-## 12. Ochiq savollar — Sherzod qarorini kutadi
+## 12. Mahsulot qarorlari
 
-Kod yozishdan oldin **Q1, Q2, Q3, Q6** ga javob majburiy (sxema/scoring ularga bog'liq). Qolganlari T3/T4 davomida
-javob olsa ham bo'ladi, lekin Q11 deploy rejasiga ta'sir qiladi.
+**Q1, Q2, Q3, Q6 — 2026-07-25 da QULFLANDI** (Sherzod). Kod yozish shu qiymatlar bilan boshlanadi.
+Qolganlari (Q7, Q11) T2/T4 hajmiga ta'sir qiladi, lekin sxema/scoring'ni to'xtatmaydi.
 
-| # | Savol | Tavsiya | Nimaga ta'sir qiladi |
+| # | Savol | Qaror | Holat |
 |---|---|---|---|
-| **Q1** | Arena kimga ochiq: faqat VIP, bepul lekin kunlik limit bilan, yoki to'liq bepul? | **Bepul, kuniga 3 ta duel; VIP — cheksiz** (`arena_daily_matches` 3/-1). Bepul foydalanuvchi mahsulotni ta'msiz sinab ko'radi, limit esa upsell yaratadi — `/premium`ga yo'l allaqachon `402 vip_required` orqali ishlaydi. | §3.5, migratsiya `0020`, T2 |
-| **Q2** | Duel uzunligi va tempi: 7×15s (~2 daq), 10×20s (~3.5 daq), yoki 5×10s (~1 daq)? | **7×15s.** Platformada 20 savol/25 daqiqalik imtihon allaqachon bor; Arena — qisqa, qayta-qayta o'ynaladigan retention halqasi. | §4.2, scoring balansi |
-| **Q3** | Arena javoblari o'quv dvigateliga (FSRS/xato-banki/mastery) ta'sir qilishi kerakmi? Streak'ni saqlab qoladimi? | **Faqat xato-banki:** noto'g'ri javobda `learning.Again`, to'g'ri javobda **hech narsa**. Bu duelni foydali qiladi, lekin hech qanday darvozani (Grand Mock 25%/85%) oshirib bo'lmaydi. Streak: ha. | §6.2/6.3 — **Grand Mock eligibility'ga bevosita ta'sir qiladi** |
-| **Q4** | Arena ochkolari leaderboard'ga (M4-01) qo'shilsinmi? | **Yo'q.** Duelda kim kuchli — bu M4-04 reytingi; leaderboard "bu hafta nechta to'g'ri javob" degan boshqa o'lchov. Ajratilgan jadvallar buni bepul ta'minlaydi. | §6.1 |
-| **Q5** | Durang (draw) qabul qilinadimi yoki qo'shimcha "sudden-death" savol berilsinmi? | **Durang qabul qilinadi** (M4-03), sudden-death M4-04'da reyting bilan birga ko'rib chiqiladi. Sxema ikkalasini ham qo'llaydi. | §4.4 |
-| **Q6** | Uzilish siyosati: 20s'dan keyin forfeit (mag'lubiyat), yoki match nol ochko bilan tugaydi, yoki match bekor qilinadi? | **20s forfeit = mag'lubiyat.** Aks holda yutqizayotgan o'yinchi uchun eng yaxshi strategiya — internetni o'chirish. | §4.5, `end_reason` CHECK, M4-04 reytingi |
-| **Q7** | "Do'stni chaqirish" (shaxsiy match kod bilan) — M4-03'da transport darajasida quriladimi, yoki M4-05'ga qoldiriladimi? | Roadmap uni M4-05 (UI)ga qo'ygan, **lekin transport qo'llab-quvvatlashi M4-03'da bo'lishi kerak** — keyin qo'shish matchmaking'ni qayta yozishni talab qiladi. Tavsiya: `arena:invite:<code>` kalitini hozir belgilab, T2'da **kichik** qo'shimcha task sifatida qurish (~yarim task). | §3, T2 hajmi |
-| **Q8** | M4-04'dan oldin reyting ko'rsatilsinmi (masalan "1000" boshlang'ich raqam)? | **Yo'q** — ma'nosiz raqam ko'rsatish keyin ELO kelganda "reytingim o'zgarib ketdi" degan ishonchsizlik yaratadi. M4-05 UI reyting joyini bo'sh qoldiradi. | §3.4, M4-05 UI |
-| **Q9** | Server restart (deploy) match o'rtasida bo'lsa: bekor (hisobga olinmaydi), durang, yoki jonli qolgan o'yinchi yutadi? | **Bekor** (`end_reason='server_shutdown'`, `outcome=NULL`, reyting o'zgarmaydi) — deploy foydalanuvchi xatosi emas, uni mag'lubiyat bilan jazolash noto'g'ri. | §8.4, T4 |
-| **Q10** | Odam topilmasa (45s) bot raqib taklif qilinsinmi? | Launch'da o'yinchi hovuzi kichik bo'ladi, ya'ni bu retention uchun **muhim** — lekin bot'ni odam sifatida ko'rsatish ishonch masalasi. Tavsiya: **oshkora bot** ("Mashq roboti", reytingsiz), M4-05 bilan birga, M4-03'da emas. | Kelajakdagi Plan; T2 timeout xatti-harakati |
-| **Q11** | Production launch'da API bir instansiyada ishlaydimi yoki bir nechtasida? | Agar bitta — `LocalTransport` yetarli va `RedisTransport` M7'ga qoladi. Agar bir nechta — `RedisTransport` T4'ga kiradi (+~1 task). Repozitoriyada hozircha **hech qanday deploy manifesti yo'q**, shuning uchun bu javobsiz savol. | §8.3, T4 hajmi |
+| **Q1** | Arena kimga ochiq? | **Bepul 3 duel/kun, VIP cheksiz** (`arena_daily_matches` 3/-1) | **LOCKED** |
+| **Q2** | Duel uzunligi? | **10 savol × 15s** (~2.5–3 daq). 15s qisqartirilmadi — rasmli savollar uchun. | **LOCKED** |
+| **Q3** | FSRS / xato-banki / streak? | **Xato → `Again`**; to'g'ri → hech narsa; streak → ha. To'g'ri bilan Grand Mock farm yo'q. | **LOCKED** |
+| **Q4** | Leaderboard'ga qo'shilsinmi? | **Yo'q** (M4-04 reytingi alohida) | Tavsiya qabul (default) |
+| **Q5** | Durang? | **Ha**, sudden-death keyinroq | Tavsiya qabul (default) |
+| **Q6** | Uzilish? | **20s grace → forfeit=loss**; ataylab leave → darhol forfeit; ikkalasi → durang | **LOCKED** |
+| **Q7** | Do'st invite transporti T2'da? | Tavsiya: ha, kichik T2.6 | Hali ochiq (hajm) |
+| **Q8** | Fake reyting ko'rsatilsinmi? | **Yo'q** | Tavsiya qabul |
+| **Q9** | Deploy o'rtasida match? | **Bekor** (`server_shutdown`) | Tavsiya qabul |
+| **Q10** | Bot raqib? | M4-05, oshkora bot | Keyinga |
+| **Q11** | Multi-instance launch? | Deploy manifesti yo'q — javob kerak | Ochiq (T4 hajmi) |
 
 ---
 

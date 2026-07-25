@@ -1,12 +1,14 @@
 # M4-03 Battle Arena — Realtime Infra Implementation Plan (SKELETON)
 
-> **STATUS: NOT READY TO EXECUTE.** This is a task skeleton, not a runnable plan. Four open questions in the spec
-> (§12 Q1, Q2, Q3, Q6) change the schema and the scoring rules, so writing full per-step detail now would guarantee
-> rework. Get those four answers, then expand this skeleton into a full plan with
-> `superpowers:writing-plans` (see `plans/2026-07-25-m4-01-leaderboard.md` for the expected depth).
+> **STATUS: PRODUCT DECISIONS LOCKED (Q1–Q3, Q6).** Spec §12 is no longer blocking those four. Expand this
+> skeleton into a full TDD plan with `superpowers:writing-plans` before coding T1. Remaining soft opens: Q7
+> (friend-invite transport in T2?), Q11 (multi-instance → RedisTransport in T4?).
 
 **Spec:** `docs/superpowers/specs/2026-07-25-m4-03-battle-arena-design.md` — read it fully first; every task below
 cites a section rather than restating it.
+
+**Locked constants:** `ArenaQuestionCount=10`, `ArenaQuestionTimeSec=15`, `ArenaReconnectGraceSec=20`,
+`arena_daily_matches` free=3 / vip=-1. Learning: wrong→`Again`, correct→noop, streak→yes.
 
 **Goal:** Server-authoritative live 1v1 duel infrastructure: WebSocket transport with ticket auth, Redis matchmaking,
 and a match state machine with persistence. No rating/medals (M4-04), no UI (M4-05).
