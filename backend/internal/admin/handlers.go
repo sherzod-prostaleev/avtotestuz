@@ -153,13 +153,18 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Use(RequirePermission("users.read"))
 			br.Get("/b2b/orgs", h.listB2BOrgs)
 			br.Get("/b2b/orgs/{id}", h.getB2BOrg)
+			br.Get("/b2b/orgs/{id}/stats", h.getB2BOrgStats)
+			br.Get("/b2b/orgs/{id}/export.csv", h.exportB2BOrgCSV)
 		})
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("users.entitlements.grant"))
 			br.Post("/b2b/orgs", h.createB2BOrg)
 			br.Post("/b2b/orgs/{id}/members", h.addB2BMember)
+			br.Post("/b2b/orgs/{id}/invites", h.inviteB2BMember)
 			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
 			br.Post("/b2b/orgs/{id}/members/{profileID}/grant", h.grantB2BMember)
+			br.Delete("/b2b/orgs/{id}/members/{profileID}", h.removeB2BMember)
+			br.Patch("/b2b/orgs/{id}/members/{profileID}", h.changeB2BMemberRole)
 		})
 	})
 }

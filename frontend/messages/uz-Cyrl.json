@@ -1339,7 +1339,7 @@
   "AdminB2B": {
     "title": "B2B ташкилотлар",
     "subtitle": "Org / аъзо / лицензия + entitlement.source=b2b grant (U-40).",
-    "note": "Ўқитувчи dashboard: /{locale}/teacher (owner/teacher read-only). Grant ҳали admin.",
+    "note": "Ўқитувчи: /{locale}/teacher (invite, роллар, stats, CSV). Grant/лицензия Admin.",
     "create": "Яратиш",
     "namePlaceholder": "Автомактаб номи",
     "loading": "Юкланмоқда…",
@@ -1358,7 +1358,19 @@
     "errorCreate": "Яратиб бўлмади.",
     "errorGrant": "Grant амалга ошмади.",
     "errorForbiddenRead": "users.read рухсати йўқ.",
-    "errorForbiddenGrant": "users.entitlements.grant рухсати йўқ."
+    "errorForbiddenGrant": "users.entitlements.grant рухсати йўқ.",
+    "phonePlaceholder": "+998…",
+    "invite": "Телефон билан invite",
+    "remove": "Олиб ташлаш",
+    "exportCsv": "CSV юклаш",
+    "statMembers": "Аъзолар",
+    "statSeats": "Seat",
+    "statReadiness": "Readiness",
+    "statSessions7d": "Сессия 7к",
+    "statPending": "Pending",
+    "errorRemove": "Олиб ташлаб бўлмади.",
+    "errorRole": "Рол ўзгармади.",
+    "errorExport": "CSV юклаб бўлмади."
   },
   "AdminRecon": {
     "title": "Payment recon",
@@ -1423,8 +1435,8 @@
   },
   "Teacher": {
     "title": "Ўқитувчи / B2B",
-    "subtitle": "Org owner/teacher учун аъзолар ва seat кўриниши (M5 stub).",
-    "note": "Grant/лицензия фақат Admin орқали. Бу ерда ўқиш.",
+    "subtitle": "Org owner/teacher: аъзолар, invite, роллар, stats, CSV.",
+    "note": "VIP grant/лицензия ҳали Admin. Бу ерда invite ва аъзоларни бошқариш мумкин.",
     "back": "Профилга",
     "loading": "Юкланмоқда…",
     "empty": "Сиз owner/teacher эмассиз — org йўқ.",
@@ -1435,7 +1447,25 @@
     "noLicenses": "License йўқ.",
     "profileCardTitle": "B2B / ўқитувчи",
     "profileCardBody": "{count} та ташкилот",
-    "profileCardCta": "Dashboard очиш"
+    "profileCardCta": "Dashboard очиш",
+    "phonePlaceholder": "+998…",
+    "invite": "Invite / қўшиш",
+    "remove": "Олиб ташлаш",
+    "exportCsv": "CSV юклаш",
+    "pendingInvites": "Кутилаётган invite",
+    "statMembers": "Аъзолар",
+    "statSeats": "Seat ишлатилган",
+    "statReadiness": "Ўртача readiness",
+    "statActive7d": "Фаол 7к",
+    "statSessions7d": "Сессия 7к",
+    "statPending": "Pending invite",
+    "errorInvite": "Invite амалга ошмади.",
+    "errorRemove": "Олиб ташлаб бўлмади.",
+    "errorRole": "Рол ўзгармади.",
+    "errorExport": "CSV юклаб бўлмади.",
+    "errorAccept": "Invite қабул қилинмади.",
+    "invitesCardTitle": "Мактаб invite",
+    "acceptInvite": "Қабул қилиш"
   },
   "MaintenanceBanner": {
     "message": "Техник ишлар: баъзи функциялар вақтинча чекланган бўлиши мумкин."

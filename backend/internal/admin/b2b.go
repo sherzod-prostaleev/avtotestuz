@@ -44,9 +44,10 @@ type B2BLicenseRow struct {
 
 // B2BOrgDetail bundles org + members + licenses.
 type B2BOrgDetail struct {
-	Org      B2BOrgRow       `json:"org"`
-	Members  []B2BMemberRow  `json:"members"`
-	Licenses []B2BLicenseRow `json:"licenses"`
+	Org       B2BOrgRow       `json:"org"`
+	Members   []B2BMemberRow  `json:"members"`
+	Licenses  []B2BLicenseRow `json:"licenses"`
+	SeatsUsed int64           `json:"seats_used"`
 }
 
 func (s Store) ListB2BOrgs(ctx context.Context) ([]B2BOrgRow, error) {
@@ -139,6 +140,11 @@ func (s Store) GetB2BOrgDetail(ctx context.Context, orgID uuid.UUID) (B2BOrgDeta
 			out.Org.Seats += int64(l.Seats)
 		}
 	}
+	used, err := s.CountActiveB2BGrants(ctx, orgID)
+	if err != nil {
+		return out, err
+	}
+	out.SeatsUsed = used
 	return out, lrows.Err()
 }
 

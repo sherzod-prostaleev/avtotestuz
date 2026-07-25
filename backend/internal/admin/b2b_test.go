@@ -109,8 +109,54 @@ func TestAdminB2B(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &detailEnv); err != nil {
 			t.Fatal(err)
 		}
-		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 {
+		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 || detailEnv.Data.SeatsUsed < 1 {
 			t.Fatalf("detail=%+v", detailEnv.Data)
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/stats", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("stats status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/export.csv", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("csv status=%d", w.Code)
+		}
+
+		req = httptest.NewRequest(http.MethodPatch,
+			"/admin/v1/b2b/orgs/"+orgID.String()+"/members/"+profileID.String(),
+			bytes.NewBufferString(`{"role":"teacher"}`))
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("role status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/invites",
+			bytes.NewBufferString(`{"phone":"+998909998877","role":"student"}`))
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("invite status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodDelete,
+			"/admin/v1/b2b/orgs/"+orgID.String()+"/members/"+profileID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("remove status=%d body=%s", w.Code, w.Body.String())
 		}
 	})
 }

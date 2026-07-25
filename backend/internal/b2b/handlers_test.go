@@ -1,10 +1,12 @@
 package b2b
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -32,6 +34,12 @@ func TestTeacherPortal(t *testing.T) {
 		t.Fatal(err)
 	}
 	outsider, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180003", Name: "Out"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingPhone := "+998901180099"
+	// invitee profile created later for accept flow
+	invitee, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180004", Name: "Invitee"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +74,10 @@ func TestTeacherPortal(t *testing.T) {
 		t.Fatal(err)
 	}
 	studentTok, err := auth.IssueAccess(secret, student.ID, "user", time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	inviteeTok, err := auth.IssueAccess(secret, invitee.ID, "user", time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,6 +142,154 @@ func TestTeacherPortal(t *testing.T) {
 		}
 		if len(listEnv.Data) != 0 {
 			t.Fatalf("student should see no teacher orgs, got %+v", listEnv.Data)
+		}
+	})
+
+	t.Run("invite enroll existing + pending phone", func(t *testing.T) {
+		// enroll existing invitee immediately
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/me/teacher/orgs/"+orgID.String()+"/invites",
+			bytes.NewBufferString(`{"phone":"+998901180004","role":"student"}`))
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("enroll status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data InviteResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.Status != "enrolled" || env.Data.Member == nil {
+			t.Fatalf("want enrolled, got %+v", env.Data)
+		}
+
+		// pending for unknown phone
+		req = httptest.NewRequest(http.MethodPost, "/api/v1/me/teacher/orgs/"+orgID.String()+"/invites",
+			bytes.NewBufferString(`{"phone":"`+pendingPhone+`","role":"student"}`))
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("pending status=%d body=%s", w.Code, w.Body.String())
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.Status != "pending" || env.Data.Invite == nil || env.Data.Invite.Token == "" {
+			t.Fatalf("want pending invite, got %+v", env.Data)
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/api/v1/me/teacher/orgs/"+orgID.String()+"/invites", nil)
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("list invites status=%d", w.Code)
+		}
+	})
+
+	t.Run("accept invite by matching phone", func(t *testing.T) {
+		// create fresh org invite for invitee phone after removing them
+		if _, err := pool.Exec(ctx, `DELETE FROM b2b_org_member WHERE org_id=$1 AND profile_id=$2`, orgID, invitee.ID); err != nil {
+			t.Fatal(err)
+		}
+		token, err := newInviteToken()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO b2b_invite (token, org_id, phone, role, expires_at, created_by)
+			VALUES ($1, $2, $3, 'student', now() + interval '7 days', $4)`,
+			token, orgID, invitee.Phone, owner.ID); err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/me/invites", nil)
+		req.Header.Set("Authorization", "Bearer "+inviteeTok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("my invites status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodPost, "/api/v1/me/invites/accept",
+			bytes.NewBufferString(`{"token":"`+token+`"}`))
+		req.Header.Set("Authorization", "Bearer "+inviteeTok)
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("accept status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("change role and remove member", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPatch,
+			"/api/v1/me/teacher/orgs/"+orgID.String()+"/members/"+student.ID.String(),
+			bytes.NewBufferString(`{"role":"teacher"}`))
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("change role status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		req = httptest.NewRequest(http.MethodDelete,
+			"/api/v1/me/teacher/orgs/"+orgID.String()+"/members/"+invitee.ID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("remove status=%d body=%s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("stats and csv", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/me/teacher/orgs/"+orgID.String()+"/stats", nil)
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("stats status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data OrgStats `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.MembersTotal < 2 || env.Data.ActiveSeats != 25 {
+			t.Fatalf("stats=%+v", env.Data)
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/api/v1/me/teacher/orgs/"+orgID.String()+"/export.csv", nil)
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("csv status=%d body=%s", w.Code, w.Body.String())
+		}
+		if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/csv") {
+			t.Fatalf("content-type=%s", ct)
+		}
+		if !strings.Contains(w.Body.String(), "profile_id,phone_masked") {
+			t.Fatalf("csv body=%s", w.Body.String())
+		}
+	})
+
+	t.Run("cannot remove last owner", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete,
+			"/api/v1/me/teacher/orgs/"+orgID.String()+"/members/"+owner.ID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+ownerTok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusConflict {
+			t.Fatalf("last owner status=%d want 409 body=%s", w.Code, w.Body.String())
 		}
 	})
 }

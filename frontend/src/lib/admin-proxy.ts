@@ -78,6 +78,19 @@ export async function adminProxy(
       }
       return res;
     }
+    const contentType = backendRes.headers.get("content-type") ?? "";
+    if (
+      contentType.includes("text/csv") ||
+      contentType.includes("application/octet-stream") ||
+      contentType.includes("text/plain")
+    ) {
+      const buf = await backendRes.arrayBuffer();
+      const res = new NextResponse(buf, { status: backendRes.status });
+      res.headers.set("Content-Type", contentType);
+      const cd = backendRes.headers.get("content-disposition");
+      if (cd) res.headers.set("Content-Disposition", cd);
+      return res;
+    }
     const data = await readBackendJson(backendRes);
     return NextResponse.json(data, { status: backendRes.status });
   } catch {

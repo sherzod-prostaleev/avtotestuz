@@ -150,6 +150,22 @@ async function handle(request: Request, context: { params: { path: string[] } })
   }
 
   let data: unknown;
+  const contentType = backendRes.headers.get("content-type") ?? "";
+  if (
+    contentType.includes("text/csv") ||
+    contentType.includes("application/octet-stream") ||
+    contentType.includes("text/plain")
+  ) {
+    const buf = await backendRes.arrayBuffer();
+    const response = new NextResponse(buf, { status: backendRes.status });
+    response.headers.set("Content-Type", contentType);
+    const cd = backendRes.headers.get("content-disposition");
+    if (cd) response.headers.set("Content-Disposition", cd);
+    if (newTokens) {
+      setAuthCookies(response, newTokens);
+    }
+    return response;
+  }
   try {
     data = await readBackendJson(backendRes);
   } catch {

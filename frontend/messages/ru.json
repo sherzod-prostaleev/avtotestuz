@@ -1339,7 +1339,7 @@
   "AdminB2B": {
     "title": "B2B организации",
     "subtitle": "Org / участник / лицензия + grant entitlement.source=b2b (U-40).",
-    "note": "Teacher dashboard: /{locale}/teacher (owner/teacher read-only). Grant всё ещё в Admin.",
+    "note": "Учитель: /{locale}/teacher (invite, роли, stats, CSV). Grant/лицензии — Admin.",
     "create": "Создать",
     "namePlaceholder": "Название автошколы",
     "loading": "Загрузка…",
@@ -1358,7 +1358,19 @@
     "errorCreate": "Не удалось создать.",
     "errorGrant": "Grant не выполнен.",
     "errorForbiddenRead": "Нет права users.read.",
-    "errorForbiddenGrant": "Нет права users.entitlements.grant."
+    "errorForbiddenGrant": "Нет права users.entitlements.grant.",
+    "phonePlaceholder": "+998…",
+    "invite": "Invite по телефону",
+    "remove": "Удалить",
+    "exportCsv": "Скачать CSV",
+    "statMembers": "Участники",
+    "statSeats": "Места",
+    "statReadiness": "Readiness",
+    "statSessions7d": "Сессии 7д",
+    "statPending": "Pending",
+    "errorRemove": "Не удалось удалить.",
+    "errorRole": "Не удалось сменить роль.",
+    "errorExport": "Не удалось скачать CSV."
   },
   "AdminRecon": {
     "title": "Payment recon",
@@ -1423,8 +1435,8 @@
   },
   "Teacher": {
     "title": "Учитель / B2B",
-    "subtitle": "Список участников и seats для owner/teacher (M5 stub).",
-    "note": "Grant/лицензии только через Admin. Здесь — чтение.",
+    "subtitle": "Owner/teacher: участники, invite, роли, stats, CSV.",
+    "note": "VIP grant/лицензии — в Admin. Здесь invite и управление участниками.",
     "back": "В профиль",
     "loading": "Загрузка…",
     "empty": "Вы не owner/teacher — организаций нет.",
@@ -1435,7 +1447,25 @@
     "noLicenses": "Лицензий нет.",
     "profileCardTitle": "B2B / учитель",
     "profileCardBody": "Организаций: {count}",
-    "profileCardCta": "Открыть dashboard"
+    "profileCardCta": "Открыть dashboard",
+    "phonePlaceholder": "+998…",
+    "invite": "Invite / добавить",
+    "remove": "Удалить",
+    "exportCsv": "Скачать CSV",
+    "pendingInvites": "Ожидающие invite",
+    "statMembers": "Участники",
+    "statSeats": "Места заняты",
+    "statReadiness": "Средняя readiness",
+    "statActive7d": "Активны 7д",
+    "statSessions7d": "Сессии 7д",
+    "statPending": "Pending invite",
+    "errorInvite": "Invite не удался.",
+    "errorRemove": "Не удалось удалить.",
+    "errorRole": "Не удалось сменить роль.",
+    "errorExport": "Не удалось скачать CSV.",
+    "errorAccept": "Не удалось принять invite.",
+    "invitesCardTitle": "Приглашения школы",
+    "acceptInvite": "Принять"
   },
   "MaintenanceBanner": {
     "message": "Технические работы: некоторые функции могут быть временно ограничены."

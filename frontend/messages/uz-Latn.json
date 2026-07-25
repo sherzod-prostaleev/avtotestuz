@@ -1339,7 +1339,7 @@
   "AdminB2B": {
     "title": "B2B tashkilotlar",
     "subtitle": "Org / a’zo / litsenziya + entitlement.source=b2b grant (U-40).",
-    "note": "O‘qituvchi dashboard: /{locale}/teacher (owner/teacher read-only). Grant hali admin.",
+    "note": "O‘qituvchi: /{locale}/teacher (invite, rollar, stats, CSV). Grant/litsenziya Admin.",
     "create": "Yaratish",
     "namePlaceholder": "Avtomaktab nomi",
     "loading": "Yuklanmoqda…",
@@ -1358,7 +1358,19 @@
     "errorCreate": "Yaratib bo‘lmadi.",
     "errorGrant": "Grant amalga oshmadi.",
     "errorForbiddenRead": "users.read ruxsati yo‘q.",
-    "errorForbiddenGrant": "users.entitlements.grant ruxsati yo‘q."
+    "errorForbiddenGrant": "users.entitlements.grant ruxsati yo‘q.",
+    "phonePlaceholder": "+998…",
+    "invite": "Telefon bilan invite",
+    "remove": "Olib tashlash",
+    "exportCsv": "CSV yuklash",
+    "statMembers": "A’zolar",
+    "statSeats": "Seat",
+    "statReadiness": "Readiness",
+    "statSessions7d": "Sessiya 7k",
+    "statPending": "Pending",
+    "errorRemove": "Olib tashlab bo‘lmadi.",
+    "errorRole": "Rol o‘zgarmadi.",
+    "errorExport": "CSV yuklab bo‘lmadi."
   },
   "AdminRecon": {
     "title": "Payment recon",
@@ -1423,8 +1435,8 @@
   },
   "Teacher": {
     "title": "O‘qituvchi / B2B",
-    "subtitle": "Org owner/teacher uchun a’zolar va seat ko‘rinishi (M5 stub).",
-    "note": "Grant/litsenziya faqat Admin orqali. Bu yerda o‘qish.",
+    "subtitle": "Org owner/teacher: a’zolar, invite, rollar, stats, CSV.",
+    "note": "VIP grant/litsenziya hali Admin. Bu yerda invite va a’zolarni boshqarish mumkin.",
     "back": "Profilga",
     "loading": "Yuklanmoqda…",
     "empty": "Siz owner/teacher emassiz — org yo‘q.",
@@ -1435,7 +1447,25 @@
     "noLicenses": "License yo‘q.",
     "profileCardTitle": "B2B / o‘qituvchi",
     "profileCardBody": "{count} ta tashkilot",
-    "profileCardCta": "Dashboard ochish"
+    "profileCardCta": "Dashboard ochish",
+    "phonePlaceholder": "+998…",
+    "invite": "Invite / qo‘shish",
+    "remove": "Olib tashlash",
+    "exportCsv": "CSV yuklash",
+    "pendingInvites": "Kutilayotgan invite",
+    "statMembers": "A’zolar",
+    "statSeats": "Seat ishlatilgan",
+    "statReadiness": "O‘rtacha readiness",
+    "statActive7d": "Faol 7k",
+    "statSessions7d": "Sessiya 7k",
+    "statPending": "Pending invite",
+    "errorInvite": "Invite amalga oshmadi.",
+    "errorRemove": "Olib tashlab bo‘lmadi.",
+    "errorRole": "Rol o‘zgarmadi.",
+    "errorExport": "CSV yuklab bo‘lmadi.",
+    "errorAccept": "Invite qabul qilinmadi.",
+    "invitesCardTitle": "Maktab invite",
+    "acceptInvite": "Qabul qilish"
   },
   "MaintenanceBanner": {
     "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."

@@ -22,7 +22,7 @@
 | **E — Learning depth** | FE use of `GET /learn/next` / due-FSRS practice UX; weak-area surfacing beyond stats bars | S–M |
 | **F — Ship / ops** | Staging host (D18), tracing/pager depth, off-site backup, soak load-test; Sentry SDK **init** + Prometheus/k6/backup smoke **partial** | L |
 | **G — PWA (M6)** | Manifest, SW, offline shell, recently-opened variant cache; full offline exam sync still large | M |
-| **H — B2B (M5)** | Orgs, seats, teacher dashboard — **requirements thin until a school customer** | L when scoped |
+| **H — B2B (M5)** | Orgs/seats/teacher portal **done-enough**; school **sales/self-serve seats** still thin until a customer | L when sales scoped |
 | **I — Super Admin (M3)** | Contenteditor, users, billing/refund UI, investor metrics, RBAC, audit — **intentionally last** | **L** (~13 sessions) |
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
@@ -76,7 +76,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
 | **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + meta/CMS + `/support` + **recently-opened `variants/{n}`** (prefetch + SW, max 20). Full offline exam/session/images still **large**/open. |
-| **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin grant + teacher read portal** (`/{locale}/teacher`, `/me/teacher/orgs*`). School customer sales / self-serve seats still open. |
+| **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **done-enough** | — | **Org/member/license + admin grant + invite/enroll (`0036`) + teacher write portal** (invite, role, remove, stats, CSV) + admin stats/CSV/invite/role/remove. School customer **sales / self-serve seat checkout** still open when a paying school appears. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Prometheus text `/metrics` + JSON + **optional Sentry SDK** (DSN-gated, no pager) + admin ops feed/alerts. Still no tracing/Grafana/pager. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | **partial** | Staging | k6 smoke + `make load-test` + dispatch CI. Soak/perf audit + real host still open. |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
@@ -100,7 +100,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 - **i18n** — 3 UI locales mostly; `kaa` half-supported; bot copy single-locale; some historical hardcode risks.
 - **E2E CI / staging / Docker / monitoring / backup** — ship blockers independent of Arena.
 - **Content pipeline** — stub AI, LegalRefs, leftover questions, signs provenance.
-- **PWA + B2B** — PWA foundation + offline shell + recently-opened variant cache **partial** (U-38/U-39); full offline exam + B2B sales still open.
+- **PWA + B2B** — PWA foundation + offline shell + recently-opened variant cache **partial** (U-38/U-39); B2B org portal **done-enough** (U-40); full offline exam + B2B **seat sales** still open.
 
 ---
 

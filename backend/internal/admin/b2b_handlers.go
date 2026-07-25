@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
+	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
@@ -255,4 +257,161 @@ func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
 		"until":      until.UTC(),
 		"days":       body.Days,
 	})
+}
+
+func (h *Handler) b2bStore() b2b.Store { return b2b.Store{Pool: h.Pool} }
+
+func writeB2BStoreErr(w http.ResponseWriter, err error, fallback string) {
+	switch {
+	case errors.Is(err, b2b.ErrNotFound):
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
+	case errors.Is(err, b2b.ErrForbidden):
+		httpx.Error(w, http.StatusForbidden, "forbidden", "forbidden")
+	case errors.Is(err, b2b.ErrConflict):
+		msg := "conflict"
+		if strings.Contains(err.Error(), "last owner") {
+			msg = "cannot remove or demote the last owner"
+		}
+		httpx.Error(w, http.StatusConflict, "conflict", msg)
+	case errors.Is(err, b2b.ErrInvalid):
+		httpx.Error(w, http.StatusBadRequest, "invalid", err.Error())
+	default:
+		httpx.Error(w, http.StatusInternalServerError, "internal", fallback)
+	}
+}
+
+func (h *Handler) getB2BOrgStats(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var exists bool
+	if err := h.Svc.Store.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM b2b_org WHERE id=$1)`, orgID).Scan(&exists); err != nil || !exists {
+		if !exists {
+			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "org check failed")
+		return
+	}
+	out, err := h.b2bStore().OrgStats(r.Context(), orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "stats query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) exportB2BOrgCSV(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var exists bool
+	if err := h.Svc.Store.Pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM b2b_org WHERE id=$1)`, orgID).Scan(&exists); err != nil || !exists {
+		if !exists {
+			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "org check failed")
+		return
+	}
+	csv, err := h.b2bStore().ExportMembersCSV(r.Context(), orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "export failed")
+		return
+	}
+	w.Header().Set("Content-Type", "text/csv; charset=utf-8")
+	w.Header().Set("Content-Disposition", `attachment; filename="org-members.csv"`)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(csv)
+}
+
+type inviteB2BBody struct {
+	Phone string `json:"phone"`
+	Role  string `json:"role"`
+}
+
+func (h *Handler) inviteB2BMember(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body inviteB2BBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	createdBy, err := h.b2bStore().FirstOwnerProfile(r.Context(), orgID)
+	if err != nil && !errors.Is(err, b2b.ErrNotFound) {
+		writeB2BStoreErr(w, err, "invite failed")
+		return
+	}
+	// No owner yet: created_by stays null (allowed by mig 0036).
+	out, err := h.b2bStore().EnrollOrInvite(r.Context(), orgID, body.Phone, body.Role, createdBy)
+	if err != nil {
+		writeB2BStoreErr(w, err, "invite failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.members.invite", "b2b_org", orgID.String(),
+		nil, map[string]any{"phone": body.Phone, "role": body.Role, "status": out.Status},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) removeB2BMember(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	profileID, ok := parseUUIDParam(w, r, "profileID")
+	if !ok {
+		return
+	}
+	if err := h.b2bStore().AdminRemoveMember(r.Context(), orgID, profileID); err != nil {
+		writeB2BStoreErr(w, err, "remove member failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.members.remove", "b2b_org", orgID.String(),
+		nil, map[string]any{"profile_id": profileID.String()},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"removed": true})
+}
+
+type changeB2BRoleBody struct {
+	Role string `json:"role"`
+}
+
+func (h *Handler) changeB2BMemberRole(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	profileID, ok := parseUUIDParam(w, r, "profileID")
+	if !ok {
+		return
+	}
+	var body changeB2BRoleBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	out, err := h.b2bStore().AdminChangeRole(r.Context(), orgID, profileID, body.Role)
+	if err != nil {
+		writeB2BStoreErr(w, err, "change role failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.members.role", "b2b_org", orgID.String(),
+		nil, map[string]any{"profile_id": profileID.String(), "role": out.Role},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, out)
 }
