@@ -825,6 +825,27 @@
     "errorUnauthorized": "Неверный токен.",
     "errorLoad": "Не удалось загрузить список."
   },
+  "OpsPayments": {
+    "back": "Назад в кабинет",
+    "eyebrow": "Ops",
+    "title": "Платежи",
+    "subtitle": "Заглушка M3 billing — последние платежи. Refund UI позже.",
+    "navPayments": "Платежи",
+    "statusAll": "Все",
+    "empty": "Платежей нет.",
+    "errorUnauthorized": "Неверный токен.",
+    "errorLoad": "Не удалось загрузить платежи."
+  },
+  "OpsAudit": {
+    "back": "Назад в кабинет",
+    "eyebrow": "Ops",
+    "title": "Журнал аудита",
+    "subtitle": "Заглушка M3 audit_log — последние записи (только чтение).",
+    "navAudit": "Аудит",
+    "empty": "Записей нет.",
+    "errorUnauthorized": "Неверный токен.",
+    "errorLoad": "Не удалось загрузить журнал."
+  },
   "OpsProviders": {
     "back": "Назад в кабинет",
     "eyebrow": "Ops",

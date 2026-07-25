@@ -25,6 +25,8 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/ops/payment-providers", h.requireToken(h.listProviders))
 	r.Patch("/ops/payment-providers/{provider}", h.requireToken(h.setProvider))
 	r.Get("/ops/users", h.requireToken(h.listUsers))
+	r.Get("/ops/payments", h.requireToken(h.listPayments))
+	r.Get("/ops/audit", h.requireToken(h.listAudit))
 }
 
 func (h *Handler) requireToken(next http.HandlerFunc) http.HandlerFunc {

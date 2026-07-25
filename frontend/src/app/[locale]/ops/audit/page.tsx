@@ -3,32 +3,31 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, Users } from "lucide-react";
+import { ArrowLeft, ScrollText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { OpsNav } from "@/components/ops/ops-nav";
 
-type UserRow = {
+type AuditRow = {
   id: string;
-  phone_masked: string;
-  name: string;
-  locale_pref: string;
-  status: string;
+  actor_id?: string | null;
+  action: string;
+  entity: string;
+  entity_id?: string | null;
   created_at: string;
 };
 
 const TOKEN_KEY = "drivergo:ops-admin-token";
 
-export default function OpsUsersPage() {
-  const t = useTranslations("OpsUsers");
+export default function OpsAuditPage() {
+  const t = useTranslations("OpsAudit");
   const tHealth = useTranslations("OpsHealth");
   const tProviders = useTranslations("OpsProviders");
+  const tUsers = useTranslations("OpsUsers");
   const tPayments = useTranslations("OpsPayments");
-  const tAudit = useTranslations("OpsAudit");
   const locale = useLocale();
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
-  const [q, setQ] = useState("");
-  const [rows, setRows] = useState<UserRow[] | null>(null);
+  const [rows, setRows] = useState<AuditRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -43,7 +42,7 @@ export default function OpsUsersPage() {
   }, []);
 
   const load = useCallback(
-    async (opsToken: string, query: string) => {
+    async (opsToken: string) => {
       if (!opsToken) {
         setRows(null);
         return;
@@ -51,9 +50,7 @@ export default function OpsUsersPage() {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams({ limit: "50" });
-        if (query.trim()) params.set("q", query.trim());
-        const res = await fetch(`/api/ops/users?${params}`, {
+        const res = await fetch("/api/ops/audit?limit=50", {
           headers: { "X-Ops-Token": opsToken },
           cache: "no-store",
         });
@@ -63,7 +60,7 @@ export default function OpsUsersPage() {
           setRows(null);
           return;
         }
-        setRows(json.data as UserRow[]);
+        setRows(json.data as AuditRow[]);
       } catch {
         setError(t("errorLoad"));
         setRows(null);
@@ -75,8 +72,8 @@ export default function OpsUsersPage() {
   );
 
   useEffect(() => {
-    if (token) void load(token, q);
-  }, [token, load]); // eslint-disable-line react-hooks/exhaustive-deps -- search on submit
+    if (token) void load(token);
+  }, [token, load]);
 
   function saveToken() {
     const next = tokenDraft.trim();
@@ -88,31 +85,29 @@ export default function OpsUsersPage() {
     setToken(next);
   }
 
+  const navLabels = {
+    health: tHealth("navHealth"),
+    providers: tProviders("navProviders"),
+    users: tUsers("navUsers"),
+    payments: tPayments("navPayments"),
+    audit: t("navAudit"),
+  };
+
   return (
     <main className="page-shell-tight mx-auto max-w-2xl">
       <header className="mb-4">
         <Link href={`/${locale}/dashboard`} className="back-link">
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("back")}
+          <ArrowLeft aria-hidden className="h-4 w-4" /> {t("back")}
         </Link>
         <div className="mt-3 inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-          <Users aria-hidden="true" className="h-4 w-4" />
+          <ScrollText aria-hidden className="h-4 w-4" />
           {t("eyebrow")}
         </div>
         <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
       </header>
 
-      <OpsNav
-        locale={locale}
-        active="users"
-        labels={{
-          health: tHealth("navHealth"),
-          providers: tProviders("navProviders"),
-          users: t("navUsers"),
-          payments: tPayments("navPayments"),
-          audit: tAudit("navAudit"),
-        }}
-      />
+      <OpsNav locale={locale} active="audit" labels={navLabels} />
 
       <div className="mb-4 space-y-3 rounded-2xl border border-border bg-card p-4">
         <label className="block text-xs font-medium text-muted-foreground">
@@ -121,7 +116,6 @@ export default function OpsUsersPage() {
             type="password"
             value={tokenDraft}
             onChange={(e) => setTokenDraft(e.target.value)}
-            placeholder={tProviders("tokenPlaceholder")}
             className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
           />
         </label>
@@ -129,28 +123,11 @@ export default function OpsUsersPage() {
           <Button type="button" size="sm" onClick={saveToken}>
             {tProviders("tokenSave")}
           </Button>
-          <Button type="button" size="sm" variant="outline" disabled={loading || !token} onClick={() => void load(token, q)}>
+          <Button type="button" size="sm" variant="outline" disabled={!token || loading} onClick={() => void load(token)}>
             <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-            {loading ? tProviders("refreshing") : tProviders("refresh")}
+            {tProviders("refresh")}
           </Button>
         </div>
-        <form
-          className="flex gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void load(token, q);
-          }}
-        >
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="min-w-0 flex-1 rounded-xl border border-border bg-background px-3 py-2 text-sm"
-          />
-          <Button type="submit" size="sm" variant="outline" disabled={!token || loading}>
-            {t("search")}
-          </Button>
-        </form>
       </div>
 
       {!token ? (
@@ -163,14 +140,17 @@ export default function OpsUsersPage() {
         <ul className="space-y-2">
           {rows.map((row) => (
             <li key={row.id} className="rounded-2xl border border-border bg-card px-4 py-3">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <p className="font-mono text-sm">{row.phone_masked}</p>
-                <span className="text-xs uppercase tracking-wide text-muted-foreground">{row.status}</span>
-              </div>
-              <p className="mt-1 text-sm font-medium">{row.name || "—"}</p>
+              <p className="text-sm font-medium">
+                {row.action} · {row.entity}
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {row.locale_pref} · {new Date(row.created_at).toLocaleString(locale)} ·{" "}
-                <span className="font-mono">{row.id.slice(0, 8)}</span>
+                {new Date(row.created_at).toLocaleString(locale)}
+                {row.entity_id ? (
+                  <>
+                    {" "}
+                    · <span className="font-mono">{row.entity_id.slice(0, 8)}</span>
+                  </>
+                ) : null}
               </p>
             </li>
           ))}

@@ -15,6 +15,8 @@ export default function OpsPaymentProvidersPage() {
   const t = useTranslations("OpsProviders");
   const tHealth = useTranslations("OpsHealth");
   const tUsers = useTranslations("OpsUsers");
+  const tPayments = useTranslations("OpsPayments");
+  const tAudit = useTranslations("OpsAudit");
   const locale = useLocale();
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
@@ -136,6 +138,8 @@ export default function OpsPaymentProvidersPage() {
           health: tHealth("navHealth"),
           providers: t("navProviders"),
           users: tUsers("navUsers"),
+          payments: tPayments("navPayments"),
+          audit: tAudit("navAudit"),
         }}
       />
 

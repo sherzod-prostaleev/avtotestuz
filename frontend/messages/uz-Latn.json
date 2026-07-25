@@ -825,6 +825,27 @@
     "errorUnauthorized": "Token noto'g'ri.",
     "errorLoad": "Ro'yxatni yuklab bo'lmadi."
   },
+  "OpsPayments": {
+    "back": "Boshqaruvga qaytish",
+    "eyebrow": "Ops",
+    "title": "To'lovlar",
+    "subtitle": "M3 billing transactions stub — so'nggi to'lovlar. Refund UI keyinroq.",
+    "navPayments": "To'lovlar",
+    "statusAll": "Barchasi",
+    "empty": "To'lovlar yo'q.",
+    "errorUnauthorized": "Token noto'g'ri.",
+    "errorLoad": "To'lovlarni yuklab bo'lmadi."
+  },
+  "OpsAudit": {
+    "back": "Boshqaruvga qaytish",
+    "eyebrow": "Ops",
+    "title": "Audit jurnal",
+    "subtitle": "M3 audit_log stub — oxirgi yozuvlar (faqat o'qish).",
+    "navAudit": "Audit",
+    "empty": "Yozuvlar yo'q.",
+    "errorUnauthorized": "Token noto'g'ri.",
+    "errorLoad": "Jurnalni yuklab bo'lmadi."
+  },
   "OpsProviders": {
     "back": "Boshqaruvga qaytish",
     "eyebrow": "Ops",

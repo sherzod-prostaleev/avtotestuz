@@ -825,6 +825,27 @@
     "errorUnauthorized": "Токен нотўғри.",
     "errorLoad": "Рўйхатни юклаб бўлмади."
   },
+  "OpsPayments": {
+    "back": "Бошқарувга қайтиш",
+    "eyebrow": "Ops",
+    "title": "Тўловлар",
+    "subtitle": "M3 billing transactions stub — сўнгги тўловлар.",
+    "navPayments": "Тўловлар",
+    "statusAll": "Барчаси",
+    "empty": "Тўловлар йўқ.",
+    "errorUnauthorized": "Токен нотўғри.",
+    "errorLoad": "Тўловларни юклаб бўлмади."
+  },
+  "OpsAudit": {
+    "back": "Бошқарувга қайтиш",
+    "eyebrow": "Ops",
+    "title": "Audit журнал",
+    "subtitle": "M3 audit_log stub — охирги ёзувлар.",
+    "navAudit": "Audit",
+    "empty": "Ёзувлар йўқ.",
+    "errorUnauthorized": "Токен нотўғри.",
+    "errorLoad": "Журнални юклаб бўлмади."
+  },
   "OpsProviders": {
     "back": "Бошқарувга қайтиш",
     "eyebrow": "Ops",

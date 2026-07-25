@@ -38,6 +38,8 @@ export default function OpsHealthPage() {
   const t = useTranslations("OpsHealth");
   const tProviders = useTranslations("OpsProviders");
   const tUsers = useTranslations("OpsUsers");
+  const tPayments = useTranslations("OpsPayments");
+  const tAudit = useTranslations("OpsAudit");
   const locale = useLocale();
   const [payload, setPayload] = useState<HealthPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +104,8 @@ export default function OpsHealthPage() {
           health: t("navHealth"),
           providers: tProviders("navProviders"),
           users: tUsers("navUsers"),
+          payments: tPayments("navPayments"),
+          audit: tAudit("navAudit"),
         }}
       />
 
