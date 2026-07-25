@@ -2,7 +2,8 @@ COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
-	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test
+	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
+	backup-pg backup-restore-drill
 
 up:
 	$(COMPOSE) up -d --wait
@@ -101,3 +102,10 @@ DURATION ?= 30s
 load-test:
 	@command -v k6 >/dev/null || { echo "k6 not found — install from https://k6.io/docs/get-started/installation/" >&2; exit 1; }
 	API_BASE="$(API_BASE)" VUS="$(VUS)" DURATION="$(DURATION)" k6 run -e API_BASE="$(API_BASE)" -e VUS="$(VUS)" -e DURATION="$(DURATION)" deploy/load-test/smoke.js
+
+# U-44 — Postgres logical dump + restore drill (local compose; no fake host).
+backup-pg:
+	./scripts/backup/pg_dump.sh
+
+backup-restore-drill:
+	./scripts/backup/pg_restore_drill.sh

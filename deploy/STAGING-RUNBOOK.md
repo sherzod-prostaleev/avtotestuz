@@ -262,3 +262,44 @@ API_BASE=http://localhost:8080 make load-test
 
 See `deploy/load-test/README.md`. Optional CI: `.github/workflows/load-test.yml`
 (`workflow_dispatch` only — no staging host invented).
+
+---
+
+## Backup / DR (U-44)
+
+**Honest scope:** local compose `pg_dump` + restore **drill** into a disposable
+database. No fake remote host, no claimed off-site replication, no WAL/PITR yet.
+
+### Scripts
+
+```bash
+make up
+make backup-pg                 # → .run/backups/avtotest-*.dump (gitignored)
+make backup-restore-drill      # restores into avtotest_restore_drill ONLY
+```
+
+Details: `scripts/backup/README.md`.
+
+### RPO / RTO placeholders (fill when host exists)
+
+| Env | RPO target (placeholder) | RTO target (placeholder) | Notes |
+|-----|--------------------------|--------------------------|-------|
+| Local/dev | best-effort | best-effort | Compose volume + optional dump before risky work |
+| Staging | **TBD** (e.g. ≤24h) | **TBD** (e.g. ≤4h) | Needs U-02 host + off-box retention |
+| Prod | **TBD** (e.g. ≤1h) | **TBD** (e.g. ≤1h) | Needs WAL/PITR or frequent dumps + tested restore |
+
+Until D18 (staging host) ships, treat dumps as **operator laptop / volume**
+artifacts. Schedule, encryption-at-rest, and off-site copy are **open**.
+
+### Drill checklist
+
+- [ ] `make backup-pg` produces a non-empty `.dump`
+- [ ] `make backup-restore-drill` creates `avtotest_restore_drill` with public tables
+- [ ] Confirm live DB name was **not** dropped
+- [ ] Drop drill DB when finished
+- [ ] (Later) Copy latest dump off-box; record checksum + timestamp
+
+### Out of scope here
+
+Redis AOF/RDB, MinIO/media bucket replication, automated cron on VPS, Grafana
+alerting on backup failure — track separately once a real host exists.
