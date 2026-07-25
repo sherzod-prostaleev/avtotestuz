@@ -3,6 +3,7 @@ package push
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -133,5 +134,52 @@ func TestUnsubscribe(t *testing.T) {
 	}
 	if st.Subscribed {
 		t.Fatal("want unsubscribed")
+	}
+}
+
+func TestSanitizePayload(t *testing.T) {
+	p := sanitizePayload(NotifyPayload{
+		Title: strings.Repeat("T", 200),
+		Body:  strings.Repeat("B", 600),
+		URL:   "https://evil.example/phish",
+	})
+	if len(p.Title) != maxTitleLen || len(p.Body) != maxBodyLen {
+		t.Fatalf("truncated lens title=%d body=%d", len(p.Title), len(p.Body))
+	}
+	if p.URL != defaultURL {
+		t.Fatalf("url = %q", p.URL)
+	}
+	safe := sanitizePayload(NotifyPayload{Title: "Ok", Body: "Hi", URL: "/uz-Latn/profile"})
+	if safe.URL != "/uz-Latn/profile" {
+		t.Fatalf("safe url = %q", safe.URL)
+	}
+}
+
+func TestSendTestRateLimited(t *testing.T) {
+	svc, q, fake := newTestService(t, true)
+	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998901140005"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Subscribe(context.Background(), profile.ID, SubscribeInput{
+		Endpoint: "https://push.example/sub/5", P256dh: "p", Auth: "a",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SendTest(context.Background(), profile.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.SendTest(context.Background(), profile.ID); err != ErrRateLimited {
+		t.Fatalf("err = %v, want ErrRateLimited", err)
+	}
+	if len(fake.Calls) != 1 {
+		t.Fatalf("calls = %d, want 1", len(fake.Calls))
+	}
+	var payload NotifyPayload
+	if err := json.Unmarshal(fake.Calls[0].Payload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.URL != defaultURL {
+		t.Fatalf("url = %q", payload.URL)
 	}
 }

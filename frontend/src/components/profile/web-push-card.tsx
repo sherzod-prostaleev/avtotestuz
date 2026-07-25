@@ -28,6 +28,7 @@ type ErrorKey =
   | "unsupported"
   | "denied"
   | "testError"
+  | "testRateLimited"
   | null;
 
 export function WebPushCard() {
@@ -159,8 +160,12 @@ export function WebPushCard() {
     try {
       await apiPost("me/push/test");
       setTestOk(true);
-    } catch {
-      setErrorKey("testError");
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "rate_limited") {
+        setErrorKey("testRateLimited");
+      } else {
+        setErrorKey("testError");
+      }
     } finally {
       setBusy(false);
     }

@@ -116,6 +116,9 @@ func (h *Handler) testPush(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, ErrNoSubs):
 		httpx.Error(w, http.StatusConflict, "no_subscription",
 			"enable push on this device first")
+	case errors.Is(err, ErrRateLimited):
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited",
+			"wait a minute before sending another test push")
 	case err != nil:
 		httpx.Error(w, http.StatusBadGateway, "delivery_failed", err.Error())
 	default:

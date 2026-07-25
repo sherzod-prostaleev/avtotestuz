@@ -20,6 +20,16 @@ var (
 	ErrBadEndpoint  = errors.New("invalid push endpoint")
 	ErrBadKeys      = errors.New("invalid push keys")
 	ErrNoSubs       = errors.New("no push subscriptions")
+	ErrRateLimited  = errors.New("push test rate limited")
+)
+
+// TestCooldown is the minimum gap between learner self-test pushes.
+const TestCooldown = 60 * time.Second
+
+const (
+	maxTitleLen = 120
+	maxBodyLen  = 500
+	defaultURL  = "/uz-Latn/dashboard"
 )
 
 // Sender delivers a payload to a single browser subscription.
@@ -138,6 +148,26 @@ type NotifyPayload struct {
 	Data  map[string]any `json:"data,omitempty"`
 }
 
+func sanitizePayload(p NotifyPayload) NotifyPayload {
+	p.Title = strings.TrimSpace(p.Title)
+	p.Body = strings.TrimSpace(p.Body)
+	if p.Title == "" {
+		p.Title = "Driver Go"
+	}
+	if len(p.Title) > maxTitleLen {
+		p.Title = p.Title[:maxTitleLen]
+	}
+	if len(p.Body) > maxBodyLen {
+		p.Body = p.Body[:maxBodyLen]
+	}
+	url := strings.TrimSpace(p.URL)
+	if url == "" || !strings.HasPrefix(url, "/") || strings.HasPrefix(url, "//") || strings.Contains(url, "://") {
+		url = defaultURL
+	}
+	p.URL = url
+	return p
+}
+
 // Notify writes a notification row and attempts delivery to every subscription.
 func (s *Service) Notify(ctx context.Context, profileID uuid.UUID, kind string, payload NotifyPayload) (sent int, err error) {
 	if !s.Cfg.Configured() {
@@ -150,6 +180,7 @@ func (s *Service) Notify(ctx context.Context, profileID uuid.UUID, kind string, 
 	if kind == "" {
 		kind = "generic"
 	}
+	payload = sanitizePayload(payload)
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return 0, err
@@ -198,11 +229,24 @@ func (s *Service) Notify(ctx context.Context, profileID uuid.UUID, kind string, 
 }
 
 // SendTest delivers a short self-test notification to the caller's devices.
+// Repeated clicks within TestCooldown return ErrRateLimited (no second delivery).
 func (s *Service) SendTest(ctx context.Context, profileID uuid.UUID) (int, error) {
+	if s.Pool != nil {
+		var last time.Time
+		err := s.Pool.QueryRow(ctx, `
+			SELECT created_at
+			FROM notification
+			WHERE profile_id = $1 AND kind = 'push_test' AND channel = 'webpush'
+			ORDER BY created_at DESC
+			LIMIT 1`, profileID).Scan(&last)
+		if err == nil && time.Since(last) < TestCooldown {
+			return 0, ErrRateLimited
+		}
+	}
 	return s.Notify(ctx, profileID, "push_test", NotifyPayload{
 		Title: "Driver Go",
 		Body:  "Web push ishga tushdi / Push works",
-		URL:   "/dashboard",
+		URL:   defaultURL,
 		Data:  map[string]any{"kind": "push_test", "at": time.Now().UTC().Format(time.RFC3339)},
 	})
 }

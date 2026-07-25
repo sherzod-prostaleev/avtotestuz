@@ -26,7 +26,7 @@
 1. **VAPID optional.** Empty keys → API returns `configured: false`; subscribe rejected with `web_push_unconfigured`. Same pattern as Telegram bot username.
 2. **Endpoint uniqueness.** One browser push endpoint maps to one row; re-subscribe upserts keys + `profile_id` (device can move accounts).
 3. **Sender interface.** Production uses `webpush-go`; tests inject a fake. Gone/expired (410) → delete subscription.
-4. **SW is push-only.** No precache / offline shell here — that stays M6.
+4. **SW starts push-capable.** Offline shell (U-39) may share `/sw.js` — merge carefully when extending caches.
 5. **No invented keys in repo.** Operators generate VAPID locally (`npx web-push generate-vapid-keys` or equivalent).
 
 ---
@@ -71,7 +71,21 @@ VAPID_SUBJECT=mailto:ops@avtotest.uz
 
 ## 6. Follow-ups (not this slice)
 
-- Retention digests / FSRS due reminders (product copy + cron)
+- Retention digests / FSRS due reminders (product copy + cron) — **ops stub:** `go run ./cmd/pushdigest` (dry-run counts subscribers; `-send` exits 2 until implemented)
 - Arena invite push
 - Admin broadcasts (M3)
 - Align with M6 offline SW if caching is added later (merge carefully)
+
+---
+
+## 7. Cron stub contract (`cmd/pushdigest`)
+
+| Flag | Behavior |
+|------|----------|
+| (default) | Connect DB, print `push_subscription` count + Notify contract, exit 0 |
+| `-send` | Refuse with exit 2 until FSRS-due selection + copy land |
+
+Intended host schedule once `-send` is real: daily ~09:00 `Asia/Tashkent`. Requires `VAPID_*` env on the runner. No fake keys in repo.
+
+**Test path hardening (same U-11 wave):** `POST /me/push/test` is rate-limited to 1/min/profile (`rate_limited`); payload title/body truncated; click URL must be a same-origin path (default `/uz-Latn/dashboard`).
+

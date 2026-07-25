@@ -689,6 +689,7 @@
     "unsupported": "Bu brauzer web pushni qo'llab-quvvatlamaydi.",
     "denied": "Bildirishnoma ruxsati berilmadi.",
     "testError": "Sinov bildirishnomasini yuborib bo'lmadi.",
+    "testRateLimited": "Sinov push uchun bir daqiqa kuting.",
     "testSent": "Sinov bildirishnomasi yuborildi.",
     "refresh": "Yangilash",
     "notEnabled": "Brauzer bildirishnomalari o'chirilgan.",
