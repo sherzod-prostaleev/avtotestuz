@@ -18,6 +18,7 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/redisx"
+	"avtotest.uz/backend/internal/sentryx"
 	"avtotest.uz/backend/internal/server"
 )
 
@@ -31,6 +32,15 @@ func main() {
 		logger, _ = zap.NewProduction()
 	}
 	defer func() { _ = logger.Sync() }()
+
+	flushSentry, err := sentryx.Init(cfg.SentryDSN, cfg.Env)
+	if err != nil {
+		logger.Fatal("sentry", zap.Error(err))
+	}
+	defer flushSentry()
+	if cfg.SentryDSN != "" {
+		logger.Info("sentry: enabled")
+	}
 
 	if err := db.Migrate(cfg.DatabaseURL); err != nil {
 		logger.Fatal("migrate", zap.Error(err))

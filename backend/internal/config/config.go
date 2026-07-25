@@ -63,9 +63,8 @@ type Config struct {
 	VAPIDPrivateKey string
 	VAPIDSubject    string // mailto: or https: contact for push services
 
-	// SentryDSN is a documented hook for future error reporting (U-41).
-	// Empty = disabled. The process does not load a Sentry SDK yet — set the
-	// env so operators can wire it without inventing a full APM stack here.
+	// SentryDSN enables optional sentry-go init (U-41). Empty = disabled no-op.
+	// No pager / tracing product — operators set a real DSN when they have one.
 	SentryDSN string
 }
 
