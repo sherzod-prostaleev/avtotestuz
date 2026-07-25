@@ -71,21 +71,24 @@ VAPID_SUBJECT=mailto:ops@avtotest.uz
 
 ## 6. Follow-ups (not this slice)
 
-- Retention digests / FSRS due reminders (product copy + cron) — **ops stub:** `go run ./cmd/pushdigest` (dry-run counts subscribers; `-send` exits 2 until implemented)
+- Retention digests / FSRS due reminders — **shipped:** `go run ./cmd/pushdigest` (dry-run) / `-send` via `push.Service.RunFSRSDueDigest`
 - Arena invite push
 - Admin broadcasts (M3)
 - Align with M6 offline SW if caching is added later (merge carefully)
 
 ---
 
-## 7. Cron stub contract (`cmd/pushdigest`)
+## 7. Cron contract (`cmd/pushdigest`)
 
 | Flag | Behavior |
 |------|----------|
-| (default) | Connect DB, print `push_subscription` count + Notify contract, exit 0 |
-| `-send` | Refuse with exit 2 until FSRS-due selection + copy land |
+| (default) | Dry-run: count subscriptions + eligible FSRS-due candidates, exit 0 |
+| `-send` | Deliver `kind=fsrs_due` via `Notify` (locale copy + review deep link); prune gone endpoints |
+| `-limit N` | Cap profiles considered (default 500) |
 
-Intended host schedule once `-send` is real: daily ~09:00 `Asia/Tashkent`. Requires `VAPID_*` env on the runner. No fake keys in repo.
+Selection: `active` profiles with ≥1 valid due `question_memory` row + ≥1 `push_subscription`, excluding those with an `fsrs_due` webpush notification in the last 20h. Per-profile errors are counted; batch continues. Empty VAPID → `-send` exits 1 (`web push is not configured`).
 
-**Test path hardening (same U-11 wave):** `POST /me/push/test` is rate-limited to 1/min/profile (`rate_limited`); payload title/body truncated; click URL must be a same-origin path (default `/uz-Latn/dashboard`).
+Intended host schedule: daily ~09:00 `Asia/Tashkent`. Requires `VAPID_*` env on the runner. No fake keys in repo.
+
+**Test path hardening:** `POST /me/push/test` is rate-limited to 1/min/profile (`rate_limited`); payload title/body truncated; click URL must be a same-origin path (default `/uz-Latn/dashboard`).
 

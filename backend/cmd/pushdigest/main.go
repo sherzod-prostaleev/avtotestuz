@@ -1,14 +1,12 @@
-// Command pushdigest is the documented ops stub for future web-push retention
-// digests (FSRS due reminders). Delivery itself already lives in
-// internal/push.Service.Notify — this binary only defines the cron contract
-// until product copy + due-queue selection land.
+// Command pushdigest runs the FSRS due retention web-push digest.
 //
 // Usage:
 //
-//	go run ./cmd/pushdigest            # dry-run (default): count subscribers
-//	go run ./cmd/pushdigest -send      # exits 2 — send path not implemented yet
+//	go run ./cmd/pushdigest                 # dry-run: count eligible profiles
+//	go run ./cmd/pushdigest -send           # deliver via push.Service.Notify
+//	go run ./cmd/pushdigest -send -limit 100
 //
-// Intended schedule (ops): daily ~09:00 Asia/Tashkent once -send is real.
+// Schedule (ops): daily ~09:00 Asia/Tashkent. Requires VAPID_* on the runner.
 // See docs/superpowers/specs/2026-07-26-m4-08-web-push-design.md §6–7.
 package main
 
@@ -21,10 +19,13 @@ import (
 
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/db"
+	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/push"
 )
 
 func main() {
-	send := flag.Bool("send", false, "attempt digest delivery (not implemented yet)")
+	send := flag.Bool("send", false, "deliver FSRS due digests (default: dry-run)")
+	limit := flag.Int("limit", 500, "max profiles to consider")
 	flag.Parse()
 
 	cfg, err := config.Load()
@@ -33,7 +34,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
 	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
@@ -43,20 +44,38 @@ func main() {
 	}
 	defer pool.Close()
 
-	var n int64
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM push_subscription`).Scan(&n); err != nil {
+	var subCount int64
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM push_subscription`).Scan(&subCount); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
 	}
 
-	fmt.Printf("pushdigest dry-run: %d push subscription(s)\n", n)
-	fmt.Println("contract: select profiles with FSRS due cards + ≥1 push_subscription;")
-	fmt.Println("          call push.Service.Notify(kind=fsrs_due) with locale-safe URL;")
-	fmt.Println("          skip if VAPID unconfigured; prune gone endpoints via sender.")
-	fmt.Println("schedule (when implemented): daily ~09:00 Asia/Tashkent via host cron.")
+	svc := push.NewService(pool, sqlc.New(pool), push.Config{
+		PublicKey:  cfg.VAPIDPublicKey,
+		PrivateKey: cfg.VAPIDPrivateKey,
+		Subject:    cfg.VAPIDSubject,
+	}, nil)
 
+	res, err := svc.RunFSRSDueDigest(ctx, push.DigestOpts{
+		Limit:  *limit,
+		DryRun: !*send,
+	})
+	if err != nil {
+		if err == push.ErrUnconfigured {
+			fmt.Fprintln(os.Stderr, "error: VAPID keys not configured — set VAPID_PUBLIC_KEY and VAPID_PRIVATE_KEY")
+			os.Exit(1)
+		}
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+
+	mode := "dry-run"
 	if *send {
-		fmt.Fprintln(os.Stderr, "error: -send not implemented yet (U-11 retention digest deferred)")
-		os.Exit(2)
+		mode = "send"
+	}
+	fmt.Printf("pushdigest %s: subscriptions=%d candidates=%d notified=%d deliveries=%d skipped=%d errors=%d limit=%d\n",
+		mode, subCount, res.Candidates, res.Notified, res.Deliveries, res.Skipped, res.Errors, *limit)
+	if !*send {
+		fmt.Println("hint: pass -send to deliver (requires VAPID_*); gone endpoints are pruned automatically")
 	}
 }
