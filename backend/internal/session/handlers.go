@@ -133,17 +133,19 @@ func (h *Handler) practiceAllowance(w http.ResponseWriter, r *http.Request) {
 }
 
 type mockEligibilityResponse struct {
-	Eligible           bool    `json:"eligible"`
-	MasteryPercent     int     `json:"mastery_percent"`
-	MinRequiredPercent int     `json:"min_required_percent"`
-	IsVIP              bool    `json:"is_vip"`
-	Reason             *string `json:"reason"`
+	Eligible             bool    `json:"eligible"`
+	MasteryPercent       int     `json:"mastery_percent"`
+	MinRequiredPercent   int     `json:"min_required_percent"`
+	QuestionsStudied     int     `json:"questions_studied"`
+	MinRequiredQuestions int     `json:"min_required_questions"`
+	IsVIP                bool    `json:"is_vip"`
+	Reason               *string `json:"reason"`
 }
 
 // mockEligibility reports whether the profile currently qualifies for Grand
 // Mock, so GrandMockCard can render its locked/unlocked state without
-// guessing — StartSession(mode:"grand_mock") re-checks the same conditions
-// server-side and is the actual source of truth/enforcement.
+// guessing. StartSession(mode:"grand_mock") now calls the same
+// Svc.MockEligibility, so the card and the server cannot disagree.
 func (h *Handler) mockEligibility(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsOrUnauthorized(w, r)
 	if !ok {
@@ -159,11 +161,13 @@ func (h *Handler) mockEligibility(w http.ResponseWriter, r *http.Request) {
 		reason = &res.Reason
 	}
 	httpx.Data(w, http.StatusOK, mockEligibilityResponse{
-		Eligible:           res.Eligible,
-		MasteryPercent:     res.MasteryPercent,
-		MinRequiredPercent: res.MinRequiredPercent,
-		IsVIP:              res.IsVIP,
-		Reason:             reason,
+		Eligible:             res.Eligible,
+		MasteryPercent:       res.MasteryPercent,
+		MinRequiredPercent:   res.MinRequiredPercent,
+		QuestionsStudied:     res.QuestionsStudied,
+		MinRequiredQuestions: res.MinRequiredQuestions,
+		IsVIP:                res.IsVIP,
+		Reason:               reason,
 	})
 }
 
@@ -516,7 +520,9 @@ func writeSessionError(w http.ResponseWriter, err error) {
 	case errors.Is(err, ErrRequiresVIP):
 		httpx.Error(w, http.StatusPaymentRequired, "vip_required", "active entitlement required")
 	case errors.Is(err, ErrMockNotEligible):
-		httpx.Error(w, http.StatusForbidden, "mock_not_eligible", "Grand Mock imtihoni uchun bilim darajangiz kamida 85% bo'lishi va VIP aktiv bo'lishi kerak")
+		// English like every other message here: the client localizes by code
+		// (see GET /me/mock-eligibility for the specific reason and numbers).
+		httpx.Error(w, http.StatusForbidden, "mock_not_eligible", "grand mock study requirements not met")
 	case errors.Is(err, ErrVariantLocked):
 		httpx.Error(w, http.StatusForbidden, "variant_locked", "complete the previous variant first")
 	default:

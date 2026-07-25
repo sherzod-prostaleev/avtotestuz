@@ -28,6 +28,14 @@ LIMIT sqlc.arg(limit_count);
 SELECT count(*)::int FROM question_memory
 WHERE profile_id = $1 AND due_at <= now();
 
+-- name: CountStudiedQuestions :one
+-- How many DISTINCT questions the profile has ever been graded on. Used as
+-- the Grand Mock volume floor (session.MockEligibility): question_memory is
+-- keyed (profile_id, question_id), so unlike category_mastery.seen — which
+-- counts answer events — this cannot be inflated by re-answering the same
+-- easy question over and over.
+SELECT count(*)::int FROM question_memory WHERE profile_id = $1;
+
 -- name: GetMistakeBankSummary :one
 SELECT
   count(*) FILTER (WHERE qm.due_at <= now())::int AS due_count,
@@ -61,3 +69,9 @@ SELECT * FROM category_mastery WHERE profile_id = $1;
 SELECT category_id, count(*)::int AS question_count
 FROM question WHERE validation_status = 'valid'
 GROUP BY category_id;
+
+-- name: CountValidQuestions :one
+-- Bank size, used to turn the Grand Mock volume floor
+-- (limit_config.grand_mock_min_studied_pct) into an absolute question count so
+-- the requirement keeps its meaning as content grows.
+SELECT count(*)::int FROM question WHERE validation_status = 'valid';

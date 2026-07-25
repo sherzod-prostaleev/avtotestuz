@@ -24,6 +24,36 @@ func (q *Queries) CountDueQuestions(ctx context.Context, profileID uuid.UUID) (i
 	return column_1, err
 }
 
+const countStudiedQuestions = `-- name: CountStudiedQuestions :one
+SELECT count(*)::int FROM question_memory WHERE profile_id = $1
+`
+
+// How many DISTINCT questions the profile has ever been graded on. Used as
+// the Grand Mock volume floor (session.MockEligibility): question_memory is
+// keyed (profile_id, question_id), so unlike category_mastery.seen — which
+// counts answer events — this cannot be inflated by re-answering the same
+// easy question over and over.
+func (q *Queries) CountStudiedQuestions(ctx context.Context, profileID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countStudiedQuestions, profileID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countValidQuestions = `-- name: CountValidQuestions :one
+SELECT count(*)::int FROM question WHERE validation_status = 'valid'
+`
+
+// Bank size, used to turn the Grand Mock volume floor
+// (limit_config.grand_mock_min_studied_pct) into an absolute question count so
+// the requirement keeps its meaning as content grows.
+func (q *Queries) CountValidQuestions(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countValidQuestions)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countValidQuestionsByCategory = `-- name: CountValidQuestionsByCategory :many
 SELECT category_id, count(*)::int AS question_count
 FROM question WHERE validation_status = 'valid'

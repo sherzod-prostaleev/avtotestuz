@@ -40,8 +40,10 @@ func TestConstraintsAndSeeds(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 	var n int
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM limit_config").Scan(&n); err != nil || n != 5 {
-		t.Fatalf("limit_config seed count=%d err=%v, want 5", n, err)
+	// 4 rows from 0003 + leaderboard_daily_points (0017) +
+	// grand_mock_min_studied_pct (0018). Bump this when a migration seeds another.
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM limit_config").Scan(&n); err != nil || n != 6 {
+		t.Fatalf("limit_config seed count=%d err=%v, want 6", n, err)
 	}
 	// invalid locale must be rejected by domain
 	if _, err := pool.Exec(ctx, "INSERT INTO category (code) VALUES ('x')"); err != nil {

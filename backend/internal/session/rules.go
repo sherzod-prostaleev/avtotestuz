@@ -9,9 +9,19 @@ const (
 	ExamTimeLimitSec  = 25 * 60
 	ExamErrorsAllowed = 2
 
-	// MockMasteryThreshold is the minimum overall readiness percentage
-	// (learning.Stats.ReadinessPct) required to unlock Grand Mock.
+	// MockMasteryThreshold and MockMinStudiedPct document the values SEEDED
+	// into limit_config for the two Grand Mock gates: the minimum overall
+	// readiness percentage (learning.Stats.ReadinessPct) and the minimum share
+	// of the valid question bank that must actually have been studied.
+	//
+	// These constants are documentation only — limit_config is authoritative
+	// and Service.MockEligibility reads it, so an operator (and later the M3
+	// admin panel) can retune the gate. That deliberately replaces the earlier
+	// arrangement where grand_mock_threshold_pct was seeded but read by
+	// nothing while a constant silently won, so an admin who changed the row
+	// would have watched it save and do absolutely nothing.
 	MockMasteryThreshold = 85
+	MockMinStudiedPct    = 25
 )
 
 // IsExamLike reports whether mode uses the strict timed/anti-cheat exam

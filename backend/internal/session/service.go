@@ -28,7 +28,7 @@ var (
 	ErrSessionFinished     = errors.New("session already finished")
 	ErrRequiresVIP         = errors.New("active entitlement required")
 	ErrVariantLocked       = errors.New("variant is locked")
-	ErrMockNotEligible     = errors.New("grand mock requires 85% mastery and active VIP")
+	ErrMockNotEligible     = errors.New("grand mock study requirements not met")
 )
 
 type Service struct {
@@ -176,18 +176,25 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
 
 	case "grand_mock":
-		active, _, statusErr := s.Billing.Status(ctx, profileID)
-		if statusErr != nil {
-			return SessionView{}, statusErr
+		// Delegating to MockEligibility rather than repeating its checks is
+		// what guarantees the card's displayed reason and the server's refusal
+		// can never disagree — they are now the same code path, not two
+		// switches that have to be kept in the same order by hand.
+		elig, eligErr := s.MockEligibility(ctx, profileID)
+		if eligErr != nil {
+			return SessionView{}, eligErr
 		}
-		if !active {
-			return SessionView{}, ErrMockNotEligible
-		}
-		stats, statsErr := s.Learning.Stats(ctx, profileID)
-		if statsErr != nil {
-			return SessionView{}, statsErr
-		}
-		if stats.ReadinessPct < MockMasteryThreshold {
+		if !elig.Eligible {
+			// A missing subscription is reported as ErrRequiresVIP (402
+			// vip_required) rather than ErrMockNotEligible, because the client
+			// already routes vip_required to the paywall. Collapsing it into
+			// the generic mock error sent a non-VIP user who reached
+			// /session/start?mode=grand_mock — via a stale card, a
+			// subscription that lapsed mid-session, or a shared link — to an
+			// unexplained error screen and AWAY from /premium.
+			if elig.Reason == MockReasonVIPRequired {
+				return SessionView{}, ErrRequiresVIP
+			}
 			return SessionView{}, ErrMockNotEligible
 		}
 		ids, err = s.Q.RandomQuestionIDs(ctx, int32(ExamQuestionCount))
@@ -866,22 +873,60 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 	return statuses, nil
 }
 
+// Grand Mock gate reasons, as reported by MockEligibility and consumed by the
+// client to pick its message and destination.
+const (
+	MockReasonVIPRequired   = "vip_required"
+	MockReasonTooFewStudied = "too_few_studied"
+	MockReasonMasteryTooLow = "mastery_too_low"
+)
+
+// limit_config keys backing the Grand Mock gate. Both are read (rather than
+// hardcoded) so the values stay tunable from one place; see rules.go for the
+// seeded defaults.
+const (
+	mockThresholdPctConfigKey  = "grand_mock_threshold_pct"
+	mockMinStudiedPctConfigKey = "grand_mock_min_studied_pct"
+)
+
 // MockEligibilityResult is the read-only view GrandMockCard polls before
-// offering the "start" button.
+// offering the "start" button, and — since StartSession delegates to
+// MockEligibility — also the decision the server enforces.
 type MockEligibilityResult struct {
-	Eligible           bool
-	MasteryPercent     int
-	MinRequiredPercent int
-	IsVIP              bool
-	Reason             string // "mastery_too_low" | "vip_required" | ""
+	Eligible             bool
+	MasteryPercent       int
+	MinRequiredPercent   int
+	QuestionsStudied     int
+	MinRequiredQuestions int
+	IsVIP                bool
+	Reason               string // one of the MockReason* constants, or ""
 }
 
 // MockEligibility reports whether the profile currently meets the Grand Mock
-// requirements (active VIP entitlement + >=MockMasteryThreshold overall
-// readiness), for read-only UI display — StartSession re-checks the same
-// conditions server-side regardless of what this reports.
+// requirements: an active VIP entitlement, enough of the question bank
+// actually studied, and a high enough overall readiness percentage.
+//
+// The volume requirement exists because readiness on its own is an accuracy
+// ratio (learning.Service.Stats weights correct/seen by category size), which
+// made the gate hollow: answering ONE question correctly in every category
+// produced readiness_pct = 100 and unlocked a certificate-granting feature. It
+// counts DISTINCT questions via question_memory, so repeatedly re-answering
+// one easy question cannot satisfy it either, and it is configured as a share
+// of the bank so it does not quietly become trivial as content grows.
+//
+// Reasons are reported in the order a user should act on them — subscribe,
+// then study more, then improve accuracy — and only the first blocking one is
+// returned.
 func (s *Service) MockEligibility(ctx context.Context, profileID uuid.UUID) (MockEligibilityResult, error) {
 	active, _, err := s.Billing.Status(ctx, profileID)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+	thresholdCfg, err := s.Q.GetLimitConfig(ctx, mockThresholdPctConfigKey)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+	minStudiedCfg, err := s.Q.GetLimitConfig(ctx, mockMinStudiedPctConfigKey)
 	if err != nil {
 		return MockEligibilityResult{}, err
 	}
@@ -889,18 +934,45 @@ func (s *Service) MockEligibility(ctx context.Context, profileID uuid.UUID) (Moc
 	if err != nil {
 		return MockEligibilityResult{}, err
 	}
+	studied, err := s.Q.CountStudiedQuestions(ctx, profileID)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+	bankSize, err := s.Q.CountValidQuestions(ctx)
+	if err != nil {
+		return MockEligibilityResult{}, err
+	}
+
+	// VipValue, not FreeValue: the VIP check below runs first, so a separate
+	// free-tier gate would be unreachable.
 	res := MockEligibilityResult{
-		MasteryPercent:     stats.ReadinessPct,
-		MinRequiredPercent: MockMasteryThreshold,
-		IsVIP:              active,
+		MasteryPercent:       stats.ReadinessPct,
+		MinRequiredPercent:   int(thresholdCfg.VipValue),
+		QuestionsStudied:     int(studied),
+		MinRequiredQuestions: requiredStudiedQuestions(int(bankSize), int(minStudiedCfg.VipValue)),
+		IsVIP:                active,
 	}
 	switch {
 	case !active:
-		res.Reason = "vip_required"
-	case stats.ReadinessPct < MockMasteryThreshold:
-		res.Reason = "mastery_too_low"
+		res.Reason = MockReasonVIPRequired
+	case res.QuestionsStudied < res.MinRequiredQuestions:
+		res.Reason = MockReasonTooFewStudied
+	case res.MasteryPercent < res.MinRequiredPercent:
+		res.Reason = MockReasonMasteryTooLow
 	default:
 		res.Eligible = true
 	}
 	return res, nil
+}
+
+// requiredStudiedQuestions converts the configured share of the question bank
+// into an absolute count, rounding up so a non-zero percentage never collapses
+// to "no requirement" on a small bank. An empty bank requires nothing — there
+// would be nothing to study, and failing every VIP user because content has
+// not been imported yet would be worse than letting the accuracy gate decide.
+func requiredStudiedQuestions(bankSize, pct int) int {
+	if bankSize <= 0 || pct <= 0 {
+		return 0
+	}
+	return (bankSize*pct + 99) / 100
 }

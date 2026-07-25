@@ -59,16 +59,58 @@ func grantVIP(t *testing.T, q *sqlc.Queries, profileID uuid.UUID) {
 // of how the fixture's questions are distributed across categories.
 func grantMastery(t *testing.T, q *sqlc.Queries, l *learning.Service, profileID uuid.UUID) {
 	t.Helper()
+	studyQuestions(t, q, l, profileID, 0, learning.Good)
+}
+
+// studyQuestions records a review of `limit` fixture questions (0 = all) at the
+// given rating. learning.Good drives mastery up; learning.Again drives it to
+// zero while still building study volume, which is what separates the Grand
+// Mock gate's two failure reasons: too_few_studied (studied too little) versus
+// mastery_too_low (studied enough, answered badly).
+func studyQuestions(t *testing.T, q *sqlc.Queries, l *learning.Service, profileID uuid.UUID, limit int, rating learning.Rating) {
+	t.Helper()
 	ctx := context.Background()
 	ids, err := q.RandomQuestionIDs(ctx, 1000)
 	if err != nil {
-		t.Fatalf("grantMastery: list questions: %v", err)
+		t.Fatalf("studyQuestions: list questions: %v", err)
+	}
+	if limit > 0 && limit < len(ids) {
+		ids = ids[:limit]
 	}
 	for _, qid := range ids {
-		if _, err := l.RecordReview(ctx, profileID, qid, learning.Good); err != nil {
-			t.Fatalf("grantMastery: record review: %v", err)
+		if _, err := l.RecordReview(ctx, profileID, qid, rating); err != nil {
+			t.Fatalf("studyQuestions: record review: %v", err)
 		}
 	}
+}
+
+// studyOnePerCategoryCorrectly answers exactly ONE question correctly in every
+// category. That drives each category's mastery ratio to 1.0 and therefore the
+// weighted overall readiness_pct to 100 — the precise exploit that made the
+// Grand Mock accuracy gate hollow — while leaving study volume at one question
+// per category.
+func studyOnePerCategoryCorrectly(t *testing.T, q *sqlc.Queries, l *learning.Service, profileID uuid.UUID) int {
+	t.Helper()
+	ctx := context.Background()
+	ids, err := q.RandomQuestionIDs(ctx, 1000)
+	if err != nil {
+		t.Fatalf("studyOnePerCategoryCorrectly: list questions: %v", err)
+	}
+	done := map[uuid.UUID]bool{}
+	for _, qid := range ids {
+		catID, err := q.GetQuestionCategoryID(ctx, qid)
+		if err != nil {
+			t.Fatalf("studyOnePerCategoryCorrectly: category of %s: %v", qid, err)
+		}
+		if done[catID] {
+			continue
+		}
+		if _, err := l.RecordReview(ctx, profileID, qid, learning.Good); err != nil {
+			t.Fatalf("studyOnePerCategoryCorrectly: record review: %v", err)
+		}
+		done[catID] = true
+	}
+	return len(done)
 }
 
 func TestStartSessionVariantMode(t *testing.T) {
@@ -789,7 +831,9 @@ func TestStartSessionExamWorksForVIPProfile(t *testing.T) {
 func TestStartSessionGrandMockNotEligibleLowMastery(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
-	// No mastery seeded — ReadinessPct stays 0, well under MockMasteryThreshold.
+	// Enough study volume to clear the volume floor, but every answer wrong —
+	// so the blocking reason is accuracy, not coverage.
+	studyQuestions(t, q, svc.Learning, profileID, 0, learning.Again)
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
 		Mode: "grand_mock", Locale: "uz-Latn",
 	}); !errors.Is(err, session.ErrMockNotEligible) {
@@ -797,14 +841,53 @@ func TestStartSessionGrandMockNotEligibleLowMastery(t *testing.T) {
 	}
 }
 
-func TestStartSessionGrandMockNotEligibleNoVIP(t *testing.T) {
+// TestStartSessionGrandMockNotEligibleTooFewStudied is the regression test for
+// the hollow gate. readiness_pct is a pure accuracy ratio, so answering ONE
+// question correctly in each category reached 100% and unlocked a
+// certificate-granting exam on a handful of answers. The accuracy gate is
+// deliberately still satisfied here — only the volume floor blocks it, which is
+// exactly the hole that was missing.
+func TestStartSessionGrandMockNotEligibleTooFewStudied(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	studied := studyOnePerCategoryCorrectly(t, q, svc.Learning, profileID)
+
+	elig, err := svc.MockEligibility(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("MockEligibility: %v", err)
+	}
+	if elig.MasteryPercent < elig.MinRequiredPercent {
+		t.Fatalf("accuracy gate should be satisfied by one correct answer per category, got %d%% (want >=%d%%)",
+			elig.MasteryPercent, elig.MinRequiredPercent)
+	}
+	if elig.MinRequiredQuestions <= studied {
+		t.Fatalf("volume floor is %d but %d questions were studied — too low for this test to mean anything",
+			elig.MinRequiredQuestions, studied)
+	}
+	if elig.Eligible || elig.Reason != session.MockReasonTooFewStudied {
+		t.Fatalf("eligible=%v reason=%q, want blocked on %q", elig.Eligible, elig.Reason, session.MockReasonTooFewStudied)
+	}
+
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "grand_mock", Locale: "uz-Latn",
+	}); !errors.Is(err, session.ErrMockNotEligible) {
+		t.Fatalf("err=%v want ErrMockNotEligible", err)
+	}
+}
+
+// TestStartSessionGrandMockNoVIPRequiresPayment pins that a missing
+// subscription surfaces as ErrRequiresVIP (402 vip_required), not the generic
+// mock error. The client routes vip_required to /premium; when this returned
+// ErrMockNotEligible instead, a non-VIP user who reached the start URL got an
+// unexplained error and was sent away from the paywall.
+func TestStartSessionGrandMockNoVIPRequiresPayment(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantMastery(t, q, svc.Learning, profileID)
 	// No VIP entitlement granted.
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
 		Mode: "grand_mock", Locale: "uz-Latn",
-	}); !errors.Is(err, session.ErrMockNotEligible) {
-		t.Fatalf("err=%v want ErrMockNotEligible", err)
+	}); !errors.Is(err, session.ErrRequiresVIP) {
+		t.Fatalf("err=%v want ErrRequiresVIP", err)
 	}
 }
 

@@ -712,11 +712,13 @@ func TestPracticeAllowanceReportsBudget(t *testing.T) {
 }
 
 type mockEligibilityDTO struct {
-	Eligible           bool    `json:"eligible"`
-	MasteryPercent     int     `json:"mastery_percent"`
-	MinRequiredPercent int     `json:"min_required_percent"`
-	IsVIP              bool    `json:"is_vip"`
-	Reason             *string `json:"reason"`
+	Eligible             bool    `json:"eligible"`
+	MasteryPercent       int     `json:"mastery_percent"`
+	MinRequiredPercent   int     `json:"min_required_percent"`
+	QuestionsStudied     int     `json:"questions_studied"`
+	MinRequiredQuestions int     `json:"min_required_questions"`
+	IsVIP                bool    `json:"is_vip"`
+	Reason               *string `json:"reason"`
 }
 
 // TestMockEligibilityHandler exercises GET /me/mock-eligibility end-to-end
@@ -730,6 +732,9 @@ func TestMockEligibilityHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 		grantVIP(t, q, profile.ID)
+		// Studied plenty, answered everything wrong: past the volume floor,
+		// blocked on accuracy.
+		studyQuestions(t, q, learning.NewService(q), profile.ID, 0, learning.Again)
 
 		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
 		if status != http.StatusOK {
@@ -744,6 +749,36 @@ func TestMockEligibilityHandler(t *testing.T) {
 		}
 		if !got.IsVIP {
 			t.Fatalf("expected is_vip=true, got %+v", got)
+		}
+	})
+
+	t.Run("too few studied", func(t *testing.T) {
+		ts, tok, q := setupServer(t)
+		profile, err := q.GetProfileByPhone(context.Background(), "+998901234567")
+		if err != nil {
+			t.Fatal(err)
+		}
+		grantVIP(t, q, profile.ID)
+		// One correct answer per category: 100% accuracy, nowhere near enough
+		// coverage.
+		studied := studyOnePerCategoryCorrectly(t, q, learning.NewService(q), profile.ID)
+
+		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
+		if status != http.StatusOK {
+			t.Fatalf("status=%d err=%+v", status, env.Error)
+		}
+		var got mockEligibilityDTO
+		if err := json.Unmarshal(env.Data, &got); err != nil {
+			t.Fatal(err)
+		}
+		if got.Eligible || got.Reason == nil || *got.Reason != "too_few_studied" {
+			t.Fatalf("expected ineligible/too_few_studied, got %+v", got)
+		}
+		if got.MasteryPercent < got.MinRequiredPercent {
+			t.Fatalf("accuracy gate should be satisfied, got %+v", got)
+		}
+		if got.QuestionsStudied != studied || got.MinRequiredQuestions <= studied {
+			t.Fatalf("expected studied=%d below a meaningful floor, got %+v", studied, got)
 		}
 	})
 
