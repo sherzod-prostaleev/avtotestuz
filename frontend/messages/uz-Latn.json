@@ -768,6 +768,8 @@
     "freeCheckoutButton": "Bepul faollashtirish (0 so'm)",
     "checkoutSuccessTitle": "To'lov muvaffaqiyatli o'tdi!",
     "checkoutSuccessSubtitle": "Tabriklaymiz! VIP obunangiz muvaffaqiyatli faollashtirildi.",
+    "checkoutProratedTitle": "Promo chegirmasi to'liq qo'llanmadi",
+    "checkoutProratedBody": "Promo limati tugaganligi sababli to'lovingiz bo'yicha {granted} kun berildi (tarif {tariff} kun edi). To'langan summa asosida hisoblandi.",
     "checkoutSuccessFreeSubtitle": "Promo-kod bo'yicha VIP obuna bepul faollashtirildi!",
     "checkoutStartPractice": "Mashqlarni boshlash",
     "checkoutFailureTitle": "To'lov amalga oshmadi",

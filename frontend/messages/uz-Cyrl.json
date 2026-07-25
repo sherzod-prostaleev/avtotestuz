@@ -768,6 +768,8 @@
     "freeCheckoutButton": "Бепул фаоллаштириш (0 сўм)",
     "checkoutSuccessTitle": "Тўлов муваффақиятли ўтди!",
     "checkoutSuccessSubtitle": "Табриклаймиз! VIP обунангиз муваффақиятли фаоллаштирилди.",
+    "checkoutProratedTitle": "Промо чегирмаси тўлиқ қўлланилмади",
+    "checkoutProratedBody": "Промо лимити тугаганлиги сабабли тўловингиз бўйича {granted} кун берилди (тариф {tariff} кун эди). Тўланган сумма асосида ҳисобланди.",
     "checkoutSuccessFreeSubtitle": "Промо-код бўйича VIP обуна бепул фаоллаштирилди!",
     "checkoutStartPractice": "Машқларни бошлаш",
     "checkoutFailureTitle": "Тўлов амалга ошмади",

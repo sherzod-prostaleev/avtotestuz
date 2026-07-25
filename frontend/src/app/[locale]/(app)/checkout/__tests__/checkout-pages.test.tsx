@@ -56,4 +56,19 @@ describe("Checkout Status Pages", () => {
       expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/success");
     });
   });
+
+  it("forwards proration details to the success page", async () => {
+    vi.mocked(apiClient.apiGet).mockResolvedValueOnce({
+      active: true,
+      until: "2026-08-24T00:00:00Z",
+      proration: { applied: true, granted_days: 12, tariff_days: 30, reason: "promo_limit_reached" },
+    });
+    renderWithIntl(<CheckoutPendingPage />);
+
+    await waitFor(() => {
+      expect(pushMock).toHaveBeenCalledWith(
+        "/uz-Latn/checkout/success?prorated=1&granted=12&tariff=30"
+      );
+    });
+  });
 });

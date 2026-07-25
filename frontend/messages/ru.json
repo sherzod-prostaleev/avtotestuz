@@ -768,6 +768,8 @@
     "freeCheckoutButton": "Бесплатная активация (0 сум)",
     "checkoutSuccessTitle": "Оплата прошла успешно!",
     "checkoutSuccessSubtitle": "Поздравляем! Ваша VIP-подписка успешно активирована.",
+    "checkoutProratedTitle": "Промокод применён не полностью",
+    "checkoutProratedBody": "Лимит промокода уже исчерпан, поэтому за оплату начислено {granted} дн. (тариф был {tariff} дн.). Расчёт по фактически оплаченной сумме.",
     "checkoutSuccessFreeSubtitle": "VIP-подписка по промокоду успешно активирована бесплатно!",
     "checkoutStartPractice": "Начать занятия",
     "checkoutFailureTitle": "Оплата не прошла",

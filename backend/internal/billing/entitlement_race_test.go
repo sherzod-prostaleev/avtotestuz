@@ -109,7 +109,7 @@ func TestProcessPaymentGrantSerialPromoBypass(t *testing.T) {
 	// The pro-rated grants must say why, so support can reconcile them.
 	var noted int
 	if err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM entitlement WHERE profile_id = $1 AND note LIKE '%not redeemable at completion%'`,
+		`SELECT COUNT(*) FROM entitlement WHERE profile_id = $1 AND note LIKE 'promo_prorated|%'`,
 		profileID).Scan(&noted); err != nil {
 		t.Fatal(err)
 	}

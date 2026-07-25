@@ -178,10 +178,7 @@ func (s Service) ProcessPaymentGrant(ctx context.Context, paymentID uuid.UUID) e
 				return fmt.Errorf("re-validate promo %s: %w", promo.Code, redeemErr)
 			}
 			days = proRatedDays(payment.AmountUzs, payment.TariffPriceUzs, int(payment.TariffDays))
-			note = fmt.Sprintf(
-				"promo %s not redeemable at completion (%s): granted %d of %d days pro-rata for %d of %d UZS paid",
-				promo.Code, redeemErr, days, payment.TariffDays, payment.AmountUzs, payment.TariffPriceUzs,
-			)
+			note = formatPromoProratedNote(promo.Code, promoCauseCode(redeemErr), days, int(payment.TariffDays), payment.AmountUzs, payment.TariffPriceUzs)
 		} else {
 			if promo.Kind == "days" {
 				days += int(promo.Value)
@@ -220,6 +217,108 @@ func proRatedDays(paidUZS, listPriceUZS int64, tariffDays int) int {
 		days = 1
 	}
 	return days
+}
+
+// promoProratedNotePrefix marks entitlement.note rows written when a promo
+// could not be honored at payment completion and days were scaled to the
+// amount actually paid. Learner APIs parse this for checkout UX; the pipe
+// fields remain for support reconciliation.
+const promoProratedNotePrefix = "promo_prorated|"
+
+func promoCauseCode(err error) string {
+	switch {
+	case errors.Is(err, ErrPromoLimitReached), errors.Is(err, ErrPromoUserLimitReached):
+		return "promo_limit_reached"
+	case errors.Is(err, ErrPromoExpired):
+		return "promo_expired"
+	case errors.Is(err, ErrPromoNotStarted):
+		return "promo_not_started"
+	case errors.Is(err, ErrPromoNotFound):
+		return "promo_unavailable"
+	default:
+		return "promo_unavailable"
+	}
+}
+
+func formatPromoProratedNote(code, cause string, granted, tariffDays int, paid, list int64) string {
+	return fmt.Sprintf(
+		"%scode=%s|cause=%s|granted=%d|tariff=%d|paid=%d|list=%d",
+		promoProratedNotePrefix, code, cause, granted, tariffDays, paid, list,
+	)
+}
+
+// ProrationInfo is the learner-facing summary of a pro-rated purchase grant.
+type ProrationInfo struct {
+	Applied     bool   `json:"applied"`
+	GrantedDays int    `json:"granted_days"`
+	TariffDays  int    `json:"tariff_days"`
+	Reason      string `json:"reason"`
+}
+
+// ParseProrationNote extracts ProrationInfo from an entitlement note, if any.
+func ParseProrationNote(note string) (ProrationInfo, bool) {
+	if note == "" || len(note) < len(promoProratedNotePrefix) || note[:len(promoProratedNotePrefix)] != promoProratedNotePrefix {
+		return ProrationInfo{}, false
+	}
+	info := ProrationInfo{Applied: true, Reason: "promo_unavailable"}
+	for _, part := range splitNoteFields(note[len(promoProratedNotePrefix):]) {
+		key, val, ok := cutField(part)
+		if !ok {
+			continue
+		}
+		switch key {
+		case "cause":
+			info.Reason = val
+		case "granted":
+			fmt.Sscanf(val, "%d", &info.GrantedDays)
+		case "tariff":
+			fmt.Sscanf(val, "%d", &info.TariffDays)
+		}
+	}
+	if info.GrantedDays < 1 || info.TariffDays < 1 {
+		return ProrationInfo{}, false
+	}
+	return info, true
+}
+
+func splitNoteFields(s string) []string {
+	var out []string
+	start := 0
+	for i := 0; i <= len(s); i++ {
+		if i == len(s) || s[i] == '|' {
+			if i > start {
+				out = append(out, s[start:i])
+			}
+			start = i + 1
+		}
+	}
+	return out
+}
+
+func cutField(s string) (key, val string, ok bool) {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '=' {
+			return s[:i], s[i+1:], true
+		}
+	}
+	return "", "", false
+}
+
+// LatestPurchaseProration returns proration details for the newest purchase
+// grant, if that grant was pro-rated.
+func (s Service) LatestPurchaseProration(ctx context.Context, profileID uuid.UUID) (*ProrationInfo, error) {
+	row, err := s.Q.GetLatestPurchaseEntitlement(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	info, ok := ParseProrationNote(row.Note)
+	if !ok {
+		return nil, nil
+	}
+	return &info, nil
 }
 
 // RevokeEntitlementForPayment clamps the VIP grant linked to a refunded

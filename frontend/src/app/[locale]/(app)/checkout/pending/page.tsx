@@ -10,6 +10,12 @@ import { Loader2 } from "lucide-react";
 interface EntitlementDTO {
   active: boolean;
   until: string | null;
+  proration?: {
+    applied: boolean;
+    granted_days: number;
+    tariff_days: number;
+    reason: string;
+  } | null;
 }
 
 export default function CheckoutPendingPage() {
@@ -23,7 +29,14 @@ export default function CheckoutPendingPage() {
       try {
         const ent = await apiGet<EntitlementDTO>("me/entitlement");
         if (ent.active) {
-          router.push(`/${locale}/checkout/success`);
+          const params = new URLSearchParams();
+          if (ent.proration?.applied) {
+            params.set("prorated", "1");
+            params.set("granted", String(ent.proration.granted_days));
+            params.set("tariff", String(ent.proration.tariff_days));
+          }
+          const qs = params.toString();
+          router.push(`/${locale}/checkout/success${qs ? `?${qs}` : ""}`);
         }
       } catch {
         // continue polling
@@ -40,15 +53,15 @@ export default function CheckoutPendingPage() {
 
   return (
     <main className="mx-auto flex min-h-[70vh] max-w-md flex-col items-center justify-center p-4 text-center">
-      <Card className="w-full p-6 sm:p-8 flex flex-col items-center">
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-accent/10 border-2 border-accent/40 text-accent">
+      <Card className="flex w-full flex-col items-center p-6 sm:p-8">
+        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-accent/40 bg-accent/10 text-accent">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
 
-        <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl text-foreground">
+        <h1 className="font-display text-2xl font-extrabold tracking-tight text-foreground sm:text-3xl">
           {t("checkoutPendingTitle")}
         </h1>
-        <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {t("checkoutPendingSubtitle")}
         </p>
       </Card>

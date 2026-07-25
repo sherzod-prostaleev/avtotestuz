@@ -58,6 +58,14 @@ ORDER BY ends_at DESC LIMIT 1;
 INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note, created_by, payment_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;
 
+-- name: GetLatestPurchaseEntitlement :one
+-- Most recent purchase-sourced grant for learner-facing proration messaging.
+SELECT id, profile_id, source, starts_at, ends_at, payment_id, created_by, note, created_at
+FROM entitlement
+WHERE profile_id = $1 AND source = 'purchase'
+ORDER BY created_at DESC
+LIMIT 1;
+
 -- name: GetEntitlementByPaymentID :one
 SELECT id, profile_id, source, starts_at, ends_at, payment_id, created_by, note, created_at
 FROM entitlement

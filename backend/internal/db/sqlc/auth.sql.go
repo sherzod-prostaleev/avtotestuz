@@ -163,6 +163,32 @@ func (q *Queries) GetEntitlementByPaymentID(ctx context.Context, paymentID uuid.
 	return i, err
 }
 
+const getLatestPurchaseEntitlement = `-- name: GetLatestPurchaseEntitlement :one
+SELECT id, profile_id, source, starts_at, ends_at, payment_id, created_by, note, created_at
+FROM entitlement
+WHERE profile_id = $1 AND source = 'purchase'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+// Most recent purchase-sourced grant for learner-facing proration messaging.
+func (q *Queries) GetLatestPurchaseEntitlement(ctx context.Context, profileID uuid.UUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, getLatestPurchaseEntitlement, profileID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.PaymentID,
+		&i.CreatedBy,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getProfileByID = `-- name: GetProfileByID :one
 SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash FROM profile WHERE id = $1
 `

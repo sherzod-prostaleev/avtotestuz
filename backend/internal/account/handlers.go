@@ -66,8 +66,9 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 }
 
 type vipDTO struct {
-	Active bool    `json:"active"`
-	Until  *string `json:"until"`
+	Active    bool                    `json:"active"`
+	Until     *string                 `json:"until"`
+	Proration *billing.ProrationInfo  `json:"proration,omitempty"`
 }
 
 func toVIPDTO(active bool, until *time.Time) vipDTO {
@@ -77,6 +78,27 @@ func toVIPDTO(active bool, until *time.Time) vipDTO {
 		v.Until = &s
 	}
 	return v
+}
+
+func (h *Handler) getEntitlement(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	active, until, err := h.Billing.Status(r.Context(), claims.ProfileID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "entitlement query failed")
+		return
+	}
+	out := toVIPDTO(active, until)
+	if pr, err := h.Billing.LatestPurchaseProration(r.Context(), claims.ProfileID); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "entitlement query failed")
+		return
+	} else if pr != nil {
+		out.Proration = pr
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
@@ -176,20 +198,6 @@ func (h *Handler) patchMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, toProfileDTO(updated))
-}
-
-func (h *Handler) getEntitlement(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
-		return
-	}
-	active, until, err := h.Billing.Status(r.Context(), claims.ProfileID)
-	if err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "entitlement query failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, toVIPDTO(active, until))
 }
 
 type paymentHistoryDTO struct {
