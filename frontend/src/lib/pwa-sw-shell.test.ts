@@ -7,7 +7,7 @@ describe("PWA offline shell service worker", () => {
   const offline = readFileSync(join(process.cwd(), "public/offline.html"), "utf8");
 
   it("precaches shell assets and offline fallback", () => {
-    expect(sw).toContain('SHELL_CACHE = "dg-shell-v1"');
+    expect(sw).toContain('SHELL_CACHE = "dg-shell-v2"');
     expect(sw).toContain('OFFLINE_URL = "/offline.html"');
     expect(sw).toContain("/manifest.webmanifest");
     expect(sw).toContain("cache.addAll(PRECACHE_URLS)");
@@ -16,15 +16,17 @@ describe("PWA offline shell service worker", () => {
     expect(offline).toContain("Internet aloqasi");
   });
 
-  it("keeps push handlers and skips API/BFF", () => {
+  it("keeps push handlers and caches bilets list API thinly", () => {
     expect(sw).toContain('addEventListener("push"');
     expect(sw).toContain('addEventListener("notificationclick"');
+    expect(sw).toContain("BILETS_LIST_RE");
+    expect(sw).toContain("networkFirstBiletsList");
     expect(sw).toContain('pathname.startsWith("/api/")');
     expect(sw).toContain('pathname.startsWith("/bff/")');
   });
 
   it("does not claim full offline exam/content sync", () => {
     expect(sw).toMatch(/No full offline exam/);
-    expect(sw).not.toMatch(/IndexedDB|questions.?catalog|bilets.?cache/i);
+    expect(sw).not.toMatch(/IndexedDB|questions.?catalog/i);
   });
 });

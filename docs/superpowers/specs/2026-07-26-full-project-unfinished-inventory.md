@@ -75,7 +75,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
-| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell slice done: `sw.js` precache + network-first nav → `offline.html`; static cache-first. Full offline exam/content sync (bilets/signs) still open. |
+| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + **bilets list** network-first cache (`/api/proxy/variants`, `/api/proxy/me/variants`). Full offline exam/question sync still open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | missing | Customer + entitlement `b2b` source already in CHECK | Schema allows `source='b2b'`; no org tables/packages. |
 | **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | partial | — | Liveness `/healthz` + readiness `/readyz` (Postgres/Redis checks) documented in README + STAGING-RUNBOOK + smoke. FE ops stub `/{locale}/ops/health` aggregates both via BFF. No Prometheus/Sentry yet. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |

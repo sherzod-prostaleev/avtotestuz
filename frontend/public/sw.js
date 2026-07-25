@@ -1,9 +1,10 @@
-/* Driver Go — push + offline shell service worker (M4-08 / M6 U-39).
- * Shell cache only: static assets + network-first navigations with offline.html
- * fallback. No full offline exam / question catalog sync.
+/* Driver Go — push + offline shell service worker (M4-08 / M6 U-38/U-39).
+ * Shell cache + thin bilets list API cache (variants). No full offline exam /
+ * question catalog sync.
  */
-const SHELL_CACHE = "dg-shell-v1";
-const RUNTIME_CACHE = "dg-runtime-v1";
+const SHELL_CACHE = "dg-shell-v2";
+const RUNTIME_CACHE = "dg-runtime-v2";
+const BILETS_CACHE = "dg-bilets-v1";
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -18,6 +19,9 @@ const PRECACHE_URLS = [
 /** Public / shell paths worth keeping after a successful visit (locale-aware). */
 const SHELL_PATH_RE =
   /^\/(?:(uz-Latn|uz-Cyrl|ru)(?:\/(?:login|oferta|privacy|narxlar|jarimalar)?)?)?\/?$/;
+
+/** Bilets list endpoints safe to cache (metadata only — not question bodies). */
+const BILETS_LIST_RE = /^\/api\/proxy\/(?:variants|me\/variants)(?:\?|$)/;
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -35,7 +39,7 @@ self.addEventListener("activate", (event) => {
       .then((keys) =>
         Promise.all(
           keys
-            .filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE)
+            .filter((key) => key !== SHELL_CACHE && key !== RUNTIME_CACHE && key !== BILETS_CACHE)
             .map((key) => caches.delete(key))
         )
       )
@@ -49,6 +53,12 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+
+  if (BILETS_LIST_RE.test(url.pathname + (url.search || ""))) {
+    event.respondWith(networkFirstBiletsList(req));
+    return;
+  }
+
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/bff/")) return;
 
   if (req.mode === "navigate" || req.destination === "document") {
@@ -68,6 +78,24 @@ function isStaticAsset(pathname) {
     pathname === OFFLINE_URL ||
     /\.(?:js|css|svg|png|jpe?g|webp|ico|woff2?)$/i.test(pathname)
   );
+}
+
+async function networkFirstBiletsList(req) {
+  const cache = await caches.open(BILETS_CACHE);
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) {
+      void cache.put(req, fresh.clone());
+    }
+    return fresh;
+  } catch {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    return new Response(JSON.stringify({ error: { code: "offline", message: "bilets list unavailable offline" } }), {
+      status: 503,
+      headers: { "Content-Type": "application/json; charset=utf-8" },
+    });
+  }
 }
 
 async function networkFirstNavigation(req) {
