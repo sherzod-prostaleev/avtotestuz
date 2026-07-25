@@ -2,11 +2,13 @@ package leaderboard_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -272,5 +274,74 @@ func TestRebuildPeriodReconstructsFromPostgres(t *testing.T) {
 	now := time.Now().UTC()
 	if err := svc.RebuildPeriod(ctx, leaderboard.PeriodDaily, now); err != nil {
 		t.Fatalf("RebuildPeriod: %v", err)
+	}
+}
+
+// TestRebuildPeriodPurgesStaleRedisMembers reproduces the reconciliation gap
+// found in code review: RebuildPeriod must fully reconstruct the Redis key
+// from Postgres, which means any member present in Redis but absent from
+// the fresh Postgres result (stale data, drift, corruption) must be removed
+// — not merely left with its old, now-untrustworthy score.
+func TestRebuildPeriodPurgesStaleRedisMembers(t *testing.T) {
+	svc, q := newTestService(t)
+	pool := testdb.New(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	profileID := createProfile(t, q, "+998901111111")
+
+	// Seed session_answer directly via raw SQL (RecordPoint only writes to
+	// Redis, never to session_answer — see internal/session.Service.
+	// SubmitAnswer for the real write path) so RebuildPeriod's Postgres
+	// query has real rows to reconstruct from. Two correct answers within
+	// today's window for profileID.
+	var categoryID, questionID, answerID, sessionID string
+	if err := pool.QueryRow(ctx, `INSERT INTO category (code) VALUES ('rebuild-stale') RETURNING id`).Scan(&categoryID); err != nil {
+		t.Fatalf("insert category: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO question (source_ext_id, category_id, content_hash)
+		VALUES ('rebuild-stale-q', $1, 'rebuild-stale-h') RETURNING id`, categoryID).Scan(&questionID); err != nil {
+		t.Fatalf("insert question: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO answer (question_id, position) VALUES ($1, 1) RETURNING id`, questionID).Scan(&answerID); err != nil {
+		t.Fatalf("insert answer: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO exam_session (profile_id, mode, locale, total)
+		VALUES ($1, 'practice', 'uz-Latn', 1) RETURNING id`, profileID).Scan(&sessionID); err != nil {
+		t.Fatalf("insert exam_session: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_question (session_id, question_id, position)
+		VALUES ($1, $2, 1)`, sessionID, questionID); err != nil {
+		t.Fatalf("insert session_question: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO session_answer (session_id, question_id, answer_id, is_correct, position, answered_at)
+		VALUES ($1, $2, $3, true, 1, $4)`, sessionID, questionID, answerID, now); err != nil {
+		t.Fatalf("insert session_answer: %v", err)
+	}
+
+	key := leaderboard.RedisKey(leaderboard.PeriodDaily, now)
+	staleMember := "00000000-0000-4000-8000-000000000abc" // syntactically valid UUID, not in Postgres
+	if err := svc.Redis.ZAdd(ctx, key, redis.Z{Score: 999, Member: staleMember}).Err(); err != nil {
+		t.Fatalf("seed stale redis member: %v", err)
+	}
+
+	if err := svc.RebuildPeriod(ctx, leaderboard.PeriodDaily, now); err != nil {
+		t.Fatalf("RebuildPeriod: %v", err)
+	}
+
+	if _, err := svc.Redis.ZScore(ctx, key, staleMember).Result(); !errors.Is(err, redis.Nil) {
+		t.Errorf("stale member ZScore error = %v, want redis.Nil (member should be purged)", err)
+	}
+
+	gotScore, err := svc.Redis.ZScore(ctx, key, profileID.String()).Result()
+	if err != nil {
+		t.Fatalf("ZScore(profileID): %v", err)
+	}
+	if got := leaderboard.DecodePoints(gotScore); got != 1 {
+		t.Errorf("profile correct count = %d, want 1", got)
 	}
 }

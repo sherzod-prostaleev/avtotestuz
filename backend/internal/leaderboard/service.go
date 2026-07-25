@@ -218,11 +218,13 @@ func (s *Service) RebuildPeriod(ctx context.Context, p Period, at time.Time) err
 	if err != nil {
 		return err
 	}
-	if len(rows) == 0 {
-		return nil
-	}
 	key := RedisKey(p, at)
 	pipe := s.Redis.Pipeline()
+	pipe.Del(ctx, key)
+	if len(rows) == 0 {
+		_, err = pipe.Exec(ctx)
+		return err
+	}
 	for _, row := range rows {
 		lastAt := row.LastAnsweredAt.Time
 		score := EncodeScore(int(row.CorrectCount), lastAt)
