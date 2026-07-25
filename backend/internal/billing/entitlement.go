@@ -270,9 +270,9 @@ func ParseProrationNote(note string) (ProrationInfo, bool) {
 		case "cause":
 			info.Reason = val
 		case "granted":
-			fmt.Sscanf(val, "%d", &info.GrantedDays)
+			_, _ = fmt.Sscanf(val, "%d", &info.GrantedDays)
 		case "tariff":
-			fmt.Sscanf(val, "%d", &info.TariffDays)
+			_, _ = fmt.Sscanf(val, "%d", &info.TariffDays)
 		}
 	}
 	if info.GrantedDays < 1 || info.TariffDays < 1 {

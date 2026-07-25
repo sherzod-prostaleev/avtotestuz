@@ -67,7 +67,7 @@ func (h *Handler) getLeaderboard(w http.ResponseWriter, r *http.Request) {
 func toEntryDTOs(entries []Entry) []entryDTO {
 	out := make([]entryDTO, len(entries))
 	for i, e := range entries {
-		out[i] = entryDTO{Rank: e.Rank, Name: e.Name, Score: e.Score}
+		out[i] = entryDTO(e)
 	}
 	return out
 }

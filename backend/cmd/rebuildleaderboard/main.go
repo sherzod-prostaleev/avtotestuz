@@ -44,7 +44,7 @@ func main() {
 
 	rdb, err := redisx.New(cfg.RedisURL)
 	fatal(err)
-	defer rdb.Close()
+	defer func() { _ = rdb.Close() }()
 
 	q := sqlc.New(pool)
 	svc := leaderboard.NewService(rdb, q, billing.Service{Q: q})

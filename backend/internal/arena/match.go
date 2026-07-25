@@ -368,9 +368,10 @@ func (m *Match) finish(ctx context.Context, reason string) {
 	case "both_disconnected", "server_shutdown":
 		outA, outB = "draw", "draw"
 	case "forfeit":
-		if m.quitter == m.a {
+		switch m.quitter {
+		case m.a:
 			outA, outB = "lost", "won"
-		} else if m.quitter == m.b {
+		case m.b:
 			outA, outB = "won", "lost"
 		}
 	}
@@ -380,9 +381,10 @@ func (m *Match) finish(ctx context.Context, reason string) {
 		// Forfeit: quitter scores as loss for ELO (score 0 vs opponent+1).
 		scoreA, scoreB := m.score[m.a], m.score[m.b]
 		if reason == "forfeit" {
-			if m.quitter == m.a {
+			switch m.quitter {
+			case m.a:
 				scoreA, scoreB = 0, 1
-			} else if m.quitter == m.b {
+			case m.b:
 				scoreA, scoreB = 1, 0
 			}
 		}

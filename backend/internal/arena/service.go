@@ -494,9 +494,10 @@ func (s *Service) FinishPersist(ctx context.Context, m *Match, da, db int) error
 	case "both_disconnected", "server_shutdown":
 		outA, outB = "draw", "draw"
 	case "forfeit":
-		if m.quitter == m.a {
+		switch m.quitter {
+		case m.a:
 			outA, outB = "lost", "won"
-		} else if m.quitter == m.b {
+		case m.b:
 			outA, outB = "won", "lost"
 		}
 	}

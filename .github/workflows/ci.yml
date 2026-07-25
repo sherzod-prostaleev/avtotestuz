@@ -20,6 +20,17 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      # Packages that call redisx.NewTest (auth, demo, arena, leaderboard,
+      # session, server) FlushDB a per-package logical DB. Without Redis the
+      # job either skips reality or fails loudly — keep CI honest.
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: backend
@@ -30,12 +41,16 @@ jobs:
           go-version: stable
           cache-dependency-path: backend/go.sum
       - name: Lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           working-directory: backend
+          # go.mod is 1.26.5; action default v1.x binaries are built with older Go
+          # and refuse to load. Pin a v2 release built with go1.26+.
+          version: v2.12.2
       - name: Test
         env:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
+          TEST_REDIS_URL: redis://localhost:6379/0
         run: go test -p 1 ./... -count=1
 
   frontend:
