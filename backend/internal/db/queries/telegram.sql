@@ -30,6 +30,11 @@ SELECT profile_id, tg_user_id, username, linked_at
 FROM telegram_account
 WHERE tg_user_id = $1;
 
+-- name: GetTelegramAccountByProfileID :one
+SELECT profile_id, tg_user_id, username, linked_at
+FROM telegram_account
+WHERE profile_id = $1;
+
 -- name: UpsertTelegramAccount :exec
 -- ON CONFLICT targets profile_id (the primary key) only: re-linking the same
 -- profile to a new tg_user_id is allowed (last link wins, see design §3.3).

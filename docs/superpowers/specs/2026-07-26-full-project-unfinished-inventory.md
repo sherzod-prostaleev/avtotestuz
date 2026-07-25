@@ -45,7 +45,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-06** | P1 | BE | **M4-03 Arena realtime infra** | missing | Spec ✅; plan skeleton | **No** `internal/arena`. Migration next = **0021**. Redis `arena:`. Plan must be expanded to full TDD before code. |
 | **U-07** | P1 | BE | **M4-04 Arena rating / medals / history API** | missing | U-06 | ELO, Bronza→Brilliant, match history. |
 | **U-08** | P1 | FE | **J10 / M4-05 Arena UI** | missing | U-06 (+ U-07 for chrome) | No FE routes/components; not in sidebar. Asphalt tokens only when built. |
-| **U-09** | P1 | FE | **Telegram “bog‘lash” UI** | missing | M4-06 BE ✅ | `POST /me/telegram/link-token` exists; **no** profile/settings FE calling it. Handoff residual. |
+| **U-09** | P1 | FE | **Telegram “bog‘lash” UI** | **done** | M4-06 BE ✅ | Profile `TelegramLinkCard`: `GET /me/telegram` + `POST /me/telegram/link-token` deep link. |
 | **U-10** | P1 | Bot | **M4-07 TG daily quiz + notifications** | deferred | M4-06 ✅ | Spec defers quiz, outbound cron, rich keyboards, multi-locale bot copy, `/unlink`, flood limits. |
 | **U-11** | P1 | BE/FE | **M4-08 Web push / campaigns** | missing | M4-06? | `notification` table exists (0005); **no** app package writing/sending. |
 | **U-12** | P1 | Content | **AI explanation = real LLM** | stub | Budget/API key | `TemplateDraftGenerator` / `ai-stub` only. Real legal analysis deferred since M1 Plan 05. |

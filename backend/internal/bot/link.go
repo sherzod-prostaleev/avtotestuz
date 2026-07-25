@@ -158,6 +158,29 @@ func (s *LinkService) RedeemLinkToken(ctx context.Context, rawToken string, tgUs
 	return RedeemResult{ProfileID: tokenRow.ProfileID, AlreadyLinked: alreadyLinked}, nil
 }
 
+// TelegramStatus is the learner-facing link state for GET /me/telegram.
+type TelegramStatus struct {
+	Linked   bool   `json:"linked"`
+	Username string `json:"username,omitempty"`
+	LinkedAt string `json:"linked_at,omitempty"`
+}
+
+// Status reports whether profileID has a bound Telegram account.
+func (s *LinkService) Status(ctx context.Context, profileID uuid.UUID) (TelegramStatus, error) {
+	acc, err := s.Q.GetTelegramAccountByProfileID(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return TelegramStatus{Linked: false}, nil
+		}
+		return TelegramStatus{}, err
+	}
+	out := TelegramStatus{Linked: true, Username: acc.Username}
+	if acc.LinkedAt.Valid {
+		out.LinkedAt = acc.LinkedAt.Time.UTC().Format(time.RFC3339)
+	}
+	return out, nil
+}
+
 // isUniqueViolation reports whether err is a Postgres unique-constraint
 // violation (SQLSTATE 23505). Duplicated from billing/auth/payme's copies
 // rather than imported — bot has no other reason to depend on any of them.

@@ -25,10 +25,10 @@ func baseTestConfig() config.Config {
 	}
 }
 
-func TestBotRoutes_NotMountedWhenModeOff(t *testing.T) {
+func TestBotRoutes_ModeOffMountsLinkButNotWebhook(t *testing.T) {
 	pool := testdb.New(t)
 	rdb := redisx.NewTest(t)
-	h := New(baseTestConfig(), Deps{Queries: sqlc.New(pool), Pool: pool, Redis: rdb})
+	h, _ := New(baseTestConfig(), Deps{Queries: sqlc.New(pool), Pool: pool, Redis: rdb})
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/telegram/webhook", nil)
@@ -37,11 +37,19 @@ func TestBotRoutes_NotMountedWhenModeOff(t *testing.T) {
 		t.Errorf("webhook route with mode=off: status = %d, want 404", rec.Code)
 	}
 
+	// Link-token is web-facing and stays mounted; auth still required.
 	rec2 := httptest.NewRecorder()
 	req2 := httptest.NewRequest("POST", "/api/v1/me/telegram/link-token", nil)
 	h.ServeHTTP(rec2, req2)
-	if rec2.Code != 404 {
-		t.Errorf("link-token route with mode=off: status = %d, want 404", rec2.Code)
+	if rec2.Code != 401 {
+		t.Errorf("link-token without auth: status = %d, want 401", rec2.Code)
+	}
+
+	rec3 := httptest.NewRecorder()
+	req3 := httptest.NewRequest("GET", "/api/v1/me/telegram", nil)
+	h.ServeHTTP(rec3, req3)
+	if rec3.Code != 401 {
+		t.Errorf("status without auth: status = %d, want 401", rec3.Code)
 	}
 }
 
@@ -55,7 +63,7 @@ func TestBotRoutes_WebhookModeMountsBothRoutes(t *testing.T) {
 	cfg.TelegramBotAPIBaseURL = "http://127.0.0.1:0" // never actually dialed in this test
 	cfg.TelegramBotUsername = "AvtoTestBot"
 	q := sqlc.New(pool)
-	h := New(cfg, Deps{Queries: q, Pool: pool, Redis: rdb})
+	h, _ := New(cfg, Deps{Queries: q, Pool: pool, Redis: rdb})
 
 	// Webhook route exists and enforces the secret header.
 	rec := httptest.NewRecorder()

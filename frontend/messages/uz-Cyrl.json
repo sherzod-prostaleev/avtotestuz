@@ -644,6 +644,27 @@
     "logout": "Тизимдан чиқиш",
     "logoutDescription": "Аккаунтдан чиқиш ва жорий сессияни якунлаш"
   },
+  "TelegramLink": {
+    "title": "Telegram улаш",
+    "subtitle": "Бот орқали эслатмалар ва тез кириш учун аккаунтингизни Telegramга уланг. Ҳавола 10 дақиқа амал қилади.",
+    "loading": "Ҳолат юкланмоқда...",
+    "loadError": "Telegram ҳолатини юклаб бўлмади.",
+    "linkError": "Улаш ҳаволасини яратиб бўлмади. Қайта уриниб кўринг.",
+    "unconfigured": "Telegram бот ҳозирча созланмаган. Кейинроқ қайта уриниб кўринг.",
+    "retry": "Қайта уриниш",
+    "refresh": "Янгилаш",
+    "notLinked": "Ҳали Telegram аккаунт уланмаган.",
+    "linkedTitle": "Telegram уланган",
+    "linkedAs": "Уланган аккаунт: {username}",
+    "linkedAnonymous": "Telegram аккаунт уланган.",
+    "linkButton": "Telegramни улаш",
+    "relinkButton": "Қайта улаш",
+    "linking": "Ҳавола очилмоқда...",
+    "deepLinkHint": "Агар Telegram очилмаса, ҳаволани нусхаланг ёки қуйидаги тугмани босинг.",
+    "expiresAt": "Амал қилиш муддати: {time}",
+    "copyLink": "Нусхалаш",
+    "copied": "Нусхаланди"
+  },
   "Referral": {
     "title": "Реферал Дастури",
     "subtitle": "Дўстларингизни таклиф қилинг ва ҳар бирига +7 кунлик VIP бонус олинг!",

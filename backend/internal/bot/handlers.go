@@ -2,6 +2,7 @@ package bot
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -18,7 +19,28 @@ type Handler struct {
 }
 
 func (h *Handler) AuthedRoutes(r chi.Router) {
+	r.Get("/me/telegram", h.getStatus)
 	r.Post("/me/telegram/link-token", h.createLinkToken)
+}
+
+type telegramStatusResponse struct {
+	Linked   bool   `json:"linked"`
+	Username string `json:"username,omitempty"`
+	LinkedAt string `json:"linked_at,omitempty"`
+}
+
+func (h *Handler) getStatus(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	status, err := h.Link.Status(r.Context(), claims.ProfileID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to load telegram status")
+		return
+	}
+	httpx.Data(w, http.StatusOK, status)
 }
 
 type linkTokenResponse struct {
@@ -31,6 +53,11 @@ func (h *Handler) createLinkToken(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
 		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	if strings.TrimSpace(h.BotUsername) == "" {
+		httpx.Error(w, http.StatusServiceUnavailable, "telegram_bot_unconfigured",
+			"telegram bot username is not configured")
 		return
 	}
 

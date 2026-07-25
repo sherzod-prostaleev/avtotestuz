@@ -81,6 +81,24 @@ func (q *Queries) GetLinkTokenByHashForUpdate(ctx context.Context, tokenHash str
 	return i, err
 }
 
+const getTelegramAccountByProfileID = `-- name: GetTelegramAccountByProfileID :one
+SELECT profile_id, tg_user_id, username, linked_at
+FROM telegram_account
+WHERE profile_id = $1
+`
+
+func (q *Queries) GetTelegramAccountByProfileID(ctx context.Context, profileID uuid.UUID) (TelegramAccount, error) {
+	row := q.db.QueryRow(ctx, getTelegramAccountByProfileID, profileID)
+	var i TelegramAccount
+	err := row.Scan(
+		&i.ProfileID,
+		&i.TgUserID,
+		&i.Username,
+		&i.LinkedAt,
+	)
+	return i, err
+}
+
 const getTelegramAccountByTgUserID = `-- name: GetTelegramAccountByTgUserID :one
 SELECT profile_id, tg_user_id, username, linked_at
 FROM telegram_account

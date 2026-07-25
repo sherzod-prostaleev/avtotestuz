@@ -72,6 +72,56 @@ func TestCreateLinkTokenRequiresAuth(t *testing.T) {
 	}
 }
 
+func TestGetTelegramStatusUnlinked(t *testing.T) {
+	ts, tok, _ := setupLinkHandlerServer(t)
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/me/telegram", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	var env struct {
+		Data telegramStatusResponse `json:"data"`
+	}
+	if err := json.Unmarshal(body, &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.Linked {
+		t.Fatal("want linked=false for fresh profile")
+	}
+}
+
+func TestCreateLinkTokenUnconfiguredBot(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998901130099"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := auth.IssueAccess([]byte(handlerTestSecret), profile.ID, "user", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := chi.NewRouter()
+	h := &Handler{Link: NewLinkService(pool, q), BotUsername: ""}
+	h.AuthedRoutes(r.With(auth.Required([]byte(handlerTestSecret))))
+	ts := httptest.NewServer(r)
+	t.Cleanup(ts.Close)
+
+	status, body := doPost(t, ts, tok, "/me/telegram/link-token")
+	if status != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503; body=%s", status, body)
+	}
+}
+
 func TestCreateLinkTokenReturnsRedeemableToken(t *testing.T) {
 	ts, tok, link := setupLinkHandlerServer(t)
 	status, body := doPost(t, ts, tok, "/me/telegram/link-token")

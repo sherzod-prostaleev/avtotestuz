@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, User, Globe, LogOut, Check } from "lucide-react";
 import { ReferralCard } from "@/components/profile/referral-card";
 import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
+import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
 
 interface UserProfileData {
   id: string;
@@ -233,6 +234,7 @@ export default function ProfilePage() {
           </div>
         </Card>
 
+        <TelegramLinkCard />
         <ReferralCard />
         <PaymentHistoryCard />
 

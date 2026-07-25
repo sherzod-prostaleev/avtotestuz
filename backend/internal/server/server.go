@@ -148,26 +148,27 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				ahArena.PublicRoutes(api)
 				ahArena.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-				if cfg.TelegramBotMode != "off" {
-					linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
-					tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
-					tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				// Link-token + status are web-facing and do not need an active
+				// bot consumer — mount whenever the API has DB+Redis. Webhook /
+				// longpoll still gate on TelegramBotMode.
+				linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
+				tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
+				tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-					if cfg.TelegramBotMode == "webhook" {
-						tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
-						botSvc := &bot.Bot{
-							Link:     linkSvc,
-							Billing:  billing.Service{Q: deps.Queries},
-							Progress: progressSvc,
-							TG:       tgClient,
-							Log:      log,
-						}
-						wh := &bot.WebhookHandler{Bot: botSvc, Secret: cfg.TelegramWebhookSecret, Log: log}
-						api.Post("/telegram/webhook", wh.ServeHTTP)
+				if cfg.TelegramBotMode == "webhook" {
+					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
+					botSvc := &bot.Bot{
+						Link:     linkSvc,
+						Billing:  billing.Service{Q: deps.Queries},
+						Progress: progressSvc,
+						TG:       tgClient,
+						Log:      log,
 					}
-					// longpoll mode registers no HTTP route — cmd/api starts
-					// bot.RunLongPoll instead (design §5.1).
+					wh := &bot.WebhookHandler{Bot: botSvc, Secret: cfg.TelegramWebhookSecret, Log: log}
+					api.Post("/telegram/webhook", wh.ServeHTTP)
 				}
+				// longpoll mode registers no HTTP route — cmd/api starts
+				// bot.RunLongPoll instead (design §5.1).
 			}
 		})
 	}

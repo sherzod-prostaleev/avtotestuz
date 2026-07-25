@@ -644,6 +644,27 @@
     "logout": "Tizimdan chiqish",
     "logoutDescription": "Akkauntdan chiqish va joriy sessiyani yakunlash"
   },
+  "TelegramLink": {
+    "title": "Telegram bog'lash",
+    "subtitle": "Bot orqali eslatmalar va tez kirish uchun akkauntingizni Telegramga ulang. Havola 10 daqiqa amal qiladi.",
+    "loading": "Holat yuklanmoqda...",
+    "loadError": "Telegram holatini yuklab bo'lmadi.",
+    "linkError": "Bog'lash havolasini yaratib bo'lmadi. Qayta urinib ko'ring.",
+    "unconfigured": "Telegram bot hozircha sozlanmagan. Keyinroq qayta urinib ko'ring.",
+    "retry": "Qayta urinish",
+    "refresh": "Yangilash",
+    "notLinked": "Hali Telegram akkaunt bog'lanmagan.",
+    "linkedTitle": "Telegram bog'langan",
+    "linkedAs": "Ulangan akkaunt: {username}",
+    "linkedAnonymous": "Telegram akkaunt bog'langan.",
+    "linkButton": "Telegramni bog'lash",
+    "relinkButton": "Qayta bog'lash",
+    "linking": "Havola ochilmoqda...",
+    "deepLinkHint": "Agar Telegram ochilmasa, havolani nusxalang yoki quyidagi tugmani bosing.",
+    "expiresAt": "Amal qilish muddati: {time}",
+    "copyLink": "Nusxalash",
+    "copied": "Nusxalandi"
+  },
   "Referral": {
     "title": "Referal Dasturi",
     "subtitle": "Do'stlaringizni taklif qiling va har biriga +7 kunlik VIP bonus oling!",

@@ -644,6 +644,27 @@
     "logout": "Выйти из системы",
     "logoutDescription": "Выйти из аккаунта и завершить текущую сессию"
   },
+  "TelegramLink": {
+    "title": "Привязка Telegram",
+    "subtitle": "Привяжите аккаунт к Telegram для напоминаний и быстрого входа через бота. Ссылка действует 10 минут.",
+    "loading": "Загрузка статуса...",
+    "loadError": "Не удалось загрузить статус Telegram.",
+    "linkError": "Не удалось создать ссылку. Попробуйте снова.",
+    "unconfigured": "Telegram-бот пока не настроен. Попробуйте позже.",
+    "retry": "Повторить",
+    "refresh": "Обновить",
+    "notLinked": "Telegram ещё не привязан.",
+    "linkedTitle": "Telegram привязан",
+    "linkedAs": "Аккаунт: {username}",
+    "linkedAnonymous": "Telegram-аккаунт привязан.",
+    "linkButton": "Привязать Telegram",
+    "relinkButton": "Привязать заново",
+    "linking": "Открываем ссылку...",
+    "deepLinkHint": "Если Telegram не открылся, скопируйте ссылку или нажмите её ниже.",
+    "expiresAt": "Действует до: {time}",
+    "copyLink": "Копировать",
+    "copied": "Скопировано"
+  },
   "Referral": {
     "title": "Реферальная программа",
     "subtitle": "Приглашайте друзей и получайте +7 дней VIP за каждого!",
