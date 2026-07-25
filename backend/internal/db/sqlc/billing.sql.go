@@ -42,6 +42,22 @@ func (q *Queries) ConfirmClickTransaction(ctx context.Context, id uuid.UUID) err
 	return err
 }
 
+const countPaidPaymentsForProfile = `-- name: CountPaidPaymentsForProfile :one
+SELECT COUNT(*)::bigint
+FROM payment
+WHERE profile_id = $1 AND status = 'paid'
+`
+
+// Referral antifraud: any completed purchase means the referee was not acquired
+// by the referrer. Abandoned checkouts (created/pending/failed/canceled) do not
+// count.
+func (q *Queries) CountPaidPaymentsForProfile(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countPaidPaymentsForProfile, profileID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countPromoRedemptions = `-- name: CountPromoRedemptions :one
 SELECT COUNT(*)::int AS count FROM promo_redemption WHERE promo_code_id = $1
 `

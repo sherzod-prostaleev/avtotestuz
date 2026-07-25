@@ -21,6 +21,14 @@ INSERT INTO payment (profile_id, tariff_id, amount_uzs, provider, status, idempo
 VALUES ($1, $2, $3, $4, 'created', $5, $6, $7, $8)
 RETURNING id;
 
+-- name: CountPaidPaymentsForProfile :one
+-- Referral antifraud: any completed purchase means the referee was not acquired
+-- by the referrer. Abandoned checkouts (created/pending/failed/canceled) do not
+-- count.
+SELECT COUNT(*)::bigint
+FROM payment
+WHERE profile_id = $1 AND status = 'paid';
+
 -- name: GetPaymentForPayme :one
 -- Both tariff figures come from the payment's own snapshot, NOT from a join on
 -- tariff: a 'created' payment never expires, so re-reading a mutable tariff at

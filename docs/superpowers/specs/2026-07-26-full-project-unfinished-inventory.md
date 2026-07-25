@@ -41,7 +41,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-02** | P0 | Ops | **Staging / production deploy path** | missing | D18 host decision | No `backend/Dockerfile`, no `frontend/Dockerfile`, no `deploy/`. Plan 08 (Flutter-era) never executed for Next.js. `run.sh` = local only. |
 | **U-03** | P0 | Ops | **Payme/Click production merchant keys + legal entity** | deferred | External / yuridik shaxs | Sandbox adapters **done**. ENV empty → webhooks reject. Master prompt: sandbox until legal entity. |
 | **U-04** | P0 | BE | **Refund → entitlement revoke** | deferred | Billing audit | Payme can mark `refunded`; comment in `payme/methods.go`: revoke **deliberately deferred**. Money integrity gap for real ops. |
-| **U-05** | P0 | BE | **Referral antifraud (retroactive attach)** | deferred | Design locked | Design-only: `2026-07-25-referral-antifraud-design.md`. Attach allowed for already-paying users; `ReferralCapture` widened surface. Unused `referral_attribution` (0003) still dead. |
+| **U-05** | P0 | BE | **Referral antifraud (retroactive attach)** | **done** | Design locked | Attach requires no prior `paid` payment + `created_at` within `referral_attach_window_days` (30). Terminal FE codes clear localStorage. |
 | **U-06** | P1 | BE | **M4-03 Arena realtime infra** | missing | Spec ✅; plan skeleton | **No** `internal/arena`. Migration next = **0021**. Redis `arena:`. Plan must be expanded to full TDD before code. |
 | **U-07** | P1 | BE | **M4-04 Arena rating / medals / history API** | missing | U-06 | ELO, Bronza→Brilliant, match history. |
 | **U-08** | P1 | FE | **J10 / M4-05 Arena UI** | missing | U-06 (+ U-07 for chrome) | No FE routes/components; not in sidebar. Asphalt tokens only when built. |

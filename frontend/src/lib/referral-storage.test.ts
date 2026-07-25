@@ -75,7 +75,13 @@ describe("referral-storage", () => {
     expect(readPendingReferralCode()).toBe("ABC123");
   });
 
-  it.each(["referral_not_found", "referral_self", "referral_already_applied"])(
+  it.each([
+    "referral_not_found",
+    "referral_self",
+    "referral_already_applied",
+    "referral_not_eligible_paid",
+    "referral_window_closed",
+  ])(
     "drops the code when the server answers %s",
     async (code) => {
       vi.spyOn(apiClient, "apiPost").mockRejectedValue(new ApiError("nope", code, 400));

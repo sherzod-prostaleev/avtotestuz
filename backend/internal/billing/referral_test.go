@@ -137,6 +137,102 @@ func TestApplyReferralCode_AlreadyApplied(t *testing.T) {
 	}
 }
 
+func TestApplyReferralCode_NotEligiblePaid(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	referrer := uuid.New()
+	referee := uuid.New()
+
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901110101')`, referrer); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901110102')`, referee); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, paid_at, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		SELECT $1, $2, t.id, 59900, 'payme', 'paid', NOW(), $3, t.days, t.price_uzs
+		FROM tariff t WHERE t.code = 'gentra'
+	`, uuid.New(), referee, uuid.New().String()); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Q: sqlc.New(pool)}
+	code, err := svc.GetOrCreateReferralCode(ctx, referrer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = svc.ApplyReferralCode(ctx, referee, code)
+	if !errors.Is(err, ErrReferralNotEligiblePaid) {
+		t.Fatalf("got %v, want ErrReferralNotEligiblePaid", err)
+	}
+}
+
+func TestApplyReferralCode_AbandonedCheckoutStillEligible(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	referrer := uuid.New()
+	referee := uuid.New()
+
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901110103')`, referrer); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901110104')`, referee); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `INSERT INTO tariff (code, days, price_uzs, sort_order, active) VALUES ('gentra', 30, 59900, 1, true) ON CONFLICT (code) DO UPDATE SET active = true`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		SELECT $1, $2, t.id, 59900, 'payme', 'created', $3, t.days, t.price_uzs
+		FROM tariff t WHERE t.code = 'gentra'
+	`, uuid.New(), referee, uuid.New().String()); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Q: sqlc.New(pool)}
+	code, err := svc.GetOrCreateReferralCode(ctx, referrer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.ApplyReferralCode(ctx, referee, code); err != nil {
+		t.Fatalf("abandoned checkout should still allow attach: %v", err)
+	}
+}
+
+func TestApplyReferralCode_WindowClosed(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	referrer := uuid.New()
+	referee := uuid.New()
+
+	if _, err := pool.Exec(ctx, `INSERT INTO profile (id, phone) VALUES ($1, '+998901110105')`, referrer); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO profile (id, phone, created_at)
+		VALUES ($1, '+998901110106', NOW() - INTERVAL '31 days')
+	`, referee); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Q: sqlc.New(pool)}
+	code, err := svc.GetOrCreateReferralCode(ctx, referrer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = svc.ApplyReferralCode(ctx, referee, code)
+	if !errors.Is(err, ErrReferralWindowClosed) {
+		t.Fatalf("got %v, want ErrReferralWindowClosed", err)
+	}
+}
+
 func TestProcessReferralRewardOnPayment(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()

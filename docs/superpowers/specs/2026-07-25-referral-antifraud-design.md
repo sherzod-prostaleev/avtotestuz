@@ -1,8 +1,7 @@
 # Referral retroactive-attach antifraud — Design Note
 
 Sana: 2026-07-25 · Milestone: M2 (M2-06 qoldig'i) · Qatlam: backend
-Holat: **DIZAYN — implementatsiya QILINMAGAN.** Bu hujjat bitta yondashuvni tavsiya qiladi va uni tanlab olish
-Sherzodning qaroriga qoldiriladi.
+Holat: **IMPLEMENTATSIYA QILINGAN** (2026-07-26). Bu hujjat yondashuvni qayd etadi.
 
 > Kontekst: `2026-07-24-SESSION-HANDOFF.md` §3 bu bo'shliqni "past-xavfli, kelajakka" deb yozgan, **lekin** aynan shu
 > yerda `ReferralCapture` qo'shilgani bu yo'lni **avvalgidan ochiqroq** qilganini ham qayd etgan. Bu hujjat shu

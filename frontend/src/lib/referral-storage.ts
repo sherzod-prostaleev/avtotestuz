@@ -27,6 +27,8 @@ const TERMINAL_ERROR_CODES = new Set([
   "referral_not_found",
   "referral_self",
   "referral_already_applied",
+  "referral_not_eligible_paid",
+  "referral_window_closed",
 ]);
 
 export function storePendingReferralCode(code: string): void {

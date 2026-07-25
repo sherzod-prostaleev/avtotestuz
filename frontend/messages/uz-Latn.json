@@ -666,6 +666,8 @@
     "errorSelf": "O'zingizning referal kodingizni biriktira olmaysiz",
     "errorNotFound": "Bunday referal kod topilmadi",
     "errorAlreadyApplied": "Sizda allaqachon referal kod biriktirilgan",
+    "errorNotEligiblePaid": "Sizda allaqachon to'lov tarixi bor — referal kodni biriktirib bo'lmaydi",
+    "errorWindowClosed": "Havolani ro'yxatdan o'tganingizdan keyin 30 kun ichida qo'llash mumkin",
     "note": "Do'stingiz taklif havolangiz orqali ro'yxatdan o'tib, birinchi marta pullik obuna xarid qilganda sizga avtomatik +7 kun VIP taqdim etiladi!"
   },
   "PaymentHistory": {

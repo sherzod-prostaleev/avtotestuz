@@ -80,6 +80,12 @@ export function ReferralCard() {
           case "referral_already_applied":
             errMsg = t("errorAlreadyApplied");
             break;
+          case "referral_not_eligible_paid":
+            errMsg = t("errorNotEligiblePaid");
+            break;
+          case "referral_window_closed":
+            errMsg = t("errorWindowClosed");
+            break;
           default:
             errMsg = t("applyError");
         }

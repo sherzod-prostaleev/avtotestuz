@@ -221,6 +221,10 @@ func (h *Handler) applyReferral(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, "referral_self", "cannot apply your own referral code")
 		case errors.Is(err, ErrReferralAlreadyApplied):
 			httpx.Error(w, http.StatusBadRequest, "referral_already_applied", "referral code already applied")
+		case errors.Is(err, ErrReferralNotEligiblePaid):
+			httpx.Error(w, http.StatusBadRequest, "referral_not_eligible_paid", "account already has a paid payment")
+		case errors.Is(err, ErrReferralWindowClosed):
+			httpx.Error(w, http.StatusBadRequest, "referral_window_closed", "referral attach window has closed")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "internal", "failed to apply referral code")
 		}

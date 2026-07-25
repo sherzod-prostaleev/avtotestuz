@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -14,10 +15,17 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
+const (
+	referralAttachWindowKey     = "referral_attach_window_days"
+	referralAttachWindowDefault = 30
+)
+
 var (
-	ErrReferralSelf           = errors.New("cannot apply your own referral code")
-	ErrReferralNotFound       = errors.New("referral code not found")
-	ErrReferralAlreadyApplied = errors.New("referral code already applied for this account")
+	ErrReferralSelf            = errors.New("cannot apply your own referral code")
+	ErrReferralNotFound        = errors.New("referral code not found")
+	ErrReferralAlreadyApplied  = errors.New("referral code already applied for this account")
+	ErrReferralNotEligiblePaid = errors.New("referee already has a paid payment")
+	ErrReferralWindowClosed    = errors.New("referral attach window closed")
 )
 
 type ReferralStats struct {
@@ -93,6 +101,30 @@ func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, raw
 
 	if owner.UserID == refereeID {
 		return ErrReferralSelf
+	}
+
+	paidCount, err := s.Q.CountPaidPaymentsForProfile(ctx, refereeID)
+	if err != nil {
+		return fmt.Errorf("count paid payments: %w", err)
+	}
+	if paidCount > 0 {
+		return ErrReferralNotEligiblePaid
+	}
+
+	profile, err := s.Q.GetProfileByID(ctx, refereeID)
+	if err != nil {
+		return fmt.Errorf("load referee profile: %w", err)
+	}
+	windowDays := referralAttachWindowDefault
+	if cfg, cfgErr := s.Q.GetLimitConfig(ctx, referralAttachWindowKey); cfgErr == nil {
+		windowDays = int(cfg.FreeValue)
+	}
+	if !profile.CreatedAt.Valid {
+		return fmt.Errorf("referee profile has no created_at")
+	}
+	deadline := profile.CreatedAt.Time.Add(time.Duration(windowDays) * 24 * time.Hour)
+	if time.Now().After(deadline) {
+		return ErrReferralWindowClosed
 	}
 
 	_, err = s.Q.CreateReferral(ctx, sqlc.CreateReferralParams{
