@@ -141,3 +141,62 @@ func TestAdminCMSContacts(t *testing.T) {
 		}
 	})
 }
+
+func TestAdminCMSHome(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := Store{Pool: pool}
+	secret := []byte("test-admin-secret-at-least-32-bytes!!")
+	if _, err := store.EnsureSuperadmin(t.Context(), "ops@example.uz", "password123", "Ops"); err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{Svc: Service{Store: store, Secret: secret}, Pool: pool, Secret: secret}
+	r := chi.NewRouter()
+	r.Route("/admin/v1", h.Routes)
+	access := loginAccess(t, r, "ops@example.uz", "password123")
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/cms/home", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("get status=%d", w.Code)
+	}
+
+	body := `{"headline":"Prava oson","subtitle":"Tezroq","ctaLabel":"Boshlash","ctaHref":"/uz-Latn/login"}`
+	req = httptest.NewRequest(http.MethodPut, "/admin/v1/cms/home", bytes.NewBufferString(body))
+	req.Header.Set("Authorization", "Bearer "+access)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("put status=%d body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data site.HomeHero `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.Headline != "Prava oson" {
+		t.Fatalf("hero=%+v", env.Data)
+	}
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM admin_audit_log WHERE action='cms.home.put' AND entity_id='home_hero'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("audit=%d", n)
+	}
+
+	req = httptest.NewRequest(http.MethodPut, "/admin/v1/cms/home",
+		bytes.NewBufferString(`{"ctaHref":"https://evil.example"}`))
+	req.Header.Set("Authorization", "Bearer "+access)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("evil href status=%d want 400", w.Code)
+	}
+}

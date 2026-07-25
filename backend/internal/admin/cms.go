@@ -54,6 +54,45 @@ func (h *Handler) putCMSContacts(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, after)
 }
 
+func (h *Handler) getCMSHome(w http.ResponseWriter, r *http.Request) {
+	out, err := h.siteStore().GetHomeHero(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "home hero query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) putCMSHome(w http.ResponseWriter, r *http.Request) {
+	before, err := h.siteStore().GetHomeHero(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "home hero query failed")
+		return
+	}
+	var body site.HomeHero
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	updatedBy := "admin:" + adminID.String()
+	after, err := h.siteStore().PutHomeHero(r.Context(), body, updatedBy)
+	if err != nil {
+		if strings.Contains(err.Error(), "too long") || strings.Contains(err.Error(), "ctaHref") {
+			httpx.Error(w, http.StatusBadRequest, "invalid_field", err.Error())
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update home hero")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "cms.home.put", "site_settings", "home_hero",
+		homeHeroAuditMap(before), homeHeroAuditMap(after),
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, after)
+}
+
 func contactsAuditMap(c site.Contacts) map[string]any {
 	return map[string]any{
 		"phone":        c.Phone,
@@ -65,5 +104,14 @@ func contactsAuditMap(c site.Contacts) map[string]any {
 		"telegramUrl":  c.TelegramURL,
 		"instagram":    c.Instagram,
 		"instagramUrl": c.InstagramURL,
+	}
+}
+
+func homeHeroAuditMap(h site.HomeHero) map[string]any {
+	return map[string]any{
+		"headline": h.Headline,
+		"subtitle": h.Subtitle,
+		"ctaLabel": h.CTALabel,
+		"ctaHref":  h.CTAHref,
 	}
 }

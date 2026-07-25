@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
 import { apiGet } from "@/lib/api-client";
 import { contactOrFallback, type SiteContacts } from "@/lib/site-contacts";
+import { homeOrFallback, type SiteHomeHero } from "@/lib/site-home";
 import {
   Award,
   BrainCircuit,
@@ -76,12 +77,20 @@ export default function LandingPage() {
   const t = useTranslations("Landing");
   const locale = useLocale();
   const [contacts, setContacts] = useState<SiteContacts | null>(null);
+  const [home, setHome] = useState<SiteHomeHero | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void apiGet<SiteContacts>("site/contacts")
       .then((data) => {
         if (!cancelled) setContacts(data);
+      })
+      .catch(() => {
+        /* keep i18n placeholders */
+      });
+    void apiGet<SiteHomeHero>("site/home")
+      .then((data) => {
+        if (!cancelled) setHome(data);
       })
       .catch(() => {
         /* keep i18n placeholders */
@@ -100,6 +109,13 @@ export default function LandingPage() {
   const telegramUrl = contactOrFallback(contacts?.telegramUrl, t("footerTelegramUrl"));
   const instagram = contactOrFallback(contacts?.instagram, t("footerInstagram"));
   const instagramUrl = contactOrFallback(contacts?.instagramUrl, t("footerInstagramUrl"));
+
+  const i18nHeadline = `${t("heroTitleBefore")} ${t("heroTitleAccent")} ${t("heroTitleAfter")}`;
+  const heroHeadline = homeOrFallback(home?.headline, i18nHeadline);
+  const heroSubtitle = homeOrFallback(home?.subtitle, t("heroSubtitle"));
+  const heroCtaLabel = homeOrFallback(home?.ctaLabel, t("ctaStart"));
+  const heroCtaHref = homeOrFallback(home?.ctaHref, `/${locale}/login`);
+  const useCmsHeadline = Boolean(home?.headline?.trim());
 
   const features = [
     { icon: BrainCircuit, title: t("feature1Title"), text: t("feature1Text") },
@@ -174,19 +190,25 @@ export default function LandingPage() {
               {t("brandName")}
             </p>
             <h1 className="max-w-xl font-display text-4xl font-black leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
-              {t("heroTitleBefore")}{" "}
-              <span className="text-accent">{t("heroTitleAccent")}</span>{" "}
-              {t("heroTitleAfter")}
+              {useCmsHeadline ? (
+                heroHeadline
+              ) : (
+                <>
+                  {t("heroTitleBefore")}{" "}
+                  <span className="text-accent">{t("heroTitleAccent")}</span>{" "}
+                  {t("heroTitleAfter")}
+                </>
+              )}
             </h1>
             <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
-              {t("heroSubtitle")}
+              {heroSubtitle}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <Link
-                href={`/${locale}/login`}
+                href={heroCtaHref}
                 className={`${primaryCta} h-12 px-8 text-sm font-extrabold sm:text-base`}
               >
-                {t("ctaStart")}
+                {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
               </Link>
               <a href="#demo" className={`${outlineCta} h-12 px-6 text-sm`}>

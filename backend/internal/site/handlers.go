@@ -20,6 +20,7 @@ type Handler struct {
 func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Get("/site/contacts", h.getContacts)
 	r.Get("/site/banner", h.getBanner)
+	r.Get("/site/home", h.getHome)
 }
 
 func (h *Handler) store() Store {
@@ -39,6 +40,15 @@ func (h *Handler) getBanner(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store().GetSupportBanner(r.Context())
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "banner query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getHome(w http.ResponseWriter, r *http.Request) {
+	out, err := h.store().GetHomeHero(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "home hero query failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
