@@ -6,7 +6,7 @@
 #
 # Usage (from repo root):
 #   make up
-#   cp deploy/app.env.example deploy/app.env   # edit secrets / URLs
+#   cp deploy/app.env.example deploy/app.env   # edit secrets / URLs (gitignored)
 #   docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
 #     --env-file deploy/app.env up -d --build api web
 #
@@ -15,15 +15,33 @@
 #
 # Tear down apps only (keep infra):
 #   docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml stop api web
+#
+# Secrets: ONLY via --env-file / shell env. Never put real JWT, OTP, payment,
+# or Telegram tokens in this YAML. See STAGING-RUNBOOK.md.
+#
+# Resource notes (optional — uncomment after sizing the staging VPS):
+#   deploy:
+#     resources:
+#       limits:
+#         cpus: "1.0"
+#         memory: 512M      # api is a static Go binary; 256–512M is typical
+#       # web (Next standalone): often 512M–1G under concurrent SSR
 
 services:
   api:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    image: avtotest-api:local
+    # Override after registry push, e.g. API_IMAGE=ghcr.io/org/avtotest-api:sha
+    image: ${API_IMAGE:-avtotest-api:local}
     ports:
       - "${API_HOST_PORT:-8080}:8080"
+    env_file:
+      # Compose still expands ${VAR} below from the process/--env-file used at
+      # `up` time; listing app.env here also injects undeclared keys safely.
+      # File must exist on the host (copy from app.env.example).
+      - path: app.env
+        required: false
     environment:
       ENV: ${ENV:-dev}
       PORT: "8080"
@@ -54,22 +72,49 @@ services:
       redis:
         condition: service_started
     restart: unless-stopped
+    # Distroless API image has no shell/curl — use ./deploy/smoke.sh externally.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   web:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    image: avtotest-web:local
+    image: ${WEB_IMAGE:-avtotest-web:local}
     ports:
       - "${WEB_HOST_PORT:-3000}:3000"
+    env_file:
+      - path: app.env
+        required: false
     environment:
       # Server-side BFF → API (compose DNS name, not localhost).
       BACKEND_URL: ${BACKEND_URL:-http://api:8080}
       # Required in the production Next image; must match API.
       CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET:-}
       # Direct browser→Next (no reverse proxy in this overlay) → use a
-      # front proxy in real staging and set hops accordingly (see README).
+      # front proxy in real staging and set hops accordingly (see runbook).
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     depends_on:
       - api
     restart: unless-stopped
+    # Node 20 alpine includes wget — cheap liveness for orchestration.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "wget",
+          "-qO-",
+          "http://127.0.0.1:3000/uz-Latn",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

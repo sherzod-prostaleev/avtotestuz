@@ -3,16 +3,19 @@
 Minimal path to run the **API + Next.js** images against the existing
 postgres / redis / minio stack from the repo-root `docker-compose.yml`.
 
+**Full operator guide:** [`STAGING-RUNBOOK.md`](./STAGING-RUNBOOK.md)
+(registry push, host layout, health, rollback, D18 blockers).
+
 Remote host provisioning (Open Decision **D18**) is still open — this folder
 is host-agnostic: build images locally, or later push to a registry and pull
-on the staging box.
+on the staging box. Do not invent fake hosts or DNS in commits.
 
 ## Images
 
 | Image | Dockerfile | Default tag |
 |-------|------------|-------------|
-| Go API | `backend/Dockerfile` | `avtotest-api:local` |
-| Next.js | `frontend/Dockerfile` | `avtotest-web:local` |
+| Go API | `backend/Dockerfile` | `avtotest-api:local` (override `API_IMAGE`) |
+| Next.js | `frontend/Dockerfile` | `avtotest-web:local` (override `WEB_IMAGE`) |
 
 ```bash
 # From repo root
@@ -48,9 +51,24 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
 ./deploy/smoke.sh http://localhost:8080 http://localhost:3000
 ```
 
+Validate compose merge without starting containers:
+
+```bash
+docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
+  --env-file deploy/app.env.example config >/dev/null
+```
+
 Content is **not** created by this overlay. Use your existing DB data (do not
 `make seed` / `seed-real` as part of staging bring-up unless you intentionally
 want fixture data).
+
+## Hardening notes
+
+- `restart: unless-stopped` on `api` and `web`.
+- Log rotation (`json-file`, 10m × 3) on both app services.
+- `web` has an HTTP healthcheck; `api` relies on `smoke.sh` (distroless).
+- Optional CPU/memory limits are commented in the overlay — enable after VPS sizing.
+- Secrets only via `app.env` / shell — never in YAML or images.
 
 ## Real staging notes (`ENV=staging`)
 
@@ -76,5 +94,6 @@ seeded content + proxy headers); use API-level checks once the host is ready.
 ## CI implications
 
 - Image builds are not yet a required CI job (keep PRs light). Operators build
-  before deploy; adding a `docker build` job later is straightforward.
+  before deploy; adding a `workflow_dispatch` build/push once D18 secrets exist
+  is documented in the runbook.
 - Do not commit `deploy/app.env` (gitignored).

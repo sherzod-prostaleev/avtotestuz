@@ -38,7 +38,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | ID | Priority | Area | Item | Status | Depends on | Notes |
 |----|----------|------|------|--------|------------|-------|
 | **U-01** | P0 | FE/BE | **N2 Demo→account investment migrate** | **done** | Auth, progress/learning | `POST /me/demo-progress/migrate` — incorrect→FSRS Again; correct skipped (no mastery inflate). |
-| **U-02** | P0 | Ops | **Staging / production deploy path** | **partial** | D18 host decision | `backend/Dockerfile` + `frontend/Dockerfile` (Next standalone) + `deploy/` overlay/docs/smoke landed. Remote host + registry deploy still blocked on D18. |
+| **U-02** | P0 | Ops | **Staging / production deploy path** | **partial** | D18 host decision | Dockerfiles + `deploy/` overlay/smoke + **STAGING-RUNBOOK** (registry push, host layout, health, rollback) + hardened compose (restart, log rotate, web healthcheck, `API_IMAGE`/`WEB_IMAGE`). Remote host + registry credentials still blocked on D18. |
 | **U-03** | P0 | Ops | **Payme/Click production merchant keys + legal entity** | deferred | External / yuridik shaxs | Sandbox adapters **done**. ENV empty → webhooks reject. Master prompt: sandbox until legal entity. |
 | **U-04** | P0 | BE | **Refund → entitlement revoke** | deferred | Billing audit | Payme can mark `refunded`; comment in `payme/methods.go`: revoke **deliberately deferred**. Money integrity gap for real ops. |
 | **U-05** | P0 | BE | **Referral antifraud (retroactive attach)** | **done** | Design locked | Attach requires no prior `paid` payment + `created_at` within `referral_attach_window_days` (30). Terminal FE codes clear localStorage. |
