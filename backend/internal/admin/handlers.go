@@ -115,6 +115,12 @@ func (h *Handler) Routes(r chi.Router) {
 			fr.Patch("/settings/flags/{key}", h.patchFeatureFlag)
 		})
 
+		pr.Group(func(lr chi.Router) {
+			lr.Use(RequirePermission("settings.config"))
+			lr.Get("/settings/limits", h.listLimitConfigs)
+			lr.Patch("/settings/limits/{key}", h.patchLimitConfig)
+		})
+
 		pr.Group(func(sr chi.Router) {
 			sr.Use(RequirePermission("security.audit.read"))
 			sr.Get("/security/audit", h.listAdminAudit)
@@ -697,6 +703,75 @@ func (h *Handler) listAdminAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listLimitConfigs(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.Store.ListLimitConfigs(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "limits query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+type patchLimitBody struct {
+	FreeValue *int32 `json:"free_value"`
+	VipValue  *int32 `json:"vip_value"`
+}
+
+func (h *Handler) patchLimitConfig(w http.ResponseWriter, r *http.Request) {
+	key := strings.TrimSpace(chi.URLParam(r, "key"))
+	if key == "" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_key", "key is required")
+		return
+	}
+	var body patchLimitBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if body.FreeValue == nil && body.VipValue == nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "free_value or vip_value required")
+		return
+	}
+	before, err := h.Svc.Store.GetLimitConfig(r.Context(), key)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "limit key not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "limit query failed")
+		return
+	}
+	free := before.FreeValue
+	vip := before.VipValue
+	if body.FreeValue != nil {
+		free = *body.FreeValue
+	}
+	if body.VipValue != nil {
+		vip = *body.VipValue
+	}
+	if free < -1 || vip < -1 {
+		httpx.Error(w, http.StatusBadRequest, "invalid_value", "values must be >= -1 (-1 = unlimited)")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_, after, err := h.Svc.Store.SetLimitConfigValues(r.Context(), key, free, vip, adminID)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "limit key not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "limit update failed")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "settings.limits.patch", "limit_config", key,
+		map[string]any{"free_value": before.FreeValue, "vip_value": before.VipValue},
+		map[string]any{"free_value": after.FreeValue, "vip_value": after.VipValue},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, after)
 }
 
 func parseOptionalTime(raw string) (*time.Time, error) {

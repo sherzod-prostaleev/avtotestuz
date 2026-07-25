@@ -1406,5 +1406,18 @@
   },
   "MaintenanceBanner": {
     "message": "Техник ишлар: баъзи функциялар вақтинча чекланган бўлиши мумкин."
+  },
+  "AdminLimits": {
+    "title": "Limits",
+    "subtitle": "limit_config free/VIP қийматлари (settings.config).",
+    "note": "-1 = чексиз. Ўзгаришлар audit қилинади.",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "free": "Free",
+    "vip": "VIP",
+    "save": "Сақлаш",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "settings.config рухсати йўқ.",
+    "errorSave": "Сақлаб бўлмади."
   }
 }

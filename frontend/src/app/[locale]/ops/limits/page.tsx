@@ -119,7 +119,7 @@ export default function OpsLimitsPage() {
 
       <OpsDeprecatedBanner
         locale={locale}
-        href="settings/config"
+        href="settings/limits"
         label={t("adminHomeLink")}
         note="DEPRECATED"
       />

@@ -73,6 +73,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
       title: "Settings",
       items: [
         { href: `${base}/settings/flags`, label: "Feature flags" },
+        { href: `${base}/settings/limits`, label: "Limits" },
         { href: `${base}/settings/config`, label: "Runtime config", stub: true },
       ],
     },

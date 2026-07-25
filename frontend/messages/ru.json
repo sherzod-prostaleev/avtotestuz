@@ -1406,5 +1406,18 @@
   },
   "MaintenanceBanner": {
     "message": "Технические работы: некоторые функции могут быть временно ограничены."
+  },
+  "AdminLimits": {
+    "title": "Limits",
+    "subtitle": "Значения limit_config free/VIP (settings.config).",
+    "note": "-1 = безлимит. Изменения пишутся в audit.",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "free": "Free",
+    "vip": "VIP",
+    "save": "Сохранить",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права settings.config.",
+    "errorSave": "Не удалось сохранить."
   }
 }

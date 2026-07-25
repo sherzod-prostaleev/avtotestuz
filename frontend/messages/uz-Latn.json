@@ -1406,5 +1406,18 @@
   },
   "MaintenanceBanner": {
     "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."
+  },
+  "AdminLimits": {
+    "title": "Limits",
+    "subtitle": "limit_config free/VIP qiymatlari (settings.config).",
+    "note": "-1 = cheksiz. O‘zgarishlar audit qilinadi.",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "free": "Free",
+    "vip": "VIP",
+    "save": "Saqlash",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "settings.config ruxsati yo‘q.",
+    "errorSave": "Saqlab bo‘lmadi."
   }
 }
