@@ -847,6 +847,20 @@
     "errorUnauthorized": "Токен нотўғри.",
     "errorLoad": "Журнални юклаб бўлмади."
   },
+  "OpsLimits": {
+    "back": "Бошқарувга қайтиш",
+    "eyebrow": "Ops",
+    "title": "Лимитлар",
+    "subtitle": "M3 limit_config stub — free/VIP қийматлар (фақат ўқиш). Таҳрирлаш тўлиқ Admin'dа.",
+    "navLimits": "Лимитлар",
+    "refresh": "Янгилаш",
+    "refreshing": "Янгиланмоқда...",
+    "freeLabel": "Free",
+    "vipLabel": "VIP",
+    "empty": "Лимитлар йўқ.",
+    "errorUnauthorized": "Токен нотўғри.",
+    "errorLoad": "Лимитларни юклаб бўлмади."
+  },
   "OpsProviders": {
     "back": "Бошқарувга қайтиш",
     "eyebrow": "Ops",

@@ -81,7 +81,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
-| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked.** Thin ops: providers, health, **users**, **payments**, **audit** stubs under `/{locale}/ops/*`. Full RBAC/CMS/monitoring still missing. |
+| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked.** Thin ops: providers, health, users, payments, audit, **limits** (read-only `limit_config`) under `/{locale}/ops/*`. Full RBAC/CMS/monitoring still missing. |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | missing | U-45 | Master admin scope. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |

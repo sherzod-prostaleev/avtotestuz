@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export type OpsNavKey = "health" | "providers" | "users" | "payments" | "audit";
+export type OpsNavKey = "health" | "providers" | "contacts" | "users" | "payments" | "audit" | "limits";
 
 type OpsNavProps = {
   locale: string;
@@ -8,14 +8,16 @@ type OpsNavProps = {
   labels: Partial<Record<OpsNavKey, string>>;
 };
 
-const ORDER: OpsNavKey[] = ["health", "providers", "users", "payments", "audit"];
+const ORDER: OpsNavKey[] = ["health", "providers", "contacts", "users", "payments", "audit", "limits"];
 
 const HREF: Record<OpsNavKey, string> = {
   health: "health",
   providers: "providers",
+  contacts: "contacts",
   users: "users",
   payments: "payments",
   audit: "audit",
+  limits: "limits",
 };
 
 export function OpsNav({ locale, active, labels }: OpsNavProps) {

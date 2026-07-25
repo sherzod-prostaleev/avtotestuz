@@ -24,6 +24,7 @@ export default function OpsAuditPage() {
   const tProviders = useTranslations("OpsProviders");
   const tUsers = useTranslations("OpsUsers");
   const tPayments = useTranslations("OpsPayments");
+  const tLimits = useTranslations("OpsLimits");
   const locale = useLocale();
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
@@ -91,6 +92,7 @@ export default function OpsAuditPage() {
     users: tUsers("navUsers"),
     payments: tPayments("navPayments"),
     audit: t("navAudit"),
+    limits: tLimits("navLimits"),
   };
 
   return (

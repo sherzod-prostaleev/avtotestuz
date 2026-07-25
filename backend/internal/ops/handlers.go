@@ -11,6 +11,7 @@ import (
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/site"
 )
 
 // Handler exposes thin operational controls until M3 Super Admin ships.
@@ -24,9 +25,12 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/ops/payment-providers", h.requireToken(h.listProviders))
 	r.Patch("/ops/payment-providers/{provider}", h.requireToken(h.setProvider))
+	r.Get("/ops/site-contacts", h.requireToken(h.getSiteContacts))
+	r.Put("/ops/site-contacts", h.requireToken(h.putSiteContacts))
 	r.Get("/ops/users", h.requireToken(h.listUsers))
 	r.Get("/ops/payments", h.requireToken(h.listPayments))
 	r.Get("/ops/audit", h.requireToken(h.listAudit))
+	r.Get("/ops/limits", h.requireToken(h.listLimits))
 }
 
 func (h *Handler) requireToken(next http.HandlerFunc) http.HandlerFunc {
@@ -74,4 +78,21 @@ func (h *Handler) setProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) siteStore() site.Store {
+	return site.Store{Pool: h.Pool}
+}
+
+func (h *Handler) getSiteContacts(w http.ResponseWriter, r *http.Request) {
+	out, err := h.siteStore().GetContacts(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "contacts query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) putSiteContacts(w http.ResponseWriter, r *http.Request) {
+	site.DecodeAndPut(w, r, h.siteStore(), "ops")
 }

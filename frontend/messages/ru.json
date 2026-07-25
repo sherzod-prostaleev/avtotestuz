@@ -847,6 +847,20 @@
     "errorUnauthorized": "Неверный токен.",
     "errorLoad": "Не удалось загрузить журнал."
   },
+  "OpsLimits": {
+    "back": "Назад в кабинет",
+    "eyebrow": "Ops",
+    "title": "Лимиты",
+    "subtitle": "Заглушка M3 limit_config — значения free/VIP (только чтение). Редактирование в полном Admin.",
+    "navLimits": "Лимиты",
+    "refresh": "Обновить",
+    "refreshing": "Обновление...",
+    "freeLabel": "Free",
+    "vipLabel": "VIP",
+    "empty": "Лимитов нет.",
+    "errorUnauthorized": "Неверный токен.",
+    "errorLoad": "Не удалось загрузить лимиты."
+  },
   "OpsProviders": {
     "back": "Назад в кабинет",
     "eyebrow": "Ops",

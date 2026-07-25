@@ -847,6 +847,20 @@
     "errorUnauthorized": "Token noto'g'ri.",
     "errorLoad": "Jurnalni yuklab bo'lmadi."
   },
+  "OpsLimits": {
+    "back": "Boshqaruvga qaytish",
+    "eyebrow": "Ops",
+    "title": "Limitlar",
+    "subtitle": "M3 limit_config stub — free/VIP qiymatlar (faqat o'qish). Tahrirlash to'liq Admin'da.",
+    "navLimits": "Limitlar",
+    "refresh": "Yangilash",
+    "refreshing": "Yangilanmoqda...",
+    "freeLabel": "Free",
+    "vipLabel": "VIP",
+    "empty": "Limitlar yo'q.",
+    "errorUnauthorized": "Token noto'g'ri.",
+    "errorLoad": "Limitlarni yuklab bo'lmadi."
+  },
   "OpsProviders": {
     "back": "Boshqaruvga qaytish",
     "eyebrow": "Ops",

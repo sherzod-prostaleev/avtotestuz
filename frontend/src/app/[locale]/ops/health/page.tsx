@@ -56,6 +56,7 @@ export default function OpsHealthPage() {
   const tUsers = useTranslations("OpsUsers");
   const tPayments = useTranslations("OpsPayments");
   const tAudit = useTranslations("OpsAudit");
+  const tLimits = useTranslations("OpsLimits");
   const locale = useLocale();
   const [payload, setPayload] = useState<HealthPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -123,6 +124,7 @@ export default function OpsHealthPage() {
           users: tUsers("navUsers"),
           payments: tPayments("navPayments"),
           audit: tAudit("navAudit"),
+          limits: tLimits("navLimits"),
         }}
       />
 
