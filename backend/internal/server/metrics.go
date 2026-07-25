@@ -136,10 +136,7 @@ func wantJSONMetrics(r *http.Request) bool {
 	// Prefer JSON only when explicitly listed (FE ops probe sends application/json).
 	// Scrapers typically send text/plain, */*, or openmetrics.
 	lower := strings.ToLower(accept)
-	if strings.Contains(lower, "application/json") {
-		return true
-	}
-	return false
+	return strings.Contains(lower, "application/json")
 }
 
 // Middleware counts completed requests. Skips /healthz, /readyz, /metrics so

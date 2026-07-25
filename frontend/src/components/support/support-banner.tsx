@@ -52,8 +52,9 @@ export function SupportBanner() {
   const href = banner.href?.startsWith("/") ? banner.href : undefined;
 
   function dismiss() {
+    const stamp = banner?.updated_at || banner?.message || "";
     try {
-      sessionStorage.setItem(DISMISS_KEY, banner.updated_at || banner.message || "");
+      sessionStorage.setItem(DISMISS_KEY, stamp);
     } catch {
       /* ignore */
     }

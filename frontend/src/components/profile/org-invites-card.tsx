@@ -25,7 +25,7 @@ export function OrgInvitesCard() {
   async function load() {
     try {
       const rows = await apiGet<InviteView[]>("me/invites");
-      setInvites(rows);
+      setInvites(Array.isArray(rows) ? rows : []);
       setError(null);
     } catch {
       setInvites([]);
@@ -49,7 +49,7 @@ export function OrgInvitesCard() {
     }
   }
 
-  if (!invites || invites.length === 0) return null;
+  if (!Array.isArray(invites) || invites.length === 0) return null;
 
   return (
     <Card>

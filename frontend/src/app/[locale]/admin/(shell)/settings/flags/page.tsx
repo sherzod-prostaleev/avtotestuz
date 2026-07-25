@@ -106,7 +106,7 @@ export default function AdminSettingsFlagsPage() {
                     <Button
                       type="button"
                       size="sm"
-                      variant={enabled ? "outline" : "default"}
+                      variant={enabled ? "outline" : "game"}
                       disabled={busy === row.key}
                       onClick={() => void toggleBoolean(row.key, !enabled)}
                     >

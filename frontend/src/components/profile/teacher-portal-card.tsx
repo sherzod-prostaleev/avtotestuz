@@ -18,7 +18,7 @@ export function TeacherPortalCard() {
     let cancelled = false;
     void apiGet<OrgSummary[]>("me/teacher/orgs")
       .then((rows) => {
-        if (!cancelled) setCount(rows.length);
+        if (!cancelled) setCount(Array.isArray(rows) ? rows.length : 0);
       })
       .catch(() => {
         if (!cancelled) setCount(0);

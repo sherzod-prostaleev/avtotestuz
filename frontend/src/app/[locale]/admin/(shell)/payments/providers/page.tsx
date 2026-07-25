@@ -107,7 +107,7 @@ export default function AdminPaymentsProvidersPage() {
               <Button
                 type="button"
                 size="sm"
-                variant={row.enabled ? "outline" : "default"}
+                variant={row.enabled ? "outline" : "game"}
                 disabled={busy === row.provider}
                 onClick={() => void toggle(row.provider, !row.enabled)}
               >

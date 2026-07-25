@@ -153,8 +153,7 @@ async function handle(request: Request, context: { params: { path: string[] } })
   const contentType = backendRes.headers.get("content-type") ?? "";
   if (
     contentType.includes("text/csv") ||
-    contentType.includes("application/octet-stream") ||
-    contentType.includes("text/plain")
+    contentType.includes("application/octet-stream")
   ) {
     const buf = await backendRes.arrayBuffer();
     const response = new NextResponse(buf, { status: backendRes.status });
