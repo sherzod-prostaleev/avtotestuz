@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -165,7 +166,7 @@ func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyR
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return VerifyResult{}, err
 		}
-		profile, err = createProfileWithReferral(ctx, q, phone)
+		profile, err = createProfileWithReferral(ctx, q, phone, "", "")
 		if err != nil {
 			return VerifyResult{}, err
 		}
@@ -197,6 +198,205 @@ func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyR
 		Profile: profile,
 		Created: created,
 	}, nil
+}
+
+type RegisterInput struct {
+	Phone    string
+	Password string
+	Name     string
+	IP       string
+}
+
+// Register creates a profile with a password hash and issues a session.
+func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult, error) {
+	phone, err := NormalizePhone(in.Phone)
+	if err != nil {
+		return VerifyResult{}, ErrInvalidPhone
+	}
+	if err := s.rateLimitAuth(ctx, "register", phone, in.IP); err != nil {
+		return VerifyResult{}, err
+	}
+
+	hash, err := HashPassword(in.Password)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	if _, err := q.GetProfileByPhone(ctx, phone); err == nil {
+		return VerifyResult{}, ErrPhoneTaken
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return VerifyResult{}, err
+	}
+
+	name := strings.TrimSpace(in.Name)
+	profile, err := createProfileWithReferral(ctx, q, phone, hash, name)
+	if err != nil {
+		if isUniqueViolation(err) {
+			return VerifyResult{}, ErrPhoneTaken
+		}
+		return VerifyResult{}, err
+	}
+	if err := grantSignupTrial(ctx, q, profile.ID); err != nil {
+		return VerifyResult{}, err
+	}
+
+	toks, err := s.issueSession(ctx, q, profile)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VerifyResult{}, err
+	}
+	return VerifyResult{Tokens: toks, Profile: profile, Created: true}, nil
+}
+
+type LoginInput struct {
+	Phone    string
+	Password string
+	IP       string
+}
+
+// Login authenticates phone + password and issues a session.
+func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error) {
+	phone, err := NormalizePhone(in.Phone)
+	if err != nil {
+		return VerifyResult{}, ErrInvalidPhone
+	}
+	if err := s.rateLimitAuth(ctx, "login", phone, in.IP); err != nil {
+		return VerifyResult{}, err
+	}
+
+	profile, err := s.Q.GetProfileByPhone(ctx, phone)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VerifyResult{}, ErrInvalidCreds
+		}
+		return VerifyResult{}, err
+	}
+	if !profile.PasswordHash.Valid || profile.PasswordHash.String == "" {
+		return VerifyResult{}, ErrPasswordNotSet
+	}
+	if !CheckPassword(profile.PasswordHash.String, in.Password) {
+		return VerifyResult{}, ErrInvalidCreds
+	}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	toks, err := s.issueSession(ctx, q, profile)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VerifyResult{}, err
+	}
+	return VerifyResult{Tokens: toks, Profile: profile, Created: false}, nil
+}
+
+type SetPasswordInput struct {
+	Phone    string
+	Password string
+	IP       string
+}
+
+// SetPassword is a one-shot bootstrap for OTP-era accounts with a NULL hash.
+// It refuses once a password is already present.
+func (s *Service) SetPassword(ctx context.Context, in SetPasswordInput) (VerifyResult, error) {
+	phone, err := NormalizePhone(in.Phone)
+	if err != nil {
+		return VerifyResult{}, ErrInvalidPhone
+	}
+	if err := s.rateLimitAuth(ctx, "set-password", phone, in.IP); err != nil {
+		return VerifyResult{}, err
+	}
+
+	hash, err := HashPassword(in.Password)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+
+	profile, err := s.Q.GetProfileByPhone(ctx, phone)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VerifyResult{}, ErrInvalidCreds
+		}
+		return VerifyResult{}, err
+	}
+	if profile.PasswordHash.Valid && profile.PasswordHash.String != "" {
+		return VerifyResult{}, ErrPasswordSet
+	}
+
+	n, err := s.Q.SetPasswordHashIfNull(ctx, sqlc.SetPasswordHashIfNullParams{
+		Phone:        phone,
+		PasswordHash: pgtype.Text{String: hash, Valid: true},
+	})
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	if n == 0 {
+		return VerifyResult{}, ErrPasswordSet
+	}
+
+	profile.PasswordHash = pgtype.Text{String: hash, Valid: true}
+
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	toks, err := s.issueSession(ctx, q, profile)
+	if err != nil {
+		return VerifyResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VerifyResult{}, err
+	}
+	return VerifyResult{Tokens: toks, Profile: profile, Created: false}, nil
+}
+
+func (s *Service) rateLimitAuth(ctx context.Context, action, phone, ip string) error {
+	if ok, err := s.Lim.Allow(ctx, action+":phone:"+phone, 10, time.Hour); err != nil {
+		return err
+	} else if !ok {
+		return ErrRateLimited
+	}
+	if ip != "" {
+		if ok, err := s.Lim.Allow(ctx, action+":ip:"+ip, 30, time.Hour); err != nil {
+			return err
+		} else if !ok {
+			return ErrRateLimited
+		}
+	}
+	return nil
+}
+
+func (s *Service) issueSession(ctx context.Context, q *sqlc.Queries, profile sqlc.Profile) (Tokens, error) {
+	access, err := IssueAccess(s.Secret, profile.ID, profile.Role, s.AccessTTL)
+	if err != nil {
+		return Tokens{}, err
+	}
+	refresh := NewRefreshToken()
+	if err := q.CreateRefreshToken(ctx, sqlc.CreateRefreshTokenParams{
+		ProfileID: profile.ID,
+		TokenHash: HashToken(refresh),
+		ExpiresAt: pgtype.Timestamptz{Time: time.Now().Add(s.RefreshTTL), Valid: true},
+	}); err != nil {
+		return Tokens{}, err
+	}
+	return Tokens{Access: access, Refresh: refresh}, nil
 }
 
 // Refresh rotates a refresh token: the presented raw token is single-use.
@@ -277,22 +477,40 @@ func grantSignupTrial(ctx context.Context, q *sqlc.Queries, profileID uuid.UUID)
 	return err
 }
 
-func createProfileWithReferral(ctx context.Context, q *sqlc.Queries, phone string) (sqlc.Profile, error) {
+func createProfileWithReferral(ctx context.Context, q *sqlc.Queries, phone, passwordHash, name string) (sqlc.Profile, error) {
 	const maxRetries = 5
+	var passwordParam pgtype.Text
+	if passwordHash != "" {
+		passwordParam = pgtype.Text{String: passwordHash, Valid: true}
+	}
 	for i := 0; i < maxRetries; i++ {
 		p, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{
 			Phone:        phone,
 			ReferralCode: pgtype.Text{String: NewReferralCode(), Valid: true},
+			PasswordHash: passwordParam,
+			Name:         name,
 		})
 		if err == nil {
 			return p, nil
 		}
 		if isUniqueViolation(err) {
+			// Phone collisions are permanent; only retry referral_code races.
+			if phoneTaken(err) {
+				return sqlc.Profile{}, err
+			}
 			continue
 		}
 		return sqlc.Profile{}, err
 	}
 	return sqlc.Profile{}, fmt.Errorf("could not generate unique referral code after %d retries", maxRetries)
+}
+
+func phoneTaken(err error) bool {
+	var pgErr *pgconn.PgError
+	if !errors.As(err, &pgErr) || pgErr.Code != "23505" {
+		return false
+	}
+	return pgErr.ConstraintName == "profile_phone_key"
 }
 
 func isUniqueViolation(err error) bool {

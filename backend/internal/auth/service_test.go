@@ -231,3 +231,84 @@ func TestRequestOTPCooldown(t *testing.T) {
 		t.Fatalf("err=%v want ErrRateLimited", err)
 	}
 }
+
+func TestRegisterLoginHappyPath(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	ctx := context.Background()
+
+	reg, err := svc.Register(ctx, RegisterInput{
+		Phone:    "901234567",
+		Password: "secret123",
+		Name:     "Ali",
+		IP:       "1.1.1.1",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+	if !reg.Created || reg.Access == "" || reg.Refresh == "" {
+		t.Fatal("expected created profile with tokens")
+	}
+	if reg.Profile.Name != "Ali" {
+		t.Fatalf("name=%q", reg.Profile.Name)
+	}
+	if !reg.Profile.PasswordHash.Valid || reg.Profile.PasswordHash.String == "secret123" {
+		t.Fatal("password must be stored as bcrypt hash")
+	}
+
+	login, err := svc.Login(ctx, LoginInput{Phone: "901234567", Password: "secret123", IP: "1.1.1.1"})
+	if err != nil {
+		t.Fatalf("Login: %v", err)
+	}
+	if login.Created || login.Access == "" {
+		t.Fatal("expected session on login")
+	}
+
+	if _, err := svc.Login(ctx, LoginInput{Phone: "901234567", Password: "wrongpass", IP: "1.1.1.1"}); !errors.Is(err, ErrInvalidCreds) {
+		t.Fatalf("err=%v want ErrInvalidCreds", err)
+	}
+	if _, err := svc.Register(ctx, RegisterInput{Phone: "901234567", Password: "secret123", IP: "1.1.1.1"}); !errors.Is(err, ErrPhoneTaken) {
+		t.Fatalf("err=%v want ErrPhoneTaken", err)
+	}
+}
+
+func TestLoginPasswordNotSetThenSetPassword(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
+	if _, err := svc.VerifyOTP(ctx, testPhone, sender.last); err != nil {
+		t.Fatalf("VerifyOTP: %v", err)
+	}
+
+	if _, err := svc.Login(ctx, LoginInput{Phone: testPhone, Password: "secret123", IP: ""}); !errors.Is(err, ErrPasswordNotSet) {
+		t.Fatalf("err=%v want ErrPasswordNotSet", err)
+	}
+
+	set, err := svc.SetPassword(ctx, SetPasswordInput{Phone: testPhone, Password: "secret123", IP: ""})
+	if err != nil {
+		t.Fatalf("SetPassword: %v", err)
+	}
+	if set.Access == "" {
+		t.Fatal("expected tokens after set-password")
+	}
+
+	if _, err := svc.SetPassword(ctx, SetPasswordInput{Phone: testPhone, Password: "another12", IP: ""}); !errors.Is(err, ErrPasswordSet) {
+		t.Fatalf("err=%v want ErrPasswordSet", err)
+	}
+
+	if _, err := svc.Login(ctx, LoginInput{Phone: testPhone, Password: "secret123", IP: ""}); err != nil {
+		t.Fatalf("Login after set-password: %v", err)
+	}
+}
+
+func TestRegisterWeakPassword(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	if _, err := svc.Register(context.Background(), RegisterInput{Phone: "901234567", Password: "short"}); !errors.Is(err, ErrWeakPassword) {
+		t.Fatalf("err=%v want ErrWeakPassword", err)
+	}
+}

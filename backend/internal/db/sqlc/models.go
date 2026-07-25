@@ -278,6 +278,7 @@ type Profile struct {
 	ReferredBy   uuid.NullUUID      `json:"referred_by"`
 	Status       string             `json:"status"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	PasswordHash pgtype.Text        `json:"password_hash"`
 }
 
 type PromoCode struct {

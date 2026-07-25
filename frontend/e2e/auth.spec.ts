@@ -1,32 +1,25 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Authentication flow", () => {
-  test("login page loads with phone input", async ({ page }) => {
+  test("login page loads with phone and password inputs", async ({ page }) => {
     await page.goto("/uz-Latn/login");
-    const phoneInput = page.locator('input[type="tel"], input[name="phone"], input[placeholder*="998"]').first();
+    const phoneInput = page.locator('input[type="tel"]').first();
+    const passwordInput = page.locator('input[type="password"]').first();
     await expect(phoneInput).toBeVisible();
+    await expect(passwordInput).toBeVisible();
   });
 
-  test("can submit phone number", async ({ page }) => {
+  test("register page is reachable from login", async ({ page }) => {
     await page.goto("/uz-Latn/login");
-    const phoneInput = page.locator('input[type="tel"], input[name="phone"], input[placeholder*="998"]').first();
-    await phoneInput.fill("901112233");
-    const submitButton = page.locator('button[type="submit"]').first();
-    await submitButton.click();
-    // Wait for navigation or response
-    await page.waitForTimeout(3000);
-    // Verify we're still on login or moved to verify
-    const url = page.url();
-    expect(url).toContain("login");
+    await page.getByRole("link", { name: /Ro'yxatdan o'tish/i }).click();
+    await expect(page).toHaveURL(/\/register/);
+    await expect(page.locator('input[type="password"]')).toHaveCount(2);
   });
 
-  test("verify page has code input", async ({ page }) => {
+  test("legacy verify route redirects toward login", async ({ page }) => {
     await page.goto("/uz-Latn/login/verify?phone=901112233");
-    // Wait for page to load
-    await page.waitForTimeout(2000);
-    // Check for any input field
-    const inputs = page.locator("input");
-    const count = await inputs.count();
-    expect(count).toBeGreaterThan(0);
+    await page.waitForURL(/\/login(?!\/verify)/, { timeout: 5000 });
+    expect(page.url()).toContain("/login");
+    expect(page.url()).not.toContain("/verify");
   });
 });

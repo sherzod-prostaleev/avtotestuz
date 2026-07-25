@@ -1,5 +1,5 @@
-// Package auth owns authentication: phone normalization, OTP codes,
-// JWT access tokens, refresh tokens, rate limits and the OTP service.
+// Package auth owns authentication: phone normalization, password (and legacy
+// OTP) flows, JWT access tokens, refresh tokens, and rate limits.
 package auth
 
 import (

@@ -20,7 +20,13 @@ SELECT * FROM profile WHERE phone = $1;
 SELECT * FROM profile WHERE id = $1;
 
 -- name: CreateProfile :one
-INSERT INTO profile (phone, referral_code) VALUES ($1, $2) RETURNING *;
+INSERT INTO profile (phone, referral_code, password_hash, name)
+VALUES ($1, $2, $3, $4) RETURNING *;
+
+-- name: SetPasswordHashIfNull :execrows
+UPDATE profile
+SET password_hash = $2
+WHERE phone = $1 AND password_hash IS NULL;
 
 -- name: UpdateProfileMe :one
 UPDATE profile SET

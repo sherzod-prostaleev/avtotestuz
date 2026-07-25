@@ -16,6 +16,10 @@ type Handler struct {
 }
 
 func (h *Handler) Routes(r chi.Router) {
+	r.Post("/auth/register", h.register)
+	r.Post("/auth/login", h.login)
+	r.Post("/auth/set-password", h.setPassword)
+	// OTP kept for sandbox/admin tooling; learner UI uses password auth.
 	r.Post("/auth/otp/request", h.requestOTP)
 	r.Post("/auth/otp/verify", h.verifyOTP)
 	r.Post("/auth/refresh", h.refresh)
@@ -30,6 +34,22 @@ func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	return true
 }
 
+type registerBody struct {
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+	Name     string `json:"name"`
+}
+
+type loginBody struct {
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+}
+
+type setPasswordBody struct {
+	Phone    string `json:"phone"`
+	Password string `json:"password"`
+}
+
 type otpRequestBody struct {
 	Phone string `json:"phone"`
 }
@@ -37,6 +57,68 @@ type otpRequestBody struct {
 type otpRequestResponse struct {
 	Channel   string `json:"channel"`
 	DebugCode string `json:"debug_code,omitempty"`
+}
+
+type otpVerifyBody struct {
+	Phone string `json:"phone"`
+	Code  string `json:"code"`
+}
+
+type tokensResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
+	var body registerBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	res, err := h.Svc.Register(r.Context(), RegisterInput{
+		Phone:    body.Phone,
+		Password: body.Password,
+		Name:     body.Name,
+		IP:       h.ClientIPs.Resolve(r),
+	})
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusCreated, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
+}
+
+func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
+	var body loginBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	res, err := h.Svc.Login(r.Context(), LoginInput{
+		Phone:    body.Phone,
+		Password: body.Password,
+		IP:       h.ClientIPs.Resolve(r),
+	})
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
+}
+
+func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
+	var body setPasswordBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	res, err := h.Svc.SetPassword(r.Context(), SetPasswordInput{
+		Phone:    body.Phone,
+		Password: body.Password,
+		IP:       h.ClientIPs.Resolve(r),
+	})
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
 }
 
 func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {
@@ -50,16 +132,6 @@ func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, otpRequestResponse(res))
-}
-
-type otpVerifyBody struct {
-	Phone string `json:"phone"`
-	Code  string `json:"code"`
-}
-
-type tokensResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
 }
 
 func (h *Handler) verifyOTP(w http.ResponseWriter, r *http.Request) {
@@ -110,6 +182,16 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many requests, try again later")
 	case errors.Is(err, ErrInvalidPhone):
 		httpx.Error(w, http.StatusBadRequest, "invalid_phone", "phone number is not a valid Uzbekistan number")
+	case errors.Is(err, ErrWeakPassword):
+		httpx.Error(w, http.StatusBadRequest, "weak_password", "password must be at least 8 characters")
+	case errors.Is(err, ErrPhoneTaken):
+		httpx.Error(w, http.StatusConflict, "phone_taken", "phone number is already registered")
+	case errors.Is(err, ErrPasswordNotSet):
+		httpx.Error(w, http.StatusConflict, "password_not_set", "account has no password; set one to continue")
+	case errors.Is(err, ErrPasswordSet):
+		httpx.Error(w, http.StatusConflict, "password_already_set", "password is already set; use login")
+	case errors.Is(err, ErrInvalidCreds):
+		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "invalid phone or password")
 	case errors.Is(err, ErrExpiredCode):
 		httpx.Error(w, http.StatusBadRequest, "expired_code", "code has expired")
 	case errors.Is(err, ErrTooManyAttempts):
