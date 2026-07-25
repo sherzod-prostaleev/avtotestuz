@@ -34,6 +34,16 @@ type Config struct {
 	TelegramGatewayURL      string
 	ClientIPAssertionSecret string
 
+	// Telegram bot (M4-06) — a different Telegram product from the OTP
+	// Gateway above: the Gateway API only delivers verification codes, it
+	// cannot receive updates or send arbitrary messages. See
+	// docs/superpowers/specs/2026-07-25-m4-06-telegram-bot-design.md §5.2.
+	TelegramBotToken      string
+	TelegramBotAPIBaseURL string
+	TelegramBotUsername   string // no leading '@'
+	TelegramBotMode       string // off | webhook | longpoll
+	TelegramWebhookSecret string
+
 	PaymeMerchantID string // cashbox id for the checkout URL
 	PaymeEnv        string // test | prod (selects which key)
 	PaymeKeyProd    string // production cashbox KEY (Basic-auth password)
@@ -79,6 +89,12 @@ func Load() (Config, error) {
 		TelegramGatewayToken:    getenv("TELEGRAM_GATEWAY_TOKEN", ""),
 		TelegramGatewayURL:      getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 		ClientIPAssertionSecret: getenv("CLIENT_IP_ASSERTION_SECRET", ""),
+
+		TelegramBotToken:      getenv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramBotAPIBaseURL: getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org"),
+		TelegramBotUsername:   getenv("TELEGRAM_BOT_USERNAME", ""),
+		TelegramBotMode:       getenv("TELEGRAM_BOT_MODE", "off"),
+		TelegramWebhookSecret: getenv("TELEGRAM_WEBHOOK_SECRET", ""),
 
 		PaymeMerchantID: getenv("PAYME_MERCHANT_ID", ""),
 		PaymeEnv:        getenv("PAYME_ENV", "test"),
@@ -130,6 +146,31 @@ func (c Config) validate() error {
 	}
 	if secret := strings.TrimSpace(c.ClientIPAssertionSecret); secret != "" && len([]byte(secret)) < minClientIPAssertionSecretLen {
 		return fmt.Errorf("CLIENT_IP_ASSERTION_SECRET must be at least %d bytes", minClientIPAssertionSecretLen)
+	}
+
+	switch c.TelegramBotMode {
+	case "off":
+	case "webhook":
+		if strings.TrimSpace(c.TelegramBotToken) == "" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE webhook requires TELEGRAM_BOT_TOKEN")
+		}
+		if strings.TrimSpace(c.TelegramWebhookSecret) == "" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE webhook requires TELEGRAM_WEBHOOK_SECRET")
+		}
+	case "longpoll":
+		if strings.TrimSpace(c.TelegramBotToken) == "" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE longpoll requires TELEGRAM_BOT_TOKEN")
+		}
+		// Long-poll is a single-consumer model: Telegram hands updates to
+		// whichever getUpdates call is currently open. Running it from more
+		// than one prod instance means the others silently starve, and
+		// Telegram's own docs warn against mixing it with a webhook on the
+		// same bot — so it's dev-only here, not just dev-recommended.
+		if c.Env == "prod" {
+			return fmt.Errorf("TELEGRAM_BOT_MODE longpoll is not allowed when ENV=prod (use webhook)")
+		}
+	default:
+		return fmt.Errorf("invalid TELEGRAM_BOT_MODE %q: must be off, webhook, or longpoll", c.TelegramBotMode)
 	}
 
 	return nil

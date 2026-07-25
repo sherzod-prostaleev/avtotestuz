@@ -411,6 +411,15 @@ type TelegramAccount struct {
 	LinkedAt  pgtype.Timestamptz `json:"linked_at"`
 }
 
+type TelegramLinkToken struct {
+	ID        uuid.UUID          `json:"id"`
+	ProfileID uuid.UUID          `json:"profile_id"`
+	TokenHash string             `json:"token_hash"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	UsedAt    pgtype.Timestamptz `json:"used_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type UserReferralCode struct {
 	UserID    uuid.UUID          `json:"user_id"`
 	Code      string             `json:"code"`
