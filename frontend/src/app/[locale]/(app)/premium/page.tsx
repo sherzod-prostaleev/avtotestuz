@@ -145,6 +145,16 @@ export default function PremiumPage() {
 
   const features = [t("feature1"), t("feature2"), t("feature3"), t("feature4")];
 
+  // Mobile sticky CTA: popular plan first, else first paid tariff (v2 chrome matrix).
+  const featuredTariff =
+    tariffs?.find((row) => row.badge === "popular") ?? tariffs?.[0] ?? null;
+  const featuredPromo = featuredTariff ? promoMap[featuredTariff.code] : null;
+  const featuredIsFree = Boolean(featuredPromo && featuredPromo.final_amount_uzs === 0);
+  const stickyBuyDisabled =
+    !featuredTariff ||
+    buyingCode === featuredTariff.code ||
+    (!featuredIsFree && providerEnabled[provider] === false);
+
   return (
     <main className="page-shell-tight">
       <header className="mb-6">
@@ -299,6 +309,25 @@ export default function PremiumPage() {
               </Card>
             );
           })}
+        </div>
+      )}
+
+      {!loading && !loadError && featuredTariff && (
+        <div className="sticky-cta-bar sm:hidden">
+          <Button
+            type="button"
+            variant={featuredIsFree ? "success" : "gold"}
+            size="lg"
+            className="w-full"
+            disabled={stickyBuyDisabled}
+            onClick={() => void handleBuy(featuredTariff.code)}
+          >
+            {buyingCode === featuredTariff.code
+              ? t("buyLoading")
+              : featuredIsFree
+                ? t("freeCheckoutButton")
+                : t("stickyBuy", { name: featuredTariff.name })}
+          </Button>
         </div>
       )}
     </main>

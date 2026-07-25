@@ -97,4 +97,10 @@ describe("PremiumPage", () => {
     expect(await screen.findByText("Tariflarni yuklab bo'lmadi.")).toBeInTheDocument();
     expect(screen.getByText("Qayta urinish")).toBeInTheDocument();
   });
+
+  it("renders a mobile sticky CTA for the popular tariff", async () => {
+    mockApiGet({ active: false, until: null });
+    renderWithIntl();
+    expect(await screen.findByText("Sotib olish — Gentra")).toBeInTheDocument();
+  });
 });

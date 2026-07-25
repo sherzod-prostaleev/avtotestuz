@@ -768,6 +768,7 @@
     "matizDescription": "Cheklangan mashqlar va 1 ta bilet demo.",
     "matizCurrentPlan": "Hozirgi tarifingiz",
     "buyButton": "Sotib olish",
+    "stickyBuy": "Sotib olish — {name}",
     "buyLoading": "Yuklanmoqda...",
     "buyError": "Xatolik yuz berdi, qayta urinib ko'ring.",
     "providerUnavailable": "Bu to'lov usuli hozircha vaqtincha ishlamayapti. Boshqa usulni tanlang yoki birozdan keyin qayta urinib ko'ring.",

@@ -56,7 +56,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-17** | P1 | Docs/FE | **Landing footer real contacts** | partial | Marketing inputs | Placeholder phone/address/TG/IG in `messages/*` (`+998 71 200 00 00`, etc.). |
 | **U-18** | P2 | Design | **J8 Figma SoT** | deferred | Optional | Explicitly optional in next-wave; not a gate for Arena or N2. |
 | **U-19** | P2 | Design/FE | **J7 residual / visual QA depth** | partial | Sibling | Checklist largely signed in `visual-qa-checklist.md`; deeper dark×locale pixel walk open; handoff J-table may still lag. Do not thrash sibling hot files. |
-| **U-20** | P2 | FE | **N4 chrome tech debt** | partial | U-19 | Raw-color leftovers, sticky-CTA gaps, a11y notes from QA; `no-img-element` lint warnings. |
+| **U-20** | P2 | FE | **N4 chrome tech debt** | partial | U-19 | Premium mobile sticky buy CTA done (popular/first tariff). Remaining: Stats page-level due sticky CTA, raw-color leftovers (provider picker dots), a11y/`no-img-element` notes. |
 | **U-21** | P2 | BE | **Promo pro-rate user communication** | **done** | Billing | `me/entitlement.proration` + checkout success notice when promo exhausted mid-flight. |
 | **U-22** | P2 | BE | **Leaderboard rebuild cap approximation** | partial | M4-01 ✅ | Documented low-risk: rebuild uses current VIP/cap, not perfect historical fidelity. |
 | **U-23** | P2 | BE | **Drop or document dead `referral_attribution`** | deferred | U-05 | Parallel unused table vs live `referral` (0015). Antifraud design recommends drop later. |
