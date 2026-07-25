@@ -107,6 +107,9 @@ export default function LandingPage() {
 
   const footerNav = [
     { href: `/${locale}/login`, label: t("login") },
+    { href: `/${locale}/narxlar`, label: t("footerNavPricing") },
+    { href: `/${locale}/oferta`, label: t("footerNavOferta") },
+    { href: `/${locale}/privacy`, label: t("footerNavPrivacy") },
     { href: `/${locale}/signs`, label: t("ctaSigns") },
     { href: "#demo", label: t("ctaNoSignup") },
     { href: `/${locale}/premium`, label: t("footerNavPremium") },

@@ -113,7 +113,10 @@
     "footerTelegramUrl": "https://t.me/DriverGo",
     "footerInstagram": "Instagram — @drivergo.uz",
     "footerInstagramUrl": "https://instagram.com/drivergo.uz",
-    "footerLegal": "Driver Go — mustaqil o'quv platformasi. Rasmiy GAI imtihoni emas."
+    "footerLegal": "Driver Go — mustaqil o'quv platformasi. Rasmiy GAI imtihoni emas.",
+    "footerNavOferta": "Oferta",
+    "footerNavPrivacy": "Maxfiylik",
+    "footerNavPricing": "Narxlar"
   },
   "Dashboard": {
     "welcome": "Xush kelibsiz",
@@ -859,5 +862,50 @@
     "vipRequired": "VIP talab qilinadi",
     "opponentDisconnected": "Raqib uzildi",
     "opponentConnected": "Raqib qaytdi"
+  },
+  "Legal": {
+    "ofertaTitle": "Ommaviy oferta",
+    "privacyTitle": "Maxfiylik siyosati",
+    "updated": "Yangilangan: 2026-07-26",
+    "backHome": "Bosh sahifaga",
+    "ofertaS1Title": "1. Umumiy qoidalar",
+    "ofertaS1Body": "Driver Go (keyinchalik — Platforma) O'zbekiston YHQ nazariy imtihoniga tayyorgarlik uchun onlayn o'quv xizmatidir. Ushbu oferta Platformadan foydalanish shartlarini belgilaydi. Ro'yxatdan o'tish yoki to'lovni boshlash orqali foydalanuvchi shartlarga rozilik bildiradi.",
+    "ofertaS2Title": "2. Xizmatning mohiyati",
+    "ofertaS2Body": "Platforma o'quv materiallari, biletlar, mashq va takrorlash vositalarini taqdim etadi. Bu rasmiy GAI/YBXX imtihoni emas va davlat imtihonini o'rnini bosmaydi. Natijalar o'quv jarayoniga bog'liq; Platforma imtihondan o'tishni kafolatlamaydi.",
+    "ofertaS3Title": "3. Hisob va kirish",
+    "ofertaS3Body": "Kirish telefon raqami va parol orqali amalga oshiriladi. Foydalanuvchi ma'lumotlarning to'g'riligi va hisob xavfsizligi uchun javobgardir. Hisobni uchinchi shaxslarga berish taqiqlanadi.",
+    "ofertaS4Title": "4. To'lov va obuna",
+    "ofertaS4Body": "Pullik tariflar muddatli VIP/Premium kirishni beradi. To'lov Payme yoki Click orqali amalga oshiriladi (muhitga qarab sandbox yoki prod). Muvaffaqiyatli to'lovdan so'ng entitlement faollashadi. Promo-kodlar alohida shartlarga bo'ysunadi va cheklangan bo'lishi mumkin.",
+    "ofertaS5Title": "5. Qaytarish",
+    "ofertaS5Body": "Qaytarish so'rovlari support@drivergo.uz orqali ko'rib chiqiladi. To'lov tizimi qoidalari va qonunchilik doirasida qaror qabul qilinadi. Texnik nosozlik yoki ikki marta yechib olish holatlari alohida tekshiriladi.",
+    "ofertaS6Title": "6. Aloqa",
+    "ofertaS6Body": "Savollar: support@drivergo.uz. Manzil va telefon landing footerida ko'rsatiladi; marketing rekvizitlari yangilanganda shu yerda ham yangilanadi.",
+    "privacyS1Title": "1. Maqsad",
+    "privacyS1Body": "Ushbu siyosat Driver Go qanday shaxsiy ma'lumotlarni qayta ishlashini tushuntiradi. Biz faqat xizmatni ko'rsatish uchun zarur bo'lgan ma'lumotlarni yig'amiz.",
+    "privacyS2Title": "2. Qanday ma'lumotlar",
+    "privacyS2Body": "Telefon raqami, profil maydonlari (ism va boshqalar ixtiyoriy), o'quv progressi (sessiyalar, xatolar, FSRS holati), to'lov meta-ma'lumotlari (summa, status, provayder identifikatorlari), qurilma/texnik jurnallar (xavfsizlik va diagnostika).",
+    "privacyS3Title": "3. Qanday ishlatiladi",
+    "privacyS3Body": "Autentifikatsiya, o'quv jarayonini saqlash, to'lovni tasdiqlash, xavfsizlik (rate-limit, firibgarlikka qarshi), qonuniy majburiyatlarni bajarish. Marketing push/SMS faqat alohida rozilik bilan (hozircha web-push yo'q).",
+    "privacyS4Title": "4. Kimga beriladi",
+    "privacyS4Body": "To'lov provayderlari (Payme/Click) — to'lovni bajarish uchun; hosting/infra — xizmat ishlashi uchun. Ma'lumotlar uchinchi tomon reklama tarmoqlariga sotilmaydi.",
+    "privacyS5Title": "5. Saqlash va xavfsizlik",
+    "privacyS5Body": "Ma'lumotlar serverda saqlanadi; parollar faqat hash ko'rinishida. Kirish tokenlari muddatli. Operatorlar uchun alohida ops tokenlar (to'lov kill-switch) o'quvchi sessiyasidan ajratilgan.",
+    "privacyS6Title": "6. Huquqlaringiz",
+    "privacyS6Body": "Profilni yangilash, hisobni o'chirish/ma'lumot so'rash uchun support@drivergo.uz ga yozing. So'rovlar qonuniy muddatlarda ko'rib chiqiladi."
+  },
+  "Narxlar": {
+    "badge": "Narxlar",
+    "title": "Driver Go tariflari",
+    "subtitle": "Muddatli Premium kirish — barcha biletlar, cheklovsiz mashq va aqlli takrorlash. To'lovdan oldin oferta bilan tanishing.",
+    "perk1": "61 ta bilet va to'liq savol banki",
+    "perk2": "FSRS asosidagi xatolar banki",
+    "perk3": "Rasmiy imtihon uslubidagi mashq",
+    "perk4": "Payme va Click orqali to'lov",
+    "plansTitle": "Joriy tariflar",
+    "loading": "Tariflar yuklanmoqda…",
+    "loadHint": "Tariflar hozircha yuklanmadi (API vaqtincha mavjud emas bo'lishi mumkin). Kirib Premium sahifasidan ham ko'rishingiz mumkin.",
+    "ctaLogin": "Kirish va sotib olish",
+    "ctaOferta": "Ofertani o'qish",
+    "backHome": "Bosh sahifaga"
   }
 }

@@ -68,8 +68,8 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-29** | P2 | Content | **15 biletsiz leftover questions** | partial | Import design | Valid for practice/FSRS; not in numbered bilets — product copy/UX may under-explain. |
 | **U-30** | P2 | Content | **Signs catalog licensing pipeline** | partial | Research ✅ | Live catalog exists (gensigns / seed path); research still flags lex.uz extraction **UNVERIFIED** pieces — harden provenance for legal comfort. |
 | **U-31** | P2 | Content | **Category name native review** | partial | Taxonomy | Older handoff: user said “edits coming” for 13 category names — confirm closed. |
-| **U-32** | P2 | FE | **SEO public pages (jarimalar, oferta, privacy, narxlar)** | missing | Marketing | Master/M2 called for SEO SSG pages; Next public surface ≈ landing (+ demo). No oferta/privacy/fines routes found. |
-| **U-33** | P2 | FE | **`exam-mockup` route** | partial | Legacy | Still in middleware allow-list; real session/exam exist — clarify keep-as-dev-tool vs remove. |
+| **U-32** | P2 | FE | **SEO public pages (jarimalar, oferta, privacy, narxlar)** | **partial** | Marketing | Public `/{locale}/oferta`, `/privacy`, `/narxlar` (+ footer links, i18n, vitest/e2e). **Jarimalar** SEO reference still missing. |
+| **U-33** | P2 | FE | **`exam-mockup` route** | **done** | Legacy | Kept as auth-gated **dev/visual QA** component playground (`QuestionCard` states); real exam = session engine. Not linked from sidebar. |
 | **U-34** | P2 | i18n | **Backend `kaa` locale** | partial | Product decision | BE `i18n.Supported` includes `kaa`; FE messages = uz-Latn/uz-Cyrl/ru only. Incomplete Karakalpak. |
 | **U-35** | P2 | FE | **Grand Mock “certificate”** | partial | M2-07 ✅ | UI dialog + confetti only — **no** persisted certificate, PDF, shareable ID, or admin-issued credential. |
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
