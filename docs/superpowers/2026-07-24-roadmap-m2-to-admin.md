@@ -111,13 +111,13 @@
 | Plan | Nomi | Bog'liqlik | BE/FE | Holat |
 |------|------|-----------|-------|-------|
 | M4-01 | Leaderboard (Redis sorted-set, kunlik/haftalik/oylik/all-time) | — | BE | **TUGADI** |
-| M4-02 | Leaderboard UI | 01 | FE | **KEYINGI QADAM** |
-| M4-03 | Battle Arena — realtime infra (WebSocket, matchmaking) | 01? | BE | Navbatda |
-| M4-04 | Battle Arena — match logic + medallar (Bronza→Brilliant, rating) | 03 | BE | Navbatda |
-| M4-05 | Battle Arena UI (matchmaking, jonli 1v1, natija, do'stni chaqirish) | 03,04 | FE | Navbatda |
-| M4-06 | Telegram bot — poydevor (auth-link, komandalar) | — | BE | Navbatda (mustaqil) |
-| M4-07 | Telegram bot — kunlik quiz + bildirishnomalar | 06 | BE | Navbatda |
-| M4-08 | Push-kampaniyalar / notifications (web push) | 06? | BE+FE | Navbatda |
+| M4-02 | Leaderboard UI | 01 | FE | **TUGADI** |
+| M4-03 | Battle Arena — realtime infra (WebSocket, matchmaking) | 01? | BE | **TUGADI** (U-06; RedisTransport multi-instance = U-48 deferred) |
+| M4-04 | Battle Arena — match logic + medallar (Bronza→Brilliant, rating) | 03 | BE | **TUGADI** (U-07) |
+| M4-05 | Battle Arena UI (matchmaking, jonli 1v1, natija, do'stni chaqirish) | 03,04 | FE | **TUGADI** (U-08 / J10) |
+| M4-06 | Telegram bot — poydevor (auth-link, komandalar) | — | BE | **TUGADI** (+ FE bog‘lash U-09) |
+| M4-07 | Telegram bot — kunlik quiz + bildirishnomalar | 06 | BE | Navbatda / deferred (U-10) |
+| M4-08 | Push-kampaniyalar / notifications (web push) | 06? | BE+FE | **partial** (U-11 foundation + FSRS digest; VAPID/campaigns open) |
 
 ### M4-03 Battle Arena infra (katta — bo'laklar)
 - T1: WebSocket server (gorilla/ws yoki nhooyr), ulanish auth (JWT), connection registry.

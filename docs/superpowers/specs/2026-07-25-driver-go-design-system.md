@@ -248,7 +248,7 @@ Readiness ≥ threshold + volume floor → Grand Mock unlock → (exam UI out of
 | **J7 Motion/a11y pass** | Semantic token purge, contrast, reduced-motion, visual QA matrix | ✅ |
 | **J8 Figma source of truth** | Tokens + key screens (optional but recommended) | ⬜ later |
 | **J9 Session/exam interior** | Practice session mobil-first; exam desktop locked, mobile `max-lg:` only | ✅ |
-| **J10 Arena UI** | On this system after M4-03 plan | ⬜ later |
+| **J10 Arena UI** | `/(app)/arena` + sidebar + VIP gate (U-08) | ✅ |
 
 **Figma → Dev:**
 1. Figma variables = CSS tokens (C.1).

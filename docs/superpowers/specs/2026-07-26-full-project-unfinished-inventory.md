@@ -27,7 +27,7 @@
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
 
-**Doc drift callout:** `SESSION-HANDOFF` §⚡ says Wave 1 shipped Leaderboard UI + TG bot foundation + checkout `returnURL`, but §4 still lists M4-02/M4-06 as “Navbatda.” **Code confirms** `/leaderboard`, `internal/bot`, and checkout `returnURL` exist. Prefer code + this inventory over stale §4 rows.
+**Doc drift (U-50, 2026-07-26):** SESSION-HANDOFF §⚡/§4, roadmap M4 table, and design-system J10 refreshed to match code. Prefer **code + this inventory** if any older plan row still lags.
 
 ---
 
@@ -86,7 +86,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | missing | U-45 | Master admin scope. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | partial | After each wave | SESSION-HANDOFF §4, design-system J-table, roadmap M4 rows drift vs code. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26: SESSION-HANDOFF §⚡/§4, roadmap M4, design-system J10 aligned to code. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 
@@ -109,8 +109,8 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 **Do not** treat “J10 green” as project complete. Suggested true sequence:
 
 ```
-A0  Stabilize: merge sibling J7/N2 safely; refresh SESSION-HANDOFF statuses
-A1  N2 demo→account migrate (mistakes/FSRS-aligned; no Grand Mock inflation without OK)
+A0  Stabilize: SESSION-HANDOFF/inventory refresh (**U-50 done** 2026-07-26); merge any leftover sibling chrome safely
+A1  N2 demo→account migrate (**U-01 done**)
 A2  Money hardening (can parallel A1): referral antifraud (U-05); refund revoke (U-04);
     promo pro-rate UX (U-21); confirm returnURL + sandbox E2E manually
 A3  Ops MVP (can parallel): Dockerfiles + D18 staging; add Redis + Playwright to CI
@@ -171,8 +171,9 @@ A3  Ops MVP (can parallel): Dockerfiles + D18 staging; add Redis + Playwright to
 
 ## 6. Sibling / collision notes
 
-- Sibling agent may commit **J7 / N2** — treat U-01 / U-19 as **owned elsewhere** until merge; this inventory must not rewrite those hot paths.
-- Safe follow-ups independent of that merge: Arena **plan expansion** (docs), antifraud implementation (billing), Docker/CI, Admin brainstorming, M4-07 design, SEO pages.
+- U-50 (2026-07-26) refreshed handoff/roadmap/J10; implementers should not resurrect stale “M4-02 Navbatda” rows.
+- Safe follow-ups: U-23 drop `referral_attribution`, U-41 metrics slice, U-45 ops stubs, U-29 bilets UX copy, U-22 rebuild docs.
+- Skip inventing U-10 quiz / U-12 LLM / prod keys without external inputs.
 
 ---
 
