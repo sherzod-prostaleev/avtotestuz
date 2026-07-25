@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { X, ZoomIn } from "lucide-react";
 import type { SessionQuestionItem, SessionState } from "@/hooks/use-session-engine";
 import type { AnswerState } from "@/components/shared/answer-option";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
 
 interface OfficialAvtotestExamViewProps {
@@ -125,7 +126,7 @@ export function OfficialAvtotestExamView({
         {/* Left: DriveGo logo */}
         <div className="flex items-center gap-3 max-lg:gap-2">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] overflow-hidden max-lg:h-9 max-lg:w-9">
-            <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
+            <BrandLogo alt="DriveGo Logo" size={40} className="h-full w-full object-cover scale-110" />
           </div>
           <span className="font-black tracking-wider text-2xl text-white max-lg:hidden" style={{ fontFamily: "'Arial Black', 'Impact', sans-serif" }}>
             Drive<span className="text-[#22c55e]">Go</span>

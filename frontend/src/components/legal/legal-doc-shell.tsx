@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 type Props = {
@@ -27,7 +28,7 @@ export function LegalDocShell({
             href={backHref}
             className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground"
           >
-            <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+            <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
             <span>{brandName}</span>
           </Link>
           <ThemeToggle />

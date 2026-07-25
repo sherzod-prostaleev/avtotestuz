@@ -3,6 +3,7 @@
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { DemoQuestionBlock } from "./demo-question-block";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
 import {
@@ -124,7 +125,7 @@ export default function LandingPage() {
             href={`/${locale}`}
             className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground sm:text-2xl"
           >
-            <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+            <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
             <span>{t("brandName")}</span>
           </Link>
 

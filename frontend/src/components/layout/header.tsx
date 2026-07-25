@@ -3,6 +3,7 @@
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useUserStats } from "@/hooks/use-user-stats";
 import {
@@ -49,7 +50,7 @@ export function Header() {
           aria-label={t("brandDashboardLabel")}
           className="flex items-center gap-3 font-display text-2xl font-black tracking-tight text-foreground"
         >
-          <img src="/logo.svg" alt="" className="h-10 w-10 rounded-full object-cover" />
+          <BrandLogo size={40} className="h-10 w-10 rounded-full object-cover" />
           <span>{t("brandName")}</span>
         </Link>
 

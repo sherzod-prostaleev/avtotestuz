@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
@@ -114,7 +115,7 @@ export function Sidebar() {
           href={`/${currentLocale}/dashboard`}
           className="flex min-h-11 items-center gap-2.5 font-display text-xl font-bold text-foreground"
         >
-          <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+          <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
           <span className="font-black">{t("brandName")}</span>
         </Link>
 
@@ -163,7 +164,7 @@ export function Sidebar() {
               href={`/${currentLocale}/dashboard`}
               className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
             >
-              <img src="/logo.svg" alt="" className="h-10 w-10 rounded-full object-cover" />
+              <BrandLogo size={40} className="h-10 w-10 rounded-full object-cover" />
               <span>{t("brandName")}</span>
             </Link>
 

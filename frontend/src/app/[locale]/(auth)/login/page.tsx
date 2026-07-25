@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ArrowLeft, Lock, Phone, ShieldCheck } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
@@ -103,7 +104,7 @@ export default function LoginPage() {
           href={`/${locale}`}
           className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
         >
-          <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+          <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
           <span>{t("brandName")}</span>
         </Link>
         <ThemeToggle />
