@@ -27,3 +27,5 @@
 
 ## Remains
 Tracing, alerting, Prometheus exposition, multi-instance aggregation — still open under U-41.
+
+**Follow-up (same day):** Prometheus text default + `SENTRY_DSN` stub — see `2026-07-26-u41-prometheus-metrics-devops-audit.md`.

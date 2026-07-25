@@ -32,7 +32,7 @@ async function probe(path: string): Promise<ProbeResult> {
 
 /**
  * Aggregates public API liveness + readiness + process metrics for the thin
- * ops health stub (M3 monitoring precursor — no Prometheus/Sentry yet).
+ * ops health stub (M3 monitoring). API `/metrics` defaults to Prometheus text; this probe requests JSON.
  */
 export async function GET() {
   const [live, ready, metrics] = await Promise.all([

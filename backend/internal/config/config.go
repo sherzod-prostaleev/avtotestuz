@@ -62,6 +62,11 @@ type Config struct {
 	VAPIDPublicKey  string
 	VAPIDPrivateKey string
 	VAPIDSubject    string // mailto: or https: contact for push services
+
+	// SentryDSN is a documented hook for future error reporting (U-41).
+	// Empty = disabled. The process does not load a Sentry SDK yet — set the
+	// env so operators can wire it without inventing a full APM stack here.
+	SentryDSN string
 }
 
 // PaymeKey returns the Basic-auth password (cashbox KEY) for the current
@@ -120,6 +125,7 @@ func Load() (Config, error) {
 		VAPIDPublicKey:  getenv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getenv("VAPID_PRIVATE_KEY", ""),
 		VAPIDSubject:    getenv("VAPID_SUBJECT", "mailto:ops@avtotest.uz"),
+		SentryDSN:       strings.TrimSpace(getenv("SENTRY_DSN", "")),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

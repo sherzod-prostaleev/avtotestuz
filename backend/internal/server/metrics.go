@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -12,8 +13,9 @@ import (
 	"avtotest.uz/backend/internal/httpx"
 )
 
-// RequestMetrics is a tiny in-process counter for U-41 — not a Prometheus stack.
-// Process-local only; resets on restart. Enough for ops smoke and staging eyeballing.
+// RequestMetrics is a tiny in-process counter for U-41 — not a full Prometheus
+// stack (no histograms, no multi-instance aggregation, no Grafana). Process-local
+// only; resets on restart. Enough for ops smoke and staging eyeballing.
 type RequestMetrics struct {
 	startedAt atomic.Value // time.Time
 	total     atomic.Uint64
@@ -65,10 +67,79 @@ func (m *RequestMetrics) Snapshot() map[string]any {
 	}
 }
 
-func (m *RequestMetrics) Handler() http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		httpx.Data(w, http.StatusOK, m.Snapshot())
+// WritePrometheus writes text exposition (Prometheus 0.0.4) for the counters.
+func (m *RequestMetrics) WritePrometheus(w http.ResponseWriter) {
+	started, _ := m.startedAt.Load().(time.Time)
+	uptime := time.Since(started).Seconds()
+	if uptime < 0 {
+		uptime = 0
 	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	var b strings.Builder
+	b.WriteString("# HELP avtotest_uptime_seconds Process uptime in seconds since metrics start.\n")
+	b.WriteString("# TYPE avtotest_uptime_seconds gauge\n")
+	b.WriteString("avtotest_uptime_seconds ")
+	b.WriteString(formatFloat(uptime))
+	b.WriteByte('\n')
+	b.WriteString("# HELP avtotest_http_requests_total HTTP requests observed (probes excluded).\n")
+	b.WriteString("# TYPE avtotest_http_requests_total counter\n")
+	b.WriteString("avtotest_http_requests_total ")
+	b.WriteString(strconv.FormatUint(m.total.Load(), 10))
+	b.WriteByte('\n')
+	b.WriteString("# HELP avtotest_http_requests_by_status_class_total HTTP requests by status class (probes excluded).\n")
+	b.WriteString("# TYPE avtotest_http_requests_by_status_class_total counter\n")
+	for _, row := range []struct {
+		class string
+		n     uint64
+	}{
+		{"2xx", m.status2xx.Load()},
+		{"3xx", m.status3xx.Load()},
+		{"4xx", m.status4xx.Load()},
+		{"5xx", m.status5xx.Load()},
+		{"other", m.other.Load()},
+	} {
+		b.WriteString(`avtotest_http_requests_by_status_class_total{class="`)
+		b.WriteString(row.class)
+		b.WriteString(`"} `)
+		b.WriteString(strconv.FormatUint(row.n, 10))
+		b.WriteByte('\n')
+	}
+	_, _ = w.Write([]byte(b.String()))
+}
+
+func formatFloat(v float64) string {
+	return strconv.FormatFloat(v, 'f', 3, 64)
+}
+
+// Handler serves Prometheus text by default. JSON envelope when the client
+// asks for it (`Accept: application/json` or `?format=json`) so FE ops health
+// and admin monitoring stay compatible.
+func (m *RequestMetrics) Handler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if wantJSONMetrics(r) {
+			httpx.Data(w, http.StatusOK, m.Snapshot())
+			return
+		}
+		m.WritePrometheus(w)
+	}
+}
+
+func wantJSONMetrics(r *http.Request) bool {
+	if strings.EqualFold(r.URL.Query().Get("format"), "json") {
+		return true
+	}
+	accept := r.Header.Get("Accept")
+	if accept == "" {
+		return false
+	}
+	// Prefer JSON only when explicitly listed (FE ops probe sends application/json).
+	// Scrapers typically send text/plain, */*, or openmetrics.
+	lower := strings.ToLower(accept)
+	if strings.Contains(lower, "application/json") {
+		return true
+	}
+	return false
 }
 
 // Middleware counts completed requests. Skips /healthz, /readyz, /metrics so

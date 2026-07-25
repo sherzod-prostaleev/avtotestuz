@@ -124,7 +124,7 @@ buyruqlari commit qilinadi, 700+ rasm blob'i emas.
 
 - `GET /healthz` — liveness (process up; dependency ping yo'q)
 - `GET /readyz` — readiness (`checks.postgres` / `checks.redis`; wired bo'lsa ping, aks holda `skipped`; fail → 503)
-- `GET /metrics` — process-local so‘rov hisoblagichlari (`requests_total`, status-class, `uptime_seconds`); Prometheus/Sentry emas; `/healthz|/readyz|/metrics` o‘zi hisobga kirmaydi
+- `GET /metrics` — process-local counters; **Prometheus text** by default, JSON via `Accept: application/json` or `?format=json`; `SENTRY_DSN` env stub (no SDK yet); probes excluded from counts
 - **U-42 load-test smoke:** `make load-test` (k6; `deploy/load-test/`) — lokal/staging API smoke, **not** prod soak
 - **U-44 backup/DR drill:** `make backup-pg` / `make backup-restore-drill` (`scripts/backup/`) — local compose only; RPO/RTO placeholders in runbook
 - `GET /api/v1/categories?locale=`
