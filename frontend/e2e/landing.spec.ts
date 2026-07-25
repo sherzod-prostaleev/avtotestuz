@@ -6,9 +6,10 @@ test.describe("Landing page", () => {
     await expect(page.locator("h1").first()).toBeVisible();
   });
 
-  test("shows proof stats (1235 questions, 61 tickets)", async ({ page }) => {
+  test("shows proof stats (question + ticket counts)", async ({ page }) => {
     await page.goto("/uz-Latn");
-    await expect(page.getByText("1235")).toBeVisible();
+    // Copy uses "1231+" (verified import size), not a hard "1235".
+    await expect(page.getByText("1231+")).toBeVisible();
     await expect(page.getByText("61")).toBeVisible();
   });
 

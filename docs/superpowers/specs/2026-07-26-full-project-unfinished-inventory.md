@@ -50,7 +50,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-11** | P1 | BE/FE | **M4-08 Web push / campaigns** | missing | M4-06? | `notification` table exists (0005); **no** app package writing/sending. |
 | **U-12** | P1 | Content | **AI explanation = real LLM** | stub | Budget/API key | `TemplateDraftGenerator` / `ai-stub` only. Real legal analysis deferred since M1 Plan 05. |
 | **U-13** | P1 | Content/Admin | **Explanation expert verify at product scale** | partial | U-12, M3 UI | CLI `gendraft` / `verifyexplanation` exist; **no** admin queue UI (M3). User sees only `verified`. |
-| **U-14** | P1 | Ops/CI | **Playwright e2e in CI** | partial | Staging or compose in GHA | `frontend/e2e/*.spec.ts` + `npm run test:e2e` exist; **CI workflow does not run them**. |
+| **U-14** | P1 | Ops/CI | **Playwright e2e in CI** | **partial** | Staging or compose in GHA | CI `e2e` job runs `frontend/e2e` Chromium smoke (unauth + landing/auth shells). Auth-gated specs still skip without `E2E_AUTH_TOKEN`; full-stack journey remains a follow-up. |
 | **U-15** | P1 | Ops/CI | **Redis service in GitHub Actions** | **done** | — | Backend CI job now runs `redis:7-alpine` + `TEST_REDIS_URL` so `redisx.NewTest` packages exercise a real Redis. |
 | **U-16** | P1 | FE | **FSRS due practice UX (`GET /learn/next`)** | **done** | Learning BE ✅ | Session `mode=review` uses `learning.NextDue`; Practice “Takrorlash” source + dashboard CTA. |
 | **U-17** | P1 | Docs/FE | **Landing footer real contacts** | partial | Marketing inputs | Placeholder phone/address/TG/IG in `messages/*` (`+998 71 200 00 00`, etc.). |
