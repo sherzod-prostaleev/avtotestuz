@@ -86,15 +86,19 @@ describe("LandingPage i18n and accessibility", () => {
     const { container } = renderWithIntl(localeCase);
 
     expect(screen.getByText(localeCase.hero)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: localeCase.login })).toHaveAttribute(
-      "href",
-      `/${localeCase.locale}/login`
-    );
+    const loginLinks = screen.getAllByRole("link", { name: localeCase.login });
+    expect(loginLinks[0]).toHaveAttribute("href", `/${localeCase.locale}/login`);
+    expect(loginLinks.length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText(localeCase.feature)).toBeInTheDocument();
     expect(screen.getByText(localeCase.footer)).toBeInTheDocument();
+    expect(screen.getByRole("contentinfo")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /\+998 71 200 00 00/ })).toHaveAttribute(
+      "href",
+      "tel:+998712000000"
+    );
+    expect(screen.getByRole("link", { name: /support@drivergo\.uz/ })).toBeInTheDocument();
     expect(await screen.findByText(localeCase.question)).toBeInTheDocument();
-    expect(screen.getByText("1235")).toBeInTheDocument();
-    expect(screen.getByText("61")).toBeInTheDocument();
+    expect(screen.getAllByText("Driver Go").length).toBeGreaterThan(0);
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
 

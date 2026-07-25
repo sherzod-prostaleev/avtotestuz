@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ArrowLeft, CarFront, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Phone, ShieldCheck } from "lucide-react";
 import { capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
@@ -60,42 +59,42 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-background">
-      {/* Mini top bar */}
-      <header className="flex h-14 items-center justify-between px-4 border-b border-border/40">
-        <Link href={`/${locale}`} className="flex items-center gap-2.5 font-display text-xl font-bold">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_12px_rgba(34,197,94,0.4)] overflow-hidden">
-            <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
-          </div>
-          <span className="bg-gradient-to-r from-accent to-emerald-400 bg-clip-text text-transparent font-black">
-            {t("brandName")}
-          </span>
+    <div className="asphalt-hero flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 items-center justify-between border-b border-border px-4">
+        <Link
+          href={`/${locale}`}
+          className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
+        >
+          <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+          <span>{t("brandName")}</span>
         </Link>
         <ThemeToggle />
       </header>
 
-      {/* Center card */}
       <main className="flex flex-1 items-center justify-center p-4">
-        <Card className="glass-card w-full max-w-sm p-8 space-y-6 shadow-2xl border-accent/20 animate-fade-in">
-          <Link href={`/${locale}`} className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline">
+        <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-8">
+          <Link
+            href={`/${locale}`}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" /> {t("backHome")}
           </Link>
 
-          <div className="text-center space-y-2">
-            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-white font-display text-2xl font-black shadow-3d">
-              <CarFront aria-hidden="true" className="h-7 w-7" />
-            </div>
+          <div className="space-y-2">
             <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
-            <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
+            <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <label htmlFor="login-phone" className="text-[11px] font-extrabold text-muted-foreground uppercase tracking-wider">
+              <label
+                htmlFor="login-phone"
+                className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground"
+              >
                 {t("phoneLabel")}
               </label>
-              <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-4 py-3 text-sm focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/20 transition-all">
-                <Phone aria-hidden="true" className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-ring">
+                <Phone aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <span className="font-bold text-foreground">+998</span>
                 <input
                   id="login-phone"
@@ -112,12 +111,21 @@ export default function LoginPage() {
             </div>
 
             {error && (
-              <div role="alert" className="rounded-xl border border-danger/50 bg-danger/10 p-3 text-xs font-semibold text-danger">
+              <div
+                role="alert"
+                className="rounded-xl border border-danger/50 bg-danger/10 p-3 text-xs font-semibold text-danger"
+              >
                 {t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}
               </div>
             )}
 
-            <Button type="submit" variant="game" size="lg" className="w-full py-3 text-sm font-extrabold" disabled={phone.length !== 9 || submitting}>
+            <Button
+              type="submit"
+              variant="game"
+              size="lg"
+              className="w-full py-3 text-sm font-extrabold"
+              disabled={phone.length !== 9 || submitting}
+            >
               {submitting ? t("submitting") : t("continue")}
             </Button>
           </form>
@@ -126,7 +134,7 @@ export default function LoginPage() {
             <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-success" />
             <span>{t("secureSms")}</span>
           </div>
-        </Card>
+        </div>
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import uzLatnMessages from "../../../messages/uz-Latn.json";
@@ -28,6 +28,7 @@ const localeCases = [
     messages: uzLatnMessages,
     dashboard: "Bosh sahifa",
     saved: "Saqlangan savollar",
+    more: "Ko'proq",
     user: "O'quvchi",
     openMenu: "Menyuni ochish",
     imageQuestions: "Rasmli savollar",
@@ -38,6 +39,7 @@ const localeCases = [
     messages: uzCyrlMessages,
     dashboard: "Бош саҳифа",
     saved: "Сақланган саволлар",
+    more: "Кўпроқ",
     user: "Ўқувчи",
     openMenu: "Менюни очиш",
     imageQuestions: "Расмли саволлар",
@@ -48,6 +50,7 @@ const localeCases = [
     messages: ruMessages,
     dashboard: "Главная",
     saved: "Сохранённые вопросы",
+    more: "Ещё",
     user: "Ученик",
     openMenu: "Открыть меню",
     imageQuestions: "Вопросы с картинкой",
@@ -83,6 +86,7 @@ describe("Sidebar i18n and accessibility", () => {
       "href",
       `/${localeCase.locale}/dashboard`
     );
+    fireEvent.click(screen.getByRole("button", { name: localeCase.more }));
     expect(screen.getByRole("link", { name: localeCase.saved })).toHaveAttribute(
       "href",
       `/${localeCase.locale}/saved`

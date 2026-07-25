@@ -4,7 +4,7 @@
     "toDark": "Қоронғи темага ўтиш"
   },
   "Metadata": {
-    "title": "DriveGo — ҳайдовчилик назарий имтиҳонига тайёргарлик",
+    "title": "Driver Go — ҳайдовчилик назарий имтиҳонига тайёргарлик",
     "description": "Ўзбекистон ЙҲҚ саволлари, расмий имтиҳон услубидаги билетлар ва ақлли такрорлаш билан назарий имтиҳонга тайёрланинг."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Бош саҳифага қайтиш"
   },
   "Landing": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "login": "Кириш",
     "updatedBadge": "2026-йил янгиланган расмий саволлар базаси",
     "heroTitleBefore": "Правани",
@@ -26,6 +26,9 @@
     "ctaStart": "Бепул бошлаш",
     "ctaNoSignup": "Рўйхатсиз синаб кўринг",
     "ctaSigns": "Йўл белгилари каталоги",
+    "mockReadiness": "Тайёрлик",
+    "mockStreak": "3 кун",
+    "mockNextAction": "Бугунги энг яхши қадам: заиф мавзудан 10 та савол",
     "proofQuestions": "савол",
     "proofTickets": "билет",
     "proofTopics": "мавзу",
@@ -42,11 +45,11 @@
     "demoSuccessTitle": "Баракалла! Тўғри жавоб!",
     "demoSuccessBody": "Имтиҳонда худди шундай расмий саволлар тушади. Барча 1231 та саволни ва FSRS ақлли хатолар банкини очиш учун бепул рўйхатдан ўтинг.",
     "demoFailureTitle": "Тушуниш калити — изоҳда!",
-    "demoFailureBody": "Қайғурманг! DriveGo ақлли тизими хатоларингизни сақлаб қолади ва айнан унутиш арафасида такрорлашга беради.",
+    "demoFailureBody": "Қайғурманг! Driver Go ақлли тизими хатоларингизни сақлаб қолади ва айнан унутиш арафасида такрорлашга беради.",
     "demoRegisterCta": "Рўйхатдан ўтиш (Бепул)",
     "demoNextQuestion": "Яна битта савол синаб кўриш",
-    "whyUsTitle": "Нега биз?",
-    "whyUsSubtitle": "Минглаб бўлажак ҳайдовчилар DriveGo платформасини танлайди.",
+    "whyUsTitle": "Нега Driver Go",
+    "whyUsSubtitle": "Расмий форматдаги саволлар, FSRS такрорлаш ва аниқ тайёрлик — чалғитувчи ўйинчасиз.",
     "feature1Title": "FSRS ўқув двигатели",
     "feature1Text": "Ҳар савол сиз учун ақлли такрорлаш жадвали билан due бўлади.",
     "feature2Title": "Тайёрлик %",
@@ -74,7 +77,7 @@
     "faq4A": "A, B, C ва D асосий тоифалари учун расмий назарий имтиҳон саволлари қамраб олинган.",
     "bottomCtaTitle": "Ҳозироқ ўқишни бошланг!",
     "bottomCtaText": "Бепул рўйхатдан ўтинг ва биринчи уринишда имтиҳондан ўтинг.",
-    "footer": "DriveGo — {year}",
+    "footer": "Driver Go — {year}",
     "footerDescription": "Ўзбекистон йўл ҳаракати қоидалари бўйича ўқув платформаси",
     "hold1Title": "Рўйхатсиз синаб кўринг",
     "hold1Text": "Қуйидаги демо саволни ҳозироқ ечинг — аккаунт керак эмас.",
@@ -90,7 +93,25 @@
     "methodSpacingTitle": "Такрорлаш оралиғи",
     "methodSpacingText": "Қийналган саволингиз тасодифий эмас, унутиш арафасида — энг фойдали пайтда қайтади.",
     "methodFeedbackTitle": "Дарҳол изоҳ",
-    "methodFeedbackText": "Хато қилганингиз заҳоти тўғри жавоб ва унинг қонуний асоси кўрсатилади."
+    "methodFeedbackText": "Хато қилганингиз заҳоти тўғри жавоб ва унинг қонуний асоси кўрсатилади.",
+    "factQuestionsValue": "1231+",
+    "factTicketsValue": "61",
+    "factTopicsValue": "13",
+    "factLanguagesValue": "3",
+    "footerNavTitle": "Тезкор ҳаволалар",
+    "footerNavPremium": "Premium",
+    "footerContactTitle": "Алоқа",
+    "footerPhone": "+998 71 200 00 00",
+    "footerPhoneTel": "+998712000000",
+    "footerEmail": "support@drivergo.uz",
+    "footerAddress": "Тошкент ш., Юнусобод тумани, Амир Темур кўчаси 108",
+    "footerHours": "Ду–Ша 09:00–20:00",
+    "footerSocialTitle": "Ижтимоий тармоқлар",
+    "footerTelegram": "Telegram — @DriverGo",
+    "footerTelegramUrl": "https://t.me/DriverGo",
+    "footerInstagram": "Instagram — @drivergo.uz",
+    "footerInstagramUrl": "https://instagram.com/drivergo.uz",
+    "footerLegal": "Driver Go — мустақил ўқув платформаси. Расмий ГАИ имтиҳони эмас."
   },
   "Dashboard": {
     "welcome": "Хуш келибсиз",
@@ -164,8 +185,8 @@
     "viewAllCategories": "Барча йўналишлар ({count})"
   },
   "Sidebar": {
-    "brandName": "DriveGo",
-    "brandTagline": "Pro нашр",
+    "brandName": "Driver Go",
+    "brandTagline": "Назарий имтиҳон",
     "userFallback": "Ўқувчи",
     "streakCount": "{count} кунлик стрик",
     "vipBadge": "VIP",
@@ -181,6 +202,7 @@
     "navStats": "Статистика ва таҳлил",
     "navProfile": "Профил ва созламалар",
     "navPremium": "Premium VIP",
+    "navMore": "Кўпроқ",
     "viewProfile": "Профилни кўриш",
     "openMenu": "Менюни очиш",
     "closeMenu": "Менюни ёпиш",
@@ -190,8 +212,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "DriveGo",
-    "brandDashboardLabel": "DriveGo бош саҳифаси",
+    "brandName": "Driver Go",
+    "brandDashboardLabel": "Driver Go бош саҳифаси",
     "navDashboard": "Бош саҳифа",
     "navTickets": "Билетлар",
     "navSigns": "Йўл белилари",
@@ -224,7 +246,7 @@
     "explanation": "Светофор ишламаган чорраҳада ЙҲҚнинг тегишли қоидасига кўра ўнгдан келаётган транспорт воситаси устунликка эга бўлади."
   },
   "Login": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "backHome": "Бош саҳифага қайтиш",
     "title": "Кириш",
     "subtitle": "Телефон рақамингиз билан киринг",
@@ -643,7 +665,7 @@
     "statusFailed": "Хатолик"
   },
   "Premium": {
-    "title": "DriveGo Премиум",
+    "title": "Driver Go Премиум",
     "subtitle": "Имтиҳондан 100% биринчи уринишда ўтиш учун барча имкониятларни очинг",
     "badge": "Premium VIP",
     "trust1": "Барча билетлар ва машқлар чекловсиз очилади.",

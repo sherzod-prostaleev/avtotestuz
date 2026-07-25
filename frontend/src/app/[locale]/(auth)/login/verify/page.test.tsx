@@ -64,7 +64,7 @@ describe("VerifyPage", () => {
   it("disables resend during the 60s cooldown and re-enables after it elapses", () => {
     vi.useFakeTimers();
     renderWithIntl();
-    const resendButton = screen.getByRole("button");
+    const resendButton = screen.getByRole("button", { name: /Qayta yuborish/i });
     expect(resendButton).toBeDisabled();
     act(() => {
       vi.advanceTimersByTime(60_000);

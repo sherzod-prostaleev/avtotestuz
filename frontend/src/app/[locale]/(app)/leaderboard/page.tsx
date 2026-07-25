@@ -128,7 +128,7 @@ export default function LeaderboardPage() {
               onClick={() => setPeriod(item.value)}
               className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all ${
                 isSelected
-                  ? "border-accent bg-accent text-white shadow-3d"
+                  ? "border-accent bg-accent text-accent-foreground shadow-3d"
                   : "border-border bg-card text-muted-foreground hover:border-accent/50 hover:text-foreground"
               }`}
             >

@@ -201,7 +201,7 @@ export default function TicketsPage() {
             aria-pressed={filterStatus === tab.key}
             className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
               filterStatus === tab.key
-                ? "bg-accent text-white shadow-3d"
+                ? "bg-accent text-accent-foreground shadow-3d"
                 : "border border-border bg-card text-muted-foreground hover:text-foreground"
             }`}
           >

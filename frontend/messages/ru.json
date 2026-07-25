@@ -4,7 +4,7 @@
     "toDark": "Перейти к тёмной теме"
   },
   "Metadata": {
-    "title": "DriveGo — подготовка к теоретическому экзамену",
+    "title": "Driver Go — подготовка к теоретическому экзамену",
     "description": "Готовьтесь к теоретическому экзамену по ПДД Узбекистана с билетами в формате экзамена и умными повторениями."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Вернуться на главную"
   },
   "Landing": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "login": "Войти",
     "updatedBadge": "Официальная база вопросов, обновлённая в 2026 году",
     "heroTitleBefore": "Получите",
@@ -26,6 +26,9 @@
     "ctaStart": "Начать бесплатно",
     "ctaNoSignup": "Попробуйте без регистрации",
     "ctaSigns": "Каталог дорожных знаков",
+    "mockReadiness": "Готовность",
+    "mockStreak": "3 дня",
+    "mockNextAction": "Лучший шаг сегодня: 10 вопросов по слабой теме",
     "proofQuestions": "вопросов",
     "proofTickets": "билет",
     "proofTopics": "тем",
@@ -42,11 +45,11 @@
     "demoSuccessTitle": "Отлично! Правильный ответ!",
     "demoSuccessBody": "На экзамене будут именно такие официальные вопросы. Зарегистрируйтесь бесплатно, чтобы открыть все 1231 вопрос и умный банк ошибок FSRS.",
     "demoFailureTitle": "Ключ к пониманию — в пояснении!",
-    "demoFailureBody": "Не переживайте! Умная система DriveGo сохранит вашу ошибку и выдаст ее на повторение ровно перед тем, как вы ее забудете.",
+    "demoFailureBody": "Не переживайте! Умная система Driver Go сохранит вашу ошибку и выдаст ее на повторение ровно перед тем, как вы ее забудете.",
     "demoRegisterCta": "Зарегистрироваться (Бесплатно)",
     "demoNextQuestion": "Попробовать еще вопрос",
-    "whyUsTitle": "Почему мы?",
-    "whyUsSubtitle": "Тысячи будущих водителей выбирают платформу DriveGo.",
+    "whyUsTitle": "Почему Driver Go",
+    "whyUsSubtitle": "Официальный формат вопросов, FSRS-повторение и точная готовность — без отвлекающих игрушек.",
     "feature1Title": "Движок обучения FSRS",
     "feature1Text": "Каждый вопрос становится due по умному расписанию повторения.",
     "feature2Title": "Готовность %",
@@ -74,7 +77,7 @@
     "faq4A": "Охвачены официальные теоретические вопросы для основных категорий A, B, C и D.",
     "bottomCtaTitle": "Начните заниматься прямо сейчас!",
     "bottomCtaText": "Зарегистрируйтесь бесплатно и сдайте экзамен с первой попытки.",
-    "footer": "DriveGo — {year}",
+    "footer": "Driver Go — {year}",
     "footerDescription": "Учебная платформа по правилам дорожного движения Узбекистана",
     "hold1Title": "Попробуйте без регистрации",
     "hold1Text": "Решите демо-вопрос прямо сейчас — аккаунт не нужен.",
@@ -90,7 +93,25 @@
     "methodSpacingTitle": "Интервальное повторение",
     "methodSpacingText": "Трудный вопрос возвращается не случайно, а на грани забывания — в самый полезный момент.",
     "methodFeedbackTitle": "Мгновенная обратная связь",
-    "methodFeedbackText": "Сразу после ошибки показываем верный ответ и его правовое основание."
+    "methodFeedbackText": "Сразу после ошибки показываем верный ответ и его правовое основание.",
+    "factQuestionsValue": "1231+",
+    "factTicketsValue": "61",
+    "factTopicsValue": "13",
+    "factLanguagesValue": "3",
+    "footerNavTitle": "Быстрые ссылки",
+    "footerNavPremium": "Premium",
+    "footerContactTitle": "Контакты",
+    "footerPhone": "+998 71 200 00 00",
+    "footerPhoneTel": "+998712000000",
+    "footerEmail": "support@drivergo.uz",
+    "footerAddress": "г. Ташкент, Юнусабадский район, ул. Амира Темура 108",
+    "footerHours": "Пн–Сб 09:00–20:00",
+    "footerSocialTitle": "Соцсети",
+    "footerTelegram": "Telegram — @DriverGo",
+    "footerTelegramUrl": "https://t.me/DriverGo",
+    "footerInstagram": "Instagram — @drivergo.uz",
+    "footerInstagramUrl": "https://instagram.com/drivergo.uz",
+    "footerLegal": "Driver Go — независимая учебная платформа. Это не официальный экзамен ГАИ."
   },
   "Dashboard": {
     "welcome": "Добро пожаловать",
@@ -164,8 +185,8 @@
     "viewAllCategories": "Все темы ({count})"
   },
   "Sidebar": {
-    "brandName": "DriveGo",
-    "brandTagline": "Pro-версия",
+    "brandName": "Driver Go",
+    "brandTagline": "Теоретический экзамен",
     "userFallback": "Ученик",
     "streakCount": "Серия: {count} дней",
     "vipBadge": "VIP",
@@ -181,6 +202,7 @@
     "navStats": "Статистика и анализ",
     "navProfile": "Профиль и настройки",
     "navPremium": "Premium VIP",
+    "navMore": "Ещё",
     "viewProfile": "Открыть профиль",
     "openMenu": "Открыть меню",
     "closeMenu": "Закрыть меню",
@@ -190,8 +212,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "DriveGo",
-    "brandDashboardLabel": "Главная DriveGo",
+    "brandName": "Driver Go",
+    "brandDashboardLabel": "Главная Driver Go",
     "navDashboard": "Главная",
     "navTickets": "Билеты",
     "navSigns": "Дорожные знаки",
@@ -224,7 +246,7 @@
     "explanation": "На перекрёстке с неработающим светофором транспортное средство, приближающееся справа, имеет преимущество согласно соответствующему правилу ПДД."
   },
   "Login": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "backHome": "Вернуться на главную",
     "title": "Вход",
     "subtitle": "Войдите с помощью номера телефона",
@@ -643,7 +665,7 @@
     "statusFailed": "Ошибка"
   },
   "Premium": {
-    "title": "DriveGo Премиум",
+    "title": "Driver Go Премиум",
     "subtitle": "Откройте все возможности для 100% сдачи экзамена с первой попытки",
     "badge": "Premium VIP",
     "trust1": "Все билеты и практика открываются без ограничений.",

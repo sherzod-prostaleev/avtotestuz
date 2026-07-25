@@ -3,8 +3,9 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { KeyRound } from "lucide-react";
 import { applyPendingReferralCode } from "@/lib/referral-storage";
 
@@ -20,6 +21,7 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
 
 function VerifyForm() {
   const t = useTranslations("Verify");
+  const loginT = useTranslations("Login");
   const locale = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,41 +114,62 @@ function VerifyForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm p-8 text-center">
-        <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
-        <p className="mt-2 text-sm text-muted-foreground">{t("subtitle", { phone })}</p>
+    <div className="asphalt-hero flex min-h-screen flex-col bg-background">
+      <header className="flex h-14 items-center justify-between border-b border-border px-4">
+        <Link
+          href={`/${locale}`}
+          className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
+        >
+          <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
+          <span>{loginT("brandName")}</span>
+        </Link>
+        <ThemeToggle />
+      </header>
 
-        {debugCode && (
-          <div className="my-4 flex items-center justify-center gap-2 rounded-md border border-accent/40 bg-accent/10 p-2.5 text-sm font-bold text-accent">
-            <KeyRound aria-hidden="true" className="h-4 w-4" />
-            <span>{t("debugCode", { code: debugCode })}</span>
+      <main className="flex flex-1 items-center justify-center px-4 py-8">
+        <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-8 text-center">
+          <div className="space-y-2">
+            <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("subtitle", { phone })}</p>
           </div>
-        )}
 
-        <div role="group" aria-label={t("codeInputLabel")} className="mt-6 flex justify-center gap-2">
-          {digits.map((d, i) => (
-            <input
-              key={i}
-              ref={(el) => {
-                inputRefs.current[i] = el;
-              }}
-              type="text"
-              inputMode="numeric"
-              autoComplete={i === 0 ? "one-time-code" : "off"}
-              value={d}
-              onChange={(e) => handleDigitChange(i, e.target.value)}
-              aria-label={t("digitLabel", { position: i + 1 })}
-              className="h-12 w-10 rounded-md border border-border bg-card text-center text-lg font-bold outline-none focus:border-accent"
-            />
-          ))}
+          {debugCode && (
+            <div className="flex items-center justify-center gap-2 rounded-xl border border-border bg-background p-2.5 text-sm font-bold text-foreground">
+              <KeyRound aria-hidden="true" className="h-4 w-4 text-accent" />
+              <span>{t("debugCode", { code: debugCode })}</span>
+            </div>
+          )}
+
+          <div role="group" aria-label={t("codeInputLabel")} className="flex justify-center gap-2">
+            {digits.map((d, i) => (
+              <input
+                key={i}
+                ref={(el) => {
+                  inputRefs.current[i] = el;
+                }}
+                type="text"
+                inputMode="numeric"
+                autoComplete={i === 0 ? "one-time-code" : "off"}
+                value={d}
+                onChange={(e) => handleDigitChange(i, e.target.value)}
+                aria-label={t("digitLabel", { position: i + 1 })}
+                className="h-12 w-10 rounded-xl border border-border bg-background text-center text-lg font-bold outline-none focus:border-accent focus:ring-2 focus:ring-ring"
+              />
+            ))}
+          </div>
+
+          {error && (
+            <p role="alert" className="text-sm font-semibold text-danger">
+              {t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}
+            </p>
+          )}
+
+          <Button type="button" variant="outline" className="w-full" disabled={cooldown > 0} onClick={handleResend}>
+            {cooldown > 0 ? t("resendIn", { seconds: cooldown }) : t("resend")}
+          </Button>
         </div>
-        {error && <p role="alert" className="mt-4 text-sm text-danger">{t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}</p>}
-        <Button type="button" variant="outline" className="mt-6" disabled={cooldown > 0} onClick={handleResend}>
-          {cooldown > 0 ? t("resendIn", { seconds: cooldown }) : t("resend")}
-        </Button>
-      </Card>
-    </main>
+      </main>
+    </div>
   );
 }
 
@@ -154,7 +177,13 @@ export default function VerifyPage() {
   const t = useTranslations("Verify");
 
   return (
-    <Suspense fallback={<p role="status" className="p-6 text-center text-sm text-muted-foreground">{t("loading")}</p>}>
+    <Suspense
+      fallback={
+        <p role="status" className="p-6 text-center text-sm text-muted-foreground">
+          {t("loading")}
+        </p>
+      }
+    >
       <VerifyForm />
     </Suspense>
   );

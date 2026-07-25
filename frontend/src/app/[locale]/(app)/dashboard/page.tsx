@@ -165,28 +165,27 @@ export default function DashboardPage() {
   return (
     <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <section className="relative overflow-hidden rounded-3xl border border-accent/25 bg-gradient-to-br from-card via-card to-accent/10 p-6 shadow-xl md:p-8">
-          <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-accent/10 blur-3xl" />
+        <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-6">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background/80 px-3 py-1 text-[11px] font-bold text-muted-foreground">
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1 text-[11px] font-bold text-muted-foreground">
                   <BrainCircuit aria-hidden="true" className="h-3.5 w-3.5 text-accent" />
                   {t("todayTitle")}
                 </span>
                 {loading ? (
                   <span
                     aria-hidden="true"
-                    className="inline-flex h-[26px] w-24 animate-pulse items-center rounded-full border border-border bg-background/70 px-3 py-1"
+                    className="inline-flex h-[26px] w-24 animate-pulse items-center rounded-md border border-border bg-background px-3 py-1"
                   />
                 ) : isVip ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-3 py-1 text-xs font-bold text-gold border border-gold/40">
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/15 px-3 py-1 text-xs font-bold text-gold">
                     <Crown aria-hidden="true" className="h-3.5 w-3.5" /> {t("vipBadge")}
                   </span>
                 ) : (
                   <Link href={`/${locale}/premium`}>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-accent/20 px-3 py-1 text-xs font-bold text-accent border border-accent/40 hover:scale-105 transition-transform">
-                      <Sparkles aria-hidden="true" className="h-3.5 w-3.5" /> {t("upgradeVip")}
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-accent/15 px-3 py-1 text-xs font-bold text-foreground hover:border-accent">
+                      <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-accent" /> {t("upgradeVip")}
                     </span>
                   </Link>
                 )}
@@ -195,11 +194,11 @@ export default function DashboardPage() {
               <div className="flex items-start gap-3">
                 <Hand aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-accent" />
                 <div>
-                  <h1 className="font-display text-2xl sm:text-3xl font-extrabold tracking-tight">
+                  <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
                     {loading ? (
                       <span
                         aria-hidden="true"
-                        className="inline-block h-8 w-56 max-w-full animate-pulse rounded-lg bg-background/70 align-middle"
+                        className="inline-block h-8 w-56 max-w-full animate-pulse rounded-lg bg-border/60 align-middle"
                       />
                     ) : (
                       t("welcomeUser", { name: userName })
@@ -211,7 +210,7 @@ export default function DashboardPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
+              <div className="rounded-2xl border border-border bg-background p-4">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
@@ -220,13 +219,13 @@ export default function DashboardPage() {
                       <Flame aria-hidden="true" className="h-4 w-4 text-streak" />
                       {t("streakCount", { count: currentStreak })}
                     </div>
-                    <p className="mt-2 text-2xl font-display font-extrabold">{todayAnswered}</p>
+                    <p className="mt-2 font-display text-2xl font-extrabold">{todayAnswered}</p>
                     <p className="text-xs text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
                   </>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
+              <div className="rounded-2xl border border-border bg-background p-4">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
@@ -235,22 +234,22 @@ export default function DashboardPage() {
                       <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
                       {t("readinessLabel")}
                     </div>
-                    <p className="mt-2 text-2xl font-display font-extrabold">{readinessPct}%</p>
+                    <p className="mt-2 font-display text-2xl font-extrabold">{readinessPct}%</p>
                     <p className="text-xs text-muted-foreground">{readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}</p>
                   </>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-border/70 bg-background/85 p-4">
+              <div className="rounded-2xl border border-border bg-background p-4">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
                     <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                      <AlertTriangle aria-hidden="true" className="h-4 w-4 text-rose-500" />
+                      <AlertTriangle aria-hidden="true" className="h-4 w-4 text-danger" />
                       {t("dueQuestionsLabel")}
                     </div>
-                    <p className="mt-2 text-2xl font-display font-extrabold">{dueQuestionsCount}</p>
+                    <p className="mt-2 font-display text-2xl font-extrabold">{dueQuestionsCount}</p>
                     <p className="text-xs text-muted-foreground">
                       {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
                     </p>
@@ -261,7 +260,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <aside className="rounded-3xl border border-border/80 bg-card p-6 shadow-lg md:p-7">
+        <aside className="rounded-3xl border border-border bg-card p-6 md:p-7">
           {isPersonalizationLoading ? (
             // The recommendation below depends on stats + session history
             // together (readiness, weakest category, resumable session).
@@ -306,12 +305,12 @@ export default function DashboardPage() {
             </>
           )}
 
-          <div className="mt-6 rounded-2xl border border-border bg-background/70 p-4">
+          <div className="mt-6 rounded-2xl border border-border bg-background p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("studyLoopTitle")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-full bg-accent/10 px-3 py-1 text-xs font-semibold text-accent">{t("studyLoopRecall")}</span>
-              <span className="rounded-full bg-gold/10 px-3 py-1 text-xs font-semibold text-gold">{t("studyLoopSpacing")}</span>
-              <span className="rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success">{t("studyLoopFeedback")}</span>
+              <span className="rounded-md bg-accent/15 px-3 py-1 text-xs font-semibold text-foreground">{t("studyLoopRecall")}</span>
+              <span className="rounded-md bg-gold/15 px-3 py-1 text-xs font-semibold text-gold">{t("studyLoopSpacing")}</span>
+              <span className="rounded-md bg-success/15 px-3 py-1 text-xs font-semibold text-success">{t("studyLoopFeedback")}</span>
             </div>
           </div>
         </aside>
@@ -341,12 +340,11 @@ export default function DashboardPage() {
       ) : resumeSession && resumeStartedAt ? (
         <section
           aria-labelledby="resume-session-title"
-          className="relative overflow-hidden rounded-3xl border-2 border-accent/50 bg-gradient-to-r from-accent/20 via-card to-indigo-500/10 p-6 shadow-2xl md:p-8"
+          className="relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
         >
-          <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-accent/15 blur-3xl" />
           <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-white shadow-3d">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground shadow-3d">
                 <PlayCircle aria-hidden="true" className="h-7 w-7" />
               </div>
               <div className="space-y-2">
@@ -462,10 +460,10 @@ export default function DashboardPage() {
       {/* Road Signs Banner */}
       <section>
         <Link href={`/${locale}/signs`}>
-          <Card className="glass-card p-6 border-accent/40 bg-gradient-to-r from-accent/10 via-card to-card hover:border-accent">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <Card className="glass-card border-border p-6 hover:border-accent">
+            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
               <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-white shadow-3d">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground shadow-3d">
                   <Signpost aria-hidden="true" className="h-7 w-7" />
                 </div>
                 <div>

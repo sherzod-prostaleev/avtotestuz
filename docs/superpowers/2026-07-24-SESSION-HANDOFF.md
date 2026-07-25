@@ -1,16 +1,74 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-25, ikkinchi audit raundi tugagach)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-25, kech — Driver Go dizayn to‘lqini)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 
+---
+
+## ⚡ HOZIRGI HOLAT (2026-07-25 kech) — YANGI SESSIYA SHU YERDAN
+
+### Git
+- Branch: **`main`** (remote bilan sync bo‘lishi kerak — `git pull` qiling).
+- Wave 1 (leaderboard UI, Telegram bot poydevor, Arena **docs**, checkout returnURL, VIP flicker, review fixlari) — **allaqachon `origin/main`da**.
+- Driver Go dizayn to‘lqini — shu commitdan keyin `main`da (quyida ✅/⬜).
+
+### Qulflangan mahsulot/dizayn qarorlari
+| Qaror | Qiymat |
+|--------|--------|
+| Brand (UI) | **Driver Go** (AvtoTest UI da ko‘rinmaydi) |
+| Yo‘nalish | **A — Asphalt & Signal** (amber CTA, indigo taqiqlangan) |
+| Hero | Full-bleed asphalt + bitta phone mock |
+| Sidebar | 6 primary + **Ko‘proq** |
+| Scope tashqari | `session/[id]` savol UI + rasmiy imtihon simulyatsiyasi **ichki** sahna |
+
+### Dizayn hujjatlari (o‘qing)
+1. `docs/superpowers/specs/2026-07-25-driver-go-design-system.md` — **SOURCE OF TRUTH** (A–J)
+2. `docs/superpowers/specs/2026-07-25-design-system-spike.md` — spike + qulflangan qarorlar
+
+### Dizayn implementatsiya progress (J roadmap)
+
+| Phase | Nima | Holat |
+|-------|------|-------|
+| J0 Spike + qarorlar | A, brand, hero, nav | ✅ |
+| J1 Tokens | `globals.css` Asphalt & Signal | ✅ |
+| J2 Landing | Bir kompozitsiya hero, reveal anim, boy footer/aloqa | ✅ |
+| J3 Shell | Sidebar primary + Ko‘proq | ✅ |
+| J4 Auth | Login + verify chrome | ✅ |
+| J5 Dashboard chrome | Indigo/glow tozalash, accent-foreground | ✅ |
+| **J6** | Premium, profile, practice, tickets, signs, mistakes, saved, stats, leaderboard, checkout chrome | ⬜ **KEYINGI** |
+| J7 | A11y + Lighthouse + contrast QA (3 locale × 2 theme × 3 viewport) | ⬜ |
+| J8 | Figma SoT (ixtiyoriy) | ⬜ |
+| J9 | Session/exam **ichki** UI (alohida to‘lqin) | ⬜ |
+| J10 | Arena UI (M4-03 plan → kod; migratsiya **0021**, bot 0020 oldi) | ⬜ |
+
+### Footer aloqa — PLACEHOLDER
+Landing footerdagi telefon/manzil/Telegram/Instagram (`+998 71 200 00 00`, `t.me/DriverGo`, …) **placeholder**. Haqiqiy qiymatlar kelganda `frontend/messages/{uz-Latn,uz-Cyrl,ru}.json` → `Landing.footer*` kalitlarini yangilang.
+
+### Keyingi sessiya uchun aniq birinchi buyruq
+```text
+Driver Go J6: premium + profile + practice/tickets/signs/mistakes/saved/stats/leaderboard + checkout
+sahifalarining chrome’ini Asphalt & Signal / design-system.md ga mosla.
+Session/[id] va official exam view ICHIGA tegma (faqat token merosi OK).
+Hujjat: docs/superpowers/specs/2026-07-25-driver-go-design-system.md
+Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
+```
+
+### Roadmap qoldiq (dizayndan tashqari)
+- M4-03 Arena: design ✅, **implementatsiya yo‘q** (to‘liq TDD plan yozib keyin kod)
+- M4-06: bot poydevor ✅; FE “Telegram bog‘lash” tugmasi + M4-07 quiz ⬜
+- Referral anti-fraud implement (faqat design note bor)
+- Payme/Click prod keys
+
+---
+
 ## 0. Maqsad (kontekst)
-AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`.
+AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-startap** (onless.uz/osonprava.uz analogi, "10-15x kuchli"). Go backend + Next.js frontend. Manba-hujjat: repo ildizida `AVTOTEST-MASTER-PROMPT.txt`. To'liq roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md`. UI brand: **Driver Go**.
 
 ## 1. Audit qilingan holat (2026-07-25, tekshirilgan)
 - Git: `main`. `git log --oneline -1` bilan aniq HEAD'ni tekshiring (bu qatorda hash yozilmaydi — hujjatning o'zi committed bo'lgani uchun har doim bir commit orqada qolar edi).
 - Backend: `go build ./...` OK; `go vet ./...` toza; `gofmt -l .` toza; `make test` (`-p 1`) **hammasi o'tadi**; `make test-parallel` (izolyatsiya tufayli endi mumkin) ham **3/3 marta ketma-ket yashil**, 117s o'rniga ~44s.
 - Frontend: `npm run typecheck` OK, `npm run lint` toza (faqat oldindan mavjud `<img>`→`<Image/>` ogohlantirishlari); `npm run test` — **266/266 test o'tadi** (54 fayl).
 - `make generate` idempotent — sqlc kodi `.sql` fayllar bilan mos, drift yo'q.
-- DB migratsiya: **19 ta** (`0001`...`0019`), dirty emas.
+- DB migratsiya: **20 ta** (`0001`...`0020` telegram_link_token Wave 1 da); dirty emas. Arena jadvallari keyin **0021**.
 - Kontent: 1231 savol (3 til), 62 bilet, 285 belgi. Foydalanuvchi ma'lumoti pre-launch tozalangan.
 - **`./run.sh`** repo ildizida — bitta buyruq bilan Docker infra + backend (:8090) + frontend (:3000)ni ishga tushiradi.
 

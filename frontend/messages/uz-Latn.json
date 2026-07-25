@@ -4,7 +4,7 @@
     "toDark": "Qorong'i temaga o'tish"
   },
   "Metadata": {
-    "title": "DriveGo — haydovchilik nazariy imtihoniga tayyorgarlik",
+    "title": "Driver Go — haydovchilik nazariy imtihoniga tayyorgarlik",
     "description": "O'zbekiston YHQ savollari, rasmiy imtihon uslubidagi biletlar va aqlli takrorlash bilan nazariy imtihonga tayyorlaning."
   },
   "Errors": {
@@ -16,7 +16,7 @@
     "backHome": "Bosh sahifaga qaytish"
   },
   "Landing": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "login": "Kirish",
     "updatedBadge": "2026-yil yangilangan rasmiy savollar bazasi",
     "heroTitleBefore": "Prava'ni",
@@ -26,6 +26,9 @@
     "ctaStart": "Bepul boshlash",
     "ctaNoSignup": "Ro'yxatsiz sinab ko'ring",
     "ctaSigns": "Yo'l belgilari katalogi",
+    "mockReadiness": "Tayyorlik",
+    "mockStreak": "3 kun",
+    "mockNextAction": "Bugungi eng yaxshi qadam: zaif mavzudan 10 ta savol",
     "proofQuestions": "savol",
     "proofTickets": "bilet",
     "proofTopics": "mavzu",
@@ -42,11 +45,11 @@
     "demoSuccessTitle": "Barakalla! To'g'ri javob!",
     "demoSuccessBody": "Imtihonda xuddi shunday rasmiy savollar tushadi. Barcha 1231 ta savolni va FSRS aqlli xatolar bankini ochish uchun bepul ro'yxatdan o'ting.",
     "demoFailureTitle": "Tushunish kaliti — izohda!",
-    "demoFailureBody": "Qayg'urmang! DriveGo aqlli tizimi xatolaringizni saqlab qoladi va aynan unutish arafasida takrorlashga beradi.",
+    "demoFailureBody": "Qayg'urmang! Driver Go aqlli tizimi xatolaringizni saqlab qoladi va aynan unutish arafasida takrorlashga beradi.",
     "demoRegisterCta": "Ro'yxatdan o'tish (Bepul)",
     "demoNextQuestion": "Yana bitta savol sinab ko'rish",
-    "whyUsTitle": "Nega biz?",
-    "whyUsSubtitle": "Minglab bo'lajak haydovchilar DriveGo platformasini tanlaydi.",
+    "whyUsTitle": "Nega Driver Go",
+    "whyUsSubtitle": "Rasmiy formatdagi savollar, FSRS takrorlash va aniq tayyorlik — chalg'ituvchi o'yinchasiz.",
     "feature1Title": "FSRS o'quv dvigateli",
     "feature1Text": "Har savol siz uchun aqlli takrorlash jadvali bilan due bo'ladi.",
     "feature2Title": "Tayyorlik %",
@@ -74,7 +77,7 @@
     "faq4A": "A, B, C va D asosiy toifalari uchun rasmiy nazariy imtihon savollari qamrab olingan.",
     "bottomCtaTitle": "Hoziroq o'qishni boshlang!",
     "bottomCtaText": "Bepul ro'yxatdan o'ting va birinchi urinishda imtihondan o'ting.",
-    "footer": "DriveGo — {year}",
+    "footer": "Driver Go — {year}",
     "footerDescription": "O'zbekiston yo'l harakati qoidalari bo'yicha o'quv platformasi",
     "hold1Title": "Ro'yxatsiz sinab ko'ring",
     "hold1Text": "Quyidagi demo savolni hoziroq yeching — akkaunt kerak emas.",
@@ -90,7 +93,25 @@
     "methodSpacingTitle": "Takrorlash oralig'i",
     "methodSpacingText": "Qiynalgan savolingiz tasodifiy emas, unutish arafasida — eng foydali paytda qaytadi.",
     "methodFeedbackTitle": "Darhol izoh",
-    "methodFeedbackText": "Xato qilganingiz zahoti to'g'ri javob va uning qonuniy asosi ko'rsatiladi."
+    "methodFeedbackText": "Xato qilganingiz zahoti to'g'ri javob va uning qonuniy asosi ko'rsatiladi.",
+    "factQuestionsValue": "1231+",
+    "factTicketsValue": "61",
+    "factTopicsValue": "13",
+    "factLanguagesValue": "3",
+    "footerNavTitle": "Tezkor havolalar",
+    "footerNavPremium": "Premium",
+    "footerContactTitle": "Aloqa",
+    "footerPhone": "+998 71 200 00 00",
+    "footerPhoneTel": "+998712000000",
+    "footerEmail": "support@drivergo.uz",
+    "footerAddress": "Toshkent sh., Yunusobod tumani, Amir Temur ko'chasi 108",
+    "footerHours": "Du–Sha 09:00–20:00",
+    "footerSocialTitle": "Ijtimoiy tarmoqlar",
+    "footerTelegram": "Telegram — @DriverGo",
+    "footerTelegramUrl": "https://t.me/DriverGo",
+    "footerInstagram": "Instagram — @drivergo.uz",
+    "footerInstagramUrl": "https://instagram.com/drivergo.uz",
+    "footerLegal": "Driver Go — mustaqil o'quv platformasi. Rasmiy GAI imtihoni emas."
   },
   "Dashboard": {
     "welcome": "Xush kelibsiz",
@@ -164,8 +185,8 @@
     "viewAllCategories": "Barcha yo'nalishlar ({count})"
   },
   "Sidebar": {
-    "brandName": "DriveGo",
-    "brandTagline": "Pro nashr",
+    "brandName": "Driver Go",
+    "brandTagline": "Nazariy imtihon",
     "userFallback": "O'quvchi",
     "streakCount": "{count} kunlik streak",
     "vipBadge": "VIP",
@@ -181,6 +202,7 @@
     "navStats": "Statistika va tahlil",
     "navProfile": "Profil va sozlamalar",
     "navPremium": "Premium VIP",
+    "navMore": "Ko'proq",
     "viewProfile": "Profilni ko'rish",
     "openMenu": "Menyuni ochish",
     "closeMenu": "Menyuni yopish",
@@ -190,8 +212,8 @@
     "languageRu": "Ru"
   },
   "Header": {
-    "brandName": "DriveGo",
-    "brandDashboardLabel": "DriveGo bosh sahifasi",
+    "brandName": "Driver Go",
+    "brandDashboardLabel": "Driver Go bosh sahifasi",
     "navDashboard": "Bosh sahifa",
     "navTickets": "Biletlar",
     "navSigns": "Yo'l belgilari",
@@ -224,7 +246,7 @@
     "explanation": "Svetofor ishlamagan chorrahada YHQning tegishli qoidasiga ko'ra o'ngdan kelayotgan transport vositasi ustunlikka ega bo'ladi."
   },
   "Login": {
-    "brandName": "DriveGo",
+    "brandName": "Driver Go",
     "backHome": "Bosh sahifaga qaytish",
     "title": "Kirish",
     "subtitle": "Telefon raqamingiz bilan kiring",
@@ -643,7 +665,7 @@
     "statusFailed": "Xatolik"
   },
   "Premium": {
-    "title": "DriveGo Premium",
+    "title": "Driver Go Premium",
     "subtitle": "Imtihondan 100% birinchi urinishda o'tish uchun barcha imkoniyatlarni oching",
     "badge": "Premium VIP",
     "trust1": "Barcha biletlar va mashqlar cheklovsiz ochiladi.",

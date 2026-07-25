@@ -8,7 +8,6 @@ import { useUserStats } from "@/hooks/use-user-stats";
 import {
   AlertTriangle,
   BookOpen,
-  CarFront,
   Crown,
   Flame,
   LayoutDashboard,
@@ -48,18 +47,10 @@ export function Header() {
         <Link
           href={`/${currentLocale}/dashboard`}
           aria-label={t("brandDashboardLabel")}
-          className="flex items-center gap-3 font-display text-2xl font-black tracking-tight"
+          className="flex items-center gap-3 font-display text-2xl font-black tracking-tight text-foreground"
         >
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] transition-transform hover:scale-105 overflow-hidden">
-            <img
-              src="/logo.svg"
-              alt="DriveGo Logo"
-              className="h-full w-full object-cover scale-110"
-            />
-          </div>
-          <span className="bg-gradient-to-r from-accent via-emerald-400 to-accent bg-clip-text text-transparent font-black tracking-wide">
-            {t("brandName")}
-          </span>
+          <img src="/logo.svg" alt="" className="h-10 w-10 rounded-full object-cover" />
+          <span>{t("brandName")}</span>
         </Link>
 
         {/* Navigation Tabs (Desktop) */}
