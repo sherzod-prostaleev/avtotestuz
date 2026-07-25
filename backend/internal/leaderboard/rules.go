@@ -120,17 +120,18 @@ func PeriodEnd(p Period, t time.Time) time.Time {
 // tieBreakDivisor scales a Unix-nanosecond timestamp down into a fraction
 // in (0, 1) that (a) never changes a score's integer point total when
 // added to it — floor(points + fraction) == points as long as fraction
-// stays below 1, which holds for a "now" many centuries in the future —
+// stays below 1, which holds for roughly two and a half centuries in the
+// future —
 // and (b) remains distinguishable from adjacent timestamps seconds-to-days
 // apart at typical point totals, given float64's ~15-17 significant
-// decimal digits. It stops distinguishing events within roughly a few
-// hundred nanoseconds of each other once point totals reach the tens of
-// thousands — an accepted, documented limit (see spec section 3), not a
-// bug: RecordPoint calls are one per correct answer, so two DIFFERENT
-// profiles would need to submit an answer within nanoseconds of each other
-// AND already be tied on points for this to matter, and even then the
-// worst case is a coin-flip on ONE ranking position, self-correcting on
-// the next RebuildPeriod run.
+// decimal digits. It stops distinguishing events within roughly tens to
+// hundreds of milliseconds of each other once point totals reach the tens of
+// thousands (~18ms at 10,000 points, ~145ms at 100,000 points) — an accepted,
+// documented limit (see spec section 3), not a bug: RecordPoint calls are one
+// per correct answer, so two DIFFERENT profiles would need to submit an
+// answer within milliseconds of each other AND already be tied on points for
+// this to matter, and even then the worst case is a coin-flip on ONE ranking
+// position, self-correcting on the next RebuildPeriod run.
 const tieBreakDivisor = 1e19
 
 // EncodeScore combines an integer point total with a tiebreak derived from
