@@ -92,6 +92,18 @@ function mockStats(error: string | null = null) {
   });
 }
 
+function mockStatsLoading() {
+  vi.spyOn(useUserStatsModule, "useUserStats").mockReturnValue({
+    user: null,
+    entitlement: null,
+    streak: null,
+    stats: null,
+    loading: true,
+    error: null,
+    refetch: vi.fn(),
+  });
+}
+
 function historyState(
   overrides: Partial<ReturnType<typeof useSessionHistoryModule.useSessionHistory>> = {}
 ): ReturnType<typeof useSessionHistoryModule.useSessionHistory> {
@@ -276,5 +288,48 @@ describe("DashboardPage i18n and accessibility", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Не удалось загрузить данные кабинета.");
     expect(screen.queryByText("Failed to load user data")).not.toBeInTheDocument();
+  });
+
+  // Regression coverage for the F5 flicker: `entitlement`/`stats` default to
+  // null/false while `useUserStats` is loading, which used to render the
+  // "Free" VIP badge, a "0%"-style readiness card, and a specific next-step
+  // recommendation immediately — then swap to the real (possibly very
+  // different) VIP badge, numbers, and recommendation once the fetch
+  // resolved. None of those guesses should render while loading.
+  it("does not flash the free-tier badge, stat numbers, or a guessed recommendation while loading", () => {
+    mockStatsLoading();
+    setHistory({ loading: true });
+
+    const { rerender } = renderWithIntl(localeCases[2]);
+
+    expect(screen.queryByText("VIP-доступ")).not.toBeInTheDocument();
+    expect(screen.queryByText("Оформить VIP")).not.toBeInTheDocument();
+    expect(screen.queryByText("Следующий лучший шаг")).not.toBeInTheDocument();
+    expect(screen.queryByText("0%")).not.toBeInTheDocument();
+    expect(screen.queryByText("Слабая зона пока не определена")).not.toBeInTheDocument();
+
+    // Once both requests resolve, the real content (and only the real
+    // content) should settle in — a VIP user here, so the "upgrade" pitch
+    // must never have appeared even momentarily.
+    mockStats();
+    setHistory();
+    rerender(
+      <NextIntlClientProvider locale={localeCases[2].locale} messages={localeCases[2].messages}>
+        <DashboardPage />
+      </NextIntlClientProvider>
+    );
+
+    expect(screen.getByText("VIP-доступ")).toBeInTheDocument();
+    expect(screen.queryByText("Оформить VIP")).not.toBeInTheDocument();
+    expect(screen.getByText("Следующий лучший шаг")).toBeInTheDocument();
+  });
+
+  it("reserves the weakest-categories layout with a skeleton instead of popping the section in", () => {
+    mockStatsLoading();
+
+    const { container } = renderWithIntl(localeCases[2]);
+
+    expect(screen.queryByText(/Самые слабые темы/)).not.toBeInTheDocument();
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 });

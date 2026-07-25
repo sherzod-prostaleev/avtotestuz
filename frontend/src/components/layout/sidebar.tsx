@@ -33,7 +33,7 @@ export function Sidebar() {
   const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const { streak, entitlement, user } = useUserStats();
+  const { streak, entitlement, user, loading } = useUserStats();
 
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
@@ -143,7 +143,12 @@ export function Sidebar() {
                 <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
                 {t("streakCount", { count: currentStreak })}
               </span>
-              {isVip ? (
+              {loading ? (
+                <span
+                  aria-hidden="true"
+                  className="h-[18px] w-16 animate-pulse rounded-full bg-border/60"
+                />
+              ) : isVip ? (
                 <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-extrabold text-gold border border-gold/30">
                   {t("vipBadge")}
                 </span>
@@ -157,7 +162,7 @@ export function Sidebar() {
             </div>
           </div>
 
-          <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} />
+          <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} loading={loading} />
 
           {/* Navigation Links List */}
           <nav className="space-y-1">

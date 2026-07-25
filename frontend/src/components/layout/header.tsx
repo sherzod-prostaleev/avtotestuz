@@ -22,7 +22,7 @@ export function Header() {
   const t = useTranslations("Header");
   const pathname = usePathname();
   const router = useRouter();
-  const { streak, entitlement } = useUserStats();
+  const { streak, entitlement, loading } = useUserStats();
 
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
@@ -96,20 +96,29 @@ export function Header() {
             <span>{currentStreak}</span>
           </div>
 
-          {/* VIP Badge */}
+          {/* VIP Badge — stays in the neutral/free style until the
+              entitlement fetch resolves, so a VIP user never sees the "Free"
+              claim flash before it flips to "VIP". */}
           <Link
             href={`/${currentLocale}/premium`}
-            aria-label={isVip ? t("vipActive") : t("openPremium")}
+            aria-label={!loading && isVip ? t("vipActive") : t("openPremium")}
           >
             <div
               className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-bold transition-transform hover:scale-105 ${
-                isVip
+                !loading && isVip
                   ? "bg-gold/20 text-gold border border-gold/40"
                   : "bg-card border border-border text-muted-foreground hover:border-gold/50"
               }`}
             >
-              <Crown aria-hidden="true" className={`h-3.5 w-3.5 ${isVip ? "text-gold" : ""}`} />
-              <span className="hidden sm:inline">{isVip ? t("vip") : t("free")}</span>
+              <Crown aria-hidden="true" className={`h-3.5 w-3.5 ${!loading && isVip ? "text-gold" : ""}`} />
+              {loading ? (
+                <span
+                  aria-hidden="true"
+                  className="hidden h-2.5 w-8 animate-pulse rounded-full bg-border/70 sm:inline-block"
+                />
+              ) : (
+                <span className="hidden sm:inline">{isVip ? t("vip") : t("free")}</span>
+              )}
             </div>
           </Link>
 
