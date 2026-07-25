@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect } from "react";
-import { useTranslations } from "next-intl";
-import { Award, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
+import { Award, Copy, Check, X } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 
@@ -11,20 +11,29 @@ interface GrandMockCertificateDialogProps {
   onClose: () => void;
   score: number;
   total: number;
+  shareCode?: string | null;
 }
 
 /**
  * Celebratory dialog shown once, right after a Grand Mock session finishes
- * with status "passed" — a reward-theater layer on top of the shared
- * exam-like result screen, not a replacement for it.
+ * with status "passed" — reward theater plus a persisted shareable id when
+ * the backend issued one (U-35).
  */
 export function GrandMockCertificateDialog({
   open,
   onClose,
   score,
   total,
+  shareCode,
 }: GrandMockCertificateDialogProps) {
   const t = useTranslations("GrandMock");
+  const locale = useLocale();
+  const [copied, setCopied] = useState(false);
+
+  const shareUrl = useMemo(() => {
+    if (!shareCode || typeof window === "undefined") return null;
+    return `${window.location.origin}/${locale}/sertifikat/${shareCode}`;
+  }, [locale, shareCode]);
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +67,17 @@ export function GrandMockCertificateDialog({
 
   if (!open) return null;
 
+  async function copyShare() {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  }
+
   return (
     <div
       role="dialog"
@@ -86,6 +106,21 @@ export function GrandMockCertificateDialog({
         <p className="mx-auto mt-3 max-w-sm text-sm text-muted-foreground">
           {t("certificateBody", { score, total })}
         </p>
+
+        {shareCode ? (
+          <div className="mt-5 space-y-2 rounded-2xl border border-border bg-muted/40 px-4 py-3 text-left">
+            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              {t("certificateShareLabel")}
+            </p>
+            <p className="font-mono text-sm break-all text-foreground">{shareCode}</p>
+            {shareUrl ? (
+              <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => void copyShare()}>
+                {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+                {copied ? t("certificateCopied") : t("certificateCopyLink")}
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
 
         <Button className="mt-6" variant="game" size="lg" onClick={onClose}>
           {t("certificateClose")}

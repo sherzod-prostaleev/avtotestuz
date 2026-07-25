@@ -66,11 +66,13 @@ type SessionQuestionAccess struct {
 
 // FinishResult is the full outcome of finishing an exam session: its final
 // pass/fail/abandoned status, why it stopped, and the score achieved.
+// CertificateShareCode is set when a Grand Mock pass persists a shareable credential.
 type FinishResult struct {
-	Status        string // "passed" | "failed" | "abandoned"
-	StoppedReason string
-	Score         int
-	Total         int
+	Status               string // "passed" | "failed" | "abandoned"
+	StoppedReason        string
+	Score                int
+	Total                int
+	CertificateShareCode string `json:"certificate_share_code,omitempty"`
 }
 
 // AnsweredQuestion reports the recorded outcome of one answered question
@@ -91,11 +93,12 @@ type AnsweredQuestion struct {
 // status/score, and the per-question answers recorded so far.
 type SessionDetail struct {
 	SessionView
-	Status        string
-	StoppedReason string
-	Score         *int
-	FinishedAt    *time.Time
-	Answers       []AnsweredQuestion
+	Status               string
+	StoppedReason        string
+	Score                *int
+	FinishedAt           *time.Time
+	Answers              []AnsweredQuestion
+	CertificateShareCode string
 }
 
 // SessionSummary is a condensed history-list entry for one past or

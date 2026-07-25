@@ -529,7 +529,14 @@
     "upgradeButton": "VIP obunani faollashtirish",
     "certificateTitle": "Tabriklaymiz! Siz tayyorsiz!",
     "certificateBody": "Siz Bosh Imtihonni {score}/{total} ball bilan muvaffaqiyatli topshirdingiz. Bu rasmiy DYXX imtihonidan o'tishga tayyor ekanligingizni bildiradi.",
-    "certificateClose": "Yopish"
+    "certificateClose": "Yopish",
+    "certificateShareLabel": "Ulashish kodi",
+    "certificateCopyLink": "Havolani nusxalash",
+    "certificateCopied": "Nusxalandi",
+    "certificatePublicTitle": "Bosh Imtihon sertifikati",
+    "certificatePublicBody": "Driver Go Bosh Imtihoni {score}/{total} ball bilan o‘tdi.",
+    "certificatePublicMissing": "Sertifikat topilmadi yoki havola noto‘g‘ri.",
+    "certificatePublicIssued": "Berilgan sana: {date}"
   },
   "SessionStart": {
     "starting": "Test sessiyasi tayyorlanmoqda...",

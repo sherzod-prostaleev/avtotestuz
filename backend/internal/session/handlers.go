@@ -34,6 +34,11 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me/variants", h.listVariantStatuses)
 }
 
+// PublicRoutes mounts unauthenticated certificate lookup.
+func (h *Handler) PublicRoutes(r chi.Router) {
+	r.Get("/grand-mock/certificates/{code}", h.getPublicCertificate)
+}
+
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
@@ -336,10 +341,11 @@ func (h *Handler) getSessionQuestion(w http.ResponseWriter, r *http.Request) {
 }
 
 type finishSessionResponse struct {
-	Status        string `json:"status"`
-	StoppedReason string `json:"stopped_reason"`
-	Score         int    `json:"score"`
-	Total         int    `json:"total"`
+	Status               string `json:"status"`
+	StoppedReason        string `json:"stopped_reason"`
+	Score                int    `json:"score"`
+	Total                int    `json:"total"`
+	CertificateShareCode string `json:"certificate_share_code,omitempty"`
 }
 
 func (h *Handler) finishSession(w http.ResponseWriter, r *http.Request) {
@@ -369,16 +375,17 @@ type answeredQuestionDTO struct {
 }
 
 type sessionDetailResponse struct {
-	ID            string                `json:"id"`
-	Mode          string                `json:"mode"`
-	Total         int                   `json:"total"`
-	Status        string                `json:"status"`
-	StoppedReason string                `json:"stopped_reason"`
-	Score         *int                  `json:"score,omitempty"`
-	TimeLimitSec  *int                  `json:"time_limit_sec,omitempty"`
-	StartedAt     time.Time             `json:"started_at"`
-	FinishedAt    *time.Time            `json:"finished_at,omitempty"`
-	Answers       []answeredQuestionDTO `json:"answers"`
+	ID                   string                `json:"id"`
+	Mode                 string                `json:"mode"`
+	Total                int                   `json:"total"`
+	Status               string                `json:"status"`
+	StoppedReason        string                `json:"stopped_reason"`
+	Score                *int                  `json:"score,omitempty"`
+	TimeLimitSec         *int                  `json:"time_limit_sec,omitempty"`
+	StartedAt            time.Time             `json:"started_at"`
+	FinishedAt           *time.Time            `json:"finished_at,omitempty"`
+	Answers              []answeredQuestionDTO `json:"answers"`
+	CertificateShareCode string                `json:"certificate_share_code,omitempty"`
 }
 
 func toSessionDetailResponse(d SessionDetail) sessionDetailResponse {
@@ -401,17 +408,33 @@ func toSessionDetailResponse(d SessionDetail) sessionDetailResponse {
 		answers[i] = answer
 	}
 	return sessionDetailResponse{
-		ID:            d.ID.String(),
-		Mode:          d.Mode,
-		Total:         d.Total,
-		Status:        d.Status,
-		StoppedReason: d.StoppedReason,
-		Score:         d.Score,
-		TimeLimitSec:  d.TimeLimitSec,
-		StartedAt:     d.StartedAt,
-		FinishedAt:    d.FinishedAt,
-		Answers:       answers,
+		ID:                   d.ID.String(),
+		Mode:                 d.Mode,
+		Total:                d.Total,
+		Status:               d.Status,
+		StoppedReason:        d.StoppedReason,
+		Score:                d.Score,
+		TimeLimitSec:         d.TimeLimitSec,
+		StartedAt:            d.StartedAt,
+		FinishedAt:           d.FinishedAt,
+		Answers:              answers,
+		CertificateShareCode: d.CertificateShareCode,
 	}
+}
+
+func (h *Handler) getPublicCertificate(w http.ResponseWriter, r *http.Request) {
+	code := chi.URLParam(r, "code")
+	cert, err := h.Svc.GetPublicCertificate(r.Context(), code)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"share_code": cert.ShareCode,
+		"score":      cert.Score,
+		"total":      cert.Total,
+		"issued_at":  cert.IssuedAt.UTC().Format(time.RFC3339),
+	})
 }
 
 func (h *Handler) getSession(w http.ResponseWriter, r *http.Request) {

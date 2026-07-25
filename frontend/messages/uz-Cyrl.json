@@ -529,7 +529,14 @@
     "upgradeButton": "VIP обунани фаоллаштириш",
     "certificateTitle": "Табриклаймиз! Сиз тайёрсиз!",
     "certificateBody": "Сиз Бош Имтиҳонни {score}/{total} балл билан муваффақиятли топширдингиз. Бу расмий ДЙХХ имтиҳонидан ўтишга тайёр эканлигингизни билдиради.",
-    "certificateClose": "Ёпиш"
+    "certificateClose": "Ёпиш",
+    "certificateShareLabel": "Улашиш коди",
+    "certificateCopyLink": "Ҳаволани нусхалаш",
+    "certificateCopied": "Нусхаланди",
+    "certificatePublicTitle": "Бош Имтиҳон сертификати",
+    "certificatePublicBody": "Driver Go Бош Имтиҳони {score}/{total} балл билан ўтилди.",
+    "certificatePublicMissing": "Сертификат топилмади ёки ҳавола нотўғри.",
+    "certificatePublicIssued": "Берилган сана: {date}"
   },
   "SessionStart": {
     "starting": "Тест сессияси тайёрланмоқда...",

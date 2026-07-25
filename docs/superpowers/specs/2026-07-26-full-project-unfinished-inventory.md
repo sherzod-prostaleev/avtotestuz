@@ -71,7 +71,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-32** | P2 | FE | **SEO public pages (jarimalar, oferta, privacy, narxlar)** | **done** | Marketing | Public `/{locale}/oferta`, `/privacy`, `/narxlar`, `/jarimalar` (+ footer links, i18n, vitest/e2e). Jarimalar is an **honest SEO shell** (no fines API/catalog yet — no invented amounts); full lex.uz-backed reference remains a content follow-up. |
 | **U-33** | P2 | FE | **`exam-mockup` route** | **done** | Legacy | Kept as auth-gated **dev/visual QA** component playground (`QuestionCard` states); real exam = session engine. Not linked from sidebar. |
 | **U-34** | P2 | i18n | **Backend `kaa` locale** | partial | Product decision | BE `i18n.Supported` includes `kaa`; FE messages = uz-Latn/uz-Cyrl/ru only. Incomplete Karakalpak. |
-| **U-35** | P2 | FE | **Grand Mock “certificate”** | partial | M2-07 ✅ | UI dialog + confetti only — **no** persisted certificate, PDF, shareable ID, or admin-issued credential. |
+| **U-35** | P2 | FE | **Grand Mock “certificate”** | **partial** | M2-07 ✅ | Persisted `grand_mock_certificate` + share code on pass; public `GET /grand-mock/certificates/{code}` + `/{locale}/sertifikat/{code}`. PDF/admin-issued credential still open. |
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |

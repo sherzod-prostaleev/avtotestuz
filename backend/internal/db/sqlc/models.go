@@ -194,6 +194,16 @@ type ExplanationTranslation struct {
 	Source        string             `json:"source"`
 }
 
+type GrandMockCertificate struct {
+	ID        uuid.UUID          `json:"id"`
+	SessionID uuid.UUID          `json:"session_id"`
+	ProfileID uuid.UUID          `json:"profile_id"`
+	ShareCode string             `json:"share_code"`
+	Score     int32              `json:"score"`
+	Total     int32              `json:"total"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Image struct {
 	ID         uuid.UUID          `json:"id"`
 	StorageKey string             `json:"storage_key"`

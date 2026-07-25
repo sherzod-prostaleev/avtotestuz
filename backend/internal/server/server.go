@@ -131,6 +131,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 					Svc:     sessSvc,
 					Content: ch,
 				}
+				sess.PublicRoutes(api)
 				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
 				lbh := &leaderboard.Handler{Svc: lbSvc}

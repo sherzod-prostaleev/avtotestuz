@@ -68,6 +68,8 @@ export interface SessionState {
   stopped_reason: string | null;
   passed: boolean | null;
   completed_at: string | null;
+  /** Present after a passed Grand Mock when the backend persisted a shareable id. */
+  certificate_share_code?: string | null;
 }
 
 /** Typed error surfaced to pages so they can branch on `.code`. */
@@ -129,6 +131,7 @@ interface FinishSessionResponse {
   stopped_reason: string;
   score: number;
   total: number;
+  certificate_share_code?: string;
 }
 
 interface SessionAnswerResponse {
@@ -151,6 +154,7 @@ interface SessionDetailResponse {
   started_at: string;
   finished_at?: string;
   answers: SessionAnswerResponse[];
+  certificate_share_code?: string;
 }
 
 function toSessionError(err: unknown): SessionError {
@@ -316,6 +320,7 @@ async function fetchSessionState(sessionId: string, locale: string): Promise<Ses
     stopped_reason: detail.stopped_reason || null,
     passed: completed ? detail.status === "passed" : null,
     completed_at: detail.finished_at ?? null,
+    certificate_share_code: detail.certificate_share_code ?? null,
   };
 }
 
@@ -511,6 +516,7 @@ export function useSessionEngine(_initialSessionId?: string) {
             total: response.total,
             stopped_reason: response.stopped_reason || null,
             passed: response.status === "passed",
+            certificate_share_code: response.certificate_share_code ?? current.certificate_share_code ?? null,
           };
           commitSession(completed);
           setError(toSessionError(reloadError));

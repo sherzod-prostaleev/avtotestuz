@@ -529,7 +529,14 @@
     "upgradeButton": "Активировать подписку VIP",
     "certificateTitle": "Поздравляем! Вы готовы!",
     "certificateBody": "Вы успешно сдали Генеральный экзамен с результатом {score}/{total}. Это значит, что вы готовы к официальному экзамену ГУБДД.",
-    "certificateClose": "Закрыть"
+    "certificateClose": "Закрыть",
+    "certificateShareLabel": "Код для ссылки",
+    "certificateCopyLink": "Скопировать ссылку",
+    "certificateCopied": "Скопировано",
+    "certificatePublicTitle": "Сертификат генерального экзамена",
+    "certificatePublicBody": "Генеральный экзамен Driver Go сдан на {score}/{total}.",
+    "certificatePublicMissing": "Сертификат не найден или ссылка неверна.",
+    "certificatePublicIssued": "Дата выдачи: {date}"
   },
   "SessionStart": {
     "starting": "Готовим тестовую сессию...",

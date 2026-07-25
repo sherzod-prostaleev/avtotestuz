@@ -1031,6 +1031,24 @@ func TestFinishSessionGrandMockPassFail(t *testing.T) {
 		if res.Status != "passed" || res.Score != 18 {
 			t.Fatalf("expected passed 18/20, got %+v", res)
 		}
+		if res.CertificateShareCode == "" {
+			t.Fatal("expected certificate_share_code on grand mock pass")
+		}
+		pub, err := svc.GetPublicCertificate(context.Background(), res.CertificateShareCode)
+		if err != nil {
+			t.Fatalf("GetPublicCertificate: %v", err)
+		}
+		if pub.Score != 18 || pub.Total != 20 {
+			t.Fatalf("public cert = %+v", pub)
+		}
+		// Idempotent finish keeps the same share code.
+		again, err := svc.FinishSession(context.Background(), profileID, view.ID)
+		if err != nil {
+			t.Fatalf("FinishSession again: %v", err)
+		}
+		if again.CertificateShareCode != res.CertificateShareCode {
+			t.Fatalf("share code changed on idempotent finish: %q vs %q", again.CertificateShareCode, res.CertificateShareCode)
+		}
 	})
 
 	t.Run("fails when correct count falls short", func(t *testing.T) {

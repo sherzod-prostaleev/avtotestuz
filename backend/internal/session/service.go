@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -637,12 +638,18 @@ func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.U
 // with no further writes (in particular, no double bilet-unlock upsert).
 func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooManyErrors, timedOut bool) (FinishResult, error) {
 	if row.Status != "in_progress" {
-		return FinishResult{
+		res := FinishResult{
 			Status:        row.Status,
 			StoppedReason: row.StoppedReason.String,
 			Score:         int(row.Score.Int32),
 			Total:         int(row.Total),
-		}, nil
+		}
+		if row.Mode == "grand_mock" && row.Status == "passed" {
+			if cert, err := s.Q.GetGrandMockCertificateBySession(ctx, row.ID); err == nil {
+				res.CertificateShareCode = cert.ShareCode
+			}
+		}
+		return res, nil
 	}
 
 	counts, err := s.Q.CountSessionAnswers(ctx, row.ID)
@@ -704,12 +711,30 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 		}
 	}
 
-	return FinishResult{
+	res := FinishResult{
 		Status:        updated.Status,
 		StoppedReason: reason,
 		Score:         correctCount,
 		Total:         int(row.Total),
-	}, nil
+	}
+	if row.Mode == "grand_mock" && status == "passed" {
+		code, err := newCertificateShareCode()
+		if err != nil {
+			return FinishResult{}, err
+		}
+		cert, err := s.Q.InsertGrandMockCertificate(ctx, sqlc.InsertGrandMockCertificateParams{
+			SessionID: row.ID,
+			ProfileID: row.ProfileID,
+			ShareCode: code,
+			Score:     int32(correctCount),
+			Total:     row.Total,
+		})
+		if err != nil {
+			return FinishResult{}, err
+		}
+		res.CertificateShareCode = cert.ShareCode
+	}
+	return res, nil
 }
 
 // GetSession returns the resume/history view of a single session, scoped to
@@ -788,7 +813,41 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 		t := row.FinishedAt.Time
 		detail.FinishedAt = &t
 	}
+	if row.Mode == "grand_mock" && row.Status == "passed" {
+		if cert, err := s.Q.GetGrandMockCertificateBySession(ctx, row.ID); err == nil {
+			detail.CertificateShareCode = cert.ShareCode
+		}
+	}
 	return detail, nil
+}
+
+// PublicCertificate is the PII-light payload for a shareable Grand Mock pass.
+type PublicCertificate struct {
+	ShareCode string
+	Score     int
+	Total     int
+	IssuedAt  time.Time
+}
+
+// GetPublicCertificate looks up a certificate by share code (no auth).
+func (s *Service) GetPublicCertificate(ctx context.Context, shareCode string) (PublicCertificate, error) {
+	shareCode = strings.TrimSpace(strings.ToLower(shareCode))
+	if shareCode == "" {
+		return PublicCertificate{}, ErrNotFound
+	}
+	cert, err := s.Q.GetGrandMockCertificateByShareCode(ctx, shareCode)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PublicCertificate{}, ErrNotFound
+		}
+		return PublicCertificate{}, err
+	}
+	return PublicCertificate{
+		ShareCode: cert.ShareCode,
+		Score:     int(cert.Score),
+		Total:     int(cert.Total),
+		IssuedAt:  cert.CreatedAt.Time.UTC(),
+	}, nil
 }
 
 // ListMySessions returns the profile's session history, most recent first,

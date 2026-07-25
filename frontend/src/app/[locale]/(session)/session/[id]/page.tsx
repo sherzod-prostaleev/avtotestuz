@@ -542,6 +542,7 @@ export default function TestSessionPage() {
             onClose={() => setCertificateOpen(false)}
             score={score}
             total={total}
+            shareCode={session.certificate_share_code}
           />
         )}
       </main>
