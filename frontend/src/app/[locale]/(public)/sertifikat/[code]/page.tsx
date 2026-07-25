@@ -6,7 +6,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { Award, ArrowLeft } from "lucide-react";
 import { apiGet, ApiError } from "@/lib/api-client";
 import { BrandLogo } from "@/components/brand/brand-logo";
-import { Button } from "@/components/ui/button";
 
 type PublicCert = {
   share_code: string;
@@ -66,12 +65,13 @@ export default function PublicCertificatePage({
           <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
           <span className="font-display text-lg font-bold">Driver Go</span>
         </Link>
-        <Button asChild variant="outline" size="sm">
-          <Link href={`/${locale}`}>
-            <ArrowLeft className="mr-1 h-4 w-4" aria-hidden />
-            {t("certificateClose")}
-          </Link>
-        </Button>
+        <Link
+          href={`/${locale}`}
+          className="inline-flex min-h-11 h-11 items-center justify-center rounded-xl border border-border bg-card px-4 text-xs font-bold tracking-wide text-foreground transition-all duration-150 hover:border-accent hover:text-foreground"
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" aria-hidden />
+          {t("certificateClose")}
+        </Link>
       </div>
 
       <section className="rounded-3xl border border-gold/30 bg-card p-8 text-center shadow-sm">
