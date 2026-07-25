@@ -134,6 +134,8 @@ Kontent javoblarida to'g'ri javob maydonlari hech qachon qaytmaydi (anti-cheat).
 
 Ops (ixtiyoriy, `OPS_ADMIN_TOKEN` berilganda): `GET|PATCH /api/v1/ops/payment-providers`
 (+ `X-Ops-Token`) — to'lov provayderlari kill-switch. FE: `/{locale}/ops/providers`.
+Tizim holati stub (token shart emas): FE `/{locale}/ops/health` → BFF `GET /api/ops/health`
+(`/{healthz,readyz}` agregatsiya).
 
 ## Demo (public, auth talab qilinmaydi)
 

@@ -173,8 +173,9 @@ When `OPS_ADMIN_TOKEN` is set on the API:
 |-------|--------|
 | `GET {API}/api/v1/ops/payment-providers` + header `X-Ops-Token` | Payme/Click enabled flags |
 | FE `/{locale}/ops/providers` | Operator UI (token in sessionStorage — never commit) |
+| FE `/{locale}/ops/health` | Aggregates public `/healthz` + `/readyz` (no ops token; M3 monitoring stub) |
 
-Absent token → ops routes are not mounted (`ops_disabled` / 404 depending on path).
+Absent token → payment-provider ops routes are not mounted (`ops_disabled` / 404 depending on path). Health page still works via BFF → public probes.
 
 ### Rollback
 
