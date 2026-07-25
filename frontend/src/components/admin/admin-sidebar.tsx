@@ -38,7 +38,8 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       title: "Content",
       items: [
-        { href: `${base}/content/questions`, label: "Questions", stub: true },
+        { href: `${base}/content/questions`, label: "Questions" },
+        { href: `${base}/content/explanations`, label: "Explanations" },
         { href: `${base}/content/tickets`, label: "Tickets", stub: true },
         { href: `${base}/content/signs`, label: "Signs", stub: true },
       ],

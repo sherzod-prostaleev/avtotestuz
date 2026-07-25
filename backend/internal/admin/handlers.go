@@ -51,6 +51,21 @@ func (h *Handler) Routes(r chi.Router) {
 			ur.Post("/users/{id}/sessions/revoke-all", h.revokeAllUserSessions)
 			ur.Post("/users/{id}/sessions/{sessionID}/revoke", h.revokeUserSession)
 		})
+
+		pr.Group(func(cr chi.Router) {
+			cr.Use(RequirePermission("content.questions.read"))
+			cr.Get("/content/questions", h.listQuestions)
+			cr.Get("/content/questions/{id}", h.getQuestion)
+			cr.Get("/content/explanations", h.listExplanations)
+		})
+		pr.Group(func(cr chi.Router) {
+			cr.Use(RequirePermission("content.questions.write"))
+			cr.Patch("/content/questions/{id}", h.patchQuestion)
+		})
+		pr.Group(func(cr chi.Router) {
+			cr.Use(RequirePermission("content.verify"))
+			cr.Post("/content/questions/{id}/explanation/verify", h.verifyQuestionExplanation)
+		})
 	})
 }
 
@@ -302,6 +317,128 @@ func (h *Handler) revokeUserSession(w http.ResponseWriter, r *http.Request) {
 		nil, map[string]any{"profile_id": id.String()}, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
 	)
 	httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
+}
+
+func (h *Handler) listQuestions(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	out, err := h.Svc.Store.ListQuestions(
+		r.Context(),
+		r.URL.Query().Get("q"),
+		r.URL.Query().Get("category"),
+		r.URL.Query().Get("validation"),
+		r.URL.Query().Get("explanation"),
+		page, limit,
+	)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "questions query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	out, err := h.Svc.Store.GetQuestion(r.Context(), id)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+type patchQuestionBody struct {
+	ValidationStatus string `json:"validation_status"`
+}
+
+func (h *Handler) patchQuestion(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body patchQuestionBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if strings.TrimSpace(body.ValidationStatus) == "" {
+		httpx.Error(w, http.StatusBadRequest, "validation_status_required", "validation_status is required")
+		return
+	}
+	before, after, err := h.Svc.Store.SetQuestionValidationStatus(r.Context(), id, body.ValidationStatus)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
+			return
+		}
+		if err.Error() == "invalid status" {
+			httpx.Error(w, http.StatusBadRequest, "invalid_status", "validation_status must be valid or quarantined")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question update failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "content.questions.patch", "question", id.String(),
+		map[string]any{"validation_status": before},
+		map[string]any{"validation_status": after},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	detail, err := h.Svc.Store.GetQuestion(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{"validation_status": after})
+		return
+	}
+	httpx.Data(w, http.StatusOK, detail)
+}
+
+func (h *Handler) listExplanations(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	status := r.URL.Query().Get("status")
+	out, err := h.Svc.Store.ListExplanations(r.Context(), status, page, limit)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "explanations query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) verifyQuestionExplanation(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	before, after, err := h.Svc.Store.VerifyQuestionExplanation(r.Context(), id, adminID)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "explanation not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "verify failed")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "content.verify", "explanation", id.String(),
+		map[string]any{"status": before, "locale": "uz-Latn"},
+		map[string]any{"status": after, "locale": "uz-Latn", "verified_by": adminID.String()},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	detail, err := h.Svc.Store.GetQuestion(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{"status": after})
+		return
+	}
+	httpx.Data(w, http.StatusOK, detail)
 }
 
 func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.UUID, bool) {
