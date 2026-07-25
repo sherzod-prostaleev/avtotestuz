@@ -1591,7 +1591,221 @@ git commit -m "feat(leaderboard): cmd/rebuildleaderboard recovery CLI"
 
 ---
 
-## Final Verification (after all 7 tasks)
+### Task 8 (added post-final-review): `RebuildPeriod` must reapply the daily point cap
+
+**Why this task exists:** the whole-branch review (after Tasks 1-7 were all individually approved) found that `RebuildPeriod`'s reconstruction query sums ALL correct answers in a period with no cap applied, while the live path (`RecordPoint`) stops crediting once a profile's daily count hits `leaderboard_daily_points` (free=30/VIP=100). A profile that legitimately hit the cap on the live board would rebuild to a HIGHER, uncapped score after any Redis loss — silently defeating the anti-fraud cap this feature exists to have. This also falsified the "rebuild ranks identically to a never-lost board" claim made in several comments/spec sections.
+
+**Resolution:** apply the SAME per-day cap during rebuild by aggregating `session_answer` per-profile-per-day (not per-profile-over-the-whole-period), capping each day's count at that profile's CURRENT cap (free/VIP, from `limit_config`, looked up via the existing `Billing.Status`), then summing the capped daily counts. This is an approximation, not perfect historical fidelity (it uses TODAY's VIP status and TODAY's cap value, not whatever was in effect on each historical day — the schema doesn't track either historically, and adding that would be disproportionate to this feature). What it DOES guarantee: a rebuild can never produce an uncapped explosion — the worst-case drift is bounded by "profile's VIP status or the cap config changed within the rebuilt window," a narrow, low-stakes, self-correcting-over-time case, not unbounded inflation.
+
+**Files:**
+- Modify: `backend/internal/db/queries/leaderboard.sql` (new query)
+- Modify: `backend/internal/leaderboard/service.go` (`RebuildPeriod`)
+- Modify: `backend/internal/leaderboard/service_test.go` (new tests)
+- Modify: `docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md` (correct the "ranks identically" claim in section 5/7 to describe the approximation honestly)
+
+**Interfaces:**
+- Consumes: existing `Billing.Status`, existing `GetLimitConfig`, `dailyPointsConfigKey` (already defined in `service.go`).
+- Produces: `sqlc.CountCorrectAnswersByProfileByDayInRangeRow{ProfileID uuid.UUID, Day pgtype.Timestamptz, CorrectCount int32, LastAnsweredAt pgtype.Timestamptz}` — used only inside `RebuildPeriod`, no other task depends on it.
+
+- [ ] **Step 1: Write the failing test**
+
+Add to `backend/internal/leaderboard/service_test.go`:
+```go
+func TestRebuildPeriodAppliesDailyCap(t *testing.T) {
+	svc, q := newTestService(t)
+	ctx := context.Background()
+	profileID := createProfile(t, q, "+998901111111")
+
+	// Seed 35 correct answers "today" via 35 separate single-question
+	// sessions — more than the free daily cap (30) — bypassing RecordPoint
+	// entirely so Postgres has uncapped history, exactly like a real
+	// profile that exceeded its cap on the live board before Redis was
+	// lost. 35 separate sessions (not 35 session_answer rows in one
+	// session) because session_answer's PRIMARY KEY is
+	// (session_id, question_id) — one row per question per session, so a
+	// single session can't hold 35 answers to the same question.
+	catID, err := q.GetCategoryIDByCode(ctx, "signs")
+	if err != nil {
+		t.Fatalf("category lookup: %v", err)
+	}
+	qids, err := q.RandomQuestionIDsByCategory(ctx, sqlc.RandomQuestionIDsByCategoryParams{CategoryID: catID, LimitCount: 1})
+	if err != nil || len(qids) == 0 {
+		t.Fatalf("question lookup: %v", err)
+	}
+	questionID := qids[0]
+	correctAnswerID, err := q.GetCorrectAnswerID(ctx, questionID)
+	if err != nil {
+		t.Fatalf("correct answer lookup: %v", err)
+	}
+	pool := testdb.New(t) // same pool seed()/newTestService already use; testdb.New is idempotent per-test via t.Cleanup, safe to call again for direct SQL access
+	for i := 0; i < 35; i++ {
+		session, err := q.CreateExamSession(ctx, sqlc.CreateExamSessionParams{
+			ProfileID: profileID, Mode: "practice", Locale: "uz-Latn",
+			QuestionIds: []uuid.UUID{questionID},
+		})
+		if err != nil {
+			t.Fatalf("create session %d: %v", i, err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO session_answer (session_id, question_id, answer_id, is_correct, position, answered_at)
+			 VALUES ($1, $2, $3, true, 0, now())`,
+			session.ID, questionID, correctAnswerID,
+		); err != nil {
+			t.Fatalf("seed answer %d: %v", i, err)
+		}
+	}
+
+	now := time.Now().UTC()
+	if err := svc.RebuildPeriod(ctx, leaderboard.PeriodDaily, now); err != nil {
+		t.Fatalf("RebuildPeriod: %v", err)
+	}
+
+	res, err := svc.GetLeaderboard(ctx, profileID, leaderboard.PeriodDaily)
+	if err != nil {
+		t.Fatalf("GetLeaderboard: %v", err)
+	}
+	if res.YouScore != 30 {
+		t.Errorf("YouScore after rebuild = %d, want 30 (capped, not 35 uncapped)", res.YouScore)
+	}
+}
+```
+
+Confirmed against the actual generated code at plan-writing time: `q.CreateExamSession` returns `CreateExamSessionRow` (has `.ID`), `CreateExamSessionParams` has no `Total` field (the SQL computes it as `cardinality(question_ids)` automatically — do not add one), and `session_answer`'s PRIMARY KEY is genuinely `(session_id, question_id)`, confirming the 35-separate-sessions approach above is necessary and correct.
+
+- [ ] **Step 2: Run test to verify it fails**
+
+```bash
+cd backend && export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH" && go test ./internal/leaderboard/... -run TestRebuildPeriodAppliesDailyCap -v 2>&1 | tail -30
+```
+Expected: FAIL — `YouScore after rebuild = 35, want 30` (current `RebuildPeriod` has no cap logic).
+
+- [ ] **Step 3: Add the new query**
+
+In `backend/internal/db/queries/leaderboard.sql`, add:
+```sql
+-- name: CountCorrectAnswersByProfileByDayInRange :many
+-- Per-profile, per-day correct-answer counts within [from_ts, to_ts) —
+-- used by RebuildPeriod to reapply the daily point cap when reconstructing
+-- a period's leaderboard from Postgres (the single per-profile total from
+-- CountCorrectAnswersByProfileInRange can't distinguish "30 in one day"
+-- from "10 a day for 3 days," and only the former should ever be capped).
+SELECT
+  es.profile_id,
+  date_trunc('day', sa.answered_at)::timestamptz AS day,
+  count(*)::int AS correct_count,
+  max(sa.answered_at)::timestamptz AS last_answered_at
+FROM session_answer sa
+JOIN exam_session es ON es.id = sa.session_id
+WHERE sa.is_correct
+  AND sa.answered_at >= sqlc.arg(from_ts)
+  AND sa.answered_at < sqlc.arg(to_ts)
+GROUP BY es.profile_id, date_trunc('day', sa.answered_at);
+```
+Regenerate: `export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH" && cd "/home/sher/Рабочий стол/avtotest" && make generate`.
+
+- [ ] **Step 4: Rewrite `RebuildPeriod`**
+
+Replace the current `RebuildPeriod` in `backend/internal/leaderboard/service.go` with:
+```go
+func (s *Service) RebuildPeriod(ctx context.Context, p Period, at time.Time) error {
+	from := PeriodStart(p, at)
+	to := PeriodEnd(p, at)
+	dayRows, err := s.Q.CountCorrectAnswersByProfileByDayInRange(ctx, sqlc.CountCorrectAnswersByProfileByDayInRangeParams{
+		FromTs: pgtype.Timestamptz{Time: from, Valid: true},
+		ToTs:   pgtype.Timestamptz{Time: to, Valid: true},
+	})
+	if err != nil {
+		return err
+	}
+
+	key := RedisKey(p, at)
+	pipe := s.Redis.Pipeline()
+	pipe.Del(ctx, key)
+	if len(dayRows) == 0 {
+		_, err = pipe.Exec(ctx)
+		return err
+	}
+
+	cfg, err := s.Q.GetLimitConfig(ctx, dailyPointsConfigKey)
+	if err != nil {
+		return err
+	}
+
+	// Reapply the same daily cap RecordPoint enforces live, per day, before
+	// summing across the period — otherwise a rebuild would retroactively
+	// un-cap any profile that hit its daily limit before Redis was lost.
+	// Uses each profile's CURRENT VIP status and the CURRENT cap value as
+	// an approximation (neither is tracked historically in this schema);
+	// see docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md
+	// section 4/7 for why this bounded approximation — not perfect
+	// historical fidelity — is the accepted trade-off.
+	type profileTotal struct {
+		points int
+		lastAt time.Time
+	}
+	totals := make(map[uuid.UUID]*profileTotal)
+	vipCache := make(map[uuid.UUID]bool)
+	for _, row := range dayRows {
+		active, cached := vipCache[row.ProfileID]
+		if !cached {
+			active, _, err = s.Billing.Status(ctx, row.ProfileID)
+			if err != nil {
+				return err
+			}
+			vipCache[row.ProfileID] = active
+		}
+		dailyCap := int(cfg.FreeValue)
+		if active {
+			dailyCap = int(cfg.VipValue)
+		}
+		dayCount := int(row.CorrectCount)
+		if dayCount > dailyCap {
+			dayCount = dailyCap
+		}
+		t, ok := totals[row.ProfileID]
+		if !ok {
+			t = &profileTotal{}
+			totals[row.ProfileID] = t
+		}
+		t.points += dayCount
+		if row.LastAnsweredAt.Time.After(t.lastAt) {
+			t.lastAt = row.LastAnsweredAt.Time
+		}
+	}
+
+	for profileID, t := range totals {
+		score := EncodeScore(t.points, t.lastAt)
+		pipe.ZAdd(ctx, key, redis.Z{Score: score, Member: profileID.String()})
+	}
+	if ttl := TTL(p); ttl > 0 {
+		pipe.Expire(ctx, key, ttl)
+	}
+	_, err = pipe.Exec(ctx)
+	return err
+}
+```
+
+- [ ] **Step 5: Run tests to verify they pass**
+
+```bash
+cd backend && export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH" && go test ./internal/leaderboard/... -v -count=1 2>&1 | tail -80
+```
+Expected: `TestRebuildPeriodAppliesDailyCap` passes (score=30, not 35), AND both pre-existing rebuild tests (`TestRebuildPeriodReconstructsFromPostgres`, `TestRebuildPeriodPurgesStaleRedisMembers`) still pass — neither seeds more than the cap in one day, so this change should be behavior-preserving for them.
+
+- [ ] **Step 6: Correct the spec's "ranks identically" claim**
+
+In `docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md`, section 5, add a short note after the `RebuildPeriod` description: rebuild reapplies the daily cap using each profile's CURRENT VIP status and the CURRENT cap config, not the historical values in effect on each rebuilt day — this bounds drift (no more uncapped explosions) but does not guarantee byte-for-byte identical scores to what was live at the time if a profile's VIP status or the cap value changed within the rebuilt window. Search the spec for any other place that claims rebuild is exactly identical to live and soften it the same way.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add backend/internal/db/queries/leaderboard.sql backend/internal/db/sqlc/ backend/internal/leaderboard/service.go backend/internal/leaderboard/service_test.go docs/superpowers/specs/2026-07-25-m4-01-leaderboard-design.md
+git commit -m "fix(leaderboard): RebuildPeriod reapplies the daily point cap, closing an anti-fraud gap"
+```
+
+---
+
+## Final Verification (after all 8 tasks)
 
 ```bash
 cd "/home/sher/Рабочий стол/avtotest/backend" && export PATH="$HOME/.local/go/bin:$HOME/go/bin:$PATH" && go build ./... && go vet ./... && gofmt -l . && go test ./... -p 1 -count=1
