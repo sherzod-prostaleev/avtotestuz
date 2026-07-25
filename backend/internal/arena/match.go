@@ -375,12 +375,24 @@ func (m *Match) finish(ctx context.Context, reason string) {
 		}
 	}
 	da, db := 0, 0
+	ra, rb := 1000, 1000
 	if reason != "both_disconnected" && reason != "server_shutdown" && m.svc.Rating != nil {
-		da, db, _ = m.svc.Rating.ApplyResult(ctx, m.id, m.a, m.b, m.score[m.a], m.score[m.b])
+		// Forfeit: quitter scores as loss for ELO (score 0 vs opponent+1).
+		scoreA, scoreB := m.score[m.a], m.score[m.b]
+		if reason == "forfeit" {
+			if m.quitter == m.a {
+				scoreA, scoreB = 0, 1
+			} else if m.quitter == m.b {
+				scoreA, scoreB = 1, 0
+			}
+		}
+		da, db, _ = m.svc.Rating.ApplyResult(ctx, m.id, m.a, m.b, scoreA, scoreB)
+		ra, _ = m.svc.Rating.Rating(ctx, m.a)
+		rb, _ = m.svc.Rating.Rating(ctx, m.b)
 	}
 	_ = m.svc.sendJSON(m.a, "match.end", MatchEndData{
 		MatchID: m.id, Outcome: outA, Reason: reason, RatingDelta: da,
-		Medal: MedalForRating(1000 + da),
+		Medal: MedalForRating(ra),
 		Score: struct {
 			You      int `json:"you"`
 			Opponent int `json:"opponent"`
@@ -392,7 +404,7 @@ func (m *Match) finish(ctx context.Context, reason string) {
 	})
 	_ = m.svc.sendJSON(m.b, "match.end", MatchEndData{
 		MatchID: m.id, Outcome: outB, Reason: reason, RatingDelta: db,
-		Medal: MedalForRating(1000 + db),
+		Medal: MedalForRating(rb),
 		Score: struct {
 			You      int `json:"you"`
 			Opponent int `json:"opponent"`

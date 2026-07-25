@@ -149,7 +149,7 @@ func NewService(
 		Content:  contentH,
 		Learning: learningSvc,
 		Progress: progressSvc,
-		Rating:   FixedRating{Value: 1000},
+		Rating:   EloStore{R: r, K: 32},
 		Hub:      NewHub(),
 		Log:      log,
 		Now:      time.Now,
