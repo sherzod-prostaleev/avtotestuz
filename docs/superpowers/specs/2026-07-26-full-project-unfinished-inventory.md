@@ -47,7 +47,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-08** | P1 | FE | **J10 / M4-05 Arena UI** | **done** | U-06 (+ U-07) | `/(app)/arena` + sidebar + protocol client; VIP gate → premium. |
 | **U-09** | P1 | FE | **Telegram “bog‘lash” UI** | **done** | M4-06 BE ✅ | Profile `TelegramLinkCard`: `GET /me/telegram` + `POST /me/telegram/link-token` deep link. |
 | **U-10** | P1 | Bot | **M4-07 TG daily quiz + notifications** | **skipped (no tiny vertical)** | M4-06 ✅ | Design explicitly defers quiz/cron/keyboards/i18n to M4-07 — no small complete slice without inventing product. Reopen only with explicit quiz scope. |
-| **U-11** | P1 | BE/FE | **M4-08 Web push / campaigns** | **partial** | VAPID keys (ops) | Foundation + harden + **FSRS due digest `-send`** (`RunFSRSDueDigest`, 20h cooldown, dead-sub prune). Campaigns/admin broadcast still open (M3); delivery needs `VAPID_*` on cron host. |
+| **U-11** | P1 | BE/FE | **M4-08 Web push / campaigns** | **partial** | VAPID keys (ops) | Foundation + harden + FSRS digest + **admin web-push broadcast stub** (`support.broadcast`). Delivery still needs `VAPID_*`. |
 | **U-12** | P1 | Content | **AI explanation = real LLM** | stub | Budget/API key | `TemplateDraftGenerator` / `ai-stub` only. Real legal analysis deferred since M1 Plan 05. |
 | **U-13** | P1 | Content/Admin | **Explanation expert verify at product scale** | partial | U-12, M3 UI | CLI `gendraft` / `verifyexplanation` remain; **M3-2 Admin queue** `/{locale}/admin/content/explanations` + `POST …/explanation/verify` (`content.verify`). Learner still sees only `verified`. Bulk/AI-draft edit still open. |
 | **U-14** | P1 | Ops/CI | **Playwright e2e in CI** | **partial** | Staging or compose in GHA | CI `e2e` job runs Chromium smoke; optional `secrets.E2E_AUTH_TOKEN` injects `at` cookie for session-gate shells (skip when absent). Full-stack API journeys still need backend/compose + real JWT. |
@@ -81,9 +81,9 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
-| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + ops→admin + admin audit UI.** Broadcast/inbox, logs/alerts, homepage CMS, limits write still open. |
+| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + ops→admin + audit UI + support broadcast stub.** Inbox, logs/alerts, homepage CMS, limits write still open. |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
-| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags table+UI done (M3-7).** Support inbox/broadcast still missing. |
+| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags table+UI done (M3-7).** **Broadcast stub done** (banner + webpush). Support **inbox** still missing. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
 | **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26: Admin M3-4…M3-7, B2B U-40, U-10 skip, U-35 share/print, U-39 meta cache, U-27 admin recon. Re-run after major waves. |

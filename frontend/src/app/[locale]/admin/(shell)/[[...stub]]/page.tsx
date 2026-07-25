@@ -10,7 +10,7 @@ export default function AdminStubOrOverviewPage({
         <h1 className="font-display text-2xl font-extrabold tracking-tight">Overview</h1>
         <p className="text-sm leading-6 text-muted-foreground">
           Driver Go Super Admin control center. Users, Content, Payments, CMS, Monitoring,
-          Analytics, Flags va Audit log live. Support broadcast / RBAC UI keyingi bosqichlarda.
+          Analytics, Flags, Audit log va Support broadcasts live. Inbox / RBAC UI keyingi bosqichlarda.
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {[

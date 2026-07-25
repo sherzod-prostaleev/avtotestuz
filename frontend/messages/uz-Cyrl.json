@@ -1357,5 +1357,34 @@
     "none": "—",
     "errorLoad": "Юклаб бўлмади.",
     "errorForbidden": "security.audit.read рухсати йўқ."
+  },
+  "AdminBroadcast": {
+    "title": "Broadcasts",
+    "subtitle": "In-app banner (site_settings) ёки web-push broadcast (M4-08 infra).",
+    "note": "Telegram broadcast йўқ. Web-push VAPID бўлмаса dry-run ҳам 503. Cap 500 профил.",
+    "refresh": "Янгилаш",
+    "bannerTitle": "In-app banner",
+    "bannerEnabled": "Ёқилган",
+    "bannerMessage": "Banner мати",
+    "bannerHref": "Ихтиёрий relative href (/uz-Latn/...)",
+    "bannerSave": "Banner сақлаш",
+    "pushTitle": "Web-push broadcast",
+    "pushTitleField": "Сарлавҳа",
+    "pushBody": "Push мати",
+    "pushUrl": "Relative URL",
+    "pushDryRun": "Dry-run (count)",
+    "pushSend": "Юбориш",
+    "pushResult": "{mode}: recipients={recipients} · notified={notified} · deliveries={deliveries} · errors={errors}",
+    "modeDry": "Dry-run",
+    "modeLive": "Live",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "support.broadcast рухсати йўқ.",
+    "errorBanner": "Banner сақланмади.",
+    "errorPush": "Broadcast амалга ошмади.",
+    "errorUnconfigured": "VAPID калитлари созланмаган (web_push_unconfigured)."
+  },
+  "SupportBanner": {
+    "cta": "Батафсил",
+    "dismiss": "Ёпиш"
   }
 }

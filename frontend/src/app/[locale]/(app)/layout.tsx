@@ -3,6 +3,7 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { ReferralCapture } from "@/components/referral/referral-capture";
 import { DemoProgressCapture } from "@/components/demo/demo-progress-capture";
+import { SupportBanner } from "@/components/support/support-banner";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -12,6 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <DemoProgressCapture />
       <Sidebar />
       <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)] md:ml-64">
+        <SupportBanner />
         {children}
       </main>
     </div>

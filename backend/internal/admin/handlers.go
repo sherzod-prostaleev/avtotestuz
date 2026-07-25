@@ -17,6 +17,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/recon"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/push"
 )
 
 // Handler mounts /admin/v1 routes.
@@ -27,6 +28,7 @@ type Handler struct {
 	Secret          []byte
 	Billing         billing.Service
 	MetricsSnapshot MetricsSnapshot
+	Push            *push.Service
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -116,6 +118,13 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(sr chi.Router) {
 			sr.Use(RequirePermission("security.audit.read"))
 			sr.Get("/security/audit", h.listAdminAudit)
+		})
+
+		pr.Group(func(sr chi.Router) {
+			sr.Use(RequirePermission("support.broadcast"))
+			sr.Get("/support/banner", h.getSupportBanner)
+			sr.Put("/support/banner", h.putSupportBanner)
+			sr.Post("/support/broadcasts/webpush", h.postWebPushBroadcast)
 		})
 
 		pr.Group(func(br chi.Router) {

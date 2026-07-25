@@ -87,7 +87,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
       title: "Support",
       items: [
         { href: `${base}/support/inbox`, label: "Inbox", stub: true },
-        { href: `${base}/support/broadcasts`, label: "Broadcasts", stub: true },
+        { href: `${base}/support/broadcasts`, label: "Broadcasts" },
       ],
     },
   ];

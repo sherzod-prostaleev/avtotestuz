@@ -19,6 +19,7 @@ type Handler struct {
 // PublicRoutes mounts unauthenticated site endpoints.
 func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Get("/site/contacts", h.getContacts)
+	r.Get("/site/banner", h.getBanner)
 }
 
 func (h *Handler) store() Store {
@@ -29,6 +30,15 @@ func (h *Handler) getContacts(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store().GetContacts(r.Context())
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "contacts query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getBanner(w http.ResponseWriter, r *http.Request) {
+	out, err := h.store().GetSupportBanner(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "banner query failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)

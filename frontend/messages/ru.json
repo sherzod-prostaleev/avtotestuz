@@ -1357,5 +1357,34 @@
     "none": "—",
     "errorLoad": "Не удалось загрузить.",
     "errorForbidden": "Нет права security.audit.read."
+  },
+  "AdminBroadcast": {
+    "title": "Broadcasts",
+    "subtitle": "In-app баннер (site_settings) или web-push broadcast (инфра M4-08).",
+    "note": "Telegram broadcast нет. Без VAPID dry-run тоже 503. Cap 500 профилей.",
+    "refresh": "Обновить",
+    "bannerTitle": "In-app баннер",
+    "bannerEnabled": "Включён",
+    "bannerMessage": "Текст баннера",
+    "bannerHref": "Опциональный relative href (/ru/...)",
+    "bannerSave": "Сохранить баннер",
+    "pushTitle": "Web-push broadcast",
+    "pushTitleField": "Заголовок",
+    "pushBody": "Текст push",
+    "pushUrl": "Relative URL",
+    "pushDryRun": "Dry-run (count)",
+    "pushSend": "Отправить",
+    "pushResult": "{mode}: recipients={recipients} · notified={notified} · deliveries={deliveries} · errors={errors}",
+    "modeDry": "Dry-run",
+    "modeLive": "Live",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права support.broadcast.",
+    "errorBanner": "Баннер не сохранён.",
+    "errorPush": "Broadcast не выполнен.",
+    "errorUnconfigured": "VAPID ключи не настроены (web_push_unconfigured)."
+  },
+  "SupportBanner": {
+    "cta": "Подробнее",
+    "dismiss": "Закрыть"
   }
 }

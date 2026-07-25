@@ -74,6 +74,14 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Get("/metrics", metrics.Handler())
 
 	// M3 Super Admin — separate mount from learner /api/v1 (blast-radius isolation).
+	var pushSvc *push.Service
+	if deps.Pool != nil && deps.Queries != nil {
+		pushSvc = push.NewService(deps.Pool, deps.Queries, push.Config{
+			PublicKey:  cfg.VAPIDPublicKey,
+			PrivateKey: cfg.VAPIDPrivateKey,
+			Subject:    cfg.VAPIDSubject,
+		}, nil)
+	}
 	if deps.Pool != nil {
 		adminStore := admin.Store{Pool: deps.Pool}
 		adminH := &admin.Handler{
@@ -83,6 +91,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Secret:          []byte(cfg.JWTSecret),
 			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
 			MetricsSnapshot: metrics.Snapshot,
+			Push:            pushSvc,
 		}
 		r.Route("/admin/v1", adminH.Routes)
 	}
@@ -188,11 +197,13 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
 				tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
-				pushSvc := push.NewService(deps.Pool, deps.Queries, push.Config{
-					PublicKey:  cfg.VAPIDPublicKey,
-					PrivateKey: cfg.VAPIDPrivateKey,
-					Subject:    cfg.VAPIDSubject,
-				}, nil)
+				if pushSvc == nil {
+					pushSvc = push.NewService(deps.Pool, deps.Queries, push.Config{
+						PublicKey:  cfg.VAPIDPublicKey,
+						PrivateKey: cfg.VAPIDPrivateKey,
+						Subject:    cfg.VAPIDSubject,
+					}, nil)
+				}
 				phPush := &push.Handler{Svc: pushSvc}
 				phPush.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 
