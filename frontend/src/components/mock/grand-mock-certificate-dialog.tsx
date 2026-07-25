@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Award, Copy, Check, X } from "lucide-react";
+import { Award, Check, Share2, X } from "lucide-react";
 import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
+import { certificateShareUrl, shareOrCopyCertificateLink } from "@/lib/certificate-share";
 
 interface GrandMockCertificateDialogProps {
   open: boolean;
@@ -32,7 +33,7 @@ export function GrandMockCertificateDialog({
 
   const shareUrl = useMemo(() => {
     if (!shareCode || typeof window === "undefined") return null;
-    return `${window.location.origin}/${locale}/sertifikat/${shareCode}`;
+    return certificateShareUrl(window.location.origin, locale, shareCode);
   }, [locale, shareCode]);
 
   useEffect(() => {
@@ -67,14 +68,20 @@ export function GrandMockCertificateDialog({
 
   if (!open) return null;
 
-  async function copyShare() {
+  async function shareOrCopy() {
     if (!shareUrl) return;
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      const mode = await shareOrCopyCertificateLink({
+        url: shareUrl,
+        title: t("certificateTitle"),
+        text: t("certificateBody", { score, total }),
+      });
+      if (mode === "clipboard") {
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
+      }
     } catch {
-      setCopied(false);
+      /* abort / clipboard denied */
     }
   }
 
@@ -114,9 +121,9 @@ export function GrandMockCertificateDialog({
             </p>
             <p className="font-mono text-sm break-all text-foreground">{shareCode}</p>
             {shareUrl ? (
-              <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => void copyShare()}>
-                {copied ? <Check className="h-4 w-4" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
-                {copied ? t("certificateCopied") : t("certificateCopyLink")}
+              <Button type="button" variant="outline" size="sm" className="w-full gap-2" onClick={() => void shareOrCopy()}>
+                {copied ? <Check className="h-4 w-4" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
+                {copied ? t("certificateCopied") : t("certificateShareOrCopy")}
               </Button>
             ) : null}
           </div>
