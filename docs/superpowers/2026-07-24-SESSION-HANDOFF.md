@@ -45,8 +45,8 @@ Landing footerdagi telefon/manzil/Telegram/Instagram (`+998 71 200 00 00`, `t.me
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx dan code-completable keyingi: U-45 M3 stub kengaytirish,
-U-29 bilets UX copy, yoki U-22 leaderboard rebuild docs.
+Inventory U-xx dan code-completable keyingi: U-45 yanada (CMS/refunds),
+U-43 FE majors deferred, U-39 offline exam sync, yoki U-28 LegalRefs.
 Skip external: U-03 keys, U-02 host, U-12 LLM, U-17 contacts, U-40 B2B,
 U-44 backup, U-46 BI, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
