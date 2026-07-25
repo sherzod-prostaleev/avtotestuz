@@ -3,6 +3,9 @@
 import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { LoaderCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import {
   useSessionEngine,
   type SessionMode,
@@ -97,30 +100,43 @@ function SessionStartContent() {
     }
 
     return (
-      <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-6 text-center text-destructive">
-        <p className="font-bold">{t("errorTitle")}</p>
-        <p className="mt-1 text-sm">{message}</p>
-        <button
-          onClick={() => router.push(destination)}
-          className="mt-4 rounded bg-accent px-4 py-2 text-xs font-bold text-accent-foreground"
-        >
-          {actionLabel}
-        </button>
-      </div>
+      <Card className="w-full border-destructive/40 bg-destructive/5 p-6 text-center">
+        <p className="font-display text-lg font-bold text-destructive">{t("errorTitle")}</p>
+        <p className="mt-2 text-sm text-muted-foreground">{message}</p>
+        <div className="sticky-cta-bar mt-5">
+          <Button variant="game" className="w-full" onClick={() => router.push(destination)}>
+            {actionLabel}
+          </Button>
+        </div>
+      </Card>
     );
   }
 
-  return <div className="text-center text-muted-foreground animate-pulse">{t("starting")}</div>;
+  return (
+    <Card className="flex w-full items-center justify-center gap-2 p-8 text-muted-foreground">
+      <LoaderCircle className="h-5 w-5 animate-spin text-accent" aria-hidden="true" />
+      <span className="animate-pulse text-sm font-semibold">{t("starting")}</span>
+    </Card>
+  );
 }
 
 export default function SessionStartPage() {
   const t = useTranslations("SessionStart");
 
   return (
-    <main className="mx-auto flex min-h-[60vh] max-w-md items-center justify-center p-4">
-      <Suspense fallback={<div className="text-center text-muted-foreground">{t("loading")}</div>}>
-        <SessionStartContent />
-      </Suspense>
+    <main className="page-shell-narrow flex min-h-[60vh] items-center justify-center">
+      <div className="w-full max-w-md">
+        <Suspense
+          fallback={
+            <Card className="flex items-center justify-center gap-2 p-8 text-muted-foreground">
+              <LoaderCircle className="h-5 w-5 animate-spin text-accent" aria-hidden="true" />
+              <span className="text-sm">{t("loading")}</span>
+            </Card>
+          }
+        >
+          <SessionStartContent />
+        </Suspense>
+      </div>
     </main>
   );
 }

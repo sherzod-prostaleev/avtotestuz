@@ -56,17 +56,14 @@ export default function SignsPage() {
   const modalImage = activeDetail?.image_url ?? activeModalSign?.image_url ?? null;
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
+    <main className="page-shell space-y-5 sm:space-y-6">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link
-            href={`/${locale}/dashboard`}
-            className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
+          <Link href={`/${locale}/dashboard`} className="back-link">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             {t("backToDashboard")}
           </Link>
-          <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
 
@@ -81,22 +78,20 @@ export default function SignsPage() {
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder={t("searchPlaceholder")}
-            className="min-h-11 w-full rounded-2xl border border-border bg-card py-2.5 pl-9 pr-4 text-xs font-semibold outline-none focus:border-accent focus-visible:ring-2 focus-visible:ring-ring"
+            className="field-input pl-9"
           />
         </label>
       </header>
 
-      <div className="flex gap-2 overflow-x-auto pb-2" aria-label={t("groupFilterLabel")}>
+      <div className="chip-scroll" aria-label={t("groupFilterLabel")}>
         {groups.map((group) => (
           <button
             key={group.code}
             type="button"
             onClick={() => setActiveGroup(group.code)}
             aria-pressed={activeGroup === group.code}
-            className={`min-h-11 whitespace-nowrap rounded-xl px-4 py-2 text-xs font-bold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-              activeGroup === group.code
-                ? "bg-accent text-accent-foreground shadow-3d"
-                : "border border-border bg-card text-muted-foreground hover:text-foreground"
+            className={`filter-chip ${
+              activeGroup === group.code ? "filter-chip-active" : "filter-chip-idle"
             }`}
           >
             {group.name}
@@ -131,7 +126,7 @@ export default function SignsPage() {
       {!loading && !error && signs.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {signs.map((sign) => (
-            <Card key={sign.code} className="overflow-hidden p-0 hover:-translate-y-1 hover:border-accent hover:shadow-lg">
+            <Card key={sign.code} className="overflow-hidden p-0 hover:border-accent">
               <button
                 type="button"
                 onClick={() => setActiveModalSign(sign)}
@@ -166,12 +161,12 @@ export default function SignsPage() {
 
       {activeModalSign && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
           role="dialog"
           aria-modal="true"
           aria-labelledby="sign-detail-title"
         >
-          <Card className="relative w-full max-w-lg space-y-4 p-6">
+          <Card className="relative max-h-[92vh] w-full max-w-lg space-y-4 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:rounded-2xl sm:p-6">
             <button
               type="button"
               onClick={() => setActiveModalSign(null)}

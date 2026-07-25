@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { KeyRound } from "lucide-react";
+import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 import { applyPendingReferralCode } from "@/lib/referral-storage";
 
 const CODE_LENGTH = 6;
@@ -67,9 +68,10 @@ function VerifyForm() {
         return;
       }
       // Awaited, not fired and forgotten: navigating away mid-request would
-      // abort it. A failure here is not fatal — ReferralCapture retries any
-      // code still in storage on the next authenticated page load.
+      // abort it. A failure here is not fatal — ReferralCapture / DemoProgressCapture
+      // retry anything still in storage on the next authenticated page load.
       await applyPendingReferralCode();
+      await migrateDemoProgressOnLogin();
       router.push(`/${locale}/dashboard`);
     } catch {
       setError("network_error");

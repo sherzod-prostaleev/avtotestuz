@@ -163,7 +163,7 @@ export default function DashboardPage() {
         : "bg-accent/15 text-accent";
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
+    <main className="page-shell space-y-6 sm:space-y-8">
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
         <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-6">
@@ -383,10 +383,10 @@ export default function DashboardPage() {
         <h2 className="font-display text-xl font-bold tracking-tight">{t("modesTitle")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* 1. Biletlar Grid */}
-          <Link href={`/${locale}/tickets`}>
-            <Card className="glass-card h-full p-5 flex flex-col justify-between group">
+          <Link href={`/${locale}/tickets`} className="block min-h-touch">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent group-hover:scale-110 transition-transform">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
                   <BookOpen aria-hidden="true" className="h-6 w-6" />
                 </div>
                 <CardTitle className="text-base">{t("navVariantsTitle")}</CardTitle>
@@ -400,16 +400,16 @@ export default function DashboardPage() {
           </Link>
 
           {/* 2. Imtihon Simulation */}
-          <Link href={`/${locale}/session/start?mode=exam`}>
-            <Card className="glass-card h-full p-5 flex flex-col justify-between group border-amber-500/30">
+          <Link href={`/${locale}/session/start?mode=exam`} className="block min-h-touch">
+            <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-5">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/15 text-amber-500 group-hover:scale-110 transition-transform">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
                   <Award aria-hidden="true" className="h-6 w-6" />
                 </div>
                 <CardTitle className="text-base">{t("navExamTitle")}</CardTitle>
                 <CardDescription className="mt-1">{t("navExamDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-amber-500">
+              <div className="mt-4 flex items-center justify-between text-xs font-bold text-accent">
                 <span>{t("examMeta")}</span>
                 <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -417,16 +417,16 @@ export default function DashboardPage() {
           </Link>
 
           {/* 3. Mashq Rejimi */}
-          <Link href={`/${locale}/practice`}>
-            <Card className="glass-card h-full p-5 flex flex-col justify-between group">
+          <Link href={`/${locale}/practice`} className="block min-h-touch">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-500 group-hover:scale-110 transition-transform">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-success/15 text-success transition-transform group-hover:scale-105">
                   <Target aria-hidden="true" className="h-6 w-6" />
                 </div>
                 <CardTitle className="text-base">{t("navPracticeTitle")}</CardTitle>
                 <CardDescription className="mt-1">{t("navPracticeDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-emerald-500">
+              <div className="mt-4 flex items-center justify-between text-xs font-bold text-success">
                 <span>{t("practiceMeta")}</span>
                 <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -434,16 +434,16 @@ export default function DashboardPage() {
           </Link>
 
           {/* 4. Xatolar Banki */}
-          <Link href={`/${locale}/mistakes`}>
-            <Card className="glass-card h-full p-5 flex flex-col justify-between group">
+          <Link href={`/${locale}/mistakes`} className="block min-h-touch">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-500/15 text-rose-500 group-hover:scale-110 transition-transform">
+                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-danger/15 text-danger transition-transform group-hover:scale-105">
                   <AlertTriangle aria-hidden="true" className="h-6 w-6" />
                 </div>
                 <CardTitle className="text-base">{t("navMistakesTitle")}</CardTitle>
                 <CardDescription className="mt-1">{t("navMistakesDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-rose-500">
+              <div className="mt-4 flex items-center justify-between text-xs font-bold text-danger">
                 <span>{t("mistakesMeta", { count: stats?.due_questions_count ?? 0 })}</span>
                 <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
               </div>
@@ -484,7 +484,7 @@ export default function DashboardPage() {
       {/* Saved Questions Entry */}
       <section>
         <Link href={`/${locale}/saved`}>
-          <Card className="glass-card p-6 border-gold/40 bg-gradient-to-r from-gold/10 via-card to-card hover:border-gold">
+          <Card className="glass-card border-gold/40 bg-card p-6 hover:border-gold">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold/20 text-gold">

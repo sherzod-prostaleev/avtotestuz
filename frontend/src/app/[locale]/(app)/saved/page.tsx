@@ -92,12 +92,9 @@ export default function SavedPage() {
   };
 
   return (
-    <main className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+    <main className="page-shell-tight space-y-6 sm:space-y-8">
       <header>
-        <Link
-          href={`/${locale}/dashboard`}
-          className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-        >
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft className="h-4 w-4" /> {t("backToDashboard")}
         </Link>
         <div className="flex items-center gap-3">
@@ -105,20 +102,20 @@ export default function SavedPage() {
             <Bookmark className="h-6 w-6" />
           </div>
           <div>
-            <h1 className="font-display text-3xl font-extrabold tracking-tight">{t("title")}</h1>
+            <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t("title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
           </div>
         </div>
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-        <Card className="glass-card overflow-hidden border-gold/20 bg-gradient-to-br from-card via-card to-gold/10 p-6 md:p-8">
+        <Card className="overflow-hidden border-gold/30 bg-card p-5 md:p-8">
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+              <span className="rounded-md bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
                 {t("navLabel")}
               </span>
-              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+              <span className="rounded-md bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
                 {t("countLabel", { count: items.length })}
               </span>
             </div>
@@ -133,26 +130,28 @@ export default function SavedPage() {
           </div>
         </Card>
 
-        <Card className="glass-card flex flex-col justify-between border-border/70 bg-background/80 p-6 md:p-8">
+        <Card className="flex flex-col justify-between bg-card p-5 md:p-8">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div className="rounded-2xl border border-border bg-card/80 p-4">
+            <div className="rounded-2xl border border-border bg-background p-4">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {t("navLabel")}
               </p>
-              <p className="mt-2 text-2xl font-display font-black">{items.length}</p>
+              <p className="mt-2 font-display text-2xl font-black tabular-nums">{items.length}</p>
             </div>
-            <div className="rounded-2xl border border-border bg-card/80 p-4">
+            <div className="rounded-2xl border border-border bg-background p-4">
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {t("browseTickets")}
               </p>
               <p className="mt-2 text-sm font-semibold text-foreground">{t("browseHint")}</p>
             </div>
           </div>
-          <Link href={`/${locale}/tickets`} className="mt-5">
-            <Button variant="game" size="sm" className="w-full">
-              {t("browseTickets")}
-            </Button>
-          </Link>
+          <div className="sticky-cta-bar mt-5">
+            <Link href={`/${locale}/tickets`} className="block w-full">
+              <Button variant="game" size="sm" className="w-full">
+                {t("browseTickets")}
+              </Button>
+            </Link>
+          </div>
         </Card>
       </section>
 

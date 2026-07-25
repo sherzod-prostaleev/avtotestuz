@@ -48,6 +48,8 @@
     "demoFailureBody": "Qayg'urmang! Driver Go aqlli tizimi xatolaringizni saqlab qoladi va aynan unutish arafasida takrorlashga beradi.",
     "demoRegisterCta": "Ro'yxatdan o'tish (Bepul)",
     "demoNextQuestion": "Yana bitta savol sinab ko'rish",
+    "demoProgressNote": "Progressing saqlanadi",
+    "demoProgressCount": "{count} ta savol sinab ko'rildi",
     "whyUsTitle": "Nega Driver Go",
     "whyUsSubtitle": "Rasmiy formatdagi savollar, FSRS takrorlash va aniq tayyorlik — chalg'ituvchi o'yinchasiz.",
     "feature1Title": "FSRS o'quv dvigateli",

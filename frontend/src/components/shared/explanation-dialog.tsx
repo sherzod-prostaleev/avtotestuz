@@ -95,9 +95,9 @@ export function ExplanationDialog({
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-2 backdrop-blur-sm sm:p-6"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 p-0 sm:items-center sm:p-6"
     >
-      <div className="flex h-full max-h-[96dvh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
+      <div className="flex h-[92dvh] max-h-[96dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-border bg-card sm:h-full sm:rounded-3xl">
         <header className="flex shrink-0 items-start gap-3 border-b border-border p-4 sm:p-5">
           <Lightbulb className="mt-0.5 h-5 w-5 shrink-0 text-gold" aria-hidden="true" />
           <div className="min-w-0 flex-1">

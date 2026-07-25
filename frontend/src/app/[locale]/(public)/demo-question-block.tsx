@@ -158,7 +158,7 @@ export function DemoQuestionBlock() {
       </div>
 
       {grade && (
-        <div className={`mt-6 rounded-2xl border p-4 sm:p-5 ${grade.correct ? "border-success/40 bg-success/10" : "border-amber-500/40 bg-amber-500/10"}`}>
+        <div className={`mt-6 rounded-2xl border p-4 sm:p-5 ${grade.correct ? "border-success/40 bg-success/10" : "border-accent/40 bg-accent/10"}`}>
           <div className="flex items-center gap-2 font-display text-sm font-bold">
             <Sparkles className="h-4 w-4 text-gold shrink-0" />
             {grade.correct ? t("demoSuccessTitle") : t("demoFailureTitle")}

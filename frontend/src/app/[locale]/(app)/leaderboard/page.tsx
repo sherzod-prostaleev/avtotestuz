@@ -100,12 +100,12 @@ export default function LeaderboardPage() {
   }, [load, period]);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={`/${locale}/dashboard`} className="mb-2 flex items-center gap-1 text-sm text-accent hover:underline">
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <h1 className="flex items-center gap-2 font-display text-2xl font-bold">
+        <h1 className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">
           <Trophy aria-hidden="true" className="h-6 w-6 text-gold" />
           {t("title")}
         </h1>
@@ -126,10 +126,8 @@ export default function LeaderboardPage() {
               role="radio"
               aria-checked={isSelected}
               onClick={() => setPeriod(item.value)}
-              className={`rounded-xl border px-3 py-2 text-xs font-bold transition-all ${
-                isSelected
-                  ? "border-accent bg-accent text-accent-foreground shadow-3d"
-                  : "border-border bg-card text-muted-foreground hover:border-accent/50 hover:text-foreground"
+              className={`filter-chip w-full ${
+                isSelected ? "filter-chip-active" : "filter-chip-idle"
               }`}
             >
               {t(item.labelKey)}
@@ -152,7 +150,7 @@ export default function LeaderboardPage() {
       ) : data ? (
         <div className="space-y-6">
           {/* Your rank card */}
-          <Card className="overflow-hidden border-gold/40 bg-gradient-to-br from-card to-gold/10 p-6">
+          <Card className="overflow-hidden border-gold/40 bg-card p-5 sm:p-6">
             <p className="mb-3 text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {t("yourPositionLabel")}
             </p>

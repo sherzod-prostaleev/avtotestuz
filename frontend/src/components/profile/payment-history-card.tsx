@@ -29,12 +29,12 @@ const STATUS_STYLES: Record<string, { icon: LucideIcon; labelKey: string; classN
   created: {
     icon: Clock,
     labelKey: "statusPending",
-    className: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    className: "bg-accent/10 text-accent border-accent/20",
   },
   pending: {
     icon: Clock,
     labelKey: "statusPending",
-    className: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+    className: "bg-accent/10 text-accent border-accent/20",
   },
   canceled: {
     icon: XCircle,
@@ -49,7 +49,7 @@ const STATUS_STYLES: Record<string, { icon: LucideIcon; labelKey: string; classN
   refunded: {
     icon: RotateCcw,
     labelKey: "statusRefunded",
-    className: "bg-sky-500/10 text-sky-500 border-sky-500/20",
+    className: "bg-muted text-muted-foreground border-border",
   },
 };
 

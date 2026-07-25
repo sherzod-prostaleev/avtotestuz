@@ -313,7 +313,7 @@ export default function TestSessionPage() {
 
   if (loading && !session) {
     return (
-      <main className="mx-auto flex min-h-[60vh] max-w-4xl items-center justify-center px-4 py-12">
+      <main className="page-shell-narrow flex min-h-[60vh] items-center justify-center">
         <div role="status" aria-live="polite" className="flex items-center gap-2 text-muted-foreground">
           <LoaderCircle className="h-5 w-5 animate-spin text-accent" aria-hidden="true" />
           {t("loading")}
@@ -324,21 +324,21 @@ export default function TestSessionPage() {
 
   if (!session) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-12">
-        <Card className="border-destructive/40 bg-destructive/5 p-8 text-center" role="alert">
+      <main className="page-shell-narrow">
+        <Card className="border-destructive/40 bg-destructive/5 p-6 text-center sm:p-8" role="alert">
           <AlertTriangle className="mx-auto h-10 w-10 text-destructive" aria-hidden="true" />
           <h1 className="mt-3 font-display text-xl font-bold">{t("errorTitle")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {error ? localizedError() : t("notFound")}
           </p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
+          <div className="sticky-cta-bar mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
             {sessionId && (
-              <Button variant="game" onClick={() => void loadSession(sessionId, locale)}>
+              <Button variant="game" className="w-full sm:w-auto" onClick={() => void loadSession(sessionId, locale)}>
                 <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
                 {t("retry")}
               </Button>
             )}
-            <Button variant="outline" onClick={() => router.push(`/${locale}/tickets`)}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/tickets`)}>
               {t("backToTickets")}
             </Button>
           </div>
@@ -349,15 +349,17 @@ export default function TestSessionPage() {
 
   if (session.status === "result_pending") {
     return (
-      <main className="mx-auto max-w-xl px-4 py-12">
-        <Card className="border-gold/40 bg-gold/5 p-8 text-center" role="status" aria-live="polite">
+      <main className="page-shell-narrow">
+        <Card className="border-gold/40 bg-gold/5 p-6 text-center sm:p-8" role="status" aria-live="polite">
           <RefreshCw className="mx-auto h-10 w-10 text-gold" aria-hidden="true" />
           <h1 className="mt-3 font-display text-xl font-bold">{t("resultPendingTitle")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{t("resultPendingBody")}</p>
-          <Button className="mt-6" variant="game" onClick={() => void loadSession(sessionId, locale)}>
-            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("reloadResult")}
-          </Button>
+          <div className="sticky-cta-bar mt-6">
+            <Button className="w-full sm:w-auto" variant="game" onClick={() => void loadSession(sessionId, locale)}>
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t("reloadResult")}
+            </Button>
+          </div>
         </Card>
       </main>
     );
@@ -365,17 +367,17 @@ export default function TestSessionPage() {
 
   if (session.status === "active" && questions.length === 0) {
     return (
-      <main className="mx-auto max-w-xl px-4 py-12">
-        <Card className="border-accent/40 bg-accent/5 p-8 text-center">
+      <main className="page-shell-narrow">
+        <Card className="border-accent/40 bg-accent/5 p-6 text-center sm:p-8">
           <AlertTriangle className="mx-auto h-10 w-10 text-accent" aria-hidden="true" />
           <h1 className="mt-3 font-display text-xl font-bold">{t("emptyTitle")}</h1>
           <p className="mt-2 text-sm text-muted-foreground">{t("emptyBody")}</p>
-          <div className="mt-6 flex flex-wrap justify-center gap-3">
-            <Button variant="game" onClick={() => void loadSession(sessionId, locale)}>
+          <div className="sticky-cta-bar mt-6 flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button variant="game" className="w-full sm:w-auto" onClick={() => void loadSession(sessionId, locale)}>
               <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
               {t("retry")}
             </Button>
-            <Button variant="outline" onClick={() => router.push(`/${locale}/tickets`)}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/tickets`)}>
               {t("backToTickets")}
             </Button>
           </div>
@@ -412,21 +414,23 @@ export default function TestSessionPage() {
           ? t("backToMistakes")
           : t("backToTickets");
 
+    const wrongCount = questions.filter((q) => q.correct === false).length;
+
     return (
-      <main className="mx-auto max-w-4xl space-y-6 px-4 py-10">
-        <Card className={`p-8 text-center shadow-xl ${positiveResult ? "border-success/40" : "border-border"}`}>
+      <main className="page-shell-narrow space-y-5 sm:space-y-6">
+        <Card className={`p-5 text-center sm:p-8 ${positiveResult ? "border-success/40" : "border-border"}`}>
           <div
-            className={`mx-auto flex h-20 w-20 items-center justify-center rounded-full border ${
+            className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border sm:h-20 sm:w-20 sm:rounded-full ${
               positiveResult ? "border-success/40 bg-success/10" : "border-accent/30 bg-accent/10"
             }`}
           >
             {positiveResult ? (
-              <Award className="h-11 w-11 text-gold" aria-hidden="true" />
+              <Award className="h-9 w-9 text-gold sm:h-11 sm:w-11" aria-hidden="true" />
             ) : (
-              <RefreshCw className="h-10 w-10 text-accent" aria-hidden="true" />
+              <RefreshCw className="h-8 w-8 text-accent sm:h-10 sm:w-10" aria-hidden="true" />
             )}
           </div>
-          <h1 className="mt-5 font-display text-3xl font-extrabold">{resultTitle}</h1>
+          <h1 className="mt-4 font-display text-2xl font-extrabold tracking-tight sm:mt-5 sm:text-3xl">{resultTitle}</h1>
           <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{resultBody}</p>
 
           {isExamResult && session.stopped_reason && session.stopped_reason !== "completed" && (
@@ -435,24 +439,28 @@ export default function TestSessionPage() {
             </p>
           )}
 
-          <dl className="mx-auto my-8 grid max-w-sm grid-cols-2 gap-4">
-            <div className="rounded-2xl border border-border bg-background/50 p-4">
-              <dt className="text-xs font-bold text-muted-foreground">{t("scoreLabel")}</dt>
-              <dd className="font-display text-3xl font-black text-accent">
+          <dl className="mx-auto my-6 grid max-w-lg grid-cols-3 gap-2 sm:my-8 sm:gap-4">
+            <div className="rounded-2xl border border-border bg-background p-3 sm:p-4">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">{t("scoreLabel")}</dt>
+              <dd className="mt-1 font-display text-xl font-black tabular-nums text-accent sm:text-3xl">
                 {score} / {total}
               </dd>
             </div>
-            <div className="rounded-2xl border border-border bg-background/50 p-4">
-              <dt className="text-xs font-bold text-muted-foreground">{t("percentageLabel")}</dt>
-              <dd className="font-display text-3xl font-black text-gold">{percentage}%</dd>
+            <div className="rounded-2xl border border-border bg-background p-3 sm:p-4">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">{t("percentageLabel")}</dt>
+              <dd className="mt-1 font-display text-xl font-black tabular-nums text-gold sm:text-3xl">{percentage}%</dd>
+            </div>
+            <div className="rounded-2xl border border-border bg-background p-3 sm:p-4">
+              <dt className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-xs">{t("statusWrong")}</dt>
+              <dd className="mt-1 font-display text-xl font-black tabular-nums text-danger sm:text-3xl">{wrongCount}</dd>
             </div>
           </dl>
 
-          <div className="flex flex-wrap justify-center gap-3">
-            <Button variant="game" size="lg" onClick={() => router.push(primaryRoute)}>
+          <div className="sticky-cta-bar flex flex-col gap-2 sm:flex-row sm:justify-center">
+            <Button variant="game" size="lg" className="w-full sm:w-auto" onClick={() => router.push(primaryRoute)}>
               {primaryLabel}
             </Button>
-            <Button variant="outline" size="lg" onClick={() => router.push(`/${locale}/dashboard`)}>
+            <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/dashboard`)}>
               {t("dashboard")}
             </Button>
           </div>
@@ -544,19 +552,22 @@ export default function TestSessionPage() {
   }
 
   return (
-    <main className="flex h-[100dvh] flex-col gap-3 overflow-hidden px-3 py-3 sm:px-4">
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card/90 p-3 shadow-sm backdrop-blur-md">
-        <div className="flex items-center gap-2">
+    <main
+      className="flex h-[100dvh] flex-col gap-2 overflow-hidden bg-background px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
+    >
+      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-2 sm:gap-3 sm:p-3">
+        <div className="flex min-w-0 items-center gap-2">
           <Button
             variant="ghost"
             size="sm"
+            className="min-h-11 px-2 sm:px-4"
             aria-label={t("exit")}
             onClick={() => router.push(`/${locale}/dashboard`)}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{t("exit")}</span>
           </Button>
-          <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-bold text-accent">
+          <span className="truncate rounded-md border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent sm:px-3 sm:text-xs">
             {modeLabel(session.mode)}
           </span>
         </div>
@@ -584,7 +595,7 @@ export default function TestSessionPage() {
             id="session-locale"
             value={locale}
             onChange={(event) => router.push(`/${event.target.value}/session/${sessionId}`)}
-            className="h-11 rounded-xl border border-border bg-background px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 min-w-[4.5rem] rounded-xl border border-border bg-background px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {locales.map((item) => (
               <option key={item} value={item}>
@@ -597,7 +608,7 @@ export default function TestSessionPage() {
             type="button"
             onClick={() => void toggleFullscreen()}
             aria-label={isFullscreen ? t("exitFullscreen") : t("enterFullscreen")}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="hidden h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex"
           >
             {isFullscreen ? (
               <Minimize2 className="h-4 w-4" aria-hidden="true" />
@@ -606,7 +617,13 @@ export default function TestSessionPage() {
             )}
           </button>
 
-          <Button variant="outline" size="sm" onClick={() => void handleFinish()} disabled={finishing || submitting}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="hidden sm:inline-flex"
+            onClick={() => void handleFinish()}
+            disabled={finishing || submitting}
+          >
             {finishing ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             {finishing ? t("finishing") : t("finish")}
           </Button>
@@ -634,7 +651,7 @@ export default function TestSessionPage() {
       )}
 
       <nav
-        className="flex shrink-0 gap-2 overflow-x-auto rounded-2xl border border-border bg-card p-2 shadow-sm"
+        className="chip-scroll shrink-0 rounded-2xl border border-border bg-card p-2"
         aria-label={t("questionNavigator")}
       >
         {questions.map((question, index) => {
@@ -650,7 +667,7 @@ export default function TestSessionPage() {
                   ? t("statusAnswered")
                   : t("statusUnanswered");
           const style = isCurrent
-            ? "border-accent bg-accent text-white ring-2 ring-accent/30"
+            ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30"
             : question.correct === true
               ? "border-success/50 bg-success/15 text-success"
               : question.correct === false
@@ -666,7 +683,7 @@ export default function TestSessionPage() {
               onClick={() => setCurrentIndex(index)}
               aria-current={isCurrent ? "step" : undefined}
               aria-label={t("questionNavLabel", { number: index + 1, status })}
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-extrabold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${style}`}
+              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${style}`}
             >
               {index + 1}
               {!isCurrent && question.correct === true && (
@@ -684,7 +701,7 @@ export default function TestSessionPage() {
       </nav>
 
       {currentQuestion && (
-        <Card className="flex min-h-0 flex-1 flex-col gap-3 p-3 sm:p-5">
+        <Card className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2.5 sm:gap-3 sm:p-5">
           <div className="min-h-0 flex-1">
             <QuestionStage
               question={currentQuestion}
@@ -708,19 +725,21 @@ export default function TestSessionPage() {
         </Card>
       )}
 
-      <footer className="flex shrink-0 items-center justify-between gap-3 rounded-2xl border border-border bg-card/95 p-2.5 shadow-xl backdrop-blur-md">
+      <footer className="flex shrink-0 items-center gap-2 rounded-2xl border border-border bg-card p-2 sm:justify-between sm:gap-3 sm:p-2.5">
         <Button
           variant="outline"
+          className="min-h-12 flex-1 sm:flex-none"
           disabled={currentIndex === 0}
           onClick={() => setCurrentIndex((value) => Math.max(0, value - 1))}
         >
           <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-          {t("previous")}
+          <span className="hidden xs:inline sm:inline">{t("previous")}</span>
         </Button>
 
         {isLast ? (
           <Button
             variant="game"
+            className="min-h-12 flex-[1.4] sm:flex-none"
             disabled={!currentAnswered || finishing || submitting}
             onClick={() => void handleFinish()}
           >
@@ -730,6 +749,7 @@ export default function TestSessionPage() {
         ) : (
           <Button
             variant="game"
+            className="min-h-12 flex-[1.4] sm:flex-none"
             disabled={!canGoNext}
             onClick={() => setCurrentIndex((value) => Math.min(questions.length - 1, value + 1))}
           >
@@ -758,21 +778,21 @@ export default function TestSessionPage() {
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) setZoomImageUrl(null);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 p-0 sm:items-center sm:p-4"
         >
-          <div className="relative max-h-[90vh] max-w-5xl">
+          <div className="relative max-h-[92dvh] w-full max-w-5xl rounded-t-3xl bg-card p-3 sm:rounded-2xl sm:bg-transparent sm:p-0">
             {/* Dynamic media URL is served by the backend. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={zoomImageUrl}
               alt={t("zoomedImageAlt")}
-              className="max-h-[88vh] w-full rounded-2xl object-contain"
+              className="max-h-[80dvh] w-full rounded-2xl object-contain sm:max-h-[88vh]"
             />
             <button
               type="button"
               onClick={() => setZoomImageUrl(null)}
               aria-label={t("closeZoom")}
-              className="absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-full bg-slate-950/85 text-white shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-2 sm:top-2 sm:border-0 sm:bg-foreground/90 sm:text-background"
             >
               <X className="h-5 w-5" aria-hidden="true" />
             </button>

@@ -48,6 +48,8 @@
     "demoFailureBody": "Қайғурманг! Driver Go ақлли тизими хатоларингизни сақлаб қолади ва айнан унутиш арафасида такрорлашга беради.",
     "demoRegisterCta": "Рўйхатдан ўтиш (Бепул)",
     "demoNextQuestion": "Яна битта савол синаб кўриш",
+    "demoProgressNote": "Прогресс сақланади",
+    "demoProgressCount": "{count} та савол синаб кўрилди",
     "whyUsTitle": "Нега Driver Go",
     "whyUsSubtitle": "Расмий форматдаги саволлар, FSRS такрорлаш ва аниқ тайёрлик — чалғитувчи ўйинчасиз.",
     "feature1Title": "FSRS ўқув двигатели",

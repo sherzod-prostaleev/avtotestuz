@@ -91,7 +91,7 @@ export function ReferralCard() {
   };
 
   return (
-    <Card className="p-6 border-accent/20 bg-gradient-to-br from-card to-accent/5">
+    <Card className="border-accent/20 bg-card p-5 sm:p-6">
       <CardHeader className="p-0 mb-4 flex flex-row items-center justify-between">
         <div className="flex items-center gap-2">
           <Gift aria-hidden="true" className="h-5 w-5 text-accent" />
@@ -160,8 +160,8 @@ export function ReferralCard() {
             </div>
 
             <div className="rounded-lg border border-border bg-card p-3 text-center">
-              <Award aria-hidden="true" className="mx-auto mb-1 h-4 w-4 text-amber-500" />
-              <div className="text-lg font-bold text-amber-500">+{data.bonus_days_earned}</div>
+              <Award aria-hidden="true" className="mx-auto mb-1 h-4 w-4 text-gold" />
+              <div className="text-lg font-bold text-gold">+{data.bonus_days_earned}</div>
               <div className="text-[11px] text-muted-foreground leading-tight">{t("statEarnedDays")}</div>
             </div>
           </div>

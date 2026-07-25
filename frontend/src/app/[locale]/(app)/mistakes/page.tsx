@@ -113,16 +113,13 @@ export default function MistakesPage() {
   const nextDue = formatNextDue(data?.next_due_at ?? null);
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
-      <header className="mb-6">
-        <Link
-          href={`/${locale}/dashboard`}
-          className="mb-2 inline-flex min-h-11 items-center gap-1 text-sm text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
+    <main className="page-shell-narrow space-y-6">
+      <header>
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {t("back")}
         </Link>
-        <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
@@ -171,27 +168,31 @@ export default function MistakesPage() {
           </div>
 
           {!entitlement.active ? (
-            <Card className="border-amber-500/30 bg-amber-500/5 p-8 text-center">
+            <Card className="border-gold/40 bg-gold/5 p-6 text-center sm:p-8">
               <LockKeyhole className="mx-auto mb-3 h-12 w-12 text-gold" aria-hidden="true" />
               <h2 className="font-display text-xl font-bold">{t("vipRequired")}</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t("vipBody")}</p>
-              <Link className={`${linkButtonClass} mt-6`} href={`/${locale}/premium`}>
-                {t("upgrade")}
-              </Link>
+              <div className="sticky-cta-bar mt-6">
+                <Link className={`${linkButtonClass} w-full sm:w-auto`} href={`/${locale}/premium`}>
+                  {t("upgrade")}
+                </Link>
+              </div>
             </Card>
           ) : data.total_bank_count === 0 ? (
-            <Card className="p-8 text-center">
+            <Card className="p-6 text-center sm:p-8">
               <BookOpen className="mx-auto mb-3 h-12 w-12 text-accent" aria-hidden="true" />
               <h2 className="font-display text-lg font-bold">{t("emptyBankTitle")}</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
                 {t("emptyBankBody")}
               </p>
-              <Link className={`${linkButtonClass} mt-6`} href={`/${locale}/tickets`}>
-                {t("browseTickets")}
-              </Link>
+              <div className="sticky-cta-bar mt-6">
+                <Link className={`${linkButtonClass} w-full sm:w-auto`} href={`/${locale}/tickets`}>
+                  {t("browseTickets")}
+                </Link>
+              </div>
             </Card>
           ) : data.due_count === 0 ? (
-            <Card className="p-8 text-center">
+            <Card className="p-6 text-center sm:p-8">
               {nextDue ? (
                 <CalendarClock className="mx-auto mb-3 h-12 w-12 text-success" aria-hidden="true" />
               ) : (
@@ -203,20 +204,22 @@ export default function MistakesPage() {
               </p>
             </Card>
           ) : (
-            <Card className="p-6">
-              <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-center">
+            <Card className="p-5 sm:p-6">
+              <div className="flex flex-col items-stretch justify-between gap-5 sm:flex-row sm:items-center">
                 <div>
                   <h2 className="font-display text-lg font-bold">{t("reviewTitle")}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{t("fsrsNote")}</p>
                 </div>
-                <Button variant="game" onClick={handleStart} disabled={starting}>
-                  {starting ? (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Play className="mr-2 h-4 w-4" aria-hidden="true" />
-                  )}
-                  {starting ? t("starting") : t("start")}
-                </Button>
+                <div className="sticky-cta-bar sm:static sm:w-auto">
+                  <Button variant="game" className="w-full sm:w-auto" onClick={handleStart} disabled={starting}>
+                    {starting ? (
+                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                    ) : (
+                      <Play className="mr-2 h-4 w-4" aria-hidden="true" />
+                    )}
+                    {starting ? t("starting") : t("start")}
+                  </Button>
+                </div>
               </div>
             </Card>
           )}

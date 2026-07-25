@@ -107,16 +107,16 @@ export default function PremiumPage() {
   const features = [t("feature1"), t("feature2"), t("feature3"), t("feature4")];
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="page-shell-tight">
       <header className="mb-6">
-        <Link href={`/${locale}/dashboard`} className="mb-2 flex items-center gap-1 text-sm text-accent hover:underline">
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <div className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-extrabold text-gold">
+        <div className="inline-flex items-center gap-2 rounded-md border border-gold/40 bg-gold/10 px-3 py-1 text-[11px] font-extrabold text-gold">
           <Crown aria-hidden="true" className="h-3.5 w-3.5" />
           {t("badge")}
         </div>
-        <h1 className="mt-3 font-display text-3xl font-extrabold tracking-tight md:text-4xl">{t("title")}</h1>
+        <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">{t("title")}</h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{t("subtitle")}</p>
       </header>
 
@@ -145,12 +145,12 @@ export default function PremiumPage() {
       {!loading && !loadError && (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="flex flex-col p-5">
-            <div className="mb-2 inline-flex w-fit items-center rounded-full border border-border/60 bg-background/70 px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
+            <div className="mb-2 inline-flex w-fit items-center rounded-md border border-border bg-background px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
               {t("matizFree")}
             </div>
             <h2 className="font-display text-xl font-bold">{t("matizTitle")}</h2>
             <p className="mt-2 flex-1 text-sm text-muted-foreground">{t("matizDescription")}</p>
-            <Button type="button" variant="outline" size="sm" className="mt-4" disabled>
+            <Button type="button" variant="outline" size="sm" className="mt-4 w-full" disabled>
               {t("matizCurrentPlan")}
             </Button>
           </Card>
@@ -167,7 +167,7 @@ export default function PremiumPage() {
                 className={`flex flex-col p-5 ${tariff.badge === "popular" ? "border-2 border-gold" : ""}`}
               >
                 {label && (
-                  <div className="mb-2 inline-flex w-fit items-center gap-1 rounded-full border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-[10px] font-extrabold text-gold">
+                  <div className="mb-2 inline-flex w-fit items-center gap-1 rounded-md border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-[10px] font-extrabold text-gold">
                     <Sparkles aria-hidden="true" className="h-3 w-3" />
                     {label}
                   </div>
@@ -177,13 +177,13 @@ export default function PremiumPage() {
 
                 <div className="mt-3">
                   <div className="flex items-baseline gap-1">
-                    <span className="font-display text-2xl font-extrabold">{formatSom(isFree ? 0 : Math.round(finalPrice / tariff.days))}</span>
+                    <span className="font-display text-2xl font-extrabold tabular-nums">{formatSom(isFree ? 0 : Math.round(finalPrice / tariff.days))}</span>
                     <span className="text-xs font-medium text-muted-foreground">
                       {t("somSuffix")} / {t("perDay")}
                     </span>
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="tabular-nums">
                       {formatSom(finalPrice)} {t("somSuffix")} / {tariff.days + (promo?.bonus_days || 0)} {t("daysLabel")}
                     </span>
                     {promo ? (
@@ -191,7 +191,7 @@ export default function PremiumPage() {
                     ) : (
                       tariff.old_price_uzs !== null && (
                         <>
-                          <span className="line-through">{formatSom(tariff.old_price_uzs)}</span>
+                          <span className="line-through tabular-nums">{formatSom(tariff.old_price_uzs)}</span>
                           <span className="font-bold text-success">-{tariff.discount_percent}%</span>
                         </>
                       )
@@ -209,7 +209,7 @@ export default function PremiumPage() {
                     ))}
                   </div>
 
-                  <div className="border-t border-border/40 pt-3 space-y-3">
+                  <div className="space-y-3 border-t border-border pt-3">
                     <PromoInput
                       tariffCode={tariff.code}
                       onApplied={(res) => setPromoMap((prev) => ({ ...prev, [tariff.code]: res }))}
@@ -233,7 +233,7 @@ export default function PremiumPage() {
                   type="button"
                   variant={isFree ? "success" : "gold"}
                   size="sm"
-                  className="mt-4"
+                  className="mt-4 w-full"
                   disabled={buyingCode === tariff.code}
                   onClick={() => void handleBuy(tariff.code)}
                 >

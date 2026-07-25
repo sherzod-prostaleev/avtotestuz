@@ -155,15 +155,12 @@ export default function PracticePage() {
   ];
 
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    <main className="page-shell-tight space-y-5 sm:space-y-6">
       <div>
-        <Link
-          href={`/${locale}/dashboard`}
-          className="mb-2 inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
-        >
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight">{t("title")}</h1>
+        <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t("title")}</h1>
         <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
 
@@ -196,9 +193,9 @@ export default function PracticePage() {
                 disabled={item.disabled}
                 aria-pressed={isSelected}
                 onClick={() => setSource(item.value)}
-                className={`rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 ${
+                className={`min-h-touch rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 ${
                   isSelected
-                    ? "border-accent bg-accent/10 shadow-md"
+                    ? "border-accent bg-accent/10"
                     : "border-border bg-card hover:border-accent/50"
                 }`}
               >
@@ -229,7 +226,7 @@ export default function PracticePage() {
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelectedCategory(cat.code)}
-                  className={`flex items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     isSelected ? "border-accent bg-accent/10" : "border-border bg-background hover:border-accent/50"
                   }`}
                 >
@@ -371,7 +368,7 @@ export default function PracticePage() {
                   <span>{t("allowanceExhausted")}</span>
                   <Link
                     href={`/${locale}/premium`}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-xl bg-gold px-3 text-[11px] font-extrabold text-slate-950 hover:brightness-105"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-[11px] font-extrabold text-slate-950 hover:brightness-105"
                   >
                     <Crown aria-hidden="true" className="h-3.5 w-3.5" />
                     {t("allowanceUpgrade")}
@@ -386,24 +383,28 @@ export default function PracticePage() {
             </div>
           )}
 
-          <Button
-            variant="game"
-            size="lg"
-            className="w-full py-3 text-base"
-            onClick={handleStart}
-            disabled={!canStart}
-          >
-            <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" /> {t("startPractice")}
-          </Button>
+          <div className="sticky-cta-bar">
+            <Button
+              variant="game"
+              size="lg"
+              className="w-full text-base"
+              onClick={handleStart}
+              disabled={!canStart}
+            >
+              <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" /> {t("startPractice")}
+            </Button>
+          </div>
         </Card>
       )}
 
       {source === "sign" && signsAvailable && (
         <Card className="space-y-4 p-5 text-center">
           <p className="text-sm text-muted-foreground">{t("sourceSignHint")}</p>
-          <Button variant="game" size="lg" className="w-full py-3 text-base" onClick={handleStart}>
-            <Signpost aria-hidden="true" className="mr-2 h-5 w-5" /> {t("startPractice")}
-          </Button>
+          <div className="sticky-cta-bar">
+            <Button variant="game" size="lg" className="w-full text-base" onClick={handleStart}>
+              <Signpost aria-hidden="true" className="mr-2 h-5 w-5" /> {t("startPractice")}
+            </Button>
+          </div>
         </Card>
       )}
 

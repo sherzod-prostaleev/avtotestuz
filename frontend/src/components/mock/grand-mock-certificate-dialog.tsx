@@ -68,7 +68,7 @@ export function GrandMockCertificateDialog({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
     >
-      <div className="relative w-full max-w-md rounded-3xl border border-gold/40 bg-gradient-to-br from-card to-gold/10 p-8 text-center shadow-2xl">
+      <div className="relative w-full max-w-md rounded-3xl border border-gold/40 bg-card p-8 text-center">
         <button
           type="button"
           onClick={onClose}

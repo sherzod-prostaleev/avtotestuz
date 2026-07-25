@@ -41,6 +41,11 @@ function examVisual(
   return "selected"; // feedback not yet received
 }
 
+/**
+ * Official Avtotest exam simulation. Desktop look/layout is locked to the
+ * authentic exam vibe. Mobile-only overrides use `max-lg:` so lg+ rendering
+ * stays identical to the original two-column navy exam UI.
+ */
 export function OfficialAvtotestExamView({
   session,
   currentIndex,
@@ -98,7 +103,7 @@ export function OfficialAvtotestExamView({
   };
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#091726] text-white font-sans select-none subpixel-antialiased">
+    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#091726] text-white font-sans select-none subpixel-antialiased max-lg:h-[100dvh]">
       {/* 3D cube mesh background (matching video wallpaper) */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -116,23 +121,23 @@ export function OfficialAvtotestExamView({
       />
 
       {/* ═══ TOP HEADER BAR ═══ */}
-      <header className="relative z-10 flex h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554]">
+      <header className="relative z-10 flex h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554] max-lg:h-auto max-lg:min-h-[52px] max-lg:gap-2 max-lg:px-3 max-lg:py-1 max-lg:pt-[max(0.25rem,env(safe-area-inset-top))]">
         {/* Left: DriveGo logo */}
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] overflow-hidden">
+        <div className="flex items-center gap-3 max-lg:gap-2">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] overflow-hidden max-lg:h-9 max-lg:w-9">
             <img src="/logo.svg" alt="DriveGo Logo" className="h-full w-full object-cover scale-110" />
           </div>
-          <span className="font-black tracking-wider text-2xl text-white" style={{ fontFamily: "'Arial Black', 'Impact', sans-serif" }}>
+          <span className="font-black tracking-wider text-2xl text-white max-lg:hidden" style={{ fontFamily: "'Arial Black', 'Impact', sans-serif" }}>
             Drive<span className="text-[#22c55e]">Go</span>
           </span>
         </div>
 
-        {/* Center: Language tabs */}
-        <div className="flex items-center gap-2">
+        {/* Center: Language tabs — scroll on narrow screens; desktop unchanged */}
+        <div className="flex items-center gap-2 max-lg:max-w-[58vw] max-lg:overflow-x-auto max-lg:scrollbar-none">
           {[
-            { id: "uz-Latn", label: "Uzb (lotin.)" },
-            { id: "uz-Cyrl", label: "Uzb (кирил.)" },
-            { id: "ru", label: "Rus (кирил.)" },
+            { id: "uz-Latn", label: "Uzb (lotin.)", short: "Lotin" },
+            { id: "uz-Cyrl", label: "Uzb (кирил.)", short: "Кирил" },
+            { id: "ru", label: "Rus (кирил.)", short: "Рус" },
           ].map((lang) => {
             const isActive =
               (lang.id === "uz-Latn" && locale === "uz-Latn") ||
@@ -143,14 +148,15 @@ export function OfficialAvtotestExamView({
                 key={lang.id}
                 type="button"
                 onClick={() => switchLocale(lang.id)}
-                className={`relative px-3.5 py-1 text-xs font-bold rounded-sm border transition-all ${
+                className={`relative shrink-0 px-3.5 py-1 text-xs font-bold rounded-sm border transition-all max-lg:min-h-11 max-lg:px-2.5 max-lg:py-2 ${
                   isActive
                     ? "bg-[#183654] text-white border-[#5a8aaa] shadow-sm"
                     : "bg-[#0f2236] text-slate-200 border-[#284260] hover:bg-[#183654] hover:text-white"
                 }`}
               >
                 {isActive && <span className="absolute top-0 left-0 w-full h-[3px] bg-[#22c55e]" />}
-                {lang.label}
+                <span className="max-lg:hidden">{lang.label}</span>
+                <span className="hidden max-lg:inline">{lang.short}</span>
               </button>
             );
           })}
@@ -161,7 +167,7 @@ export function OfficialAvtotestExamView({
           type="button"
           onClick={() => router.push(`/${locale}/dashboard`)}
           aria-label="Close"
-          className="text-slate-300 hover:text-white transition-colors p-1"
+          className="text-slate-300 hover:text-white transition-colors p-1 max-lg:flex max-lg:h-11 max-lg:w-11 max-lg:items-center max-lg:justify-center"
         >
           <X className="w-6 h-6" />
         </button>
@@ -170,24 +176,24 @@ export function OfficialAvtotestExamView({
       {/* ═══ QUESTION TEXT BANNER / RESULT BANNER ═══ */}
       <div className="relative z-10 w-full shrink-0">
         {isFailed ? (
-          <div className="w-full bg-[#dc2626] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md">
+          <div className="w-full bg-[#dc2626] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-2.5 max-lg:text-base">
             Topshirilmadi
           </div>
         ) : isCompleted ? (
-          <div className="w-full bg-[#16a34a] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md">
+          <div className="w-full bg-[#16a34a] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-2.5 max-lg:text-base">
             Topshirildi
           </div>
         ) : (
-          <div className="w-full bg-[#0d2e4d] border-y border-[#204a75] text-white text-center py-3.5 px-8 text-lg font-extrabold leading-relaxed tracking-wide shadow-md">
+          <div className="w-full bg-[#0d2e4d] border-y border-[#204a75] text-white text-center py-3.5 px-8 text-lg font-extrabold leading-relaxed tracking-wide shadow-md max-lg:px-3 max-lg:py-2.5 max-lg:text-sm max-lg:leading-snug">
             {currentQuestion ? currentQuestion.question : "Yuklanmoqda..."}
           </div>
         )}
       </div>
 
-      {/* ═══ MAIN 2-COLUMN LAYOUT ═══ */}
-      <main className="relative z-10 flex flex-1 min-h-0 w-full px-5 py-4 gap-5 items-stretch">
-        {/* LEFT: Answer options */}
-        <div className="flex w-[38%] flex-col gap-3 justify-start pt-2">
+      {/* ═══ MAIN 2-COLUMN LAYOUT (desktop) / STACKED (mobile only) ═══ */}
+      <main className="relative z-10 flex flex-1 min-h-0 w-full px-5 py-4 gap-5 items-stretch max-lg:flex-col max-lg:gap-3 max-lg:overflow-y-auto max-lg:px-3 max-lg:py-3">
+        {/* LEFT: Answer options — on mobile rendered after image */}
+        <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:w-full max-lg:gap-2 max-lg:pt-0 max-lg:pb-[env(safe-area-inset-bottom)]">
           {currentQuestion?.answers.map((answer, index) => {
             const shortcutLabel = `F${index + 1}`;
             const visual = examVisual(currentQuestion, answer.id);
@@ -199,16 +205,16 @@ export function OfficialAvtotestExamView({
                 type="button"
                 disabled={isAnswered || submitting || finishing || isCompleted}
                 onClick={() => onSelectAnswer(currentQuestion.id, answer.id)}
-                className={`group flex w-full items-stretch rounded-sm overflow-hidden border transition-all text-left text-base font-semibold ${btnStyles[visual]}`}
+                className={`group flex w-full items-stretch rounded-sm overflow-hidden border transition-all text-left text-base font-semibold max-lg:min-h-11 ${btnStyles[visual]}`}
               >
                 {/* F-key badge */}
                 <div
-                  className={`flex w-12 shrink-0 items-center justify-center font-black text-base border-r transition-colors ${badgeStyles[visual]}`}
+                  className={`flex w-12 shrink-0 items-center justify-center font-black text-base border-r transition-colors max-lg:w-11 ${badgeStyles[visual]}`}
                 >
                   {shortcutLabel}
                 </div>
                 {/* Text */}
-                <div className="flex flex-1 items-center px-4 py-3 leading-normal text-white font-medium">
+                <div className="flex flex-1 items-center px-4 py-3 leading-normal text-white font-medium max-lg:px-3 max-lg:py-3.5 max-lg:text-sm">
                   {answer.text}
                 </div>
               </button>
@@ -216,8 +222,8 @@ export function OfficialAvtotestExamView({
           })}
         </div>
 
-        {/* RIGHT: Question image */}
-        <div className="flex flex-1 items-center justify-center min-h-0">
+        {/* RIGHT: Question image — on mobile shown first */}
+        <div className="flex flex-1 items-center justify-center min-h-0 max-lg:order-1 max-lg:min-h-[28dvh] max-lg:max-h-[34dvh] max-lg:shrink-0">
           <div
             className="relative flex h-full w-full items-center justify-center border-2 border-slate-300 bg-black overflow-hidden cursor-pointer shadow-xl rounded-sm"
             onClick={() => {
@@ -232,7 +238,7 @@ export function OfficialAvtotestExamView({
                   alt={currentQuestion.question}
                   className="max-h-full max-w-full object-contain"
                 />
-                <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 hover:text-white transition-opacity">
+                <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 hover:text-white transition-opacity max-lg:min-h-11 max-lg:min-w-11 max-lg:flex max-lg:items-center max-lg:justify-center">
                   <ZoomIn className="w-5 h-5" />
                 </div>
               </>
@@ -244,11 +250,11 @@ export function OfficialAvtotestExamView({
       </main>
 
       {/* ═══ BOTTOM BAR ═══ */}
-      <footer className="relative z-10 flex h-[60px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-t border-[#1c3554]">
-        <div className="w-20" />
+      <footer className="relative z-10 flex h-[60px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-t border-[#1c3554] max-lg:h-auto max-lg:min-h-[60px] max-lg:flex-col max-lg:gap-2 max-lg:px-3 max-lg:py-2 max-lg:pb-[max(0.5rem,env(safe-area-inset-bottom))]">
+        <div className="w-20 max-lg:hidden" />
 
         {/* Question number pills */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 max-lg:w-full max-lg:overflow-x-auto max-lg:scrollbar-none max-lg:pb-0.5">
           {questions.map((q, idx) => {
             const isCurrent = idx === currentIndex;
             const isAns = q.answered || Boolean(q.user_answer_id);
@@ -266,7 +272,7 @@ export function OfficialAvtotestExamView({
                 key={q.id}
                 type="button"
                 onClick={() => onSelectIndex(idx)}
-                className={`w-8 h-8 flex items-center justify-center text-base rounded-sm transition-all ${
+                className={`w-8 h-8 flex items-center justify-center text-base rounded-sm transition-all max-lg:h-11 max-lg:w-11 max-lg:shrink-0 ${
                   isCurrent ? "ring-2 ring-white ring-offset-2 ring-offset-[#081320] scale-110 font-black z-10 shadow-lg" : ""
                 } ${bg}`}
               >
@@ -277,9 +283,9 @@ export function OfficialAvtotestExamView({
         </div>
 
         {/* Timer */}
-        <div className="flex items-center">
+        <div className="flex items-center max-lg:w-full max-lg:justify-center">
           {session.remaining_sec !== null && (
-            <div className="bg-[#050b12] border border-[#2a4568] px-4 py-1.5 rounded-sm font-mono text-xl font-bold tracking-wider text-[#fbbf24] shadow-inner">
+            <div className="bg-[#050b12] border border-[#2a4568] px-4 py-1.5 rounded-sm font-mono text-xl font-bold tracking-wider text-[#fbbf24] shadow-inner max-lg:min-h-11 max-lg:flex max-lg:items-center max-lg:px-5">
               <CountdownTimer seconds={session.remaining_sec} onExpire={onFinish} />
             </div>
           )}
@@ -298,9 +304,9 @@ export function OfficialAvtotestExamView({
             <button
               type="button"
               onClick={() => setZoomImageUrl(null)}
-              className="absolute -top-10 right-0 text-white hover:text-slate-300"
+              className="absolute -top-10 right-0 text-white hover:text-slate-300 max-lg:top-2 max-lg:right-2 max-lg:flex max-lg:h-11 max-lg:w-11 max-lg:items-center max-lg:justify-center max-lg:rounded-full max-lg:bg-black/70"
             >
-              <X className="w-8 h-8" />
+              <X className="w-8 h-8 max-lg:w-6 max-lg:h-6" />
             </button>
           </div>
         </div>

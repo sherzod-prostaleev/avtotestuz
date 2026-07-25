@@ -243,10 +243,11 @@ Readiness ≥ threshold + volume floor → Grand Mock unlock → (exam UI out of
 | **J3 Shell** | Sidebar primary+More | ✅ started |
 | **J4 Auth** | Login/verify chrome | ✅ started |
 | **J5 Dashboard chrome** | Hero cleanup, indigo purge | ✅ started |
-| **J6 Remaining chrome** | Premium, profile, practice, tickets, signs, mistakes, saved, stats, leaderboard, checkout | ⬜ next |
-| **J7 Motion/a11y pass** | Reduced-motion QA, contrast audit, Lighthouse | ⬜ |
+| **J6 Remaining chrome** | Premium, profile, practice, tickets, signs, mistakes, saved, stats, leaderboard, checkout | ✅ |
+| **J6b Mobile UX** | page-shell, sticky-cta, 44px targets, chip-scroll, safe-area | ✅ |
+| **J7 Motion/a11y pass** | Semantic token purge, contrast, reduced-motion | ✅ partial (chrome) |
 | **J8 Figma source of truth** | Tokens + key screens (optional but recommended) | ⬜ |
-| **J9 Session/exam interior** | Separate wave — same tokens, new layouts | ⬜ later |
+| **J9 Session/exam interior** | Practice session mobil-first; exam desktop locked, mobile `max-lg:` only | ✅ |
 | **J10 Arena UI** | On this system after M4-03 plan | ⬜ later |
 
 **Figma → Dev:**

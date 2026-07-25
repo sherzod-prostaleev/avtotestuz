@@ -72,50 +72,49 @@ export default function TicketsPage() {
   ];
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-8 space-y-8">
-      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <main className="page-shell space-y-6 sm:space-y-8">
+      <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={`/${locale}/dashboard`} className="mb-2 inline-flex items-center gap-1 text-sm text-accent hover:underline">
+          <Link href={`/${locale}/dashboard`} className="back-link">
             <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
           </Link>
-          <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
+          <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>
 
-        {/* Search Input */}
         <div className="relative w-full sm:w-64">
           <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t("searchPlaceholder")}
             aria-label={t("searchLabel")}
-            className="w-full rounded-2xl border border-border bg-card py-2.5 pl-9 pr-4 text-xs font-semibold outline-none focus:border-accent"
+            className="field-input pl-9"
           />
         </div>
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <Card className="glass-card overflow-hidden border-accent/20 bg-gradient-to-br from-card via-card to-accent/10 p-6 md:p-8">
+        <Card className="overflow-hidden border-accent/20 bg-card p-5 md:p-8">
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+              <span className="rounded-md bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
                 {t("statTotal", { count: tickets.length })}
               </span>
-              <span className="rounded-full bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+              <span className="rounded-md bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
                 {t("statCompleted", { count: completedCount })}
               </span>
-              <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-extrabold text-emerald-600">
+              <span className="rounded-md bg-success/15 px-3 py-1 text-[11px] font-extrabold text-success">
                 {t("statInProgress", { count: inProgressCount })}
               </span>
-              <span className="rounded-full bg-muted px-3 py-1 text-[11px] font-extrabold text-muted-foreground">
+              <span className="rounded-md bg-muted px-3 py-1 text-[11px] font-extrabold text-muted-foreground">
                 {t("statLocked", { count: lockedCount })}
               </span>
             </div>
 
             <div className="space-y-3">
-              <div className="inline-flex items-center rounded-full border border-border/60 bg-background/80 px-3 py-1 text-[11px] font-bold text-muted-foreground">
+              <div className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-[11px] font-bold text-muted-foreground">
                 {t("ticketsProgress", { done: completedCount, total: tickets.length })}
               </div>
               <h2 className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
@@ -125,7 +124,7 @@ export default function TicketsPage() {
                 {t("heroDescription")}
               </p>
               <div
-                className="h-2 w-full overflow-hidden rounded-full border border-border bg-background"
+                className="h-2 w-full overflow-hidden rounded-full bg-border"
                 role="progressbar"
                 aria-valuenow={completedPercent}
                 aria-valuemin={0}
@@ -133,7 +132,7 @@ export default function TicketsPage() {
                 aria-label={t("ticketsProgress", { done: completedCount, total: tickets.length })}
               >
                 <div
-                  className="h-full rounded-full bg-gradient-to-r from-accent to-gold transition-all duration-500"
+                  className="h-full rounded-full bg-accent transition-all duration-500"
                   style={{ width: `${completedPercent}%` }}
                 />
               </div>
@@ -141,13 +140,13 @@ export default function TicketsPage() {
           </div>
         </Card>
 
-        <Card className="glass-card flex flex-col justify-between border-border/70 bg-background/80 p-6 md:p-8">
+        <Card className="flex flex-col justify-between bg-card p-5 md:p-8">
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
                 {t("nextTicketLabel")}
               </p>
-              <h3 className="mt-2 font-display text-3xl font-black tracking-tight">
+              <h3 className="mt-2 font-display text-3xl font-black tracking-tight tabular-nums">
                 {nextTicket ? t("ticketNumber", { number: nextTicket.ticket.number }) : t("allDoneTitle")}
               </h3>
               <p className="mt-2 text-xs text-muted-foreground">
@@ -165,44 +164,43 @@ export default function TicketsPage() {
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className="rounded-full bg-card px-3 py-1 text-muted-foreground">
+            <span className="rounded-md bg-background px-3 py-1 text-muted-foreground">
               {t("statAvailable", { count: availableCount })}
             </span>
-            <span className="rounded-full bg-card px-3 py-1 text-muted-foreground">
+            <span className="rounded-md bg-background px-3 py-1 text-muted-foreground">
               {t("statUnstarted", { count: unstartedCount })}
             </span>
           </div>
 
-          {nextTicket ? (
-            <Button
-              type="button"
-              variant="game"
-              size="lg"
-              className="mt-5 w-full"
-              onClick={() => handleStartTicket(nextTicket.ticket)}
-            >
-              {t("solve")}
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" size="lg" className="mt-5 w-full" onClick={() => router.push(`/${locale}/practice`)}>
-              {t("goToPractice")}
-            </Button>
-          )}
+          <div className="sticky-cta-bar mt-5 sm:mt-5">
+            {nextTicket ? (
+              <Button
+                type="button"
+                variant="game"
+                size="lg"
+                className="w-full"
+                onClick={() => handleStartTicket(nextTicket.ticket)}
+              >
+                {t("solve")}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(`/${locale}/practice`)}>
+                {t("goToPractice")}
+              </Button>
+            )}
+          </div>
         </Card>
       </section>
 
-      {/* Filter Tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div className="chip-scroll" role="group" aria-label={t("title")}>
         {filterTabs.map((tab) => (
           <button
             type="button"
             key={tab.key}
             onClick={() => setFilterStatus(tab.key)}
             aria-pressed={filterStatus === tab.key}
-            className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-              filterStatus === tab.key
-                ? "bg-accent text-accent-foreground shadow-3d"
-                : "border border-border bg-card text-muted-foreground hover:text-foreground"
+            className={`filter-chip ${
+              filterStatus === tab.key ? "filter-chip-active" : "filter-chip-idle"
             }`}
           >
             {tab.label}
@@ -237,11 +235,11 @@ export default function TicketsPage() {
                 role="button"
                 tabIndex={0}
                 aria-label={t("openTicket", { number: ticket.number })}
-                className={`glass-card relative flex flex-col items-center justify-between p-4 text-center cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`relative flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-between p-4 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isCompleted
                     ? "border-gold/40 bg-gold/5"
                     : isLocked
-                    ? "border-border opacity-70 bg-card/50"
+                    ? "border-border bg-card opacity-70"
                     : "border-accent/30 hover:border-accent"
                 }`}
               >
@@ -273,7 +271,7 @@ export default function TicketsPage() {
                       {t("scoreShort", { score: bestCorrect, total: ticket.total_questions ?? 20 })}
                     </span>
                   ) : (
-                    <span className="inline-flex h-7 w-full items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 py-1 text-[11px] font-bold text-accent-foreground shadow-3d">
+                    <span className="inline-flex h-9 w-full items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 text-[11px] font-bold text-accent-foreground shadow-3d">
                       <Play aria-hidden="true" className="mr-1 h-3 w-3" /> {t("solve")}
                     </span>
                   )}

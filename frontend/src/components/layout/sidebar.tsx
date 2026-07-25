@@ -88,9 +88,9 @@ export function Sidebar() {
         key={link.href}
         href={link.href}
         onClick={() => setMobileOpen(false)}
-        className={`flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-colors ${
+        className={`flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
-            ? "translate-x-0.5 bg-accent text-accent-foreground shadow-3d"
+            ? "bg-accent text-accent-foreground shadow-3d"
             : link.isGold
               ? "text-gold hover:bg-gold/10"
               : "text-muted-foreground hover:bg-background hover:text-foreground"
@@ -104,26 +104,29 @@ export function Sidebar() {
 
   return (
     <>
-      <div className="sticky top-0 z-40 flex h-16 w-full items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-md md:hidden">
+      <div
+        className="sticky top-0 z-40 flex h-14 w-full items-center justify-between border-b border-border bg-background/95 px-4 backdrop-blur-md md:hidden"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <Link
           href={`/${currentLocale}/dashboard`}
-          className="flex items-center gap-2.5 font-display text-xl font-bold text-foreground"
+          className="flex min-h-11 items-center gap-2.5 font-display text-xl font-bold text-foreground"
         >
           <img src="/logo.svg" alt="" className="h-9 w-9 rounded-full object-cover" />
           <span className="font-black">{t("brandName")}</span>
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1 rounded-full border border-streak/30 bg-streak/10 px-2.5 py-1 text-xs font-bold text-streak">
+          <div className="flex min-h-11 items-center gap-1 rounded-xl border border-streak/30 bg-streak/10 px-3 text-xs font-bold text-streak">
             <Flame aria-hidden="true" className="h-3.5 w-3.5 animate-flame" />
-            <span>{currentStreak}</span>
+            <span className="tabular-nums">{currentStreak}</span>
           </div>
 
           <button
             type="button"
             aria-label={mobileOpen ? t("closeMenu") : t("openMenu")}
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-border bg-card text-foreground"
+            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {mobileOpen ? (
               <X aria-hidden="true" className="h-5 w-5" />
@@ -144,9 +147,13 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-64 flex-col justify-between border-r border-border bg-card p-4 transition-transform duration-300 md:translate-x-0 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(18rem,88vw)] flex-col justify-between border-r border-border bg-card p-4 transition-transform duration-300 md:w-64 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
+        style={{
+          paddingTop: "max(1rem, env(safe-area-inset-top))",
+          paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+        }}
       >
         <div className="space-y-5">
           <div className="flex items-center justify-between px-1 pt-1">

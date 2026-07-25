@@ -41,12 +41,12 @@ export default function StatsPage() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={`/${locale}/dashboard`} className="mb-2 flex items-center gap-1 text-sm text-accent hover:underline">
+        <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
@@ -95,7 +95,7 @@ export default function StatsPage() {
               </div>
               <Link
                 href={`/${locale}/mistakes`}
-                className="inline-flex h-9 items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 text-xs font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 text-xs font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t("startRepeat")}
               </Link>

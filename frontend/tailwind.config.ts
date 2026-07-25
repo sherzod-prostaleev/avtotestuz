@@ -15,6 +15,10 @@ const config: Config = {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        muted: {
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))",
+        },
         "muted-foreground": "hsl(var(--muted-foreground))",
         accent: {
           DEFAULT: "hsl(var(--accent))",
@@ -24,13 +28,22 @@ const config: Config = {
         success: {
           DEFAULT: "hsl(var(--success))",
           foreground: "hsl(var(--success-foreground))",
+          shadow: "hsl(var(--success-shadow))",
         },
         danger: {
           DEFAULT: "hsl(var(--danger))",
           foreground: "hsl(var(--danger-foreground))",
+          shadow: "hsl(var(--danger-shadow))",
+        },
+        destructive: {
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--danger-foreground))",
         },
         streak: "hsl(var(--streak))",
-        gold: "hsl(var(--gold))",
+        gold: {
+          DEFAULT: "hsl(var(--gold))",
+          shadow: "hsl(var(--gold-shadow))",
+        },
       },
       borderRadius: {
         xl: "var(--radius)",
@@ -42,11 +55,21 @@ const config: Config = {
         display: ["var(--font-baloo)", "Plus Jakarta Sans", "sans-serif"],
         sans: ["var(--font-manrope)", "Inter", "sans-serif"],
       },
+      spacing: {
+        13: "3.25rem",
+        15: "3.75rem",
+        18: "4.5rem",
+      },
+      minHeight: {
+        touch: "2.75rem",
+      },
       boxShadow: {
         "3d": "0 4px 0 0 hsl(var(--accent-shadow))",
-        "3d-success": "0 4px 0 0 hsl(154 75% 30%)",
-        "3d-gold": "0 4px 0 0 hsl(43 96% 36%)",
-        glass: "0 8px 32px 0 rgba(0, 0, 0, 0.12)",
+        "3d-success": "0 4px 0 0 hsl(var(--success-shadow))",
+        "3d-gold": "0 4px 0 0 hsl(var(--gold-shadow))",
+        "3d-danger": "0 4px 0 0 hsl(var(--danger-shadow))",
+        elev: "0 1px 2px 0 rgba(16, 24, 40, 0.06)",
+        modal: "0 8px 24px 0 rgba(16, 24, 40, 0.12)",
       },
     },
   },

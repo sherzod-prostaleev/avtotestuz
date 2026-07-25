@@ -100,19 +100,18 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={`/${currentLocale}/dashboard`} className="mb-2 flex items-center gap-1 text-sm text-accent hover:underline">
+        <Link href={`/${currentLocale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <h1 className="font-display text-2xl font-bold">{t("title")}</h1>
+        <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       </header>
 
       <div className="space-y-6">
-        {/* User Info Form */}
-        <Card className="p-6">
-          <CardHeader className="p-0 mb-4 flex flex-row items-center gap-2">
+        <Card className="p-5 sm:p-6">
+          <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
             <User aria-hidden="true" className="h-5 w-5 text-accent" />
             <CardTitle className="text-base font-bold">{t("personalInfo")}</CardTitle>
           </CardHeader>
@@ -124,7 +123,7 @@ export default function ProfilePage() {
           )}
 
           {errorKey && (
-            <div role="alert" className="mb-4 rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+            <div role="alert" className="mb-4 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
               <p>{t(errorKey)}</p>
               {errorKey === "loadError" && (
                 <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void loadProfile()}>
@@ -135,26 +134,26 @@ export default function ProfilePage() {
           )}
 
           {savedSuccess && (
-            <div role="status" className="mb-4 flex items-center gap-2 rounded-md border border-success/50 bg-success/10 p-3 text-sm text-success font-medium">
+            <div role="status" className="mb-4 flex items-center gap-2 rounded-xl border border-success/50 bg-success/10 p-3 text-sm font-medium text-success">
               <Check aria-hidden="true" className="h-4 w-4" /> {t("savedSuccess")}
             </div>
           )}
 
           <form onSubmit={handleSave} className="space-y-4">
             <div>
-              <label htmlFor="profile-phone" className="mb-1 block text-xs font-bold text-muted-foreground">{t("phoneLabel")}</label>
+              <label htmlFor="profile-phone" className="mb-1.5 block text-xs font-bold text-muted-foreground">{t("phoneLabel")}</label>
               <input
                 id="profile-phone"
                 type="text"
                 disabled
                 value={profile?.phone || ""}
                 autoComplete="tel"
-                className="w-full rounded-md border border-border bg-background/50 p-2.5 text-sm text-muted-foreground"
+                className="field-input bg-muted text-muted-foreground"
               />
             </div>
 
             <div>
-              <label htmlFor="profile-name" className="mb-1 block text-xs font-bold text-muted-foreground">{t("nameLabel")}</label>
+              <label htmlFor="profile-name" className="mb-1.5 block text-xs font-bold text-muted-foreground">{t("nameLabel")}</label>
               <input
                 id="profile-name"
                 type="text"
@@ -163,12 +162,12 @@ export default function ProfilePage() {
                 placeholder={t("namePlaceholder")}
                 autoComplete="name"
                 disabled={loading || !profile}
-                className="w-full rounded-md border border-border bg-card p-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                className="field-input"
               />
             </div>
 
             <div>
-              <label htmlFor="profile-region" className="mb-1 block text-xs font-bold text-muted-foreground">{t("regionLabel")}</label>
+              <label htmlFor="profile-region" className="mb-1.5 block text-xs font-bold text-muted-foreground">{t("regionLabel")}</label>
               <input
                 id="profile-region"
                 type="text"
@@ -177,30 +176,31 @@ export default function ProfilePage() {
                 placeholder={t("regionPlaceholder")}
                 autoComplete="address-level1"
                 disabled={loading || !profile}
-                className="w-full rounded-md border border-border bg-card p-2.5 text-sm text-foreground focus:border-accent focus:outline-none"
+                className="field-input"
               />
             </div>
 
-            <Button type="submit" variant="game" size="sm" disabled={loading || saving || !profile}>
-              {saving ? t("saving") : t("save")}
-            </Button>
+            <div className="sticky-cta-bar">
+              <Button type="submit" variant="game" size="sm" className="w-full sm:w-auto" disabled={loading || saving || !profile}>
+                {saving ? t("saving") : t("save")}
+              </Button>
+            </div>
           </form>
         </Card>
 
-        {/* Language & Theme Settings */}
-        <Card className="p-6">
-          <CardHeader className="p-0 mb-4 flex flex-row items-center gap-2">
+        <Card className="p-5 sm:p-6">
+          <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
             <Globe aria-hidden="true" className="h-5 w-5 text-accent" />
             <CardTitle className="text-base font-bold">{t("appearanceSettings")}</CardTitle>
           </CardHeader>
 
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm font-bold">{t("language")}</p>
                 <p className="text-xs text-muted-foreground">{t("languageDescription")}</p>
               </div>
-              <div role="group" aria-label={t("language")} className="flex gap-1 rounded-md border border-border bg-card p-1">
+              <div role="group" aria-label={t("language")} className="flex w-full gap-1 rounded-xl border border-border bg-background p-1 sm:w-auto">
                 {[
                   { code: "uz-Latn", label: t("languageUzLatn") },
                   { code: "uz-Cyrl", label: t("languageUzCyrl") },
@@ -211,7 +211,7 @@ export default function ProfilePage() {
                     key={lang.code}
                     onClick={() => void handleLanguageChange(lang.code)}
                     aria-pressed={currentLocale === lang.code}
-                    className={`rounded px-3 py-1 text-xs font-bold transition-all ${
+                    className={`min-h-11 flex-1 rounded-lg px-3 text-xs font-bold transition-all sm:flex-none ${
                       currentLocale === lang.code
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:text-foreground"
@@ -233,20 +233,16 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        {/* Referral Program Section */}
         <ReferralCard />
-
-        {/* Payment History Section */}
         <PaymentHistoryCard />
 
-        {/* Logout Section */}
-        <Card className="p-6 border-destructive/30 bg-destructive/5">
-          <div className="flex items-center justify-between">
+        <Card className="border-destructive/30 bg-destructive/5 p-5 sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-destructive">{t("logout")}</h3>
               <p className="text-xs text-muted-foreground">{t("logoutDescription")}</p>
             </div>
-            <Button variant="outline" className="border-destructive/40 text-destructive hover:bg-destructive/10" onClick={handleLogout}>
+            <Button variant="outline" className="w-full border-destructive/40 text-destructive hover:bg-destructive/10 sm:w-auto" onClick={handleLogout}>
               <LogOut aria-hidden="true" className="mr-2 h-4 w-4" /> {t("logout")}
             </Button>
           </div>
