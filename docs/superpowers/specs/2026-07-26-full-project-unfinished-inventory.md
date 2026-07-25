@@ -53,10 +53,10 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-14** | P1 | Ops/CI | **Playwright e2e in CI** | **partial** | Staging or compose in GHA | CI `e2e` job runs Chromium smoke; optional `secrets.E2E_AUTH_TOKEN` injects `at` cookie for session-gate shells (skip when absent). Full-stack API journeys still need backend/compose + real JWT. |
 | **U-15** | P1 | Ops/CI | **Redis service in GitHub Actions** | **done** | — | Backend CI job now runs `redis:7-alpine` + `TEST_REDIS_URL` so `redisx.NewTest` packages exercise a real Redis. |
 | **U-16** | P1 | FE | **FSRS due practice UX (`GET /learn/next`)** | **done** | Learning BE ✅ | Session `mode=review` uses `learning.NextDue`; Practice “Takrorlash” source + dashboard CTA. |
-| **U-17** | P1 | Docs/FE | **Landing footer real contacts** | partial | Marketing inputs | Placeholder phone/address/TG/IG in `messages/*` (`+998 71 200 00 00`, etc.). |
+| **U-17** | P1 | Docs/FE | **Landing footer real contacts** | done (ops bridge) | — | `site_settings.contacts` + public `GET /site/contacts` + ops edit `/{locale}/ops/contacts`. Empty fields keep i18n placeholders. **Real home:** Admin CMS chrome (M3-4); ops is temporary bridge. |
 | **U-18** | P2 | Design | **J8 Figma SoT** | deferred | Optional | Explicitly optional in next-wave; not a gate for Arena or N2. |
 | **U-19** | P2 | Design/FE | **J7 residual / visual QA depth** | partial | Sibling | Checklist largely signed in `visual-qa-checklist.md`; deeper dark×locale pixel walk open; handoff J-table may still lag. Do not thrash sibling hot files. |
-| **U-20** | P2 | FE | **N4 chrome tech debt** | partial | U-19 | Sticky-CTA gaps closed (Premium mobile buy + Stats due→`mode=review`). Provider picker dots on Asphalt tokens. Static `/logo.svg` chrome → `BrandLogo` (`next/image`). Remaining: content `no-img-element` on dynamic MinIO/CDN media (accepted); footer contacts = U-17. |
+| **U-20** | P2 | FE | **N4 chrome tech debt** | partial | U-19 | Sticky-CTA gaps closed (Premium mobile buy + Stats due→`mode=review`). Provider picker dots on Asphalt tokens. Static `/logo.svg` chrome → `BrandLogo` (`next/image`). Remaining: content `no-img-element` on dynamic MinIO/CDN media (accepted). Footer contacts: U-17 done via ops/CMS bridge. |
 | **U-21** | P2 | BE | **Promo pro-rate user communication** | **done** | Billing | `me/entitlement.proration` + checkout success notice when promo exhausted mid-flight. |
 | **U-22** | P2 | BE | **Leaderboard rebuild cap approximation** | **done** (accepted) | M4-01 ✅ | Documented in U-22 spec + CLI note + design §5. Current VIP/cap at rebuild; not historical fidelity. |
 | **U-23** | P2 | BE | **Drop or document dead `referral_attribution`** | **done** | U-05 | Migration `0028` drops unused 0003 table; live path remains `referral` (0015). sqlc model removed; db test asserts absence. |
@@ -81,7 +81,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
-| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked.** Thin ops: providers, health, users, payments, audit, **limits** (read-only `limit_config`) under `/{locale}/ops/*`. Full RBAC/CMS/monitoring still missing. |
+| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked** (`2026-07-26-m3-super-admin-control-center.md`). Thin ops: providers, health, users, payments, audit, limits, **contacts** under `/{locale}/ops/*`. Contacts = Admin CMS (U-17). Full `/{locale}/admin` + `/admin/v1` + `admin_user` RBAC still in progress (M3-0…). |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | missing | U-45 | Master admin scope. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
@@ -124,7 +124,7 @@ A3  Ops MVP (can parallel): Dockerfiles + D18 staging; add Redis + Playwright to
  ├─ Learning/content track (parallel with Growth)
  │   C1  FE due-FSRS / learn/next UX (U-16)
  │   C2  Real LLM draft OR expert batch-verify path (U-12/U-13)
- │   C3  SEO/legal pages + real footer contacts (U-32 done shell; U-17 contacts still partial)
+ │   C3  SEO/legal pages + footer contacts (U-32 done shell; U-17 contacts via ops/CMS bridge)
  │
  ├─ Prod money flip (external gate)
  │   D1  Legal entity → Payme/Click prod keys (U-03) + recon job (U-27)

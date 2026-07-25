@@ -57,6 +57,7 @@ export default function OpsHealthPage() {
   const tPayments = useTranslations("OpsPayments");
   const tAudit = useTranslations("OpsAudit");
   const tLimits = useTranslations("OpsLimits");
+  const tContacts = useTranslations("OpsContacts");
   const locale = useLocale();
   const [payload, setPayload] = useState<HealthPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +122,7 @@ export default function OpsHealthPage() {
         labels={{
           health: t("navHealth"),
           providers: tProviders("navProviders"),
+          contacts: tContacts("navContacts"),
           users: tUsers("navUsers"),
           payments: tPayments("navPayments"),
           audit: tAudit("navAudit"),

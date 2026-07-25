@@ -18,6 +18,7 @@ const TOKEN_KEY = "drivergo:ops-admin-token";
 
 export default function OpsLimitsPage() {
   const t = useTranslations("OpsLimits");
+  const tContacts = useTranslations("OpsContacts");
   const tHealth = useTranslations("OpsHealth");
   const tProviders = useTranslations("OpsProviders");
   const tUsers = useTranslations("OpsUsers");
@@ -87,6 +88,7 @@ export default function OpsLimitsPage() {
   const navLabels = {
     health: tHealth("navHealth"),
     providers: tProviders("navProviders"),
+    contacts: tContacts("navContacts"),
     users: tUsers("navUsers"),
     payments: tPayments("navPayments"),
     audit: tAudit("navAudit"),

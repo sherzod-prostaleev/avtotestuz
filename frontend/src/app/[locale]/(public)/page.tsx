@@ -1,11 +1,14 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { DemoQuestionBlock } from "./demo-question-block";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
+import { apiGet } from "@/lib/api-client";
+import { contactOrFallback, type SiteContacts } from "@/lib/site-contacts";
 import {
   Award,
   BrainCircuit,
@@ -72,6 +75,31 @@ function PhoneMock({
 export default function LandingPage() {
   const t = useTranslations("Landing");
   const locale = useLocale();
+  const [contacts, setContacts] = useState<SiteContacts | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void apiGet<SiteContacts>("site/contacts")
+      .then((data) => {
+        if (!cancelled) setContacts(data);
+      })
+      .catch(() => {
+        /* keep i18n placeholders */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const phone = contactOrFallback(contacts?.phone, t("footerPhone"));
+  const phoneTel = contactOrFallback(contacts?.phoneTel, t("footerPhoneTel"));
+  const email = contactOrFallback(contacts?.email, t("footerEmail"));
+  const address = contactOrFallback(contacts?.address, t("footerAddress"));
+  const hours = contactOrFallback(contacts?.hours, t("footerHours"));
+  const telegram = contactOrFallback(contacts?.telegram, t("footerTelegram"));
+  const telegramUrl = contactOrFallback(contacts?.telegramUrl, t("footerTelegramUrl"));
+  const instagram = contactOrFallback(contacts?.instagram, t("footerInstagram"));
+  const instagramUrl = contactOrFallback(contacts?.instagramUrl, t("footerInstagramUrl"));
 
   const features = [
     { icon: BrainCircuit, title: t("feature1Title"), text: t("feature1Text") },
@@ -358,29 +386,29 @@ export default function LandingPage() {
             <ul className="space-y-3 text-sm">
               <li>
                 <a
-                  href={`tel:${t("footerPhoneTel")}`}
+                  href={`tel:${phoneTel}`}
                   className="inline-flex items-center gap-2 font-semibold text-foreground hover:text-accent"
                 >
                   <Phone aria-hidden="true" className="h-4 w-4 text-accent" />
-                  {t("footerPhone")}
+                  {phone}
                 </a>
               </li>
               <li>
                 <a
-                  href={`mailto:${t("footerEmail")}`}
+                  href={`mailto:${email}`}
                   className="inline-flex items-center gap-2 font-semibold text-foreground hover:text-accent"
                 >
                   <Mail aria-hidden="true" className="h-4 w-4 text-accent" />
-                  {t("footerEmail")}
+                  {email}
                 </a>
               </li>
               <li className="flex items-start gap-2 text-muted-foreground">
                 <MapPin aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <span>{t("footerAddress")}</span>
+                <span>{address}</span>
               </li>
               <li className="flex items-center gap-2 text-muted-foreground">
                 <Clock3 aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" />
-                <span>{t("footerHours")}</span>
+                <span>{hours}</span>
               </li>
             </ul>
           </div>
@@ -392,24 +420,24 @@ export default function LandingPage() {
             <ul className="space-y-3 text-sm font-semibold">
               <li>
                 <a
-                  href={t("footerTelegramUrl")}
+                  href={telegramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-foreground hover:text-accent"
                 >
                   <Send aria-hidden="true" className="h-4 w-4 text-accent" />
-                  {t("footerTelegram")}
+                  {telegram}
                 </a>
               </li>
               <li>
                 <a
-                  href={t("footerInstagramUrl")}
+                  href={instagramUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2 text-foreground hover:text-accent"
                 >
                   <Instagram aria-hidden="true" className="h-4 w-4 text-accent" />
-                  {t("footerInstagram")}
+                  {instagram}
                 </a>
               </li>
             </ul>

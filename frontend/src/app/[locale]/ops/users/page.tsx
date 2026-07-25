@@ -25,6 +25,7 @@ export default function OpsUsersPage() {
   const tPayments = useTranslations("OpsPayments");
   const tAudit = useTranslations("OpsAudit");
   const tLimits = useTranslations("OpsLimits");
+  const tContacts = useTranslations("OpsContacts");
   const locale = useLocale();
   const [token, setToken] = useState("");
   const [tokenDraft, setTokenDraft] = useState("");
@@ -109,6 +110,7 @@ export default function OpsUsersPage() {
         labels={{
           health: tHealth("navHealth"),
           providers: tProviders("navProviders"),
+          contacts: tContacts("navContacts"),
           users: t("navUsers"),
           payments: tPayments("navPayments"),
           audit: tAudit("navAudit"),

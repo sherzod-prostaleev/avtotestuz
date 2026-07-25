@@ -202,7 +202,8 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				explanation_translation, explanation, question_sign,
 				sign_translation, sign, sign_group_translation, sign_group,
 				variant_question, variant, answer_translation, question_translation,
-				answer, question, image, category_translation, category
+				answer, question, image, category_translation, category,
+				site_settings
 			RESTART IDENTITY CASCADE`)
 		if err == nil {
 			return
