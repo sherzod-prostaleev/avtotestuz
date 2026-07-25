@@ -1307,6 +1307,22 @@
     "eventsEmpty": "Event йўқ.",
     "generatedAt": "Ҳисобланган: {time}"
   },
+  "AdminInvestors": {
+    "title": "Investors",
+    "subtitle": "Read-only агрегатлар (investors.read) — analytics билан бир хил SQL.",
+    "note": "Metabase/Grafana эмас. PII йўқ — фақат counts/sums.",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "investors.read рухсати йўқ.",
+    "tileProfiles": "Profiles",
+    "tileProfiles7d": "Янги (7 кун)",
+    "tilePaid": "Paid",
+    "tileRevenue": "Revenue",
+    "tileRevenue7d": "Revenue (7 кун)",
+    "tileEntitlements": "Фаол VIP",
+    "generatedAt": "Ҳисобланган: {time}"
+  },
   "AdminFlags": {
     "title": "Feature flags",
     "subtitle": "Runtime feature_flag жадвали (M3-7). Boolean toggle + audit.",

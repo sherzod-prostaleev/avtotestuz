@@ -1307,6 +1307,22 @@
     "eventsEmpty": "Событий нет.",
     "generatedAt": "Посчитано: {time}"
   },
+  "AdminInvestors": {
+    "title": "Investors",
+    "subtitle": "Read-only агрегаты (investors.read) — те же SQL, что analytics.",
+    "note": "Не Metabase/Grafana. Без PII — только counts/sums.",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права investors.read.",
+    "tileProfiles": "Profiles",
+    "tileProfiles7d": "Новые (7д)",
+    "tilePaid": "Paid",
+    "tileRevenue": "Revenue",
+    "tileRevenue7d": "Revenue (7д)",
+    "tileEntitlements": "Активный VIP",
+    "generatedAt": "Посчитано: {time}"
+  },
   "AdminFlags": {
     "title": "Feature flags",
     "subtitle": "Таблица feature_flag (M3-7). Boolean toggle + audit.",

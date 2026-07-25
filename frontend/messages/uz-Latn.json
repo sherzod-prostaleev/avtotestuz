@@ -1307,6 +1307,22 @@
     "eventsEmpty": "Event yo‘q.",
     "generatedAt": "Hisoblangan: {time}"
   },
+  "AdminInvestors": {
+    "title": "Investors",
+    "subtitle": "Read-only agregatlar (investors.read) — analytics bilan bir xil SQL.",
+    "note": "Metabase/Grafana emas. PII yo‘q — faqat counts/sums.",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "investors.read ruxsati yo‘q.",
+    "tileProfiles": "Profiles",
+    "tileProfiles7d": "Yangi (7 kun)",
+    "tilePaid": "Paid",
+    "tileRevenue": "Revenue",
+    "tileRevenue7d": "Revenue (7 kun)",
+    "tileEntitlements": "Faol VIP",
+    "generatedAt": "Hisoblangan: {time}"
+  },
   "AdminFlags": {
     "title": "Feature flags",
     "subtitle": "Runtime feature_flag jadvali (M3-7). Boolean toggle + audit.",

@@ -113,6 +113,11 @@ func (h *Handler) Routes(r chi.Router) {
 			ar.Get("/analytics/overview", h.getAnalyticsOverview)
 		})
 
+		pr.Group(func(ir chi.Router) {
+			ir.Use(RequirePermission("investors.read"))
+			ir.Get("/investors/overview", h.getInvestorsOverview)
+		})
+
 		pr.Group(func(fr chi.Router) {
 			fr.Use(RequirePermission("settings.flags"))
 			fr.Get("/settings/flags", h.listFeatureFlags)
@@ -649,6 +654,17 @@ func (h *Handler) getAnalyticsOverview(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "analytics query failed")
 		return
 	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getInvestorsOverview(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.Store.GetAnalyticsOverview(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "investors overview query failed")
+		return
+	}
+	// Same aggregates as analytics — gated by investors.read for investor_viewer role.
+	out.Note = "Investor read-only stub: same honest SQL tiles as analytics.overview. Not Metabase/Grafana."
 	httpx.Data(w, http.StatusOK, out)
 }
 

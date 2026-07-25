@@ -32,4 +32,9 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain("jarimalar");
     expect(sw).toContain("support");
   });
+
+  it("does not claim full offline exam/content sync", () => {
+    expect(sw).toMatch(/No full offline exam/);
+    expect(sw).not.toMatch(/IndexedDB|questions.?catalog/i);
+  });
 });

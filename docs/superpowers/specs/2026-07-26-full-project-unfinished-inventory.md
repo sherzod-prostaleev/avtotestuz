@@ -27,7 +27,7 @@
 
 **Bottom line:** Treating “Arena UI last” as project completion **understates** Admin, production payments, bot completeness, content quality, ops/staging, PWA, B2B, and antifraud. Honest “launchable B2C MVP” ≠ “platform complete.”
 
-**Doc drift (U-50, 2026-07-26 #2):** SESSION-HANDOFF §⚡ refreshed after audit UI / broadcast / flag gates / teacher portal. Prefer **code + this inventory** if any older plan row still lags.
+**Doc drift (U-50, 2026-07-26 #3):** SESSION-HANDOFF §⚡ refreshed after support inbox / homepage CMS / monitoring feed+alerts / U-39 done-enough / investors stub. Prefer **code + this inventory** if any older plan row still lags.
 
 ---
 
@@ -75,18 +75,18 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-36** | P2 | Bot | **`/unlink` + bot i18n** | deferred | U-10 | Documented TODO in M4-06 design. |
 | **U-37** | P2 | Ops | **Makefile frontend targets** | **done** | — | `make fe-install` / `fe-lint` / `fe-typecheck` / `fe-test` / `fe-build` / `fe-e2e` / `fe-check`. |
 | **U-38** | P3 | M6 | **PWA foundation (manifest, SW, install)** | **done** | — | Manifest + SW + appleWebApp + Asphalt SVG mark + PNG `logo-512` / `apple-touch-icon` + BrandLogo chrome. Install prompt UX polish still optional. |
-| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** | U-38 | Shell + **bilets/categories/signs list** network-first cache. Full offline exam/question sync still open. |
+| **U-39** | P3 | M6 | **Offline content cache + sync** | **partial** (done-enough) | U-38 | Shell + **bilets/categories/signs** meta cache + public `/support` shell. Full offline exam/question sync still **large**/open. |
 | **U-40** | P3 | M5 | **B2B orgs / seats / teacher dashboard** | **partial** | — | **Org/member/license + admin grant + teacher read portal** (`/{locale}/teacher`, `/me/teacher/orgs*`). School customer sales / self-serve seats still open. |
-| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | Covered for this wave by U-41 metrics + **M3-5 admin monitoring**. Still no Prometheus/Sentry/tracing/alerting. |
+| **U-41** | P3 | M7 | **Observability (metrics, tracing, alerting)** | **partial** | — | U-41 metrics + M3-5 monitoring + **ops feed** (`admin_audit` + payment fails) + **alert_rule** live eval. Still no Prometheus/Sentry/tracing/pager. |
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | **partial** | — | Standing CI `dependency-scan` job: `govulncheck ./...` (hard gate) + `npm audit` JSON artifact/warnings + Dependabot (npm/gomod/actions) + `make dep-scan`. Bumped `golang.org/x/text` for GO-2026-5970. FE critical/high (Next 14 / next-intl 3 majors) deferred; full security checklist / pen-test still open. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
-| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + audit + broadcast + limits write.** Inbox, logs/alerts, homepage CMS still open. |
-| **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
-| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags + product gates + maintenance_mode FE banner.** Broadcast stub done. Support **inbox** still missing. |
+| **U-45** | P3 | M3 | **Super Admin entire vertical** | partial | Most product features | **SoT locked**. **M3-0…M3-7 + audit + broadcast + limits + inbox + home CMS + ops feed/alerts + investors stub.** Legal CMS / deeper content studios still open. |
+| **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | **partial** | Events + U-45 | **Admin investors read-only stub** reuses analytics SQL (`investors.read`). No Metabase/Grafana BI layer. |
+| **U-47** | P3 | M3 | **Feature flags / support inbox** | **partial** | U-45 | **Flags + product gates + maintenance_mode FE + broadcast + support inbox stub** (`support_ticket`). Telegram forward / SLA still open. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |
 | **U-49** | P3 | Arena | **Practice bot opponent** | deferred | Product Q10 | Deferred to M4-05 decision; not in M4-03. |
-| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #2: audit UI, broadcast stub, flag gates, teacher portal. Re-run after major waves. |
+| **U-50** | P3 | Docs | **Handoff / roadmap status refresh** | **done** (this wave) | After each wave | 2026-07-26 refresh #3: inbox, home CMS, monitoring feed/alerts, U-39 done-enough, investors stub. Re-run after major waves. |
 
 ### Explicitly beyond Arena UI (must not be forgotten)
 

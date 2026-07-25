@@ -1,4 +1,4 @@
-# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after audit/broadcast/flags/teacher)
+# SESSION HANDOFF — bu yerdan boshlang (yangilangan 2026-07-26 — U-50 after inbox/CMS/monitoring/investors)
 
 > Yangi sessiya (yoki boshqa AI) uchun: bu hujjat **aniq holat + keyingi aniq qadam**ni beradi. Avval buni o'qing, keyin ishlang. Bu hujjat repo'ga committed — Claude Code'ning session-memory tizimidan farqli, har qanday AI/vosita buni o'qiy oladi.
 >
@@ -37,24 +37,26 @@
 | M4-06 | Telegram bot poydevor + FE bog‘lash (U-09) | ✅ |
 | M4-07 | TG daily quiz + notif | ⬜ **skipped** (U-10 — no tiny vertical) |
 | M4-08 | Web push | **partial** (foundation + FSRS digest + admin broadcast stub; VAPID ops) |
-| M3 | Super Admin | **partial** M3-0…M3-7 + audit UI + support broadcast; inbox/logs/alerts/homepage CMS open |
+| M3 | Super Admin | **partial** M3-0…M3-7 + audit + broadcast + limits + **inbox** + **homepage CMS** + **ops feed/alerts** + **investors stub** |
 | M5 | B2B | **partial** U-40 admin grant + teacher read portal (`/teacher`) |
-| M6 | PWA | **partial** (shell + variants/categories/signs meta cache; full offline exam open) |
+| M6 | PWA | **partial** (shell + meta lists + `/support` shell; **U-39 done-enough** — full offline exam open) |
 
-### Shu to‘lqinda yopilgan (2026-07-26)
-- Admin audit log UI (`security.audit.read`)
-- Support broadcast stub (in-app banner + web-push dry-run/live)
-- `feature_flag` → arena / checkout / digest product gates + `GET /flags`
-- Teacher/B2B read portal for org owner/teacher
+### Shu to‘lqinda yopilgan (2026-07-26 #3)
+- Support inbox stub (`support_ticket`, profile + `/support`, admin triage)
+- Homepage CMS (`site_settings.home_hero`)
+- Monitoring ops feed + `alert_rule` live eval
+- U-39 done-enough note (+ `/support` shell cache)
+- Investors read-only stub (same analytics SQL, `investors.read`)
 
 ### Footer aloqa — CMS (U-17 / M3-4)
-Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydonlar `Landing.footer*` i18n placeholder. Ops `/ops/*` deprecated bridges.
+Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero: `/{locale}/admin/cms/home` + `GET /site/home`. Bo‘sh maydonlar Landing i18n. Ops `/ops/*` deprecated bridges.
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory: support inbox stub OR maintenance_mode FE chrome OR admin limits write
-OR homepage CMS stub — pick smallest honest complete.
-Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales.
+Inventory: pick smallest honest complete still open (legal CMS / content signs stub /
+U-35 admin credential PDF / U-27 live recon with keys when available).
+Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales,
+full offline exam sync.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```
@@ -63,8 +65,8 @@ Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.m
 - Payme/Click **prod** keys + yuridik shaxs (U-03)
 - Staging remote host / registry (U-02 D18)
 - Real LLM explanations (U-12); M4-07 quiz (U-10 skipped until scoped)
-- Admin inbox, logs/alerts, homepage CMS, BI (U-46), backup/DR (U-44), load-test (U-42)
-- Prometheus/Sentry/alerting beyond process `/metrics` + M3-5
+- Full offline exam sync (U-39 remainder), BI Metabase (U-46 depth), backup/DR (U-44), load-test (U-42)
+- Prometheus/Sentry beyond process `/metrics` + admin ops feed/alerts
 
 ---
 
@@ -75,12 +77,12 @@ AvtoTest — O'zbekiston YHQ imtihoniga tayyorlovchi **pullik onlayn maktab-star
 - Git: `main`. Aniq HEAD: `git log --oneline -1`.
 - Backend: `go build ./...`; `make test` / `make test-parallel` — paket izolyatsiyasi (§1.-2).
 - Frontend: `npm run typecheck` / `lint` / `test` (vitest) + Playwright smoke CI.
-- DB migratsiya: **0027** gacha (`grand_mock_certificate`); dirty emas. Arena `0021`, web push `0026`.
+- DB migratsiya: **0035** gacha (`alert_rule`); dirty emas. Support tickets `0034`.
 - Kontent: ~1231–1235 savol (3 til), ~61–62 bilet, 15 biletsiz leftover (U-29), signs catalog.
 - **`./run.sh`** — Docker infra + backend (:8090) + frontend (:3000).
 
 ### 1.-1 … 1.1 (tarixiy audit yozuvlari)
-Quyidagi bo‘limlar **2026-07-25** sessiyalarining saqlangan audit jurnalidir (promo race, referral claim-then-grant, Grand Mock gates, test DB izolyatsiyasi, M4-01 rebuild cap, …). Ular o‘zgartirilmagan; yangi ish inventori U-xx jadvalida.
+Quyidagi bo‘limlar **2026-07-25** sessiyalarining saqlangan audit jurnalidir. Ular o‘zgartirilmagan; yangi ish inventori U-xx jadvalida.
 
 <details>
 <summary>Tarixiy audit (2026-07-25) — ochish</summary>
@@ -124,8 +126,8 @@ Promo FOR UPDATE, referral claim-then-grant, payment history shape — tuzatildi
 | U-27 payrecon | partial dry-run skeleton |
 | U-32 SEO shells | ✅ (jarimalar honest shell) |
 | U-35 Grand Mock certificate | partial (share page; PDF/admin open) |
-| U-38/39 PWA | done foundation + bilets list cache partial |
-| U-45 M3 thin ops | providers/health/users/payments/audit + broadcast + flags gates |
+| U-38/39 PWA | foundation + meta list cache; U-39 **done-enough** |
+| U-45 M3 | M3-0…M3-7 + audit + broadcast + flags + limits + inbox + home CMS + ops feed/alerts + investors stub |
 | U-40 B2B | admin grant + teacher read portal |
 
 > Merchant sandbox kalitlari qo‘yilsa to‘lov live; **prod** keys = U-03 tashqi blocker.
@@ -154,7 +156,7 @@ Streak/gamification M1’da. M4-01 = Leaderboard. Shubhali Plan nomida roadmap +
 | M4-07 | TG quiz + notif | deferred (U-10) |
 | M4-08 | Web push | **partial** (U-11 + broadcast stub) |
 
-**Tavsiya (code-completable, tashqi blocker’siz):** support inbox stub / maintenance_mode FE / admin limits write / homepage CMS stub. Skip: U-03, U-02 host, U-12, inventing U-10, B2B school sales.
+**Tavsiya (code-completable, tashqi blocker’siz):** legal CMS stub / content signs admin stub / U-35 admin credential polish. Skip: U-03, U-02 host, U-12, inventing U-10, B2B school sales, full offline exam.
 
 To‘liq U-xx jadval: inventory §2.
 
@@ -175,4 +177,4 @@ To‘liq U-xx jadval: inventory §2.
 Har Plan: brainstorming → writing-plans → TDD → whole-branch review → **commit+push** green stage. Money/ops o‘zgarishlarida devops audit (`docs/superpowers/specs/*-devops-audit.md`). Build/test yashil ≠ “tugadi” — holistik review.
 
 ## 7. Keyingi Plan'lar
-M2 tugadi. Growth asosiy yo‘llar ship. Qoldiq: M4-07, M4-08 polish, M6 offline depth, M7 ops, **M3 Admin last**. Roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` (M4 qatorlari U-50 da yangilandi).
+M2 tugadi. Growth asosiy yo‘llar ship. Qoldiq: M4-07, M4-08 polish, M6 offline exam depth, M7 ops, **M3 Admin last remnants**. Roadmap: `docs/superpowers/2026-07-24-roadmap-m2-to-admin.md` (M4 qatorlari U-50 da yangilandi).

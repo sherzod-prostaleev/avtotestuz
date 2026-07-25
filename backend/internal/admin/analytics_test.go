@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -141,4 +142,59 @@ func TestAdminAnalyticsOverview(t *testing.T) {
 			t.Fatalf("finance status=%d", w.Code)
 		}
 	})
+}
+
+func TestAdminInvestorsOverview(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := Store{Pool: pool}
+	secret := []byte("test-admin-secret-at-least-32-bytes!!")
+	if _, err := store.EnsureSuperadmin(t.Context(), "ops@example.uz", "password123", "Ops"); err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{Svc: Service{Store: store, Secret: secret}, Pool: pool, Secret: secret}
+	r := chi.NewRouter()
+	r.Route("/admin/v1", h.Routes)
+	access := loginAccess(t, r, "ops@example.uz", "password123")
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/investors/overview", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data AnalyticsOverview `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(env.Data.Note, "Investor") {
+		t.Fatalf("note=%q", env.Data.Note)
+	}
+
+	hash, err := auth.HashPassword("password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	editorID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO admin_user (id, email, display_name, password_hash, status)
+		 VALUES ($1,$2,'Ed',$3,'active')`, editorID, "editor-inv@example.uz", hash); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO admin_user_role (admin_user_id, role_id)
+		 SELECT $1, id FROM admin_role WHERE code='editor'`, editorID); err != nil {
+		t.Fatal(err)
+	}
+	edAccess := loginAccess(t, r, "editor-inv@example.uz", "password123")
+	req = httptest.NewRequest(http.MethodGet, "/admin/v1/investors/overview", nil)
+	req.Header.Set("Authorization", "Bearer "+edAccess)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("editor status=%d want 403", w.Code)
+	}
 }
