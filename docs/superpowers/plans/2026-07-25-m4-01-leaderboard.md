@@ -455,10 +455,11 @@ func PeriodEnd(p Period, t time.Time) time.Time {
 	}
 }
 
-// tieBreakDivisor scales a Unix-nanosecond timestamp into a fraction that
-// (a) never changes a score's integer point total — the largest possible
-// fraction, for a "now" many centuries in the future, stays under 1 — and
-// (b) remains distinguishable from adjacent timestamps seconds-to-days
+// tieBreakDivisor scales a Unix-nanosecond timestamp down into a fraction
+// in (0, 1) that (a) never changes a score's integer point total when
+// added to it — floor(points + fraction) == points as long as fraction
+// stays below 1, which holds for a "now" many centuries in the future —
+// and (b) remains distinguishable from adjacent timestamps seconds-to-days
 // apart at typical point totals, given float64's ~15-17 significant
 // decimal digits. It stops distinguishing events within roughly a few
 // hundred nanoseconds of each other once point totals reach the tens of
@@ -472,10 +473,22 @@ const tieBreakDivisor = 1e19
 
 // EncodeScore combines an integer point total with a tiebreak derived from
 // lastAt so that, under ZREVRANGE (descending) order, two equal point
-// totals rank the EARLIER achiever higher: an earlier lastAt subtracts a
-// smaller fraction, leaving a larger score.
+// totals rank the EARLIER achiever higher.
+//
+// The tiebreak fraction is (1 - lastAt.UnixNano()/tieBreakDivisor): a
+// LATER lastAt has a LARGER lastAt.UnixNano()/tieBreakDivisor term, so
+// (1 - that term) is SMALLER — meaning a later timestamp contributes a
+// smaller fraction and therefore a smaller score, so the earlier achiever
+// ends up with the larger score and ranks first. The fraction must be
+// ADDED, not subtracted: DecodePoints recovers the integer part via
+// math.Floor, and floor(points - fraction) for any 0 < fraction < 1 always
+// equals points-1, never points — only floor(points + fraction) recovers
+// points exactly (proved wrong the naive subtractive version of this
+// formula during Task 3's TDD cycle; kept here as the documented reason
+// addition is required, not an arbitrary choice).
 func EncodeScore(points int, lastAt time.Time) float64 {
-	return float64(points) - float64(lastAt.UnixNano())/tieBreakDivisor
+	fraction := 1 - float64(lastAt.UnixNano())/tieBreakDivisor
+	return float64(points) + fraction
 }
 
 // DecodePoints extracts the integer point total from a score produced by
