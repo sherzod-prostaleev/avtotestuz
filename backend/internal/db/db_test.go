@@ -20,7 +20,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"explanation_feedback",
 		// billing
 		"tariff", "tariff_translation", "promo_code", "payment", "entitlement",
-		"promo_redemption", "referral_attribution", "limit_config",
+		"promo_redemption", "referral_attribution", "limit_config", "payment_provider_status",
 		// learning
 		"exam_session", "session_question", "session_answer", "variant_progress", "question_memory",
 		"category_mastery", "saved_question", "streak",

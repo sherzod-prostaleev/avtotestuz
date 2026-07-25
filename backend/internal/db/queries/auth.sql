@@ -55,5 +55,19 @@ WHERE profile_id = $1 AND ends_at > now()
 ORDER BY ends_at DESC LIMIT 1;
 
 -- name: InsertEntitlement :one
-INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;
+INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note, created_by, payment_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id;
+
+-- name: GetEntitlementByPaymentID :one
+SELECT id, profile_id, source, starts_at, ends_at, payment_id, created_by, note, created_at
+FROM entitlement
+WHERE payment_id = $1
+LIMIT 1;
+
+-- name: ClampEntitlementEnd :exec
+UPDATE entitlement
+SET ends_at = $2,
+    note = note || $3
+WHERE id = $1 AND ends_at > $2;
+
+

@@ -7,11 +7,13 @@ import { callBackendRefresh } from "@/lib/backend-refresh";
 
 type TokenPair = { accessToken: string; refreshToken: string };
 
-const publicPaths = new Set(["signs", "categories", "demo"]);
+const publicPaths = new Set(["signs", "categories", "demo", "tariffs"]);
 
 function isPublicPath(path: string[]): boolean {
   if (path.length === 0) return false;
-  return publicPaths.has(path[0]);
+  if (publicPaths.has(path[0])) return true;
+  // GET /billing/providers — kill-switch status for checkout UI
+  return path[0] === "billing" && path[1] === "providers";
 }
 
 function safePath(path: string[]): string | null {

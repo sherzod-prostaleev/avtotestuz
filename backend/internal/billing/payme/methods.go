@@ -325,9 +325,8 @@ type cancelTransactionResult struct {
 // exist (else -31003). state==-1/-2 is an idempotent replay — return the
 // existing cancel_time/state without re-writing. A pending (state==1)
 // transaction cancels to -1 and marks the payment 'canceled'; an already
-// performed (state==2) transaction cancels to -2 and marks the payment
-// 'refunded' — entitlement revoke on that path is deliberately deferred to
-// a future refund milestone (M2-04), not implemented here.
+// performed (state==2) transaction cancels to -2, marks the payment
+// 'refunded', and clamps any VIP entitlement granted for that payment.
 func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionParams) (cancelTransactionResult, *rpcError) {
 	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
 	if err != nil {
@@ -374,6 +373,12 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 		Status: paymentStatus,
 	}); err != nil {
 		return cancelTransactionResult{}, errInternal
+	}
+
+	if paymentStatus == "refunded" {
+		if err := h.Svc.RevokeEntitlementForPayment(ctx, existing.PaymentID); err != nil {
+			return cancelTransactionResult{}, errInternal
+		}
 	}
 
 	return cancelTransactionResult{

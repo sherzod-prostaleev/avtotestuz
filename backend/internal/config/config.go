@@ -52,6 +52,10 @@ type Config struct {
 	ClickServiceID  string
 	ClickMerchantID string
 	ClickSecretKey  string
+
+	// OpsAdminToken gates thin ops endpoints (payment provider kill-switches)
+	// until the full M3 admin control center ships. Empty disables those routes.
+	OpsAdminToken string
 }
 
 // PaymeKey returns the Basic-auth password (cashbox KEY) for the current
@@ -104,6 +108,8 @@ func Load() (Config, error) {
 		ClickServiceID:  getenv("CLICK_SERVICE_ID", ""),
 		ClickMerchantID: getenv("CLICK_MERCHANT_ID", ""),
 		ClickSecretKey:  getenv("CLICK_SECRET_KEY", ""),
+
+		OpsAdminToken: getenv("OPS_ADMIN_TOKEN", ""),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err

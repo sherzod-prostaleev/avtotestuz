@@ -23,7 +23,7 @@ After J7 sign-off: close **demo → account investment continuity**, optionally 
 | **N4** | **Tech debt** from chrome wave (footer placeholders, leftover raw colors, a11y leftovers) | P2 | 2–3 | N1 |
 | **N5** | **M4-03 Arena infra** — expand TDD plan → T1–T4 code (no UI) | P1 | 3 | Spec locked ✅ |
 | **N6** | **M4-04** rating / medals / match history API | P1 | 4 | N5 |
-| **N7** | **J10 / M4-05 Arena UI** — matchmaking, live duel, result, friend invite on Asphalt tokens | P1 | 5 | N5 (+ N6 for ratings chrome) |
+| **N8** | **M3 Super Admin Control Center** — full ops brain/hand | P1 (scope locked) / schedule after Growth | After M4 critical path | Spec: `2026-07-26-m3-super-admin-control-center.md` |
 
 North-star after chrome: **anon demo → signed-in habit loop unbroken** (Hooked investment), then **Arena retention loop** on the same visual system.
 

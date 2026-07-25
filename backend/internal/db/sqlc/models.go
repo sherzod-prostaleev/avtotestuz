@@ -264,6 +264,13 @@ type Payment struct {
 	TariffPriceUzsSnapshot int64              `json:"tariff_price_uzs_snapshot"`
 }
 
+type PaymentProviderStatus struct {
+	Provider  string             `json:"provider"`
+	Enabled   bool               `json:"enabled"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.Text        `json:"updated_by"`
+}
+
 type Profile struct {
 	ID           uuid.UUID          `json:"id"`
 	Phone        string             `json:"phone"`

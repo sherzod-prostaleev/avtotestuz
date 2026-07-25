@@ -753,6 +753,17 @@ func TestCancelTransaction_FromPaid(t *testing.T) {
 	paymeID := "payme-cancel-2"
 	seedPaymeTransaction(t, pool, paymeID, paymentID, 2, time.Now().UnixMilli())
 
+	profileID := profileOf(t, pool, paymentID)
+	if _, err := h.Svc.GrantDaysForPayment(
+		context.Background(), profileID, 30, "purchase", "paid grant",
+		uuid.NullUUID{}, uuid.NullUUID{UUID: paymentID, Valid: true},
+	); err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+	if active, _, err := h.Svc.Status(context.Background(), profileID); err != nil || !active {
+		t.Fatalf("pre-cancel entitlement active=%v err=%v, want true", active, err)
+	}
+
 	resp := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 3})
 
 	if code, isErr := rpcErrorCode(t, resp); isErr {
@@ -773,6 +784,12 @@ func TestCancelTransaction_FromPaid(t *testing.T) {
 	}
 	if status != "refunded" {
 		t.Errorf("payment.status = %q, want refunded", status)
+	}
+
+	if active, _, err := h.Svc.Status(context.Background(), profileID); err != nil {
+		t.Fatalf("status after refund: %v", err)
+	} else if active {
+		t.Errorf("entitlement still active after refund revoke, want inactive")
 	}
 }
 

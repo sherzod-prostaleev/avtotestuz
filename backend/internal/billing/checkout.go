@@ -156,6 +156,13 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 		bonusDays = valRes.BonusDays
 	}
 
+	// Zero-amount (promo) checkouts skip the provider kill-switch — no Payme/Click hop.
+	if amount > 0 {
+		if err := s.EnsureProviderEnabled(ctx, provider); err != nil {
+			return CheckoutResult{}, err
+		}
+	}
+
 	paymentID, err := q.CreatePayment(ctx, sqlc.CreatePaymentParams{
 		ProfileID:      profileID,
 		TariffID:       tariff.ID,
@@ -178,7 +185,7 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 			return CheckoutResult{}, fmt.Errorf("mark paid: %w", err)
 		}
 		grantedDays := int(tariff.Days) + bonusDays
-		if _, err := txSvc.GrantDays(ctx, profileID, grantedDays, "promo", "zero-amount promo checkout", uuid.NullUUID{}); err != nil {
+		if _, err := txSvc.GrantDaysForPayment(ctx, profileID, grantedDays, "promo", "zero-amount promo checkout", uuid.NullUUID{}, uuid.NullUUID{UUID: paymentID, Valid: true}); err != nil {
 			return CheckoutResult{}, fmt.Errorf("grant days: %w", err)
 		}
 		if promoID.Valid {

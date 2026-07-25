@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
@@ -34,6 +34,11 @@ interface CheckoutResult {
   free?: boolean;
 }
 
+interface ProviderStatusDTO {
+  provider: string;
+  enabled: boolean;
+}
+
 function formatSom(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
@@ -52,17 +57,38 @@ export default function PremiumPage() {
 
   const [provider, setProvider] = useState<PaymentProvider>("payme");
   const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
+  const [providerEnabled, setProviderEnabled] = useState<Partial<Record<PaymentProvider, boolean>>>({
+    payme: true,
+    click: true,
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
     setLoadError(false);
     try {
-      const [tariffData, entitlementData] = await Promise.all([
+      const [tariffData, entitlementData, providers] = await Promise.all([
         apiGet<TariffDTO[]>(`tariffs?locale=${encodeURIComponent(locale)}`),
         apiGet<EntitlementDTO>("me/entitlement"),
+        apiGet<ProviderStatusDTO[]>("billing/providers").catch(() => [
+          { provider: "payme", enabled: true },
+          { provider: "click", enabled: true },
+        ]),
       ]);
       setTariffs(tariffData);
       setEntitlement(entitlementData);
+      const enabled: Partial<Record<PaymentProvider, boolean>> = { payme: true, click: true };
+      for (const row of providers) {
+        if (row.provider === "payme" || row.provider === "click") {
+          enabled[row.provider] = row.enabled;
+        }
+      }
+      setProviderEnabled(enabled);
+      setProvider((prev) => {
+        if (enabled[prev] !== false) return prev;
+        if (enabled.payme !== false) return "payme";
+        if (enabled.click !== false) return "click";
+        return prev;
+      });
     } catch {
       setLoadError(true);
     } finally {
@@ -74,10 +100,19 @@ export default function PremiumPage() {
     void load();
   }, [load]);
 
+  const paymentsOffline =
+    providerEnabled.payme === false && providerEnabled.click === false;
+
   const handleBuy = async (code: string) => {
     setBuyError(null);
     setBuyingCode(code);
     const promo = promoMap[code];
+    const isFree = Boolean(promo && promo.final_amount_uzs === 0);
+    if (!isFree && providerEnabled[provider] === false) {
+      setBuyError(t("providerUnavailable"));
+      setBuyingCode(null);
+      return;
+    }
     try {
       const result = await apiPost<CheckoutResult>(
         `me/checkout?locale=${encodeURIComponent(locale)}`,
@@ -92,8 +127,12 @@ export default function PremiumPage() {
       } else if (result.checkout_url) {
         window.location.href = result.checkout_url;
       }
-    } catch {
-      setBuyError(t("buyError"));
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "provider_unavailable") {
+        setBuyError(t("providerUnavailable"));
+      } else {
+        setBuyError(t("buyError"));
+      }
       setBuyingCode(null);
     }
   };
@@ -124,6 +163,16 @@ export default function PremiumPage() {
         <div role="status" className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success">
           <ShieldCheck aria-hidden="true" className="h-5 w-5 shrink-0" />
           {t("vipActiveBanner", { date: new Date(entitlement.until).toLocaleDateString(locale) })}
+        </div>
+      )}
+
+      {paymentsOffline && !loading && !loadError && (
+        <div
+          role="status"
+          className="mb-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm leading-6 text-foreground"
+        >
+          <p className="font-display text-base font-bold">{t("paymentsAllOfflineTitle")}</p>
+          <p className="mt-1 text-muted-foreground">{t("paymentsAllOfflineBody")}</p>
         </div>
       )}
 
@@ -218,6 +267,7 @@ export default function PremiumPage() {
                       <ProviderPicker
                         selected={provider}
                         onChange={(p) => setProvider(p)}
+                        enabled={providerEnabled}
                       />
                     )}
                   </div>
@@ -234,7 +284,10 @@ export default function PremiumPage() {
                   variant={isFree ? "success" : "gold"}
                   size="sm"
                   className="mt-4 w-full"
-                  disabled={buyingCode === tariff.code}
+                  disabled={
+                    buyingCode === tariff.code ||
+                    (!isFree && providerEnabled[provider] === false)
+                  }
                   onClick={() => void handleBuy(tariff.code)}
                 >
                   {buyingCode === tariff.code

@@ -89,6 +89,12 @@ func (s Service) Status(ctx context.Context, profileID uuid.UUID) (active bool, 
 // aborts one transaction whole, and the provider retries — correctness is
 // preserved because the losing transaction rolls back entirely.
 func (s Service) GrantDays(ctx context.Context, profileID uuid.UUID, days int, source, note string, by uuid.NullUUID) (time.Time, error) {
+	return s.GrantDaysForPayment(ctx, profileID, days, source, note, by, uuid.NullUUID{})
+}
+
+// GrantDaysForPayment is GrantDays with an optional payment_id link so a later
+// provider refund can clamp that exact entitlement row.
+func (s Service) GrantDaysForPayment(ctx context.Context, profileID uuid.UUID, days int, source, note string, by, paymentID uuid.NullUUID) (time.Time, error) {
 	if _, err := s.Q.LockProfileForGrant(ctx, profileID); err != nil {
 		return time.Time{}, fmt.Errorf("lock profile %s for grant: %w", profileID, err)
 	}
@@ -110,6 +116,7 @@ func (s Service) GrantDays(ctx context.Context, profileID uuid.UUID, days int, s
 		EndsAt:    pgtype.Timestamptz{Time: end, Valid: true},
 		Note:      note,
 		CreatedBy: by,
+		PaymentID: paymentID,
 	})
 	if err != nil {
 		return time.Time{}, err
@@ -189,7 +196,7 @@ func (s Service) ProcessPaymentGrant(ctx context.Context, paymentID uuid.UUID) e
 		}
 	}
 
-	if _, err := s.GrantDays(ctx, payment.ProfileID, days, source, note, uuid.NullUUID{}); err != nil {
+	if _, err := s.GrantDaysForPayment(ctx, payment.ProfileID, days, source, note, uuid.NullUUID{}, uuid.NullUUID{UUID: payment.ID, Valid: true}); err != nil {
 		return err
 	}
 	if err := s.processReferralRewardOnPayment(ctx, payment.ProfileID); err != nil {
@@ -213,4 +220,40 @@ func proRatedDays(paidUZS, listPriceUZS int64, tariffDays int) int {
 		days = 1
 	}
 	return days
+}
+
+// RevokeEntitlementForPayment clamps the VIP grant linked to a refunded
+// payment so it no longer extends past now. Idempotent: missing grant or an
+// already-expired row is a no-op. Stacked later purchases keep their own rows;
+// only this payment's interval is cut short (tip math for multi-purchase
+// clawback can be tightened later if support needs day-perfect accounting).
+func (s Service) RevokeEntitlementForPayment(ctx context.Context, paymentID uuid.UUID) error {
+	ent, err := s.Q.GetEntitlementByPaymentID(ctx, uuid.NullUUID{UUID: paymentID, Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return fmt.Errorf("lookup entitlement for payment %s: %w", paymentID, err)
+	}
+	if _, err := s.Q.LockProfileForGrant(ctx, ent.ProfileID); err != nil {
+		return fmt.Errorf("lock profile %s for revoke: %w", ent.ProfileID, err)
+	}
+	now := time.Now().UTC()
+	if !ent.EndsAt.Valid || !ent.EndsAt.Time.After(now) {
+		return nil
+	}
+	// CHECK (ends_at > starts_at): if the grant has not started yet, collapse
+	// to a one-second stub so the row stays valid for audit.
+	clampTo := now
+	if ent.StartsAt.Valid && !clampTo.After(ent.StartsAt.Time) {
+		clampTo = ent.StartsAt.Time.Add(time.Second)
+	}
+	if err := s.Q.ClampEntitlementEnd(ctx, sqlc.ClampEntitlementEndParams{
+		ID:     ent.ID,
+		EndsAt: pgtype.Timestamptz{Time: clampTo, Valid: true},
+		Note:   " | refunded",
+	}); err != nil {
+		return fmt.Errorf("clamp entitlement %s: %w", ent.ID, err)
+	}
+	return nil
 }

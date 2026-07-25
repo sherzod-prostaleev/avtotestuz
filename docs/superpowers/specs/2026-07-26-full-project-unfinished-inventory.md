@@ -81,7 +81,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-42** | P3 | M7 | **Load-test (k6) + perf audit** | missing | Staging | |
 | **U-43** | P3 | M7 | **Security audit + dependency scan** | missing | — | Ad-hoc audits done historically; no standing checklist/CI gate. |
 | **U-44** | P3 | M7 | **Backup + DR drill** | missing | Host | Compose volumes local-only. |
-| **U-45** | P3 | M3 | **Super Admin entire vertical** | missing | Most product features | Content studio, users, billing/refund UI, tariffs/promo/limits UI, explanation queue, investor dashboard (MRR/DAU/…), RBAC, audit-log UI, broadcast. **User decision: last.** |
+| **U-45** | P3 | M3 | **Super Admin entire vertical** | missing | Most product features | **SoT locked:** [`2026-07-26-m3-super-admin-control-center.md`](./2026-07-26-m3-super-admin-control-center.md) (brain+hand scope, TS/shadcn, RBAC, CMS, monitoring). Roadmap still schedules M3 last; requirements no longer TBD. |
 | **U-46** | P3 | M3 | **Investor / Metabase–Grafana dashboards** | missing | Events + U-45 | Events ingestion exists; no BI layer. |
 | **U-47** | P3 | M3 | **Feature flags / support inbox** | missing | U-45 | Master admin scope. |
 | **U-48** | P3 | Arena | **RedisTransport multi-instance** | deferred | U-06 single-instance | Locked Q11: LocalTransport at launch. |

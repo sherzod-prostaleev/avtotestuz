@@ -28,6 +28,17 @@ type Handler struct {
 // Routes mounts the public, unauthenticated billing endpoints.
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/tariffs", h.listTariffs)
+	r.Get("/billing/providers", h.listProviders)
+}
+
+func (h *Handler) listProviders(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.ListProviderStatuses(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "providers query failed")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, out)
 }
 
 // AuthedRoutes mounts the billing endpoints that require a JWT-authed
@@ -159,6 +170,11 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	returnURL := h.Svc.checkoutPendingReturnURL(loc)
 	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, returnURL, body.PromoCode)
 	if err != nil {
+		if errors.Is(err, ErrProviderDisabled) {
+			httpx.Error(w, http.StatusServiceUnavailable, "provider_unavailable",
+				"this payment method is temporarily unavailable")
+			return
+		}
 		if !writePromoOrTariffError(w, err) {
 			httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")
 		}

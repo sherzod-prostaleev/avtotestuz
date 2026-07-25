@@ -25,6 +25,24 @@ func (q *Queries) ActiveEntitlementEnd(ctx context.Context, profileID uuid.UUID)
 	return ends_at, err
 }
 
+const clampEntitlementEnd = `-- name: ClampEntitlementEnd :exec
+UPDATE entitlement
+SET ends_at = $2,
+    note = note || $3
+WHERE id = $1 AND ends_at > $2
+`
+
+type ClampEntitlementEndParams struct {
+	ID     uuid.UUID          `json:"id"`
+	EndsAt pgtype.Timestamptz `json:"ends_at"`
+	Note   string             `json:"note"`
+}
+
+func (q *Queries) ClampEntitlementEnd(ctx context.Context, arg ClampEntitlementEndParams) error {
+	_, err := q.db.Exec(ctx, clampEntitlementEnd, arg.ID, arg.EndsAt, arg.Note)
+	return err
+}
+
 const consumeOTP = `-- name: ConsumeOTP :exec
 UPDATE otp_challenge SET consumed = true WHERE id = $1
 `
@@ -121,6 +139,30 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const getEntitlementByPaymentID = `-- name: GetEntitlementByPaymentID :one
+SELECT id, profile_id, source, starts_at, ends_at, payment_id, created_by, note, created_at
+FROM entitlement
+WHERE payment_id = $1
+LIMIT 1
+`
+
+func (q *Queries) GetEntitlementByPaymentID(ctx context.Context, paymentID uuid.NullUUID) (Entitlement, error) {
+	row := q.db.QueryRow(ctx, getEntitlementByPaymentID, paymentID)
+	var i Entitlement
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Source,
+		&i.StartsAt,
+		&i.EndsAt,
+		&i.PaymentID,
+		&i.CreatedBy,
+		&i.Note,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getProfileByID = `-- name: GetProfileByID :one
 SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash FROM profile WHERE id = $1
 `
@@ -201,8 +243,8 @@ func (q *Queries) IncrementOTPAttempts(ctx context.Context, id uuid.UUID) error 
 }
 
 const insertEntitlement = `-- name: InsertEntitlement :one
-INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note, created_by)
-VALUES ($1, $2, $3, $4, $5, $6) RETURNING id
+INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note, created_by, payment_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id
 `
 
 type InsertEntitlementParams struct {
@@ -212,6 +254,7 @@ type InsertEntitlementParams struct {
 	EndsAt    pgtype.Timestamptz `json:"ends_at"`
 	Note      string             `json:"note"`
 	CreatedBy uuid.NullUUID      `json:"created_by"`
+	PaymentID uuid.NullUUID      `json:"payment_id"`
 }
 
 func (q *Queries) InsertEntitlement(ctx context.Context, arg InsertEntitlementParams) (uuid.UUID, error) {
@@ -222,6 +265,7 @@ func (q *Queries) InsertEntitlement(ctx context.Context, arg InsertEntitlementPa
 		arg.EndsAt,
 		arg.Note,
 		arg.CreatedBy,
+		arg.PaymentID,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)

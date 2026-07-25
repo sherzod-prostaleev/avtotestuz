@@ -27,6 +27,7 @@ import (
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
+	"avtotest.uz/backend/internal/ops"
 	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/session"
 )
@@ -51,7 +52,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: []string{"*"},
 		AllowedMethods: []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
 	}))
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -74,6 +75,14 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				ClickMerchantID:   cfg.ClickMerchantID,
 			}
 			bh.Routes(api)
+
+			if cfg.OpsAdminToken != "" {
+				oh := &ops.Handler{
+					Billing: billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+					Token:   cfg.OpsAdminToken,
+				}
+				oh.Routes(api)
+			}
 
 			if deps.Pool != nil && deps.Redis != nil {
 				log := deps.Log
