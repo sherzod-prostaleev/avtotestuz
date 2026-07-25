@@ -11,7 +11,7 @@ import "github.com/google/uuid"
 // demoQuestionCount is the size of the public demo whitelist. It is a code
 // constant, not configuration: deterministic, no DB round-trip, and works
 // identically against the [NAMUNA] fixture and real content.
-const demoQuestionCount = 2
+const demoQuestionCount = 5
 
 // Whitelist returns the demo-eligible prefix of a variant's ordered question
 // IDs — the first demoQuestionCount entries, or fewer if the variant itself

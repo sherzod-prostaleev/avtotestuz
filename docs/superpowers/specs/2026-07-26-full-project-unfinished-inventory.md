@@ -60,7 +60,7 @@ Status legend: **missing** = no usable implementation · **partial** = exists bu
 | **U-21** | P2 | BE | **Promo pro-rate user communication** | **done** | Billing | `me/entitlement.proration` + checkout success notice when promo exhausted mid-flight. |
 | **U-22** | P2 | BE | **Leaderboard rebuild cap approximation** | partial | M4-01 ✅ | Documented low-risk: rebuild uses current VIP/cap, not perfect historical fidelity. |
 | **U-23** | P2 | BE | **Drop or document dead `referral_attribution`** | deferred | U-05 | Parallel unused table vs live `referral` (0015). Antifraud design recommends drop later. |
-| **U-24** | P2 | FE | **Demo multi-question strength** | partial | Demo BE | `demoQuestionCount=2` — weaker than “multi-question guest funnel” promise. |
+| **U-24** | P2 | FE | **Demo multi-question strength** | **done** | Demo BE | `demoQuestionCount=5` (first 5 of free bilet 1); random draw + whitelist enforcement tests updated. |
 | **U-25** | P2 | BE | **SMS OTP (Eskiz/PlayMobile)** | deferred | Config | `OTP_CHANNEL=sms` rejected — “no sender implementation”. Telegram Gateway + sandbox only. |
 | **U-26** | P2 | BE | **Anonymous / pre-login event capture** | deferred | Events M1 | Authenticated-only `POST /events`; anon deferred in Plan 05. |
 | **U-27** | P2 | BE | **Payment provider reconciliation job** | **partial** | Prod payments | Local dry-run skeleton: `cmd/payrecon` + `internal/billing/recon` (payment vs payme/click txn consistency; mirrors GetStatement window). Live outbound provider APIs + admin findings queue still need prod keys / M3. |

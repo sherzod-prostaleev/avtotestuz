@@ -37,9 +37,9 @@ func newService(t *testing.T, pool *pgxpool.Pool) (*demo.Service, *sqlc.Queries)
 }
 
 // whitelistIDs recomputes the expected demo whitelist independently of the
-// service, straight from the DB (variant 1's ordered question ids, first
-// two), so tests don't just assert "whatever the service says" but the
-// actual brief rule.
+// service, straight from the DB (variant 1's ordered question ids via
+// demo.Whitelist), so tests don't just assert "whatever the service says"
+// but the actual brief rule.
 func whitelistIDs(t *testing.T, ctx context.Context, q *sqlc.Queries) []uuid.UUID {
 	t.Helper()
 	v, err := q.GetVariantByNumber(ctx, 1)
@@ -50,10 +50,10 @@ func whitelistIDs(t *testing.T, ctx context.Context, q *sqlc.Queries) []uuid.UUI
 	if err != nil {
 		t.Fatalf("ListVariantQuestionIDsOrdered: %v", err)
 	}
-	if len(ids) < 2 {
+	if len(ids) < 5 {
 		t.Fatalf("fixture variant 1 has too few questions: %d", len(ids))
 	}
-	return ids[:2]
+	return demo.Whitelist(ids)
 }
 
 func TestGetQuestionReturnsWhitelistedQuestion(t *testing.T) {
@@ -64,7 +64,7 @@ func TestGetQuestionReturnsWhitelistedQuestion(t *testing.T) {
 	wl := whitelistIDs(t, ctx, q)
 
 	seen := map[string]bool{}
-	for i := 0; i < 20; i++ {
+	for i := 0; i < 40; i++ {
 		detail, _, err := svc.GetQuestion(ctx, "uz-Latn")
 		if err != nil {
 			t.Fatalf("GetQuestion: %v", err)
@@ -83,11 +83,11 @@ func TestGetQuestionReturnsWhitelistedQuestion(t *testing.T) {
 		}
 		seen[detail.ID] = true
 	}
-	// Not a strict requirement of the brief, but with 20 draws from a 2-item
-	// whitelist we should see both at least once (guards against a
+	// Not a strict requirement of the brief, but with 40 draws from a 5-item
+	// whitelist we should see multiple distinct picks (guards against a
 	// mis-wired "always pick index 0").
 	if len(seen) < 2 {
-		t.Fatalf("expected random selection to surface both whitelisted questions across 20 draws, saw %v", seen)
+		t.Fatalf("expected random selection to surface ≥2 whitelisted questions across 40 draws, saw %v", seen)
 	}
 }
 
@@ -162,10 +162,10 @@ func TestSubmitAnswerNotWhitelistedQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ids) <= 2 {
-		t.Fatal("fixture must have more than 2 questions in variant 1 for this test")
+	if len(ids) <= 5 {
+		t.Fatal("fixture must have more than 5 questions in variant 1 for this test")
 	}
-	outsideID := ids[2] // 3rd question, position-wise — real, but not whitelisted
+	outsideID := ids[5] // 6th question, position-wise — real, but not whitelisted
 
 	correctID, err := q.GetCorrectAnswerID(ctx, outsideID)
 	if err != nil {

@@ -132,10 +132,10 @@ func TestDemoAnswerWhitelistEnforcementOverHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ids) <= 2 {
-		t.Fatal("fixture must have more than 2 questions in variant 1")
+	if len(ids) <= 5 {
+		t.Fatal("fixture must have more than 5 questions in variant 1")
 	}
-	outsideID := ids[2]
+	outsideID := ids[5]
 	correctID, err := q.GetCorrectAnswerID(ctx, outsideID)
 	if err != nil {
 		t.Fatal(err)

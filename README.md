@@ -148,8 +148,8 @@ qilinmaydi, Redis rate-limit hisoblagichidan tashqari.
 - `GET /api/v1/demo/question?locale=` → `GET /questions/{id}` bilan AYNAN
   bir xil DTO shakli (`content` paketining rendering yo'lidan qayta
   foydalaniladi — yangi shakl yo'q, to'g'ri javob maydonlari yo'q).
-  Whitelist — 1-bilet (bepul bilet)ning **birinchi 2 ta savoli** (pozitsiya
-  bo'yicha, kod konstantasi `demoQuestionCount = 2`, konfiguratsiya jadvali
+  Whitelist — 1-bilet (bepul bilet)ning **birinchi 5 ta savoli** (pozitsiya
+  bo'yicha, kod konstantasi `demoQuestionCount = 5`, konfiguratsiya jadvali
   yo'q). Har so'rovda whitelist'dan tasodifiy bittasi qaytadi. 1-bilet
   mavjud bo'lmasa yoki savolsiz bo'lsa (bo'sh DB) — `not_found` (404),
   hech narsa o'ylab topilmaydi.
