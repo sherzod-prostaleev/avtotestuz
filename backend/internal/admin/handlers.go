@@ -80,6 +80,15 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Use(RequirePermission("payments.keys.manage"))
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
 		})
+
+		pr.Group(func(cr chi.Router) {
+			cr.Use(RequirePermission("cms.read"))
+			cr.Get("/cms/contacts", h.getCMSContacts)
+		})
+		pr.Group(func(cr chi.Router) {
+			cr.Use(RequirePermission("cms.write"))
+			cr.Put("/cms/contacts", h.putCMSContacts)
+		})
 	})
 }
 

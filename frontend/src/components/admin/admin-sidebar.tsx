@@ -55,7 +55,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       title: "CMS",
       items: [
-        { href: `${base}/cms/chrome`, label: "Header / footer", stub: true },
+        { href: `${base}/cms/chrome`, label: "Header / footer" },
         { href: `${base}/cms/home`, label: "Homepage", stub: true },
         { href: `${base}/cms/legal`, label: "Legal", stub: true },
       ],
@@ -126,10 +126,10 @@ export function AdminSidebar({ locale, activePath, email }: AdminSidebarProps) {
       </nav>
       <div className="border-t border-border p-3">
         <Link
-          href={`/${locale}/ops/contacts`}
+          href={`/${locale}/ops/health`}
           className="block rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-accent"
         >
-          Ops bridge (vaqtinchalik)
+          Legacy ops (deprecated)
         </Link>
       </div>
     </aside>

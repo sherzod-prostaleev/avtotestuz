@@ -37,18 +37,17 @@
 | M4-06 | Telegram bot poydevor + FE bog‘lash (U-09) | ✅ |
 | M4-07 | TG daily quiz + notif | ⬜ deferred (U-10) |
 | M4-08 | Web push | **partial** (foundation + FSRS digest send; VAPID/campaigns open) |
-| M3 | Super Admin | **partial** thin ops stubs (`/ops/*`) |
+| M3 | Super Admin | **partial** M3-0…M3-4 (auth, users, content, payments, CMS chrome contacts); monitoring next; thin ops stubs still at `/ops/*` |
 | M6 | PWA | **partial** (manifest/SW/icons + bilets list cache; full offline exam open) |
 
-### Footer aloqa — PLACEHOLDER (U-17)
-Landing footerdagi telefon/manzil/Telegram/Instagram (`+998 71 200 00 00`, `t.me/DriverGo`, …) **placeholder**. Haqiqiy qiymatlar kelganda `frontend/messages/{uz-Latn,uz-Cyrl,ru}.json` → `Landing.footer*` kalitlarini yangilang.
+### Footer aloqa — CMS (U-17 / M3-4)
+Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Bo‘sh maydonlar `Landing.footer*` i18n placeholder. Ops `/ops/contacts` deprecated bridge.
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory U-xx dan code-completable keyingi: U-45 yanada (CMS/refunds),
-U-43 FE majors deferred, U-39 offline exam sync, yoki U-28 LegalRefs.
-Skip external: U-03 keys, U-02 host, U-12 LLM, U-17 contacts, U-40 B2B,
-U-44 backup, U-46 BI, inventing U-10 quiz.
+Inventory U-xx: U-45 M3-5 Monitoring (health/metrics/jobs under /admin),
+then M3-6 analytics tiles, M3-7 flags OR broadcast stub, then U-40 B2B.
+Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz.
 Handoff: docs/superpowers/2026-07-24-SESSION-HANDOFF.md §⚡
 Inventory: docs/superpowers/specs/2026-07-26-full-project-unfinished-inventory.md
 ```

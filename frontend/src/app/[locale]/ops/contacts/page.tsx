@@ -147,6 +147,11 @@ export default function OpsContactsPage() {
         </div>
         <h1 className="mt-2 font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
         <p className="mt-2 text-sm leading-6 text-muted-foreground">{t("subtitle")}</p>
+        <p className="mt-2 text-sm">
+          <Link href={`/${locale}/admin/cms/chrome`} className="font-semibold text-accent underline-offset-2 hover:underline">
+            {t("adminHomeLink")}
+          </Link>
+        </p>
       </header>
 
       <OpsNav locale={locale} active="contacts" labels={navLabels} />
