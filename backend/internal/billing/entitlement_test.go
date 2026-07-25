@@ -73,3 +73,104 @@ func TestGrantDaysStacking(t *testing.T) {
 		t.Fatalf("expected stacking (~30d apart): until1=%v until2=%v diff=%v", until1, until2, diff)
 	}
 }
+
+func TestRevokeEntitlementForPayment(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	svc := Service{Q: q}
+	ctx := context.Background()
+	profile := createTestProfile(t, q)
+
+	tariffID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, 'gentra', 30, 59900, 1, true)`,
+		tariffID); err != nil {
+		t.Fatalf("tariff: %v", err)
+	}
+	paymentID := uuid.New()
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		VALUES ($1, $2, $3, 59900, 'payme', 'paid', $4, 30, 59900)`,
+		paymentID, profile.ID, tariffID, "revoke-"+paymentID.String()); err != nil {
+		t.Fatalf("payment: %v", err)
+	}
+
+	payNull := uuid.NullUUID{UUID: paymentID, Valid: true}
+	if _, err := svc.GrantDaysForPayment(ctx, profile.ID, 30, "purchase", "paid", uuid.NullUUID{}, payNull); err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+	if active, _, err := svc.Status(ctx, profile.ID); err != nil || !active {
+		t.Fatalf("pre-revoke active=%v err=%v", active, err)
+	}
+
+	if err := svc.RevokeEntitlementForPayment(ctx, paymentID); err != nil {
+		t.Fatalf("revoke: %v", err)
+	}
+	if active, _, err := svc.Status(ctx, profile.ID); err != nil {
+		t.Fatal(err)
+	} else if active {
+		t.Fatal("want inactive after revoke")
+	}
+
+	// Idempotent.
+	if err := svc.RevokeEntitlementForPayment(ctx, paymentID); err != nil {
+		t.Fatalf("second revoke: %v", err)
+	}
+	// Missing payment grant is a no-op.
+	if err := svc.RevokeEntitlementForPayment(ctx, uuid.New()); err != nil {
+		t.Fatalf("missing grant: %v", err)
+	}
+}
+
+func TestRevokeEntitlementForPaymentKeepsLaterStack(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	svc := Service{Q: q}
+	ctx := context.Background()
+	profile := createTestProfile(t, q)
+
+	tariffID := uuid.New()
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, 'gentra', 30, 59900, 1, true)`,
+		tariffID); err != nil {
+		t.Fatalf("tariff: %v", err)
+	}
+	mkPayment := func(key string) uuid.UUID {
+		t.Helper()
+		id := uuid.New()
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+			                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+			VALUES ($1, $2, $3, 59900, 'payme', 'paid', $4, 30, 59900)`,
+			id, profile.ID, tariffID, key); err != nil {
+			t.Fatalf("payment: %v", err)
+		}
+		return id
+	}
+	first := mkPayment("revoke-stack-1")
+	second := mkPayment("revoke-stack-2")
+	if _, err := svc.GrantDaysForPayment(ctx, profile.ID, 30, "purchase", "a", uuid.NullUUID{},
+		uuid.NullUUID{UUID: first, Valid: true}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.GrantDaysForPayment(ctx, profile.ID, 30, "purchase", "b", uuid.NullUUID{},
+		uuid.NullUUID{UUID: second, Valid: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.RevokeEntitlementForPayment(ctx, first); err != nil {
+		t.Fatal(err)
+	}
+	active, until, err := svc.Status(ctx, profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !active || until == nil {
+		t.Fatal("later stacked purchase must keep VIP active")
+	}
+	// Second grant alone is ~30d from when first would have ended; after
+	// clamping first, tip math may shrink — but until must still be in future.
+	if !until.After(time.Now()) {
+		t.Fatalf("until=%v want future", until)
+	}
+}
