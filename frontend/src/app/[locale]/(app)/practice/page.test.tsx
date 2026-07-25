@@ -116,11 +116,11 @@ describe("PracticePage", () => {
     );
   });
 
-  it("starts an FSRS review session from the due source", async () => {
+  it("starts an AI tahlil review session from the due source", async () => {
     mockEndpoints({ stats: { due_count: 7 } });
     renderWithIntl();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(FSRS\)/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(AI tahlil\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
 
     expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=review&count=7");
