@@ -1337,5 +1337,25 @@
     "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
     "errorLoad": "Юклаб бўлмади.",
     "errorForbidden": "payments.read рухсати йўқ."
+  },
+  "AdminAudit": {
+    "title": "Audit log",
+    "subtitle": "admin_audit_log — append-only оператор ҳаракатлари (security.audit.read).",
+    "note": "Ўзгартириш/ўчириш API йўқ. Learner audit_log эмас — фақат admin.",
+    "searchPlaceholder": "email / entity_id / request_id",
+    "actionPlaceholder": "action",
+    "entityPlaceholder": "entity_type",
+    "search": "Қидириш",
+    "refresh": "Янгилаш",
+    "loading": "Юкланмоқда…",
+    "empty": "Ёзув йўқ.",
+    "total": "{count} ёзув · саҳифа {page}/{pages}",
+    "prev": "Олдинги",
+    "next": "Кейинги",
+    "before": "Before",
+    "after": "After",
+    "none": "—",
+    "errorLoad": "Юклаб бўлмади.",
+    "errorForbidden": "security.audit.read рухсати йўқ."
   }
 }

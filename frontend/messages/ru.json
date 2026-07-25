@@ -1337,5 +1337,25 @@
     "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
     "errorLoad": "Не удалось загрузить.",
     "errorForbidden": "Нет права payments.read."
+  },
+  "AdminAudit": {
+    "title": "Audit log",
+    "subtitle": "admin_audit_log — append-only действия операторов (security.audit.read).",
+    "note": "Нет API изменения/удаления. Это не learner audit_log — только admin.",
+    "searchPlaceholder": "email / entity_id / request_id",
+    "actionPlaceholder": "action",
+    "entityPlaceholder": "entity_type",
+    "search": "Искать",
+    "refresh": "Обновить",
+    "loading": "Загрузка…",
+    "empty": "Записей нет.",
+    "total": "{count} записей · стр. {page}/{pages}",
+    "prev": "Назад",
+    "next": "Далее",
+    "before": "Before",
+    "after": "After",
+    "none": "—",
+    "errorLoad": "Не удалось загрузить.",
+    "errorForbidden": "Нет права security.audit.read."
   }
 }

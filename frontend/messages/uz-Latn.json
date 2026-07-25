@@ -1337,5 +1337,25 @@
     "summary": "payments={payments} · provider_txns={txns} · findings={findings}",
     "errorLoad": "Yuklab bo‘lmadi.",
     "errorForbidden": "payments.read ruxsati yo‘q."
+  },
+  "AdminAudit": {
+    "title": "Audit log",
+    "subtitle": "admin_audit_log — append-only operator harakatlari (security.audit.read).",
+    "note": "O‘zgartirish/o‘chirish API yo‘q. Learner audit_log emas — faqat admin.",
+    "searchPlaceholder": "email / entity_id / request_id",
+    "actionPlaceholder": "action",
+    "entityPlaceholder": "entity_type",
+    "search": "Qidirish",
+    "refresh": "Yangilash",
+    "loading": "Yuklanmoqda…",
+    "empty": "Yozuv yo‘q.",
+    "total": "{count} yozuv · sahifa {page}/{pages}",
+    "prev": "Oldingi",
+    "next": "Keyingi",
+    "before": "Before",
+    "after": "After",
+    "none": "—",
+    "errorLoad": "Yuklab bo‘lmadi.",
+    "errorForbidden": "security.audit.read ruxsati yo‘q."
   }
 }

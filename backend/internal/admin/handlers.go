@@ -113,6 +113,11 @@ func (h *Handler) Routes(r chi.Router) {
 			fr.Patch("/settings/flags/{key}", h.patchFeatureFlag)
 		})
 
+		pr.Group(func(sr chi.Router) {
+			sr.Use(RequirePermission("security.audit.read"))
+			sr.Get("/security/audit", h.listAdminAudit)
+		})
+
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("users.read"))
 			br.Get("/b2b/orgs", h.listB2BOrgs)
@@ -669,6 +674,20 @@ func (h *Handler) patchFeatureFlag(w http.ResponseWriter, r *http.Request) {
 		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
 	)
 	httpx.Data(w, http.StatusOK, after)
+}
+
+func (h *Handler) listAdminAudit(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	action := r.URL.Query().Get("action")
+	entityType := r.URL.Query().Get("entity_type")
+	q := r.URL.Query().Get("q")
+	out, err := h.Svc.Store.ListAdminAudit(r.Context(), action, entityType, q, page, limit)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "audit query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 func parseOptionalTime(raw string) (*time.Time, error) {

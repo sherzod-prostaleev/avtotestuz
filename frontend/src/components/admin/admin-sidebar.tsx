@@ -80,7 +80,14 @@ export function adminNav(locale: string): AdminNavGroup[] {
       title: "Security",
       items: [
         { href: `${base}/security/rbac`, label: "Admins & RBAC", stub: true },
-        { href: `${base}/security/audit`, label: "Audit log", stub: true },
+        { href: `${base}/security/audit`, label: "Audit log" },
+      ],
+    },
+    {
+      title: "Support",
+      items: [
+        { href: `${base}/support/inbox`, label: "Inbox", stub: true },
+        { href: `${base}/support/broadcasts`, label: "Broadcasts", stub: true },
       ],
     },
   ];
