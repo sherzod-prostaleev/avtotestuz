@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-/** Registers the push-capable SW early so installability criteria can be met. */
+/** Registers the push + offline-shell SW early so installability criteria can be met. */
 export function RegisterServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
