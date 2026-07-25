@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
-.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real validate-real run check \
+.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan
 
 up:
@@ -37,6 +37,11 @@ generate:
 
 seed:
 	cd backend && go run ./cmd/genfixture -out seed/sample && go run ./cmd/importer -data seed/sample -verified
+
+# Local superadmin for /{locale}/admin (M3-0). Reads ADMIN_SEED_* from env /
+# backend/.env — never commit a real password. See backend/.env.example.
+seed-admin:
+	cd backend && go run ./cmd/seedadmin
 
 # Real, user-licensed avtoimtihon content (61 bilets, 1235 questions). Regenerates
 # the canonical dataset from the source tree, then imports it (upsert; truncate the

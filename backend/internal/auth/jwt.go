@@ -22,6 +22,7 @@ func IssueAccess(secret []byte, profileID uuid.UUID, role string, ttl time.Durat
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  profileID.String(),
 		"role": role,
+		"typ":  "learner",
 		"iat":  now.Unix(),
 		"exp":  now.Add(ttl).Unix(),
 		"jti":  uuid.NewString(),
@@ -42,6 +43,10 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 	mc, ok := parsed.Claims.(jwt.MapClaims)
 	if !ok {
 		return Claims{}, fmt.Errorf("invalid claims")
+	}
+	// Admin JWTs must never authenticate learner routes (blast-radius isolation).
+	if typ, _ := mc["typ"].(string); typ == "admin" {
+		return Claims{}, fmt.Errorf("admin token not allowed")
 	}
 	sub, _ := mc["sub"].(string)
 	id, err := uuid.Parse(sub)

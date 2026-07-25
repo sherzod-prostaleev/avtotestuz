@@ -119,7 +119,6 @@
     "footerNavPricing": "Narxlar",
     "footerNavFines": "Jarimalar"
   },
-
   "Dashboard": {
     "welcome": "Xush kelibsiz",
     "welcomeUser": "Xush kelibsiz, {name}!",
@@ -1057,5 +1056,15 @@
     "s4Body": "Nazariy bilish jarimalardan oldin keladi: belgilar katalogi va bilet mashqi qoidalarni eslashga yordam beradi. Katalog qo'shilganda shu sahifa rasmiy manbaga bog'langan ma'lumotnoma bo'ladi.",
     "ctaSigns": "Belgilarni ko'rish",
     "ctaPractice": "Mashqqa kirish"
+  },
+  "AdminLogin": {
+    "title": "Admin kirish",
+    "subtitle": "Faqat xodimlar — o'quvchi akkaunti ishlamaydi.",
+    "email": "Email",
+    "password": "Parol",
+    "submit": "Kirish",
+    "submitting": "Tekshirilmoqda...",
+    "errorCreds": "Email yoki parol noto'g'ri.",
+    "errorGeneric": "Kirish amalga oshmadi."
   }
 }

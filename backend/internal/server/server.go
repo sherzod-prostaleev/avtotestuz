@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/account"
+	"avtotest.uz/backend/internal/admin"
 	"avtotest.uz/backend/internal/arena"
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
@@ -71,6 +72,17 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	// /healthz stays a cheap liveness probe that does not touch dependencies.
 	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
 	r.Get("/metrics", metrics.Handler())
+
+	// M3 Super Admin — separate mount from learner /api/v1 (blast-radius isolation).
+	if deps.Pool != nil {
+		adminStore := admin.Store{Pool: deps.Pool}
+		adminH := &admin.Handler{
+			Svc:    admin.Service{Store: adminStore, Secret: []byte(cfg.JWTSecret)},
+			Pool:   deps.Pool,
+			Secret: []byte(cfg.JWTSecret),
+		}
+		r.Route("/admin/v1", adminH.Routes)
+	}
 
 	var arenaSvc *arena.Service
 	if deps.Queries != nil {

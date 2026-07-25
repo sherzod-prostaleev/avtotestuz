@@ -9,3 +9,9 @@ export function backendRootFetch(path: string, init?: RequestInit): Promise<Resp
   const normalized = path.startsWith("/") ? path : `/${path}`;
   return fetch(`${BACKEND_URL}${normalized}`, init);
 }
+
+/** M3 Super Admin API (`/admin/v1/**`). */
+export function backendAdminFetch(path: string, init?: RequestInit): Promise<Response> {
+  const normalized = path.startsWith("/") ? path : `/${path}`;
+  return fetch(`${BACKEND_URL}/admin/v1${normalized}`, init);
+}

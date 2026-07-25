@@ -2,6 +2,7 @@ import createMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale, type Locale } from "@/i18n/config";
 import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import { ADMIN_AUTH_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-auth-cookies";
 
 const intlMiddleware = createMiddleware({ locales, defaultLocale, localePrefix: "always" });
 
@@ -38,6 +39,23 @@ export default function middleware(request: NextRequest) {
   const locale = segments[0];
   const pathname = "/" + segments.slice(1).join("/");
   const hasSession = Boolean(request.cookies.get(AUTH_COOKIE) ?? request.cookies.get(REFRESH_COOKIE));
+  const hasAdminSession = Boolean(
+    request.cookies.get(ADMIN_AUTH_COOKIE) ?? request.cookies.get(ADMIN_REFRESH_COOKIE),
+  );
+
+  // Admin shell — separate from learner cookies.
+  if (pathname === "/admin/login") {
+    if (hasAdminSession) {
+      return NextResponse.redirect(new URL(`/${locale}/admin`, request.url));
+    }
+    return intlMiddleware(request);
+  }
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    if (!hasAdminSession) {
+      return NextResponse.redirect(new URL(`/${locale}/admin/login`, request.url));
+    }
+    return intlMiddleware(request);
+  }
 
   if (matchesAny(pathname, PROTECTED_SEGMENTS) && !hasSession) {
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
