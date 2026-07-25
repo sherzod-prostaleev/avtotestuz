@@ -43,7 +43,7 @@ export async function generateMetadata({
     icons: {
       icon: "/logo.svg",
       shortcut: "/logo.svg",
-      apple: "/logo.jpg",
+      apple: "/apple-touch-icon.png",
     },
   };
 }
@@ -63,7 +63,7 @@ export default async function LocaleLayout({
       <head>
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
         <link rel="shortcut icon" href="/logo.svg" />
-        <link rel="apple-touch-icon" href="/logo.jpg" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         <NextIntlClientProvider messages={messages}>

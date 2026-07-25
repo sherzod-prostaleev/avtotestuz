@@ -125,7 +125,7 @@ export default function LandingPage() {
             href={`/${locale}`}
             className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground sm:text-2xl"
           >
-            <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
+            <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
             <span>{t("brandName")}</span>
           </Link>
 

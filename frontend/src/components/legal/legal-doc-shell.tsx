@@ -28,7 +28,7 @@ export function LegalDocShell({
             href={backHref}
             className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground"
           >
-            <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
+            <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
             <span>{brandName}</span>
           </Link>
           <ThemeToggle />

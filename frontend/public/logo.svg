@@ -1,85 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Driver Go">
   <defs>
-    <!-- Background Gradient -->
-    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1E293B" />
-      <stop offset="50%" stop-color="#0F172A" />
-      <stop offset="100%" stop-color="#090D16" />
+    <linearGradient id="asphalt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="55%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#090D16"/>
     </linearGradient>
-
-    <!-- Amber Glow -->
-    <radialGradient id="amberGlow" cx="50%" cy="38%" r="45%">
-      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.95" />
-      <stop offset="45%" stop-color="#D97706" stop-opacity="0.45" />
-      <stop offset="100%" stop-color="#B45309" stop-opacity="0" />
+    <radialGradient id="amberGlow" cx="50%" cy="42%" r="48%">
+      <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.55"/>
+      <stop offset="55%" stop-color="#D97706" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#B45309" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Steering Wheel Metallic Gradient -->
-    <linearGradient id="wheelGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#64748B" />
-      <stop offset="50%" stop-color="#334155" />
-      <stop offset="100%" stop-color="#1E293B" />
+    <radialGradient id="amberBulb" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="35%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </radialGradient>
+    <linearGradient id="roadFill" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1E293B"/>
     </linearGradient>
-
-    <!-- Signal Amber Bulb Gradient -->
-    <linearGradient id="amberBulb" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#FDE047" />
-      <stop offset="30%" stop-color="#F59E0B" />
-      <stop offset="100%" stop-color="#B45309" />
+    <linearGradient id="laneAmber" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047"/>
+      <stop offset="100%" stop-color="#F59E0B"/>
     </linearGradient>
-
-    <!-- Emerald GO Accent -->
-    <linearGradient id="goAccent" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#34D399" />
-      <stop offset="100%" stop-color="#059669" />
-    </linearGradient>
-
-    <!-- Filter Shadow -->
-    <filter id="shadow3d" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
-    </filter>
   </defs>
 
-  <!-- Container Base -->
-  <rect width="512" height="512" rx="128" fill="url(#bgGrad)" />
+  <!-- App tile -->
+  <rect width="512" height="512" rx="112" fill="url(#asphalt)"/>
 
-  <!-- Outer Ring Accent -->
-  <rect x="12" y="12" width="488" height="488" rx="116" fill="none" stroke="#F59E0B" stroke-width="4" stroke-opacity="0.35" />
+  <!-- Soft amber bloom -->
+  <circle cx="256" cy="200" r="168" fill="url(#amberGlow)"/>
 
-  <!-- Ambient Glow Behind Signal Core -->
-  <circle cx="256" cy="195" r="140" fill="url(#amberGlow)" />
+  <!-- Signal bezel -->
+  <circle cx="256" cy="198" r="118" fill="#0B1220" stroke="#475569" stroke-width="10"/>
+  <circle cx="256" cy="198" r="108" fill="none" stroke="#64748B" stroke-width="3" stroke-opacity="0.45"/>
 
-  <!-- Outer Steering Wheel Ring -->
-  <circle cx="256" cy="225" r="145" fill="none" stroke="url(#wheelGrad)" stroke-width="26" filter="url(#shadow3d)" />
-  <circle cx="256" cy="225" r="145" fill="none" stroke="#F59E0B" stroke-width="3" stroke-opacity="0.6" />
+  <!-- Amber signal lens -->
+  <circle cx="256" cy="198" r="92" fill="url(#amberBulb)"/>
+  <!-- Specular highlight -->
+  <ellipse cx="222" cy="162" rx="28" ry="18" fill="#FFFFFF" fill-opacity="0.55"/>
+  <ellipse cx="236" cy="176" rx="12" ry="8" fill="#FFFFFF" fill-opacity="0.25"/>
 
-  <!-- Steering Wheel Side Spokes -->
-  <path d="M 111 225 L 182 225 M 330 225 L 401 225" stroke="url(#wheelGrad)" stroke-width="22" stroke-linecap="round" filter="url(#shadow3d)" />
-  <path d="M 111 225 L 182 225 M 330 225 L 401 225" stroke="#F59E0B" stroke-width="3" stroke-linecap="round" stroke-opacity="0.4" />
-
-  <!-- Center Hub Base (Traffic Light Base) -->
-  <circle cx="256" cy="195" r="56" fill="#0F172A" stroke="url(#amberBulb)" stroke-width="6" filter="url(#shadow3d)" />
-
-  <!-- Glowing Amber Signal Center -->
-  <circle cx="256" cy="195" r="36" fill="url(#amberBulb)" />
-  <circle cx="244" cy="183" r="10" fill="#FFFFFF" fill-opacity="0.65" />
-
-  <!-- Asphalt Road Section -->
-  <path d="M 216 250 L 135 385 H 377 L 296 250 Z" fill="#1E293B" stroke="#334155" stroke-width="4" />
-
-  <!-- Road Dashed Lines -->
-  <path d="M 256 258 L 256 282 M 256 302 L 256 335 M 256 355 L 256 380" stroke="url(#amberBulb)" stroke-width="7" stroke-linecap="round" />
-
-  <!-- Steering Wheel Lower Arc -->
-  <path d="M 162 318 A 145 145 0 0 0 350 318" fill="none" stroke="url(#wheelGrad)" stroke-width="22" stroke-linecap="round" filter="url(#shadow3d)" />
-
-  <!-- Driver Go Branding Badge at Bottom -->
-  <g transform="translate(0, 395)">
-    <!-- Text DRIVER -->
-    <text x="225" y="44" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', sans-serif" font-weight="900" font-size="44" fill="#F8FAFC" letter-spacing="1" text-anchor="end">DRIVER</text>
-    <!-- Text GO -->
-    <text x="240" y="44" font-family="'Plus Jakarta Sans', 'Inter', 'Segoe UI', sans-serif" font-weight="900" font-size="44" fill="url(#goAccent)" letter-spacing="1" text-anchor="start">GO</text>
-    <!-- Speed Arrow -->
-    <path d="M 326 16 L 348 29 L 326 42 L 333 29 Z" fill="url(#goAccent)" />
-  </g>
+  <!-- Perspective asphalt road -->
+  <path d="M 214 290 L 118 470 H 394 L 298 290 Z" fill="url(#roadFill)" stroke="#475569" stroke-width="3"/>
+  <!-- Shoulder lines -->
+  <path d="M 228 298 L 148 462" fill="none" stroke="#64748B" stroke-width="3" stroke-opacity="0.55"/>
+  <path d="M 284 298 L 364 462" fill="none" stroke="#64748B" stroke-width="3" stroke-opacity="0.55"/>
+  <!-- Dashed center lane -->
+  <path
+    d="M 256 308 L 256 338 M 256 362 L 256 398 M 256 422 L 256 456"
+    fill="none"
+    stroke="url(#laneAmber)"
+    stroke-width="10"
+    stroke-linecap="round"
+  />
 </svg>

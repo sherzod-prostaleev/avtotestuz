@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 160" role="img" aria-label="Driver Go">
+  <defs>
+    <linearGradient id="asphalt" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1E293B"/>
+      <stop offset="55%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#090D16"/>
+    </linearGradient>
+    <radialGradient id="amberBulb" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#FDE68A"/>
+      <stop offset="35%" stop-color="#F59E0B"/>
+      <stop offset="100%" stop-color="#B45309"/>
+    </radialGradient>
+    <linearGradient id="roadFill" x1="50%" y1="0%" x2="50%" y2="100%">
+      <stop offset="0%" stop-color="#334155"/>
+      <stop offset="100%" stop-color="#1E293B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Mark -->
+  <g transform="translate(8, 8)">
+    <rect width="144" height="144" rx="32" fill="url(#asphalt)"/>
+    <circle cx="72" cy="56" r="34" fill="#0B1220" stroke="#475569" stroke-width="4"/>
+    <circle cx="72" cy="56" r="26" fill="url(#amberBulb)"/>
+    <ellipse cx="62" cy="46" rx="8" ry="5" fill="#FFFFFF" fill-opacity="0.55"/>
+    <path d="M 58 84 L 34 132 H 110 L 86 84 Z" fill="url(#roadFill)"/>
+    <path d="M 72 90 L 72 102 M 72 110 L 72 122" fill="none" stroke="#F59E0B" stroke-width="4" stroke-linecap="round"/>
+  </g>
+
+  <!-- Wordmark -->
+  <text
+    x="180"
+    y="102"
+    font-family="Baloo 2, Manrope, system-ui, sans-serif"
+    font-weight="800"
+    font-size="72"
+    letter-spacing="1"
+    fill="#F8FAFC"
+  >DRIVER</text>
+  <text
+    x="500"
+    y="102"
+    font-family="Baloo 2, Manrope, system-ui, sans-serif"
+    font-weight="800"
+    font-size="72"
+    letter-spacing="1"
+    fill="#F09A05"
+  >GO</text>
+</svg>

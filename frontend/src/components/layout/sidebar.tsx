@@ -115,7 +115,7 @@ export function Sidebar() {
           href={`/${currentLocale}/dashboard`}
           className="flex min-h-11 items-center gap-2.5 font-display text-xl font-bold text-foreground"
         >
-          <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
+          <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
           <span className="font-black">{t("brandName")}</span>
         </Link>
 
@@ -164,7 +164,7 @@ export function Sidebar() {
               href={`/${currentLocale}/dashboard`}
               className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
             >
-              <BrandLogo size={40} className="h-10 w-10 rounded-full object-cover" />
+              <BrandLogo size={40} className="h-10 w-10 rounded-2xl object-cover" />
               <span>{t("brandName")}</span>
             </Link>
 

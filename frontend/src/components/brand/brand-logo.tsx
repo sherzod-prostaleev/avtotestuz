@@ -16,7 +16,7 @@ type BrandLogoProps = {
  */
 export function BrandLogo({
   size = 36,
-  className = "rounded-full object-cover",
+  className = "rounded-2xl object-cover",
   alt = "",
   priority = false,
 }: BrandLogoProps) {

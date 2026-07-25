@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -10,12 +10,18 @@ describe("PWA manifest", () => {
       short_name: string;
       display: string;
       start_url: string;
-      icons: unknown[];
+      icons: Array<{ src: string; type?: string; sizes?: string }>;
     };
     expect(manifest.name).toBe("Driver Go");
     expect(manifest.short_name).toBe("Driver Go");
     expect(manifest.display).toBe("standalone");
     expect(manifest.start_url).toBe("/");
     expect(manifest.icons.length).toBeGreaterThan(0);
+    expect(manifest.icons.some((i) => i.src === "/logo-512.png" && i.type === "image/png")).toBe(
+      true,
+    );
+    expect(existsSync(join(process.cwd(), "public/logo-512.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/apple-touch-icon.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/logo.svg"))).toBe(true);
   });
 });

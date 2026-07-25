@@ -111,7 +111,7 @@ export default function RegisterPage() {
           href={`/${locale}`}
           className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
         >
-          <BrandLogo size={36} className="h-9 w-9 rounded-full object-cover" />
+          <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
           <span>{loginT("brandName")}</span>
         </Link>
         <ThemeToggle />

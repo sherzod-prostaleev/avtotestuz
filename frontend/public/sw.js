@@ -9,8 +9,9 @@ const PRECACHE_URLS = [
   OFFLINE_URL,
   "/manifest.webmanifest",
   "/icon.svg",
-  "/logo.jpg",
   "/logo.svg",
+  "/logo-512.png",
+  "/apple-touch-icon.png",
   "/favicon.ico",
 ];
 

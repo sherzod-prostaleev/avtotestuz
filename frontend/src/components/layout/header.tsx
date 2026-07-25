@@ -50,7 +50,7 @@ export function Header() {
           aria-label={t("brandDashboardLabel")}
           className="flex items-center gap-3 font-display text-2xl font-black tracking-tight text-foreground"
         >
-          <BrandLogo size={40} className="h-10 w-10 rounded-full object-cover" />
+          <BrandLogo size={40} className="h-10 w-10 rounded-2xl object-cover" />
           <span>{t("brandName")}</span>
         </Link>
 
