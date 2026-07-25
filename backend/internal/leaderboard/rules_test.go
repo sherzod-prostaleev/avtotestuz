@@ -157,7 +157,7 @@ func TestEncodeScoreBreaksTiesInFavorOfEarlierAchiever(t *testing.T) {
 func TestEncodeScoreHigherPointsAlwaysOutranksLowerRegardlessOfTime(t *testing.T) {
 	veryLate := time.Now().Add(24 * time.Hour)
 	veryEarly := time.Now().Add(-24 * time.Hour)
-	lowPointsLate := leaderboard.EncodeScore(5, veryEarly) // fewer points, but earliest timestamp
+	lowPointsLate := leaderboard.EncodeScore(5, veryEarly)  // fewer points, but earliest timestamp
 	highPointsEarly := leaderboard.EncodeScore(6, veryLate) // more points, latest timestamp
 	if !(highPointsEarly > lowPointsLate) {
 		t.Errorf("6 points (score=%v) should always outrank 5 points (score=%v) regardless of timing", highPointsEarly, lowPointsLate)
