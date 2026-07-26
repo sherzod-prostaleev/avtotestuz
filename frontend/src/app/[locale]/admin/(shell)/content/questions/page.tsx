@@ -5,6 +5,11 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { PermissionGate } from "@/components/admin/permission-gate";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { AdminSkeleton } from "@/components/admin/admin-skeleton";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 
 type QuestionRow = {
   id: string;
@@ -74,19 +79,20 @@ export default function AdminQuestionsPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   return (
-    <main className="mx-auto max-w-5xl space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("questionsTitle")}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("questionsSubtitle")}</p>
-        </div>
-        <Link
-          href={`/${locale}/admin/content/explanations`}
-          className="text-sm font-semibold text-accent hover:underline"
-        >
-          {t("explanationsLink")}
-        </Link>
-      </header>
+    <PermissionGate permission="content.questions.read">
+    <main className="mx-auto max-w-6xl space-y-4">
+      <AdminPageHeader
+        title={t("questionsTitle")}
+        description={t("questionsSubtitle")}
+        actions={
+          <Link
+            href={`/${locale}/admin/content/explanations`}
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            {t("explanationsLink")}
+          </Link>
+        }
+      />
 
       <form
         className="flex flex-wrap gap-2"
@@ -152,11 +158,11 @@ export default function AdminQuestionsPage() {
       </form>
 
       {error ? (
-        <p className="text-sm text-destructive">{error}</p>
+        <AdminErrorState message={error} />
       ) : !data ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        <AdminSkeleton rows={8} />
       ) : data.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("empty")}</p>
+        <AdminEmptyState title={t("empty")} />
       ) : (
         <>
           <div className="overflow-x-auto rounded-xl border border-border">
@@ -234,5 +240,6 @@ export default function AdminQuestionsPage() {
         </>
       )}
     </main>
+    </PermissionGate>
   );
 }

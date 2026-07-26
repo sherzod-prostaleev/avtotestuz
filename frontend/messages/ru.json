@@ -1373,7 +1373,18 @@
     "variantsTitle": "Билеты",
     "noVariants": "Не привязан к билету.",
     "explanationTitle": "Пояснение",
-    "noExplanation": "Пояснения нет."
+    "noExplanation": "Пояснения нет.",
+    "revisionsTitle": "История ревизий",
+    "revisionsEmpty": "Ревизий пока нет.",
+    "revisionSnapshot": "Снимок",
+    "revisionCurrent": "Сейчас",
+    "quarantineTitle": "Карантин вопроса",
+    "quarantineWarn1": "Вопрос исчезнет из практики/экзаменов.",
+    "quarantineWarn2": "Действие пишется в audit и revision.",
+    "quarantinePhrase": "Для подтверждения введите:",
+    "cancel": "Отмена",
+    "bulkVerify": "Verify выбранные ({count})",
+    "bulkVerifyResult": "Готово: verified={verified}, skipped={skipped}"
   },
   "AdminPayments": {
     "transactionsTitle": "Платежи",

@@ -434,6 +434,26 @@ func (s Store) ListExplanations(ctx context.Context, status string, page, limit 
 	return ListExplanationsResult{Items: items, Page: page, Limit: limit, Total: total}, nil
 }
 
+// BulkVerifyExplanations verifies uz-Latn explanation translations for the given question IDs.
+func (s Store) BulkVerifyExplanations(ctx context.Context, questionIDs []uuid.UUID, verifiedBy uuid.UUID) (ok, skipped int, err error) {
+	for _, qid := range questionIDs {
+		before, after, e := s.VerifyQuestionExplanation(ctx, qid, verifiedBy)
+		if e != nil {
+			if IsNoRows(e) {
+				skipped++
+				continue
+			}
+			return ok, skipped, e
+		}
+		if before == after {
+			skipped++
+			continue
+		}
+		ok++
+	}
+	return ok, skipped, nil
+}
+
 // VerifyQuestionExplanation marks uz-Latn explanation translation verified (same as CLI).
 func (s Store) VerifyQuestionExplanation(ctx context.Context, questionID, verifiedBy uuid.UUID) (before, after string, err error) {
 	var explID uuid.UUID
@@ -458,6 +478,59 @@ func (s Store) VerifyQuestionExplanation(ctx context.Context, questionID, verifi
 		return "", "", pgx.ErrNoRows
 	}
 	return before, "verified", nil
+}
+
+// ContentRevision is an immutable snapshot row.
+type ContentRevision struct {
+	ID         uuid.UUID       `json:"id"`
+	EntityType string          `json:"entity_type"`
+	EntityID   uuid.UUID       `json:"entity_id"`
+	Snapshot   json.RawMessage `json:"snapshot_json"`
+	EditorID   *uuid.UUID      `json:"editor_id,omitempty"`
+	Note       string          `json:"note,omitempty"`
+	CreatedAt  time.Time       `json:"created_at"`
+}
+
+// InsertContentRevision stores a JSON snapshot for an entity mutation.
+func (s Store) InsertContentRevision(ctx context.Context, entityType string, entityID uuid.UUID, editorID *uuid.UUID, note string, snapshot any) error {
+	raw, err := json.Marshal(snapshot)
+	if err != nil {
+		return err
+	}
+	_, err = s.Pool.Exec(ctx, `
+		INSERT INTO content_revision (entity_type, entity_id, snapshot_json, editor_id, note)
+		VALUES ($1, $2, $3::jsonb, $4, $5)`,
+		entityType, entityID, raw, editorID, strings.TrimSpace(note))
+	return err
+}
+
+// ListContentRevisions returns newest-first revisions for an entity.
+func (s Store) ListContentRevisions(ctx context.Context, entityType string, entityID uuid.UUID, limit int) ([]ContentRevision, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	rows, err := s.Pool.Query(ctx, `
+		SELECT id, entity_type, entity_id, snapshot_json, editor_id, COALESCE(note, ''), created_at
+		FROM content_revision
+		WHERE entity_type = $1 AND entity_id = $2
+		ORDER BY created_at DESC
+		LIMIT $3`, entityType, entityID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make([]ContentRevision, 0)
+	for rows.Next() {
+		var r ContentRevision
+		var editor *uuid.UUID
+		if err := rows.Scan(&r.ID, &r.EntityType, &r.EntityID, &r.Snapshot, &editor, &r.Note, &r.CreatedAt); err != nil {
+			return nil, err
+		}
+		r.EditorID = editor
+		r.CreatedAt = r.CreatedAt.UTC()
+		out = append(out, r)
+	}
+	return out, rows.Err()
 }
 
 func blocksPreview(raw []byte) string {

@@ -1373,7 +1373,18 @@
     "variantsTitle": "Билетлар",
     "noVariants": "Билетга боғланмаган.",
     "explanationTitle": "Изоҳ",
-    "noExplanation": "Изоҳ йўқ."
+    "noExplanation": "Изоҳ йўқ.",
+    "revisionsTitle": "Ревизиялар тарихи",
+    "revisionsEmpty": "Ревизиялар ҳали йўқ.",
+    "revisionSnapshot": "Snapshot",
+    "revisionCurrent": "Ҳозир",
+    "quarantineTitle": "Саволни карантинга",
+    "quarantineWarn1": "Савол mashq/imtihondan yo‘qoladi.",
+    "quarantineWarn2": "Amal audit va revisionga yoziladi.",
+    "quarantinePhrase": "Tasdiqlash uchun yozing:",
+    "cancel": "Bekor qilish",
+    "bulkVerify": "Tanlanganlarni verify ({count})",
+    "bulkVerifyResult": "Tayyor: verified={verified}, skipped={skipped}"
   },
   "AdminPayments": {
     "transactionsTitle": "Тўловлар",

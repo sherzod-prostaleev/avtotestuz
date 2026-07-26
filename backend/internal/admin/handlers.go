@@ -74,6 +74,7 @@ func (h *Handler) Routes(r chi.Router) {
 			cr.Use(RequirePermission("content.questions.read"))
 			cr.Get("/content/questions", h.listQuestions)
 			cr.Get("/content/questions/{id}", h.getQuestion)
+			cr.Get("/content/questions/{id}/revisions", h.listQuestionRevisions)
 			cr.Get("/content/explanations", h.listExplanations)
 		})
 		pr.Group(func(cr chi.Router) {
@@ -83,6 +84,7 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("content.verify"))
 			cr.Post("/content/questions/{id}/explanation/verify", h.verifyQuestionExplanation)
+			cr.Post("/content/explanations/bulk-verify", h.bulkVerifyExplanations)
 		})
 
 		pr.Group(func(prr chi.Router) {
@@ -684,6 +686,17 @@ func (h *Handler) patchQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "validation_status_required", "validation_status is required")
 		return
 	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	beforeDetail, err := h.Svc.Store.GetQuestion(r.Context(), id)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
+		return
+	}
 	before, after, err := h.Svc.Store.SetQuestionValidationStatus(r.Context(), id, body.ValidationStatus)
 	if err != nil {
 		if IsNoRows(err) {
@@ -697,8 +710,8 @@ func (h *Handler) patchQuestion(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "question update failed")
 		return
 	}
-	claims, _ := FromContext(r.Context())
-	adminID := claims.AdminUserID
+	_ = h.Svc.Store.InsertContentRevision(r.Context(), "question", id, &adminID,
+		"validation_status:"+before+"→"+after, beforeDetail)
 	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "content.questions.patch", "question", id.String(),
 		map[string]any{"validation_status": before},
 		map[string]any{"validation_status": after},
@@ -710,6 +723,27 @@ func (h *Handler) patchQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, detail)
+}
+
+func (h *Handler) listQuestionRevisions(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	if _, err := h.Svc.Store.GetQuestion(r.Context(), id); err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
+		return
+	}
+	out, err := h.Svc.Store.ListContentRevisions(r.Context(), "question", id, 20)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "revisions query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 func (h *Handler) listExplanations(w http.ResponseWriter, r *http.Request) {
@@ -731,6 +765,9 @@ func (h *Handler) verifyQuestionExplanation(w http.ResponseWriter, r *http.Reque
 	}
 	claims, _ := FromContext(r.Context())
 	adminID := claims.AdminUserID
+	if beforeDetail, err := h.Svc.Store.GetQuestion(r.Context(), id); err == nil {
+		_ = h.Svc.Store.InsertContentRevision(r.Context(), "question", id, &adminID, "before_verify", beforeDetail)
+	}
 	before, after, err := h.Svc.Store.VerifyQuestionExplanation(r.Context(), id, adminID)
 	if err != nil {
 		if IsNoRows(err) {
@@ -751,6 +788,47 @@ func (h *Handler) verifyQuestionExplanation(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	httpx.Data(w, http.StatusOK, detail)
+}
+
+type bulkVerifyBody struct {
+	QuestionIDs []string `json:"question_ids"`
+}
+
+func (h *Handler) bulkVerifyExplanations(w http.ResponseWriter, r *http.Request) {
+	var body bulkVerifyBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if len(body.QuestionIDs) == 0 || len(body.QuestionIDs) > 100 {
+		httpx.Error(w, http.StatusBadRequest, "invalid_ids", "question_ids must contain 1..100 ids")
+		return
+	}
+	ids := make([]uuid.UUID, 0, len(body.QuestionIDs))
+	for _, s := range body.QuestionIDs {
+		id, err := uuid.Parse(strings.TrimSpace(s))
+		if err != nil {
+			httpx.Error(w, http.StatusBadRequest, "invalid_ids", "invalid question id")
+			return
+		}
+		ids = append(ids, id)
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	okN, skipped, err := h.Svc.Store.BulkVerifyExplanations(r.Context(), ids, adminID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "bulk verify failed")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "content.verify.bulk", "explanation", "",
+		nil, map[string]any{"verified": okN, "skipped": skipped, "requested": len(ids)},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"verified":  okN,
+		"skipped":   skipped,
+		"requested": len(ids),
+	})
 }
 
 func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {

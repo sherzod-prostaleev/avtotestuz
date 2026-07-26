@@ -5,6 +5,9 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { PermissionGate } from "@/components/admin/permission-gate";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
 
 type ExplRow = {
   question_id: string;
@@ -34,6 +37,8 @@ export default function AdminExplanationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [busyID, setBusyID] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [bulkMsg, setBulkMsg] = useState<string | null>(null);
 
   const load = useCallback(
     async (st: string, pageNum: number) => {
@@ -67,6 +72,40 @@ export default function AdminExplanationsPage() {
     void load(status, page);
   }, [status, page, load]);
 
+  async function bulkVerify() {
+    const ids = Object.entries(selected)
+      .filter(([, v]) => v)
+      .map(([k]) => k);
+    if (!ids.length) return;
+    setBusyID("bulk");
+    setError(null);
+    setBulkMsg(null);
+    try {
+      const res = await fetch("/api/admin/content/explanations/bulk-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question_ids: ids }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json?.error?.message ?? t("errorAction"));
+        return;
+      }
+      setBulkMsg(
+        t("bulkVerifyResult", {
+          verified: json.data.verified,
+          skipped: json.data.skipped,
+        }),
+      );
+      setSelected({});
+      await load(status, page);
+    } catch {
+      setError(t("errorAction"));
+    } finally {
+      setBusyID(null);
+    }
+  }
+
   async function verify(questionID: string) {
     setBusyID(questionID);
     setError(null);
@@ -89,22 +128,23 @@ export default function AdminExplanationsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
+  const selectedCount = Object.values(selected).filter(Boolean).length;
+
   return (
+    <PermissionGate permission="content.questions.read">
     <main className="mx-auto max-w-5xl space-y-4">
-      <header className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-display text-2xl font-extrabold tracking-tight">
-            {t("explanationsTitle")}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">{t("explanationsSubtitle")}</p>
-        </div>
-        <Link
-          href={`/${locale}/admin/content/questions`}
-          className="text-sm font-semibold text-accent hover:underline"
-        >
-          {t("questionsLink")}
-        </Link>
-      </header>
+      <AdminPageHeader
+        title={t("explanationsTitle")}
+        description={t("explanationsSubtitle")}
+        actions={
+          <Link
+            href={`/${locale}/admin/content/questions`}
+            className="text-sm font-semibold text-accent hover:underline"
+          >
+            {t("questionsLink")}
+          </Link>
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         <select
@@ -130,9 +170,18 @@ export default function AdminExplanationsPage() {
           <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
           {t("refresh")}
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!selectedCount || busyID === "bulk"}
+          onClick={() => void bulkVerify()}
+        >
+          {t("bulkVerify", { count: selectedCount })}
+        </Button>
       </div>
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+      {bulkMsg ? <p className="text-sm text-emerald-300">{bulkMsg}</p> : null}
+      {error ? <AdminErrorState message={error} /> : null}
       {!data && !error ? <p className="text-sm text-muted-foreground">{t("loading")}</p> : null}
 
       {data && data.items.length === 0 ? (
@@ -145,6 +194,7 @@ export default function AdminExplanationsPage() {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
                 <tr>
+                  <th className="px-3 py-2 font-bold"> </th>
                   <th className="px-3 py-2 font-bold">{t("colExtId")}</th>
                   <th className="px-3 py-2 font-bold">{t("colText")}</th>
                   <th className="px-3 py-2 font-bold">{t("colCategory")}</th>
@@ -155,6 +205,18 @@ export default function AdminExplanationsPage() {
               <tbody>
                 {data.items.map((row) => (
                   <tr key={row.explanation_id} className="border-b border-border/60 last:border-0">
+                    <td className="px-3 py-2">
+                      {row.status !== "verified" ? (
+                        <input
+                          type="checkbox"
+                          checked={Boolean(selected[row.question_id])}
+                          onChange={(e) =>
+                            setSelected((s) => ({ ...s, [row.question_id]: e.target.checked }))
+                          }
+                          aria-label={row.source_ext_id}
+                        />
+                      ) : null}
+                    </td>
                     <td className="px-3 py-2 font-mono text-xs">
                       <Link
                         href={`/${locale}/admin/content/questions/${row.question_id}`}
@@ -213,5 +275,6 @@ export default function AdminExplanationsPage() {
         </>
       ) : null}
     </main>
+    </PermissionGate>
   );
 }
