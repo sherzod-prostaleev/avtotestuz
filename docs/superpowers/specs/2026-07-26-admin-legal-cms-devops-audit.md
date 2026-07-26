@@ -23,6 +23,10 @@
 | `npx tsc --noEmit` | PASS |
 | vitest (site-legal, oferta, privacy, button, i18n-keysets) | PASS |
 
+## SHA
+
+- `28651f9` — feat(cms): ship admin legal docs CMS and fix nested Link buttons
+
 ## Remaining (out of this slice)
 
 - Admin content signs/tickets studios, runtime config, RBAC UI
