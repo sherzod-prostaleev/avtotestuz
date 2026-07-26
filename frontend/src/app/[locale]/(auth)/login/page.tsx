@@ -99,20 +99,26 @@ export default function LoginPage() {
   const canSubmit = phone.length === 9 && password.length >= 8 && !submitting;
 
   return (
-    <div className="asphalt-hero flex min-h-screen flex-col bg-background">
-      <header className="flex h-14 items-center justify-between border-b border-border px-4">
+    <div
+      className="asphalt-hero flex min-h-screen flex-col bg-background"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+    >
+      <header
+        className="flex h-14 items-center justify-between border-b border-border px-3 sm:px-4"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
         <Link
           href={`/${locale}`}
-          className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
+          className="flex min-w-0 items-center gap-2 font-display text-lg font-black text-foreground sm:gap-2.5 sm:text-xl"
         >
-          <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
-          <span>{t("brandName")}</span>
+          <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
+          <span className="truncate">{t("brandName")}</span>
         </Link>
         <ThemeToggle />
       </header>
 
-      <main className="flex flex-1 items-center justify-center p-4">
-        <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-8">
+      <main className="flex flex-1 items-center justify-center p-3 sm:p-4">
+        <div className="w-full max-w-sm animate-fade-in space-y-5 rounded-2xl border border-border bg-card p-5 sm:space-y-6 sm:p-8">
           <Link
             href={`/${locale}`}
             className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

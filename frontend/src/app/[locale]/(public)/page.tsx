@@ -28,11 +28,11 @@ import {
 } from "lucide-react";
 
 const primaryCta =
-  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl border-b-4 border-accent-shadow bg-accent font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none";
+  "inline-flex items-center justify-center whitespace-normal rounded-2xl border-b-4 border-accent-shadow bg-accent text-center font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none sm:whitespace-nowrap";
 const outlineCta =
-  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl border border-border/80 bg-card/80 font-bold tracking-wide text-foreground shadow-raised-sm backdrop-blur-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-0.5 hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0.5 active:shadow-none";
-const heroPrimaryCta = `${primaryCta} h-12 min-h-12 px-7 text-sm font-extrabold sm:px-8 sm:text-[15px]`;
-const heroOutlineCta = `${outlineCta} h-12 min-h-12 px-6 text-sm`;
+  "inline-flex items-center justify-center whitespace-normal rounded-2xl border border-border/80 bg-card/80 text-center font-bold tracking-wide text-foreground shadow-raised-sm backdrop-blur-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-0.5 hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0.5 active:shadow-none sm:whitespace-nowrap";
+const heroPrimaryCta = `${primaryCta} h-12 min-h-12 w-full px-5 text-sm font-extrabold sm:w-auto sm:px-8 sm:text-[15px]`;
+const heroOutlineCta = `${outlineCta} h-12 min-h-12 w-full px-5 text-sm sm:w-auto sm:px-6`;
 
 /** Dominant hero visual — official exam cockpit, not a floating media card. */
 function ExamCockpit({
@@ -99,11 +99,11 @@ function ExamCockpit({
             </div>
           </div>
         </div>
-        <div className="flex gap-1.5 border-t border-[#1c3554] bg-[#081320] px-4 py-3">
+        <div className="chip-scroll gap-1.5 border-t border-[#1c3554] bg-[#081320] px-3 py-3 sm:gap-1.5 sm:px-4">
           {Array.from({ length: 8 }, (_, i) => (
             <span
               key={i}
-              className={`flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-extrabold shadow-[0_2px_0_0_rgba(0,0,0,0.55)] ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[11px] font-extrabold shadow-[0_2px_0_0_rgba(0,0,0,0.55)] ${
                 i === 0
                   ? "bg-green-600 text-white ring-2 ring-white/80"
                   : i === 1
@@ -215,15 +215,18 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-[4.75rem] sm:pb-0">
-      <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 shadow-[0_8px_24px_-18px_hsl(var(--elev-ambient)/0.55)] backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
+      <header
+        className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 shadow-[0_8px_24px_-18px_hsl(var(--elev-ambient)/0.55)] backdrop-blur-md"
+        style={{ paddingTop: "env(safe-area-inset-top)" }}
+      >
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
           <Link
             href={`/${locale}`}
-            className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground sm:text-2xl"
+            className="flex min-w-0 items-center gap-2 font-display text-lg font-black tracking-tight text-foreground sm:gap-2.5 sm:text-2xl"
           >
-            <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover shadow-raised-sm" />
-            <span>{t("brandName")}</span>
+            <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover shadow-raised-sm sm:h-9 sm:w-9" />
+            <span className="truncate">{t("brandName")}</span>
           </Link>
 
           <nav className="hidden items-center gap-2 text-sm font-bold text-muted-foreground md:flex">
@@ -247,12 +250,17 @@ export default function LandingPage() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-2 sm:gap-3">
-            <LocaleSwitcher />
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-3">
+            <LocaleSwitcher compact className="sm:hidden" />
+            <LocaleSwitcher className="hidden sm:flex" />
             <ThemeToggle />
-            <Link href={`/${locale}/login`} className={`${primaryCta} h-9 px-4 text-xs`}>
-              <LogIn aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />
-              {t("login")}
+            <Link
+              href={`/${locale}/login`}
+              aria-label={t("login")}
+              className={`${primaryCta} h-10 min-w-10 px-2.5 text-xs sm:h-9 sm:px-4`}
+            >
+              <LogIn aria-hidden="true" className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
+              <span className="hidden sm:inline">{t("login")}</span>
             </Link>
           </div>
         </div>
@@ -261,15 +269,16 @@ export default function LandingPage() {
       {/* Hero — one composition: brand, headline, line, CTAs, dominant exam stage */}
       <section className="landing-hero-stage relative overflow-hidden border-b border-border">
         <div className="landing-hero-lane" />
-        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:gap-12 md:py-20 lg:py-24">
-          <div className="space-y-7 text-left animate-fade-in">
-            <p className="font-display text-4xl font-black tracking-tight text-foreground sm:text-5xl md:text-6xl">
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:gap-12 md:py-20 lg:py-24">
+          <div className="min-w-0 space-y-5 text-left animate-fade-in sm:space-y-7">
+            {/* Brand already in sticky header — keep hero-level mark from md up. */}
+            <p className="hidden font-display text-5xl font-black tracking-tight text-foreground md:block md:text-6xl">
               {t("brandName")}
             </p>
-            <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">
+            <p className="text-[11px] font-bold uppercase leading-snug tracking-[0.12em] text-accent sm:text-xs sm:tracking-[0.18em]">
               {t("heroAudience")}
             </p>
-            <h1 className="max-w-xl font-display text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-[3.35rem]">
+            <h1 className="max-w-xl font-display text-[1.85rem] font-black leading-[1.1] tracking-tight sm:text-5xl md:text-[3.35rem]">
               {useCmsHeadline ? (
                 heroHeadline
               ) : (
@@ -280,7 +289,7 @@ export default function LandingPage() {
                 </>
               )}
             </h1>
-            <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
+            <p className="max-w-md text-sm leading-relaxed text-muted-foreground sm:text-lg">
               {heroSubtitle}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
@@ -421,10 +430,10 @@ export default function LandingPage() {
               </h2>
               <p className="text-base text-muted-foreground">{t("howItWorksSubtitle")}</p>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               {steps.map((s, i) => (
                 <Reveal key={s.n} delayMs={i * 100} className="landing-panel landing-panel-interactive space-y-3 p-5">
-                  <p className="font-display text-5xl font-black text-accent drop-shadow-[0_3px_0_hsl(var(--accent-shadow))]">
+                  <p className="font-display text-4xl font-black text-accent drop-shadow-[0_3px_0_hsl(var(--accent-shadow))] sm:text-5xl">
                     {s.n}
                   </p>
                   <h3 className="font-display text-lg font-bold">{s.title}</h3>
@@ -576,16 +585,6 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      {/* Mobile thumb-zone CTA — always one tap from signup */}
-      <div className="landing-sticky-cta">
-        <Link
-          href={heroCtaHref}
-          className={`${primaryCta} h-12 w-full text-sm font-extrabold`}
-        >
-          {heroCtaLabel}
-          <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-        </Link>
-      </div>
     </div>
   );
 }

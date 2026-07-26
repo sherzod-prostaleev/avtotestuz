@@ -1,5 +1,9 @@
 # Staging / Docker app path (U-02)
 
+**Secrets map:** see [`ENV.md`](./ENV.md) — prod secrets live only in
+`deploy/app.env` (gitignored). VPS sync without junk:
+`./deploy/sync-to-vps.sh` (+ `rsync-exclude.txt`).
+
 Minimal path to run the **API + Next.js** images against the existing
 postgres / redis / minio stack from the repo-root `docker-compose.yml`.
 

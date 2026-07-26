@@ -71,12 +71,12 @@ export function GrandMockCard() {
   }, [load]);
 
   return (
-    <Card className="overflow-hidden border-gold/40 bg-card p-5 sm:p-6">
-      <CardHeader className="mb-3 flex flex-row items-center gap-2 p-0">
-        <Trophy aria-hidden="true" className="h-5 w-5 text-gold" />
-        <CardTitle className="font-display text-base font-extrabold tracking-wide">{t("title")}</CardTitle>
+    <Card className="min-w-0 overflow-hidden border-gold/40 bg-card p-3 sm:p-5 md:p-6">
+      <CardHeader className="mb-2 flex flex-row items-center gap-2 p-0 sm:mb-3">
+        <Trophy aria-hidden="true" className="h-4 w-4 text-gold sm:h-5 sm:w-5" />
+        <CardTitle className="font-display text-sm font-extrabold tracking-wide sm:text-base">{t("title")}</CardTitle>
       </CardHeader>
-      <p className="mb-4 text-xs text-muted-foreground">{t("subtitle")}</p>
+      <p className="mb-3 text-[11px] text-muted-foreground sm:mb-4 sm:text-xs">{t("subtitle")}</p>
 
       {loading && (
         <div role="status" className="text-sm text-muted-foreground">

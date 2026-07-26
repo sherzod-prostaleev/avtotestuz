@@ -12,8 +12,7 @@ import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 
 type AdminDataTableProps<T> = {
   data: T[];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  columns: ColumnDef<T, any>[];
+  columns: ColumnDef<T, unknown>[];
   emptyTitle: string;
   emptyDescription?: string;
   maxHeight?: number;

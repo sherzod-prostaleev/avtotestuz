@@ -13,7 +13,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       <ReferralCapture />
       <DemoProgressCapture />
       <Sidebar />
-      <main className="min-w-0 flex-1 pb-[env(safe-area-inset-bottom)] md:ml-64">
+      <main className="min-w-0 flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:ml-64 md:pb-0">
         <MaintenanceBanner />
         <SupportBanner />
         {children}

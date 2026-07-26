@@ -177,18 +177,18 @@
     @apply surface-raised surface-interactive rounded-2xl border border-border bg-card;
   }
 
-  /* Chrome page shell — mobile-first breathing room + safe areas */
+  /* Chrome page shell — compact on phones, roomier from sm up */
   .page-shell {
-    @apply mx-auto w-full max-w-6xl px-4 py-6 sm:px-5 sm:py-8;
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    @apply mx-auto w-full max-w-6xl px-3 py-3 sm:px-5 sm:py-8;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
   .page-shell-narrow {
-    @apply mx-auto w-full max-w-4xl px-4 py-6 sm:px-5 sm:py-8;
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    @apply mx-auto w-full max-w-4xl px-3 py-3 sm:px-5 sm:py-8;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
   .page-shell-tight {
-    @apply mx-auto w-full max-w-5xl px-4 py-6 sm:px-5 sm:py-8;
-    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    @apply mx-auto w-full max-w-5xl px-3 py-3 sm:px-5 sm:py-8;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
   /* Sticky primary action — thumb zone on phones */
@@ -233,30 +233,25 @@
   }
 
   .sidebar-link {
-    /* Compact height so the full nav fits; text stays sm for readability. */
-    @apply flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold;
-    @apply transition-[transform,box-shadow,background-color,color] duration-150;
+    /* Denser nav: smaller chips + breathing room between rows (desktop sidebar). */
+    @apply flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold leading-snug;
+    @apply transition-[transform,box-shadow,background-color,color,border-color] duration-150;
   }
   .sidebar-link-active {
     @apply bg-accent text-accent-foreground shadow-3d;
   }
   .sidebar-link-inactive {
-    @apply border border-border/70 bg-background/70 text-muted-foreground;
-    box-shadow:
-      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.04),
-      0 2px 0 0 hsl(var(--elev-lip));
+    @apply border border-transparent bg-transparent text-muted-foreground;
   }
   .sidebar-link-inactive:hover {
-    @apply border-border bg-card text-foreground;
-    transform: translateY(-1px);
+    @apply border-border/60 bg-background/80 text-foreground;
     box-shadow:
-      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.07),
-      0 3px 0 0 hsl(var(--elev-lip)),
-      0 10px 18px -14px hsl(var(--elev-ambient) / 0.45);
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.04),
+      0 1px 0 0 hsl(var(--elev-lip));
   }
   .sidebar-link-inactive:active {
-    transform: translateY(1px);
-    box-shadow: 0 1px 0 0 hsl(var(--elev-lip));
+    transform: translateY(0.5px);
+    box-shadow: none;
   }
   .sidebar-panel {
     @apply surface-raised-sm rounded-2xl border border-border bg-background;
@@ -488,12 +483,18 @@
 .landing-hero-stage {
   position: relative;
   isolation: isolate;
-  min-height: min(92dvh, 52rem);
+  /* Phones: content-driven height — 92dvh stacks brand+H1+cockpit past the fold. */
+  min-height: 0;
   background-color: hsl(var(--background));
   background-image:
     radial-gradient(ellipse 90% 55% at 70% 40%, hsl(38 96% 48% / 0.14), transparent 58%),
     radial-gradient(ellipse 70% 50% at 15% 85%, hsl(220 30% 18% / 0.55), transparent 60%),
     linear-gradient(180deg, hsl(220 22% 7%) 0%, hsl(220 18% 10%) 55%, hsl(220 16% 8%) 100%);
+}
+@media (min-width: 768px) {
+  .landing-hero-stage {
+    min-height: min(92dvh, 52rem);
+  }
 }
 .light .landing-hero-stage,
 :root:not(.dark) .landing-hero-stage {
@@ -591,6 +592,19 @@
 .landing-sticky-cta {
   @apply fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden;
   padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* App shell — thumb-zone tabs (phones only; drawer still holds full nav). */
+.app-bottom-nav {
+  @apply fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md md:hidden;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.app-bottom-nav-item {
+  @apply flex min-h-12 flex-1 flex-col items-center justify-center gap-0.5 px-1 text-[10px] font-bold leading-tight;
+  @apply text-muted-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset;
+}
+.app-bottom-nav-item-active {
+  @apply text-accent;
 }
 
 /* Landing panels — same extruded language as app Card / sidebar */

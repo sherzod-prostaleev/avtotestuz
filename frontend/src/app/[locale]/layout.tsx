@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Baloo_2, Manrope } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -6,6 +6,17 @@ import { notFound } from "next/navigation";
 import { Providers } from "@/app/providers";
 import { locales, type Locale } from "@/i18n/config";
 import "../globals.css";
+
+/** Notch / home-indicator safe areas (landing sticky CTA + app chrome). */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: dark)", color: "#0E1218" },
+    { media: "(prefers-color-scheme: light)", color: "#F1F3F6" },
+  ],
+};
 
 const baloo = Baloo_2({
   subsets: ["latin", "latin-ext"],
@@ -31,10 +42,6 @@ export async function generateMetadata({
     title: t("title"),
     description: t("description"),
     manifest: "/manifest.webmanifest",
-    themeColor: [
-      { media: "(prefers-color-scheme: dark)", color: "#0E1218" },
-      { media: "(prefers-color-scheme: light)", color: "#F1F3F6" },
-    ],
     appleWebApp: {
       capable: true,
       title: "Driver Go",
@@ -71,7 +78,7 @@ export default async function LocaleLayout({
         <link rel="shortcut icon" href="/logo.svg" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className="min-h-screen bg-background text-foreground antialiased">
+      <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">
         <NextIntlClientProvider messages={messages}>
           <Providers>
             {children}

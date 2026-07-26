@@ -207,11 +207,11 @@ export default function DashboardPage() {
         : "bg-accent/15 text-accent";
 
   return (
-    <main className="page-shell space-y-6 sm:space-y-8">
+    <main className="page-shell space-y-3 sm:space-y-8">
       {showOnboarding && (
         <section
           aria-labelledby="onboarding-title"
-          className="surface-raised relative overflow-hidden rounded-3xl border border-accent/35 bg-card p-5 md:p-6"
+          className="surface-raised relative overflow-hidden rounded-2xl border border-accent/35 bg-card p-3.5 sm:rounded-3xl sm:p-5 md:p-6"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-3">
@@ -254,78 +254,82 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <section className="surface-raised relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
-          <div className="relative z-10 flex h-full flex-col justify-between gap-6">
-            <div className="space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground">
-                  <BrainCircuit aria-hidden="true" className="h-4 w-4 text-accent" />
+      <section className="grid gap-2.5 sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+        <section className="surface-raised relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card p-3 sm:rounded-3xl sm:p-6 md:p-8">
+          <div className="relative z-10 flex h-full flex-col justify-between gap-3 sm:gap-6">
+            <div className="space-y-2 sm:space-y-4">
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px] font-bold text-muted-foreground sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
+                  <BrainCircuit aria-hidden="true" className="h-3.5 w-3.5 text-accent sm:h-4 sm:w-4" />
                   {t("todayTitle")}
                 </span>
                 {loading ? (
                   <span
                     aria-hidden="true"
-                    className="inline-flex h-8 w-28 animate-pulse items-center rounded-md border border-border bg-background px-3 py-1"
+                    className="inline-flex h-7 w-24 animate-pulse items-center rounded-md border border-border bg-background px-3 py-1 sm:h-8 sm:w-28"
                   />
                 ) : isVip ? (
-                  <span className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold/15 px-3 py-1.5 text-sm font-bold text-gold">
-                    <Crown aria-hidden="true" className="h-4 w-4" /> {t("vipBadge")}
+                  <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/15 px-2 py-1 text-[11px] font-bold text-gold sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
+                    <Crown aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> {t("vipBadge")}
                   </span>
                 ) : (
                   <Link href={`/${locale}/premium`}>
-                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-accent/15 px-3 py-1.5 text-sm font-bold text-foreground hover:border-accent">
-                      <Sparkles aria-hidden="true" className="h-4 w-4 text-accent" /> {t("upgradeVip")}
+                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-accent/15 px-2 py-1 text-[11px] font-bold text-foreground hover:border-accent sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-sm">
+                      <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-accent sm:h-4 sm:w-4" /> {t("upgradeVip")}
                     </span>
                   </Link>
                 )}
               </div>
 
-              <div className="flex items-start gap-3">
-                <Hand aria-hidden="true" className="mt-1 h-7 w-7 shrink-0 text-accent" />
-                <div>
-                  <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+              <div className="flex min-w-0 items-start gap-2 sm:gap-3">
+                <Hand aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-accent sm:mt-1 sm:h-7 sm:w-7" />
+                <div className="min-w-0">
+                  <h1 className="truncate font-display text-xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">
                     {loading ? (
                       <span
                         aria-hidden="true"
-                        className="inline-block h-9 w-56 max-w-full animate-pulse rounded-lg bg-border/60 align-middle"
+                        className="inline-block h-7 w-40 max-w-full animate-pulse rounded-lg bg-border/60 align-middle sm:h-9 sm:w-56"
                       />
                     ) : (
                       t("welcomeUser", { name: userName })
                     )}
                   </h1>
-                  <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("welcomeSubtitle")}</p>
+                  <p className="mt-1 max-w-2xl text-xs leading-snug text-muted-foreground sm:mt-2 sm:text-base sm:leading-relaxed">
+                    {t("welcomeSubtitle")}
+                  </p>
                 </div>
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+              <div className="surface-raised-sm min-w-0 rounded-xl border border-border bg-background p-2 sm:rounded-2xl sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-                      <Flame aria-hidden="true" className="h-5 w-5 text-streak" />
-                      {t("streakCount", { count: currentStreak })}
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                      <Flame aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-streak sm:h-5 sm:w-5" />
+                      <span className="truncate">{t("streakCount", { count: currentStreak })}</span>
                     </div>
-                    <p className="mt-2 font-display text-3xl font-extrabold">{todayAnswered}</p>
-                    <p className="mt-1 text-sm leading-snug text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
+                    <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{todayAnswered}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
+                      {t("streakToday", { done: todayAnswered, goal: dailyTarget })}
+                    </p>
                   </>
                 )}
               </div>
 
-              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
+              <div className="surface-raised-sm min-w-0 rounded-xl border border-border bg-background p-2 sm:rounded-2xl sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-                      <CheckCircle2 aria-hidden="true" className="h-5 w-5 text-success" />
-                      {t("readinessLabel")}
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                      <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-success sm:h-5 sm:w-5" />
+                      <span className="truncate">{t("readinessLabel")}</span>
                     </div>
-                    <p className="mt-2 font-display text-3xl font-extrabold">{readinessPct}%</p>
-                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                    <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{readinessPct}%</p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
                       {readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}
                       {passEstimate != null && (
                         <>
@@ -338,17 +342,17 @@ export default function DashboardPage() {
                 )}
               </div>
 
-              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
+              <div className="surface-raised-sm min-w-0 rounded-xl border border-border bg-background p-2 sm:rounded-2xl sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-                      <AlertTriangle aria-hidden="true" className="h-5 w-5 text-danger" />
-                      {t("dueQuestionsLabel")}
+                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                      <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-danger sm:h-5 sm:w-5" />
+                      <span className="truncate">{t("dueQuestionsLabel")}</span>
                     </div>
-                    <p className="mt-2 font-display text-3xl font-extrabold">{dueQuestionsCount}</p>
-                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                    <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{dueQuestionsCount}</p>
+                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
                       {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
                     </p>
                   </>
@@ -358,7 +362,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <aside className="surface-raised rounded-3xl border border-border bg-card p-6 md:p-7">
+        <aside className="surface-raised min-w-0 rounded-2xl border border-border bg-card p-3 sm:rounded-3xl sm:p-6 md:p-7">
           {isPersonalizationLoading ? (
             // The recommendation below depends on stats + session history
             // together (readiness, weakest category, resumable session).
@@ -371,44 +375,50 @@ export default function DashboardPage() {
                   <div className="h-3 w-28 rounded-full bg-border/60" />
                   <div className="h-6 w-44 rounded bg-border/60" />
                 </div>
-                <div className="h-12 w-12 rounded-2xl bg-border/60" />
+                <div className="h-10 w-10 rounded-xl bg-border/60 sm:h-12 sm:w-12 sm:rounded-2xl" />
               </div>
-              <div className="mt-4 space-y-2">
-                <div className="h-3.5 w-full rounded bg-border/50" />
-                <div className="h-3.5 w-3/4 rounded bg-border/50" />
+              <div className="mt-3 space-y-2 sm:mt-4">
+                <div className="h-3 w-full rounded bg-border/50" />
+                <div className="h-3 w-3/4 rounded bg-border/50" />
               </div>
-              <div className="mt-6 h-12 w-full rounded-2xl bg-border/60" />
+              <div className="mt-4 h-11 w-full rounded-xl bg-border/60 sm:mt-6 sm:h-12 sm:rounded-2xl" />
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{t("nextActionLabel")}</p>
-                  <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight">{nextAction.title}</h2>
+              <div className="flex items-center justify-between gap-2 sm:gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-muted-foreground sm:text-xs sm:tracking-[0.16em]">
+                    {t("nextActionLabel")}
+                  </p>
+                  <h2 className="mt-1 truncate font-display text-lg font-extrabold tracking-tight sm:mt-2 sm:text-2xl">
+                    {nextAction.title}
+                  </h2>
                 </div>
-                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${nextActionToneClass}`}>
-                  <NextActionIcon aria-hidden="true" className="h-7 w-7" />
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl sm:h-14 sm:w-14 sm:rounded-2xl ${nextActionToneClass}`}>
+                  <NextActionIcon aria-hidden="true" className="h-5 w-5 sm:h-7 sm:w-7" />
                 </div>
               </div>
 
-              <p className="mt-4 text-base leading-relaxed text-muted-foreground">{nextAction.description}</p>
+              <p className="mt-2 text-xs leading-snug text-muted-foreground sm:mt-4 sm:text-base sm:leading-relaxed">
+                {nextAction.description}
+              </p>
 
               <Link
                 href={nextAction.href}
-                className="mt-6 inline-flex min-h-13 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-6 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+                className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-4 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none sm:mt-6 sm:min-h-13 sm:rounded-2xl sm:px-6 sm:text-base"
               >
                 {nextAction.cta}
-                <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
+                <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
             </>
           )}
 
-          <div className="surface-raised-sm mt-6 rounded-2xl border border-border bg-background p-4">
-            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{t("studyLoopTitle")}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-md bg-accent/15 px-3 py-1.5 text-sm font-semibold text-foreground">{t("studyLoopRecall")}</span>
-              <span className="rounded-md bg-gold/15 px-3 py-1.5 text-sm font-semibold text-gold">{t("studyLoopSpacing")}</span>
-              <span className="rounded-md bg-success/15 px-3 py-1.5 text-sm font-semibold text-success">{t("studyLoopFeedback")}</span>
+          <div className="surface-raised-sm mt-3 rounded-xl border border-border bg-background p-2.5 sm:mt-6 sm:rounded-2xl sm:p-4">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground sm:text-sm">{t("studyLoopTitle")}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-3 sm:gap-2">
+              <span className="rounded-md bg-accent/15 px-2 py-1 text-[11px] font-semibold text-foreground sm:px-3 sm:py-1.5 sm:text-sm">{t("studyLoopRecall")}</span>
+              <span className="rounded-md bg-gold/15 px-2 py-1 text-[11px] font-semibold text-gold sm:px-3 sm:py-1.5 sm:text-sm">{t("studyLoopSpacing")}</span>
+              <span className="rounded-md bg-success/15 px-2 py-1 text-[11px] font-semibold text-success sm:px-3 sm:py-1.5 sm:text-sm">{t("studyLoopFeedback")}</span>
             </div>
           </div>
         </aside>
@@ -467,7 +477,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href={`/${locale}/session/${encodeURIComponent(resumeSession.id)}`}
-              className="inline-flex min-h-13 shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+              className="inline-flex min-h-13 w-full shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none md:w-auto"
             >
               {t("resumeCta")}
               <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
@@ -476,73 +486,73 @@ export default function DashboardPage() {
         </section>
       ) : null}
 
-      {/* 4 Main Mode Cards */}
-      <section className="space-y-4">
-        <h2 className="font-display text-2xl font-bold tracking-tight">{t("modesTitle")}</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      {/* 4 Main Mode Cards — dense 2×2 on phones (competitor-style compact tiles) */}
+      <section className="space-y-2 sm:space-y-4">
+        <h2 className="font-display text-lg font-bold tracking-tight sm:text-2xl">{t("modesTitle")}</h2>
+        <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
           {/* 1. Biletlar Grid */}
-          <Link href={`/${locale}/tickets`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
+          <Link href={`/${locale}/tickets`} className="block min-w-0">
+            <Card className="glass-card group flex h-full flex-col justify-between p-3 sm:p-5 md:p-6">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
-                  <BookOpen aria-hidden="true" className="h-6 w-6" />
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent transition-transform group-hover:scale-105 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <BookOpen aria-hidden="true" className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
-                <CardTitle className="text-lg">{t("navVariantsTitle")}</CardTitle>
+                <CardTitle className="text-sm sm:text-lg">{t("navVariantsTitle")}</CardTitle>
               </div>
-              <div className="mt-4 flex items-center justify-between text-sm font-bold text-accent">
-                <span>{t("variantsMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-accent sm:mt-4 sm:text-sm">
+                <span className="truncate">{t("variantsMeta")}</span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>
           </Link>
 
           {/* 2. Imtihon Simulation */}
-          <Link href={`/${locale}/session/start?mode=exam`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-5 sm:p-6">
+          <Link href={`/${locale}/session/start?mode=exam`} className="block min-w-0">
+            <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-3 sm:p-5 md:p-6">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
-                  <Award aria-hidden="true" className="h-6 w-6" />
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent transition-transform group-hover:scale-105 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <Award aria-hidden="true" className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
-                <CardTitle className="text-lg">{t("navExamTitle")}</CardTitle>
-                <CardDescription className="mt-1.5">{t("navExamDesc")}</CardDescription>
+                <CardTitle className="text-sm sm:text-lg">{t("navExamTitle")}</CardTitle>
+                <CardDescription className="mt-1 line-clamp-2 text-[11px] sm:mt-1.5 sm:text-sm">{t("navExamDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-sm font-bold text-accent">
-                <span>{t("examMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-accent sm:mt-4 sm:text-sm">
+                <span className="truncate">{t("examMeta")}</span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>
           </Link>
 
           {/* 3. Mashq Rejimi */}
-          <Link href={`/${locale}/practice`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
+          <Link href={`/${locale}/practice`} className="block min-w-0">
+            <Card className="glass-card group flex h-full flex-col justify-between p-3 sm:p-5 md:p-6">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-success/15 text-success transition-transform group-hover:scale-105">
-                  <Target aria-hidden="true" className="h-6 w-6" />
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-success/15 text-success transition-transform group-hover:scale-105 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <Target aria-hidden="true" className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
-                <CardTitle className="text-lg">{t("navPracticeTitle")}</CardTitle>
-                <CardDescription className="mt-1.5">{t("navPracticeDesc")}</CardDescription>
+                <CardTitle className="text-sm sm:text-lg">{t("navPracticeTitle")}</CardTitle>
+                <CardDescription className="mt-1 line-clamp-2 text-[11px] sm:mt-1.5 sm:text-sm">{t("navPracticeDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-sm font-bold text-success">
-                <span>{t("practiceMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-success sm:mt-4 sm:text-sm">
+                <span className="truncate">{t("practiceMeta")}</span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>
           </Link>
 
           {/* 4. Xatolar Banki */}
-          <Link href={`/${locale}/mistakes`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
+          <Link href={`/${locale}/mistakes`} className="block min-w-0">
+            <Card className="glass-card group flex h-full flex-col justify-between p-3 sm:p-5 md:p-6">
               <div>
-                <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-danger/15 text-danger transition-transform group-hover:scale-105">
-                  <AlertTriangle aria-hidden="true" className="h-6 w-6" />
+                <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-danger/15 text-danger transition-transform group-hover:scale-105 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">
+                  <AlertTriangle aria-hidden="true" className="h-4 w-4 sm:h-6 sm:w-6" />
                 </div>
-                <CardTitle className="text-lg">{t("navMistakesTitle")}</CardTitle>
-                <CardDescription className="mt-1.5">{t("navMistakesDesc")}</CardDescription>
+                <CardTitle className="text-sm sm:text-lg">{t("navMistakesTitle")}</CardTitle>
+                <CardDescription className="mt-1 line-clamp-2 text-[11px] sm:mt-1.5 sm:text-sm">{t("navMistakesDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-sm font-bold text-danger">
-                <span>{t("mistakesMeta", { count: stats?.due_questions_count ?? 0 })}</span>
-                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+              <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-danger sm:mt-4 sm:text-sm">
+                <span className="truncate">{t("mistakesMeta", { count: stats?.due_questions_count ?? 0 })}</span>
+                <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>
           </Link>
@@ -550,28 +560,28 @@ export default function DashboardPage() {
       </section>
 
       {/* Grand Mock — gated full exam simulation */}
-      <section>
+      <section className="min-w-0">
         <GrandMockCard />
       </section>
 
       {/* Road Signs Banner */}
-      <section>
+      <section className="min-w-0">
         <Link href={`/${locale}/signs`}>
-          <Card className="glass-card border-border p-6 hover:border-accent">
-            <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground shadow-3d">
-                  <Signpost aria-hidden="true" className="h-7 w-7" />
+          <Card className="glass-card border-border p-3 hover:border-accent sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground shadow-3d sm:h-14 sm:w-14 sm:rounded-2xl">
+                  <Signpost aria-hidden="true" className="h-5 w-5 sm:h-7 sm:w-7" />
                 </div>
-                <div>
-                  <h3 className="font-display text-xl font-bold">{t("signsTitle")}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">
+                <div className="min-w-0">
+                  <h3 className="font-display text-sm font-bold sm:text-xl">{t("signsTitle")}</h3>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground sm:text-sm sm:leading-relaxed">
                     {t("signsDescription")}
                   </p>
                 </div>
               </div>
-              <Button as="span" variant="game" size="sm" className="shrink-0">
-                {t("signsOpen")} <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4" />
+              <Button as="span" variant="game" size="sm" className="shrink-0 px-2.5 text-xs sm:px-3 sm:text-sm">
+                {t("signsOpen")} <ChevronRight aria-hidden="true" className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </Card>
@@ -579,21 +589,23 @@ export default function DashboardPage() {
       </section>
 
       {/* Saved Questions Entry */}
-      <section>
+      <section className="min-w-0">
         <Link href={`/${locale}/saved`}>
-          <Card className="glass-card border-gold/40 bg-card p-6 hover:border-gold">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gold/20 text-gold">
-                  <Bookmark aria-hidden="true" className="h-7 w-7" />
+          <Card className="glass-card border-gold/40 bg-card p-3 hover:border-gold sm:p-6">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-2.5 sm:gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/20 text-gold sm:h-14 sm:w-14 sm:rounded-2xl">
+                  <Bookmark aria-hidden="true" className="h-5 w-5 sm:h-7 sm:w-7" />
                 </div>
-                <div>
-                  <h3 className="font-display text-xl font-bold">{savedT("title")}</h3>
-                  <p className="text-sm leading-relaxed text-muted-foreground">{savedT("subtitle")}</p>
+                <div className="min-w-0">
+                  <h3 className="font-display text-sm font-bold sm:text-xl">{savedT("title")}</h3>
+                  <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground sm:text-sm sm:leading-relaxed">
+                    {savedT("subtitle")}
+                  </p>
                 </div>
               </div>
-              <Button as="span" variant="outline" size="sm" className="shrink-0">
-                {savedT("open")} <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4" />
+              <Button as="span" variant="outline" size="sm" className="shrink-0 px-2.5 text-xs sm:px-3 sm:text-sm">
+                {savedT("open")} <ChevronRight aria-hidden="true" className="ml-0.5 h-3.5 w-3.5 sm:ml-1 sm:h-4 sm:w-4" />
               </Button>
             </div>
           </Card>
@@ -605,17 +617,17 @@ export default function DashboardPage() {
           below the signs/saved banners once the fetch resolves. A skeleton
           of the same shape keeps that spot reserved instead. */}
       {loading ? (
-        <section className="space-y-4" aria-hidden="true">
-          <div className="h-6 w-64 max-w-full animate-pulse rounded bg-border/60" />
-          <Card className="p-6">
-            <div className="grid animate-pulse gap-4 sm:grid-cols-2">
+        <section className="min-w-0 space-y-2 sm:space-y-4" aria-hidden="true">
+          <div className="h-5 w-48 max-w-full animate-pulse rounded bg-border/60 sm:h-6 sm:w-64" />
+          <Card className="overflow-hidden p-3 sm:p-6">
+            <div className="grid min-w-0 animate-pulse gap-3 sm:grid-cols-2 sm:gap-4">
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <div className="h-3.5 w-28 rounded bg-border/60" />
-                    <div className="h-3.5 w-8 rounded bg-border/60" />
+                <div key={i} className="min-w-0 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="h-3 w-24 rounded bg-border/60 sm:h-3.5 sm:w-28" />
+                    <div className="h-3 w-10 shrink-0 rounded bg-border/60 sm:h-3.5 sm:w-8" />
                   </div>
-                  <div className="h-2 w-full rounded-full bg-border/50" />
+                  <div className="h-1.5 w-full rounded-full bg-border/50 sm:h-2" />
                 </div>
               ))}
             </div>
@@ -623,24 +635,24 @@ export default function DashboardPage() {
         </section>
       ) : (
         masteryCategories.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-2xl font-bold tracking-tight">
+          <section className="min-w-0 space-y-2 sm:space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
+              <h2 className="font-display text-lg font-bold tracking-tight sm:text-2xl">
                 {t("weakestCategoriesTitle", { count: masteryCategories.length })}
               </h2>
               {totalCategories > masteryCategories.length && (
                 <Link
                   href={`/${locale}/stats`}
-                  className="inline-flex items-center gap-1 text-base font-semibold text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline sm:text-base"
                 >
                   {t("viewAllCategories", { count: totalCategories })}
-                  <ChevronRight aria-hidden="true" className="h-4 w-4" />
+                  <ChevronRight aria-hidden="true" className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 </Link>
               )}
             </div>
-            <p className="text-sm text-muted-foreground">{t("masteryCoverageHint")}</p>
-            <Card className="p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+            <p className="text-[11px] text-muted-foreground sm:text-sm">{t("masteryCoverageHint")}</p>
+            <Card className="overflow-hidden p-3 sm:p-6">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-2 sm:gap-4">
                 {masteryCategories.map((cat) => (
                   <MasteryBar
                     key={cat.code}

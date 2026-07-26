@@ -1,0 +1,162 @@
+# Driver Go production stack — isolated from other host apps.
+# Binds ONLY to 127.0.0.1 on non-conflicting ports (nginx terminates TLS/public).
+#
+# Host layout (recommended):
+#   /opt/drivergo/          # git checkout or rsync
+#   /opt/drivergo/deploy/app.env
+#
+# Bring-up:
+#   cd /opt/drivergo
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.env up -d --build
+#
+# Tear down this project only:
+#   docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.env down
+#
+# Do NOT use host :3000 / :8080 / :5432 / :6379 — other projects own them.
+
+name: drivergo
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: avtotest
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-avtotest}
+      POSTGRES_DB: avtotest
+    # Internal only — no host publish (avoids clash with system Postgres :5432).
+    volumes:
+      - drivergo_pgdata:/var/lib/postgresql/data
+      - ../compose/postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U avtotest"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis:
+    image: redis:7-alpine
+    # Internal only — no host publish (avoids clash with system Redis :6379).
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-avtotest}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-avtotest123}
+    # Nginx proxies /media → this; keep off the public interface.
+    ports:
+      - "127.0.0.1:9010:9000"
+    volumes:
+      - drivergo_minio:/data
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on: [minio]
+    entrypoint: >
+      /bin/sh -c "
+      until mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-avtotest} $${MINIO_ROOT_PASSWORD:-avtotest123}; do sleep 1; done;
+      mc mb -p local/media || true;
+      mc anonymous set download local/media;
+      exit 0"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-avtotest}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-avtotest123}
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    image: ${API_IMAGE:-drivergo-api:local}
+    ports:
+      - "127.0.0.1:${API_HOST_PORT:-8081}:8080"
+    env_file:
+      - path: app.env
+        required: true
+    environment:
+      ENV: ${ENV:-dev}
+      PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:-postgres://avtotest:avtotest@postgres:5432/avtotest?sslmode=disable}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://drivergo.uz/media}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://drivergo.uz}
+      JWT_SECRET: ${JWT_SECRET}
+      OTP_CHANNEL: ${OTP_CHANNEL:-sandbox}
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
+      TELEGRAM_GATEWAY_TOKEN: ${TELEGRAM_GATEWAY_TOKEN:-}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_BOT_MODE: ${TELEGRAM_BOT_MODE:-off}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
+      PAYME_ENV: ${PAYME_ENV:-test}
+      PAYME_KEY: ${PAYME_KEY:-}
+      PAYME_TEST_KEY: ${PAYME_TEST_KEY:-}
+      CLICK_SERVICE_ID: ${CLICK_SERVICE_ID:-}
+      CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID:-}
+      CLICK_SECRET_KEY: ${CLICK_SECRET_KEY:-}
+      OPS_ADMIN_TOKEN: ${OPS_ADMIN_TOKEN:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      ADMIN_TOTP_ENFORCE: ${ADMIN_TOTP_ENFORCE:-false}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  web:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    image: ${WEB_IMAGE:-drivergo-web:local}
+    ports:
+      - "127.0.0.1:${WEB_HOST_PORT:-3010}:3000"
+    env_file:
+      - path: app.env
+        required: true
+    environment:
+      BACKEND_URL: ${BACKEND_URL:-http://api:8080}
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}
+      NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+    depends_on:
+      - api
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/uz-Latn"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  drivergo_pgdata:
+  drivergo_minio:

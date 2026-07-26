@@ -117,7 +117,7 @@ export default function StatsPage() {
               <p className="mt-1 text-xs text-muted-foreground">{t("categoryMasteryHint")}</p>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid min-w-0 gap-3 overflow-hidden sm:grid-cols-2 sm:gap-4">
                 {stats.category_mastery.map((cat) => (
                   <MasteryBar
                     key={cat.code}
