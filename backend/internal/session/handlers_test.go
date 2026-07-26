@@ -142,6 +142,23 @@ func assertNoFeedbackLeak(t *testing.T, raw json.RawMessage, sentinel string) ma
 	return fields
 }
 
+// assertNoExplanationLeak allows per-answer green/red grades while the exam
+// is still running, but keeps explanation prose sealed until finish.
+func assertNoExplanationLeak(t *testing.T, raw json.RawMessage, sentinel string) map[string]json.RawMessage {
+	t.Helper()
+	if strings.Contains(string(raw), sentinel) {
+		t.Fatalf("explanation sentinel leaked: %s", raw)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	if explanation, ok := fields["explanation"]; ok && string(explanation) != "null" {
+		t.Fatalf("explanation leaked before disclosure: %s", explanation)
+	}
+	return fields
+}
+
 func TestFullVariantSessionOverHTTP(t *testing.T) {
 	ts, tok, q := setupServer(t)
 	v, err := q.GetVariantByNumber(context.Background(), 1)
@@ -358,7 +375,14 @@ func TestExamSessionQuestionDetailRedactsUntilCompletion(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("get answered active exam detail status=%d env=%+v", status, env)
 	}
-	assertNoFeedbackLeak(t, env.Data, sentinel)
+	answeredFields := assertNoExplanationLeak(t, env.Data, sentinel)
+	var answeredCorrect bool
+	if err := json.Unmarshal(answeredFields["correct"], &answeredCorrect); err != nil || !answeredCorrect {
+		t.Fatalf("answered in-progress exam detail must disclose correct=true: %s", env.Data)
+	}
+	if _, ok := answeredFields["correct_answer_id"]; !ok {
+		t.Fatalf("answered in-progress exam detail must disclose correct_answer_id: %s", env.Data)
+	}
 
 	status, env = doReq(t, ts, http.MethodPost, "/sessions/"+created.ID+"/finish", tok, nil)
 	if status != http.StatusOK {
@@ -508,11 +532,18 @@ func TestExamSessionHTTPRedactsThenDisclosesAnswerDetails(t *testing.T) {
 	if raw, ok := first["user_answer_id"]; !ok || json.Unmarshal(raw, &userAnswerID) != nil || userAnswerID != answerID.String() {
 		t.Fatalf("in-progress exam must include the user's answer id: %v", first)
 	}
-	if _, ok := first["correct"]; ok {
-		t.Fatalf("in-progress exam leaked correct: %v", first)
+	var correct bool
+	var correctAnswerIDVal string
+	if err := json.Unmarshal(first["correct"], &correct); err != nil || !correct {
+		t.Fatalf("in-progress exam must disclose correct=true for answered question: %v", first)
 	}
-	if _, ok := first["correct_answer_id"]; ok {
-		t.Fatalf("in-progress exam leaked correct_answer_id: %v", first)
+	if err := json.Unmarshal(first["correct_answer_id"], &correctAnswerIDVal); err != nil || correctAnswerIDVal != answerID.String() {
+		t.Fatalf("in-progress exam must disclose correct_answer_id for answered question: %v", first)
+	}
+	if len(inProgress.Answers) > 1 {
+		if _, ok := inProgress.Answers[1]["correct_answer_id"]; ok {
+			t.Fatalf("in-progress exam must not leak answer key for unanswered questions: %v", inProgress.Answers[1])
+		}
 	}
 
 	status, env = doReq(t, ts, http.MethodPost, "/sessions/"+created.ID+"/finish", tok, nil)
@@ -530,12 +561,12 @@ func TestExamSessionHTTPRedactsThenDisclosesAnswerDetails(t *testing.T) {
 		t.Fatal(err)
 	}
 	first = finished.Answers[0]
-	var correct bool
-	var correctAnswerID string
+	correct = false
+	correctAnswerIDVal = ""
 	if err := json.Unmarshal(first["correct"], &correct); err != nil || !correct {
 		t.Fatalf("finished exam must disclose correct=true: %v", first)
 	}
-	if err := json.Unmarshal(first["correct_answer_id"], &correctAnswerID); err != nil || correctAnswerID != answerID.String() {
+	if err := json.Unmarshal(first["correct_answer_id"], &correctAnswerIDVal); err != nil || correctAnswerIDVal != answerID.String() {
 		t.Fatalf("finished exam must disclose correct answer id: %v", first)
 	}
 	if _, ok := finished.Answers[1]["correct_answer_id"]; !ok {

@@ -319,7 +319,7 @@ func (h *Handler) getSessionQuestion(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if !access.FeedbackAllowed {
+	if !access.ExplanationAllowed {
 		detail.Explanation = nil
 	}
 

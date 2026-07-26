@@ -561,7 +561,7 @@ export default function TestSessionPage() {
         onSelectIndex={(index) => setCurrentIndex(index)}
         onSelectAnswer={(questionId, answerId) => void handleSelectAnswer(questionId, answerId)}
         onFinish={() => void handleFinish()}
-        answerStateFor={(question, answerId) => answerState(question, answerId, pendingAnswer)}
+        pendingAnswer={pendingAnswer}
         submitting={submitting}
         finishing={finishing}
       />

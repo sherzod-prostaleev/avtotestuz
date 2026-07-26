@@ -5,7 +5,6 @@ import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { X, ZoomIn } from "lucide-react";
 import type { SessionQuestionItem, SessionState } from "@/hooks/use-session-engine";
-import type { AnswerState } from "@/components/shared/answer-option";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
 
@@ -17,29 +16,35 @@ interface OfficialAvtotestExamViewProps {
   onFinish: () => void;
   submitting: boolean;
   finishing: boolean;
-  answerStateFor: (question: SessionQuestionItem, answerId: string) => AnswerState;
+  /** Optimistic selection while the grade request is in flight. */
+  pendingAnswer?: { questionId: string; answerId: string } | null;
 }
+
+type ExamAnswerVisual = "correct" | "wrong" | "selected" | "answered" | "neutral";
 
 /**
  * Exam-specific answer visual:
  *  - User chose this AND it was correct → "correct" (green)
  *  - User chose this AND it was wrong  → "wrong"   (red)
- *  - User chose this, no feedback yet  → "selected" (blue)
- *  - Any other answer                  → "neutral"  (dark, never reveals correct)
+ *  - Optimistic choice while submit flies → "selected" (blue, brief)
+ *  - Recorded but grade missing          → "answered" (muted, never blue)
+ *  - Any other answer                    → "neutral"  (never reveals the key)
  */
-function examVisual(
+export function examVisual(
   question: SessionQuestionItem,
-  answerId: string
-): "correct" | "wrong" | "selected" | "neutral" {
-  const isUserChoice = question.user_answer_id === answerId;
-  const isAnswered = question.answered || Boolean(question.user_answer_id);
+  answerId: string,
+  pending?: { questionId: string; answerId: string } | null
+): ExamAnswerVisual {
+  const pendingHere =
+    Boolean(pending) && pending!.questionId === question.id && pending!.answerId === answerId;
+  const isUserChoice = question.user_answer_id === answerId || pendingHere;
+  const isAnswered = question.answered === true || Boolean(question.user_answer_id);
 
+  if (pendingHere && !isAnswered) return "selected";
   if (!isAnswered || !isUserChoice) return "neutral";
-
-  // User selected this answer
   if (question.correct === true) return "correct";
   if (question.correct === false) return "wrong";
-  return "selected"; // feedback not yet received
+  return "answered";
 }
 
 /**
@@ -55,6 +60,7 @@ export function OfficialAvtotestExamView({
   onFinish,
   submitting,
   finishing,
+  pendingAnswer = null,
 }: OfficialAvtotestExamViewProps) {
   const locale = useLocale();
   const router = useRouter();
@@ -92,18 +98,20 @@ export function OfficialAvtotestExamView({
   /* ── Style Maps (ultra-crisp high contrast) ──────── */
 
   // Answer button container border+bg
-  const btnStyles: Record<string, string> = {
+  const btnStyles: Record<ExamAnswerVisual, string> = {
     correct:  "border-green-500 bg-[#163820] shadow-md",
     wrong:    "border-red-500 bg-[#421414] shadow-md",
     selected: "border-blue-400 bg-[#162e4a] shadow-md",
+    answered: "border-[#5279a6] bg-[#1a3048] shadow-md",
     neutral:  "border-[#354f6e] bg-[#162738] hover:border-[#5279a6] hover:bg-[#1f364d] shadow-sm",
   };
 
   // F-key badge
-  const badgeStyles: Record<string, string> = {
+  const badgeStyles: Record<ExamAnswerVisual, string> = {
     correct:  "bg-green-600 text-white font-black border-green-500",
     wrong:    "bg-red-600 text-white font-black border-red-500",
     selected: "bg-blue-600 text-white font-black border-blue-400",
+    answered: "bg-[#2a4a6e] text-white font-black border-[#5279a6]",
     neutral:  "bg-[#1d334a] text-white font-black border-[#354f6e]",
   };
 
@@ -201,7 +209,7 @@ export function OfficialAvtotestExamView({
         <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:w-full max-lg:gap-2 max-lg:pt-0 max-lg:pb-[env(safe-area-inset-bottom)]">
           {currentQuestion?.answers.map((answer, index) => {
             const shortcutLabel = `F${index + 1}`;
-            const visual = examVisual(currentQuestion, answer.id);
+            const visual = examVisual(currentQuestion, answer.id, pendingAnswer);
             const isAnswered = currentQuestion.answered || Boolean(currentQuestion.user_answer_id);
 
             return (
@@ -266,10 +274,12 @@ export function OfficialAvtotestExamView({
             const isCorr = q.correct === true;
             const isWrn = q.correct === false;
 
+            // Answered+correct → green; answered+wrong → red; answered without
+            // grade must NOT stay blue (that confused learners with "correct").
             let bg: string;
             if (isWrn) bg = "bg-[#dc2626] text-white border border-red-400 shadow-md font-extrabold";
             else if (isCorr) bg = "bg-[#16a34a] text-white border border-green-400 shadow-md font-extrabold";
-            else if (isAns) bg = "bg-[#2563eb] text-white border border-blue-400 shadow-md font-extrabold";
+            else if (isAns) bg = "bg-[#334155] text-white border border-slate-400 shadow-md font-extrabold";
             else bg = "bg-[#1c334d] text-white border border-[#304d70] hover:bg-[#28486e] hover:border-white font-extrabold";
 
             return (

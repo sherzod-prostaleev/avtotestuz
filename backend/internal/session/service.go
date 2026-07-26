@@ -402,10 +402,10 @@ func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID
 	return count, nil
 }
 
-// SubmitAnswer records a single answer against an in-progress session,
-// applies mistake-bank side effects, and — for exam mode — withholds
-// correctness feedback until the exam finishes (either by hitting the 3rd
-// mistake here, or later via FinishSession).
+// SubmitAnswer records a single answer against an in-progress session and
+// applies mistake-bank side effects. Exam-like modes return per-answer
+// correct/wrong feedback immediately (official Avtotest green/red UI) and
+// may stop the session on the 3rd mistake.
 func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questionID, answerID uuid.UUID) (AnswerResult, error) {
 	row, err := s.Q.GetExamSession(ctx, sessionID)
 	if err != nil {
@@ -581,12 +581,17 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 		return SessionQuestionAccess{}, answerErr
 	}
 
+	finished := row.Status != "in_progress"
 	if IsExamLike(row.Mode) {
-		access.FeedbackAllowed = row.Status != "in_progress"
+		// Green/red grades for answered questions during the exam; explanations
+		// and unanswered answer keys stay sealed until finish.
+		access.ExplanationAllowed = finished
 	} else {
-		access.FeedbackAllowed = access.Answered
+		access.ExplanationAllowed = access.Answered
 	}
-	if !access.FeedbackAllowed {
+
+	gradeAllowed := access.Answered || finished
+	if !gradeAllowed {
 		return access, nil
 	}
 
@@ -594,7 +599,9 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 	if err != nil {
 		return SessionQuestionAccess{}, err
 	}
-	access.CorrectAnswerID = &correctAnswerID
+	if access.Answered || finished {
+		access.CorrectAnswerID = &correctAnswerID
+	}
 	if access.Answered {
 		correct := answer.IsCorrect
 		access.Correct = &correct
@@ -739,10 +746,10 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 
 // GetSession returns the resume/history view of a single session, scoped to
 // its owning profile (ErrNotFound otherwise, matching SubmitAnswer/
-// FinishSession). Per-answer correctness is redacted (Correct left nil) for
-// every answer while an exam-mode session is still in_progress; once the
-// session is no longer in_progress (any other status, any mode), full
-// correctness is reported for every answer.
+// FinishSession). Answered questions always expose Correct / CorrectAnswerID
+// (including during an in-progress exam, matching SubmitAnswer's immediate
+// green/red feedback). Unanswered questions stay sealed until the session is
+// no longer in_progress, when the full answer key may be revealed.
 func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID) (SessionDetail, error) {
 	row, err := s.Q.GetExamSession(ctx, sessionID)
 	if err != nil {
@@ -760,8 +767,6 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 		return SessionDetail{}, err
 	}
 
-	redact := IsExamLike(row.Mode) && row.Status == "in_progress"
-
 	answers := make([]AnsweredQuestion, 0, len(rows))
 	questionIDs := make([]uuid.UUID, 0, len(rows))
 	for _, a := range rows {
@@ -775,14 +780,13 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 			userAnswerID := a.UserAnswerID.UUID
 			aq.UserAnswerID = &userAnswerID
 		}
-		if !redact && a.IsCorrect.Valid {
+		if aq.Answered && a.IsCorrect.Valid {
 			correct := a.IsCorrect.Bool
 			aq.Correct = &correct
 		}
-		// Feedback modes reveal the answer key only after this particular
-		// question is answered. A completed session may reveal it for every
-		// assigned question, including questions skipped before an early stop.
-		if !redact && a.CorrectAnswerID.Valid && (aq.Answered || row.Status != "in_progress") {
+		// Reveal the answer key for answered questions always; for unanswered
+		// ones only after the session finishes (review / early-stop key).
+		if a.CorrectAnswerID.Valid && (aq.Answered || row.Status != "in_progress") {
 			correctAnswerID := a.CorrectAnswerID.UUID
 			aq.CorrectAnswerID = &correctAnswerID
 		}

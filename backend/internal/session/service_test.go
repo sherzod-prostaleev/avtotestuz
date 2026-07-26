@@ -576,7 +576,7 @@ func TestFinishSessionAbandonedWhenIncomplete(t *testing.T) {
 	}
 }
 
-func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
+func TestGetSessionRevealsAnsweredFeedbackDuringInProgressExam(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
 	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{Mode: "exam", Locale: "uz-Latn"})
@@ -595,8 +595,9 @@ func TestGetSessionRedactsCorrectnessDuringInProgressExam(t *testing.T) {
 		t.Fatalf("resume must return all %d assigned questions, got %d", len(view.QuestionIDs), len(detail.Answers))
 	}
 	if !detail.Answers[0].Answered || detail.Answers[0].UserAnswerID == nil || *detail.Answers[0].UserAnswerID != correctID ||
-		detail.Answers[0].Correct != nil || detail.Answers[0].CorrectAnswerID != nil {
-		t.Fatalf("in-progress exam must mark the submitted question and redact correctness: %+v", detail.Answers[0])
+		detail.Answers[0].Correct == nil || !*detail.Answers[0].Correct ||
+		detail.Answers[0].CorrectAnswerID == nil || *detail.Answers[0].CorrectAnswerID != correctID {
+		t.Fatalf("in-progress exam must keep green/red feedback for answered questions: %+v", detail.Answers[0])
 	}
 	for i, answer := range detail.Answers[1:] {
 		if answer.Answered || answer.UserAnswerID != nil || answer.Correct != nil || answer.CorrectAnswerID != nil {

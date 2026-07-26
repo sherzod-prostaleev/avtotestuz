@@ -53,15 +53,16 @@ type ExplanationPayload struct {
 }
 
 // SessionQuestionAccess is the authorization and anti-cheat decision for one
-// assigned question. The content handler uses FeedbackAllowed to decide
-// whether explanation prose may be serialized.
+// assigned question. ExplanationAllowed gates explanation prose; grade fields
+// (Correct / CorrectAnswerID) are filled independently so exam UI can show
+// green/red without leaking expert explanations mid-exam.
 type SessionQuestionAccess struct {
-	Position        int
-	Answered        bool
-	UserAnswerID    *uuid.UUID
-	Correct         *bool
-	CorrectAnswerID *uuid.UUID
-	FeedbackAllowed bool
+	Position           int
+	Answered           bool
+	UserAnswerID       *uuid.UUID
+	Correct            *bool
+	CorrectAnswerID    *uuid.UUID
+	ExplanationAllowed bool
 }
 
 // FinishResult is the full outcome of finishing an exam session: its final
@@ -75,16 +76,16 @@ type FinishResult struct {
 	CertificateShareCode string `json:"certificate_share_code,omitempty"`
 }
 
-// AnsweredQuestion reports the recorded outcome of one answered question
-// within a session. Correct is nil while an exam-mode session is still
-// in_progress (anti-cheat redaction) and populated for every mode once the
-// session is no longer in_progress.
+// AnsweredQuestion reports the recorded outcome of one assigned question
+// within a session. Correct is set once the question is answered (including
+// during an in-progress exam). CorrectAnswerID for unanswered questions stays
+// hidden until the session finishes.
 type AnsweredQuestion struct {
 	QuestionID      uuid.UUID
 	Position        int
 	Answered        bool
 	UserAnswerID    *uuid.UUID // nil until the profile answers this question
-	Correct         *bool      // nil when unanswered or anti-cheat redaction applies
+	Correct         *bool      // nil when unanswered
 	CorrectAnswerID *uuid.UUID // nil when the answer key must remain hidden
 }
 

@@ -158,22 +158,29 @@ describe("SessionPage secure session flow", () => {
     expect(screen.getByText("YHQ 91-band bo'yicha tekshirilgan izoh.")).toBeVisible();
   });
 
-  it("keeps in-progress exam feedback hidden while confirming persistence", () => {
+  it("paints a graded exam answer green and disables further choice", () => {
     mockEngine(
       activeSession({
         mode: "exam",
         time_limit_sec: 1500,
         remaining_sec: 300,
-        questions: [question({ answered: true, user_answer_id: "a-1" })],
+        questions: [
+          question({
+            answered: true,
+            user_answer_id: "a-1",
+            correct: true,
+            correct_answer_id: "a-1",
+          }),
+        ],
       })
     );
 
     renderPage();
 
-    expect(screen.getByText("3.27 belgisi")).toBeInTheDocument();
-    expect(screen.queryByTestId("answer-correct-icon")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /3.27 belgisi/ })).toBeDisabled();
+    const chosen = screen.getByRole("button", { name: /3.27 belgisi/ });
+    expect(chosen).toBeDisabled();
+    expect(chosen.className).toMatch(/border-green-500/);
+    expect(chosen.className).not.toMatch(/border-blue-400/);
   });
 
   it("submits a dynamic fifth answer through F5 without client grading", async () => {

@@ -409,6 +409,27 @@ export function useSessionEngine(_initialSessionId?: string) {
 
       try {
         const state = await fetchSessionState(sessionId, resolvedLocale);
+        // Soft locale reload: keep grades already painted from SubmitAnswer so
+        // a redacted/stale resume payload cannot flip green answers back to blue.
+        const prev = sessionRef.current;
+        if (soft && prev?.id === sessionId) {
+          const prevById = new Map(prev.questions.map((q) => [q.id, q]));
+          commitSession({
+            ...state,
+            questions: state.questions.map((q) => {
+              const prior = prevById.get(q.id);
+              if (!prior) return q;
+              return {
+                ...q,
+                correct: q.correct ?? prior.correct,
+                correct_answer_id: q.correct_answer_id ?? prior.correct_answer_id,
+                user_answer_id: q.user_answer_id ?? prior.user_answer_id,
+                answered: q.answered || prior.answered,
+              };
+            }),
+          });
+          return sessionRef.current;
+        }
         commitSession(state);
         return state;
       } catch (err: unknown) {

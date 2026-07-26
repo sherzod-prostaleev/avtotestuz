@@ -361,10 +361,15 @@ describe("useSessionEngine", () => {
     });
   });
 
-  it("records the chosen answer but never grades an in-progress exam on the client", async () => {
+  it("records exam answer grades from the backend (never invents them client-side)", async () => {
     vi.spyOn(apiClient, "apiPost")
       .mockResolvedValueOnce(startResponse({ mode: "exam", time_limit_sec: 1500 }) as never)
-      .mockResolvedValueOnce({ recorded: true, stopped: false } as never);
+      .mockResolvedValueOnce({
+        recorded: true,
+        stopped: false,
+        correct: true,
+        correct_answer_id: "q-1-a1",
+      } as never);
     const get = mockOnlyScopedQuestions();
     const { result } = renderHook(() => useSessionEngine());
     await startOneQuestionSession(result, "exam");
@@ -374,8 +379,8 @@ describe("useSessionEngine", () => {
     });
 
     expect(result.current.session?.questions[0].user_answer_id).toBe("q-1-a1");
-    expect(result.current.session?.questions[0].correct).toBeUndefined();
-    expect(result.current.session?.questions[0].correct_answer_id).toBeUndefined();
+    expect(result.current.session?.questions[0].correct).toBe(true);
+    expect(result.current.session?.questions[0].correct_answer_id).toBe("q-1-a1");
     expect(get).toHaveBeenCalledTimes(1);
   });
 
