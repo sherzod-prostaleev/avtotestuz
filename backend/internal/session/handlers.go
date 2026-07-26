@@ -509,6 +509,7 @@ type variantStatusDTO struct {
 	Number        int32      `json:"number"`
 	QuestionCount int        `json:"question_count"`
 	Unlocked      bool       `json:"unlocked"`
+	LockReason    string     `json:"lock_reason,omitempty"`
 	BestCorrect   int        `json:"best_correct"`
 	Attempts      int        `json:"attempts"`
 	CompletedAt   *time.Time `json:"completed_at,omitempty"`
@@ -556,7 +557,7 @@ func writeSessionError(w http.ResponseWriter, err error) {
 		// (see GET /me/mock-eligibility for the specific reason and numbers).
 		httpx.Error(w, http.StatusForbidden, "mock_not_eligible", "grand mock study requirements not met")
 	case errors.Is(err, ErrVariantLocked):
-		httpx.Error(w, http.StatusForbidden, "variant_locked", "complete the previous variant first")
+		httpx.Error(w, http.StatusForbidden, "previous_ticket_required", "complete the previous ticket with enough correct answers first")
 	default:
 		httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
 	}

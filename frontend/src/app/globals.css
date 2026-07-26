@@ -234,7 +234,7 @@
 
   .sidebar-link {
     /* Denser nav: smaller chips + breathing room between rows (desktop sidebar). */
-    @apply flex min-h-9 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-semibold leading-snug;
+    @apply flex min-h-8 items-center gap-2 rounded-md px-2 py-1 text-[12px] font-semibold leading-snug md:min-h-9 md:rounded-lg md:px-2.5 md:py-1.5 md:text-[13px];
     @apply transition-[transform,box-shadow,background-color,color,border-color] duration-150;
   }
   .sidebar-link-active {
@@ -254,7 +254,7 @@
     box-shadow: none;
   }
   .sidebar-panel {
-    @apply surface-raised-sm rounded-2xl border border-border bg-background;
+    @apply surface-raised-sm rounded-xl border border-border bg-background md:rounded-2xl;
   }
 
   /* Asphalt hero atmosphere — full-bleed, no inset media card */

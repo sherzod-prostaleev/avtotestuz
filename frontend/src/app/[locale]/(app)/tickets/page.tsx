@@ -14,7 +14,8 @@ type FilterStatus = "all" | "completed" | "in_progress" | "locked";
 
 function getTicketState(ticket: TicketItem) {
   const bestCorrect = ticket.best_correct ?? ticket.score ?? 0;
-  const isCompleted = ticket.status === "completed" || bestCorrect >= 18;
+  // Align with backend unlock_threshold_correct / completed_at — not exam pass (≥18).
+  const isCompleted = ticket.status === "completed" || Boolean(ticket.completed_at);
   const isLocked = ticket.status === "locked" || ticket.unlocked === false;
   const attempts = ticket.attempts ?? (ticket.status !== "unstarted" ? 1 : 0);
   const totalQuestions = ticket.total_questions ?? 20;
@@ -38,6 +39,7 @@ export default function TicketsPage() {
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const [lockNotice, setLockNotice] = useState<string | null>(null);
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = search === "" || ticket.number.toString().includes(search);
@@ -62,9 +64,15 @@ export default function TicketsPage() {
   const handleStartTicket = (ticket: TicketItem) => {
     const { isLocked } = getTicketState(ticket);
     if (isLocked) {
+      if (ticket.lock_reason === "prev_required") {
+        setLockNotice(t("lockedPrevRequired"));
+        return;
+      }
+      setLockNotice(null);
       router.push(`/${locale}/premium`);
       return;
     }
+    setLockNotice(null);
     // Warm SW variant-detail cache for this ticket (offline re-read later).
     prefetchVariantDetail(ticket.number, locale);
     router.push(`/${locale}/session/start?mode=variant&variant_id=${ticket.number}`);
@@ -135,6 +143,7 @@ export default function TicketsPage() {
               <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
                 {t("heroDescription")}
               </p>
+              <p className="max-w-xl text-sm font-semibold text-accent">{t("unlockHint")}</p>
               <div
                 className="ticket-progress-track h-2"
                 role="progressbar"
@@ -247,6 +256,15 @@ export default function TicketsPage() {
         </div>
       )}
 
+      {lockNotice && (
+        <div
+          role="status"
+          className="rounded-2xl border border-accent/40 bg-accent/10 p-4 text-sm font-medium text-foreground"
+        >
+          {lockNotice}
+        </div>
+      )}
+
       {/* Tickets grid */}
       {loading ? (
         <div role="status" className="py-12 text-center text-sm text-muted-foreground animate-pulse">{t("loading")}</div>
@@ -319,7 +337,9 @@ export default function TicketsPage() {
                   {isLocked ? (
                     <span className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2 text-xs font-bold text-muted-foreground">
                       <Lock aria-hidden="true" className="h-3.5 w-3.5" />
-                      {t("vipRequiredShort")}
+                      {ticket.lock_reason === "prev_required"
+                        ? t("lockedPrevRequiredShort")
+                        : t("vipRequiredShort")}
                     </span>
                   ) : isCompleted ? (
                     <span className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-gold/30 bg-gold/10 px-2 text-xs font-extrabold text-gold">

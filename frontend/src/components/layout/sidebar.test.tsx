@@ -87,17 +87,17 @@ describe("Sidebar i18n and accessibility", () => {
   it.each(localeCases)("renders translated navigation for $locale", (localeCase) => {
     const { container } = renderWithIntl(localeCase);
 
-    expect(screen.getByRole("link", { name: localeCase.dashboard })).toHaveAttribute(
-      "href",
-      `/${localeCase.locale}/dashboard`
-    );
+    const dashboard = screen
+      .getAllByRole("link")
+      .find((link) => link.getAttribute("href") === `/${localeCase.locale}/dashboard` && link.textContent?.includes(localeCase.dashboard));
+    expect(dashboard).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: localeCase.more }));
     expect(screen.getByRole("link", { name: localeCase.saved })).toHaveAttribute(
       "href",
       `/${localeCase.locale}/saved`
     );
     expect(screen.getByText(localeCase.user)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: localeCase.openMenu })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: localeCase.openMenu }).length).toBeGreaterThan(0);
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
 
@@ -109,9 +109,10 @@ describe("Sidebar i18n and accessibility", () => {
 
     expect(screen.queryByText(localeCase.imageQuestions)).not.toBeInTheDocument();
     expect(screen.queryByText(localeCase.textQuestions)).not.toBeInTheDocument();
+    // One exam entry in the desktop sidebar list + one in the thumb-zone tabs.
     expect(
       screen.queryAllByRole("link").filter((link) => link.getAttribute("href")?.includes("session/start"))
-    ).toHaveLength(1);
+    ).toHaveLength(2);
   });
 
   it.each(localeCases.slice(1))("does not leak Latin Uzbek chrome into $locale", (localeCase) => {

@@ -129,7 +129,9 @@ type VariantStatus struct {
 	Number        int32
 	QuestionCount int
 	Unlocked      bool
-	BestCorrect   int
-	Attempts      int
-	CompletedAt   *time.Time
+	// LockReason is "vip_required" or "prev_required" when Unlocked is false.
+	LockReason  string
+	BestCorrect int
+	Attempts    int
+	CompletedAt *time.Time
 }

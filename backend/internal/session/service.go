@@ -158,6 +158,23 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			if !active {
 				return SessionView{}, ErrRequiresVIP
 			}
+			prev, prevErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
+			if prevErr != nil {
+				return SessionView{}, prevErr
+			}
+			prevProgress, progErr := s.Q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{
+				ProfileID: profileID,
+				VariantID: prev.ID,
+			})
+			if progErr != nil {
+				if errors.Is(progErr, pgx.ErrNoRows) {
+					return SessionView{}, ErrVariantLocked
+				}
+				return SessionView{}, progErr
+			}
+			if !prevProgress.CompletedAt.Valid {
+				return SessionView{}, ErrVariantLocked
+			}
 		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
@@ -639,9 +656,9 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 
 // unlockThresholdConfigKey is the limit_config key holding the minimum
 // correct-answer count a variant-mode session must reach to mark the bilet
-// completed (completed_at). Ticket unlock itself is VIP-gated (variant #1
-// free; #2+ require VIP) — see IsVariantUnlocked / StartSession. Free and VIP
-// tiers currently share the same completed threshold (10), so FinishSession
+// completed (completed_at). Completing a bilet unlocks the next one for VIP
+// profiles (free users stay on #1 only) — see IsVariantUnlocked / StartSession.
+// Free and VIP tiers share the same completed threshold (10), so FinishSession
 // reads FreeValue without an extra billing lookup.
 const unlockThresholdConfigKey = "unlock_threshold_correct"
 
@@ -939,8 +956,8 @@ func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit
 
 // ListVariantStatuses returns every bilet variant, in number order, with the
 // profile's progress against it and whether it's unlocked. Unlock matches
-// StartSession: variant #1 for everyone, variants #2+ only for VIP — via the
-// pure IsVariantUnlocked rule (rules.go), never reimplemented here.
+// StartSession: #1 for everyone; #N+1 for VIP only after #N has completed_at —
+// via IsVariantUnlocked (rules.go), never reimplemented here.
 func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) ([]VariantStatus, error) {
 	variants, err := s.Q.ListVariants(ctx)
 	if err != nil {
@@ -962,26 +979,32 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 	}
 
 	statuses := make([]VariantStatus, 0, len(variants))
-	for i, v := range variants {
+	prevCompleted := true // unused for #1; seeded so the first step is clean
+	for _, v := range variants {
 		variant, err := s.Q.GetVariantByNumber(ctx, v.Number)
 		if err != nil {
 			return nil, err
 		}
 
+		unlocked := IsVariantUnlocked(int(v.Number), active, prevCompleted)
 		status := VariantStatus{
 			Number:        v.Number,
 			QuestionCount: int(v.QuestionCount),
-			Unlocked:      IsVariantUnlocked(i == 0, active),
+			Unlocked:      unlocked,
+			LockReason:    VariantLockReason(int(v.Number), active, unlocked),
 		}
 
+		completed := false
 		if p, ok := progressByVariant[variant.ID]; ok {
 			status.BestCorrect = int(p.BestCorrect)
 			status.Attempts = int(p.Attempts)
 			if p.CompletedAt.Valid {
 				t := p.CompletedAt.Time
 				status.CompletedAt = &t
+				completed = true
 			}
 		}
+		prevCompleted = completed
 
 		statuses = append(statuses, status)
 	}

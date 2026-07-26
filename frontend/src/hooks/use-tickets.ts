@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { apiGet, ApiError } from "@/lib/api-client";
 
+export type TicketLockReason = "vip_required" | "prev_required";
+
 export interface TicketStatus {
   number: number;
   total_questions: number;
@@ -8,6 +10,7 @@ export interface TicketStatus {
   best_correct: number;
   attempts: number;
   unlocked: boolean;
+  lock_reason?: TicketLockReason;
   completed_at?: string;
   /** Compatibility field for existing consumers; real responses use best_correct. */
   score?: number;
@@ -19,6 +22,7 @@ interface VariantStatusDTO {
   number: number;
   question_count: number;
   unlocked: boolean;
+  lock_reason?: TicketLockReason;
   best_correct: number;
   attempts: number;
   completed_at?: string;
@@ -40,6 +44,7 @@ function toTicketStatus(variant: VariantStatusDTO): TicketStatus {
     best_correct: variant.best_correct,
     attempts: variant.attempts,
     unlocked: variant.unlocked,
+    ...(variant.lock_reason ? { lock_reason: variant.lock_reason } : {}),
     ...(variant.completed_at ? { completed_at: variant.completed_at } : {}),
   };
 }

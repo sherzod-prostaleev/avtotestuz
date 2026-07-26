@@ -59,6 +59,14 @@ export function Sidebar() {
     { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
   ];
 
+  // Bottom tabs already cover home / tickets / practice / exam — drawer keeps the rest.
+  const mobileDrawerLinks: NavLink[] = [
+    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
+    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
+    { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
+    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
+  ];
+
   const moreLinks: NavLink[] = [
     { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
     { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
@@ -127,6 +135,24 @@ export function Sidebar() {
     );
   };
 
+  const moreSection = (
+    <div className="pt-0.5 md:pt-1.5">
+      <button
+        type="button"
+        aria-expanded={showMore}
+        onClick={() => setMoreOpen((v) => !v)}
+        className="sidebar-link sidebar-link-inactive w-full justify-between text-[11px] font-extrabold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {t("navMore")}
+        <ChevronDown
+          aria-hidden="true"
+          className={`h-3.5 w-3.5 transition-transform ${showMore ? "rotate-180" : ""}`}
+        />
+      </button>
+      {showMore && <div className="mt-0.5 space-y-0.5 md:mt-1.5 md:space-y-1.5">{moreLinks.map(renderLink)}</div>}
+    </div>
+  );
+
   return (
     <>
       {/* Compact top chrome — brand + streak; full nav lives in bottom tabs + drawer */}
@@ -176,21 +202,25 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(18.5rem,90vw)] flex-col overflow-hidden border-r border-border bg-card p-3 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 md:w-64 md:translate-x-0 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 md:w-64 md:translate-x-0 md:p-3 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
         style={{
-          paddingTop: "max(0.75rem, env(safe-area-inset-top))",
-          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
+          paddingTop: "max(0.5rem, env(safe-area-inset-top))",
+          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
         }}
       >
-        <div className="shrink-0 space-y-2.5">
-          <div className="flex items-center justify-between px-1">
+        <div className="shrink-0 space-y-1.5 md:space-y-2.5">
+          <div className="flex items-center justify-between gap-1 px-0.5">
             <Link
               href={`/${currentLocale}/dashboard`}
-              className="flex min-w-0 items-center gap-2 font-display text-lg font-black text-foreground"
+              onClick={() => setMobileOpen(false)}
+              className="flex min-w-0 items-center gap-1.5 font-display text-base font-black text-foreground md:gap-2 md:text-lg"
             >
-              <BrandLogo size={36} className="h-9 w-9 shrink-0 rounded-2xl object-cover" />
+              <BrandLogo
+                size={28}
+                className="h-7 w-7 shrink-0 rounded-xl object-cover md:h-9 md:w-9 md:rounded-2xl"
+              />
               <span className="truncate">{t("brandName")}</span>
             </Link>
 
@@ -198,13 +228,14 @@ export function Sidebar() {
               type="button"
               aria-label={t("closeMenu")}
               onClick={() => setMobileOpen(false)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
             >
-              <X aria-hidden="true" className="h-5 w-5" />
+              <X aria-hidden="true" className="h-4 w-4" />
             </button>
           </div>
 
-          <div className="sidebar-panel px-3 py-2">
+          {/* Streak lives in the mobile top bar — keep the panel for desktop only. */}
+          <div className="sidebar-panel hidden px-3 py-2 md:block">
             <div className="flex items-center justify-between gap-2 text-sm font-extrabold">
               <span className="flex min-w-0 items-center gap-1.5 truncate text-streak">
                 <Flame aria-hidden="true" className="h-4 w-4 shrink-0 animate-flame" />
@@ -227,44 +258,45 @@ export function Sidebar() {
           </div>
         </div>
 
-        <div className="mt-2.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable]">
+        <div className="mt-1.5 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable] md:mt-2.5 md:space-y-2.5">
           <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} loading={loading} compact />
 
-          <nav className="space-y-1.5">
-            {primaryLinks.map(renderLink)}
-
-            <div className="pt-1.5">
-              <button
-                type="button"
-                aria-expanded={showMore}
-                onClick={() => setMoreOpen((v) => !v)}
-                className="sidebar-link sidebar-link-inactive w-full justify-between text-[11px] font-extrabold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {t("navMore")}
-                <ChevronDown
-                  aria-hidden="true"
-                  className={`h-3.5 w-3.5 transition-transform ${showMore ? "rotate-180" : ""}`}
-                />
-              </button>
-              {showMore && <div className="mt-1.5 space-y-1.5">{moreLinks.map(renderLink)}</div>}
-            </div>
+          <nav className="space-y-0.5 md:space-y-1.5">
+            <div className="space-y-0.5 md:hidden">{mobileDrawerLinks.map(renderLink)}</div>
+            <div className="hidden space-y-1.5 md:block">{primaryLinks.map(renderLink)}</div>
+            {moreSection}
           </nav>
         </div>
 
-        <div className="mt-2 shrink-0 space-y-2 border-t border-border pt-2.5">
-          <div className="flex items-center justify-between px-0.5">
-            <LocaleSwitcher size="md" className="border-border bg-background shadow-raised-sm" />
-            <ThemeToggle />
+        <div className="relative z-20 mt-1.5 shrink-0 space-y-1.5 border-t border-border pt-1.5 md:mt-2 md:space-y-2 md:pt-2.5">
+          <div className="flex items-center justify-between gap-2 px-0.5">
+            <LocaleSwitcher
+              size="sm"
+              compact
+              menuPlacement="top"
+              menuAlign="start"
+              className="border-border bg-background shadow-raised-sm md:hidden"
+            />
+            <LocaleSwitcher
+              size="md"
+              className="hidden border-border bg-background shadow-raised-sm md:inline-flex"
+            />
+            <span className="md:hidden">
+              <ThemeToggle size="sm" />
+            </span>
+            <span className="hidden md:inline-flex">
+              <ThemeToggle />
+            </span>
           </div>
 
           <Link href={`/${currentLocale}/profile`} onClick={() => setMobileOpen(false)}>
-            <div className="sidebar-panel flex items-center gap-2.5 p-2.5 transition-[border-color,transform,box-shadow] hover:border-accent surface-interactive">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 text-sm font-black text-foreground shadow-raised-sm">
+            <div className="sidebar-panel flex items-center gap-2 p-1.5 transition-[border-color,transform,box-shadow] hover:border-accent surface-interactive md:gap-2.5 md:p-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-9 md:w-9 md:rounded-xl md:text-sm">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="flex min-w-0 flex-col truncate">
                 <span className="truncate text-sm font-bold text-foreground">{userName}</span>
-                <span className="text-xs text-muted-foreground">{t("viewProfile")}</span>
+                <span className="text-[11px] text-muted-foreground md:text-xs">{t("viewProfile")}</span>
               </div>
             </div>
           </Link>

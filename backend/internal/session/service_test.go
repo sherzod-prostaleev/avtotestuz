@@ -764,7 +764,7 @@ func TestGetSessionOwnershipIsEnforced(t *testing.T) {
 	}
 }
 
-func TestListVariantStatusesVIPUnlocksAll(t *testing.T) {
+func TestListVariantStatusesVIPNeedsPreviousComplete(t *testing.T) {
 	q, svc, profileID := seed(t)
 	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
 	if err != nil {
@@ -776,8 +776,8 @@ func TestListVariantStatusesVIPUnlocksAll(t *testing.T) {
 	if !statuses[0].Unlocked {
 		t.Fatal("variant 1 must always be unlocked")
 	}
-	if statuses[1].Unlocked {
-		t.Fatal("variant 2 must be locked for non-VIP profiles")
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonVIPRequired {
+		t.Fatalf("variant 2 must be vip_required for free profiles: %+v", statuses[1])
 	}
 
 	grantVIP(t, q, profileID)
@@ -786,8 +786,37 @@ func TestListVariantStatusesVIPUnlocksAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListVariantStatuses: %v", err)
 	}
-	if !statuses[1].Unlocked {
-		t.Fatal("variant 2 must unlock for VIP profiles")
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonPrevRequired {
+		t.Fatalf("VIP without #1 completed must keep #2 prev_required: %+v", statuses[1])
+	}
+}
+
+func TestListVariantStatusesVIPUnlocksNextAfterThreshold(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+
+	view := startVariantSession(t, q, svc, profileID)
+	// Threshold is 10; answer 10 correctly then finish (remaining unanswered → abandoned
+	// still upserts progress with completed_at when correctCount >= threshold).
+	for _, qid := range view.QuestionIDs[:10] {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if !statuses[0].Unlocked || statuses[0].CompletedAt == nil {
+		t.Fatalf("variant 1 must be completed: %+v", statuses[0])
+	}
+	if !statuses[1].Unlocked || statuses[1].LockReason != "" {
+		t.Fatalf("variant 2 must unlock after #1 completed: %+v", statuses[1])
 	}
 }
 
@@ -804,7 +833,7 @@ func TestStartSessionVariantTwoRequiresVIP(t *testing.T) {
 	}
 }
 
-func TestStartSessionVariantVIPUnlocksAll(t *testing.T) {
+func TestStartSessionVariantVIPRequiresPreviousComplete(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
 	v2, err := q.GetVariantByNumber(context.Background(), 2)
@@ -813,8 +842,25 @@ func TestStartSessionVariantVIPUnlocksAll(t *testing.T) {
 	}
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
 		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != session.ErrVariantLocked {
+		t.Fatalf("err=%v want ErrVariantLocked before #1 completed", err)
+	}
+
+	view := startVariantSession(t, q, svc, profileID)
+	for _, qid := range view.QuestionIDs[:10] {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
 	}); err != nil {
-		t.Fatalf("VIP profile must be able to start variant 2: %v", err)
+		t.Fatalf("VIP must start variant 2 after completing #1: %v", err)
 	}
 }
 

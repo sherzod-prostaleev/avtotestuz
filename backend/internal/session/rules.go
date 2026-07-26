@@ -37,12 +37,36 @@ func IsExamLike(mode string) bool {
 	return mode == "exam" || mode == "grand_mock" || mode == "placement"
 }
 
-// IsVariantUnlocked reports whether a variant is unlocked for listing.
-// Free users only get variant #1 (isFirst); VIP unlocks every variant.
-// This must match StartSession's VIP gate for variant.Number > 1 — UI
-// unlocked=true must never lead to a 402 on start.
-func IsVariantUnlocked(isFirst, isVIP bool) bool {
-	return isFirst || isVIP
+// Lock-reason codes returned on VariantStatus when Unlocked is false.
+const (
+	LockReasonVIPRequired  = "vip_required"
+	LockReasonPrevRequired = "prev_required"
+)
+
+// IsVariantUnlocked reports whether variant number is playable.
+//
+//	#1 — always open (free demo bilet).
+//	#N (N>1) — VIP only, and only after the previous bilet has completed_at
+//	(≥ unlock_threshold_correct correct answers on finish).
+//
+// Must match StartSession's gates so unlocked=true never leads to vip_required
+// / previous_ticket_required on start.
+func IsVariantUnlocked(number int, isVIP, prevCompleted bool) bool {
+	if number <= 1 {
+		return true
+	}
+	return isVIP && prevCompleted
+}
+
+// VariantLockReason explains why a locked variant is locked. Empty when unlocked.
+func VariantLockReason(number int, isVIP, unlocked bool) string {
+	if unlocked || number <= 1 {
+		return ""
+	}
+	if !isVIP {
+		return LockReasonVIPRequired
+	}
+	return LockReasonPrevRequired
 }
 
 type ExamOutcome struct {

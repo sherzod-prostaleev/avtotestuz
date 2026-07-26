@@ -131,6 +131,21 @@ describe("SessionStartPage", () => {
     expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/premium");
   });
 
+  it("maps previous_ticket_required back to tickets with unlock guidance", () => {
+    mockSessionEngine({
+      code: "previous_ticket_required",
+      message: "complete the previous ticket first",
+    });
+
+    renderPage();
+
+    expect(
+      screen.getByText(/Avval oldingi biletda kamida 10 ta to'g'ri/i)
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Biletlarga qaytish" }));
+    expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/tickets");
+  });
+
   it("maps daily_limit_reached back to practice with the localized limit message", () => {
     mockSessionEngine({ code: "daily_limit_reached", message: "daily practice limit reached" });
 

@@ -7,17 +7,32 @@ import (
 )
 
 func TestIsVariantUnlocked(t *testing.T) {
-	if !IsVariantUnlocked(true, false) {
-		t.Fatal("first variant must always be unlocked")
+	if !IsVariantUnlocked(1, false, false) {
+		t.Fatal("first variant must always be unlocked for free users")
 	}
-	if !IsVariantUnlocked(false, true) {
-		t.Fatal("VIP variant must always be unlocked")
+	if !IsVariantUnlocked(1, true, false) {
+		t.Fatal("first variant must always be unlocked for VIP")
 	}
-	if IsVariantUnlocked(false, false) {
-		t.Fatal("non-first free variant must stay locked (matches StartSession VIP gate)")
+	if IsVariantUnlocked(2, false, true) {
+		t.Fatal("non-first free variant must stay locked even if previous completed")
 	}
-	if !IsVariantUnlocked(true, true) {
-		t.Fatal("first VIP variant must be unlocked")
+	if IsVariantUnlocked(2, true, false) {
+		t.Fatal("VIP must not unlock #2 before previous is completed")
+	}
+	if !IsVariantUnlocked(2, true, true) {
+		t.Fatal("VIP must unlock #2 after previous completed")
+	}
+}
+
+func TestVariantLockReason(t *testing.T) {
+	if got := VariantLockReason(1, false, true); got != "" {
+		t.Fatalf("unlocked #1 reason=%q", got)
+	}
+	if got := VariantLockReason(2, false, false); got != LockReasonVIPRequired {
+		t.Fatalf("free #2 reason=%q want vip_required", got)
+	}
+	if got := VariantLockReason(2, true, false); got != LockReasonPrevRequired {
+		t.Fatalf("VIP locked #2 reason=%q want prev_required", got)
 	}
 }
 

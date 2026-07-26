@@ -95,6 +95,11 @@ function SessionStartContent() {
         actionLabel = t("goToPremium");
         message = t("vipRequired");
         break;
+      case "previous_ticket_required":
+        destination = `/${locale}/tickets`;
+        actionLabel = t("backToTickets");
+        message = t("previousTicketRequired");
+        break;
       case "daily_limit_reached":
         destination = `/${locale}/practice`;
         actionLabel = t("backToPractice");

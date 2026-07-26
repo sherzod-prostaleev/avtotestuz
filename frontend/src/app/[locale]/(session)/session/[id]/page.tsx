@@ -641,21 +641,21 @@ export default function TestSessionPage() {
 
   return (
     <main
-      className="flex h-[100dvh] flex-col gap-2 overflow-hidden bg-background px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
+      className="flex h-[100dvh] flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
     >
-      <header className="flex shrink-0 flex-wrap items-center justify-between gap-2 rounded-2xl border border-border bg-card p-2 sm:gap-3 sm:p-3">
-        <div className="flex min-w-0 items-center gap-2">
+      <header className="flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-1.5 py-1 sm:gap-3 sm:rounded-2xl sm:p-3">
+        <div className="flex min-w-0 items-center gap-1.5">
           <Button
             variant="ghost"
             size="sm"
-            className="min-h-11 px-2 sm:px-4"
+            className="h-9 min-h-9 w-9 px-0 sm:h-11 sm:min-h-11 sm:w-auto sm:px-4"
             aria-label={t("exit")}
             onClick={() => router.push(`/${locale}/dashboard`)}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{t("exit")}</span>
           </Button>
-          <span className="truncate rounded-md border border-accent/30 bg-accent/10 px-2.5 py-1 text-[11px] font-bold text-accent sm:px-3 sm:text-xs">
+          <span className="truncate rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent sm:px-3 sm:py-1 sm:text-xs">
             {modeLabel(session.mode)}
           </span>
         </div>
@@ -667,7 +667,7 @@ export default function TestSessionPage() {
             disabled={!currentQuestion || bookmarkBusy}
             aria-label={currentSaved ? t("removeBookmark") : t("addBookmark")}
             aria-pressed={currentSaved}
-            className="flex h-11 w-11 items-center justify-center rounded-xl border border-border text-muted-foreground transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-muted-foreground transition-colors hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:h-11 sm:w-11 sm:rounded-xl"
           >
             {bookmarkBusy ? (
               <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -688,7 +688,7 @@ export default function TestSessionPage() {
                 router.replace(`/${next}/session/${sessionId}`);
               });
             }}
-            className="h-11 min-w-[4.5rem] rounded-xl border border-border bg-background px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-9 min-w-[3.75rem] rounded-lg border border-border bg-background px-1.5 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-11 sm:min-w-[4.5rem] sm:rounded-xl sm:px-2 sm:text-xs"
           >
             {locales.map((item) => (
               <option key={item} value={item}>
@@ -744,7 +744,7 @@ export default function TestSessionPage() {
       )}
 
       <nav
-        className="chip-scroll shrink-0 rounded-2xl border border-border bg-card p-2"
+        className="chip-scroll shrink-0 rounded-xl border border-border bg-card p-1 sm:rounded-2xl sm:p-2"
         aria-label={t("questionNavigator")}
       >
         {questions.map((question, index) => {
@@ -776,17 +776,17 @@ export default function TestSessionPage() {
               onClick={() => goToQuestion(index)}
               aria-current={isCurrent ? "step" : undefined}
               aria-label={t("questionNavLabel", { number: index + 1, status })}
-              className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${style}`}
+              className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-11 sm:w-11 sm:rounded-xl sm:text-xs ${style}`}
             >
               {index + 1}
               {!isCurrent && question.correct === true && (
-                <CheckCircle2 className="absolute -right-1 -top-1 h-3.5 w-3.5 fill-background" aria-hidden="true" />
+                <CheckCircle2 className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
               )}
               {!isCurrent && question.correct === false && (
-                <XCircle className="absolute -right-1 -top-1 h-3.5 w-3.5 fill-background" aria-hidden="true" />
+                <XCircle className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
               )}
               {!isCurrent && answered && question.correct === undefined && (
-                <Check className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-background" aria-hidden="true" />
+                <Check className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
               )}
             </button>
           );
@@ -794,7 +794,7 @@ export default function TestSessionPage() {
       </nav>
 
       {currentQuestion && (
-        <Card className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2.5 sm:gap-3 sm:p-5">
+        <Card className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
           <div className="min-h-0 flex-1">
             <QuestionStage
               question={currentQuestion}
@@ -810,8 +810,8 @@ export default function TestSessionPage() {
           </div>
 
           {currentAnswered && currentQuestion.correct === undefined && (
-            <p className="flex shrink-0 items-center gap-2 rounded-xl border border-accent/30 bg-accent/10 p-2.5 text-sm font-semibold text-accent">
-              <CheckCircle2 className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <p className="flex shrink-0 items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-semibold text-accent sm:gap-2 sm:rounded-xl sm:p-2.5 sm:text-sm">
+              <CheckCircle2 className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" aria-hidden="true" />
               {t("answerAccepted")}
             </p>
           )}
@@ -820,15 +820,15 @@ export default function TestSessionPage() {
             usesDeferredFsrs(session.mode) &&
             currentAnswered &&
             currentQuestion.correct === true && (
-              <div className="shrink-0 space-y-2 rounded-xl border border-border bg-muted/40 p-2.5">
-                <p className="text-xs text-muted-foreground sm:text-sm">{t("fsrsHint")}</p>
+              <div className="shrink-0 space-y-1 rounded-lg border border-border bg-muted/40 p-1.5 sm:space-y-2 sm:rounded-xl sm:p-2.5">
+                <p className="text-[10px] text-muted-foreground sm:text-sm">{t("fsrsHint")}</p>
                 {pendingFsrsQuestionId === currentQuestion.id ? (
-                  <div className="flex flex-wrap gap-2" role="group" aria-label={t("fsrsRatingLabel")}>
+                  <div className="flex flex-wrap gap-1.5 sm:gap-2" role="group" aria-label={t("fsrsRatingLabel")}>
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="min-h-10 flex-1"
+                      className="min-h-8 flex-1 text-xs sm:min-h-10"
                       onClick={() => void postLearnReview(currentQuestion.id, FSRS_HARD)}
                     >
                       {t("fsrsHard")}
@@ -837,7 +837,7 @@ export default function TestSessionPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="min-h-10 flex-1"
+                      className="min-h-8 flex-1 text-xs sm:min-h-10"
                       onClick={() => void postLearnReview(currentQuestion.id, FSRS_GOOD)}
                     >
                       {t("fsrsGood")}
@@ -846,7 +846,7 @@ export default function TestSessionPage() {
                       type="button"
                       variant="outline"
                       size="sm"
-                      className="min-h-10 flex-1"
+                      className="min-h-8 flex-1 text-xs sm:min-h-10"
                       onClick={() => void postLearnReview(currentQuestion.id, FSRS_EASY)}
                     >
                       {t("fsrsEasy")}
@@ -858,10 +858,10 @@ export default function TestSessionPage() {
         </Card>
       )}
 
-      <footer className="flex shrink-0 items-center gap-2 rounded-2xl border border-border bg-card p-2 sm:justify-between sm:gap-3 sm:p-2.5">
+      <footer className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1 sm:justify-between sm:gap-3 sm:rounded-2xl sm:p-2.5">
         <Button
           variant="outline"
-          className="min-h-12 flex-1 sm:flex-none"
+          className="h-10 min-h-10 flex-1 sm:h-12 sm:min-h-12 sm:flex-none"
           disabled={currentIndex === 0}
           onClick={() => goToQuestion(Math.max(0, currentIndex - 1))}
         >
@@ -872,7 +872,7 @@ export default function TestSessionPage() {
         {isLast ? (
           <Button
             variant="game"
-            className="min-h-12 flex-[1.4] sm:flex-none"
+            className="h-10 min-h-10 flex-[1.4] sm:h-12 sm:min-h-12 sm:flex-none"
             disabled={!currentAnswered || finishing || submitting}
             onClick={() => void handleFinish()}
           >
@@ -882,7 +882,7 @@ export default function TestSessionPage() {
         ) : (
           <Button
             variant="game"
-            className="min-h-12 flex-[1.4] sm:flex-none"
+            className="h-10 min-h-10 flex-[1.4] sm:h-12 sm:min-h-12 sm:flex-none"
             disabled={!canGoNext}
             onClick={() => goToQuestion(Math.min(questions.length - 1, currentIndex + 1))}
           >

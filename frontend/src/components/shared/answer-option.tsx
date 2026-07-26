@@ -14,6 +14,8 @@ interface AnswerOptionProps {
   shortcutKey?: string;
   shortcutLabel?: string;
   disabled?: boolean;
+  /** Tighter chrome for mobile session / exam surfaces. */
+  dense?: boolean;
 }
 
 export function AnswerOption({
@@ -26,6 +28,7 @@ export function AnswerOption({
   shortcutKey,
   shortcutLabel,
   disabled = false,
+  dense = false,
 }: AnswerOptionProps) {
   const handleClick = () => {
     if (onClick) onClick();
@@ -59,26 +62,46 @@ export function AnswerOption({
       type="button"
       onClick={handleClick}
       disabled={disabled}
-      className={`group relative flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed sm:min-h-[3.5rem] sm:gap-4 sm:px-4 ${
-        pressable ? "active:translate-y-0.5 active:bg-accent/5 active:shadow-none" : ""
-      } ${stateStyles[normalizedState]}`}
+      className={`group relative flex w-full items-center justify-between text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed ${
+        dense
+          ? "min-h-10 gap-2 rounded-xl border px-2.5 py-1.5 sm:min-h-12 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+          : "min-h-14 gap-3 rounded-2xl border px-3.5 py-3 sm:min-h-[3.5rem] sm:gap-4 sm:px-4"
+      } ${pressable ? "active:translate-y-0.5 active:bg-accent/5 active:shadow-none" : ""} ${stateStyles[normalizedState]}`}
     >
-      <div className="flex min-w-0 items-center gap-3">
+      <div className={`flex min-w-0 items-center ${dense ? "gap-2 sm:gap-3" : "gap-3"}`}>
         {keyLabel && (
           <span
-            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-bold transition-colors sm:h-9 sm:w-9 ${keyBadgeStyles[normalizedState]}`}
+            className={`flex shrink-0 items-center justify-center border font-bold transition-colors ${
+              dense
+                ? "h-8 w-8 rounded-lg text-xs sm:h-9 sm:w-9 sm:rounded-xl sm:text-sm"
+                : "h-10 w-10 rounded-xl text-sm sm:h-9 sm:w-9"
+            } ${keyBadgeStyles[normalizedState]}`}
           >
             {keyLabel}
           </span>
         )}
-        <span className="text-base font-semibold leading-snug sm:text-lg sm:leading-relaxed">{text}</span>
+        <span
+          className={`font-semibold leading-snug ${
+            dense ? "text-sm sm:text-base sm:leading-relaxed" : "text-base sm:text-lg sm:leading-relaxed"
+          }`}
+        >
+          {text}
+        </span>
       </div>
 
       {normalizedState === "correct" && (
-        <CheckCircle2 data-testid="answer-correct-icon" className="h-5 w-5 shrink-0 text-success" aria-hidden="true" />
+        <CheckCircle2
+          data-testid="answer-correct-icon"
+          className={`shrink-0 text-success ${dense ? "h-4 w-4" : "h-5 w-5"}`}
+          aria-hidden="true"
+        />
       )}
       {normalizedState === "wrong" && (
-        <XCircle data-testid="answer-incorrect-icon" className="h-5 w-5 shrink-0 text-danger" aria-hidden="true" />
+        <XCircle
+          data-testid="answer-incorrect-icon"
+          className={`shrink-0 text-danger ${dense ? "h-4 w-4" : "h-5 w-5"}`}
+          aria-hidden="true"
+        />
       )}
     </button>
   );

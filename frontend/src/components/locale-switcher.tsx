@@ -20,6 +20,10 @@ type Props = {
    * (landing) where three chips steal the brand row.
    */
   compact?: boolean;
+  /** Where the compact menu opens relative to the trigger. */
+  menuPlacement?: "top" | "bottom";
+  /** Horizontal anchoring for the compact menu. */
+  menuAlign?: "start" | "end";
   className?: string;
 };
 
@@ -27,7 +31,13 @@ type Props = {
  * Soft-switches locale via next-intl navigation (cookie + path prefix)
  * without scrolling to top. Shared by landing, header, and sidebar.
  */
-export function LocaleSwitcher({ size = "sm", compact = false, className = "" }: Props) {
+export function LocaleSwitcher({
+  size = "sm",
+  compact = false,
+  menuPlacement = "bottom",
+  menuAlign = "end",
+  className = "",
+}: Props) {
   const currentLocale = useLocale();
   const t = useTranslations("LocaleSwitcher");
   const pathname = usePathname();
@@ -73,8 +83,14 @@ export function LocaleSwitcher({ size = "sm", compact = false, className = "" }:
   const current = LOCALES.find((l) => l.code === currentLocale) ?? LOCALES[0];
 
   if (compact) {
+    const menuPos =
+      menuPlacement === "top"
+        ? "bottom-[calc(100%+0.35rem)]"
+        : "top-[calc(100%+0.35rem)]";
+    const menuSide = menuAlign === "start" ? "left-0" : "right-0";
+
     return (
-      <div ref={rootRef} className={`relative ${className}`}>
+      <div ref={rootRef} className={`relative z-20 ${className}`}>
         <button
           type="button"
           aria-label={t("languageSwitcher")}
@@ -82,12 +98,14 @@ export function LocaleSwitcher({ size = "sm", compact = false, className = "" }:
           aria-expanded={open}
           aria-controls={listId}
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-10 min-w-10 items-center gap-1 rounded-xl border border-border/80 bg-card px-2.5 text-xs font-bold text-foreground shadow-raised-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="inline-flex h-9 min-w-10 items-center gap-1 rounded-xl border border-border/80 bg-card px-2.5 text-xs font-bold text-foreground shadow-raised-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {t(current.labelKey)}
           <ChevronDown
             aria-hidden="true"
-            className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`}
+            className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${
+              open ? (menuPlacement === "top" ? "rotate-0" : "rotate-180") : menuPlacement === "top" ? "rotate-180" : ""
+            }`}
           />
         </button>
         {open ? (
@@ -95,14 +113,14 @@ export function LocaleSwitcher({ size = "sm", compact = false, className = "" }:
             id={listId}
             role="listbox"
             aria-label={t("languageSwitcher")}
-            className="absolute right-0 top-[calc(100%+0.35rem)] z-50 min-w-[7.5rem] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-raised-sm"
+            className={`absolute ${menuPos} ${menuSide} z-50 min-w-[7.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-raised-sm`}
           >
             {LOCALES.map((lang) => (
               <li key={lang.code} role="option" aria-selected={currentLocale === lang.code}>
                 <button
                   type="button"
                   onClick={() => handleLanguageChange(lang.code)}
-                  className={`flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     currentLocale === lang.code
                       ? "bg-accent text-accent-foreground"
                       : "text-muted-foreground hover:bg-background hover:text-foreground"

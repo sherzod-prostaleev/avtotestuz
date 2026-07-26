@@ -75,33 +75,68 @@ export function TrialCountdown({
   if (loading || !isVip || !validUntil) return null;
 
   const shell = compact
-    ? "rounded-xl border border-gold/40 bg-gold/10 p-2.5"
+    ? "rounded-lg border border-gold/40 bg-gold/10 px-2.5 py-1.5"
     : "rounded-2xl border border-gold/40 bg-gold/10 p-3.5";
 
   // Same shell on server + first client paint; fill the clock after mount.
   if (!mounted) {
+    if (compact) {
+      return (
+        <div className={`${shell} flex items-center justify-between gap-2`} aria-hidden="true">
+          <div className="h-2.5 w-20 rounded bg-gold/20" />
+          <div className="h-4 w-16 rounded bg-gold/15" />
+        </div>
+      );
+    }
     return (
       <div className={shell} aria-hidden="true">
         <div className="h-3 w-24 rounded bg-gold/20" />
-        <div className={`mt-1.5 rounded bg-gold/15 ${compact ? "h-6 w-24" : "h-7 w-28"}`} />
-        {!compact && <div className="mt-2 h-3 w-20 rounded bg-gold/10" />}
+        <div className="mt-1.5 h-7 w-28 rounded bg-gold/15" />
+        <div className="mt-2 h-3 w-20 rounded bg-gold/10" />
       </div>
     );
   }
 
   if (remaining <= 0) {
     return (
-      <div className={`${shell} text-center`}>
-        <p className="font-display text-sm font-extrabold text-gold">{t("expiredTitle")}</p>
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t("expiredBody")}</p>
+      <div className={`${shell} ${compact ? "text-left" : "text-center"}`}>
+        <p className={`font-display font-extrabold text-gold ${compact ? "text-xs" : "text-sm"}`}>
+          {t("expiredTitle")}
+        </p>
+        {!compact && (
+          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t("expiredBody")}</p>
+        )}
         <Link
           href={`/${locale}/premium`}
-          className="mt-2 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-gold px-3 text-xs font-extrabold text-slate-950 transition-colors hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={`inline-flex items-center justify-center gap-1.5 rounded-lg bg-gold font-extrabold text-slate-950 transition-colors hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            compact ? "mt-1.5 min-h-8 px-2.5 text-[11px]" : "mt-2 min-h-10 px-3 text-xs"
+          }`}
         >
-          <Crown aria-hidden="true" className="h-4 w-4" />
+          <Crown aria-hidden="true" className="h-3.5 w-3.5" />
           {t("upgrade")}
         </Link>
       </div>
+    );
+  }
+
+  if (compact) {
+    return (
+      <Link
+        href={`/${locale}/premium`}
+        className={`flex items-center justify-between gap-2 transition-colors hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${shell}`}
+      >
+        <span className="flex min-w-0 items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-gold">
+          <Timer aria-hidden="true" className="h-3 w-3 shrink-0" />
+          <span className="truncate">{t("label")}</span>
+        </span>
+        <span
+          data-testid="trial-countdown"
+          className="shrink-0 font-display text-base font-black tabular-nums leading-none text-gold"
+          suppressHydrationWarning
+        >
+          {formatRemaining(remaining)}
+        </span>
+      </Link>
     );
   }
 
@@ -116,14 +151,12 @@ export function TrialCountdown({
       </div>
       <p
         data-testid="trial-countdown"
-        className={`mt-0.5 font-display font-black tabular-nums text-gold ${
-          compact ? "text-xl leading-none" : "text-2xl"
-        }`}
+        className="mt-0.5 font-display text-2xl font-black tabular-nums text-gold"
         suppressHydrationWarning
       >
         {formatRemaining(remaining)}
       </p>
-      {!compact && <p className="text-xs text-muted-foreground">{t("remaining")}</p>}
+      <p className="text-xs text-muted-foreground">{t("remaining")}</p>
     </Link>
   );
 }

@@ -19,7 +19,14 @@ describe("useTickets", () => {
         completed_at: "2026-07-20T12:00:00Z",
       },
       { number: 2, question_count: 20, unlocked: true, best_correct: 12, attempts: 1 },
-      { number: 3, question_count: 20, unlocked: false, best_correct: 0, attempts: 0 },
+      {
+        number: 3,
+        question_count: 20,
+        unlocked: false,
+        lock_reason: "prev_required",
+        best_correct: 0,
+        attempts: 0,
+      },
       { number: 4, question_count: 20, unlocked: true, best_correct: 0, attempts: 0 },
     ];
 
@@ -45,6 +52,7 @@ describe("useTickets", () => {
     });
     expect(result.current.tickets[1].status).toBe("in_progress");
     expect(result.current.tickets[2].status).toBe("locked");
+    expect(result.current.tickets[2].lock_reason).toBe("prev_required");
     expect(result.current.tickets[3].status).toBe("unstarted");
     expect(apiClient.apiGet).toHaveBeenCalledWith("me/variants");
   });
