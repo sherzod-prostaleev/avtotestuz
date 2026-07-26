@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { X, ZoomIn } from "lucide-react";
@@ -68,6 +68,15 @@ export function OfficialAvtotestExamView({
   const questions = session.questions ?? [];
   const currentQuestion = questions[currentIndex];
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const activeChipRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentIndex]);
 
   const isFailed =
     session.status === "completed"
@@ -287,6 +296,7 @@ export function OfficialAvtotestExamView({
             return (
               <button
                 key={q.id}
+                ref={isCurrent ? activeChipRef : undefined}
                 type="button"
                 onClick={() => onSelectIndex(idx)}
                 className={`w-8 h-8 flex items-center justify-center text-base rounded-sm transition-all max-lg:h-8 max-lg:w-8 max-lg:shrink-0 max-lg:text-sm ${

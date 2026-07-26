@@ -329,6 +329,7 @@ func (h *Handler) getSessionQuestion(w http.ResponseWriter, r *http.Request) {
 	if !access.ExplanationAllowed {
 		detail.Explanation = nil
 	}
+	detail.Answers = shuffleSessionAnswers(detail.Answers, sessionID, questionID)
 
 	response := sessionQuestionDetailResponse{
 		QuestionDetailDTO: detail,

@@ -106,6 +106,7 @@ export default function TestSessionPage() {
   const certificateShownForRef = useRef<string | null>(null);
   const questionShownAtRef = useRef(Date.now());
   const fsrsSubmittedRef = useRef<Set<string>>(new Set());
+  const activeChipRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (sessionId) void loadSession(sessionId, locale);
@@ -135,6 +136,15 @@ export default function TestSessionPage() {
   // The explanation belongs to one question; carrying it across navigation would show stale content.
   useEffect(() => {
     setExplanationOpen(false);
+  }, [currentIndex]);
+
+  // Keep the active chip in view while advancing through long bilets on mobile.
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
   }, [currentIndex]);
 
   // Grand Mock's reward theater (confetti + certificate) is additive on top
@@ -772,6 +782,7 @@ export default function TestSessionPage() {
           return (
             <button
               key={question.id}
+              ref={isCurrent ? activeChipRef : undefined}
               type="button"
               onClick={() => goToQuestion(index)}
               aria-current={isCurrent ? "step" : undefined}
