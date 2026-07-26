@@ -5,7 +5,9 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/fixture"
@@ -14,7 +16,7 @@ import (
 	"avtotest.uz/backend/internal/testdb"
 )
 
-func seed(t *testing.T) (*sqlc.Queries, *progress.Service, uuid.UUID, uuid.UUID) {
+func seed(t *testing.T) (*pgxpool.Pool, *sqlc.Queries, *progress.Service, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	pool := testdb.New(t)
 	ds, images := fixture.Sample()
@@ -35,11 +37,11 @@ func seed(t *testing.T) (*sqlc.Queries, *progress.Service, uuid.UUID, uuid.UUID)
 	if err != nil || len(qids) == 0 {
 		t.Fatalf("question ids: %v", err)
 	}
-	return q, progress.NewService(q), profile.ID, qids[0]
+	return pool, q, progress.NewService(q), profile.ID, qids[0]
 }
 
 func TestSaveListUnsaveQuestion(t *testing.T) {
-	_, svc, profileID, questionID := seed(t)
+	_, _, svc, profileID, questionID := seed(t)
 	ctx := context.Background()
 
 	if err := svc.SaveQuestion(ctx, profileID, questionID); err != nil {
@@ -71,7 +73,7 @@ func TestSaveListUnsaveQuestion(t *testing.T) {
 }
 
 func TestGetStreakFreshProfile(t *testing.T) {
-	_, svc, profileID, _ := seed(t)
+	_, _, svc, profileID, _ := seed(t)
 	view, err := svc.GetStreak(context.Background(), profileID)
 	if err != nil {
 		t.Fatalf("GetStreak: %v", err)
@@ -82,7 +84,7 @@ func TestGetStreakFreshProfile(t *testing.T) {
 }
 
 func TestRecordActivityFirstCallCreatesStreak(t *testing.T) {
-	_, svc, profileID, _ := seed(t)
+	_, _, svc, profileID, _ := seed(t)
 	view, err := svc.RecordActivity(context.Background(), profileID)
 	if err != nil {
 		t.Fatalf("RecordActivity: %v", err)
@@ -93,7 +95,7 @@ func TestRecordActivityFirstCallCreatesStreak(t *testing.T) {
 }
 
 func TestRecordActivitySameDayOnlyBumpsTodayDone(t *testing.T) {
-	_, svc, profileID, _ := seed(t)
+	_, _, svc, profileID, _ := seed(t)
 	ctx := context.Background()
 	if _, err := svc.RecordActivity(ctx, profileID); err != nil {
 		t.Fatalf("first: %v", err)
@@ -104,5 +106,54 @@ func TestRecordActivitySameDayOnlyBumpsTodayDone(t *testing.T) {
 	}
 	if view.Current != 1 || view.TodayDone != 2 {
 		t.Fatalf("second same-day activity = %+v", view)
+	}
+}
+
+func TestGetStreakReadsLiveLimitConfig(t *testing.T) {
+	pool, _, svc, profileID, _ := seed(t)
+	ctx := context.Background()
+	if _, err := svc.RecordActivity(ctx, profileID); err != nil {
+		t.Fatalf("seed activity: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `
+		UPDATE limit_config SET free_value = 77, vip_value = 88
+		WHERE key = 'daily_goal_default'`); err != nil {
+		t.Fatalf("bump limit_config: %v", err)
+	}
+	view, err := svc.GetStreak(ctx, profileID)
+	if err != nil {
+		t.Fatalf("GetStreak: %v", err)
+	}
+	if view.DailyGoal != 77 {
+		t.Fatalf("DailyGoal=%d after admin change, want 77 (live free_value)", view.DailyGoal)
+	}
+}
+
+func TestGetStreakUsesVIPLimitWhenEntitled(t *testing.T) {
+	pool, q, svc, profileID, _ := seed(t)
+	ctx := context.Background()
+	svc.Billing = billing.Service{Q: q}
+	if _, err := pool.Exec(ctx, `
+		UPDATE limit_config SET free_value = 40, vip_value = 90
+		WHERE key = 'daily_goal_default'`); err != nil {
+		t.Fatalf("bump limit_config: %v", err)
+	}
+	view, err := svc.GetStreak(ctx, profileID)
+	if err != nil {
+		t.Fatalf("GetStreak free: %v", err)
+	}
+	if view.DailyGoal != 40 {
+		t.Fatalf("free DailyGoal=%d, want 40", view.DailyGoal)
+	}
+	billingSvc := billing.Service{Q: q}
+	if _, err := billingSvc.GrantDays(ctx, profileID, 7, "admin", "test", uuid.NullUUID{}); err != nil {
+		t.Fatalf("GrantDays: %v", err)
+	}
+	view, err = svc.GetStreak(ctx, profileID)
+	if err != nil {
+		t.Fatalf("GetStreak vip: %v", err)
+	}
+	if view.DailyGoal != 90 {
+		t.Fatalf("vip DailyGoal=%d, want 90", view.DailyGoal)
 	}
 }

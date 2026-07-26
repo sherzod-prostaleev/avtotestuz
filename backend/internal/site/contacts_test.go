@@ -59,6 +59,35 @@ func TestContactsGetPut(t *testing.T) {
 	}
 }
 
+func TestContactsCrossFillPhoneFields(t *testing.T) {
+	pool := testdb.New(t)
+	store := Store{Pool: pool}
+
+	fromTel, err := store.PutContacts(t.Context(), Contacts{PhoneTel: "+998505001045"}, "ops-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromTel.Phone != "+998505001045" || fromTel.PhoneTel != "+998505001045" {
+		t.Fatalf("phoneTel-only put = %+v", fromTel)
+	}
+
+	fromDisplay, err := store.PutContacts(t.Context(), Contacts{Phone: "+998 50 500 10 45"}, "ops-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fromDisplay.Phone != "+998 50 500 10 45" || fromDisplay.PhoneTel != "+998505001045" {
+		t.Fatalf("phone-only put = %+v", fromDisplay)
+	}
+
+	got, err := store.GetContacts(t.Context())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Phone != "+998 50 500 10 45" || got.PhoneTel != "+998505001045" {
+		t.Fatalf("get after cross-fill = %+v", got)
+	}
+}
+
 func TestPublicAndDecodeHandlers(t *testing.T) {
 	pool := testdb.New(t)
 	h := &Handler{Pool: pool}
@@ -86,7 +115,7 @@ func TestPublicAndDecodeHandlers(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
 		t.Fatal(err)
 	}
-	if env.Data.Phone != "99" || env.Data.Email != "a@b.c" {
+	if env.Data.Phone != "99" || env.Data.PhoneTel != "99" || env.Data.Email != "a@b.c" {
 		t.Fatalf("put response = %+v", env.Data)
 	}
 }

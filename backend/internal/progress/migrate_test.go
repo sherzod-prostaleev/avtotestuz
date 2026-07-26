@@ -42,7 +42,7 @@ func wrongAndCorrectAnswerIDs(t *testing.T, q *sqlc.Queries, questionID uuid.UUI
 }
 
 func TestMigrateDemoProgress_IncorrectAgain_CorrectSkipped(t *testing.T) {
-	q, svc, profileID, questionID := seed(t)
+	_, q, svc, profileID, questionID := seed(t)
 	svc.Learning = learning.NewService(q)
 	wrong, _ := wrongAndCorrectAnswerIDs(t, q, questionID)
 
@@ -89,7 +89,7 @@ func TestMigrateDemoProgress_IncorrectAgain_CorrectSkipped(t *testing.T) {
 }
 
 func TestMigrateDemoProgress_InvalidAnswerSkipped(t *testing.T) {
-	q, svc, profileID, questionID := seed(t)
+	_, q, svc, profileID, questionID := seed(t)
 	svc.Learning = learning.NewService(q)
 
 	result, err := svc.MigrateDemoProgress(context.Background(), profileID, []progress.DemoMigrateAnswer{
@@ -104,7 +104,7 @@ func TestMigrateDemoProgress_InvalidAnswerSkipped(t *testing.T) {
 }
 
 func TestMigrateDemoProgressHTTP(t *testing.T) {
-	q, svc, profileID, questionID := seed(t)
+	_, q, svc, profileID, questionID := seed(t)
 	svc.Learning = learning.NewService(q)
 	wrong, _ := wrongAndCorrectAnswerIDs(t, q, questionID)
 

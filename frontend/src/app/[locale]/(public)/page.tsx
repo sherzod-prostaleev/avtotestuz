@@ -9,8 +9,8 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
 import { apiGet } from "@/lib/api-client";
-import { contactOrFallback, type SiteContacts } from "@/lib/site-contacts";
-import { homeOrFallback, type SiteHomeHero } from "@/lib/site-home";
+import { contactOrFallback, resolvePhonePair, type SiteContacts } from "@/lib/site-contacts";
+import { homeOrFallback, localizeCmsHref, type SiteHomeHero } from "@/lib/site-home";
 import {
   Award,
   BrainCircuit,
@@ -147,8 +147,12 @@ export default function LandingPage() {
     };
   }, []);
 
-  const phone = contactOrFallback(contacts?.phone, t("footerPhone"));
-  const phoneTel = contactOrFallback(contacts?.phoneTel, t("footerPhoneTel"));
+  const { phone, phoneTel } = resolvePhonePair(
+    contacts?.phone,
+    contacts?.phoneTel,
+    t("footerPhone"),
+    t("footerPhoneTel"),
+  );
   const email = contactOrFallback(contacts?.email, t("footerEmail"));
   const address = contactOrFallback(contacts?.address, t("footerAddress"));
   const hours = contactOrFallback(contacts?.hours, t("footerHours"));
@@ -161,7 +165,10 @@ export default function LandingPage() {
   const heroHeadline = homeOrFallback(home?.headline, i18nHeadline);
   const heroSubtitle = homeOrFallback(home?.subtitle, t("heroSubtitle"));
   const heroCtaLabel = homeOrFallback(home?.ctaLabel, t("ctaStart"));
-  const heroCtaHref = homeOrFallback(home?.ctaHref, `/${locale}/login`);
+  const heroCtaHref = localizeCmsHref(
+    homeOrFallback(home?.ctaHref, `/${locale}/login`),
+    locale,
+  );
   const useCmsHeadline = Boolean(home?.headline?.trim());
 
   const features = [

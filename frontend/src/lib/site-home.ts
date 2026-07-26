@@ -17,3 +17,22 @@ export function homeOrFallback(apiValue: string | undefined, fallback: string): 
   const v = (apiValue ?? "").trim();
   return v || fallback;
 }
+
+const CMS_LOCALES = ["uz-Latn", "uz-Cyrl", "ru"] as const;
+
+/**
+ * Rewrite a CMS CTA path that hardcodes one locale prefix to the visitor's
+ * locale (admin tip historically suggested `/uz-Latn/login`).
+ */
+export function localizeCmsHref(href: string, locale: string): string {
+  const path = (href ?? "").trim();
+  if (!path.startsWith("/")) return path;
+  for (const loc of CMS_LOCALES) {
+    if (path === `/${loc}`) return `/${locale}`;
+    const prefix = `/${loc}/`;
+    if (path.startsWith(prefix)) {
+      return `/${locale}/${path.slice(prefix.length)}`;
+    }
+  }
+  return path;
+}

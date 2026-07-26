@@ -9,18 +9,19 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/learning"
 )
 
-// dailyGoalDefaultConfigKey is the limit_config key holding the default
-// daily-question goal handed to a profile that has never recorded activity
-// (and thus has no streak row / chosen goal of its own yet).
+// dailyGoalDefaultConfigKey is the limit_config key holding the free/VIP
+// daily-question goal shown on the dashboard and written into streak rows.
 const dailyGoalDefaultConfigKey = "daily_goal_default"
 
 type Service struct {
 	Q        *sqlc.Queries
 	Learning *learning.Service // required for MigrateDemoProgress
+	Billing  billing.Service   // VIP status for daily_goal_default.vip_value
 }
 
 func NewService(q *sqlc.Queries) *Service {
@@ -70,45 +71,66 @@ type StreakView struct {
 	LastActiveDate                      *time.Time
 }
 
+// dailyGoalFor returns the admin-configured daily goal for this profile's
+// entitlement (free vs VIP). Always reads live limit_config so Settings →
+// Limits changes apply immediately, not only for brand-new streak rows.
+func (s *Service) dailyGoalFor(ctx context.Context, profileID uuid.UUID) (int32, error) {
+	cfg, err := s.Q.GetLimitConfig(ctx, dailyGoalDefaultConfigKey)
+	if err != nil {
+		return 0, err
+	}
+	goal := cfg.FreeValue
+	if s.Billing.Q == nil {
+		return goal, nil
+	}
+	active, _, err := s.Billing.Status(ctx, profileID)
+	if err != nil {
+		return 0, err
+	}
+	if active {
+		goal = cfg.VipValue
+	}
+	return goal, nil
+}
+
 // GetStreak returns a profile's current streak state. A profile that has
 // never answered anything has no streak row yet — that's a normal state,
 // not an error, matching how billing.Service.Status returns false,nil,nil
 // for a fresh profile rather than erroring on pgx.ErrNoRows.
+//
+// DailyGoal always comes from limit_config (free/VIP), not the frozen
+// streak.daily_goal column, so admin updates apply on the next read.
 func (s *Service) GetStreak(ctx context.Context, profileID uuid.UUID) (StreakView, error) {
+	goal, err := s.dailyGoalFor(ctx, profileID)
+	if err != nil {
+		return StreakView{}, err
+	}
 	row, err := s.Q.GetStreak(ctx, profileID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			cfg, cfgErr := s.Q.GetLimitConfig(ctx, dailyGoalDefaultConfigKey)
-			if cfgErr != nil {
-				return StreakView{}, cfgErr
-			}
-			return StreakView{DailyGoal: int(cfg.FreeValue)}, nil
+			return StreakView{DailyGoal: int(goal)}, nil
 		}
 		return StreakView{}, err
 	}
-	return streakToView(row), nil
+	view := streakToView(row)
+	view.DailyGoal = int(goal)
+	return view, nil
 }
 
 // RecordActivity bumps the caller's streak for "one answered question
 // today" — called once per answered question from internal/session.
 func (s *Service) RecordActivity(ctx context.Context, profileID uuid.UUID) (StreakView, error) {
 	row, err := s.Q.GetStreak(ctx, profileID)
-	isNew := false
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return StreakView{}, err
 		}
-		isNew = true
 		row = sqlc.Streak{ProfileID: profileID}
 	}
 
-	dailyGoal := row.DailyGoal
-	if isNew {
-		cfg, err := s.Q.GetLimitConfig(ctx, dailyGoalDefaultConfigKey)
-		if err != nil {
-			return StreakView{}, err
-		}
-		dailyGoal = cfg.FreeValue
+	dailyGoal, err := s.dailyGoalFor(ctx, profileID)
+	if err != nil {
+		return StreakView{}, err
 	}
 
 	state := streakStateFromRow(row)
@@ -130,7 +152,9 @@ func (s *Service) RecordActivity(ctx context.Context, profileID uuid.UUID) (Stre
 	if err != nil {
 		return StreakView{}, err
 	}
-	return streakToView(saved), nil
+	view := streakToView(saved)
+	view.DailyGoal = int(dailyGoal)
+	return view, nil
 }
 
 func streakStateFromRow(row sqlc.Streak) StreakState {

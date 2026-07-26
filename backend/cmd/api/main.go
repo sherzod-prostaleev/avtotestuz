@@ -87,11 +87,13 @@ func main() {
 			PublicBaseURL: cfg.PublicBaseURL,
 			Log:           logger,
 		}
+		progressSvc := progress.NewService(q)
+		progressSvc.Billing = billing.Service{Q: q}
 		botSvc := &bot.Bot{
 			Link:          linkSvc,
 			Quiz:          quizSvc,
 			Billing:       billing.Service{Q: q},
-			Progress:      progress.NewService(q),
+			Progress:      progressSvc,
 			TG:            tgClient,
 			PublicBaseURL: cfg.PublicBaseURL,
 			Log:           logger,

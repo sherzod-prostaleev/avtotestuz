@@ -90,7 +90,7 @@ func (s Store) PutContacts(ctx context.Context, in Contacts, updatedBy string) (
 }
 
 func normalizeContacts(c Contacts) Contacts {
-	return Contacts{
+	out := Contacts{
 		Phone:        strings.TrimSpace(c.Phone),
 		PhoneTel:     strings.TrimSpace(c.PhoneTel),
 		Email:        strings.TrimSpace(c.Email),
@@ -101,6 +101,30 @@ func normalizeContacts(c Contacts) Contacts {
 		Instagram:    strings.TrimSpace(c.Instagram),
 		InstagramURL: strings.TrimSpace(c.InstagramURL),
 	}
+	// Display phone and tel: href are often filled independently in admin.
+	// Cross-fill so a single saved field still updates the live footer.
+	if out.Phone == "" && out.PhoneTel != "" {
+		out.Phone = out.PhoneTel
+	}
+	if out.PhoneTel == "" && out.Phone != "" {
+		out.PhoneTel = compactPhoneTel(out.Phone)
+	}
+	return out
+}
+
+// compactPhoneTel keeps digits and a leading +, for tel: hrefs.
+func compactPhoneTel(display string) string {
+	var b strings.Builder
+	for i, r := range display {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+			continue
+		}
+		if r == '+' && i == 0 {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func validateContacts(c Contacts) error {
