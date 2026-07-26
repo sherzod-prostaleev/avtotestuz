@@ -134,7 +134,7 @@ export function QuestionStage({
           src={imageUrl}
           alt={t("questionImageAlt", { number: questionNumber })}
           decoding="async"
-          className="h-full max-h-[22dvh] w-full object-contain lg:max-h-full"
+          className="h-full w-full object-contain"
         />
         <span className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/90 text-background sm:bottom-2 sm:right-2 sm:min-h-9 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:font-bold">
           <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />

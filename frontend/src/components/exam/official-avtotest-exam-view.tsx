@@ -264,7 +264,8 @@ export function OfficialAvtotestExamView({
                 key={currentQuestion.id}
                 src={questionImageUrl}
                 alt={currentQuestion.question}
-                className="max-h-full max-w-full object-contain"
+                decoding="async"
+                className="h-full w-full object-contain"
               />
               <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 hover:text-white transition-opacity max-lg:top-1 max-lg:right-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center max-lg:p-0">
                 <ZoomIn className="w-5 h-5 max-lg:h-3.5 max-lg:w-3.5" />
