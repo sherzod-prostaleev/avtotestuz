@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/coder/websocket"
@@ -57,11 +58,52 @@ func (h *Handler) mintTicket(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) wsURL(r *http.Request) string {
+	// Ticket mint normally arrives via the Next.js BFF, so r.Host is the
+	// compose-internal API hostname (e.g. "api:8080") which browsers cannot
+	// reach. Prefer the public site origin (same host nginx uses for /api/v1).
+	if host, scheme, ok := publicWSBase(h.PublicURL); ok && internalAPIHost(r.Host) {
+		return scheme + "://" + host + "/api/v1/arena/ws"
+	}
 	scheme := "ws"
 	if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
 		scheme = "wss"
 	}
-	return scheme + "://" + r.Host + "/api/v1/arena/ws"
+	host := r.Header.Get("X-Forwarded-Host")
+	if host == "" {
+		host = r.Host
+	}
+	return scheme + "://" + host + "/api/v1/arena/ws"
+}
+
+// publicWSBase maps PUBLIC_BASE_URL → (host, ws|wss).
+func publicWSBase(publicURL string) (host, scheme string, ok bool) {
+	if publicURL == "" {
+		return "", "", false
+	}
+	u, err := url.Parse(publicURL)
+	if err != nil || u.Host == "" {
+		return "", "", false
+	}
+	scheme = "ws"
+	if u.Scheme == "https" {
+		scheme = "wss"
+	}
+	return u.Host, scheme, true
+}
+
+// internalAPIHost is true for Docker/compose service hosts that must never be
+// returned to the browser as a WebSocket URL.
+func internalAPIHost(host string) bool {
+	name := strings.ToLower(host)
+	if i := strings.IndexByte(name, ':'); i >= 0 {
+		name = name[:i]
+	}
+	switch name {
+	case "", "api", "backend", "avtotest-api", "drivergo-api":
+		return true
+	}
+	// Bare compose DNS labels have no dot (unlike localhost / public FQDNs).
+	return name != "localhost" && name != "127.0.0.1" && !strings.Contains(name, ".")
 }
 
 func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +204,13 @@ func originPatterns(publicURL string) []string {
 	if host == "localhost" || host == "127.0.0.1" {
 		return []string{"localhost:*", "127.0.0.1:*"}
 	}
-	return []string{host}
+	out := []string{host}
+	if strings.HasPrefix(host, "www.") {
+		out = append(out, strings.TrimPrefix(host, "www."))
+	} else {
+		out = append(out, "www."+host)
+	}
+	return out
 }
 
 func textPtr(t pgtype.Text) any {

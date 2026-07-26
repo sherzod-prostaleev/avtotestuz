@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { ArenaSocket } from "@/lib/arena-client";
+import { ArenaSocket, resolveArenaWsUrl } from "@/lib/arena-client";
 
 vi.mock("@/lib/api-client", () => ({
   apiPost: vi.fn(),
@@ -59,6 +59,26 @@ async function waitForSocket(): Promise<FakeWebSocket> {
   }
   throw new Error("WebSocket was not created");
 }
+
+describe("resolveArenaWsUrl", () => {
+  it("rewrites compose-internal api host to the page origin", () => {
+    vi.stubGlobal("window", {
+      location: { protocol: "https:", host: "drivergo.uz" },
+    });
+    expect(resolveArenaWsUrl("ws://api:8080/api/v1/arena/ws")).toBe(
+      "wss://drivergo.uz/api/v1/arena/ws"
+    );
+  });
+
+  it("leaves public and localhost hosts unchanged", () => {
+    expect(resolveArenaWsUrl("wss://drivergo.uz/api/v1/arena/ws")).toBe(
+      "wss://drivergo.uz/api/v1/arena/ws"
+    );
+    expect(resolveArenaWsUrl("ws://localhost:8080/api/v1/arena/ws")).toBe(
+      "ws://localhost:8080/api/v1/arena/ws"
+    );
+  });
+});
 
 describe("ArenaSocket", () => {
   beforeEach(() => {

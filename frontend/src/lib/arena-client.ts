@@ -11,6 +11,32 @@ export async function mintArenaTicket(): Promise<ArenaTicket> {
   return apiPost<ArenaTicket>("arena/ws-ticket");
 }
 
+/**
+ * Ticket mint goes through the Next BFF, so older APIs may return a
+ * compose-internal host (`ws://api:8080/...`). Rewrite that to the page
+ * origin (prod nginx serves `/api/v1` on the same host).
+ */
+export function resolveArenaWsUrl(wsUrl: string): string {
+  const url = new URL(wsUrl);
+  if (!isInternalWsHost(url.hostname)) {
+    return wsUrl;
+  }
+  if (typeof window === "undefined") {
+    return wsUrl;
+  }
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  // Rebuild so compose ports (e.g. :8080) are not preserved on the public host.
+  return `${protocol}//${window.location.host}${url.pathname}${url.search}`;
+}
+
+function isInternalWsHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === "api" || host === "backend" || host === "avtotest-api" || host === "drivergo-api") {
+    return true;
+  }
+  return host !== "localhost" && host !== "127.0.0.1" && !host.includes(".");
+}
+
 export type ArenaSocketHandlers = {
   onMessage: (env: ArenaEnvelope) => void;
   onClose?: (code: number, reason: string) => void;
@@ -81,7 +107,7 @@ export class ArenaSocket {
       throw new Error("arena_ws_superseded");
     }
 
-    const url = new URL(ticket.ws_url);
+    const url = new URL(resolveArenaWsUrl(ticket.ws_url));
     url.searchParams.set("ticket", ticket.ticket);
 
     await new Promise<void>((resolve, reject) => {
