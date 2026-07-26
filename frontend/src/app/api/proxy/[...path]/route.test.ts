@@ -1,6 +1,11 @@
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { GET, POST } from "./route";
 import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import { resetRefreshLockForTests } from "@/lib/refresh-lock";
+
+beforeEach(() => {
+  resetRefreshLockForTests();
+});
 
 afterEach(() => {
   vi.unstubAllGlobals();
