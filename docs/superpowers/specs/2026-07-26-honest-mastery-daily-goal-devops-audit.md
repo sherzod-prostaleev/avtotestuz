@@ -16,5 +16,8 @@
 | `go build ./cmd/api` | PASS |
 | `tsc` + vitest (stats hooks / mastery-bar / i18n) | PASS |
 
+## SHA
+- `17633a4` — fix(learn): make mastery/readiness bank-honest and raise daily goal to 30
+
 ## Remaining
 FSRS due queue still only covers previously graded questions (by design). 100% readiness requires covering ~all valid questions with good accuracy — not inventing Metabase.
