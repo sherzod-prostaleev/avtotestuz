@@ -3,6 +3,12 @@
     "toLight": "Перейти к светлой теме",
     "toDark": "Перейти к тёмной теме"
   },
+  "LocaleSwitcher": {
+    "languageSwitcher": "Выбор языка",
+    "languageUzLatn": "O'z",
+    "languageUzCyrl": "Ўз",
+    "languageRu": "Ru"
+  },
   "Metadata": {
     "title": "Driver Go — подготовка к теоретическому экзамену",
     "description": "Готовьтесь к теоретическому экзамену по ПДД Узбекистана с билетами в формате экзамена и умными повторениями."

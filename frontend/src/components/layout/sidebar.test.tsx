@@ -14,8 +14,13 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/uz-Latn/dashboard",
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+}));
+
+vi.mock("@/i18n/navigation", () => ({
   usePathname: () => "/dashboard",
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
 
 vi.mock("@/hooks/use-user-stats", () => ({ useUserStats: vi.fn() }));

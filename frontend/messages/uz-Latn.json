@@ -3,6 +3,12 @@
     "toLight": "Yorug' temaga o'tish",
     "toDark": "Qorong'i temaga o'tish"
   },
+  "LocaleSwitcher": {
+    "languageSwitcher": "Tilni tanlash",
+    "languageUzLatn": "O'z",
+    "languageUzCyrl": "Ўз",
+    "languageRu": "Ru"
+  },
   "Metadata": {
     "title": "Driver Go — haydovchilik nazariy imtihoniga tayyorgarlik",
     "description": "O'zbekiston YHQ savollari, rasmiy imtihon uslubidagi biletlar va aqlli takrorlash bilan nazariy imtihonga tayyorlaning."

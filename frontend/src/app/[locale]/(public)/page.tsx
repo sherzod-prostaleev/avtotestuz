@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { DemoQuestionBlock } from "./demo-question-block";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
 import { apiGet } from "@/lib/api-client";
@@ -173,7 +174,8 @@ export default function LandingPage() {
             <span>{t("brandName")}</span>
           </Link>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <LocaleSwitcher />
             <ThemeToggle />
             <Link href={`/${locale}/login`} className={`${primaryCta} h-9 px-4 text-xs`}>
               <LogIn aria-hidden="true" className="mr-1.5 h-3.5 w-3.5" />

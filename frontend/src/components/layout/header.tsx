@@ -1,10 +1,10 @@
 "use client";
 
-import { startTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useUserStats } from "@/hooks/use-user-stats";
 import {
@@ -22,19 +22,10 @@ export function Header() {
   const currentLocale = useLocale();
   const t = useTranslations("Header");
   const pathname = usePathname();
-  const router = useRouter();
   const { streak, entitlement, loading } = useUserStats();
 
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
-
-  const handleLanguageChange = (newLocale: string) => {
-    if (newLocale === currentLocale) return;
-    const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    startTransition(() => {
-      router.replace(newPath);
-    });
-  };
 
   const navLinks = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
@@ -117,32 +108,7 @@ export function Header() {
             </div>
           </Link>
 
-          {/* Language Switcher */}
-          <div
-            role="group"
-            aria-label={t("languageSwitcher")}
-            className="flex gap-0.5 rounded-lg border border-border/80 bg-card p-0.5"
-          >
-            {[
-              { code: "uz-Latn", label: t("languageUzLatn") },
-              { code: "uz-Cyrl", label: t("languageUzCyrl") },
-              { code: "ru", label: t("languageRu") },
-            ].map((lang) => (
-              <button
-                type="button"
-                key={lang.code}
-                onClick={() => handleLanguageChange(lang.code)}
-                aria-pressed={currentLocale === lang.code}
-                className={`rounded px-2 py-0.5 text-[11px] font-bold transition-all min-h-9 min-w-9 ${
-                  currentLocale === lang.code
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {lang.label}
-              </button>
-            ))}
-          </div>
+          <LocaleSwitcher />
 
           {/* Theme Toggle */}
           <ThemeToggle />

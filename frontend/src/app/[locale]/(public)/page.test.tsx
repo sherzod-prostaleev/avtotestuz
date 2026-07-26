@@ -12,7 +12,23 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+vi.mock("next/navigation", () => ({
+  usePathname: () => "/uz-Latn",
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
+vi.mock("@/i18n/navigation", () => ({
+  usePathname: () => "/",
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
+
+const languageSwitcherLabel = {
+  "uz-Latn": "Tilni tanlash",
+  "uz-Cyrl": "Тилни танлаш",
+  ru: "Выбор языка",
+} as const;
 
 const localeCases = [
   {
@@ -86,6 +102,9 @@ describe("LandingPage i18n and accessibility", () => {
     const { container } = renderWithIntl(localeCase);
 
     expect(screen.getByText(localeCase.hero)).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: languageSwitcherLabel[localeCase.locale] })
+    ).toBeInTheDocument();
     const loginLinks = screen.getAllByRole("link", { name: localeCase.login });
     expect(loginLinks[0]).toHaveAttribute("href", `/${localeCase.locale}/login`);
     expect(loginLinks.length).toBeGreaterThanOrEqual(1);

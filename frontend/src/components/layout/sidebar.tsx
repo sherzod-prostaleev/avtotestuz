@@ -1,10 +1,11 @@
 "use client";
 
-import { startTransition, useState } from "react";
+import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
@@ -39,7 +40,6 @@ export function Sidebar() {
   const currentLocale = useLocale();
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
-  const router = useRouter();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { streak, entitlement, user, loading } = useUserStats();
@@ -73,14 +73,6 @@ export function Sidebar() {
   });
   const [moreOpen, setMoreOpen] = useState(false);
   const showMore = moreOpen || moreActive;
-
-  const handleLanguageChange = (newLocale: string) => {
-    if (newLocale === currentLocale) return;
-    const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    startTransition(() => {
-      router.replace(newPath);
-    });
-  };
 
   const isLinkActive = (href: string) => {
     const pathOnly = href.split("?")[0];
@@ -229,31 +221,7 @@ export function Sidebar() {
 
         <div className="space-y-3 border-t border-border pt-4">
           <div className="flex items-center justify-between px-1">
-            <div
-              role="group"
-              aria-label={t("languageSwitcher")}
-              className="flex gap-0.5 rounded-lg border border-border bg-background p-0.5"
-            >
-              {[
-                { code: "uz-Latn", label: t("languageUzLatn") },
-                { code: "uz-Cyrl", label: t("languageUzCyrl") },
-                { code: "ru", label: t("languageRu") },
-              ].map((lang) => (
-                <button
-                  type="button"
-                  key={lang.code}
-                  onClick={() => handleLanguageChange(lang.code)}
-                  aria-pressed={currentLocale === lang.code}
-                  className={`min-h-10 rounded-md px-3 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    currentLocale === lang.code
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {lang.label}
-                </button>
-              ))}
-            </div>
+            <LocaleSwitcher size="md" className="border-border bg-background" />
             <ThemeToggle />
           </div>
 

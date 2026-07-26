@@ -1,10 +1,11 @@
 import createMiddleware from "next-intl/middleware";
 import { NextRequest, NextResponse } from "next/server";
-import { locales, defaultLocale, type Locale } from "@/i18n/config";
+import { locales, type Locale } from "@/i18n/config";
+import { routing } from "@/i18n/routing";
 import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
 import { ADMIN_AUTH_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-auth-cookies";
 
-const intlMiddleware = createMiddleware({ locales, defaultLocale, localePrefix: "always" });
+const intlMiddleware = createMiddleware(routing);
 
 const PROTECTED_SEGMENTS = [
   "dashboard",

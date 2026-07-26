@@ -3,6 +3,12 @@
     "toLight": "Ёруғ темага ўтиш",
     "toDark": "Қоронғи темага ўтиш"
   },
+  "LocaleSwitcher": {
+    "languageSwitcher": "Тилни танлаш",
+    "languageUzLatn": "O'z",
+    "languageUzCyrl": "Ўз",
+    "languageRu": "Ru"
+  },
   "Metadata": {
     "title": "Driver Go — ҳайдовчилик назарий имтиҳонига тайёргарлик",
     "description": "Ўзбекистон ЙҲҚ саволлари, расмий имтиҳон услубидаги билетлар ва ақлли такрорлаш билан назарий имтиҳонга тайёрланинг."
