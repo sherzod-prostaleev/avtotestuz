@@ -39,14 +39,25 @@ function formatRemaining(ms: number): string {
  * the remaining time from the expiry timestamp on every tick rather than
  * decrementing a local counter, so a suspended tab resumes showing the truth
  * instead of however long it managed to tick.
+ *
+ * The clock text is client-only after mount so SSR/hydration never disagree
+ * on Date.now() by a second.
  */
 export function TrialCountdown({ isVip, validUntil, loading = false }: TrialCountdownProps) {
   const t = useTranslations("Trial");
   const locale = useLocale();
-  const [remaining, setRemaining] = useState(() => (validUntil ? remainingMs(validUntil) : 0));
+  const [mounted, setMounted] = useState(false);
+  const [remaining, setRemaining] = useState(0);
 
   useEffect(() => {
-    if (!validUntil) return;
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!validUntil) {
+      setRemaining(0);
+      return;
+    }
     setRemaining(remainingMs(validUntil));
     const id = setInterval(() => setRemaining(remainingMs(validUntil)), 1000);
     return () => clearInterval(id);
@@ -55,6 +66,20 @@ export function TrialCountdown({ isVip, validUntil, loading = false }: TrialCoun
   // Prefer free-user layout stability over reserving a VIP-only slot we
   // usually leave empty. See prop docs above.
   if (loading || !isVip || !validUntil) return null;
+
+  // Same shell on server + first client paint; fill the clock after mount.
+  if (!mounted) {
+    return (
+      <div
+        className="rounded-2xl border border-gold/40 bg-gold/10 p-3"
+        aria-hidden="true"
+      >
+        <div className="h-3 w-24 rounded bg-gold/20" />
+        <div className="mt-2 h-7 w-28 rounded bg-gold/15" />
+        <div className="mt-2 h-3 w-20 rounded bg-gold/10" />
+      </div>
+    );
+  }
 
   if (remaining <= 0) {
     return (
@@ -84,6 +109,7 @@ export function TrialCountdown({ isVip, validUntil, loading = false }: TrialCoun
       <p
         data-testid="trial-countdown"
         className="mt-1 font-display text-xl font-black tabular-nums text-gold"
+        suppressHydrationWarning
       >
         {formatRemaining(remaining)}
       </p>

@@ -7,11 +7,12 @@ describe("PWA offline shell service worker", () => {
   const offline = readFileSync(join(process.cwd(), "public/offline.html"), "utf8");
 
   it("precaches shell assets and offline fallback", () => {
-    expect(sw).toContain('SHELL_CACHE = "dg-shell-v2"');
+    expect(sw).toContain('SHELL_CACHE = "dg-shell-v3"');
     expect(sw).toContain('OFFLINE_URL = "/offline.html"');
     expect(sw).toContain("/manifest.webmanifest");
     expect(sw).toContain("cache.addAll(PRECACHE_URLS)");
     expect(sw).toContain("networkFirstNavigation");
+    expect(sw).toContain("networkFirstStatic");
     expect(offline).toContain("Driver Go");
     expect(offline).toContain("Internet aloqasi");
   });
@@ -25,7 +26,7 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain("signs");
     expect(sw).toContain("site");
     expect(sw).toContain("contacts");
-    expect(sw).toContain('META_CACHE = "dg-meta-v2"');
+    expect(sw).toContain('META_CACHE = "dg-meta-v3"');
     expect(sw).toContain('pathname.startsWith("/api/")');
     expect(sw).toContain('pathname.startsWith("/bff/")');
   });
@@ -39,7 +40,7 @@ describe("PWA offline shell service worker", () => {
   it("caches recently opened variant/ticket detail payloads", () => {
     expect(sw).toContain("VARIANT_DETAIL_RE");
     expect(sw).toContain("networkFirstVariantDetail");
-    expect(sw).toContain('VARIANT_CACHE = "dg-variant-v1"');
+    expect(sw).toContain('VARIANT_CACHE = "dg-variant-v2"');
     expect(sw).toContain("VARIANT_CACHE_MAX");
     expect(sw).toContain("trimVariantCache");
     expect(sw).toMatch(/variants\\\/\\d+/);

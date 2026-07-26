@@ -49,13 +49,19 @@ describe("TrialCountdown", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("shows the remaining time as hours, minutes and seconds", () => {
+  it("shows the remaining time as hours, minutes and seconds", async () => {
     renderCountdown({ isVip: true, validUntil: inHours(23.5) });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(screen.getByTestId("trial-countdown")).toHaveTextContent("23:30:00");
   });
 
-  it("counts down as real time passes", () => {
+  it("counts down as real time passes", async () => {
     renderCountdown({ isVip: true, validUntil: inHours(1) });
+    await act(async () => {
+      await Promise.resolve();
+    });
     expect(screen.getByTestId("trial-countdown")).toHaveTextContent("01:00:00");
 
     act(() => {
@@ -66,8 +72,11 @@ describe("TrialCountdown", () => {
 
   // A laptop that sleeps for an hour must not come back an hour behind: the
   // remaining time is derived from the expiry timestamp, never decremented.
-  it("stays accurate after the tab is suspended", () => {
+  it("stays accurate after the tab is suspended", async () => {
     renderCountdown({ isVip: true, validUntil: inHours(5) });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     act(() => {
       vi.setSystemTime(new Date(NOW.getTime() + 4 * 3600_000));
@@ -76,15 +85,21 @@ describe("TrialCountdown", () => {
     expect(screen.getByTestId("trial-countdown")).toHaveTextContent("00:59:59");
   });
 
-  it("switches to an upgrade prompt once the trial has run out", () => {
+  it("switches to an upgrade prompt once the trial has run out", async () => {
     renderCountdown({ isVip: true, validUntil: inHours(-1) });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     expect(screen.queryByTestId("trial-countdown")).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Premium olish" })).toBeInTheDocument();
   });
 
-  it("turns into an upgrade prompt when the countdown reaches zero live", () => {
+  it("turns into an upgrade prompt when the countdown reaches zero live", async () => {
     renderCountdown({ isVip: true, validUntil: inHours(0.001) });
+    await act(async () => {
+      await Promise.resolve();
+    });
 
     act(() => {
       vi.advanceTimersByTime(10_000);

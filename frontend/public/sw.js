@@ -3,10 +3,10 @@
  * Plus network-first cache for recently opened ticket (variant) question payloads.
  * No full offline exam / session create / answer grading — that gap remains large (U-39).
  */
-const SHELL_CACHE = "dg-shell-v2";
-const RUNTIME_CACHE = "dg-runtime-v2";
-const META_CACHE = "dg-meta-v2";
-const VARIANT_CACHE = "dg-variant-v1";
+const SHELL_CACHE = "dg-shell-v3";
+const RUNTIME_CACHE = "dg-runtime-v3";
+const META_CACHE = "dg-meta-v3";
+const VARIANT_CACHE = "dg-variant-v2";
 const VARIANT_CACHE_MAX = 20;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
@@ -78,9 +78,26 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (isStaticAsset(url.pathname)) {
-    event.respondWith(cacheFirst(req));
+    // Prefer network for Next hashed bundles so a new deploy never hydrates
+    // against a stale cached chunk; fall back to cache when offline.
+    event.respondWith(networkFirstStatic(req));
   }
 });
+
+async function networkFirstStatic(req) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) {
+      void cache.put(req, fresh.clone());
+    }
+    return fresh;
+  } catch {
+    const cached = await cache.match(req);
+    if (cached) return cached;
+    throw new Error("offline");
+  }
+}
 
 function isStaticAsset(pathname) {
   return (
@@ -167,21 +184,6 @@ async function networkFirstNavigation(req) {
       statusText: "Service Unavailable",
       headers: { "Content-Type": "text/plain; charset=utf-8" },
     });
-  }
-}
-
-async function cacheFirst(req) {
-  const cached = await caches.match(req);
-  if (cached) return cached;
-  try {
-    const fresh = await fetch(req);
-    if (fresh && fresh.ok) {
-      const cache = await caches.open(RUNTIME_CACHE);
-      void cache.put(req, fresh.clone());
-    }
-    return fresh;
-  } catch {
-    throw new Error("offline");
   }
 }
 
