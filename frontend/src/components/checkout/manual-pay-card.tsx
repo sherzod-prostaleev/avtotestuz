@@ -98,8 +98,8 @@ export function ManualPayCard({
             <Button
               type="button"
               size="sm"
-              variant="secondary"
-              className="bg-white/15 text-white hover:bg-white/25"
+              variant="outline"
+              className="border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
               onClick={() => void copy("pan", info.pan_full)}
             >
               {copied === "pan" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
@@ -107,8 +107,8 @@ export function ManualPayCard({
             <Button
               type="button"
               size="sm"
-              variant="secondary"
-              className="bg-white/15 text-white hover:bg-white/25"
+              variant="outline"
+              className="border-white/30 bg-white/15 text-white hover:bg-white/25 hover:text-white"
               onClick={() => void copy("amount", String(info.amount_uzs))}
             >
               {copied === "amount" ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
