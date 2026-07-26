@@ -66,7 +66,11 @@
 
 ## SHAs (this session)
 
-*(filled after commit)*
+- `e5f8afe` — fix(auth): enforce admin block on learner login and live sessions
+
+### Prior wave SHAs (already on main)
+- `a1b5df6` — wrong-answer flicker + locale FOUC + Uzbek admin nav
+- `556675c` — PWA SW hydration in development
 
 ---
 
