@@ -14,6 +14,7 @@ import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
   invalid_credentials: "errorInvalidCredentials",
+  account_blocked: "errorAccountBlocked",
   password_not_set: "errorPasswordNotSet",
   rate_limited: "errorRateLimited",
   network_error: "errorNetwork",

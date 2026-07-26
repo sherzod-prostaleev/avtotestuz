@@ -119,6 +119,25 @@ describe("proxy route", () => {
     );
   });
 
+  it("clears cookies on 403 account_blocked so a banned learner cannot keep calling", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ error: { code: "account_blocked", message: "account is blocked" } }), {
+          status: 403,
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=live-token; rt=live-rt"), { params: { path: ["me"] } });
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.error.code).toBe("account_blocked");
+    expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("");
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("");
+  });
+
   it("returns a stable 502 and preserves auth cookies when the backend is unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
 

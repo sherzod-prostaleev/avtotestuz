@@ -24,7 +24,18 @@ var (
 	ErrTooManyAttempts = errors.New("too many attempts")
 	ErrInvalidRefresh  = errors.New("invalid refresh token")
 	ErrReusedRefresh   = errors.New("refresh token reused")
+	// ErrAccountBlocked is returned when profile.status is banned (admin block).
+	ErrAccountBlocked = errors.New("account blocked")
 )
+
+const profileStatusBanned = "banned"
+
+func assertProfileActive(profile sqlc.Profile) error {
+	if profile.Status == profileStatusBanned {
+		return ErrAccountBlocked
+	}
+	return nil
+}
 
 const maxOTPAttempts = 5
 
@@ -175,6 +186,9 @@ func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyR
 		}
 		created = true
 	}
+	if err := assertProfileActive(profile); err != nil {
+		return VerifyResult{}, err
+	}
 
 	access, err := IssueAccess(s.Secret, profile.ID, profile.Role, s.AccessTTL)
 	if err != nil {
@@ -286,6 +300,9 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error
 	if !CheckPassword(profile.PasswordHash.String, in.Password) {
 		return VerifyResult{}, ErrInvalidCreds
 	}
+	if err := assertProfileActive(profile); err != nil {
+		return VerifyResult{}, err
+	}
 
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -384,6 +401,9 @@ func (s *Service) rateLimitAuth(ctx context.Context, action, phone, ip string) e
 }
 
 func (s *Service) issueSession(ctx context.Context, q *sqlc.Queries, profile sqlc.Profile) (Tokens, error) {
+	if err := assertProfileActive(profile); err != nil {
+		return Tokens{}, err
+	}
 	access, err := IssueAccess(s.Secret, profile.ID, profile.Role, s.AccessTTL)
 	if err != nil {
 		return Tokens{}, err
@@ -422,6 +442,9 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 
 	profile, err := s.Q.GetProfileByID(ctx, rt.ProfileID)
 	if err != nil {
+		return Tokens{}, err
+	}
+	if err := assertProfileActive(profile); err != nil {
 		return Tokens{}, err
 	}
 	if err := s.Q.RevokeRefreshToken(ctx, rt.ID); err != nil {

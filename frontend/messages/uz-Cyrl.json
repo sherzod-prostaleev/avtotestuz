@@ -271,6 +271,7 @@
     "setPasswordSubmit": "Паролни сақлаш",
     "errorInvalidPhone": "Телефон рақам нотўғри форматда",
     "errorInvalidCredentials": "Телефон рақам ёки парол нотўғри",
+    "errorAccountBlocked": "Ҳисобингиз блокланган. Ёрдам учун support билан боғланинг.",
     "errorPasswordNotSet": "Парол ўрнатилмаган. Қуйида янги парол яратинг.",
     "errorWeakPassword": "Парол камида 8 та белгидан иборат бўлиши керак",
     "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
@@ -1114,7 +1115,7 @@
   },
   "AdminOverview": {
     "title": "Умумий кўриниш",
-    "body": "Driver Go Super Admin бошқарув маркази. Фойдаланувчилар, Контент, Тўловлар, CMS, Мониторинг, Аналитика, Флаглар, Аудит журнал ва Support broadcastлар ишлайди. Inbox / RBAC UI кейинги босқичларда.",
+    "body": "Driver Go Super Admin бошқарув маркази. Фойдаланувчилар, Контент, Тўловлар, CMS, Мониторинг, Аналитика, Флаглар, Аудит журнал, Support inbox ва broadcastлар ишлайди. Админлар/RBAC UI кейинги босқичда.",
     "tileUsers": "Фойдаланувчилар",
     "tileContent": "Контент",
     "tilePayments": "Тўловлар",

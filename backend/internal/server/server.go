@@ -154,13 +154,15 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}
 				dh.Routes(api)
 
+				learnerAuth := api.With(auth.Required([]byte(cfg.JWTSecret)), auth.RejectBanned(deps.Queries))
+
 				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
-				acc.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				acc.Routes(learnerAuth)
 
 				tb2b := &b2b.Handler{Pool: deps.Pool}
-				tb2b.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				tb2b.AuthedRoutes(learnerAuth)
 
-				bh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				bh.AuthedRoutes(learnerAuth)
 
 				pmh := &payme.Handler{Q: deps.Queries, Svc: billing.Service{Q: deps.Queries}, Key: cfg.PaymeKey(), Pool: deps.Pool}
 				api.Post("/billing/payme", pmh.ServeHTTP)
@@ -179,35 +181,35 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 					Content: ch,
 				}
 				sess.PublicRoutes(api)
-				sess.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				sess.Routes(learnerAuth)
 
 				lbh := &leaderboard.Handler{Svc: lbSvc}
-				lbh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				lbh.Routes(learnerAuth)
 
 				lh := &learning.Handler{Svc: learningSvc}
-				lh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				lh.Routes(learnerAuth)
 
 				eh := &explanation.Handler{Svc: explanation.NewService(deps.Queries, explanation.TemplateDraftGenerator{})}
-				eh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				eh.Routes(learnerAuth)
 
 				ph := &progress.Handler{Svc: progressSvc}
-				ph.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				ph.Routes(learnerAuth)
 
 				evh := &events.Handler{Svc: events.NewService(deps.Queries)}
-				evh.Routes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				evh.Routes(learnerAuth)
 
 				arenaSvc = arena.NewService(deps.Queries, deps.Pool, deps.Redis,
 					billing.Service{Q: deps.Queries}, ch, learningSvc, progressSvc, log)
 				ahArena := &arena.Handler{Svc: arenaSvc, PublicURL: cfg.PublicBaseURL}
 				ahArena.PublicRoutes(api)
-				ahArena.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				ahArena.AuthedRoutes(learnerAuth)
 
 				// Link-token + status are web-facing and do not need an active
 				// bot consumer — mount whenever the API has DB+Redis. Webhook /
 				// longpoll still gate on TelegramBotMode.
 				linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
 				tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
-				tbh.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				tbh.AuthedRoutes(learnerAuth)
 
 				if pushSvc == nil {
 					pushSvc = push.NewService(deps.Pool, deps.Queries, push.Config{
@@ -217,9 +219,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 					}, nil)
 				}
 				phPush := &push.Handler{Svc: pushSvc}
-				phPush.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				phPush.AuthedRoutes(learnerAuth)
 
-				sup.AuthedRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
+				sup.AuthedRoutes(learnerAuth)
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)

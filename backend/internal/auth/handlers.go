@@ -192,6 +192,8 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusConflict, "password_already_set", "password is already set; use login")
 	case errors.Is(err, ErrInvalidCreds):
 		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "invalid phone or password")
+	case errors.Is(err, ErrAccountBlocked):
+		httpx.Error(w, http.StatusForbidden, "account_blocked", "account is blocked")
 	case errors.Is(err, ErrExpiredCode):
 		httpx.Error(w, http.StatusBadRequest, "expired_code", "code has expired")
 	case errors.Is(err, ErrTooManyAttempts):

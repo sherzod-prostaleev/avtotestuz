@@ -271,6 +271,7 @@
     "setPasswordSubmit": "Parolni saqlash",
     "errorInvalidPhone": "Telefon raqam noto'g'ri formatda",
     "errorInvalidCredentials": "Telefon raqam yoki parol noto'g'ri",
+    "errorAccountBlocked": "Hisobingiz bloklangan. Yordam uchun support bilan bog'laning.",
     "errorPasswordNotSet": "Parol o'rnatilmagan. Quyida yangi parol yarating.",
     "errorWeakPassword": "Parol kamida 8 ta belgidan iborat bo'lishi kerak",
     "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
@@ -1114,7 +1115,7 @@
   },
   "AdminOverview": {
     "title": "Umumiy ko‘rinish",
-    "body": "Driver Go Super Admin boshqaruv markazi. Foydalanuvchilar, Kontent, To‘lovlar, CMS, Monitoring, Analitika, Flaglar, Audit jurnal va Support broadcastlar ishlaydi. Inbox / RBAC UI keyingi bosqichlarda.",
+    "body": "Driver Go Super Admin boshqaruv markazi. Foydalanuvchilar, Kontent, To‘lovlar, CMS, Monitoring, Analitika, Flaglar, Audit jurnal, Support inbox va broadcastlar ishlaydi. Adminlar/RBAC UI keyingi bosqichda.",
     "tileUsers": "Foydalanuvchilar",
     "tileContent": "Kontent",
     "tilePayments": "To‘lovlar",

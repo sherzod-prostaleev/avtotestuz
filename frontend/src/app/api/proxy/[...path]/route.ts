@@ -149,6 +149,32 @@ async function handle(request: Request, context: { params: { path: string[] } })
     return response;
   }
 
+  // Admin block: drop cookies so the learner UI cannot keep calling with a live AT.
+  if (backendRes.status === 403) {
+    let data: unknown = { error: { code: "forbidden", message: "forbidden" } };
+    try {
+      data = await readBackendJson(backendRes);
+    } catch {
+      /* status wins */
+    }
+    const code =
+      data &&
+      typeof data === "object" &&
+      "error" in data &&
+      data.error &&
+      typeof data.error === "object" &&
+      "code" in data.error
+        ? String((data.error as { code?: unknown }).code ?? "")
+        : "";
+    const response = NextResponse.json(data, { status: 403 });
+    if (code === "account_blocked" && (refreshToken || accessToken)) {
+      clearAuthCookies(response);
+    } else if (newTokens) {
+      setAuthCookies(response, newTokens);
+    }
+    return response;
+  }
+
   let data: unknown;
   const contentType = backendRes.headers.get("content-type") ?? "";
   if (

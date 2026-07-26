@@ -272,6 +272,33 @@ func TestRegisterLoginHappyPath(t *testing.T) {
 	}
 }
 
+func TestLoginAndRefreshRejectBanned(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	ctx := context.Background()
+
+	reg, err := svc.Register(ctx, RegisterInput{
+		Phone:    "901112233",
+		Password: "secret123",
+		IP:       "1.1.1.1",
+	})
+	if err != nil {
+		t.Fatalf("Register: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `UPDATE profile SET status = 'banned' WHERE id = $1`, reg.Profile.ID); err != nil {
+		t.Fatalf("ban: %v", err)
+	}
+
+	if _, err := svc.Login(ctx, LoginInput{Phone: "901112233", Password: "secret123", IP: "1.1.1.1"}); !errors.Is(err, ErrAccountBlocked) {
+		t.Fatalf("login err=%v want ErrAccountBlocked", err)
+	}
+
+	if _, err := svc.Refresh(ctx, reg.Refresh); !errors.Is(err, ErrAccountBlocked) {
+		t.Fatalf("refresh err=%v want ErrAccountBlocked", err)
+	}
+}
+
 func TestLoginPasswordNotSetThenSetPassword(t *testing.T) {
 	pool := testdb.New(t)
 	svc, sender := newTestService(t, pool)
