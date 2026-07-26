@@ -1,11 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
+import { AdminBarChart } from "@/components/admin/admin-bar-chart";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminSkeletonTiles } from "@/components/admin/admin-skeleton";
+import { MetricTile } from "@/components/admin/metric-tile";
+import { PermissionGate } from "@/components/admin/permission-gate";
 import { Button } from "@/components/ui/button";
 
-type NameCount = { name: string; count: number };
+type DayCount = { day: string; count: number };
 
 type Overview = {
   generated_at: string;
@@ -18,7 +24,8 @@ type Overview = {
   revenue_paid_uzs_7d: number;
   entitlements_active: number;
   events_last_7d: number;
-  top_event_names_7d: NameCount[];
+  signups_by_day_14d?: DayCount[];
+  revenue_by_day_14d?: DayCount[];
   note: string;
 };
 
@@ -28,6 +35,8 @@ function fmtUzs(n: number): string {
 
 export default function AdminInvestorsPage() {
   const t = useTranslations("AdminInvestors");
+  const tNav = useTranslations("AdminNav");
+  const locale = useLocale();
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,50 +65,75 @@ export default function AdminInvestorsPage() {
     void load();
   }, [load]);
 
-  const tiles = data
-    ? [
-        { label: t("tileProfiles"), value: String(data.profiles_total) },
-        { label: t("tileProfiles7d"), value: String(data.profiles_created_7d) },
-        { label: t("tilePaid"), value: String(data.payments_paid_total) },
-        { label: t("tileRevenue"), value: fmtUzs(data.revenue_paid_uzs_total) },
-        { label: t("tileRevenue7d"), value: fmtUzs(data.revenue_paid_uzs_7d) },
-        { label: t("tileEntitlements"), value: String(data.entitlements_active) },
-      ]
-    : [];
+  const refreshActions = (
+    <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
+      <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+      {t("refresh")}
+    </Button>
+  );
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4">
-      <header>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{t("note")}</p>
-      </header>
+    <PermissionGate permission="investors.read">
+      <main className="mx-auto max-w-6xl space-y-5">
+        <AdminPageHeader
+          badge={tNav("groupInvestors")}
+          title={t("title")}
+          description={`${t("subtitle")} ${t("note")}`}
+          actions={refreshActions}
+        />
 
-      <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
-        <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-        {t("refresh")}
-      </Button>
+        {error ? (
+          <AdminErrorState message={error} retryLabel={t("refresh")} onRetry={() => void load()} />
+        ) : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {!data && !error ? <AdminSkeletonTiles count={6} /> : null}
 
-      {!data ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
-      ) : (
-        <>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {tiles.map((tile) => (
-              <div key={tile.label} className="rounded-xl border border-border bg-card px-4 py-3">
-                <p className="text-xs font-semibold text-muted-foreground">{tile.label}</p>
-                <p className="mt-1 font-mono text-lg font-bold">{tile.value}</p>
-              </div>
-            ))}
-          </div>
-          {data.note ? <p className="text-xs text-muted-foreground">{data.note}</p> : null}
-          <p className="text-xs text-muted-foreground">
-            {t("generatedAt", { time: new Date(data.generated_at).toLocaleString() })}
-          </p>
-        </>
-      )}
-    </main>
+        {data ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <MetricTile label={t("tileProfiles")} value={String(data.profiles_total)} />
+              <MetricTile label={t("tileProfiles7d")} value={String(data.profiles_created_7d)} />
+              <MetricTile label={t("tilePaid")} value={String(data.payments_paid_total)} />
+              <MetricTile label={t("tileRevenue")} value={fmtUzs(data.revenue_paid_uzs_total)} />
+              <MetricTile label={t("tileRevenue7d")} value={fmtUzs(data.revenue_paid_uzs_7d)} />
+              <MetricTile label={t("tileEntitlements")} value={String(data.entitlements_active)} />
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <section className="rounded-2xl border border-border/80 bg-card/70 p-4">
+                <h2 className="text-sm font-bold">{t("chartSignups")}</h2>
+                <div className="mt-3">
+                  <AdminBarChart
+                    points={(data.signups_by_day_14d ?? []).map((p) => ({
+                      label: p.day,
+                      value: p.count,
+                    }))}
+                    emptyLabel={t("chartEmpty")}
+                  />
+                </div>
+              </section>
+              <section className="rounded-2xl border border-border/80 bg-card/70 p-4">
+                <h2 className="text-sm font-bold">{t("chartRevenue")}</h2>
+                <div className="mt-3">
+                  <AdminBarChart
+                    points={(data.revenue_by_day_14d ?? []).map((p) => ({
+                      label: p.day,
+                      value: p.count,
+                    }))}
+                    emptyLabel={t("chartEmpty")}
+                    valueFormatter={fmtUzs}
+                  />
+                </div>
+              </section>
+            </div>
+
+            {data.note ? <p className="text-xs text-muted-foreground">{data.note}</p> : null}
+            <p className="text-xs text-muted-foreground">
+              {t("generatedAt", { time: new Date(data.generated_at).toLocaleString(locale) })}
+            </p>
+          </>
+        ) : null}
+      </main>
+    </PermissionGate>
   );
 }
