@@ -2127,6 +2127,19 @@
     "configured": "Настроено",
     "notConfigured": "Ещё не настроено",
     "errorLoad": "Ошибка загрузки",
-    "refresh": "Обновить"
+    "refresh": "Обновить",
+    "cardsHelp": "Добавьте до 4 карт Humo. Каждый раз заполните номер + ФИО и нажмите «Добавить карту» — карта попадёт в список. Следующую добавляете так же.",
+    "panPlaceholder": "9860 1234 5678 9012",
+    "emptyCards": "Карт пока нет. Добавьте первую через форму ниже.",
+    "cardsCount": "Добавлено: {count} / рекомендуется 4",
+    "cardAdded": "Карта сохранена.",
+    "tgHelp": "Session string — секретный ключ Telegram-аккаунта. Это не пароль: его один раз получают скриптом по телефону и коду.",
+    "tgStep1": "На https://my.telegram.org/apps создайте приложение → получите api_id и api_hash.",
+    "tgStep2": "На этом аккаунте откройте @HUMOcardbot и включите push по картам.",
+    "tgStep3": "На компьютере запустите services/humo-watcher/make_session.py (pip install telethon). Введите телефон и код из SMS/Telegram.",
+    "tgStep4": "Вставьте длинную строку session сюда → Сохранить → Проверить соединение.",
+    "sessionPlaceholder": "1BVtsOHwBu... (длинная строка из make_session.py)",
+    "tgSaved": "Настройки Telegram сохранены.",
+    "tgTestOk": "Credentials OK"
   }
 }

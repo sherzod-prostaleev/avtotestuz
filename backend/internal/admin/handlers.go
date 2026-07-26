@@ -103,6 +103,9 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(prr chi.Router) {
 			prr.Use(RequirePermission("payments.keys.manage"))
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
+		})
+		pr.Group(func(prr chi.Router) {
+			prr.Use(RequirePermission("payments.manual.manage"))
 			prr.Post("/payments/manual/cards", h.createManualPayCard)
 			prr.Patch("/payments/manual/cards/{id}", h.updateManualPayCard)
 			prr.Delete("/payments/manual/cards/{id}", h.deleteManualPayCard)

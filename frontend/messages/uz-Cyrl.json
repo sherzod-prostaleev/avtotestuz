@@ -2126,6 +2126,19 @@
     "configured": "Sozlangan",
     "notConfigured": "Hali sozlanmagan",
     "errorLoad": "Yuklash xatosi",
-    "refresh": "Yangilash"
+    "refresh": "Yangilash",
+    "cardsHelp": "4 тагача Humo картани қўшинг. Ҳар сафар 1 та карта + исм фамилияни ёзиб «Карта қўшиш»ни босинг.",
+    "panPlaceholder": "9860 1234 5678 9012",
+    "emptyCards": "Ҳали карта йўқ.",
+    "cardsCount": "Қўшилган: {count} / тавсия 4",
+    "cardAdded": "Карта сақланди.",
+    "tgHelp": "Session string — Telegram аккаунтнинг махфий калити. Телефон + код билан бир марта олинади.",
+    "tgStep1": "my.telegram.org/apps да api_id ва api_hash олинг.",
+    "tgStep2": "Шу аккаунтда @HUMOcardbot pushларини ёқинг.",
+    "tgStep3": "make_session.py ни ишга туширинг — телефон + SMS код.",
+    "tgStep4": "Чиққан session сатрини шу ерга қўйинг → Сақлаш.",
+    "sessionPlaceholder": "1BVtsOHwBu... (make_session.py матни)",
+    "tgSaved": "Telegram созламалари сақланди.",
+    "tgTestOk": "Credentials OK"
   }
 }

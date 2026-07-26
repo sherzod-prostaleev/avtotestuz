@@ -60,6 +60,10 @@ func (h *Handler) createManualPayCard(w http.ResponseWriter, r *http.Request) {
 		Enabled:    enabled,
 	})
 	if err != nil {
+		if strings.Contains(err.Error(), "manual_pay_card_pan_last4") || strings.Contains(err.Error(), "duplicate key") {
+			httpx.Error(w, http.StatusConflict, "duplicate_card", "card with this last4 already exists")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "create card failed")
 		return
 	}

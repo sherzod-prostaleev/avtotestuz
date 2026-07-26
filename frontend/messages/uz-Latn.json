@@ -2126,6 +2126,19 @@
     "configured": "Sozlangan",
     "notConfigured": "Hali sozlanmagan",
     "errorLoad": "Yuklash xatosi",
-    "refresh": "Yangilash"
+    "refresh": "Yangilash",
+    "cardsHelp": "4 tagacha Humo kartani qo'shing. Har safar 1 ta karta raqami + ism familiyani yozib «Karta qo'shish»ni bosing — ro'yxatga qo'shiladi. Keyingisini yana shu forma orqali qo'shasiz.",
+    "panPlaceholder": "9860 1234 5678 9012",
+    "emptyCards": "Hali karta yo'q. Pastdagi forma orqali birinchi kartani qo'shing.",
+    "cardsCount": "Qo'shilgan: {count} / tavsiya 4",
+    "cardAdded": "Karta saqlandi.",
+    "tgHelp": "Session string — bu Telegram akkauntingizning maxfiy kaliti. Uni telefonda kod bilan bir marta login qilib olasiz, keyin shu yerga joylashtirasiz. Oddiy parol emas.",
+    "tgStep1": "https://my.telegram.org/apps saytida ilova oching → api_id va api_hash oling.",
+    "tgStep2": "Shu akkauntda @HUMOcardbot ni ochib, pushlarni yoqing (kartalaringiz ulangani bo'lsin).",
+    "tgStep3": "Kompyuterda: services/humo-watcher/make_session.py ni ishga tushiring (pip install telethon). Telefon + SMS kod so'raydi.",
+    "tgStep4": "Skript chiqargan uzun session satrini shu yerga joylashtiring → Saqlash → Ulanishni tekshirish.",
+    "sessionPlaceholder": "1BVtsOHwBu... (make_session.py chiqargan uzun matn)",
+    "tgSaved": "Telegram sozlamalari saqlandi.",
+    "tgTestOk": "Credentials OK"
   }
 }
