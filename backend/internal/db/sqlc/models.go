@@ -611,6 +611,14 @@ type TelegramAccount struct {
 	LinkedAt  pgtype.Timestamptz `json:"linked_at"`
 }
 
+type TelegramChat struct {
+	ChatID    int64              `json:"chat_id"`
+	Title     string             `json:"title"`
+	ChatType  string             `json:"chat_type"`
+	BotStatus string             `json:"bot_status"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type TelegramLinkToken struct {
 	ID        uuid.UUID          `json:"id"`
 	ProfileID uuid.UUID          `json:"profile_id"`
@@ -618,6 +626,20 @@ type TelegramLinkToken struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	UsedAt    pgtype.Timestamptz `json:"used_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type TelegramQuizSession struct {
+	ID                uuid.UUID          `json:"id"`
+	ChatID            int64              `json:"chat_id"`
+	StartedByTgUserID int64              `json:"started_by_tg_user_id"`
+	Active            bool               `json:"active"`
+	QuestionID        uuid.NullUUID      `json:"question_id"`
+	AwaitingAnswer    bool               `json:"awaiting_answer"`
+	AnswerMessageID   int64              `json:"answer_message_id"`
+	AskedCount        int32              `json:"asked_count"`
+	CorrectCount      int32              `json:"correct_count"`
+	LastActivityAt    pgtype.Timestamptz `json:"last_activity_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type UserReferralCode struct {

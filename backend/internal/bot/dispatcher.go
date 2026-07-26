@@ -10,36 +10,44 @@ import (
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/billing"
+	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/progress"
 )
 
 const (
-	msgStartUnlinked = "Salom! Bu AvtoTest botining poydevor versiyasi.\n\n" +
-		"Hisobingizni ulash uchun: saytda/ilovada profilingizga kiring va " +
-		"\"Telegram bilan bog'lash\" tugmasini bosing — sizga shu botga " +
-		"o'tadigan bir martalik havola beriladi."
-	msgStartLinkedFmt = "Salom, %s! Hisobingiz allaqachon ulangan. /status buyrug'i bilan holatingizni ko'rishingiz mumkin."
-	msgLinkUsage      = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
-	msgLinkSuccess    = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring."
-	msgLinkAlreadyOK  = "Bu Telegram hisobi allaqachon shu profilga ulangan."
-	msgLinkExpired    = "Havola muddati tugagan. Saytdan yangi havola oling."
-	msgLinkUsed       = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
-	msgLinkNotFound   = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
-	msgLinkElsewhere  = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing yoki qo'llab-quvvatlash xizmatiga murojaat qiling."
-	msgLinkInternal   = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
+	msgStartUnlinked = "Salom! Bu Driver Go boti.\n\n" +
+		"Mashq: /quiz\nTo'xtatish: /stop\n\n" +
+		"Hisobingizni ulash uchun: saytda profilingizga kiring va " +
+		"\"Telegram bilan bog'lash\" tugmasini bosing."
+	msgStartLinkedFmt = "Salom, %s!\n\nMashq: /quiz\nHolat: /status\nUzish: /unlink"
+	msgStartGroup     = "Driver Go quiz boti guruhda.\n\n" +
+		"Boshlash: /quiz\nKeyingi: /next\nTo'xtatish: /stop\n\n" +
+		"Rasmiy formatdagi savollar — bepul sinab ko'ring."
+	msgLinkUsage     = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
+	msgLinkSuccess   = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring. Mashq: /quiz"
+	msgLinkAlreadyOK = "Bu Telegram hisobi allaqachon shu profilga ulangan."
+	msgLinkExpired   = "Havola muddati tugagan. Saytdan yangi havola oling."
+	msgLinkUsed      = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
+	msgLinkNotFound  = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
+	msgLinkElsewhere = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing (/unlink) yoki qo'llab-quvvatlashga yozing."
+	msgLinkInternal  = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
 	msgStatusUnlinked = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
-	msgUnknown        = "Noma'lum buyruq. Mavjud buyruqlar: /start, /link <token>, /status"
+	msgUnlinkOK       = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
+	msgUnlinkNone     = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
+	msgUnknown        = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
+	msgQuizUnavailable = "Quiz hozircha ishlamayapti. Keyinroq qayta urinib ko'ring."
 )
 
-// Bot dispatches inbound Telegram updates to the M4-06 command set. It is
-// the one place §3.2's "redeem happens in-process" design decision lives:
-// HandleUpdate calls Link.RedeemLinkToken directly, never over HTTP.
+// Bot dispatches inbound Telegram updates. Link redeem stays in-process
+// (M4-06); quiz sessions are handled by QuizService (M4-07).
 type Bot struct {
-	Link     *LinkService
-	Billing  billing.Service
-	Progress *progress.Service
-	TG       *Client
-	Log      *zap.Logger
+	Link          *LinkService
+	Quiz          *QuizService
+	Billing       billing.Service
+	Progress      *progress.Service
+	TG            *Client
+	PublicBaseURL string
+	Log           *zap.Logger
 }
 
 func (b *Bot) logger() *zap.Logger {
@@ -49,42 +57,98 @@ func (b *Bot) logger() *zap.Logger {
 	return zap.NewNop()
 }
 
-// HandleUpdate processes one Telegram update. It only returns an error for
-// infra-level failures (Telegram API unreachable, DB down) — bad user input
-// always gets a reply, never a returned error, so a webhook caller can
-// always respond 200 and a long-poll loop never gets stuck retrying a
-// message a user typo'd.
+// HandleUpdate processes one Telegram update. Infra failures return an
+// error; bad user input always gets a reply so webhooks can stay 200.
 func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
+	if u.MyChatMember != nil {
+		return b.handleMyChatMember(ctx, u.MyChatMember)
+	}
+	if u.CallbackQuery != nil {
+		if b.Quiz == nil {
+			return nil
+		}
+		if err := b.Quiz.HandleCallback(ctx, *u.CallbackQuery); err != nil {
+			b.logger().Error("bot: quiz callback failed", zap.Error(err))
+		}
+		return nil
+	}
 	if u.Message == nil || u.Message.From == nil {
-		return nil // nothing this bot handles yet (edited messages, etc.)
+		return nil
 	}
 	chatID := u.Message.Chat.ID
 	tgUserID := u.Message.From.ID
 	username := u.Message.From.Username
+	chatType := u.Message.Chat.Type
 
-	reply, err := b.dispatch(ctx, u.Message.Text, tgUserID, username)
-	if err != nil {
-		b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-		reply = msgLinkInternal
-	}
-	if reply == "" {
-		return nil
-	}
-	return b.TG.SendMessage(ctx, chatID, reply)
-}
-
-// dispatch returns the reply text for a command, and an error only for
-// infra failures the caller should log (not show verbatim to the user).
-func (b *Bot) dispatch(ctx context.Context, text string, tgUserID int64, username string) (string, error) {
-	fields := strings.Fields(strings.TrimSpace(text))
+	fields := strings.Fields(strings.TrimSpace(u.Message.Text))
 	if len(fields) == 0 {
-		return msgUnknown, nil
+		return nil
 	}
 	cmd, arg := normalizeCommand(fields[0]), ""
 	if len(fields) > 1 {
 		arg = fields[1]
 	}
 
+	switch cmd {
+	case "/quiz", "/next":
+		if b.Quiz == nil {
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
+			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		return nil
+	case "/stop":
+		if b.Quiz == nil {
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		if err := b.Quiz.Stop(ctx, chatID); err != nil {
+			b.logger().Error("bot: quiz stop failed", zap.Error(err))
+			return b.TG.SendMessage(ctx, chatID, msgLinkInternal)
+		}
+		return nil
+	case "/unlink":
+		reply, err := b.handleUnlink(ctx, tgUserID)
+		if err != nil {
+			b.logger().Error("bot: unlink failed", zap.Error(err))
+			reply = msgLinkInternal
+		}
+		return b.TG.SendMessage(ctx, chatID, reply)
+	case "/start":
+		if IsGroupChat(chatType) && arg == "" {
+			markup := &InlineKeyboardMarkup{}
+			if b.Quiz != nil {
+				markup = b.Quiz.ctaMarkup()
+			}
+			_, err := b.TG.SendText(ctx, chatID, msgStartGroup, markup)
+			return err
+		}
+		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
+		if err != nil {
+			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
+			reply = msgLinkInternal
+		}
+		if reply == "" {
+			return nil
+		}
+		return b.TG.SendMessage(ctx, chatID, reply)
+	case "/link", "/status":
+		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
+		if err != nil {
+			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
+			reply = msgLinkInternal
+		}
+		if reply == "" {
+			return nil
+		}
+		return b.TG.SendMessage(ctx, chatID, reply)
+	default:
+		return b.TG.SendMessage(ctx, chatID, msgUnknown)
+	}
+}
+
+func (b *Bot) dispatchLegacy(ctx context.Context, cmd, arg string, tgUserID int64, username string) (string, error) {
 	switch cmd {
 	case "/start":
 		if arg == "" {
@@ -101,6 +165,32 @@ func (b *Bot) dispatch(ctx context.Context, text string, tgUserID int64, usernam
 	default:
 		return msgUnknown, nil
 	}
+}
+
+func (b *Bot) handleMyChatMember(ctx context.Context, upd *ChatMemberUpd) error {
+	if b.Quiz == nil || b.Quiz.Q == nil || upd == nil {
+		return nil
+	}
+	status := upd.NewChatMember.Status
+	if status == "" {
+		status = "member"
+	}
+	return b.Quiz.Q.UpsertTelegramChat(ctx, sqlc.UpsertTelegramChatParams{
+		ChatID:    upd.Chat.ID,
+		Title:     upd.Chat.Title,
+		ChatType:  upd.Chat.Type,
+		BotStatus: status,
+	})
+}
+
+func (b *Bot) handleUnlink(ctx context.Context, tgUserID int64) (string, error) {
+	if err := b.Link.Unlink(ctx, tgUserID); err != nil {
+		if errors.Is(err, ErrNotLinked) {
+			return msgUnlinkNone, nil
+		}
+		return "", err
+	}
+	return msgUnlinkOK, nil
 }
 
 // normalizeCommand strips a "@BotUsername" suffix, which Telegram appends
@@ -187,7 +277,7 @@ func (b *Bot) handleStatus(ctx context.Context, tgUserID int64) (string, error) 
 		vipLine = fmt.Sprintf("VIP: faol (%s gacha)", until.Format("2006-01-02"))
 	}
 	streakLine := fmt.Sprintf("Streak: %d kun (rekord: %d)", streak.Current, streak.Best)
-	return strings.Join([]string{vipLine, streakLine}, "\n"), nil
+	return strings.Join([]string{vipLine, streakLine, "Mashq: /quiz"}, "\n"), nil
 }
 
 // deepLink builds the t.me deep link a client hands to a freshly generated

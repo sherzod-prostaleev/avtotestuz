@@ -11,11 +11,13 @@ import (
 )
 
 const (
-	KeyMaintenanceMode = "maintenance_mode"
-	KeyArenaEnabled    = "arena_enabled"
-	KeyWebPushDigest   = "web_push_digest"
-	KeyCheckoutPayme   = "checkout_payme"
-	KeyCheckoutClick   = "checkout_click"
+	KeyMaintenanceMode   = "maintenance_mode"
+	KeyArenaEnabled      = "arena_enabled"
+	KeyWebPushDigest     = "web_push_digest"
+	KeyCheckoutPayme     = "checkout_payme"
+	KeyCheckoutClick     = "checkout_click"
+	KeyTelegramQuiz      = "telegram_quiz"
+	KeyTelegramDMDigest  = "telegram_dm_digest"
 )
 
 // Bool returns a boolean feature flag. Missing rows / wrong type → defaultVal

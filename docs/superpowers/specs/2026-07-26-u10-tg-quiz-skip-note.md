@@ -1,15 +1,21 @@
-# U-10 TG daily quiz — inventory skip note
+# U-10 TG daily quiz — closed (M4-07 shipped)
 
 **Date:** 2026-07-26  
-**Decision:** **Skip** until user explicitly scopes M4-07.
+**Decision:** **Done** — on-demand group/DM quiz + optional DM digest (not inventing a daily group cron).
 
-## Why
-M4-06 design §1.2 defers daily quiz delivery, scheduling, streak reminders, rich keyboards, multi-locale bot copy, flood limits, and `/unlink` to M4-07. There is **no tiny vertical** that ships a complete quiz without inventing scheduler + product UX.
+## Shipped
 
-## Not done
-- Outbound quiz cron
-- Quiz answer callbacks
-- Invented notification copy beyond foundation bot
+- On-demand `/quiz` sessions (image-first `sendPhoto` + inline answers)
+- `/next`, `/stop`, `/unlink`, group `/start` help
+- `telegram_chat` + `telegram_quiz_session` (mig `0039`)
+- Soft CTA on every graded answer
+- Optional `cmd/tgdigest` for linked-user due reminders
 
-## Next
-U-35 certificate share/print, then U-39 / U-27 / U-50.
+## Explicitly out of scope (still)
+
+- Multi-locale bot copy
+- Group leaderboard
+- Auto-spam cron into groups
+- Admin web UI for chat list
+
+See `2026-07-26-m4-07-telegram-quiz-growth.md`.

@@ -78,12 +78,23 @@ func main() {
 	if cfg.TelegramBotMode == "longpoll" {
 		q := sqlc.New(pool)
 		tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
+		linkSvc := bot.NewLinkService(pool, q)
+		quizSvc := &bot.QuizService{
+			Q:             q,
+			Pool:          pool,
+			TG:            tgClient,
+			MediaBaseURL:  cfg.MediaBaseURL,
+			PublicBaseURL: cfg.PublicBaseURL,
+			Log:           logger,
+		}
 		botSvc := &bot.Bot{
-			Link:     bot.NewLinkService(pool, q),
-			Billing:  billing.Service{Q: q},
-			Progress: progress.NewService(q),
-			TG:       tgClient,
-			Log:      logger,
+			Link:          linkSvc,
+			Quiz:          quizSvc,
+			Billing:       billing.Service{Q: q},
+			Progress:      progress.NewService(q),
+			TG:            tgClient,
+			PublicBaseURL: cfg.PublicBaseURL,
+			Log:           logger,
 		}
 		go bot.RunLongPoll(ctx, tgClient, botSvc, logger)
 		logger.Info("telegram bot: long-poll started")

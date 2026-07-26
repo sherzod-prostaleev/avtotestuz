@@ -24,6 +24,7 @@ var (
 	ErrLinkTokenExpired               = errors.New("link token expired")
 	ErrLinkTokenAlreadyUsed           = errors.New("link token already used")
 	ErrTelegramAccountLinkedElsewhere = errors.New("telegram account already linked to another profile")
+	ErrNotLinked                      = errors.New("telegram account not linked")
 )
 
 // LinkService owns the auth-link flow: minting profile-scoped tokens for an
@@ -163,6 +164,19 @@ type TelegramStatus struct {
 	Linked   bool   `json:"linked"`
 	Username string `json:"username,omitempty"`
 	LinkedAt string `json:"linked_at,omitempty"`
+}
+
+// Unlink removes the telegram_account row for tgUserID. Idempotent: missing
+// rows return ErrNotLinked so the bot can reply clearly.
+func (s *LinkService) Unlink(ctx context.Context, tgUserID int64) error {
+	n, err := s.Q.DeleteTelegramAccountByTgUserID(ctx, tgUserID)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotLinked
+	}
+	return nil
 }
 
 // Status reports whether profileID has a bound Telegram account.

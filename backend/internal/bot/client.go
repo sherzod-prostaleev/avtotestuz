@@ -81,10 +81,75 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 // SendMessage delivers plain text to a chat (a direct-message chat ID is
 // the same as the user's tg_user_id).
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
-	return c.call(ctx, "sendMessage", map[string]any{
+	_, err := c.SendText(ctx, chatID, text, nil)
+	return err
+}
+
+// SendText sends a text message and returns Telegram's message_id.
+func (c *Client) SendText(ctx context.Context, chatID int64, text string, markup *InlineKeyboardMarkup) (int64, error) {
+	payload := map[string]any{
+		"chat_id":                  chatID,
+		"text":                     text,
+		"disable_web_page_preview": true,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	var msg Message
+	if err := c.call(ctx, "sendMessage", payload, &msg); err != nil {
+		return 0, err
+	}
+	return msg.MessageID, nil
+}
+
+// SendPhoto posts a publicly reachable image URL with an optional caption
+// and inline keyboard. Caption is capped by Telegram at 1024 characters —
+// callers should truncate before invoking.
+func (c *Client) SendPhoto(ctx context.Context, chatID int64, photoURL, caption string, markup *InlineKeyboardMarkup) (int64, error) {
+	payload := map[string]any{
 		"chat_id": chatID,
-		"text":    text,
-	}, nil)
+		"photo":   photoURL,
+	}
+	if caption != "" {
+		payload["caption"] = caption
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	var msg Message
+	if err := c.call(ctx, "sendPhoto", payload, &msg); err != nil {
+		return 0, err
+	}
+	return msg.MessageID, nil
+}
+
+// EditMessageReplyMarkup replaces or clears the inline keyboard on a message.
+// Pass nil markup to remove buttons after an answer is graded.
+func (c *Client) EditMessageReplyMarkup(ctx context.Context, chatID, messageID int64, markup *InlineKeyboardMarkup) error {
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	} else {
+		payload["reply_markup"] = InlineKeyboardMarkup{InlineKeyboard: [][]InlineKeyboardButton{}}
+	}
+	return c.call(ctx, "editMessageReplyMarkup", payload, nil)
+}
+
+// AnswerCallbackQuery acknowledges a button tap (stops the client spinner).
+func (c *Client) AnswerCallbackQuery(ctx context.Context, callbackID, text string, showAlert bool) error {
+	payload := map[string]any{
+		"callback_query_id": callbackID,
+	}
+	if text != "" {
+		payload["text"] = text
+	}
+	if showAlert {
+		payload["show_alert"] = true
+	}
+	return c.call(ctx, "answerCallbackQuery", payload, nil)
 }
 
 // GetUpdates long-polls for new updates, starting at offset (the caller is
@@ -96,6 +161,9 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeoutSec int) (
 	err := c.call(ctx, "getUpdates", map[string]any{
 		"offset":  offset,
 		"timeout": timeoutSec,
+		"allowed_updates": []string{
+			"message", "callback_query", "my_chat_member",
+		},
 	}, &updates)
 	return updates, err
 }
@@ -109,6 +177,9 @@ func (c *Client) SetWebhook(ctx context.Context, url, secretToken string) error 
 	return c.call(ctx, "setWebhook", map[string]any{
 		"url":          url,
 		"secret_token": secretToken,
+		"allowed_updates": []string{
+			"message", "callback_query", "my_chat_member",
+		},
 	}, nil)
 }
 

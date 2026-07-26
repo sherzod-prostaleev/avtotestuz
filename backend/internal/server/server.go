@@ -225,12 +225,22 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
+					quizSvc := &bot.QuizService{
+						Q:             deps.Queries,
+						Pool:          deps.Pool,
+						TG:            tgClient,
+						MediaBaseURL:  cfg.MediaBaseURL,
+						PublicBaseURL: cfg.PublicBaseURL,
+						Log:           log,
+					}
 					botSvc := &bot.Bot{
-						Link:     linkSvc,
-						Billing:  billing.Service{Q: deps.Queries},
-						Progress: progressSvc,
-						TG:       tgClient,
-						Log:      log,
+						Link:          linkSvc,
+						Quiz:          quizSvc,
+						Billing:       billing.Service{Q: deps.Queries},
+						Progress:      progressSvc,
+						TG:            tgClient,
+						PublicBaseURL: cfg.PublicBaseURL,
+						Log:           log,
 					}
 					wh := &bot.WebhookHandler{Bot: botSvc, Secret: cfg.TelegramWebhookSecret, Log: log}
 					api.Post("/telegram/webhook", wh.ServeHTTP)

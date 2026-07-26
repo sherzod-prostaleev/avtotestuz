@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?s
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
 	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
-	backup-pg backup-restore-drill
+	backup-pg backup-restore-drill tg-digest tg-digest-send
 
 up:
 	$(COMPOSE) up -d --wait
@@ -104,6 +104,13 @@ AAA_SRC ?= /home/sher/Рабочий стол/aaa
 
 run:
 	cd backend && go run ./cmd/api
+
+# M4-07: soft due digests to linked Telegram DMs (not groups). Groups use /quiz.
+tg-digest:
+	cd backend && go run ./cmd/tgdigest
+
+tg-digest-send:
+	cd backend && go run ./cmd/tgdigest -send
 
 check: lint test
 
