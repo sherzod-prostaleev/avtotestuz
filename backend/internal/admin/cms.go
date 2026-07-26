@@ -115,3 +115,55 @@ func homeHeroAuditMap(h site.HomeHero) map[string]any {
 		"ctaHref":  h.CTAHref,
 	}
 }
+
+func (h *Handler) getCMSLegal(w http.ResponseWriter, r *http.Request) {
+	out, err := h.siteStore().GetLegalBundle(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "legal query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) putCMSLegal(w http.ResponseWriter, r *http.Request) {
+	before, err := h.siteStore().GetLegalBundle(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "legal query failed")
+		return
+	}
+	var body site.LegalBundle
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	updatedBy := "admin:" + adminID.String()
+	after, err := h.siteStore().PutLegalBundle(r.Context(), body, updatedBy)
+	if err != nil {
+		if strings.Contains(err.Error(), "too long") {
+			httpx.Error(w, http.StatusBadRequest, "invalid_field", err.Error())
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update legal")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "cms.legal.put", "site_settings", "legal",
+		legalAuditMap(before), legalAuditMap(after),
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, after)
+}
+
+func legalAuditMap(b site.LegalBundle) map[string]any {
+	out := make(map[string]any, len(site.LegalLocales))
+	for _, loc := range site.LegalLocales {
+		doc := b.Locales[loc]
+		out[loc] = map[string]any{
+			"ofertaLen":  len([]rune(doc.Oferta)),
+			"privacyLen": len([]rune(doc.Privacy)),
+			"refundLen":  len([]rune(doc.Refund)),
+		}
+	}
+	return out
+}

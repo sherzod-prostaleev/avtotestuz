@@ -21,6 +21,7 @@ func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Get("/site/contacts", h.getContacts)
 	r.Get("/site/banner", h.getBanner)
 	r.Get("/site/home", h.getHome)
+	r.Get("/site/legal", h.getLegal)
 }
 
 func (h *Handler) store() Store {
@@ -52,6 +53,21 @@ func (h *Handler) getHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getLegal(w http.ResponseWriter, r *http.Request) {
+	locale := r.URL.Query().Get("locale")
+	out, err := h.store().GetLegalDoc(r.Context(), locale)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "legal query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"locale":  normalizeLegalLocale(locale),
+		"oferta":  out.Oferta,
+		"privacy": out.Privacy,
+		"refund":  out.Refund,
+	})
 }
 
 // PutContactsBody is the ops write payload (same shape as public Contacts).

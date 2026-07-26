@@ -147,7 +147,7 @@ export default function SavedPage() {
           </div>
           <div className="sticky-cta-bar mt-5">
             <Link href={`/${locale}/tickets`} className="block w-full">
-              <Button variant="game" size="sm" className="w-full">
+              <Button as="span" variant="game" size="sm" className="w-full">
                 {t("browseTickets")}
               </Button>
             </Link>
@@ -178,7 +178,9 @@ export default function SavedPage() {
             <p className="mt-1 text-sm text-muted-foreground">{t("emptyDescription")}</p>
           </div>
           <Link href={`/${locale}/tickets`}>
-            <Button variant="game" size="sm">{t("browseTickets")}</Button>
+            <Button as="span" variant="game" size="sm">
+              {t("browseTickets")}
+            </Button>
           </Link>
         </Card>
       )}

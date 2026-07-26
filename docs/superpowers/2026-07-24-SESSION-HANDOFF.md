@@ -52,7 +52,7 @@ Public `GET /site/contacts` + Admin `/{locale}/admin/cms/chrome`. Homepage hero:
 
 ### Keyingi sessiya uchun aniq birinchi buyruq
 ```text
-Inventory: pick smallest honest complete still open (legal CMS / content signs stub /
+Inventory: pick smallest honest complete still open (content signs stub /
 U-35 admin credential PDF / U-27 live recon when keys exist / FE Next majors).
 Skip external: U-03 keys, U-02 host, U-12 LLM, inventing U-10 quiz, B2B school sales,
 full offline exam sync, inventing Metabase/Grafana / pager.
@@ -157,7 +157,7 @@ Streak/gamification M1’da. M4-01 = Leaderboard. Shubhali Plan nomida roadmap +
 | M4-07 | TG quiz + notif | deferred (U-10) |
 | M4-08 | Web push | **partial** (U-11 + broadcast stub) |
 
-**Tavsiya (code-completable, tashqi blocker’siz):** legal CMS stub / content signs admin stub / U-35 admin credential polish. Skip: U-03, U-02 host, U-12, inventing U-10, B2B school sales, full offline exam.
+**Tavsiya (code-completable, tashqi blocker’siz):** content signs admin stub / tickets browser / RBAC UI / U-35 admin credential polish. Legal CMS **done** (`site_settings.legal`). Skip: U-03, U-02 host, U-12, inventing U-10, B2B school sales, full offline exam.
 
 To‘liq U-xx jadval: inventory §2.
 

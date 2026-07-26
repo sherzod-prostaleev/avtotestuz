@@ -26,12 +26,12 @@ export default function CheckoutFailurePage() {
 
         <div className="mt-6 flex w-full flex-col gap-2">
           <Link href={`/${locale}/premium`} className="w-full">
-            <Button type="button" variant="gold" size="lg" className="w-full gap-2">
+            <Button as="span" variant="gold" size="lg" className="w-full gap-2">
               <RefreshCw className="h-4 w-4" /> {t("checkoutTryAgain")}
             </Button>
           </Link>
           <Link href={`/${locale}/dashboard`} className="w-full">
-            <Button type="button" variant="outline" size="lg" className="w-full">
+            <Button as="span" variant="outline" size="lg" className="w-full">
               {t("backHome")}
             </Button>
           </Link>

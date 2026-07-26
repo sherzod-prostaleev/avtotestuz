@@ -92,11 +92,13 @@ func (h *Handler) Routes(r chi.Router) {
 			cr.Use(RequirePermission("cms.read"))
 			cr.Get("/cms/contacts", h.getCMSContacts)
 			cr.Get("/cms/home", h.getCMSHome)
+			cr.Get("/cms/legal", h.getCMSLegal)
 		})
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("cms.write"))
 			cr.Put("/cms/contacts", h.putCMSContacts)
 			cr.Put("/cms/home", h.putCMSHome)
+			cr.Put("/cms/legal", h.putCMSLegal)
 		})
 
 		pr.Group(func(mr chi.Router) {

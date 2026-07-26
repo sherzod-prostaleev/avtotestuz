@@ -71,7 +71,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [
         { href: `${base}/cms/chrome`, labelKey: "headerFooter" },
         { href: `${base}/cms/home`, labelKey: "homepage" },
-        { href: `${base}/cms/legal`, labelKey: "legal", stub: true },
+        { href: `${base}/cms/legal`, labelKey: "legal" },
       ],
     },
     {

@@ -474,7 +474,7 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </div>
-              <Button variant="game" size="sm" className="shrink-0">
+              <Button as="span" variant="game" size="sm" className="shrink-0">
                 {t("signsOpen")} <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4" />
               </Button>
             </div>
@@ -496,7 +496,7 @@ export default function DashboardPage() {
                   <p className="text-xs text-muted-foreground">{savedT("subtitle")}</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" className="shrink-0">
+              <Button as="span" variant="outline" size="sm" className="shrink-0">
                 {savedT("open")} <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4" />
               </Button>
             </div>

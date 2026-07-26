@@ -92,7 +92,7 @@ export function GrandMockCard() {
 
       {!loading && !error && data && data.eligible && (
         <Link href={`/${locale}/session/start?mode=grand_mock`} className="block">
-          <Button variant="game" size="lg" className="w-full">
+          <Button as="span" variant="game" size="lg" className="w-full">
             {t("startButton")}
           </Button>
         </Link>
@@ -145,7 +145,7 @@ function LockedState({ data, locale }: { data: MockEligibilityResponse; locale: 
           for this case; the session-start screen routes there too. */}
       {data.reason === "vip_required" && (
         <Link href={`/${locale}/premium`} className="block">
-          <Button variant="game" size="lg" className="w-full">
+          <Button as="span" variant="game" size="lg" className="w-full">
             {t("upgradeButton")}
           </Button>
         </Link>

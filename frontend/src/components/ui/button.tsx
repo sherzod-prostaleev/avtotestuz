@@ -3,6 +3,11 @@ import * as React from "react";
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: "game" | "success" | "gold" | "outline" | "ghost" | "destructive";
   size?: "sm" | "md" | "lg";
+  /**
+   * Use `span` when the control is nested inside a Link/anchor.
+   * Nested <button> inside <a> is invalid HTML and clicks often do nothing.
+   */
+  as?: "button" | "span";
 }
 
 const variantStyles: Record<string, string> = {
@@ -22,13 +27,53 @@ const sizeStyles: Record<string, string> = {
   lg: "min-h-12 h-12 px-7 text-base rounded-2xl",
 };
 
+function buttonClassName(
+  variant: NonNullable<ButtonProps["variant"]>,
+  size: NonNullable<ButtonProps["size"]>,
+  className: string,
+  opts?: { disabledVisual?: boolean; disabledPseudo?: boolean }
+) {
+  const disabledPart = opts?.disabledPseudo
+    ? "disabled:pointer-events-none disabled:opacity-50"
+    : opts?.disabledVisual
+      ? "pointer-events-none opacity-50"
+      : "";
+  return `inline-flex items-center justify-center font-bold tracking-wide transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${disabledPart} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+}
+
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className = "", variant = "game", size = "md", children, disabled, ...props }, ref) => {
+  (
+    {
+      className = "",
+      variant = "game",
+      size = "md",
+      children,
+      disabled,
+      as = "button",
+      type = "button",
+      ...props
+    },
+    ref
+  ) => {
+    if (as === "span") {
+      return (
+        <span
+          aria-hidden="true"
+          className={buttonClassName(variant, size, className, {
+            disabledVisual: Boolean(disabled),
+          })}
+        >
+          {children}
+        </span>
+      );
+    }
+
     return (
       <button
         ref={ref}
+        type={type}
         disabled={disabled}
-        className={`inline-flex items-center justify-center font-bold tracking-wide transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={buttonClassName(variant, size, className, { disabledPseudo: true })}
         {...props}
       >
         {children}

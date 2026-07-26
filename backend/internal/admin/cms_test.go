@@ -200,3 +200,53 @@ func TestAdminCMSHome(t *testing.T) {
 		t.Fatalf("evil href status=%d want 400", w.Code)
 	}
 }
+
+func TestAdminCMSLegal(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := Store{Pool: pool}
+	secret := []byte("test-admin-secret-at-least-32-bytes!!")
+	if _, err := store.EnsureSuperadmin(t.Context(), "ops@example.uz", "password123", "Ops"); err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{Svc: Service{Store: store, Secret: secret}, Pool: pool, Secret: secret}
+	r := chi.NewRouter()
+	r.Route("/admin/v1", h.Routes)
+	access := loginAccess(t, r, "ops@example.uz", "password123")
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/cms/legal", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("get status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	body := `{"locales":{"uz-Latn":{"oferta":"CMS oferta","privacy":"CMS privacy","refund":"CMS refund"},"ru":{"oferta":"RU","privacy":"","refund":""}}}`
+	req = httptest.NewRequest(http.MethodPut, "/admin/v1/cms/legal", bytes.NewBufferString(body))
+	req.Header.Set("Authorization", "Bearer "+access)
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("put status=%d body=%s", w.Code, w.Body.String())
+	}
+	var env struct {
+		Data site.LegalBundle `json:"data"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Data.Locales["uz-Latn"].Oferta != "CMS oferta" || env.Data.Locales["ru"].Oferta != "RU" {
+		t.Fatalf("legal=%+v", env.Data)
+	}
+
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT COUNT(*) FROM admin_audit_log WHERE action='cms.legal.put' AND entity_id='legal'`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if n != 1 {
+		t.Fatalf("audit=%d", n)
+	}
+}

@@ -14,4 +14,14 @@ describe("Button", () => {
     expect(button.className).toContain("rounded-xl");
     expect(button.className).not.toContain("rounded-full");
   });
+
+  it("renders as a non-interactive span for Link nesting", () => {
+    const { container, queryByRole } = render(
+      <Button as="span" variant="game">
+        Katalogni ko&apos;rish
+      </Button>
+    );
+    expect(queryByRole("button")).toBeNull();
+    expect(container.querySelector("span")?.className).toContain("bg-accent");
+  });
 });
