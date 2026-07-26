@@ -159,13 +159,17 @@ export function ReferralCard() {
           <Gift aria-hidden="true" className="h-5 w-5 text-accent" />
           <CardTitle className="text-base font-bold">{t("title")}</CardTitle>
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent">
-          <Percent aria-hidden="true" className="h-3 w-3" />
-          {t("commissionBadge", { percent: data?.commission_percent ?? 20 })}
-        </span>
+        {data && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-bold text-accent">
+            <Percent aria-hidden="true" className="h-3 w-3" />
+            {t("commissionBadge", { percent: data.commission_percent })}
+          </span>
+        )}
       </CardHeader>
 
-      <p className="mb-4 text-xs text-muted-foreground">{t("subtitle")}</p>
+      <p className="mb-4 text-xs text-muted-foreground">
+        {data ? t("subtitleWithPercent", { percent: data.commission_percent }) : t("subtitle")}
+      </p>
 
       {loading && (
         <div role="status" className="text-sm text-muted-foreground">
@@ -205,7 +209,12 @@ export function ReferralCard() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <div className="rounded-lg border border-accent/30 bg-accent/5 p-3 text-center sm:col-span-1">
+              <Percent aria-hidden="true" className="mx-auto mb-1 h-4 w-4 text-accent" />
+              <div className="text-lg font-bold text-accent">{data.commission_percent}%</div>
+              <div className="text-[11px] leading-tight text-muted-foreground">{t("statCommission")}</div>
+            </div>
             <div className="rounded-lg border border-border bg-card p-3 text-center">
               <Users aria-hidden="true" className="mx-auto mb-1 h-4 w-4 text-muted-foreground" />
               <div className="text-lg font-bold text-foreground">{data.total_invited}</div>
@@ -229,7 +238,7 @@ export function ReferralCard() {
           </div>
 
           <p className="rounded-lg border border-accent/10 bg-accent/5 p-3 text-xs italic text-muted-foreground/90">
-            {t("note")}
+            {t("noteWithPercent", { percent: data.commission_percent })}
           </p>
 
           <div className="border-t border-border pt-4">

@@ -113,6 +113,11 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(rr chi.Router) {
 			rr.Use(RequirePermission("referral.rates.manage"))
 			rr.Patch("/users/{id}/referral/rate", h.patchUserReferralRate)
+			rr.Put("/users/{id}/referral/balance", h.putUserReferralBalance)
+		})
+		pr.Group(func(rr chi.Router) {
+			rr.Use(RequirePermission("referral.read"))
+			rr.Get("/users/{id}/referral/ledger", h.getUserReferralLedger)
 		})
 
 		pr.Group(func(cr chi.Router) {

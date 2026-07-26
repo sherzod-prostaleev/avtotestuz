@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -244,4 +245,89 @@ func (s Store) UpdateUserReferralCommissionPercent(ctx context.Context, profileI
 		return 0, err
 	}
 	return row.ReferralCommissionPercent, nil
+}
+
+// SetUserReferralBalance adjusts the ledger so available balance equals targetUzs.
+// delta is written as entry_type=admin_adjust (positive credit / negative debit).
+func (s Store) SetUserReferralBalance(ctx context.Context, profileID, adminID uuid.UUID, targetUzs int64, note string) (int64, error) {
+	if targetUzs < 0 {
+		return 0, fmt.Errorf("balance cannot be negative")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	if _, err := q.LockProfileForGrant(ctx, profileID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, ErrReferralPayoutNotFound
+		}
+		return 0, err
+	}
+	current, err := q.GetReferralBalance(ctx, profileID)
+	if err != nil {
+		return 0, err
+	}
+	delta := targetUzs - current
+	if delta == 0 {
+		if err := tx.Commit(ctx); err != nil {
+			return 0, err
+		}
+		return current, nil
+	}
+	meta, _ := json.Marshal(map[string]any{
+		"admin_id":    adminID.String(),
+		"note":        strings.TrimSpace(note),
+		"from_uzs":    current,
+		"to_uzs":      targetUzs,
+		"delta_uzs":   delta,
+	})
+	if _, err := q.InsertReferralLedger(ctx, sqlc.InsertReferralLedgerParams{
+		ProfileID: profileID,
+		EntryType: "admin_adjust",
+		AmountUzs: delta,
+		PaymentID: uuid.NullUUID{},
+		PayoutID:  uuid.NullUUID{},
+		Meta:      meta,
+	}); err != nil {
+		return 0, fmt.Errorf("admin adjust ledger: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return 0, err
+	}
+	return targetUzs, nil
+}
+
+func (s Store) ListUserReferralLedger(ctx context.Context, profileID uuid.UUID, limit int32) ([]map[string]any, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	q := sqlc.New(s.Pool)
+	rows, err := q.ListReferralLedgerForUser(ctx, sqlc.ListReferralLedgerForUserParams{
+		ProfileID: profileID,
+		Limit:     limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, row := range rows {
+		item := map[string]any{
+			"id":         row.ID,
+			"entry_type": row.EntryType,
+			"amount_uzs": row.AmountUzs,
+			"meta":       json.RawMessage(row.Meta),
+			"created_at": row.CreatedAt.Time.UTC().Format(time.RFC3339),
+		}
+		if row.PaymentID.Valid {
+			item["payment_id"] = row.PaymentID.UUID
+		}
+		if row.PayoutID.Valid {
+			item["payout_id"] = row.PayoutID.UUID
+		}
+		out = append(out, item)
+	}
+	return out, nil
 }

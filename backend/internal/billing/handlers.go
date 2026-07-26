@@ -203,6 +203,7 @@ func (h *Handler) getReferralStats(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to get referral stats")
 		return
 	}
+	w.Header().Set("Cache-Control", "no-store")
 	httpx.Data(w, http.StatusOK, stats)
 }
 

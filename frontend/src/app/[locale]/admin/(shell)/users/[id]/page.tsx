@@ -79,6 +79,11 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [referral, setReferral] = useState<ReferralAdmin | null>(null);
   const [rateInput, setRateInput] = useState("20");
+  const [balanceInput, setBalanceInput] = useState("0");
+  const [balanceNote, setBalanceNote] = useState("");
+  const [ledger, setLedger] = useState<
+    Array<{ id: string; entry_type: string; amount_uzs: number; created_at: string }>
+  >([]);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -105,12 +110,20 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
       setUser(uJson.data as UserDetail);
       if (sRes.ok) setSessions(sJson.data as SessionRow[]);
       else setSessions([]);
-      const rRes = await fetch(`/api/admin/users/${id}/referral`, { cache: "no-store" });
+      const [rRes, lRes] = await Promise.all([
+        fetch(`/api/admin/users/${id}/referral`, { cache: "no-store" }),
+        fetch(`/api/admin/users/${id}/referral/ledger`, { cache: "no-store" }),
+      ]);
       if (rRes.ok) {
         const rJson = await rRes.json();
         const data = rJson.data as ReferralAdmin;
         setReferral(data);
         setRateInput(String(data.commission_percent));
+        setBalanceInput(String(data.balance_uzs));
+      }
+      if (lRes.ok) {
+        const lJson = await lRes.json();
+        setLedger((lJson.data?.entries ?? []) as typeof ledger);
       }
     } catch {
       setError(t("errorLoad"));
@@ -525,7 +538,11 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               <p className="text-sm text-muted-foreground">{tr("errorLoad")}</p>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-5">
+                  <div className="rounded-xl border border-accent/30 bg-accent/5 p-3">
+                    <p className="text-[11px] text-muted-foreground">{tr("statPercent")}</p>
+                    <p className="text-lg font-bold text-accent">{referral.commission_percent}%</p>
+                  </div>
                   <div className="rounded-xl border border-border p-3">
                     <p className="text-[11px] text-muted-foreground">{tr("statInvited")}</p>
                     <p className="text-lg font-bold">{referral.total_invited}</p>
@@ -544,51 +561,136 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                   </div>
                 </div>
                 <PermissionGate permission="referral.rates.manage" mode="hide">
-                  <div className="flex flex-wrap items-end gap-2">
-                    <label className="space-y-1">
-                      <span className="text-xs text-muted-foreground">{tr("rateLabel")}</span>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={rateInput}
-                        onChange={(e) => setRateInput(e.target.value)}
-                        className="h-10 w-28 rounded-xl border border-border bg-background px-3 text-sm"
-                      />
-                    </label>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="game"
-                      disabled={busy}
-                      onClick={() => {
-                        void (async () => {
-                          setBusy(true);
-                          setError(null);
-                          try {
-                            const res = await fetch(`/api/admin/users/${id}/referral/rate`, {
-                              method: "PATCH",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ percent: Number(rateInput) }),
-                            });
-                            if (!res.ok) {
+                  <div className="space-y-3 rounded-xl border border-border/70 p-3">
+                    <div className="flex flex-wrap items-end gap-2">
+                      <label className="space-y-1">
+                        <span className="text-xs text-muted-foreground">{tr("rateLabel")}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={rateInput}
+                          onChange={(e) => setRateInput(e.target.value)}
+                          className="h-10 w-28 rounded-xl border border-border bg-background px-3 text-sm"
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="game"
+                        disabled={busy}
+                        onClick={() => {
+                          void (async () => {
+                            setBusy(true);
+                            setError(null);
+                            try {
+                              const res = await fetch(`/api/admin/users/${id}/referral/rate`, {
+                                method: "PATCH",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ percent: Number(rateInput) }),
+                              });
+                              if (!res.ok) {
+                                setError(tr("errorAction"));
+                                return;
+                              }
+                              setOkMsg(tr("rateSaved"));
+                              await load();
+                            } catch {
                               setError(tr("errorAction"));
-                              return;
+                            } finally {
+                              setBusy(false);
                             }
-                            setOkMsg(tr("rateSaved"));
-                            await load();
-                          } catch {
-                            setError(tr("errorAction"));
-                          } finally {
-                            setBusy(false);
-                          }
-                        })();
-                      }}
-                    >
-                      {tr("saveRate")}
-                    </Button>
+                          })();
+                        }}
+                      >
+                        {tr("saveRate")}
+                      </Button>
+                    </div>
+                    <div className="flex flex-wrap items-end gap-2">
+                      <label className="space-y-1">
+                        <span className="text-xs text-muted-foreground">{tr("balanceLabel")}</span>
+                        <input
+                          type="number"
+                          min={0}
+                          value={balanceInput}
+                          onChange={(e) => setBalanceInput(e.target.value)}
+                          className="h-10 w-40 rounded-xl border border-border bg-background px-3 text-sm font-mono"
+                        />
+                      </label>
+                      <label className="min-w-[180px] flex-1 space-y-1">
+                        <span className="text-xs text-muted-foreground">{tr("balanceNote")}</span>
+                        <input
+                          type="text"
+                          value={balanceNote}
+                          onChange={(e) => setBalanceNote(e.target.value)}
+                          placeholder={tr("balanceNotePlaceholder")}
+                          className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                        />
+                      </label>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => {
+                          void (async () => {
+                            setBusy(true);
+                            setError(null);
+                            try {
+                              const res = await fetch(`/api/admin/users/${id}/referral/balance`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  balance_uzs: Number(balanceInput),
+                                  note: balanceNote,
+                                }),
+                              });
+                              if (!res.ok) {
+                                setError(tr("errorAction"));
+                                return;
+                              }
+                              setOkMsg(tr("balanceSaved"));
+                              setBalanceNote("");
+                              await load();
+                            } catch {
+                              setError(tr("errorAction"));
+                            } finally {
+                              setBusy(false);
+                            }
+                          })();
+                        }}
+                      >
+                        {tr("saveBalance")}
+                      </Button>
+                    </div>
                   </div>
                 </PermissionGate>
+                <div>
+                  <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                    {tr("ledgerTitle")}
+                  </h3>
+                  {!ledger.length ? (
+                    <p className="text-sm text-muted-foreground">{tr("ledgerEmpty")}</p>
+                  ) : (
+                    <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
+                      {ledger.map((e) => (
+                        <li
+                          key={e.id}
+                          className="flex flex-wrap justify-between gap-2 rounded-lg border border-border/50 px-2 py-1.5"
+                        >
+                          <span className="font-mono text-xs text-muted-foreground">{e.entry_type}</span>
+                          <span className={`font-mono text-xs font-bold ${e.amount_uzs >= 0 ? "text-emerald-500" : "text-destructive"}`}>
+                            {e.amount_uzs >= 0 ? "+" : ""}
+                            {e.amount_uzs.toLocaleString()}
+                          </span>
+                          <span className="w-full text-[11px] text-muted-foreground">
+                            {new Date(e.created_at).toLocaleString(locale)}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
                 <div>
                   <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
                     {tr("refereesTitle")}

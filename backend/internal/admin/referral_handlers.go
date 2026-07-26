@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/httpx"
@@ -137,4 +138,54 @@ func (h *Handler) patchUserReferralRate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]int32{"commission_percent": percent})
+}
+
+type setReferralBalanceBody struct {
+	BalanceUzs int64  `json:"balance_uzs"`
+	Note       string `json:"note"`
+}
+
+func (h *Handler) putUserReferralBalance(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing admin")
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid user id")
+		return
+	}
+	var body setReferralBalanceBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON")
+		return
+	}
+	bal, err := h.Svc.Store.SetUserReferralBalance(r.Context(), id, claims.AdminUserID, body.BalanceUzs, body.Note)
+	if err != nil {
+		if errors.Is(err, ErrReferralPayoutNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusBadRequest, "invalid_balance", err.Error())
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "referral.balance.set", "profile", id.String(),
+		nil, map[string]any{"balance_uzs": bal, "note": body.Note},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, map[string]int64{"balance_uzs": bal})
+}
+
+func (h *Handler) getUserReferralLedger(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid user id")
+		return
+	}
+	entries, err := h.Svc.Store.ListUserReferralLedger(r.Context(), id, 50)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "ledger failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"entries": entries})
 }
