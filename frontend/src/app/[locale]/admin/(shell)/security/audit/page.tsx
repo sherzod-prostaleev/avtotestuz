@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AuditDiff } from "@/components/admin/audit-diff";
+import { PermissionGate } from "@/components/admin/permission-gate";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 
 type AuditRow = {
   id: string;
@@ -77,12 +82,9 @@ export default function AdminSecurityAuditPage() {
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   return (
+    <PermissionGate permission="security.audit.read">
     <main className="mx-auto max-w-5xl space-y-4">
-      <header>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{t("note")}</p>
-      </header>
+      <AdminPageHeader title={t("title")} description={`${t("subtitle")} ${t("note")}`} />
 
       <form
         className="flex flex-wrap gap-2"
@@ -132,9 +134,9 @@ export default function AdminSecurityAuditPage() {
       </form>
 
       {error ? (
-        <p className="text-sm text-destructive">{error}</p>
+        <AdminErrorState message={error} />
       ) : !data ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        <AdminSkeleton rows={6} />
       ) : data.items.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("empty")}</p>
       ) : (
@@ -179,28 +181,12 @@ export default function AdminSecurityAuditPage() {
                       {row.ua ? (
                         <p className="truncate text-[11px] text-muted-foreground">ua: {row.ua}</p>
                       ) : null}
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        <div>
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            {t("before")}
-                          </p>
-                          <pre className="max-h-48 overflow-auto rounded-lg bg-background p-2 font-mono text-[11px]">
-                            {row.before_json != null
-                              ? JSON.stringify(row.before_json, null, 2)
-                              : t("none")}
-                          </pre>
-                        </div>
-                        <div>
-                          <p className="mb-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            {t("after")}
-                          </p>
-                          <pre className="max-h-48 overflow-auto rounded-lg bg-background p-2 font-mono text-[11px]">
-                            {row.after_json != null
-                              ? JSON.stringify(row.after_json, null, 2)
-                              : t("none")}
-                          </pre>
-                        </div>
-                      </div>
+                      <AuditDiff
+                        before={row.before_json ?? t("none")}
+                        after={row.after_json ?? t("none")}
+                        beforeLabel={t("before")}
+                        afterLabel={t("after")}
+                      />
                     </div>
                   ) : null}
                 </li>
@@ -230,5 +216,6 @@ export default function AdminSecurityAuditPage() {
         </>
       )}
     </main>
+    </PermissionGate>
   );
 }

@@ -72,8 +72,11 @@ func TestAdminUsersListDetailBlockSessions(t *testing.T) {
 		if env.Data.Total != 1 || len(env.Data.Items) != 1 {
 			t.Fatalf("got %+v", env.Data)
 		}
+		if env.Data.Items[0].Phone != "+998901112233" {
+			t.Fatalf("list must show full phone for staff, got %q", env.Data.Items[0].Phone)
+		}
 		if env.Data.Items[0].PhoneMasked == "+998901112233" {
-			t.Fatal("list must mask phone")
+			t.Fatal("phone_masked must still be masked")
 		}
 		if env.Data.Items[0].Streak != 5 || env.Data.Items[0].Status != "active" {
 			t.Fatalf("row=%+v", env.Data.Items[0])
@@ -98,8 +101,36 @@ func TestAdminUsersListDetailBlockSessions(t *testing.T) {
 			t.Fatalf("detail=%+v", env.Data)
 		}
 		raw := w.Body.String()
-		if containsStr(raw, "password") {
-			t.Fatal("detail must not mention password")
+		if containsStr(raw, "password_hash") || containsStr(raw, `"password":`) {
+			t.Fatal("detail must never expose password or hash")
+		}
+	})
+
+	t.Run("grant vip days", func(t *testing.T) {
+		body := bytes.NewReader([]byte(`{"days":30,"note":"promo"}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/v1/users/"+profileID.String()+"/grant", body)
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data struct {
+				User  LearnerDetail `json:"user"`
+				Days  int           `json:"days"`
+				Until string        `json:"until"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if !env.Data.User.VIPActive || env.Data.Days != 30 || env.Data.Until == "" {
+			t.Fatalf("grant=%+v", env.Data)
+		}
+		if len(env.Data.User.Entitlements) < 1 {
+			t.Fatal("expected entitlement history")
 		}
 	})
 

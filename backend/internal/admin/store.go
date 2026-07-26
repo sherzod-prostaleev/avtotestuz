@@ -28,11 +28,16 @@ type Store struct {
 
 // User is a staff account row.
 type User struct {
-	ID           uuid.UUID
-	Email        string
-	DisplayName  string
-	PasswordHash string
-	Status       string
+	ID            uuid.UUID
+	Email         string
+	DisplayName   string
+	PasswordHash  string
+	Status        string
+	TotpSecretEnc string // empty when TOTP not enrolled
+}
+
+func (u User) TOTPEnabled() bool {
+	return strings.TrimSpace(u.TotpSecretEnc) != ""
 }
 
 // SessionRow is an admin_session.
@@ -45,28 +50,49 @@ type SessionRow struct {
 func (s Store) GetUserByEmail(ctx context.Context, email string) (User, error) {
 	email = strings.ToLower(strings.TrimSpace(email))
 	var u User
+	var totpEnc *string
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, email, display_name, password_hash, status
+		SELECT id, email, display_name, password_hash, status, totp_secret_enc
 		FROM admin_user WHERE email = $1`, email).Scan(
-		&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Status,
+		&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Status, &totpEnc,
 	)
 	if err != nil {
 		return User{}, err
+	}
+	if totpEnc != nil {
+		u.TotpSecretEnc = *totpEnc
 	}
 	return u, nil
 }
 
 func (s Store) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 	var u User
+	var totpEnc *string
 	err := s.Pool.QueryRow(ctx, `
-		SELECT id, email, display_name, password_hash, status
+		SELECT id, email, display_name, password_hash, status, totp_secret_enc
 		FROM admin_user WHERE id = $1`, id).Scan(
-		&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Status,
+		&u.ID, &u.Email, &u.DisplayName, &u.PasswordHash, &u.Status, &totpEnc,
 	)
 	if err != nil {
 		return User{}, err
 	}
+	if totpEnc != nil {
+		u.TotpSecretEnc = *totpEnc
+	}
 	return u, nil
+}
+
+func (s Store) SetUserTOTPSecret(ctx context.Context, id uuid.UUID, enc string) error {
+	tag, err := s.Pool.Exec(ctx, `
+		UPDATE admin_user SET totp_secret_enc = NULLIF($2, ''), updated_at = now()
+		WHERE id = $1`, id, enc)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 func (s Store) ListPermissions(ctx context.Context, adminUserID uuid.UUID) ([]string, error) {

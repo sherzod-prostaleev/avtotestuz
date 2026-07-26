@@ -2,6 +2,12 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useAdminMeOptional } from "@/components/admin/admin-me-context";
+import {
+  ADMIN_ROUTE_PERMISSIONS,
+  hasPermission,
+  routePermissionKey,
+} from "@/lib/admin-permissions";
 
 export type AdminNavItem = {
   href: string;
@@ -14,7 +20,7 @@ export type AdminNavGroup = {
   items: AdminNavItem[];
 };
 
-/** Sidebar IA from M3 SoT — stub pages link until modules ship. Labels via AdminNav i18n. */
+/** Sidebar IA from M3 SoT — stub pages use ComingSoon. Labels via AdminNav i18n. */
 export function adminNav(locale: string): AdminNavGroup[] {
   const base = `/${locale}/admin`;
   return [
@@ -85,6 +91,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       titleKey: "groupSecurity",
       items: [
+        { href: `${base}/security/totp`, labelKey: "totp" },
         { href: `${base}/security/rbac`, labelKey: "adminsRbac", stub: true },
         { href: `${base}/security/audit`, labelKey: "auditLog" },
       ],
@@ -102,63 +109,88 @@ export function adminNav(locale: string): AdminNavGroup[] {
 type AdminSidebarProps = {
   locale: string;
   activePath: string;
-  email?: string;
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
 };
 
-export function AdminSidebar({ locale, activePath, email }: AdminSidebarProps) {
+export function AdminSidebar({ locale, activePath, mobileOpen, onNavigate }: AdminSidebarProps) {
   const t = useTranslations("AdminNav");
+  const me = useAdminMeOptional();
   const groups = adminNav(locale);
+
   return (
-    <aside className="flex w-60 shrink-0 flex-col border-r border-border bg-card">
-      <div className="border-b border-border px-4 py-4">
-        <p className="font-display text-lg font-black text-foreground">Driver Go</p>
-        <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+    <aside
+      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border/80 bg-[hsl(220_28%_7%)] text-foreground transition-transform lg:static lg:translate-x-0 ${
+        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      }`}
+    >
+      <div className="relative overflow-hidden border-b border-border/70 px-4 py-5">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-accent/20 blur-2xl"
+        />
+        <p className="relative font-display text-xl font-black tracking-tight">Driver Go</p>
+        <p className="relative mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
           {t("badge")}
         </p>
-        {email ? <p className="mt-2 truncate text-xs text-muted-foreground">{email}</p> : null}
+        {me?.email ? (
+          <p className="relative mt-3 truncate rounded-lg bg-background/40 px-2 py-1 text-[11px] text-muted-foreground">
+            {me.email}
+          </p>
+        ) : null}
       </div>
       <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t("badge")}>
-        {groups.map((group) => (
-          <div key={group.titleKey} className="mb-4">
-            <p className="mb-1 px-2 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-              {t(group.titleKey)}
-            </p>
-            <ul className="space-y-0.5">
-              {group.items.map((item) => {
-                const active = activePath === item.href || activePath.startsWith(item.href + "/");
-                return (
-                  <li key={item.href}>
-                    <Link
-                      href={item.href}
-                      className={`flex items-center justify-between rounded-lg px-2 py-1.5 text-sm font-semibold transition-colors ${
-                        active
-                          ? "bg-accent/15 text-accent"
-                          : "text-foreground hover:bg-background hover:text-accent"
-                      }`}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      <span>{t(item.labelKey)}</span>
-                      {item.stub ? (
-                        <span className="text-[10px] font-bold uppercase text-muted-foreground">
-                          {t("soon")}
-                        </span>
-                      ) : null}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ))}
+        {groups.map((group) => {
+          const visibleItems = group.items.filter((item) => {
+            const key = routePermissionKey(item.href, locale);
+            if (!key) return true;
+            const need = ADMIN_ROUTE_PERMISSIONS[key];
+            if (!need) return true;
+            return hasPermission(me?.permissions, need);
+          });
+          if (visibleItems.length === 0) return null;
+          return (
+            <div key={group.titleKey} className="mb-3.5">
+              <p className="mb-1 px-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground/80">
+                {t(group.titleKey)}
+              </p>
+              <ul className="space-y-0.5">
+                {visibleItems.map((item) => {
+                  const active =
+                    item.href === `/${locale}/admin`
+                      ? activePath === item.href
+                      : activePath === item.href || activePath.startsWith(item.href + "/");
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        onClick={onNavigate}
+                        className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          active
+                            ? "bg-accent text-accent-foreground shadow-[0_2px_0_0_hsl(var(--accent-shadow))]"
+                            : "text-foreground/85 hover:bg-white/[0.04] hover:text-accent"
+                        }`}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        <span>{t(item.labelKey)}</span>
+                        {item.stub ? (
+                          <span
+                            className={`text-[9px] font-bold uppercase ${
+                              active ? "text-accent-foreground/70" : "text-muted-foreground"
+                            }`}
+                          >
+                            {t("soon")}
+                          </span>
+                        ) : null}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
-      <div className="border-t border-border p-3">
-        <Link
-          href={`/${locale}/ops/health`}
-          className="block rounded-lg px-2 py-1.5 text-xs font-semibold text-muted-foreground hover:text-accent"
-        >
-          {t("legacyOps")}
-        </Link>
-      </div>
     </aside>
   );
 }

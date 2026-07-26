@@ -16,6 +16,7 @@ import (
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/recon"
+	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/push"
 )
@@ -36,6 +37,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router) {
 	store := Store{Pool: h.Pool}
 	r.Post("/auth/login", h.login)
+	r.Post("/auth/totp/verify", h.verifyTOTPLogin)
 	r.Post("/auth/refresh", h.refresh)
 	r.Post("/auth/logout", h.logout)
 
@@ -43,6 +45,9 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Use(Required(h.Secret, store))
 		pr.Get("/me", h.me)
 		pr.Get("/ping", h.ping)
+		pr.Post("/security/totp/enroll", h.enrollTOTP)
+		pr.Post("/security/totp/confirm", h.confirmTOTP)
+		pr.Post("/security/totp/disable", h.disableTOTP)
 
 		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.read"))
@@ -54,6 +59,10 @@ func (h *Handler) Routes(r chi.Router) {
 			ur.Use(RequirePermission("users.block"))
 			ur.Post("/users/{id}/block", h.blockUser)
 			ur.Post("/users/{id}/unblock", h.unblockUser)
+		})
+		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.entitlements.grant"))
+			ur.Post("/users/{id}/grant", h.grantUserVIP)
 		})
 		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.sessions.revoke"))
@@ -187,7 +196,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ip := clientIP(r)
-	pair, me, err := h.Svc.Login(r.Context(), body.Email, body.Password, r.UserAgent(), ip)
+	out, err := h.Svc.Login(r.Context(), body.Email, body.Password, r.UserAgent(), ip)
 	if err != nil {
 		switch err {
 		case ErrInvalidCreds:
@@ -199,13 +208,131 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	if out.RequiresTOTP {
+		httpx.Data(w, http.StatusOK, map[string]any{
+			"requires_totp":   true,
+			"challenge_token": out.ChallengeToken,
+		})
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &out.Me.ID, "admin.login", "admin_user", out.Me.ID.String(), nil, map[string]any{
+		"email": out.Me.Email,
+	}, ip, r.UserAgent(), middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"tokens": out.Pair,
+		"admin":  out.Me,
+	})
+}
+
+type totpVerifyBody struct {
+	ChallengeToken string `json:"challenge_token"`
+	Code           string `json:"code"`
+}
+
+func (h *Handler) verifyTOTPLogin(w http.ResponseWriter, r *http.Request) {
+	var body totpVerifyBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	ip := clientIP(r)
+	pair, me, err := h.Svc.VerifyTOTPLogin(r.Context(), body.ChallengeToken, body.Code, r.UserAgent(), ip)
+	if err != nil {
+		switch err {
+		case ErrTOTPInvalid, ErrInvalidCreds:
+			httpx.Error(w, http.StatusUnauthorized, "invalid_totp", "invalid TOTP code")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "totp verify failed")
+		}
+		return
+	}
 	_ = h.Svc.Store.WriteAudit(r.Context(), &me.ID, "admin.login", "admin_user", me.ID.String(), nil, map[string]any{
 		"email": me.Email,
+		"totp":  true,
 	}, ip, r.UserAgent(), middleware.GetReqID(r.Context()))
 	httpx.Data(w, http.StatusOK, map[string]any{
 		"tokens": pair,
 		"admin":  me,
 	})
+}
+
+type totpConfirmBody struct {
+	Secret string `json:"secret"`
+	Code   string `json:"code"`
+}
+
+type totpCodeBody struct {
+	Code string `json:"code"`
+}
+
+func (h *Handler) enrollTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
+		return
+	}
+	secret, url, err := h.Svc.BeginTOTPEnroll(r.Context(), claims.AdminUserID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "totp enroll failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"secret":      secret,
+		"otpauth_url": url,
+		"note":        "Confirm with POST /security/totp/confirm before the secret is stored. Secret shown once.",
+	})
+}
+
+func (h *Handler) confirmTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
+		return
+	}
+	var body totpConfirmBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if err := h.Svc.ConfirmTOTPEnroll(r.Context(), claims.AdminUserID, body.Secret, body.Code); err != nil {
+		if err == ErrTOTPInvalid {
+			httpx.Error(w, http.StatusBadRequest, "invalid_totp", "invalid TOTP code")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "totp confirm failed")
+		return
+	}
+	ip := clientIP(r)
+	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "admin.totp.enable", "admin_user",
+		claims.AdminUserID.String(), nil, map[string]any{"enabled": true}, ip, r.UserAgent(),
+		middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, map[string]any{"totp_enabled": true})
+}
+
+func (h *Handler) disableTOTP(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
+		return
+	}
+	var body totpCodeBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if err := h.Svc.DisableTOTP(r.Context(), claims.AdminUserID, body.Code); err != nil {
+		if err == ErrTOTPInvalid {
+			httpx.Error(w, http.StatusBadRequest, "invalid_totp", "invalid TOTP code")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "totp disable failed")
+		return
+	}
+	ip := clientIP(r)
+	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "admin.totp.disable", "admin_user",
+		claims.AdminUserID.String(), nil, map[string]any{"enabled": false}, ip, r.UserAgent(),
+		middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, map[string]any{"totp_enabled": false})
 }
 
 func (h *Handler) refresh(w http.ResponseWriter, r *http.Request) {
@@ -257,13 +384,96 @@ type reasonBody struct {
 func (h *Handler) listUsers(w http.ResponseWriter, r *http.Request) {
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
-	q := r.URL.Query().Get("q")
-	out, err := h.Svc.Store.ListLearners(r.Context(), q, page, limit)
+	out, err := h.Svc.Store.ListLearners(r.Context(), ListLearnersFilter{
+		Q:      r.URL.Query().Get("q"),
+		VIP:    r.URL.Query().Get("vip"),
+		Status: r.URL.Query().Get("status"),
+	}, page, limit)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "users query failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+type grantVIPBody struct {
+	Days int    `json:"days"`
+	Note string `json:"note"`
+}
+
+func (h *Handler) grantUserVIP(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body grantVIPBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if body.Days < 1 || body.Days > 3660 {
+		httpx.Error(w, http.StatusBadRequest, "invalid_days", "days must be between 1 and 3660")
+		return
+	}
+	exists, err := h.Svc.Store.LearnerExists(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
+		return
+	}
+	if !exists {
+		httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+		return
+	}
+	if h.Pool == nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "pool required")
+		return
+	}
+	note := strings.TrimSpace(body.Note)
+	if note == "" {
+		note = "admin panel grant"
+	}
+
+	ctx := r.Context()
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "begin tx failed")
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	svc := billing.Service{Q: sqlc.New(tx)}
+	until, err := svc.GrantDays(ctx, id, body.Days, "admin", note, uuid.NullUUID{})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "grant failed")
+		return
+	}
+	if err := tx.Commit(ctx); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "commit failed")
+		return
+	}
+
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "users.entitlements.grant", "profile", id.String(),
+		nil, map[string]any{
+			"days":  body.Days,
+			"until": until.UTC().Format(time.RFC3339),
+			"note":  note,
+		}, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	detail, err := h.Svc.Store.GetLearner(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{
+			"until": until.UTC().Format(time.RFC3339),
+			"days":  body.Days,
+		})
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"user":  detail,
+		"until": until.UTC().Format(time.RFC3339),
+		"days":  body.Days,
+	})
 }
 
 func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {

@@ -10,39 +10,61 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// LearnerDirectoryRow is a PII-light row for GET /admin/v1/users.
+// LearnerDirectoryRow is a staff directory row for GET /admin/v1/users.
+// Full phone is intentional for super-admin ops (masked form kept for logs/UI toggle).
 type LearnerDirectoryRow struct {
 	ID           uuid.UUID  `json:"id"`
+	Phone        string     `json:"phone"`
 	PhoneMasked  string     `json:"phone_masked"`
 	Name         string     `json:"name"`
 	LocalePref   string     `json:"locale_pref"`
 	Status       string     `json:"status"`
 	VIPActive    bool       `json:"vip_active"`
+	HasPassword  bool       `json:"has_password"`
 	Streak       int        `json:"streak"`
 	CreatedAt    time.Time  `json:"created_at"`
 	LastSeenAt   *time.Time `json:"last_seen_at,omitempty"`
 	ReferralCode string     `json:"referral_code,omitempty"`
 }
 
-// LearnerDetail is GET /admin/v1/users/{id} (never includes password).
+// LearnerDetail is GET /admin/v1/users/{id} (never includes password plaintext/hash).
 type LearnerDetail struct {
-	ID           uuid.UUID  `json:"id"`
-	Phone        string     `json:"phone"`
-	PhoneMasked  string     `json:"phone_masked"`
-	Name         string     `json:"name"`
-	Region       string     `json:"region"`
-	District     string     `json:"district"`
-	LocalePref   string     `json:"locale_pref"`
-	ThemePref    string     `json:"theme_pref"`
-	Role         string     `json:"role"`
-	Status       string     `json:"status"`
-	ReferralCode string     `json:"referral_code,omitempty"`
-	ReferredBy   *uuid.UUID `json:"referred_by,omitempty"`
-	VIPActive    bool       `json:"vip_active"`
-	VIPEndsAt    *time.Time `json:"vip_ends_at,omitempty"`
-	Streak       int        `json:"streak"`
-	CreatedAt    time.Time  `json:"created_at"`
-	LastSeenAt   *time.Time `json:"last_seen_at,omitempty"`
+	ID            uuid.UUID              `json:"id"`
+	Phone         string                 `json:"phone"`
+	PhoneMasked   string                 `json:"phone_masked"`
+	Name          string                 `json:"name"`
+	Region        string                 `json:"region"`
+	District      string                 `json:"district"`
+	LocalePref    string                 `json:"locale_pref"`
+	ThemePref     string                 `json:"theme_pref"`
+	Role          string                 `json:"role"`
+	Status        string                 `json:"status"`
+	ReferralCode  string                 `json:"referral_code,omitempty"`
+	ReferredBy    *uuid.UUID             `json:"referred_by,omitempty"`
+	VIPActive     bool                   `json:"vip_active"`
+	VIPEndsAt     *time.Time             `json:"vip_ends_at,omitempty"`
+	HasPassword   bool                   `json:"has_password"`
+	Streak        int                    `json:"streak"`
+	CreatedAt     time.Time              `json:"created_at"`
+	LastSeenAt    *time.Time             `json:"last_seen_at,omitempty"`
+	Entitlements  []LearnerEntitlement   `json:"entitlements"`
+}
+
+// LearnerEntitlement is a billing entitlement row for the admin user detail.
+type LearnerEntitlement struct {
+	ID        uuid.UUID `json:"id"`
+	Source    string    `json:"source"`
+	StartsAt  time.Time `json:"starts_at"`
+	EndsAt    time.Time `json:"ends_at"`
+	Active    bool      `json:"active"`
+	Note      string    `json:"note,omitempty"`
+}
+
+// ListLearnersFilter scopes the directory query.
+type ListLearnersFilter struct {
+	Q      string
+	VIP    string // "", "1", "0"
+	Status string // "", "active", "blocked"
 }
 
 // LearnerSessionRow is a refresh_token session for admin security tab.
@@ -62,26 +84,48 @@ type ListLearnersResult struct {
 	Total int                   `json:"total"`
 }
 
-// ListLearners returns profiles matching q (phone/name/uuid/referral), newest first.
-func (s Store) ListLearners(ctx context.Context, q string, page, limit int) (ListLearnersResult, error) {
+// ListLearners returns profiles matching filters, newest first.
+func (s Store) ListLearners(ctx context.Context, f ListLearnersFilter, page, limit int) (ListLearnersResult, error) {
 	if page < 1 {
 		page = 1
 	}
 	if limit <= 0 || limit > 100 {
 		limit = 50
 	}
-	q = strings.TrimSpace(q)
+	q := strings.TrimSpace(f.Q)
+	vip := strings.TrimSpace(f.VIP)
+	statusFilter := strings.TrimSpace(f.Status)
+	dbStatus := ""
+	switch statusFilter {
+	case "blocked":
+		dbStatus = "banned"
+	case "active":
+		dbStatus = "active"
+	}
 	offset := (page - 1) * limit
+
+	where := `
+		($1 = '' OR
+		  p.phone ILIKE '%' || $1 || '%' OR
+		  p.name ILIKE '%' || $1 || '%' OR
+		  p.id::text ILIKE $1 || '%' OR
+		  COALESCE(p.referral_code, '') ILIKE '%' || $1 || '%')
+		AND ($2 = '' OR p.status = $2)
+		AND (
+		  $3 = '' OR
+		  ($3 = '1' AND EXISTS (
+		    SELECT 1 FROM entitlement e WHERE e.profile_id = p.id AND e.ends_at > now()
+		  )) OR
+		  ($3 = '0' AND NOT EXISTS (
+		    SELECT 1 FROM entitlement e WHERE e.profile_id = p.id AND e.ends_at > now()
+		  ))
+		)`
 
 	var total int
 	err := s.Pool.QueryRow(ctx, `
 		SELECT COUNT(*)::int
 		FROM profile p
-		WHERE ($1 = '' OR
-		  p.phone ILIKE '%' || $1 || '%' OR
-		  p.name ILIKE '%' || $1 || '%' OR
-		  p.id::text ILIKE $1 || '%' OR
-		  COALESCE(p.referral_code, '') ILIKE '%' || $1 || '%')`, q).Scan(&total)
+		WHERE `+where, q, dbStatus, vip).Scan(&total)
 	if err != nil {
 		return ListLearnersResult{}, err
 	}
@@ -94,19 +138,16 @@ func (s Store) ListLearners(ctx context.Context, q string, page, limit int) (Lis
 		         SELECT 1 FROM entitlement e
 		         WHERE e.profile_id = p.id AND e.ends_at > now()
 		       ) AS vip_active,
+		       (p.password_hash IS NOT NULL AND length(p.password_hash) > 0) AS has_password,
 		       COALESCE(st.current, 0) AS streak,
 		       (
 		         SELECT MAX(d.last_seen) FROM device d WHERE d.profile_id = p.id
 		       ) AS last_seen_at
 		FROM profile p
 		LEFT JOIN streak st ON st.profile_id = p.id
-		WHERE ($1 = '' OR
-		  p.phone ILIKE '%' || $1 || '%' OR
-		  p.name ILIKE '%' || $1 || '%' OR
-		  p.id::text ILIKE $1 || '%' OR
-		  COALESCE(p.referral_code, '') ILIKE '%' || $1 || '%')
+		WHERE `+where+`
 		ORDER BY p.created_at DESC
-		LIMIT $2 OFFSET $3`, q, limit, offset)
+		LIMIT $4 OFFSET $5`, q, dbStatus, vip, limit, offset)
 	if err != nil {
 		return ListLearnersResult{}, err
 	}
@@ -115,23 +156,25 @@ func (s Store) ListLearners(ctx context.Context, q string, page, limit int) (Lis
 	items := make([]LearnerDirectoryRow, 0)
 	for rows.Next() {
 		var (
-			pid                           uuid.UUID
+			pid                              uuid.UUID
 			phone, name, locale, status, ref string
-			created                       time.Time
-			vip                           bool
-			streak                        int
-			lastSeen                      *time.Time
+			created                          time.Time
+			vipActive, hasPassword           bool
+			streak                           int
+			lastSeen                         *time.Time
 		)
-		if err := rows.Scan(&pid, &phone, &name, &locale, &status, &ref, &created, &vip, &streak, &lastSeen); err != nil {
+		if err := rows.Scan(&pid, &phone, &name, &locale, &status, &ref, &created, &vipActive, &hasPassword, &streak, &lastSeen); err != nil {
 			return ListLearnersResult{}, err
 		}
 		row := LearnerDirectoryRow{
 			ID:          pid,
+			Phone:       phone,
 			PhoneMasked: maskPhone(phone),
 			Name:        name,
 			LocalePref:  locale,
 			Status:      mapLearnerStatus(status),
-			VIPActive:   vip,
+			VIPActive:   vipActive,
+			HasPassword: hasPassword,
 			Streak:      streak,
 			CreatedAt:   created.UTC(),
 		}
@@ -150,7 +193,7 @@ func (s Store) ListLearners(ctx context.Context, q string, page, limit int) (Lis
 	return ListLearnersResult{Items: items, Page: page, Limit: limit, Total: total}, nil
 }
 
-// GetLearner returns one profile with VIP/streak/last_seen (no password).
+// GetLearner returns one profile with VIP/streak/entitlements (no password).
 func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, error) {
 	var d LearnerDetail
 	var phone, ref string
@@ -171,6 +214,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		         WHERE e.profile_id = p.id AND e.ends_at > now()
 		         ORDER BY e.ends_at DESC LIMIT 1
 		       ),
+		       (p.password_hash IS NOT NULL AND length(p.password_hash) > 0),
 		       COALESCE(st.current, 0),
 		       (
 		         SELECT MAX(d.last_seen) FROM device d WHERE d.profile_id = p.id
@@ -181,7 +225,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		&d.ID, &phone, &d.Name, &d.Region, &d.District,
 		&d.LocalePref, &d.ThemePref, &d.Role, &status,
 		&ref, &referredBy, &d.CreatedAt,
-		&d.VIPActive, &vipEnds, &d.Streak, &lastSeen,
+		&d.VIPActive, &vipEnds, &d.HasPassword, &d.Streak, &lastSeen,
 	)
 	if err != nil {
 		return LearnerDetail{}, err
@@ -190,6 +234,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 	d.PhoneMasked = maskPhone(phone)
 	d.Status = mapLearnerStatus(status)
 	d.CreatedAt = d.CreatedAt.UTC()
+	d.Entitlements = []LearnerEntitlement{}
 	if ref != "" {
 		d.ReferralCode = ref
 	}
@@ -202,7 +247,39 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		t := lastSeen.UTC()
 		d.LastSeenAt = &t
 	}
+	ents, err := s.ListLearnerEntitlements(ctx, id)
+	if err != nil {
+		return LearnerDetail{}, err
+	}
+	d.Entitlements = ents
 	return d, nil
+}
+
+// ListLearnerEntitlements returns recent entitlement rows for a profile.
+func (s Store) ListLearnerEntitlements(ctx context.Context, profileID uuid.UUID) ([]LearnerEntitlement, error) {
+	rows, err := s.Pool.Query(ctx, `
+		SELECT id, source, starts_at, ends_at, COALESCE(note, '')
+		FROM entitlement
+		WHERE profile_id = $1
+		ORDER BY ends_at DESC
+		LIMIT 20`, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	now := time.Now()
+	out := make([]LearnerEntitlement, 0)
+	for rows.Next() {
+		var e LearnerEntitlement
+		if err := rows.Scan(&e.ID, &e.Source, &e.StartsAt, &e.EndsAt, &e.Note); err != nil {
+			return nil, err
+		}
+		e.StartsAt = e.StartsAt.UTC()
+		e.EndsAt = e.EndsAt.UTC()
+		e.Active = e.EndsAt.After(now) && !e.StartsAt.After(now)
+		out = append(out, e)
+	}
+	return out, rows.Err()
 }
 
 // SetLearnerStatus sets profile.status to active|banned (block uses banned).

@@ -32,26 +32,74 @@ type TokenPair struct {
 
 // MeResponse is GET /admin/v1/me.
 type MeResponse struct {
-	ID          uuid.UUID `json:"id"`
-	Email       string    `json:"email"`
-	DisplayName string    `json:"display_name"`
-	Roles       []string  `json:"roles"`
-	Permissions []string  `json:"permissions"`
+	ID                uuid.UUID `json:"id"`
+	Email             string    `json:"email"`
+	DisplayName       string    `json:"display_name"`
+	Roles             []string  `json:"roles"`
+	Permissions       []string  `json:"permissions"`
+	TOTPEnabled       bool      `json:"totp_enabled"`
+	TOTPSetupRequired bool      `json:"totp_setup_required"`
 }
 
-func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.IP) (TokenPair, MeResponse, error) {
+// LoginResult is returned by Login — either tokens or a TOTP challenge.
+type LoginResult struct {
+	RequiresTOTP   bool
+	ChallengeToken string
+	Pair           TokenPair
+	Me             MeResponse
+}
+
+func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.IP) (LoginResult, error) {
 	u, err := s.Store.GetUserByEmail(ctx, email)
 	if err != nil {
 		if IsNoRows(err) {
-			return TokenPair{}, MeResponse{}, ErrInvalidCreds
+			return LoginResult{}, ErrInvalidCreds
 		}
-		return TokenPair{}, MeResponse{}, err
+		return LoginResult{}, err
 	}
 	if u.Status != "active" {
-		return TokenPair{}, MeResponse{}, ErrDisabled
+		return LoginResult{}, ErrDisabled
 	}
 	if !auth.CheckPassword(u.PasswordHash, password) {
+		return LoginResult{}, ErrInvalidCreds
+	}
+	if u.TOTPEnabled() {
+		ch, err := IssueTOTPChallenge(s.Secret, u.ID, u.Email)
+		if err != nil {
+			return LoginResult{}, err
+		}
+		return LoginResult{RequiresTOTP: true, ChallengeToken: ch}, nil
+	}
+	pair, err := s.issuePair(ctx, u, ua, ip)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	me, err := s.meFromUser(ctx, u)
+	if err != nil {
+		return LoginResult{}, err
+	}
+	return LoginResult{Pair: pair, Me: me}, nil
+}
+
+// VerifyTOTPLogin completes login after password + TOTP challenge.
+func (s Service) VerifyTOTPLogin(ctx context.Context, challengeToken, code, ua string, ip *net.IP) (TokenPair, MeResponse, error) {
+	claims, err := ParseTOTPChallenge(s.Secret, challengeToken)
+	if err != nil {
 		return TokenPair{}, MeResponse{}, ErrInvalidCreds
+	}
+	u, err := s.Store.GetUserByID(ctx, claims.AdminUserID)
+	if err != nil || u.Status != "active" {
+		return TokenPair{}, MeResponse{}, ErrInvalidCreds
+	}
+	if !u.TOTPEnabled() {
+		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
+	}
+	plain, err := decryptSecret(deriveKEK(s.Secret), u.TotpSecretEnc)
+	if err != nil {
+		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
+	}
+	if !validateTOTP(string(plain), code) {
+		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
 	}
 	pair, err := s.issuePair(ctx, u, ua, ip)
 	if err != nil {
@@ -59,6 +107,51 @@ func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.
 	}
 	me, err := s.meFromUser(ctx, u)
 	return pair, me, err
+}
+
+// BeginTOTPEnroll returns a one-time plaintext secret + otpauth URL (not yet persisted).
+func (s Service) BeginTOTPEnroll(ctx context.Context, adminID uuid.UUID) (secret, otpauth string, err error) {
+	u, err := s.Store.GetUserByID(ctx, adminID)
+	if err != nil {
+		return "", "", err
+	}
+	key, err := generateTOTPKey(u.Email)
+	if err != nil {
+		return "", "", err
+	}
+	return key.Secret(), key.URL(), nil
+}
+
+// ConfirmTOTPEnroll verifies code against secret and stores encrypted secret.
+func (s Service) ConfirmTOTPEnroll(ctx context.Context, adminID uuid.UUID, secret, code string) error {
+	secret = strings.TrimSpace(secret)
+	if secret == "" || !validateTOTP(secret, code) {
+		return ErrTOTPInvalid
+	}
+	enc, err := encryptSecret(deriveKEK(s.Secret), []byte(secret))
+	if err != nil {
+		return err
+	}
+	return s.Store.SetUserTOTPSecret(ctx, adminID, enc)
+}
+
+// DisableTOTP clears enrolled TOTP after verifying a current code.
+func (s Service) DisableTOTP(ctx context.Context, adminID uuid.UUID, code string) error {
+	u, err := s.Store.GetUserByID(ctx, adminID)
+	if err != nil {
+		return err
+	}
+	if !u.TOTPEnabled() {
+		return nil
+	}
+	plain, err := decryptSecret(deriveKEK(s.Secret), u.TotpSecretEnc)
+	if err != nil {
+		return ErrTOTPInvalid
+	}
+	if !validateTOTP(string(plain), code) {
+		return ErrTOTPInvalid
+	}
+	return s.Store.SetUserTOTPSecret(ctx, adminID, "")
 }
 
 func (s Service) Refresh(ctx context.Context, refreshRaw, ua string, ip *net.IP) (TokenPair, error) {
@@ -128,12 +221,23 @@ func (s Service) meFromUser(ctx context.Context, u User) (MeResponse, error) {
 	if perms == nil {
 		perms = []string{}
 	}
+	setupRequired := false
+	if TOTPEnforce() && !u.TOTPEnabled() {
+		for _, r := range roles {
+			if r == "superadmin" {
+				setupRequired = true
+				break
+			}
+		}
+	}
 	return MeResponse{
-		ID:          u.ID,
-		Email:       u.Email,
-		DisplayName: u.DisplayName,
-		Roles:       roles,
-		Permissions: perms,
+		ID:                u.ID,
+		Email:             u.Email,
+		DisplayName:       u.DisplayName,
+		Roles:             roles,
+		Permissions:       perms,
+		TOTPEnabled:       u.TOTPEnabled(),
+		TOTPSetupRequired: setupRequired,
 	}, nil
 }
 
