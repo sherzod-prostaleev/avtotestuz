@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { LoaderCircle, X, ZoomIn } from "lucide-react";
@@ -70,12 +70,9 @@ export function OfficialAvtotestExamView({
   const currentQuestion = questions[currentIndex];
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
-  const allAnswered = useMemo(
-    () =>
-      questions.length > 0 &&
-      questions.every((q) => q.answered === true || Boolean(q.user_answer_id)),
-    [questions]
-  );
+  const allAnswered =
+    questions.length > 0 &&
+    questions.every((q) => q.answered === true || Boolean(q.user_answer_id));
 
   useEffect(() => {
     activeChipRef.current?.scrollIntoView({
