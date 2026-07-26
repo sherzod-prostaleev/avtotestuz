@@ -224,6 +224,28 @@ export default function PracticePage() {
         <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("subtitle")}</p>
       </div>
 
+      <Link
+        href={`/${locale}/session/start?mode=placement`}
+        className="block"
+      >
+        <Card className="group flex items-center justify-between gap-3 border-accent/35 p-4 transition-colors hover:border-accent sm:p-5">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
+              <BrainCircuit aria-hidden="true" className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <p className="font-display text-base font-extrabold tracking-tight sm:text-lg">
+                {t("placementTitle")}
+              </p>
+              <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{t("placementDesc")}</p>
+            </div>
+          </div>
+          <Button as="span" variant="game" size="sm" className="shrink-0">
+            {t("placementCta")}
+          </Button>
+        </Card>
+      </Link>
+
       {loadError && (
         <Card
           role="alert"

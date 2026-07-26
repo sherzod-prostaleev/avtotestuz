@@ -13,10 +13,14 @@ import (
 )
 
 const countDueQuestions = `-- name: CountDueQuestions :one
-SELECT count(*)::int FROM question_memory
-WHERE profile_id = $1 AND due_at <= now()
+SELECT count(*)::int
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.due_at <= now()
 `
 
+// Same valid-question join as ListDueQuestions so me/stats.due_count matches
+// the review queue the learner can actually start.
 func (q *Queries) CountDueQuestions(ctx context.Context, profileID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, countDueQuestions, profileID)
 	var column_1 int32

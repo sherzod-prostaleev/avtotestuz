@@ -5,6 +5,7 @@ import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
+import { apiGet } from "@/lib/api-client";
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { GrandMockCard } from "@/components/mock/grand-mock-card";
@@ -110,6 +111,7 @@ export default function DashboardPage() {
   const { user, entitlement, streak, stats, loading, error } = useUserStats();
   const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
+  const [mistakesDueCount, setMistakesDueCount] = useState(0);
 
   // Both hooks feed the hero/next-action UI below; treat them as loaded
   // together so those sections settle once instead of updating piecemeal.
@@ -132,7 +134,7 @@ export default function DashboardPage() {
     : null;
   const hasAnyProgress =
     sessions.some(isFinishedSession) || (stats?.total_answered ?? 0) > 0;
-  const practiceHref = `/${locale}/practice`;
+  const placementHref = `/${locale}/session/start?mode=placement`;
 
   useEffect(() => {
     try {
@@ -141,6 +143,23 @@ export default function DashboardPage() {
     } catch {
       setOnboardingVisible(true);
     }
+  }, []);
+
+  // Mistakes card must show me/mistakes.due_count (lapses>0), not FSRS me/stats.due_count.
+  useEffect(() => {
+    let cancelled = false;
+    void apiGet<{ due_count: number }>("me/mistakes")
+      .then((data) => {
+        if (!cancelled && Number.isInteger(data.due_count) && data.due_count >= 0) {
+          setMistakesDueCount(data.due_count);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setMistakesDueCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const dismissOnboarding = () => {
@@ -233,7 +252,7 @@ export default function DashboardPage() {
                 </li>
               </ul>
               <Link
-                href={practiceHref}
+                href={placementHref}
                 className="inline-flex min-h-12 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-5 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
               >
                 {t("onboardingCta")}
@@ -551,7 +570,7 @@ export default function DashboardPage() {
                 <CardDescription className="mt-1 line-clamp-2 text-[11px] sm:mt-1.5 sm:text-sm">{t("navMistakesDesc")}</CardDescription>
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-danger sm:mt-4 sm:text-sm">
-                <span className="truncate">{t("mistakesMeta", { count: stats?.due_questions_count ?? 0 })}</span>
+                <span className="truncate">{t("mistakesMeta", { count: mistakesDueCount })}</span>
                 <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>

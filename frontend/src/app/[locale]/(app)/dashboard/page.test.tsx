@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import uzLatnMessages from "../../../../../messages/uz-Latn.json";
@@ -7,11 +7,16 @@ import ruMessages from "../../../../../messages/ru.json";
 import DashboardPage from "./page";
 import * as useUserStatsModule from "@/hooks/use-user-stats";
 import * as useSessionHistoryModule from "@/hooks/use-session-history";
+import * as apiClient from "@/lib/api-client";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
     <a href={href}>{children}</a>
   ),
+}));
+
+vi.mock("@/lib/api-client", () => ({
+  apiGet: vi.fn(),
 }));
 
 // GrandMockCard makes its own network call (GET /me/mock-eligibility) and has
@@ -136,6 +141,7 @@ function renderWithIntl(localeCase: (typeof localeCases)[number]) {
 describe("DashboardPage i18n and accessibility", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.mocked(apiClient.apiGet).mockResolvedValue({ due_count: 0 } as never);
     window.localStorage.clear();
     window.localStorage.setItem("dg-onboarding-v1-dismissed", "1");
     vi.spyOn(useSessionHistoryModule, "useSessionHistory").mockReturnValue(historyState());
@@ -322,15 +328,30 @@ describe("DashboardPage i18n and accessibility", () => {
     renderWithIntl(localeCases[0]);
 
     expect(screen.getByRole("heading", { name: "Qanday boshlash kerak?" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Mashqni boshlash/ })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Diagnostikani boshlash/ })).toHaveAttribute(
       "href",
-      "/uz-Latn/practice"
+      "/uz-Latn/session/start?mode=placement"
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Yopish" }));
 
     expect(screen.queryByRole("heading", { name: "Qanday boshlash kerak?" })).not.toBeInTheDocument();
     expect(window.localStorage.getItem("dg-onboarding-v1-dismissed")).toBe("1");
+  });
+
+  it("shows mistakes-bank due_count on the mistakes card, not FSRS stats due_count", async () => {
+    mockStats();
+    setHistory();
+    vi.mocked(apiClient.apiGet).mockResolvedValue({ due_count: 3 } as never);
+
+    renderWithIntl(localeCases[0]);
+
+    await waitFor(() => {
+      expect(screen.getByText("3 ta takrorlash")).toBeInTheDocument();
+    });
+    expect(apiClient.apiGet).toHaveBeenCalledWith("me/mistakes");
+    // FSRS due (5 from mockStats) must not appear on the mistakes card meta.
+    expect(screen.queryByText("5 ta takrorlash")).not.toBeInTheDocument();
   });
 
   it("recommends weakest-category practice via next-best-step when due queue is empty", () => {

@@ -237,10 +237,10 @@
     "pathStep5Desc": "Qamrov × aniqlik bo'yicha tayyorlikni ko'ring.",
     "pathStep5Cta": "Statistika",
     "onboardingTitle": "Qanday boshlash kerak?",
-    "onboardingBullet1": "«Keyingi eng yaxshi qadam»ni bajarib boring",
+    "onboardingBullet1": "Qisqa diagnostika — hozirgi darajangizni aniqlang",
     "onboardingBullet2": "Zaif mavzuni mashq qiling",
     "onboardingBullet3": "Aqlli takrorlash navbati kelganda ochiladi",
-    "onboardingCta": "Mashqni boshlash",
+    "onboardingCta": "Diagnostikani boshlash",
     "onboardingDismiss": "Yopish"
   },
   "Sidebar": {
@@ -504,7 +504,10 @@
     "allowanceExhausted": "Bugungi bepul limit tugadi",
     "allowanceUpgrade": "Premium olish",
     "allowanceClamped": "Bugun {count} tasi beriladi",
-    "startPractice": "Mashqni boshlash"
+    "startPractice": "Mashqni boshlash",
+    "placementTitle": "Diagnostika",
+    "placementDesc": "10 savol, 12 daqiqa — hozirgi darajangizni aniqlang.",
+    "placementCta": "Diagnostikani boshlash"
   },
   "Session": {
     "loading": "Sessiya yuklanmoqda...",

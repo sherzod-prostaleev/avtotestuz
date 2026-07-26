@@ -25,8 +25,12 @@ ORDER BY qm.due_at ASC
 LIMIT sqlc.arg(limit_count);
 
 -- name: CountDueQuestions :one
-SELECT count(*)::int FROM question_memory
-WHERE profile_id = $1 AND due_at <= now();
+-- Same valid-question join as ListDueQuestions so me/stats.due_count matches
+-- the review queue the learner can actually start.
+SELECT count(*)::int
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1 AND qm.due_at <= now();
 
 -- name: PassRateByReadinessBucket :many
 -- Empirical P(pass | readiness bucket) from finished exam-like sessions that

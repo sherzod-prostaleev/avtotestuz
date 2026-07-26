@@ -221,6 +221,16 @@ type ClickTransaction struct {
 	RejectedAt    pgtype.Timestamptz `json:"rejected_at"`
 }
 
+type ContentRevision struct {
+	ID           uuid.UUID          `json:"id"`
+	EntityType   string             `json:"entity_type"`
+	EntityID     uuid.UUID          `json:"entity_id"`
+	SnapshotJson json.RawMessage    `json:"snapshot_json"`
+	EditorID     uuid.NullUUID      `json:"editor_id"`
+	Note         string             `json:"note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type Device struct {
 	ID          uuid.UUID          `json:"id"`
 	ProfileID   uuid.UUID          `json:"profile_id"`

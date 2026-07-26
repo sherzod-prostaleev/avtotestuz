@@ -233,6 +233,48 @@ func TestMistakeBankQuestionIDsIgnoreInvalidQuestions(t *testing.T) {
 	}
 }
 
+func TestCountDueQuestionsIgnoresInvalidQuestions(t *testing.T) {
+	q, svc, profileID, qids, pool := seedWithPool(t)
+	ctx := context.Background()
+
+	for _, questionID := range qids[:2] {
+		if _, err := svc.RecordReview(ctx, profileID, questionID, learning.Good); err != nil {
+			t.Fatalf("record review for %s: %v", questionID, err)
+		}
+		backdateDueAt(t, pool, profileID, questionID, time.Now().UTC().Add(-time.Hour))
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE question SET validation_status = 'quarantined' WHERE id = $1`, qids[1]); err != nil {
+		t.Fatalf("quarantine question: %v", err)
+	}
+
+	listed, err := q.ListDueQuestions(ctx, sqlc.ListDueQuestionsParams{
+		ProfileID: profileID, LimitCount: 10,
+	})
+	if err != nil {
+		t.Fatalf("ListDueQuestions: %v", err)
+	}
+	if len(listed) != 1 || listed[0].QuestionID != qids[0] {
+		t.Fatalf("ListDueQuestions = %+v, want only %s", listed, qids[0])
+	}
+
+	count, err := q.CountDueQuestions(ctx, profileID)
+	if err != nil {
+		t.Fatalf("CountDueQuestions: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("CountDueQuestions = %d, want 1 (matching ListDueQuestions)", count)
+	}
+
+	stats, err := svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.DueCount != 1 {
+		t.Fatalf("Stats.DueCount = %d, want 1", stats.DueCount)
+	}
+}
+
 func TestMistakeBankSummaryUsesEarliestFutureDueAndNullWhenAllDue(t *testing.T) {
 	_, svc, profileID, qids, pool := seedWithPool(t)
 	for _, questionID := range qids[:3] {

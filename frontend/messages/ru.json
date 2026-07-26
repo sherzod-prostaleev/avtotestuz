@@ -238,10 +238,10 @@
     "pathStep5Desc": "Смотрите готовность как охват × точность.",
     "pathStep5Cta": "Статистика",
     "onboardingTitle": "С чего начать?",
-    "onboardingBullet1": "Следуйте блоку «Следующий лучший шаг»",
+    "onboardingBullet1": "Короткая диагностика — определите текущий уровень",
     "onboardingBullet2": "Тренируйте слабую тему",
     "onboardingBullet3": "Умное повторение откроется, когда придёт очередь",
-    "onboardingCta": "Начать практику",
+    "onboardingCta": "Начать диагностику",
     "onboardingDismiss": "Закрыть"
   },
   "Sidebar": {
@@ -505,7 +505,10 @@
     "allowanceExhausted": "Дневной бесплатный лимит исчерпан",
     "allowanceUpgrade": "Получить Premium",
     "allowanceClamped": "Сегодня будет выдано {count}",
-    "startPractice": "Начать практику"
+    "startPractice": "Начать практику",
+    "placementTitle": "Диагностика",
+    "placementDesc": "10 вопросов, 12 минут — определите текущий уровень.",
+    "placementCta": "Начать диагностику"
   },
   "Session": {
     "loading": "Загружаем сессию...",

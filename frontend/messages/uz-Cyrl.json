@@ -237,10 +237,10 @@
     "pathStep5Desc": "Қамров × аниқлик бўйича тайёрликни кўринг.",
     "pathStep5Cta": "Статистика",
     "onboardingTitle": "Қандай бошлаш керак?",
-    "onboardingBullet1": "«Кейинги энг яхши қадам»ни бажариб боринг",
+    "onboardingBullet1": "Қисқа диагностика — ҳозирги даражангизни аниқланг",
     "onboardingBullet2": "Заиф мавзуни машқ қилинг",
     "onboardingBullet3": "Ақлли такрорлаш навбати келганда очилади",
-    "onboardingCta": "Машқни бошлаш",
+    "onboardingCta": "Диагностикани бошлаш",
     "onboardingDismiss": "Ёпиш"
   },
   "Sidebar": {
@@ -504,7 +504,10 @@
     "allowanceExhausted": "Бугунги бепул лимит тугади",
     "allowanceUpgrade": "Premium олиш",
     "allowanceClamped": "Бугун {count} таси берилади",
-    "startPractice": "Машқни бошлаш"
+    "startPractice": "Машқни бошлаш",
+    "placementTitle": "Диагностика",
+    "placementDesc": "10 савол, 12 дақиқа — ҳозирги даражангизни аниқланг.",
+    "placementCta": "Диагностикани бошлаш"
   },
   "Session": {
     "loading": "Сессия юкланмоқда...",
