@@ -55,7 +55,7 @@ function ExamCockpit({
         <div className="landing-cockpit-sweep pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-accent/20 to-transparent" />
         <div className="flex items-center justify-between border-b border-[#1c3554] bg-[#081320] px-4 py-2.5">
           <span className="font-display text-sm font-black tracking-wide text-white">
-            Drive<span className="text-accent">Go</span>
+            Driver <span className="text-accent">Go</span>
           </span>
           <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 font-mono text-sm font-bold tabular-nums text-amber-300 shadow-[0_2px_0_0_hsl(38_85%_28%)]">
             {timerLabel}
