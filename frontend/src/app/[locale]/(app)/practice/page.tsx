@@ -352,7 +352,7 @@ export default function PracticePage() {
 
       {source === "category" && (
         <Card className="space-y-3 p-5 sm:p-6">
-          <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+          <h2 className="max-w-full text-[11px] font-extrabold uppercase leading-snug tracking-wide text-muted-foreground sm:text-sm sm:tracking-wider">
             {t("selectCategory")}
           </h2>
           <div className="grid gap-2.5 sm:grid-cols-2">

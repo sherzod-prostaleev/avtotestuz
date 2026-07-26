@@ -20,6 +20,10 @@ type Props = {
    * (landing) where three chips steal the brand row.
    */
   compact?: boolean;
+  /** Stretch chips across the available width (sidebar footer). */
+  fill?: boolean;
+  /** Soften chrome when nested inside a shared toolbar. */
+  embedded?: boolean;
   /** Where the compact menu opens relative to the trigger. */
   menuPlacement?: "top" | "bottom";
   /** Horizontal anchoring for the compact menu. */
@@ -34,6 +38,8 @@ type Props = {
 export function LocaleSwitcher({
   size = "sm",
   compact = false,
+  fill = false,
+  embedded = false,
   menuPlacement = "bottom",
   menuAlign = "end",
   className = "",
@@ -138,14 +144,17 @@ export function LocaleSwitcher({
 
   const chip =
     size === "md"
-      ? "min-h-11 rounded-md px-3 text-sm font-bold"
-      : "min-h-10 min-w-10 rounded px-2.5 py-1 text-xs font-bold";
+      ? "min-h-11 rounded-md px-2.5 text-sm font-bold md:px-3"
+      : "min-h-10 min-w-10 rounded px-2 py-1 text-xs font-bold";
+  const shell = embedded
+    ? "border-0 bg-transparent p-0 shadow-none"
+    : "rounded-lg border border-border/80 bg-card p-0.5 shadow-raised-sm";
 
   return (
     <div
       role="group"
       aria-label={t("languageSwitcher")}
-      className={`flex gap-0.5 rounded-lg border border-border/80 bg-card p-0.5 shadow-raised-sm ${className}`}
+      className={`flex gap-0.5 ${fill ? "w-full" : ""} ${shell} ${className}`}
     >
       {LOCALES.map((lang) => (
         <button
@@ -153,10 +162,10 @@ export function LocaleSwitcher({
           key={lang.code}
           onClick={() => handleLanguageChange(lang.code)}
           aria-pressed={currentLocale === lang.code}
-          className={`${chip} transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          className={`${chip} ${fill ? "min-w-0 flex-1" : ""} transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
             currentLocale === lang.code
               ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground"
+              : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
           }`}
         >
           {t(lang.labelKey)}

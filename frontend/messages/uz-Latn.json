@@ -448,7 +448,7 @@
     "bySignDescription": "O'zbekiston yo'l belgilari katalogi va interaktiv mashq",
     "questionCount": "Savollar soni",
     "start": "Mashqni boshlash",
-    "selectCategory": "Kategoriyani tanlang",
+    "selectCategory": "Mavzular bo'yicha tanlang",
     "selectCategoryDescription": "Mavzuni va o'zingizga mos savollar sonini tanlang",
     "categoryGroupLabel": "Mashq kategoriyalari",
     "questionCountOption": "{count} ta savol",

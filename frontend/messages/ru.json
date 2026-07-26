@@ -449,7 +449,7 @@
     "bySignDescription": "Каталог дорожных знаков Узбекистана и интерактивная практика",
     "questionCount": "Количество вопросов",
     "start": "Начать практику",
-    "selectCategory": "Выберите категорию",
+    "selectCategory": "Выберите по темам",
     "selectCategoryDescription": "Выберите тему и удобное количество вопросов",
     "categoryGroupLabel": "Категории практики",
     "questionCountOption": "{count, plural, one {# вопрос} few {# вопроса} many {# вопросов} other {# вопроса}}",

@@ -268,38 +268,29 @@ export function Sidebar() {
           </nav>
         </div>
 
-        <div className="relative z-20 mt-1.5 shrink-0 space-y-1.5 border-t border-border pt-1.5 md:mt-2 md:space-y-2 md:pt-2.5">
-          <div className="flex items-center justify-between gap-2 px-0.5">
-            <LocaleSwitcher
-              size="sm"
-              compact
-              menuPlacement="top"
-              menuAlign="start"
-              className="border-border bg-background shadow-raised-sm md:hidden"
-            />
-            <LocaleSwitcher
-              size="md"
-              className="hidden border-border bg-background shadow-raised-sm md:inline-flex"
-            />
-            <span className="md:hidden">
-              <ThemeToggle size="sm" />
-            </span>
-            <span className="hidden md:inline-flex">
-              <ThemeToggle />
-            </span>
-          </div>
+        <div className="relative z-20 mt-1.5 shrink-0 border-t border-border pt-1.5 md:mt-2 md:pt-2.5">
+          <div className="sidebar-panel overflow-hidden">
+            <div className="flex items-center gap-1 border-b border-border/80 bg-muted/25 p-1 md:gap-1.5 md:p-1.5">
+              <LocaleSwitcher size="sm" fill embedded className="min-w-0 flex-1 md:hidden" />
+              <LocaleSwitcher size="md" fill embedded className="hidden min-w-0 flex-1 md:flex" />
+              <ThemeToggle size="sm" embedded className="md:hidden" />
+              <ThemeToggle size="md" embedded className="hidden md:inline-flex" />
+            </div>
 
-          <Link href={`/${currentLocale}/profile`} onClick={() => setMobileOpen(false)}>
-            <div className="sidebar-panel flex items-center gap-2 p-1.5 transition-[border-color,transform,box-shadow] hover:border-accent surface-interactive md:gap-2.5 md:p-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-9 md:w-9 md:rounded-xl md:text-sm">
+            <Link
+              href={`/${currentLocale}/profile`}
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center gap-2 p-2 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-2.5 md:p-2.5"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="flex min-w-0 flex-col truncate">
                 <span className="truncate text-sm font-bold text-foreground">{userName}</span>
                 <span className="text-[11px] text-muted-foreground md:text-xs">{t("viewProfile")}</span>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         </div>
       </aside>
 

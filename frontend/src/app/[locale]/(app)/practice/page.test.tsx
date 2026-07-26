@@ -193,7 +193,7 @@ describe("PracticePage", () => {
     expect(screen.getByText(/Xotirada 4 ta savol bor/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Oddiy mashqqa o‘tish" }));
-    expect(screen.getByText("Kategoriyani tanlang")).toBeInTheDocument();
+    expect(screen.getByText("Mavzular bo'yicha tanlang")).toBeInTheDocument();
   });
 
   it("accepts a custom question count", async () => {
