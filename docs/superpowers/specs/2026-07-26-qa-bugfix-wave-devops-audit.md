@@ -45,7 +45,7 @@
 
 ## SHAs (this wave)
 
-_Filled after commit:_ see `git log -1 --oneline` on main after push.
+- `a1b5df6` — fix(fe): stop wrong-answer flicker and locale white flash; Uzbek admin nav
 
 ---
 
