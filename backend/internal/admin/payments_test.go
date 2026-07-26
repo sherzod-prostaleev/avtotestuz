@@ -246,3 +246,240 @@ func TestAdminPaymentsListDetailProviders(t *testing.T) {
 		}
 	})
 }
+
+func TestAdminPaymentHardDelete(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := Store{Pool: pool}
+	secret := []byte("test-admin-secret-at-least-32-bytes!!")
+	q := sqlc.New(pool)
+
+	if _, err := store.EnsureSuperadmin(t.Context(), "ops@example.uz", "password123", "Ops"); err != nil {
+		t.Fatal(err)
+	}
+
+	profileID := uuid.New()
+	referrerID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO profile (id, phone, name) VALUES ($1, $2, $3), ($4, $5, $6)`,
+		profileID, "+998901112233", "Pay User",
+		referrerID, "+998909998877", "Referrer"); err != nil {
+		t.Fatal(err)
+	}
+	tariffID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO tariff (id, code, days, price_uzs, sort_order, active) VALUES ($1, 'gentra', 30, 59900, 1, true)`,
+		tariffID); err != nil {
+		t.Fatal(err)
+	}
+
+	paymentID := uuid.New()
+	paidAt := time.Now().UTC().Add(-time.Hour)
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot, paid_at)
+		VALUES ($1, $2, $3, 59900, 'payme', 'paid', $4, 30, 59900, $5)`,
+		paymentID, profileID, tariffID, "del-pay-"+paymentID.String(), paidAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO payme_transaction (payme_id, payment_id, amount_tiyin, state, create_time, perform_time)
+		VALUES ($1, $2, 5990000, 2, $3, $4)`,
+		"payme-del-"+paymentID.String(), paymentID, paidAt.UnixMilli()-1000, paidAt.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	entID := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO entitlement (id, profile_id, source, payment_id, starts_at, ends_at, note)
+		VALUES ($1, $2, 'purchase', $3, $4, $5, 'vip from pay')`,
+		entID, profileID, paymentID, paidAt, paidAt.Add(30*24*time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO referral_ledger (profile_id, entry_type, amount_uzs, payment_id, meta)
+		VALUES ($1, 'commission', 5000, $2, '{}')`,
+		referrerID, paymentID); err != nil {
+		t.Fatal(err)
+	}
+
+	manualPay := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		VALUES ($1, $2, $3, 39900, 'manual', 'pending', $4, 7, 39900)`,
+		manualPay, profileID, tariffID, "del-manual-"+manualPay.String()); err != nil {
+		t.Fatal(err)
+	}
+	cardID := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO manual_pay_card (id, pan_full, pan_last4, holder_name, sort_order, enabled)
+		VALUES ($1, '8600123412341234', '1234', 'Test', 1, true)`, cardID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO manual_pay_assignment (payment_id, card_id, amount_uzs, manual_state, assigned_at, hold_until)
+		VALUES ($1, $2, 39900, 'awaiting_transfer', now(), now() + interval '15 minutes')`,
+		manualPay, cardID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO manual_pay_event (fingerprint, raw_text, amount_uzs, pan_last4, status, matched_payment_id, parse_ok)
+		VALUES ($1, 'push', 39900, '1234', 'matched', $2, true)`,
+		"fp-"+manualPay.String(), manualPay); err != nil {
+		t.Fatal(err)
+	}
+
+	clickPay := uuid.New()
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+		VALUES ($1, $2, $3, 19900, 'click', 'created', $4, 7, 19900)`,
+		clickPay, profileID, tariffID, "del-click-"+clickPay.String()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(context.Background(), `
+		INSERT INTO click_transaction (click_trans_id, click_paydoc_id, payment_id, amount_uzs, state)
+		VALUES ($1, $2, $3, 19900, 0)`,
+		"click-"+clickPay.String(), "doc-"+clickPay.String(), clickPay); err != nil {
+		t.Fatal(err)
+	}
+
+	svc := Service{Store: store, Secret: secret}
+	h := &Handler{
+		Svc:     svc,
+		Pool:    pool,
+		Secret:  secret,
+		Billing: billing.Service{Q: q, Pool: pool},
+	}
+	r := chi.NewRouter()
+	r.Route("/admin/v1", h.Routes)
+	access := loginAccess(t, r, "ops@example.uz", "password123")
+
+	t.Run("hard delete paid payme cleans related", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+paymentID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+
+		var n int
+		checks := []struct {
+			q string
+		}{
+			{`SELECT COUNT(*)::int FROM payment WHERE id = $1`},
+			{`SELECT COUNT(*)::int FROM payme_transaction WHERE payment_id = $1`},
+			{`SELECT COUNT(*)::int FROM entitlement WHERE payment_id = $1`},
+			{`SELECT COUNT(*)::int FROM referral_ledger WHERE payment_id = $1`},
+		}
+		for _, c := range checks {
+			if err := pool.QueryRow(context.Background(), c.q, paymentID).Scan(&n); err != nil {
+				t.Fatal(err)
+			}
+			if n != 0 {
+				t.Fatalf("expected 0 rows for %q, got %d", c.q, n)
+			}
+		}
+
+		var auditCount int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*)::int FROM admin_audit_log
+			 WHERE action='payments.transactions.delete' AND entity_id=$1`, paymentID.String()).Scan(&auditCount); err != nil {
+			t.Fatal(err)
+		}
+		if auditCount < 1 {
+			t.Fatal("expected delete audit")
+		}
+	})
+
+	t.Run("hard delete manual cleans assignment and unmatches event", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+manualPay.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var n int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*)::int FROM manual_pay_assignment WHERE payment_id = $1`, manualPay).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n != 0 {
+			t.Fatalf("assignment leftover=%d", n)
+		}
+		var status string
+		var matched *uuid.UUID
+		if err := pool.QueryRow(context.Background(),
+			`SELECT status, matched_payment_id FROM manual_pay_event WHERE fingerprint = $1`,
+			"fp-"+manualPay.String()).Scan(&status, &matched); err != nil {
+			t.Fatal(err)
+		}
+		if status != "unmatched" || matched != nil {
+			t.Fatalf("event status=%s matched=%v", status, matched)
+		}
+	})
+
+	t.Run("hard delete click cleans txn", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+clickPay.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var n int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*)::int FROM click_transaction WHERE payment_id = $1`, clickPay).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n != 0 {
+			t.Fatalf("click txn leftover=%d", n)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+uuid.New().String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("status=%d want 404", w.Code)
+		}
+	})
+
+	t.Run("editor forbidden", func(t *testing.T) {
+		hash, err := auth.HashPassword("password123")
+		if err != nil {
+			t.Fatal(err)
+		}
+		editorID := uuid.New()
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO admin_user (id, email, display_name, password_hash, status)
+			 VALUES ($1,$2,'Ed',$3,'active')`, editorID, "editor-del@example.uz", hash); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO admin_user_role (admin_user_id, role_id)
+			 SELECT $1, id FROM admin_role WHERE code='editor'`, editorID); err != nil {
+			t.Fatal(err)
+		}
+		edAccess := loginAccess(t, r, "editor-del@example.uz", "password123")
+		orphan := uuid.New()
+		if _, err := pool.Exec(context.Background(), `
+			INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
+			                     tariff_days_snapshot, tariff_price_uzs_snapshot)
+			VALUES ($1, $2, $3, 1000, 'sandbox', 'created', $4, 1, 1000)`,
+			orphan, profileID, tariffID, "del-orphan-"+orphan.String()); err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+orphan.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+edAccess)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusForbidden {
+			t.Fatalf("status=%d want 403", w.Code)
+		}
+	})
+}

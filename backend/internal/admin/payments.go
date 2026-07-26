@@ -335,6 +335,43 @@ func (s Store) loadClickTxn(ctx context.Context, paymentID uuid.UUID) (*ClickTxn
 	return &row, nil
 }
 
+// HardDeletePayment removes a payment and all billing rows tied to it.
+// Order respects FKs (no ON DELETE CASCADE on payment children).
+// Entitlements granted by this payment are deleted (VIP revoked), not soft-clamped.
+// Referral ledger rows for this payment are removed so balance reflects the undo.
+func (s Store) HardDeletePayment(ctx context.Context, id uuid.UUID) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	var found uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM payment WHERE id = $1 FOR UPDATE`, id).Scan(&found); err != nil {
+		return err
+	}
+
+	stmts := []string{
+		`DELETE FROM referral_ledger WHERE payment_id = $1`,
+		`DELETE FROM promo_redemption WHERE payment_id = $1`,
+		`DELETE FROM entitlement WHERE payment_id = $1`,
+		`UPDATE manual_pay_event
+		 SET matched_payment_id = NULL,
+		     status = CASE WHEN status = 'matched' THEN 'unmatched' ELSE status END
+		 WHERE matched_payment_id = $1`,
+		`DELETE FROM manual_pay_assignment WHERE payment_id = $1`,
+		`DELETE FROM payme_transaction WHERE payment_id = $1`,
+		`DELETE FROM click_transaction WHERE payment_id = $1`,
+		`DELETE FROM payment WHERE id = $1`,
+	}
+	for _, q := range stmts {
+		if _, err := tx.Exec(ctx, q, id); err != nil {
+			return err
+		}
+	}
+	return tx.Commit(ctx)
+}
+
 func refundCapability(provider, status string) RefundCapability {
 	switch provider {
 	case "payme":

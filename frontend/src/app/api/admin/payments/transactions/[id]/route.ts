@@ -7,3 +7,7 @@ type Ctx = { params: { id: string } };
 export async function GET(request: Request, { params }: Ctx) {
   return adminProxy(request, `/payments/transactions/${params.id}`, { method: "GET" });
 }
+
+export async function DELETE(request: Request, { params }: Ctx) {
+  return adminProxy(request, `/payments/transactions/${params.id}`, { method: "DELETE" });
+}

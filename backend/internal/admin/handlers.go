@@ -105,6 +105,10 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
 		})
 		pr.Group(func(prr chi.Router) {
+			prr.Use(RequirePermission("payments.delete"))
+			prr.Delete("/payments/transactions/{id}", h.deletePayment)
+		})
+		pr.Group(func(prr chi.Router) {
 			prr.Use(RequirePermission("payments.manual.manage"))
 			prr.Post("/payments/manual/cards", h.createManualPayCard)
 			prr.Patch("/payments/manual/cards/{id}", h.updateManualPayCard)
@@ -939,6 +943,41 @@ func (h *Handler) getPayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) deletePayment(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	before, err := h.Svc.Store.GetPayment(r.Context(), id)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "payment not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "payment query failed")
+		return
+	}
+	if err := h.Svc.Store.HardDeletePayment(r.Context(), id); err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "payment not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "delete failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "payments.transactions.delete", "payment", id.String(),
+		map[string]any{
+			"provider":    before.Provider,
+			"status":      before.Status,
+			"amount_uzs":  before.AmountUzs,
+			"profile_id":  before.ProfileID.String(),
+			"tariff_code": before.TariffCode,
+		},
+		nil, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (h *Handler) listPaymentProviders(w http.ResponseWriter, r *http.Request) {

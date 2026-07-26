@@ -4,11 +4,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
+import { useAdminMeOptional } from "@/components/admin/admin-me-context";
+import { hasPermission } from "@/lib/admin-permissions";
 
 type PaymentRow = {
   id: string;
@@ -30,12 +32,14 @@ type ListPayload = {
 };
 
 const STATUSES = ["", "created", "pending", "paid", "failed", "canceled", "refunded"];
-const PROVIDERS = ["", "payme", "click"];
+const PROVIDERS = ["", "payme", "click", "manual"];
 
 export default function AdminPaymentsTransactionsPage() {
   const t = useTranslations("AdminPayments");
   const tNav = useTranslations("AdminNav");
   const locale = useLocale();
+  const me = useAdminMeOptional();
+  const canDelete = hasPermission(me?.permissions, "payments.delete");
   const searchParams = useSearchParams();
   const [status, setStatus] = useState(() => searchParams.get("status") ?? "");
   const [provider, setProvider] = useState(() => searchParams.get("provider") ?? "");
@@ -45,6 +49,7 @@ export default function AdminPaymentsTransactionsPage() {
   const [data, setData] = useState<ListPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (pageNum: number) => {
@@ -80,6 +85,34 @@ export default function AdminPaymentsTransactionsPage() {
   useEffect(() => {
     void load(page);
   }, [page, load]);
+
+  async function removePayment(row: PaymentRow) {
+    if (!window.confirm(t("confirmDelete", { phone: row.phone_masked, status: row.status }))) {
+      return;
+    }
+    setDeletingId(row.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/payments/transactions/${row.id}`, { method: "DELETE" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const code = json?.error?.code as string | undefined;
+        setError(
+          code === "forbidden"
+            ? t("errorForbiddenDelete")
+            : code === "not_found"
+              ? t("errorNotFound")
+              : t("errorDelete"),
+        );
+        return;
+      }
+      await load(page);
+    } catch {
+      setError(t("errorDelete"));
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
@@ -172,6 +205,7 @@ export default function AdminPaymentsTransactionsPage() {
                     <th className="px-3 py-2 font-bold">{t("colAmount")}</th>
                     <th className="px-3 py-2 font-bold">{t("colTariff")}</th>
                     <th className="px-3 py-2 font-bold">{t("colCreated")}</th>
+                    {canDelete ? <th className="px-3 py-2 font-bold">{t("colActions")}</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -194,6 +228,21 @@ export default function AdminPaymentsTransactionsPage() {
                       <td className="px-3 py-2 text-xs text-muted-foreground">
                         {new Date(row.created_at).toLocaleString(locale)}
                       </td>
+                      {canDelete ? (
+                        <td className="px-3 py-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={deletingId === row.id || loading}
+                            onClick={() => void removePayment(row)}
+                            aria-label={t("delete")}
+                          >
+                            <Trash2 aria-hidden className="mr-1 h-3.5 w-3.5" />
+                            {deletingId === row.id ? t("deleting") : t("delete")}
+                          </Button>
+                        </td>
+                      ) : null}
                     </tr>
                   ))}
                 </tbody>
