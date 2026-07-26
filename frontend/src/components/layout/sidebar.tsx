@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
+import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
 import {
   LayoutDashboard,
   BookOpen,
@@ -49,9 +50,9 @@ export function Sidebar() {
 
   const primaryLinks: NavLink[] = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
+    { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: OFFICIAL_TICKET_COUNT }), icon: BookOpen },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
     { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
-    { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: 61 }), icon: BookOpen },
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },

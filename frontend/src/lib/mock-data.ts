@@ -1,3 +1,5 @@
+import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
+
 export interface MockAnswer {
   id: string;
   shortcutLabel: string;
@@ -80,7 +82,7 @@ export const mockCategoryMastery = [
 
 export const proofStats = [
   { value: "1235", label: "savol" },
-  { value: "61", label: "bilet" },
+  { value: String(OFFICIAL_TICKET_COUNT), label: "bilet" },
   { value: "13", label: "mavzu" },
   { value: "3", label: "til" },
 ];

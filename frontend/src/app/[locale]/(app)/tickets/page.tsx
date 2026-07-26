@@ -237,7 +237,7 @@ export default function TicketsPage() {
         </div>
       )}
 
-      {/* 61 Tickets Grid */}
+      {/* Tickets grid */}
       {loading ? (
         <div role="status" className="py-12 text-center text-sm text-muted-foreground animate-pulse">{t("loading")}</div>
       ) : filteredTickets.length === 0 ? (
