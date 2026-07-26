@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { AdminSkeleton } from "@/components/admin/admin-skeleton";
+import { AdminTooltip } from "@/components/admin/admin-tooltip";
+import { PermissionGate } from "@/components/admin/permission-gate";
 
 type Banner = {
   enabled: boolean;
@@ -23,6 +28,7 @@ type BroadcastResult = {
 
 export default function AdminSupportBroadcastsPage() {
   const t = useTranslations("AdminBroadcast");
+  const tNav = useTranslations("AdminNav");
   const [banner, setBanner] = useState<Banner | null>(null);
   const [message, setMessage] = useState("");
   const [href, setHref] = useState("");
@@ -33,8 +39,10 @@ export default function AdminSupportBroadcastsPage() {
   const [lastPush, setLastPush] = useState<BroadcastResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
     setError(null);
     try {
       const res = await fetch("/api/admin/support/banner", { cache: "no-store" });
@@ -52,6 +60,8 @@ export default function AdminSupportBroadcastsPage() {
     } catch {
       setError(t("errorLoad"));
       setBanner(null);
+    } finally {
+      setLoading(false);
     }
   }, [t]);
 
@@ -86,6 +96,10 @@ export default function AdminSupportBroadcastsPage() {
   }
 
   async function sendPush(dryRun: boolean) {
+    if (!dryRun) {
+      const ok = window.confirm(t("confirmPush"));
+      if (!ok) return;
+    }
     setBusy(true);
     setError(null);
     setLastPush(null);
@@ -120,96 +134,115 @@ export default function AdminSupportBroadcastsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-8">
-      <header>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{t("note")}</p>
-      </header>
+    <PermissionGate permission="support.broadcast">
+      <main className="mx-auto max-w-2xl space-y-5">
+        <AdminPageHeader
+          badge={tNav("groupSupport")}
+          title={t("title")}
+          description={`${t("subtitle")} ${t("note")}`}
+          actions={
+            <Button type="button" size="sm" variant="outline" disabled={loading || busy} onClick={() => void load()}>
+              <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              {t("refresh")}
+            </Button>
+          }
+        />
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <AdminErrorState message={error} retryLabel={t("refresh")} onRetry={() => void load()} />
+        ) : null}
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-        <div className="flex items-center justify-between gap-2">
+        {loading && !banner ? <AdminSkeleton rows={4} /> : null}
+
+        <section className="space-y-3 rounded-2xl border border-border/80 bg-card/70 p-4">
           <h2 className="text-sm font-bold">{t("bannerTitle")}</h2>
-          <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void load()}>
-            <RefreshCw aria-hidden className="mr-1.5 h-3.5 w-3.5" />
-            {t("refresh")}
-          </Button>
-        </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={enabled}
-            onChange={(e) => setEnabled(e.target.checked)}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
+            {t("bannerEnabled")}
+          </label>
+          <textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder={t("bannerMessage")}
+            rows={3}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
           />
-          {t("bannerEnabled")}
-        </label>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder={t("bannerMessage")}
-          rows={3}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-        />
-        <input
-          value={href}
-          onChange={(e) => setHref(e.target.value)}
-          placeholder={t("bannerHref")}
-          className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-        />
-        <Button type="button" size="sm" disabled={busy} onClick={() => void saveBanner()}>
-          {t("bannerSave")}
-        </Button>
-        {banner?.updated_at ? (
-          <p className="text-[11px] text-muted-foreground">
-            {banner.updated_at}
-            {banner.updated_by ? ` · ${banner.updated_by}` : ""}
-          </p>
-        ) : null}
-      </section>
+          <input
+            value={href}
+            onChange={(e) => setHref(e.target.value)}
+            placeholder={t("bannerHref")}
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+          />
+          <Button type="button" size="sm" disabled={busy} onClick={() => void saveBanner()}>
+            {t("bannerSave")}
+          </Button>
+          {banner?.updated_at ? (
+            <p className="text-[11px] text-muted-foreground">
+              {banner.updated_at}
+              {banner.updated_by ? ` · ${banner.updated_by}` : ""}
+            </p>
+          ) : null}
+        </section>
 
-      <section className="space-y-3 rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-bold">{t("pushTitle")}</h2>
-        <input
-          value={pushTitle}
-          onChange={(e) => setPushTitle(e.target.value)}
-          placeholder={t("pushTitleField")}
-          className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-        />
-        <textarea
-          value={pushBody}
-          onChange={(e) => setPushBody(e.target.value)}
-          placeholder={t("pushBody")}
-          rows={3}
-          className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
-        />
-        <input
-          value={pushURL}
-          onChange={(e) => setPushURL(e.target.value)}
-          placeholder={t("pushUrl")}
-          className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-        />
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" disabled={busy || !pushBody.trim()} onClick={() => void sendPush(true)}>
-            {t("pushDryRun")}
-          </Button>
-          <Button type="button" size="sm" disabled={busy || !pushBody.trim()} onClick={() => void sendPush(false)}>
-            {t("pushSend")}
-          </Button>
-        </div>
-        {lastPush ? (
-          <p className="text-xs text-muted-foreground">
-            {t("pushResult", {
-              recipients: lastPush.recipients,
-              notified: lastPush.notified,
-              deliveries: lastPush.deliveries,
-              errors: lastPush.errors,
-              mode: lastPush.dry_run ? t("modeDry") : t("modeLive"),
-            })}
-          </p>
-        ) : null}
-      </section>
-    </main>
+        <section className="space-y-3 rounded-2xl border border-amber-500/30 bg-card/70 p-4">
+          <div className="flex items-center gap-1">
+            <h2 className="text-sm font-bold">{t("pushTitle")}</h2>
+            <AdminTooltip
+              content={{
+                what: t("pushTipWhat"),
+                why: t("pushTipWhy"),
+                risks: t("pushTipRisks"),
+                recommend: t("pushTipRecommend"),
+              }}
+              label={t("pushTipLabel")}
+            />
+          </div>
+          <input
+            value={pushTitle}
+            onChange={(e) => setPushTitle(e.target.value)}
+            placeholder={t("pushTitleField")}
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+          />
+          <textarea
+            value={pushBody}
+            onChange={(e) => setPushBody(e.target.value)}
+            placeholder={t("pushBody")}
+            rows={3}
+            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+          />
+          <input
+            value={pushURL}
+            onChange={(e) => setPushURL(e.target.value)}
+            placeholder={t("pushUrl")}
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || !pushBody.trim()}
+              onClick={() => void sendPush(true)}
+            >
+              {t("pushDryRun")}
+            </Button>
+            <Button type="button" size="sm" disabled={busy || !pushBody.trim()} onClick={() => void sendPush(false)}>
+              {t("pushSend")}
+            </Button>
+          </div>
+          {lastPush ? (
+            <p className="text-xs text-muted-foreground">
+              {t("pushResult", {
+                recipients: lastPush.recipients,
+                notified: lastPush.notified,
+                deliveries: lastPush.deliveries,
+                errors: lastPush.errors,
+                mode: lastPush.dry_run ? t("modeDry") : t("modeLive"),
+              })}
+            </p>
+          ) : null}
+        </section>
+      </main>
+    </PermissionGate>
   );
 }

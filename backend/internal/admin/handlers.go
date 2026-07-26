@@ -152,6 +152,11 @@ func (h *Handler) Routes(r chi.Router) {
 		})
 
 		pr.Group(func(sr chi.Router) {
+			sr.Use(RequirePermission("security.rbac"))
+			sr.Get("/security/rbac", h.getSecurityRBAC)
+		})
+
+		pr.Group(func(sr chi.Router) {
 			sr.Use(RequirePermission("support.inbox"))
 			sr.Get("/support/tickets", h.listSupportTickets)
 			sr.Get("/support/tickets/{id}", h.getSupportTicket)
@@ -1052,6 +1057,15 @@ func (h *Handler) listAdminAudit(w http.ResponseWriter, r *http.Request) {
 	out, err := h.Svc.Store.ListAdminAudit(r.Context(), action, entityType, q, page, limit)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "audit query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getSecurityRBAC(w http.ResponseWriter, r *http.Request) {
+	out, err := h.Svc.Store.GetRBACMatrix(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "rbac query failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
