@@ -396,9 +396,14 @@ export function useSessionEngine(_initialSessionId?: string) {
 
   const loadSession = useCallback(
     async (sessionId: string, locale?: string): Promise<SessionState | null> => {
-      setLoading(true);
+      // Soft reload when the same session is already on screen (locale switch):
+      // keep the painted UI instead of wiping to null → loading spinner → white flash.
+      const soft = sessionRef.current?.id === sessionId;
+      if (!soft) {
+        setLoading(true);
+        commitSession(null);
+      }
       setError(null);
-      commitSession(null);
       const resolvedLocale = locale ?? defaultLocale;
       localeRef.current = resolvedLocale;
 
@@ -408,9 +413,10 @@ export function useSessionEngine(_initialSessionId?: string) {
         return state;
       } catch (err: unknown) {
         setError(toSessionError(err));
+        if (!soft) commitSession(null);
         return null;
       } finally {
-        setLoading(false);
+        if (!soft) setLoading(false);
       }
     },
     [commitSession]

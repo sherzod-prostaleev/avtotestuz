@@ -78,6 +78,14 @@
     @apply selection:bg-accent/25 selection:text-foreground;
   }
 
+  /* Match defaultTheme=dark so first paint / locale remount never flashes light :root. */
+  html {
+    background-color: hsl(220 22% 7%);
+  }
+  html:not(.dark) {
+    background-color: hsl(220 16% 96%);
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,
@@ -287,18 +295,20 @@
   animation: heroLane 18s linear infinite;
 }
 
-@keyframes answerWrongShake {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  20% { transform: translate3d(-4px, 0, 0); }
-  40% { transform: translate3d(4px, 0, 0); }
-  60% { transform: translate3d(-3px, 0, 0); }
-  80% { transform: translate3d(2px, 0, 0); }
+/*
+  Wrong-answer feedback must NOT use transform/translate shake.
+  Shaking a full-width answer remounts/composites the stage (image + siblings)
+  and reads as a full-window flicker ("pir-pir"). Color/ring pulse only.
+*/
+@keyframes answerWrongPulse {
+  0% { box-shadow: 0 0 0 0 hsl(var(--danger) / 0.45); }
+  70% { box-shadow: 0 0 0 10px hsl(var(--danger) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--danger) / 0); }
 }
-.answer-wrong-shake {
-  /* Isolate paint so shake does not flash sibling media / page chrome. */
-  animation: answerWrongShake 0.3s ease-out 1;
-  backface-visibility: hidden;
-  transform: translateZ(0);
+.answer-wrong-pulse {
+  animation: answerWrongPulse 0.45s ease-out 1;
+  contain: paint;
+  isolation: isolate;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -310,7 +320,7 @@
   .animate-float,
   .animate-grow-bar,
   .asphalt-hero-live,
-  .answer-wrong-shake {
+  .answer-wrong-pulse {
     animation: none !important;
   }
 }

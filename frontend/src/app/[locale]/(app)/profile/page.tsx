@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -92,7 +92,10 @@ export default function ProfilePage() {
     try {
       await apiPatch<UserProfileData>("me", { locale_pref: newLocale });
     } finally {
-      router.push(newPath);
+      // Soft client nav — FOUC script keeps dark class; replace avoids history churn.
+      startTransition(() => {
+        router.replace(newPath);
+      });
     }
   };
 

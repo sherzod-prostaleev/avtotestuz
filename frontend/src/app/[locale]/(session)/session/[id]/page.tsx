@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -611,7 +611,12 @@ export default function TestSessionPage() {
           <select
             id="session-locale"
             value={locale}
-            onChange={(event) => router.push(`/${event.target.value}/session/${sessionId}`)}
+            onChange={(event) => {
+              const next = event.target.value;
+              startTransition(() => {
+                router.replace(`/${next}/session/${sessionId}`);
+              });
+            }}
             className="h-11 min-w-[4.5rem] rounded-xl border border-border bg-background px-2 text-xs font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {locales.map((item) => (

@@ -39,7 +39,7 @@ export function AnswerOption({
     neutral: "border-border bg-card text-foreground hover:border-accent",
     selected: "border-accent bg-accent/15 text-foreground font-bold ring-2 ring-accent/35",
     correct: "border-success bg-success/15 text-foreground font-bold ring-2 ring-success/35",
-    wrong: "answer-wrong-shake border-danger bg-danger/15 text-foreground font-bold ring-2 ring-danger/35",
+    wrong: "answer-wrong-pulse border-danger bg-danger/15 text-foreground font-bold ring-2 ring-danger/35",
   };
 
   const keyBadgeStyles: Record<string, string> = {
@@ -49,8 +49,8 @@ export function AnswerOption({
     wrong: "border-danger/40 bg-danger text-danger-foreground font-bold",
   };
 
-  // Avoid opacity/scale blink while grading: disabled dim + active:scale fight
-  // answer-wrong-shake's transform and read as a full-surface flicker.
+  // Avoid opacity/scale blink while grading: disabled dim + active:scale fought
+  // the old shake transform and read as a full-surface flicker.
   const pressable = normalizedState === "neutral" && !disabled;
 
   return (

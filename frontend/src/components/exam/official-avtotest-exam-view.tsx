@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { X, ZoomIn } from "lucide-react";
@@ -79,10 +79,14 @@ export function OfficialAvtotestExamView({
   }, [zoomImageUrl]);
 
   const switchLocale = (newLoc: string) => {
+    if (newLoc === locale) return;
     const currentPath = window.location.pathname;
     const parts = currentPath.split("/");
     parts[1] = newLoc;
-    router.push(parts.join("/"));
+    // Soft replace — keep session painted; theme FOUC script prevents light flash.
+    startTransition(() => {
+      router.replace(parts.join("/"));
+    });
   };
 
   /* ── Style Maps (ultra-crisp high contrast) ──────── */

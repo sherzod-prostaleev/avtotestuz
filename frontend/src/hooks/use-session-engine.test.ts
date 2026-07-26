@@ -268,6 +268,49 @@ describe("useSessionEngine", () => {
     expect(result.current.session?.remaining_sec).toBe(0);
   });
 
+  it("soft-reloads the same session on locale switch without wiping to loading null", async () => {
+    const get = vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "sessions/sess-soft") {
+        return {
+          id: "sess-soft",
+          mode: "practice",
+          total: 1,
+          status: "in_progress",
+          stopped_reason: "",
+          time_limit_sec: null,
+          started_at: STARTED_AT,
+          answers: [{ question_id: "q-1", position: 1, answered: false }],
+        } as never;
+      }
+      if (path === scopedQuestionPath("sess-soft", "q-1", "uz-Latn")) {
+        return questionDetail("q-1", { text: "Lotin savol" }) as never;
+      }
+      if (path === scopedQuestionPath("sess-soft", "q-1", "ru")) {
+        return questionDetail("q-1", { text: "Русский вопрос" }) as never;
+      }
+      throw new Error(`unexpected apiGet path: ${path}`);
+    });
+    const { result } = renderHook(() => useSessionEngine());
+
+    await act(async () => {
+      await result.current.loadSession("sess-soft", "uz-Latn");
+    });
+    expect(result.current.session?.questions[0]?.question).toBe("Lotin savol");
+    expect(result.current.loading).toBe(false);
+
+    let midLoadHadSession = false;
+    await act(async () => {
+      const pending = result.current.loadSession("sess-soft", "ru");
+      midLoadHadSession = result.current.session?.id === "sess-soft";
+      await pending;
+    });
+
+    expect(midLoadHadSession).toBe(true);
+    expect(result.current.loading).toBe(false);
+    expect(result.current.session?.questions[0]?.question).toBe("Русский вопрос");
+    expect(get.mock.calls.filter(([path]) => path === "sessions/sess-soft")).toHaveLength(2);
+  });
+
   it("returns the exact submit DTO and copies backend grading plus real explanation into state", async () => {
     const backendResponse = {
       recorded: true,

@@ -61,6 +61,13 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} suppressHydrationWarning className={`${baloo.variable} ${manrope.variable}`}>
       <head>
+        {/* Paint dark class before hydration — defaultTheme is dark; without this,
+            locale navigations remount <html> and flash :root (light) background. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}else{document.documentElement.classList.remove("dark");document.documentElement.style.colorScheme="light";}}catch(e){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}})();`,
+          }}
+        />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
         <link rel="shortcut icon" href="/logo.svg" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />

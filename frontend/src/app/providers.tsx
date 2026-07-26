@@ -6,7 +6,13 @@ import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark"
+      enableSystem={false}
+      storageKey="theme"
+      disableTransitionOnChange
+    >
       <InitSentry />
       <RegisterServiceWorker />
       {children}
