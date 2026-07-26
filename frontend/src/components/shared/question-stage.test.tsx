@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/uz-Latn.json";
 import { QuestionStage } from "./question-stage";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
+import { QUESTION_IMAGE_PLACEHOLDER } from "@/lib/question-image";
 
 function buildQuestion(overrides: Partial<SessionQuestionItem> = {}): SessionQuestionItem {
   return {
@@ -42,14 +43,20 @@ describe("QuestionStage", () => {
     renderStage(buildQuestion({ image_url: "https://media.example.test/q.webp" }));
 
     expect(screen.getByTestId("question-stage")).toHaveAttribute("data-layout", "two-column");
-    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toHaveAttribute(
+      "src",
+      "https://media.example.test/q.webp"
+    );
   });
 
-  it("falls back to a single centered column when there is no image", () => {
+  it("shows the Driver Go cars placeholder when there is no image", () => {
     renderStage(buildQuestion({ image_url: null }));
 
-    expect(screen.getByTestId("question-stage")).toHaveAttribute("data-layout", "single-column");
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByTestId("question-stage")).toHaveAttribute("data-layout", "two-column");
+    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toHaveAttribute(
+      "src",
+      QUESTION_IMAGE_PLACEHOLDER
+    );
   });
 
   it("switches to compact density once a question carries five answers", () => {

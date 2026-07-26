@@ -7,6 +7,7 @@ import { LoaderCircle, X, ZoomIn } from "lucide-react";
 import type { SessionQuestionItem, SessionState } from "@/hooks/use-session-engine";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
+import { resolveQuestionImageUrl } from "@/lib/question-image";
 
 interface OfficialAvtotestExamViewProps {
   session: SessionState;
@@ -68,6 +69,9 @@ export function OfficialAvtotestExamView({
 
   const questions = session.questions ?? [];
   const currentQuestion = questions[currentIndex];
+  const questionImageUrl = currentQuestion
+    ? resolveQuestionImageUrl(currentQuestion.image_url)
+    : null;
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
   const allAnswered =
@@ -248,18 +252,17 @@ export function OfficialAvtotestExamView({
           })}
         </div>
 
-        {/* RIGHT: Question image — on mobile shown first; collapse when missing */}
-        {currentQuestion?.image_url ? (
+        {/* RIGHT: Question image — real media when present, Driver Go cars placeholder otherwise */}
+        {currentQuestion && questionImageUrl ? (
           <div className="flex flex-1 items-center justify-center min-h-0 max-lg:order-1 max-lg:h-[22dvh] max-lg:max-h-[22dvh] max-lg:min-h-0 max-lg:shrink-0 max-lg:flex-none">
             <div
               className="relative flex h-full w-full items-center justify-center border-2 border-slate-300 bg-black overflow-hidden cursor-pointer shadow-xl rounded-sm"
-              onClick={() => {
-                if (currentQuestion?.image_url) setZoomImageUrl(currentQuestion.image_url);
-              }}
+              onClick={() => setZoomImageUrl(questionImageUrl)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={currentQuestion.image_url}
+                key={currentQuestion.id}
+                src={questionImageUrl}
                 alt={currentQuestion.question}
                 className="max-h-full max-w-full object-contain"
               />
@@ -268,13 +271,7 @@ export function OfficialAvtotestExamView({
               </div>
             </div>
           </div>
-        ) : (
-          <div className="flex flex-1 items-center justify-center min-h-0 max-lg:hidden">
-            <div className="relative flex h-full w-full items-center justify-center border-2 border-slate-300 bg-black overflow-hidden rounded-sm">
-              <div className="text-slate-400 text-base italic font-medium">Rasm mavjud emas</div>
-            </div>
-          </div>
-        )}
+        ) : null}
       </main>
 
       {/* ═══ BOTTOM BAR ═══ */}

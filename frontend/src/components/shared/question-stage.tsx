@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { BookOpen, ZoomIn } from "lucide-react";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
+import { resolveQuestionImageUrl } from "@/lib/question-image";
 
 /**
  * Beyond this much combined question + answer text the default density stops fitting a short
@@ -49,7 +50,7 @@ export function QuestionStage({
   answerStateFor,
 }: QuestionStageProps) {
   const t = useTranslations("Session");
-  const hasImage = Boolean(question.image_url);
+  const imageUrl = resolveQuestionImageUrl(question.image_url);
   const compact = isCompact(question);
   const hasExplanation = Boolean(question.explanation && question.explanation.blocks.length > 0);
   const progressPct = totalQuestions > 0 ? Math.round((questionNumber / totalQuestions) * 100) : 0;
@@ -78,13 +79,7 @@ export function QuestionStage({
             style={{ width: `${progressPct}%` }}
           />
         </div>
-        <h1
-          className={`font-display font-bold leading-snug tracking-tight text-foreground ${
-            compact || hasImage
-              ? "text-sm sm:text-xl"
-              : "text-base sm:text-3xl"
-          }`}
-        >
+        <h1 className="font-display text-sm font-bold leading-snug tracking-tight text-foreground sm:text-xl">
           {question.question}
         </h1>
       </div>
@@ -119,19 +114,6 @@ export function QuestionStage({
     </div>
   );
 
-  if (!hasImage) {
-    return (
-      <div
-        data-testid="question-stage"
-        data-layout="single-column"
-        data-density={compact ? "compact" : "default"}
-        className="mx-auto flex h-full min-h-0 w-full max-w-3xl flex-col"
-      >
-        {questionColumn}
-      </div>
-    );
-  }
-
   return (
     <div
       data-testid="question-stage"
@@ -149,7 +131,7 @@ export function QuestionStage({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           key={question.id}
-          src={question.image_url ?? ""}
+          src={imageUrl}
           alt={t("questionImageAlt", { number: questionNumber })}
           decoding="async"
           className="h-full max-h-[22dvh] w-full object-contain lg:max-h-full"

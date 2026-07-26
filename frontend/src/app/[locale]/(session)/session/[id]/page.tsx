@@ -36,6 +36,7 @@ import { GrandMockCertificateDialog } from "@/components/mock/grand-mock-certifi
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { meetsExamPassThreshold } from "@/lib/celebration-confetti";
+import { resolveQuestionImageUrl } from "@/lib/question-image";
 
 /** Modes that share the strict timed/anti-cheat exam pipeline — timer,
  * answer redaction until finish, F-key exam UI. Currently "exam",
@@ -893,7 +894,7 @@ export default function TestSessionPage() {
               disabled={currentAnswered || submitting}
               answerStateFor={(answerId) => answerState(currentQuestion, answerId, pendingAnswer)}
               onSelectAnswer={(answerId) => void handleSelectAnswer(currentQuestion.id, answerId)}
-              onZoomImage={() => setZoomImageUrl(currentQuestion.image_url ?? null)}
+              onZoomImage={() => setZoomImageUrl(resolveQuestionImageUrl(currentQuestion.image_url))}
               onOpenExplanation={() => setExplanationOpen(true)}
             />
           </div>
