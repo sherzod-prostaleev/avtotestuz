@@ -72,6 +72,7 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [
         { href: `${base}/payments/transactions`, labelKey: "transactions" },
         { href: `${base}/payments/referral-payouts`, labelKey: "referralPayouts" },
+        { href: `${base}/payments/manual`, labelKey: "manualPay" },
         { href: `${base}/payments/refunds`, labelKey: "refunds" },
         { href: `${base}/payments/webhooks`, labelKey: "webhooks", stub: true },
         { href: `${base}/payments/providers`, labelKey: "providers" },

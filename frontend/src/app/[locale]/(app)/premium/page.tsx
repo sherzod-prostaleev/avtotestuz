@@ -32,6 +32,16 @@ interface CheckoutResult {
   payment_id: string;
   checkout_url: string;
   free?: boolean;
+  manual?: {
+    payment_id: string;
+    amount_uzs: number;
+    pan_full: string;
+    pan_last4: string;
+    holder_name: string;
+    network: string;
+    hold_until: string;
+    manual_state: string;
+  };
 }
 
 interface ProviderStatusDTO {
@@ -55,10 +65,11 @@ export default function PremiumPage() {
   const [buyingCode, setBuyingCode] = useState<string | null>(null);
   const [buyError, setBuyError] = useState<string | null>(null);
 
-  const [provider, setProvider] = useState<PaymentProvider>("payme");
+  const [provider, setProvider] = useState<PaymentProvider>("manual");
   const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
   const [referralMap, setReferralMap] = useState<Record<string, string | null>>({});
   const [providerEnabled, setProviderEnabled] = useState<Partial<Record<PaymentProvider, boolean>>>({
+    manual: true,
     payme: true,
     click: true,
   });
@@ -71,21 +82,27 @@ export default function PremiumPage() {
         apiGet<TariffDTO[]>(`tariffs?locale=${encodeURIComponent(locale)}`),
         apiGet<EntitlementDTO>("me/entitlement"),
         apiGet<ProviderStatusDTO[]>("billing/providers").catch(() => [
+          { provider: "manual", enabled: true },
           { provider: "payme", enabled: true },
           { provider: "click", enabled: true },
         ]),
       ]);
       setTariffs(tariffData);
       setEntitlement(entitlementData);
-      const enabled: Partial<Record<PaymentProvider, boolean>> = { payme: true, click: true };
+      const enabled: Partial<Record<PaymentProvider, boolean>> = {
+        manual: true,
+        payme: true,
+        click: true,
+      };
       for (const row of providers) {
-        if (row.provider === "payme" || row.provider === "click") {
+        if (row.provider === "payme" || row.provider === "click" || row.provider === "manual") {
           enabled[row.provider] = row.enabled;
         }
       }
       setProviderEnabled(enabled);
       setProvider((prev) => {
         if (enabled[prev] !== false) return prev;
+        if (enabled.manual !== false) return "manual";
         if (enabled.payme !== false) return "payme";
         if (enabled.click !== false) return "click";
         return prev;
@@ -102,7 +119,9 @@ export default function PremiumPage() {
   }, [load]);
 
   const paymentsOffline =
-    providerEnabled.payme === false && providerEnabled.click === false;
+    providerEnabled.payme === false &&
+    providerEnabled.click === false &&
+    providerEnabled.manual === false;
 
   const handleBuy = async (code: string) => {
     setBuyError(null);
@@ -125,12 +144,19 @@ export default function PremiumPage() {
       );
       if (result.free) {
         router.push(`/${locale}/checkout/success?free=true`);
+      } else if (result.manual?.payment_id) {
+        router.push(`/${locale}/checkout/manual?payment_id=${encodeURIComponent(result.manual.payment_id)}`);
       } else if (result.checkout_url) {
         window.location.href = result.checkout_url;
+      } else {
+        setBuyError(t("buyError"));
+        setBuyingCode(null);
       }
     } catch (err) {
       if (err instanceof ApiError && err.code === "provider_unavailable") {
         setBuyError(t("providerUnavailable"));
+      } else if (err instanceof ApiError && err.code === "manual_busy") {
+        setBuyError(t("manualBusy"));
       } else {
         setBuyError(t("buyError"));
       }

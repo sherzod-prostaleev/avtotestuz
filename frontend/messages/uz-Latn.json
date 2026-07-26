@@ -915,7 +915,7 @@
     "buyError": "Xatolik yuz berdi, qayta urinib ko'ring.",
     "providerUnavailable": "Bu to'lov usuli hozircha vaqtincha ishlamayapti. Boshqa usulni tanlang yoki birozdan keyin qayta urinib ko'ring.",
     "paymentsAllOfflineTitle": "To'lov tizimi vaqtincha ishlamayapti",
-    "paymentsAllOfflineBody": "Payme va Click orqali yangi to'lovlar vaqtincha to'xtatilgan. Promo-kod bilan bepul faollashtirish ishlashi mumkin. Noqulaylik uchun uzr.",
+    "paymentsAllOfflineBody": "Barcha to'lov usullari vaqtincha o'chirilgan. Promo-kod bilan bepul faollashtirish ishlashi mumkin.",
     "providerTemporarilyOff": "Vaqtincha o'chiq",
     "vipActiveBanner": "VIP faol — muddati: {date}",
     "loadError": "Tariflarni yuklab bo'lmadi.",
@@ -949,7 +949,9 @@
     "checkoutFailureSubtitle": "To me to'lov bekor qilindi yoki xatolik yuz berdi. Qayta urinib ko'rishingiz mumkin.",
     "checkoutTryAgain": "Qayta urinish",
     "checkoutPendingTitle": "To me to'lov kutilmoqda...",
-    "checkoutPendingSubtitle": "To'lov holati tekshirilmoqda. Iltimos biroz kuting."
+    "checkoutPendingSubtitle": "To'lov holati tekshirilmoqda. Iltimos biroz kuting.",
+    "manualName": "Humo karta",
+    "manualBusy": "Hozir barcha qabul kartalar band. Bir ozdan keyin qayta urinib ko'ring."
   },
   "OpsUsers": {
     "back": "Boshqaruvga qaytish",
@@ -1255,7 +1257,8 @@
     "auditLog": "Audit jurnal",
     "inbox": "Kiruvchi xabarlar",
     "broadcasts": "Ommaviy xabarlar",
-    "totp": "TOTP / 2FA"
+    "totp": "TOTP / 2FA",
+    "manualPay": "Manual Humo"
   },
   "AdminOverview": {
     "controlBadge": "Boshqaruv markazi",
@@ -2075,5 +2078,52 @@
     "tipWhen": "Superadmin va to‘lov kalitlarini ko‘rishdan oldin.",
     "tipRisks": "Qurilmani yo‘qotsangiz kirish qiyinlashadi — zaxira kodlarni saqlang (keyingi fazada).",
     "tipRecommend": "Barcha superadminlarda yoqing."
+  },
+  "ManualPay": {
+    "title": "Kartaga o'tkazma",
+    "subtitle": "Faqat ko'rsatilgan summani Humo kartaga o'tkazing. Boshqa summa qabul qilinmaydi.",
+    "exactAmount": "Aniq summa",
+    "strictAmountNote": "Diqqat: faqat yuqoridagi summani o'tkazing. Kam yoki ko'p yuborsangiz to'lov tasdiqlanmaydi.",
+    "copyAmount": "Summa",
+    "holdActive": "Karta band: {time}",
+    "holdEnded": "Karta bo'shadi — zayavka tekshiruvda",
+    "claim": "Sotib oldim",
+    "claiming": "Yuborilmoqda...",
+    "claimed": "Tekshiruvda",
+    "claimError": "Tasdiqlashni yuborib bo'lmadi",
+    "statusPaid": "To'lov tasdiqlandi — VIP faollashtirilmoqda",
+    "statusReview": "Push kutilmoqda yoki admin tekshiruvi. Pul o'tkazgan bo'lsangiz, kutib turing.",
+    "loading": "Yuklanmoqda...",
+    "loadError": "To'lov ma'lumotini yuklab bo'lmadi",
+    "missingPayment": "To'lov topilmadi",
+    "refresh": "Yangilash"
+  },
+  "AdminManualPay": {
+    "title": "Manual Humo to'lov",
+    "subtitle": "Kartalar, zayavkalar, unmatched push va Telegram userbot",
+    "cardsTitle": "Qabul qiluvchi kartalar",
+    "queueTitle": "Ochiq zayavkalar",
+    "eventsTitle": "Mos kelmagan pushlar",
+    "tgTitle": "HUMOcardbot userbot",
+    "addCard": "Karta qo'shish",
+    "save": "Saqlash",
+    "delete": "O'chirish",
+    "confirm": "Tasdiqlash",
+    "reject": "Rad etish",
+    "ignore": "Ignore",
+    "testTg": "Ulanishni tekshirish",
+    "apiId": "api_id",
+    "apiHash": "api_hash",
+    "session": "session string",
+    "botUser": "Bot username",
+    "holder": "Ism familiya",
+    "pan": "Karta raqami",
+    "enabled": "Faol",
+    "emptyQueue": "Ochiq zayavka yo'q",
+    "emptyEvents": "Mos kelmagan push yo'q",
+    "configured": "Sozlangan",
+    "notConfigured": "Hali sozlanmagan",
+    "errorLoad": "Yuklash xatosi",
+    "refresh": "Yangilash"
   }
 }

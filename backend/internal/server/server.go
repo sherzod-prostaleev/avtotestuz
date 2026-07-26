@@ -92,7 +92,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Pool:            deps.Pool,
 			Redis:           deps.Redis,
 			Secret:          []byte(cfg.JWTSecret),
-			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret)},
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
 		}
@@ -108,13 +108,20 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			bh := &billing.Handler{
 				// PublicBaseURL only matters on this Service — it serves
 				// GET /me/referral, the one endpoint that builds a shareable link.
-				Svc:               billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL},
+				Svc: billing.Service{
+					Q:             deps.Queries,
+					Pool:          deps.Pool,
+					PublicBaseURL: cfg.PublicBaseURL,
+					Secret:        []byte(cfg.JWTSecret),
+				},
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
 				ClickServiceID:    cfg.ClickServiceID,
 				ClickMerchantID:   cfg.ClickMerchantID,
+				ManualIngestToken: cfg.ManualPayIngestToken,
 			}
 			bh.Routes(api)
+			bh.InternalRoutes(api)
 
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)

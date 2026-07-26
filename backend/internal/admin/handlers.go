@@ -95,10 +95,22 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Get("/payments/transactions/{id}", h.getPayment)
 			prr.Get("/payments/providers", h.listPaymentProviders)
 			prr.Get("/payments/recon", h.runPaymentRecon)
+			prr.Get("/payments/manual/cards", h.listManualPayCards)
+			prr.Get("/payments/manual/queue", h.listManualPayQueue)
+			prr.Get("/payments/manual/events", h.listUnmatchedManualEvents)
+			prr.Get("/payments/manual/telegram", h.getManualTgSettings)
 		})
 		pr.Group(func(prr chi.Router) {
 			prr.Use(RequirePermission("payments.keys.manage"))
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
+			prr.Post("/payments/manual/cards", h.createManualPayCard)
+			prr.Patch("/payments/manual/cards/{id}", h.updateManualPayCard)
+			prr.Delete("/payments/manual/cards/{id}", h.deleteManualPayCard)
+			prr.Post("/payments/manual/queue/{id}/confirm", h.confirmManualPay)
+			prr.Post("/payments/manual/queue/{id}/reject", h.rejectManualPay)
+			prr.Post("/payments/manual/events/{id}/ignore", h.ignoreManualEvent)
+			prr.Put("/payments/manual/telegram", h.putManualTgSettings)
+			prr.Post("/payments/manual/telegram/test", h.testManualTgSettings)
 		})
 		pr.Group(func(rr chi.Router) {
 			rr.Use(RequirePermission("referral.read"))
@@ -983,7 +995,7 @@ func (h *Handler) patchPaymentProvider(w http.ResponseWriter, r *http.Request) {
 	out, err := h.Billing.SetProviderEnabled(r.Context(), provider, body.Enabled, updatedBy)
 	if err != nil {
 		if strings.Contains(err.Error(), "unknown provider") {
-			httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme or click")
+			httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme, click, or manual")
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update provider")

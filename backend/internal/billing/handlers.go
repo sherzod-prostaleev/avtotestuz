@@ -1,11 +1,13 @@
 package billing
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"avtotest.uz/backend/internal/auth"
@@ -23,6 +25,8 @@ type Handler struct {
 	PaymeCheckoutHost string
 	ClickServiceID    string
 	ClickMerchantID   string
+	// ManualIngestToken authenticates humo-watcher → POST /internal/manual-pay/ingest.
+	ManualIngestToken string
 }
 
 // Routes mounts the public, unauthenticated billing endpoints.
@@ -46,12 +50,20 @@ func (h *Handler) listProviders(w http.ResponseWriter, r *http.Request) {
 // bh.AuthedRoutes(api.With(auth.Required(...))).
 func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Post("/me/checkout", h.checkout)
+	r.Get("/me/payments/{id}/manual", h.getManualPayment)
+	r.Post("/me/payments/{id}/manual/claim", h.claimManualPayment)
 	r.Post("/billing/promo/validate", h.validatePromo)
 	r.Get("/me/referral", h.getReferralStats)
 	r.Get("/me/referral/activity", h.getReferralActivity)
 	r.Get("/me/referral/ledger", h.getReferralLedger)
 	r.Post("/me/referral/payout", h.requestReferralPayout)
 	r.Post("/referral/apply", h.applyReferral)
+}
+
+// InternalRoutes mounts machine-to-machine endpoints (humo-watcher).
+func (h *Handler) InternalRoutes(r chi.Router) {
+	r.Post("/internal/manual-pay/ingest", h.ingestManualPay)
+	r.Get("/internal/manual-pay/tg-credentials", h.getManualTgCredentials)
 }
 
 func (h *Handler) listTariffs(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +169,39 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	if provider == "" {
 		provider = "payme"
 	}
-	if provider != "payme" && provider != "click" {
-		httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme or click")
+	if provider != "payme" && provider != "click" && provider != "manual" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme, click, or manual")
 		return
 	}
+
+	if provider == "manual" {
+		info, err := h.Svc.StartManualCheckout(r.Context(), claims.ProfileID, body.TariffCode, body.PromoCode)
+		if err != nil {
+			if errors.Is(err, ErrProviderDisabled) {
+				httpx.Error(w, http.StatusServiceUnavailable, "provider_unavailable",
+					"this payment method is temporarily unavailable")
+				return
+			}
+			if errors.Is(err, ErrManualNoCardAvailable) {
+				httpx.Error(w, http.StatusServiceUnavailable, "manual_busy",
+					"all receiving cards are busy; try again shortly")
+				return
+			}
+			if writeReferralError(w, err) {
+				return
+			}
+			if !writePromoOrTariffError(w, err) {
+				httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")
+			}
+			return
+		}
+		httpx.Data(w, http.StatusOK, CheckoutResult{
+			PaymentID: info.PaymentID,
+			Manual:    &info,
+		})
+		return
+	}
+
 	cfg := CheckoutConfig{
 		PaymeMerchantID:   h.PaymeMerchantID,
 		PaymeCheckoutHost: h.PaymeCheckoutHost,
@@ -187,6 +228,105 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, result)
+}
+
+func (h *Handler) getManualPayment(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "payment id required")
+		return
+	}
+	out, err := h.Svc.GetManualPaymentStatus(r.Context(), claims.ProfileID, id)
+	if err != nil {
+		if errors.Is(err, ErrManualNotFound) || errors.Is(err, ErrManualWrongOwner) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "manual payment not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to load manual payment")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) claimManualPayment(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "payment id required")
+		return
+	}
+	out, err := h.Svc.ClaimManualPayment(r.Context(), claims.ProfileID, id)
+	if err != nil {
+		if errors.Is(err, ErrManualNotFound) || errors.Is(err, ErrManualWrongOwner) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "manual payment not found")
+			return
+		}
+		if errors.Is(err, ErrManualAlreadyDone) {
+			httpx.Error(w, http.StatusConflict, "already_finalized", "payment already finalized")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "claim failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+type ingestManualBody struct {
+	RawText       string `json:"raw_text"`
+	TelegramMsgID int64  `json:"telegram_msg_id"`
+}
+
+func (h *Handler) requireManualIngestAuth(w http.ResponseWriter, r *http.Request) bool {
+	if h.ManualIngestToken == "" {
+		httpx.Error(w, http.StatusServiceUnavailable, "unavailable", "manual ingest not configured")
+		return false
+	}
+	got := r.Header.Get("X-Internal-Token")
+	if subtle.ConstantTimeCompare([]byte(got), []byte(h.ManualIngestToken)) != 1 {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "invalid token")
+		return false
+	}
+	return true
+}
+
+func (h *Handler) ingestManualPay(w http.ResponseWriter, r *http.Request) {
+	if !h.requireManualIngestAuth(w, r) {
+		return
+	}
+	var body ingestManualBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.RawText == "" {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "raw_text required")
+		return
+	}
+	out, err := h.Svc.IngestHumoPush(r.Context(), body.RawText, body.TelegramMsgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "ingest failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) getManualTgCredentials(w http.ResponseWriter, r *http.Request) {
+	if !h.requireManualIngestAuth(w, r) {
+		return
+	}
+	out, err := h.Svc.GetManualTgCredentialsPlain(r.Context())
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "credentials unavailable")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, out)
 }
 
 type applyReferralBody struct {

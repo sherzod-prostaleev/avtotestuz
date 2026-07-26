@@ -35,6 +35,10 @@ type Service struct {
 	// frontend so a missing value degrades to a working local link rather than
 	// a link to nowhere.
 	PublicBaseURL string
+
+	// Secret derives AES-GCM key for manual Telegram userbot credentials.
+	// Typically JWT_SECRET. Optional for tx-bound Service values.
+	Secret []byte
 }
 
 // defaultPublicBaseURL matches config's PUBLIC_BASE_URL default so a Service

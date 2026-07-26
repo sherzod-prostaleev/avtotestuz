@@ -66,6 +66,7 @@ services:
       CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID:-}
       CLICK_SECRET_KEY: ${CLICK_SECRET_KEY:-}
       OPS_ADMIN_TOKEN: ${OPS_ADMIN_TOKEN:-}
+      MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
     depends_on:
       postgres:
@@ -74,6 +75,24 @@ services:
         condition: service_started
     restart: unless-stopped
     # Distroless API image has no shell/curl — use ./deploy/smoke.sh externally.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  humo-watcher:
+    build:
+      context: ../services/humo-watcher
+      dockerfile: Dockerfile
+    image: ${HUMO_WATCHER_IMAGE:-avtotest-humo-watcher:local}
+    environment:
+      API_BASE_URL: ${API_BASE_URL:-http://api:8080/api/v1}
+      MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
+      HUMO_CREDS_POLL_SEC: ${HUMO_CREDS_POLL_SEC:-30}
+    depends_on:
+      - api
+    restart: unless-stopped
     logging:
       driver: json-file
       options:

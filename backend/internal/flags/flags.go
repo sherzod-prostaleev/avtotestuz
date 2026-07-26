@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	KeyMaintenanceMode   = "maintenance_mode"
-	KeyArenaEnabled      = "arena_enabled"
-	KeyWebPushDigest     = "web_push_digest"
-	KeyCheckoutPayme     = "checkout_payme"
-	KeyCheckoutClick     = "checkout_click"
-	KeyTelegramQuiz      = "telegram_quiz"
-	KeyTelegramDMDigest  = "telegram_dm_digest"
+	KeyMaintenanceMode  = "maintenance_mode"
+	KeyArenaEnabled     = "arena_enabled"
+	KeyWebPushDigest    = "web_push_digest"
+	KeyCheckoutPayme    = "checkout_payme"
+	KeyCheckoutClick    = "checkout_click"
+	KeyCheckoutManual   = "checkout_manual"
+	KeyTelegramQuiz     = "telegram_quiz"
+	KeyTelegramDMDigest = "telegram_dm_digest"
 )
 
 // Bool returns a boolean feature flag. Missing rows / wrong type → defaultVal
@@ -52,6 +53,7 @@ type PublicSnapshot struct {
 	ArenaEnabled    bool `json:"arena_enabled"`
 	CheckoutPayme   bool `json:"checkout_payme"`
 	CheckoutClick   bool `json:"checkout_click"`
+	CheckoutManual  bool `json:"checkout_manual"`
 }
 
 // Public returns learner-visible boolean gates (defaults match seed).
@@ -61,6 +63,7 @@ func Public(ctx context.Context, pool *pgxpool.Pool) (PublicSnapshot, error) {
 		ArenaEnabled:    true,
 		CheckoutPayme:   true,
 		CheckoutClick:   true,
+		CheckoutManual:  true,
 	}
 	var err error
 	if out.MaintenanceMode, err = Bool(ctx, pool, KeyMaintenanceMode, false); err != nil {
@@ -73,6 +76,9 @@ func Public(ctx context.Context, pool *pgxpool.Pool) (PublicSnapshot, error) {
 		return out, err
 	}
 	if out.CheckoutClick, err = Bool(ctx, pool, KeyCheckoutClick, true); err != nil {
+		return out, err
+	}
+	if out.CheckoutManual, err = Bool(ctx, pool, KeyCheckoutManual, true); err != nil {
 		return out, err
 	}
 	return out, nil

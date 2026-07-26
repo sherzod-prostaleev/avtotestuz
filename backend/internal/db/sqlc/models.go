@@ -351,6 +351,61 @@ type LimitConfig struct {
 	UpdatedBy uuid.NullUUID      `json:"updated_by"`
 }
 
+type ManualPayAssignment struct {
+	ID          uuid.UUID          `json:"id"`
+	PaymentID   uuid.UUID          `json:"payment_id"`
+	CardID      uuid.UUID          `json:"card_id"`
+	AmountUzs   int64              `json:"amount_uzs"`
+	AssignedAt  pgtype.Timestamptz `json:"assigned_at"`
+	HoldUntil   pgtype.Timestamptz `json:"hold_until"`
+	ReleasedAt  pgtype.Timestamptz `json:"released_at"`
+	ManualState string             `json:"manual_state"`
+	ClaimedAt   pgtype.Timestamptz `json:"claimed_at"`
+	ConfirmedBy pgtype.Text        `json:"confirmed_by"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
+	AdminNote   pgtype.Text        `json:"admin_note"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type ManualPayCard struct {
+	ID         uuid.UUID          `json:"id"`
+	Network    string             `json:"network"`
+	PanFull    string             `json:"pan_full"`
+	PanLast4   string             `json:"pan_last4"`
+	HolderName string             `json:"holder_name"`
+	SortOrder  int32              `json:"sort_order"`
+	Enabled    bool               `json:"enabled"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ManualPayEvent struct {
+	ID               uuid.UUID          `json:"id"`
+	Fingerprint      string             `json:"fingerprint"`
+	TelegramMsgID    pgtype.Int8        `json:"telegram_msg_id"`
+	RawText          string             `json:"raw_text"`
+	AmountUzs        pgtype.Int8        `json:"amount_uzs"`
+	PanLast4         pgtype.Text        `json:"pan_last4"`
+	TransferAt       pgtype.Timestamptz `json:"transfer_at"`
+	BalanceUzs       pgtype.Int8        `json:"balance_uzs"`
+	Status           string             `json:"status"`
+	MatchedPaymentID uuid.NullUUID      `json:"matched_payment_id"`
+	ParseOk          bool               `json:"parse_ok"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
+type ManualTgSetting struct {
+	ID              int32              `json:"id"`
+	ApiIDEnc        pgtype.Text        `json:"api_id_enc"`
+	ApiHashEnc      pgtype.Text        `json:"api_hash_enc"`
+	SessionEnc      pgtype.Text        `json:"session_enc"`
+	HumoBotUsername string             `json:"humo_bot_username"`
+	LastTestOk      pgtype.Bool        `json:"last_test_ok"`
+	LastTestAt      pgtype.Timestamptz `json:"last_test_at"`
+	LastTestDetail  pgtype.Text        `json:"last_test_detail"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Notification struct {
 	ID        uuid.UUID          `json:"id"`
 	ProfileID uuid.UUID          `json:"profile_id"`

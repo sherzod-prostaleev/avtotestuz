@@ -20,27 +20,51 @@ type ProviderStatus struct {
 	Enabled  bool   `json:"enabled"`
 }
 
-// ListProviderStatuses returns Payme/Click enablement. Missing rows (pre-migration
-// race) are treated as enabled so a half-applied deploy does not hard-stop sales.
-// Feature flags checkout_payme / checkout_click AND with the kill-switch.
+var knownProviders = []string{"payme", "click", "manual"}
+
+func isKnownProvider(provider string) bool {
+	for _, p := range knownProviders {
+		if p == provider {
+			return true
+		}
+	}
+	return false
+}
+
+func flagKeyForProvider(provider string) (string, bool) {
+	switch provider {
+	case "payme":
+		return flags.KeyCheckoutPayme, true
+	case "click":
+		return flags.KeyCheckoutClick, true
+	case "manual":
+		return flags.KeyCheckoutManual, true
+	default:
+		return "", false
+	}
+}
+
+// ListProviderStatuses returns Payme/Click/Manual enablement. Missing rows are
+// treated as enabled. Feature flags AND with the kill-switch.
 func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, error) {
 	if s.Pool == nil {
 		return []ProviderStatus{
 			{Provider: "payme", Enabled: true},
 			{Provider: "click", Enabled: true},
+			{Provider: "manual", Enabled: true},
 		}, nil
 	}
 	rows, err := s.Pool.Query(ctx, `
 		SELECT provider, enabled
 		FROM payment_provider_status
-		WHERE provider IN ('payme', 'click')
-		ORDER BY provider`)
+		WHERE provider = ANY($1)
+		ORDER BY provider`, knownProviders)
 	if err != nil {
 		return nil, fmt.Errorf("list payment providers: %w", err)
 	}
 	defer rows.Close()
 
-	out := make([]ProviderStatus, 0, 2)
+	out := make([]ProviderStatus, 0, len(knownProviders))
 	seen := map[string]bool{}
 	for rows.Next() {
 		var p ProviderStatus
@@ -53,16 +77,21 @@ func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, er
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
-	for _, name := range []string{"payme", "click"} {
+	for _, name := range knownProviders {
 		if !seen[name] {
 			out = append(out, ProviderStatus{Provider: name, Enabled: true})
 		}
 	}
+
 	paymeFlag, err := flags.Bool(ctx, s.Pool, flags.KeyCheckoutPayme, true)
 	if err != nil {
 		return nil, err
 	}
 	clickFlag, err := flags.Bool(ctx, s.Pool, flags.KeyCheckoutClick, true)
+	if err != nil {
+		return nil, err
+	}
+	manualFlag, err := flags.Bool(ctx, s.Pool, flags.KeyCheckoutManual, true)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +101,8 @@ func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, er
 			out[i].Enabled = out[i].Enabled && paymeFlag
 		case "click":
 			out[i].Enabled = out[i].Enabled && clickFlag
+		case "manual":
+			out[i].Enabled = out[i].Enabled && manualFlag
 		}
 	}
 	return out, nil
@@ -80,15 +111,15 @@ func (s Service) ListProviderStatuses(ctx context.Context) ([]ProviderStatus, er
 // EnsureProviderEnabled fails with ErrProviderDisabled when the kill-switch is off
 // or the matching checkout_* feature flag is false.
 func (s Service) EnsureProviderEnabled(ctx context.Context, provider string) error {
-	if provider != "payme" && provider != "click" {
+	if !isKnownProvider(provider) {
 		return nil
 	}
 	if s.Pool == nil {
 		return nil
 	}
-	flagKey := flags.KeyCheckoutPayme
-	if provider == "click" {
-		flagKey = flags.KeyCheckoutClick
+	flagKey, ok := flagKeyForProvider(provider)
+	if !ok {
+		return nil
 	}
 	flagOn, err := flags.Bool(ctx, s.Pool, flagKey, true)
 	if err != nil {
@@ -101,8 +132,6 @@ func (s Service) EnsureProviderEnabled(ctx context.Context, provider string) err
 	err = s.Pool.QueryRow(ctx, `
 		SELECT enabled FROM payment_provider_status WHERE provider = $1`, provider).Scan(&enabled)
 	if err != nil {
-		// No row / table not ready → fail open for paid checkouts only after
-		// migration; tests that truncate never wipe this config table.
 		return nil
 	}
 	if !enabled {
@@ -111,10 +140,9 @@ func (s Service) EnsureProviderEnabled(ctx context.Context, provider string) err
 	return nil
 }
 
-// SetProviderEnabled flips a kill-switch. updatedBy is an ops actor label (token
-// fingerprint or "ops"), not a learner profile id.
+// SetProviderEnabled flips a kill-switch. updatedBy is an ops actor label.
 func (s Service) SetProviderEnabled(ctx context.Context, provider string, enabled bool, updatedBy string) (ProviderStatus, error) {
-	if provider != "payme" && provider != "click" {
+	if !isKnownProvider(provider) {
 		return ProviderStatus{}, fmt.Errorf("unknown provider %q", provider)
 	}
 	if s.Pool == nil {

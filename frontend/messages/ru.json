@@ -916,7 +916,7 @@
     "buyError": "Произошла ошибка, попробуйте снова.",
     "providerUnavailable": "Этот способ оплаты временно недоступен. Выберите другой или попробуйте позже.",
     "paymentsAllOfflineTitle": "Оплата временно недоступна",
-    "paymentsAllOfflineBody": "Новые платежи через Payme и Click временно отключены. Бесплатная активация по промокоду может работать. Извините за неудобства.",
+    "paymentsAllOfflineBody": "Все способы оплаты временно отключены. Бесплатная активация по промокоду может работать.",
     "providerTemporarilyOff": "Временно выкл.",
     "vipActiveBanner": "VIP активен — до: {date}",
     "loadError": "Не удалось загрузить тарифы.",
@@ -950,7 +950,9 @@
     "checkoutFailureSubtitle": "Оплата была отменена или произошла ошибка. Вы можете попробовать снова.",
     "checkoutTryAgain": "Попробовать снова",
     "checkoutPendingTitle": "Ожидание оплаты...",
-    "checkoutPendingSubtitle": "Проверяем статус оплаты. Пожалуйста, подождите."
+    "checkoutPendingSubtitle": "Проверяем статус оплаты. Пожалуйста, подождите.",
+    "manualName": "Карта Humo",
+    "manualBusy": "Все карты приёма заняты. Попробуйте чуть позже."
   },
   "OpsUsers": {
     "back": "Назад в кабинет",
@@ -1256,7 +1258,8 @@
     "auditLog": "Аудит-лог",
     "inbox": "Входящие",
     "broadcasts": "Рассылки",
-    "totp": "TOTP / 2FA"
+    "totp": "TOTP / 2FA",
+    "manualPay": "Manual Humo"
   },
   "AdminOverview": {
     "controlBadge": "Центр управления",
@@ -2076,5 +2079,52 @@
     "tipWhen": "Для superadmin и перед просмотром платёжных ключей.",
     "tipRisks": "При потере устройства вход усложнится.",
     "tipRecommend": "Включите у всех superadmin."
+  },
+  "ManualPay": {
+    "title": "Перевод на карту",
+    "subtitle": "Переведите только указанную сумму на карту Humo. Другая сумма не принимается.",
+    "exactAmount": "Точная сумма",
+    "strictAmountNote": "Внимание: переводите только сумму выше. Меньше или больше — платёж не подтвердится.",
+    "copyAmount": "Сумма",
+    "holdActive": "Карта занята: {time}",
+    "holdEnded": "Карта свободна — заявка на проверке",
+    "claim": "Я оплатил",
+    "claiming": "Отправка...",
+    "claimed": "На проверке",
+    "claimError": "Не удалось отправить подтверждение",
+    "statusPaid": "Оплата подтверждена — VIP активируется",
+    "statusReview": "Ожидаем push или проверку админа. Если уже перевели — подождите.",
+    "loading": "Загрузка...",
+    "loadError": "Не удалось загрузить платёж",
+    "missingPayment": "Платёж не найден",
+    "refresh": "Обновить"
+  },
+  "AdminManualPay": {
+    "title": "Manual Humo оплата",
+    "subtitle": "Карты, заявки, unmatched push и Telegram userbot",
+    "cardsTitle": "Карты для приёма",
+    "queueTitle": "Открытые заявки",
+    "eventsTitle": "Несопоставленные push",
+    "tgTitle": "HUMOcardbot userbot",
+    "addCard": "Добавить карту",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "confirm": "Подтвердить",
+    "reject": "Отклонить",
+    "ignore": "Игнор",
+    "testTg": "Проверить соединение",
+    "apiId": "api_id",
+    "apiHash": "api_hash",
+    "session": "session string",
+    "botUser": "Bot username",
+    "holder": "ФИО",
+    "pan": "Номер карты",
+    "enabled": "Активна",
+    "emptyQueue": "Нет открытых заявок",
+    "emptyEvents": "Нет unmatched push",
+    "configured": "Настроено",
+    "notConfigured": "Ещё не настроено",
+    "errorLoad": "Ошибка загрузки",
+    "refresh": "Обновить"
   }
 }

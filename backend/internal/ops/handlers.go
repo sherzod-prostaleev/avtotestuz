@@ -71,7 +71,7 @@ func (h *Handler) setProvider(w http.ResponseWriter, r *http.Request) {
 	out, err := h.Billing.SetProviderEnabled(r.Context(), provider, body.Enabled, "ops")
 	if err != nil {
 		if strings.Contains(err.Error(), "unknown provider") {
-			httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme or click")
+			httpx.Error(w, http.StatusBadRequest, "invalid_provider", "provider must be payme, click, or manual")
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to update provider")

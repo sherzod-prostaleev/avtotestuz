@@ -72,11 +72,17 @@ describe("PremiumPage", () => {
     mockApiGet({ active: false, until: null });
     const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({
       payment_id: "p1",
-      checkout_url: "https://checkout.paycom.uz/abc123",
+      manual: {
+        payment_id: "p1",
+        amount_uzs: 24900,
+        pan_full: "9860123456784042",
+        pan_last4: "4042",
+        holder_name: "TEST",
+        network: "humo",
+        hold_until: new Date().toISOString(),
+        manual_state: "awaiting_transfer",
+      },
     } as never);
-    // jsdom doesn't allow real navigation; stub window.location.href as a writable field.
-    delete (window as unknown as { location?: unknown }).location;
-    (window as unknown as { location: { href: string } }).location = { href: "" };
 
     renderWithIntl();
     const buyButtons = await screen.findAllByText("Sotib olish");
@@ -85,10 +91,12 @@ describe("PremiumPage", () => {
     await waitFor(() =>
       expect(postSpy).toHaveBeenCalledWith("me/checkout?locale=uz-Latn", {
         tariff_code: "nexia",
-        provider: "payme",
+        provider: "manual",
       })
     );
-    await waitFor(() => expect(window.location.href).toBe("https://checkout.paycom.uz/abc123"));
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/manual?payment_id=p1")
+    );
   });
 
   it("shows a retry button when the initial load fails", async () => {

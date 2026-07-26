@@ -57,6 +57,10 @@ type Config struct {
 	// until the full M3 admin control center ships. Empty disables those routes.
 	OpsAdminToken string
 
+	// ManualPayIngestToken authenticates humo-watcher → /internal/manual-pay/*.
+	// Empty disables those routes' auth (handlers reject when empty).
+	ManualPayIngestToken string
+
 	// Web Push (M4-08 / U-11). Empty public+private disables subscribe/send;
 	// same optional pattern as Telegram bot username.
 	VAPIDPublicKey  string
@@ -119,7 +123,8 @@ func Load() (Config, error) {
 		ClickMerchantID: getenv("CLICK_MERCHANT_ID", ""),
 		ClickSecretKey:  getenv("CLICK_SECRET_KEY", ""),
 
-		OpsAdminToken: getenv("OPS_ADMIN_TOKEN", ""),
+		OpsAdminToken:        getenv("OPS_ADMIN_TOKEN", ""),
+		ManualPayIngestToken: getenv("MANUAL_PAY_INGEST_TOKEN", ""),
 
 		VAPIDPublicKey:  getenv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getenv("VAPID_PRIVATE_KEY", ""),

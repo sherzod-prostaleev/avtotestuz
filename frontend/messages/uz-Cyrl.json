@@ -949,7 +949,9 @@
     "checkoutFailureSubtitle": "Тўлов бекор қилинди ёки хатолик юз берди. Қайта уриниб кўришингиз мумкин.",
     "checkoutTryAgain": "Қайта уриниш",
     "checkoutPendingTitle": "Тўлов кутилмоқда...",
-    "checkoutPendingSubtitle": "Тўлов ҳолати текширилмоқда. Илтимос бироз кутинг."
+    "checkoutPendingSubtitle": "Тўлов ҳолати текширилмоқда. Илтимос бироз кутинг.",
+    "manualName": "Humo карта",
+    "manualBusy": "Ҳозир барча қабул карталар банд. Бироздан кейин қайта уриниб кўринг."
   },
   "OpsUsers": {
     "back": "Бошқарувга қайтиш",
@@ -1255,7 +1257,8 @@
     "auditLog": "Аудит журнал",
     "inbox": "Inbox",
     "broadcasts": "Broadcastлар",
-    "totp": "TOTP / 2FA"
+    "totp": "TOTP / 2FA",
+    "manualPay": "Manual Humo"
   },
   "AdminOverview": {
     "controlBadge": "Бошқарув маркази",
@@ -2075,5 +2078,52 @@
     "tipWhen": "Superadmin ва тўлов калитларини кўришдан олдин.",
     "tipRisks": "Қурилмани йўқотсангиз кириш қийинлашади.",
     "tipRecommend": "Барча superadminларда ёқинг."
+  },
+  "ManualPay": {
+    "title": "Kartaga o'tkazma",
+    "subtitle": "Faqat ko'rsatilgan summani Humo kartaga o'tkazing. Boshqa summa qabul qilinmaydi.",
+    "exactAmount": "Aniq summa",
+    "strictAmountNote": "Diqqat: faqat yuqoridagi summani o'tkazing. Kam yoki ko'p yuborsangiz to'lov tasdiqlanmaydi.",
+    "copyAmount": "Summa",
+    "holdActive": "Karta band: {time}",
+    "holdEnded": "Karta bo'shadi — zayavka tekshiruvda",
+    "claim": "Sotib oldim",
+    "claiming": "Yuborilmoqda...",
+    "claimed": "Tekshiruvda",
+    "claimError": "Tasdiqlashni yuborib bo'lmadi",
+    "statusPaid": "To'lov tasdiqlandi — VIP faollashtirilmoqda",
+    "statusReview": "Push kutilmoqda yoki admin tekshiruvi. Pul o'tkazgan bo'lsangiz, kutib turing.",
+    "loading": "Yuklanmoqda...",
+    "loadError": "To'lov ma'lumotini yuklab bo'lmadi",
+    "missingPayment": "To'lov topilmadi",
+    "refresh": "Yangilash"
+  },
+  "AdminManualPay": {
+    "title": "Manual Humo to'lov",
+    "subtitle": "Kartalar, zayavkalar, unmatched push va Telegram userbot",
+    "cardsTitle": "Qabul qiluvchi kartalar",
+    "queueTitle": "Ochiq zayavkalar",
+    "eventsTitle": "Mos kelmagan pushlar",
+    "tgTitle": "HUMOcardbot userbot",
+    "addCard": "Karta qo'shish",
+    "save": "Saqlash",
+    "delete": "O'chirish",
+    "confirm": "Tasdiqlash",
+    "reject": "Rad etish",
+    "ignore": "Ignore",
+    "testTg": "Ulanishni tekshirish",
+    "apiId": "api_id",
+    "apiHash": "api_hash",
+    "session": "session string",
+    "botUser": "Bot username",
+    "holder": "Ism familiya",
+    "pan": "Karta raqami",
+    "enabled": "Faol",
+    "emptyQueue": "Ochiq zayavka yo'q",
+    "emptyEvents": "Mos kelmagan push yo'q",
+    "configured": "Sozlangan",
+    "notConfigured": "Hali sozlanmagan",
+    "errorLoad": "Yuklash xatosi",
+    "refresh": "Yangilash"
   }
 }

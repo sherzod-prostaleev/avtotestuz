@@ -49,9 +49,10 @@ func BuildClickURL(serviceID, merchantID, orderID string, amountUZS int64, retur
 }
 
 type CheckoutResult struct {
-	PaymentID   uuid.UUID `json:"payment_id"`
-	CheckoutURL string    `json:"checkout_url"`
-	Free        bool      `json:"free,omitempty"`
+	PaymentID   uuid.UUID           `json:"payment_id"`
+	CheckoutURL string              `json:"checkout_url"`
+	Free        bool                `json:"free,omitempty"`
+	Manual      *ManualCheckoutInfo `json:"manual,omitempty"`
 }
 
 // CheckoutConfig carries the provider-specific merchant identifiers needed
