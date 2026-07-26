@@ -5,7 +5,20 @@ import { useTranslations } from "next-intl";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Copy, Check, Gift, Wallet, Percent } from "lucide-react";
+import { formatDateWithTime } from "@/lib/date-format";
+import {
+  Users,
+  Copy,
+  Check,
+  Gift,
+  Wallet,
+  Percent,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Receipt,
+  type LucideIcon,
+} from "lucide-react";
 
 export interface ReferralResponse {
   referral_code: string;
@@ -18,14 +31,64 @@ export interface ReferralResponse {
   bonus_days_earned?: number;
 }
 
+export interface ReferralActivityResponse {
+  payout_summary: {
+    pending_count: number;
+    pending_uzs: number;
+    paid_count: number;
+    paid_uzs: number;
+    rejected_count: number;
+    rejected_uzs: number;
+  };
+  payouts: Array<{
+    id: string;
+    amount_uzs: number;
+    card_masked: string;
+    card_network: string;
+    status: string;
+    admin_note?: string;
+    created_at: string;
+    processed_at?: string | null;
+  }>;
+  earnings: Array<{
+    ledger_id: string;
+    commission_uzs: number;
+    payment_amount_uzs: number;
+    tariff_code: string;
+    tariff_days: number;
+    percent_snapshot: number;
+    referee_label: string;
+    rewarded_at: string;
+  }>;
+}
+
 function formatSom(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
+
+const PAYOUT_STATUS: Record<string, { icon: LucideIcon; labelKey: string; className: string }> = {
+  pending: {
+    icon: Clock,
+    labelKey: "statusPending",
+    className: "bg-gold/10 text-gold border-gold/25",
+  },
+  paid: {
+    icon: CheckCircle2,
+    labelKey: "statusPaid",
+    className: "bg-success/10 text-success border-success/20",
+  },
+  rejected: {
+    icon: XCircle,
+    labelKey: "statusRejected",
+    className: "bg-destructive/10 text-destructive border-destructive/20",
+  },
+};
 
 export function ReferralCard() {
   const t = useTranslations("Referral");
 
   const [data, setData] = useState<ReferralResponse | null>(null);
+  const [activity, setActivity] = useState<ReferralActivityResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -44,8 +107,12 @@ export function ReferralCard() {
     setLoading(true);
     setError(false);
     try {
-      const res = await apiGet<ReferralResponse>("me/referral");
-      setData(res);
+      const [stats, act] = await Promise.all([
+        apiGet<ReferralResponse>("me/referral"),
+        apiGet<ReferralActivityResponse>("me/referral/activity").catch(() => null),
+      ]);
+      setData(stats);
+      setActivity(act);
     } catch {
       setError(true);
     } finally {
@@ -152,6 +219,23 @@ export function ReferralCard() {
     }
   };
 
+  const statusBadge = (status: string) => {
+    const style = PAYOUT_STATUS[status.toLowerCase()] ?? PAYOUT_STATUS.pending;
+    const Icon = style.icon;
+    return (
+      <span
+        className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-bold ${style.className}`}
+      >
+        <Icon aria-hidden="true" className="h-3 w-3" />
+        {t(style.labelKey as "statusPending")}
+      </span>
+    );
+  };
+
+  const summary = activity?.payout_summary;
+  const hasPayouts = (activity?.payouts?.length ?? 0) > 0;
+  const hasEarnings = (activity?.earnings?.length ?? 0) > 0;
+
   return (
     <Card className="border-accent/20 bg-card p-5 sm:p-6">
       <CardHeader className="mb-4 flex flex-row items-center justify-between p-0">
@@ -240,6 +324,111 @@ export function ReferralCard() {
           <p className="rounded-lg border border-accent/10 bg-accent/5 p-3 text-xs italic text-muted-foreground/90">
             {t("noteWithPercent", { percent: data.commission_percent })}
           </p>
+
+          {activity && (
+            <div className="space-y-4 border-t border-border pt-4">
+              <div>
+                <h4 className="mb-1 text-xs font-bold text-foreground">{t("monitorTitle")}</h4>
+                <p className="mb-3 text-[11px] text-muted-foreground">{t("monitorSubtitle")}</p>
+                {summary && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="rounded-lg border border-gold/25 bg-gold/5 px-2 py-2 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-gold">{t("statusPending")}</div>
+                      <div className="mt-0.5 font-mono text-sm font-bold text-foreground">
+                        {formatSom(summary.pending_uzs)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {t("countLabel", { count: summary.pending_count })}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-success/25 bg-success/5 px-2 py-2 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-success">{t("statusPaid")}</div>
+                      <div className="mt-0.5 font-mono text-sm font-bold text-foreground">
+                        {formatSom(summary.paid_uzs)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {t("countLabel", { count: summary.paid_count })}
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-destructive/25 bg-destructive/5 px-2 py-2 text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-wide text-destructive">
+                        {t("statusRejected")}
+                      </div>
+                      <div className="mt-0.5 font-mono text-sm font-bold text-foreground">
+                        {formatSom(summary.rejected_uzs)}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        {t("countLabel", { count: summary.rejected_count })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <h5 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Wallet aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                  {t("payoutHistoryTitle")}
+                </h5>
+                {!hasPayouts ? (
+                  <p className="text-xs text-muted-foreground">{t("payoutHistoryEmpty")}</p>
+                ) : (
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {activity.payouts.map((row) => (
+                      <li key={row.id} className="flex flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-sm font-bold text-foreground">
+                              {formatSom(row.amount_uzs)} {t("somSuffix")}
+                            </span>
+                            {statusBadge(row.status)}
+                          </div>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">
+                            {row.card_masked} · {row.card_network.toUpperCase()} · {formatDateWithTime(row.created_at)}
+                          </p>
+                          {row.admin_note ? (
+                            <p className="mt-0.5 text-[11px] text-muted-foreground/90">{row.admin_note}</p>
+                          ) : null}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div>
+                <h5 className="mb-2 flex items-center gap-1.5 text-xs font-bold text-foreground">
+                  <Receipt aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                  {t("earningsTitle")}
+                </h5>
+                {!hasEarnings ? (
+                  <p className="text-xs text-muted-foreground">{t("earningsEmpty")}</p>
+                ) : (
+                  <ul className="divide-y divide-border rounded-lg border border-border">
+                    {activity.earnings.map((row) => (
+                      <li key={row.ledger_id} className="px-3 py-2.5">
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <span className="text-sm font-semibold text-foreground">{row.referee_label}</span>
+                          <span className="font-mono text-sm font-bold text-gold">
+                            +{formatSom(row.commission_uzs)} {t("somSuffix")}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-[11px] text-muted-foreground">
+                          {t("earningsLine", {
+                            tariff: row.tariff_code || "—",
+                            days: row.tariff_days,
+                            payment: formatSom(row.payment_amount_uzs),
+                            percent: row.percent_snapshot,
+                          })}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground/80">{formatDateWithTime(row.rewarded_at)}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-border pt-4">
             <h4 className="mb-2 text-xs font-bold text-foreground">{t("payoutTitle")}</h4>

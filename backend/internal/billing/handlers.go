@@ -48,6 +48,7 @@ func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Post("/me/checkout", h.checkout)
 	r.Post("/billing/promo/validate", h.validatePromo)
 	r.Get("/me/referral", h.getReferralStats)
+	r.Get("/me/referral/activity", h.getReferralActivity)
 	r.Get("/me/referral/ledger", h.getReferralLedger)
 	r.Post("/me/referral/payout", h.requestReferralPayout)
 	r.Post("/referral/apply", h.applyReferral)
@@ -244,6 +245,21 @@ func writeReferralError(w http.ResponseWriter, err error) bool {
 		return false
 	}
 	return true
+}
+
+func (h *Handler) getReferralActivity(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	out, err := h.Svc.GetReferralActivity(r.Context(), claims.ProfileID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to load referral activity")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, out)
 }
 
 func (h *Handler) getReferralLedger(w http.ResponseWriter, r *http.Request) {

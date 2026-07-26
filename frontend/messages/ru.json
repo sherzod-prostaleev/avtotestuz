@@ -855,7 +855,19 @@
     "payoutInsufficient": "Недостаточно баланса",
     "payoutInvalidCard": "Неверный номер карты",
     "payoutInvalidNetwork": "Только Uzcard или Humo",
-    "payoutInvalidAmount": "Сумма должна быть положительной"
+    "payoutInvalidAmount": "Сумма должна быть положительной",
+    "monitorTitle": "Прозрачность счёта",
+    "monitorSubtitle": "Каждая комиссия и выплата — честно и проверяемо.",
+    "statusPending": "В ожидании",
+    "statusPaid": "Выплачено",
+    "statusRejected": "Отклонено",
+    "countLabel": "{count} шт.",
+    "payoutHistoryTitle": "Выплаты",
+    "payoutHistoryEmpty": "Заявок на вывод пока нет.",
+    "earningsTitle": "Источники комиссии",
+    "earningsEmpty": "Комиссий пока нет.",
+    "earningsLine": "{tariff} · {days} дн. · оплата {payment} сум · {percent}%",
+    "somSuffix": "сум"
   },
   "PaymentHistory": {
     "title": "История платежей",

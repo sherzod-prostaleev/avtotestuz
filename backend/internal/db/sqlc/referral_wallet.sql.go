@@ -200,6 +200,41 @@ func (q *Queries) GetReferralPayoutForUpdate(ctx context.Context, id uuid.UUID) 
 	return i, err
 }
 
+const getReferralPayoutSummaryForProfile = `-- name: GetReferralPayoutSummaryForProfile :one
+SELECT
+  COUNT(*) FILTER (WHERE status = 'pending')::bigint AS pending_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'pending'), 0)::bigint AS pending_uzs,
+  COUNT(*) FILTER (WHERE status = 'paid')::bigint AS paid_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'paid'), 0)::bigint AS paid_uzs,
+  COUNT(*) FILTER (WHERE status = 'rejected')::bigint AS rejected_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'rejected'), 0)::bigint AS rejected_uzs
+FROM referral_payout
+WHERE profile_id = $1
+`
+
+type GetReferralPayoutSummaryForProfileRow struct {
+	PendingCount  int64 `json:"pending_count"`
+	PendingUzs    int64 `json:"pending_uzs"`
+	PaidCount     int64 `json:"paid_count"`
+	PaidUzs       int64 `json:"paid_uzs"`
+	RejectedCount int64 `json:"rejected_count"`
+	RejectedUzs   int64 `json:"rejected_uzs"`
+}
+
+func (q *Queries) GetReferralPayoutSummaryForProfile(ctx context.Context, profileID uuid.UUID) (GetReferralPayoutSummaryForProfileRow, error) {
+	row := q.db.QueryRow(ctx, getReferralPayoutSummaryForProfile, profileID)
+	var i GetReferralPayoutSummaryForProfileRow
+	err := row.Scan(
+		&i.PendingCount,
+		&i.PendingUzs,
+		&i.PaidCount,
+		&i.PaidUzs,
+		&i.RejectedCount,
+		&i.RejectedUzs,
+	)
+	return i, err
+}
+
 const insertReferralLedger = `-- name: InsertReferralLedger :one
 INSERT INTO referral_ledger (profile_id, entry_type, amount_uzs, payment_id, payout_id, meta)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -291,6 +326,77 @@ func (q *Queries) ListRefereesForReferrer(ctx context.Context, arg ListRefereesF
 			&i.RefereePhone,
 			&i.RefereeName,
 			&i.CommissionUzs,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReferralEarningsDetail = `-- name: ListReferralEarningsDetail :many
+SELECT
+  l.id AS ledger_id,
+  l.amount_uzs AS commission_uzs,
+  l.created_at AS rewarded_at,
+  l.payment_id,
+  COALESCE(pay.amount_uzs, 0)::bigint AS payment_amount_uzs,
+  COALESCE(pay.tariff_days_snapshot, 0)::int AS tariff_days,
+  COALESCE(t.code, '') AS tariff_code,
+  COALESCE(ref.name, '') AS referee_name,
+  COALESCE(ref.phone, '') AS referee_phone,
+  COALESCE((l.meta->>'percent')::int, 0)::int AS percent_snapshot
+FROM referral_ledger l
+LEFT JOIN payment pay ON pay.id = l.payment_id
+LEFT JOIN tariff t ON t.id = pay.tariff_id
+LEFT JOIN profile ref ON ref.id = NULLIF(l.meta->>'referee_id', '')::uuid
+WHERE l.profile_id = $1 AND l.entry_type = 'commission'
+ORDER BY l.created_at DESC
+LIMIT $2
+`
+
+type ListReferralEarningsDetailParams struct {
+	ProfileID uuid.UUID `json:"profile_id"`
+	Limit     int32     `json:"limit"`
+}
+
+type ListReferralEarningsDetailRow struct {
+	LedgerID         uuid.UUID          `json:"ledger_id"`
+	CommissionUzs    int64              `json:"commission_uzs"`
+	RewardedAt       pgtype.Timestamptz `json:"rewarded_at"`
+	PaymentID        uuid.NullUUID      `json:"payment_id"`
+	PaymentAmountUzs int64              `json:"payment_amount_uzs"`
+	TariffDays       int32              `json:"tariff_days"`
+	TariffCode       string             `json:"tariff_code"`
+	RefereeName      string             `json:"referee_name"`
+	RefereePhone     string             `json:"referee_phone"`
+	PercentSnapshot  int32              `json:"percent_snapshot"`
+}
+
+// Honest transparency: each commission with payment/tariff/referee context.
+func (q *Queries) ListReferralEarningsDetail(ctx context.Context, arg ListReferralEarningsDetailParams) ([]ListReferralEarningsDetailRow, error) {
+	rows, err := q.db.Query(ctx, listReferralEarningsDetail, arg.ProfileID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReferralEarningsDetailRow
+	for rows.Next() {
+		var i ListReferralEarningsDetailRow
+		if err := rows.Scan(
+			&i.LedgerID,
+			&i.CommissionUzs,
+			&i.RewardedAt,
+			&i.PaymentID,
+			&i.PaymentAmountUzs,
+			&i.TariffDays,
+			&i.TariffCode,
+			&i.RefereeName,
+			&i.RefereePhone,
+			&i.PercentSnapshot,
 		); err != nil {
 			return nil, err
 		}
@@ -398,6 +504,59 @@ func (q *Queries) ListReferralPayouts(ctx context.Context, arg ListReferralPayou
 			&i.ProcessedAt,
 			&i.ProfilePhone,
 			&i.ProfileName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReferralPayoutsForProfile = `-- name: ListReferralPayoutsForProfile :many
+SELECT id, amount_uzs, card_number, card_network, status, admin_note, created_at, processed_at
+FROM referral_payout
+WHERE profile_id = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+
+type ListReferralPayoutsForProfileParams struct {
+	ProfileID uuid.UUID `json:"profile_id"`
+	Limit     int32     `json:"limit"`
+}
+
+type ListReferralPayoutsForProfileRow struct {
+	ID          uuid.UUID          `json:"id"`
+	AmountUzs   int64              `json:"amount_uzs"`
+	CardNumber  string             `json:"card_number"`
+	CardNetwork string             `json:"card_network"`
+	Status      string             `json:"status"`
+	AdminNote   string             `json:"admin_note"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ProcessedAt pgtype.Timestamptz `json:"processed_at"`
+}
+
+func (q *Queries) ListReferralPayoutsForProfile(ctx context.Context, arg ListReferralPayoutsForProfileParams) ([]ListReferralPayoutsForProfileRow, error) {
+	rows, err := q.db.Query(ctx, listReferralPayoutsForProfile, arg.ProfileID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReferralPayoutsForProfileRow
+	for rows.Next() {
+		var i ListReferralPayoutsForProfileRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AmountUzs,
+			&i.CardNumber,
+			&i.CardNetwork,
+			&i.Status,
+			&i.AdminNote,
+			&i.CreatedAt,
+			&i.ProcessedAt,
 		); err != nil {
 			return nil, err
 		}

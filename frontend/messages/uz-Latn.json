@@ -854,7 +854,19 @@
     "payoutInsufficient": "Balans yetarli emas",
     "payoutInvalidCard": "Karta raqami noto'g'ri",
     "payoutInvalidNetwork": "Faqat Uzcard yoki Humo",
-    "payoutInvalidAmount": "Summa musbat bo'lishi kerak"
+    "payoutInvalidAmount": "Summa musbat bo'lishi kerak",
+    "monitorTitle": "Hisob ochiqligi",
+    "monitorSubtitle": "Har bir komissiya va chiqarish holati — adolatli va tekshiriladigan.",
+    "statusPending": "Kutilmoqda",
+    "statusPaid": "To'langan",
+    "statusRejected": "Rad etilgan",
+    "countLabel": "{count} ta",
+    "payoutHistoryTitle": "Chiqarishlar",
+    "payoutHistoryEmpty": "Hali chiqarish so'rovi yo'q.",
+    "earningsTitle": "Komissiya manbalari",
+    "earningsEmpty": "Hali komissiya tushmagan.",
+    "earningsLine": "{tariff} · {days} kun · to'lov {payment} so'm · {percent}%",
+    "somSuffix": "so'm"
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",

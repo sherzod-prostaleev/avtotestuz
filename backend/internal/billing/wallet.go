@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -98,6 +99,123 @@ func ValidatePayoutCard(cardNumber, network string) (digits string, net string, 
 
 func (s Service) ReferralBalance(ctx context.Context, profileID uuid.UUID) (int64, error) {
 	return s.Q.GetReferralBalance(ctx, profileID)
+}
+
+func maskPhoneLast4(phone string) string {
+	digits := NormalizeCardNumber(phone) // reuse digit strip
+	if len(digits) < 4 {
+		if phone == "" {
+			return "—"
+		}
+		return "***"
+	}
+	return "***" + digits[len(digits)-4:]
+}
+
+type PayoutSummary struct {
+	PendingCount  int64 `json:"pending_count"`
+	PendingUzs    int64 `json:"pending_uzs"`
+	PaidCount     int64 `json:"paid_count"`
+	PaidUzs       int64 `json:"paid_uzs"`
+	RejectedCount int64 `json:"rejected_count"`
+	RejectedUzs   int64 `json:"rejected_uzs"`
+}
+
+type UserPayoutRow struct {
+	ID          uuid.UUID `json:"id"`
+	AmountUzs   int64     `json:"amount_uzs"`
+	CardMasked  string    `json:"card_masked"`
+	CardNetwork string    `json:"card_network"`
+	Status      string    `json:"status"`
+	AdminNote   string    `json:"admin_note,omitempty"`
+	CreatedAt   string    `json:"created_at"`
+	ProcessedAt *string   `json:"processed_at,omitempty"`
+}
+
+type EarningRow struct {
+	LedgerID         uuid.UUID `json:"ledger_id"`
+	CommissionUzs    int64     `json:"commission_uzs"`
+	PaymentAmountUzs int64     `json:"payment_amount_uzs"`
+	TariffCode       string    `json:"tariff_code"`
+	TariffDays       int32     `json:"tariff_days"`
+	PercentSnapshot  int32     `json:"percent_snapshot"`
+	RefereeLabel     string    `json:"referee_label"`
+	RewardedAt       string    `json:"rewarded_at"`
+}
+
+type ReferralActivity struct {
+	PayoutSummary PayoutSummary   `json:"payout_summary"`
+	Payouts       []UserPayoutRow `json:"payouts"`
+	Earnings      []EarningRow    `json:"earnings"`
+}
+
+func (s Service) GetReferralActivity(ctx context.Context, profileID uuid.UUID) (*ReferralActivity, error) {
+	sum, err := s.Q.GetReferralPayoutSummaryForProfile(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	payoutRows, err := s.Q.ListReferralPayoutsForProfile(ctx, sqlc.ListReferralPayoutsForProfileParams{
+		ProfileID: profileID,
+		Limit:     50,
+	})
+	if err != nil {
+		return nil, err
+	}
+	earnRows, err := s.Q.ListReferralEarningsDetail(ctx, sqlc.ListReferralEarningsDetailParams{
+		ProfileID: profileID,
+		Limit:     50,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	out := &ReferralActivity{
+		PayoutSummary: PayoutSummary{
+			PendingCount:  sum.PendingCount,
+			PendingUzs:    sum.PendingUzs,
+			PaidCount:     sum.PaidCount,
+			PaidUzs:       sum.PaidUzs,
+			RejectedCount: sum.RejectedCount,
+			RejectedUzs:   sum.RejectedUzs,
+		},
+		Payouts:  make([]UserPayoutRow, 0, len(payoutRows)),
+		Earnings: make([]EarningRow, 0, len(earnRows)),
+	}
+	for _, row := range payoutRows {
+		item := UserPayoutRow{
+			ID:          row.ID,
+			AmountUzs:   row.AmountUzs,
+			CardMasked:  MaskCardNumber(row.CardNumber),
+			CardNetwork: row.CardNetwork,
+			Status:      row.Status,
+			AdminNote:   row.AdminNote,
+			CreatedAt:   row.CreatedAt.Time.UTC().Format(time.RFC3339),
+		}
+		if row.ProcessedAt.Valid {
+			t := row.ProcessedAt.Time.UTC().Format(time.RFC3339)
+			item.ProcessedAt = &t
+		}
+		out.Payouts = append(out.Payouts, item)
+	}
+	for _, row := range earnRows {
+		label := strings.TrimSpace(row.RefereeName)
+		if label == "" {
+			label = maskPhoneLast4(row.RefereePhone)
+		} else {
+			label = label + " · " + maskPhoneLast4(row.RefereePhone)
+		}
+		out.Earnings = append(out.Earnings, EarningRow{
+			LedgerID:         row.LedgerID,
+			CommissionUzs:    row.CommissionUzs,
+			PaymentAmountUzs: row.PaymentAmountUzs,
+			TariffCode:       row.TariffCode,
+			TariffDays:       row.TariffDays,
+			PercentSnapshot:  row.PercentSnapshot,
+			RefereeLabel:     label,
+			RewardedAt:       row.RewardedAt.Time.UTC().Format(time.RFC3339),
+		})
+	}
+	return out, nil
 }
 
 type LedgerEntry struct {

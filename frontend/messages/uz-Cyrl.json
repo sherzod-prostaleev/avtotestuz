@@ -854,7 +854,19 @@
     "payoutInsufficient": "Баланс етарли эмас",
     "payoutInvalidCard": "Карта рақами нотўғри",
     "payoutInvalidNetwork": "Фақат Uzcard ёки Humo",
-    "payoutInvalidAmount": "Сумма мусбат бўлиши керак"
+    "payoutInvalidAmount": "Сумма мусбат бўлиши керак",
+    "monitorTitle": "Ҳисоб очиқлиги",
+    "monitorSubtitle": "Ҳар бир комиссия ва чиқариш ҳолати — адолатли ва текшириладиган.",
+    "statusPending": "Кутилмоқда",
+    "statusPaid": "Тўланган",
+    "statusRejected": "Рад этилган",
+    "countLabel": "{count} та",
+    "payoutHistoryTitle": "Чиқаришлар",
+    "payoutHistoryEmpty": "Ҳали чиқариш сўрови йўқ.",
+    "earningsTitle": "Комиссия манбалари",
+    "earningsEmpty": "Ҳали комиссия тушмаган.",
+    "earningsLine": "{tariff} · {days} кун · тўлов {payment} сўм · {percent}%",
+    "somSuffix": "сўм"
   },
   "PaymentHistory": {
     "title": "Тўловлар Тарихи",

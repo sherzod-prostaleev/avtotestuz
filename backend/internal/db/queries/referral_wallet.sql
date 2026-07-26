@@ -108,3 +108,42 @@ SELECT
   pr.referral_commission_percent AS commission_percent
 FROM profile pr
 WHERE pr.id = $1;
+
+-- name: ListReferralPayoutsForProfile :many
+SELECT id, amount_uzs, card_number, card_network, status, admin_note, created_at, processed_at
+FROM referral_payout
+WHERE profile_id = $1
+ORDER BY created_at DESC
+LIMIT $2;
+
+-- name: GetReferralPayoutSummaryForProfile :one
+SELECT
+  COUNT(*) FILTER (WHERE status = 'pending')::bigint AS pending_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'pending'), 0)::bigint AS pending_uzs,
+  COUNT(*) FILTER (WHERE status = 'paid')::bigint AS paid_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'paid'), 0)::bigint AS paid_uzs,
+  COUNT(*) FILTER (WHERE status = 'rejected')::bigint AS rejected_count,
+  COALESCE(SUM(amount_uzs) FILTER (WHERE status = 'rejected'), 0)::bigint AS rejected_uzs
+FROM referral_payout
+WHERE profile_id = $1;
+
+-- name: ListReferralEarningsDetail :many
+-- Honest transparency: each commission with payment/tariff/referee context.
+SELECT
+  l.id AS ledger_id,
+  l.amount_uzs AS commission_uzs,
+  l.created_at AS rewarded_at,
+  l.payment_id,
+  COALESCE(pay.amount_uzs, 0)::bigint AS payment_amount_uzs,
+  COALESCE(pay.tariff_days_snapshot, 0)::int AS tariff_days,
+  COALESCE(t.code, '') AS tariff_code,
+  COALESCE(ref.name, '') AS referee_name,
+  COALESCE(ref.phone, '') AS referee_phone,
+  COALESCE((l.meta->>'percent')::int, 0)::int AS percent_snapshot
+FROM referral_ledger l
+LEFT JOIN payment pay ON pay.id = l.payment_id
+LEFT JOIN tariff t ON t.id = pay.tariff_id
+LEFT JOIN profile ref ON ref.id = NULLIF(l.meta->>'referee_id', '')::uuid
+WHERE l.profile_id = $1 AND l.entry_type = 'commission'
+ORDER BY l.created_at DESC
+LIMIT $2;
