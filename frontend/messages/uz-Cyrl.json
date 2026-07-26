@@ -1247,11 +1247,11 @@
   "AdminLogin": {
     "title": "Admin кириш",
     "subtitle": "Фақат ходимлар — ўқувчи аккаунти ишламайди.",
-    "email": "Email",
+    "email": "Логин",
     "password": "Парол",
     "submit": "Кириш",
     "submitting": "Текширилмоқда...",
-    "errorCreds": "Email ёки парол нотўғри.",
+    "errorCreds": "Логин ёки парол нотўғри.",
     "errorGeneric": "Кириш амалга ошмади.",
     "badge": "Ходимлар панели",
     "totpCode": "Authenticator коди",

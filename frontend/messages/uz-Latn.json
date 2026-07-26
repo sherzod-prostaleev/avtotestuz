@@ -1247,11 +1247,11 @@
   "AdminLogin": {
     "title": "Admin kirish",
     "subtitle": "Faqat xodimlar — o'quvchi akkaunti ishlamaydi.",
-    "email": "Email",
+    "email": "Login",
     "password": "Parol",
     "submit": "Kirish",
     "submitting": "Tekshirilmoqda...",
-    "errorCreds": "Email yoki parol noto'g'ri.",
+    "errorCreds": "Login yoki parol noto'g'ri.",
     "errorGeneric": "Kirish amalga oshmadi.",
     "badge": "Xodimlar paneli",
     "totpCode": "Authenticator kodi",

@@ -83,7 +83,8 @@ export default function AdminLoginPage() {
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold text-muted-foreground">{t("email")}</span>
                 <input
-                  type="email"
+                  type="text"
+                  inputMode="text"
                   autoComplete="username"
                   required
                   value={email}
