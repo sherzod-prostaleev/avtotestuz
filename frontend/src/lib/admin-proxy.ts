@@ -96,3 +96,52 @@ export async function adminProxy(
     return unavailable();
   }
 }
+
+/**
+ * Proxies an SSE stream from `/admin/v1` using admin httpOnly cookies.
+ * Pipes the backend body through without buffering JSON.
+ */
+export async function adminStreamProxy(
+  request: Request,
+  path: string,
+): Promise<Response> {
+  let access = readCookie(request, ADMIN_AUTH_COOKIE) ?? "";
+  const headers: HeadersInit = {
+    Authorization: access ? `Bearer ${access}` : "",
+    Accept: "text/event-stream",
+  };
+  try {
+    let backendRes = await backendAdminFetch(path, { method: "GET", headers });
+    if (backendRes.status === 401) {
+      const rotated = await refreshAdminAccess(request);
+      if (!rotated) {
+        const res = NextResponse.json(
+          { error: { code: "unauthorized", message: "admin session expired" } },
+          { status: 401 },
+        );
+        clearAdminAuthCookies(res);
+        return res;
+      }
+      access = rotated;
+      backendRes = await backendAdminFetch(path, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${access}`, Accept: "text/event-stream" },
+      });
+    }
+    if (!backendRes.ok || !backendRes.body) {
+      const data = await readBackendJson(backendRes);
+      return NextResponse.json(data, { status: backendRes.status });
+    }
+    const res = new Response(backendRes.body, {
+      status: backendRes.status,
+      headers: {
+        "Content-Type": backendRes.headers.get("content-type") ?? "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      },
+    });
+    return res;
+  } catch {
+    return unavailable();
+  }
+}

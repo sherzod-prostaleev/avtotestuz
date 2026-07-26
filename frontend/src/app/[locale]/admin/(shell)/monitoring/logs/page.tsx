@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { PermissionGate } from "@/components/admin/permission-gate";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 
 type FeedItem = {
   kind: string;
@@ -49,42 +54,47 @@ export default function AdminMonitoringLogsPage() {
   }, [load]);
 
   return (
-    <main className="mx-auto max-w-3xl space-y-4">
-      <header>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("logsTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("logsSubtitle")}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{t("logsNote")}</p>
-      </header>
+    <PermissionGate permission="monitoring.read">
+      <main className="mx-auto max-w-3xl space-y-4">
+        <AdminPageHeader
+          badge={t("controlBadge")}
+          title={t("logsTitle")}
+          description={`${t("logsSubtitle")} ${t("logsNote")}`}
+          actions={
+            <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
+              <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              {t("refresh")}
+            </Button>
+          }
+        />
 
-      <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
-        <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-        {t("refresh")}
-      </Button>
+        {error ? <AdminErrorState message={error} retryLabel={t("retry")} onRetry={() => void load()} /> : null}
+        {data?.note ? <p className="text-xs text-muted-foreground">{data.note}</p> : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        {loading && !data ? <AdminSkeleton rows={5} /> : null}
 
-      {data?.note ? <p className="text-xs text-muted-foreground">{data.note}</p> : null}
-
-      <ul className="space-y-2">
-        {(data?.items ?? []).length === 0 && !loading ? (
-          <li className="text-sm text-muted-foreground">{t("logsEmpty")}</li>
+        {!loading && data && data.items.length === 0 ? (
+          <AdminEmptyState title={t("logsEmpty")} />
         ) : null}
-        {(data?.items ?? []).map((item) => (
-          <li
-            key={`${item.kind}-${item.id}`}
-            className="rounded-xl border border-border bg-card px-4 py-3 text-sm"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="font-semibold">{item.title}</p>
-              <span className="text-[10px] font-bold uppercase text-muted-foreground">{item.kind}</span>
-            </div>
-            {item.detail ? <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p> : null}
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              {new Date(item.created_at).toLocaleString()}
-            </p>
-          </li>
-        ))}
-      </ul>
-    </main>
+
+        <ul className="space-y-2">
+          {(data?.items ?? []).map((item) => (
+            <li
+              key={`${item.kind}-${item.id}`}
+              className="rounded-xl border border-border bg-card px-4 py-3 text-sm"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold">{item.title}</p>
+                <span className="text-[10px] font-bold uppercase text-muted-foreground">{item.kind}</span>
+              </div>
+              {item.detail ? <p className="mt-1 text-xs text-muted-foreground">{item.detail}</p> : null}
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {new Date(item.created_at).toLocaleString()}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </main>
+    </PermissionGate>
   );
 }

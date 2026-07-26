@@ -14,43 +14,8 @@ const monitoringProbeTimeout = 2 * time.Second
 type MetricsSnapshot func() map[string]any
 
 func (h *Handler) getMonitoringHealth(w http.ResponseWriter, r *http.Request) {
-	checks := map[string]string{}
-	ready := true
-
-	ctx, cancel := context.WithTimeout(r.Context(), monitoringProbeTimeout)
-	defer cancel()
-
-	if h.Pool == nil {
-		checks["postgres"] = "skipped"
-	} else if err := h.Pool.Ping(ctx); err != nil {
-		checks["postgres"] = "fail"
-		ready = false
-	} else {
-		checks["postgres"] = "ok"
-	}
-
-	if h.Redis == nil {
-		checks["redis"] = "skipped"
-	} else if err := h.Redis.Ping(ctx).Err(); err != nil {
-		checks["redis"] = "fail"
-		ready = false
-	} else {
-		checks["redis"] = "ok"
-	}
-
-	status := "ok"
-	code := http.StatusOK
-	if !ready {
-		status = "not_ready"
-		code = http.StatusServiceUnavailable
-	}
-	httpx.Data(w, code, map[string]any{
-		"status":     status,
-		"live":       "ok",
-		"checks":     checks,
-		"checked_at": time.Now().UTC().Format(time.RFC3339),
-		"alerts":     alertSummaries(h, r.Context()),
-	})
+	snap, code := buildMonitoringHealthSnapshot(h, r.Context())
+	httpx.Data(w, code, snap)
 }
 
 func alertSummaries(h *Handler, ctx context.Context) []AlertEval {
@@ -68,16 +33,21 @@ func alertSummaries(h *Handler, ctx context.Context) []AlertEval {
 }
 
 func (h *Handler) getMonitoringMetrics(w http.ResponseWriter, r *http.Request) {
+	out := map[string]any{
+		"host": hostMetricsSnapshot(),
+	}
 	if h.MetricsSnapshot == nil {
-		httpx.Data(w, http.StatusOK, map[string]any{
-			"uptime_seconds":           0,
-			"requests_total":           0,
-			"requests_by_status_class": map[string]uint64{},
-			"note":                     "metrics collector not wired in this process",
-		})
+		out["uptime_seconds"] = 0
+		out["requests_total"] = 0
+		out["requests_by_status_class"] = map[string]uint64{}
+		out["note"] = "metrics collector not wired in this process"
+		httpx.Data(w, http.StatusOK, out)
 		return
 	}
-	httpx.Data(w, http.StatusOK, h.MetricsSnapshot())
+	for k, v := range h.MetricsSnapshot() {
+		out[k] = v
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 // JobCatalogRow is an honest inventory of known background/CLI jobs.

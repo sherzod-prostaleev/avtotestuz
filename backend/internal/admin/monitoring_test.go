@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -86,6 +88,31 @@ func TestAdminMonitoring(t *testing.T) {
 		}
 		if env.Data["requests_total"].(float64) != 7 || snapCalls < 1 {
 			t.Fatalf("data=%v calls=%d", env.Data, snapCalls)
+		}
+		host, ok := env.Data["host"].(map[string]any)
+		if !ok || host["available"].(bool) {
+			t.Fatalf("host should be unavailable: %+v", env.Data["host"])
+		}
+	})
+
+	t.Run("stream health sse", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/admin/v1/monitoring/stream", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		ctx, cancel := context.WithCancel(req.Context())
+		defer cancel()
+		req = req.WithContext(ctx)
+		w := httptest.NewRecorder()
+		go func() {
+			time.Sleep(150 * time.Millisecond)
+			cancel()
+		}()
+		r.ServeHTTP(w, req)
+		body := w.Body.String()
+		if !strings.Contains(body, "event: health") || !strings.Contains(body, `"status":"ok"`) {
+			t.Fatalf("sse body=%q", body)
+		}
+		if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/event-stream") {
+			t.Fatalf("content-type=%q", ct)
 		}
 	})
 
