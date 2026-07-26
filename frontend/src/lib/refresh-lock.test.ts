@@ -1,7 +1,11 @@
-import { describe, it, expect, vi } from "vitest";
-import { refreshOnce } from "./refresh-lock";
+import { beforeEach, describe, it, expect, vi } from "vitest";
+import { refreshOnce, resetRefreshLockForTests } from "./refresh-lock";
 
 describe("refreshOnce", () => {
+  beforeEach(() => {
+    resetRefreshLockForTests();
+  });
+
   it("only calls doRefresh once for concurrent callers with the same token", async () => {
     let resolveRefresh: (v: { accessToken: string; refreshToken: string }) => void;
     const doRefresh = vi.fn(
@@ -67,5 +71,19 @@ describe("refreshOnce", () => {
     expect(doRefresh).toHaveBeenCalledWith("rt-userB");
     expect(resultA).toEqual({ accessToken: "at-userA", refreshToken: "rt-userA-2" });
     expect(resultB).toEqual({ accessToken: "at-userB", refreshToken: "rt-userB-2" });
+  });
+
+  it("returns cached rotation for the same old token after settle (no reuse call)", async () => {
+    const doRefresh = vi
+      .fn()
+      .mockResolvedValueOnce({ accessToken: "at-1", refreshToken: "rt-new" })
+      .mockResolvedValueOnce({ accessToken: "should-not", refreshToken: "happen" });
+
+    const first = await refreshOnce("rt-old", doRefresh);
+    const late = await refreshOnce("rt-old", doRefresh);
+
+    expect(doRefresh).toHaveBeenCalledTimes(1);
+    expect(first).toEqual({ accessToken: "at-1", refreshToken: "rt-new" });
+    expect(late).toEqual({ accessToken: "at-1", refreshToken: "rt-new" });
   });
 });

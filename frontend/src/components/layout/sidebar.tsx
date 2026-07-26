@@ -55,6 +55,8 @@ export function Sidebar() {
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
+    // Profile/settings was buried under "Yana" — users reported they could not find/open it.
+    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
   ];
 
   const moreLinks: NavLink[] = [
@@ -62,7 +64,6 @@ export function Sidebar() {
     { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
     { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy },
     { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
-    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
   ];
 
   const moreActive = moreLinks.some((link) => {

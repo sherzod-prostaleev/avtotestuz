@@ -44,6 +44,11 @@ export default function middleware(request: NextRequest) {
     request.cookies.get(ADMIN_AUTH_COOKIE) ?? request.cookies.get(ADMIN_REFRESH_COOKIE),
   );
 
+  // Learner "settings" is the profile page (nav label: Profil va sozlamalar).
+  if (pathname === "/settings" || pathname.startsWith("/settings/")) {
+    return NextResponse.redirect(new URL(`/${locale}/profile`, request.url));
+  }
+
   // Admin shell — separate from learner cookies.
   if (pathname === "/admin/login") {
     if (hasAdminSession) {
