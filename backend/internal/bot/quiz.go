@@ -20,7 +20,6 @@ import (
 const (
 	quizLocale          = "uz-Latn"
 	quizIdleTTL         = 30 * time.Minute
-	quizMinInterval     = 3 * time.Second
 	quizCaptionMaxRunes = 1000
 	quizButtonMaxRunes  = 60
 
@@ -28,6 +27,9 @@ const (
 	cbNext         = "n"
 	cbStop         = "x"
 )
+
+// quizMinInterval throttles /quiz and "Keyingi savol" taps. Overridable in tests.
+var quizMinInterval = 3 * time.Second
 
 // QuizService runs on-demand image-first quiz sessions in groups and DMs.
 type QuizService struct {
@@ -85,9 +87,28 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 		return err
 	}
 	if session.AskedCount > 0 && session.LastActivityAt.Valid {
-		if time.Since(session.LastActivityAt.Time) < quizMinInterval {
-			_, err := s.TG.SendText(ctx, chatID, "Biroz kuting — keyingi savol hozir chiqadi.", nil)
-			return err
+		if elapsed := time.Since(session.LastActivityAt.Time); elapsed < quizMinInterval {
+			wait := quizMinInterval - elapsed
+			// Acknowledge the tap, then actually deliver the next question after
+			// the throttle window. Returning here used to leave the chat stuck
+			// with only "Biroz kuting…" and no follow-up.
+			if _, err := s.TG.SendText(ctx, chatID, "Biroz kuting — keyingi savol hozir chiqadi.", nil); err != nil {
+				return err
+			}
+			timer := time.NewTimer(wait)
+			defer timer.Stop()
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-timer.C:
+			}
+			session, err = s.Q.GetActiveQuizSessionByChat(ctx, chatID)
+			if err != nil {
+				return err
+			}
+			if !session.Active || session.AwaitingAnswer {
+				return nil
+			}
 		}
 	}
 	return s.sendNextQuestion(ctx, session)

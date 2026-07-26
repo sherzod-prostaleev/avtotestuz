@@ -19,7 +19,8 @@
 ```
 
 Contains: `DATABASE_URL`, `JWT_SECRET`, `CLIENT_IP_ASSERTION_SECRET`, MinIO,
-`ADMIN_SEED_*`, `PUBLIC_BASE_URL`, ports `8081` / `3010`.
+`ADMIN_SEED_*`, `PUBLIC_BASE_URL`, ports `8081` / `3010`, and (when the bot is on)
+`TELEGRAM_BOT_*` plus `TELEGRAM_WEBHOOK_SECRET` (self-generated random — not from BotFather).
 
 Edit only on the server (or regenerate locally and `scp` with mode 600).
 

@@ -66,6 +66,14 @@ func (f *fakeTelegram) lastMessage() string {
 	return f.sent[len(f.sent)-1]
 }
 
+func (f *fakeTelegram) allMessages() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	out := make([]string, len(f.sent))
+	copy(out, f.sent)
+	return out
+}
+
 func newTestBot(t *testing.T) (*Bot, *sqlc.Queries, *fakeTelegram) {
 	t.Helper()
 	pool := testdb.New(t)

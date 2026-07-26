@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -140,6 +141,52 @@ func TestQuizAnswerGradesAndIsIdempotent(t *testing.T) {
 	session, _ = q.GetActiveQuizSessionByChat(ctx, -5002)
 	if session.CorrectCount != 0 || session.AskedCount != 1 {
 		t.Fatalf("double-tap mutated session: %+v", session)
+	}
+}
+
+func TestQuizStartOrNextDeliversAfterMinInterval(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	_ = seedQuizQuestion(t, pool, false)
+	_ = seedQuizQuestion(t, pool, false)
+	fake, client := newFakeTelegram(t)
+	svc := &QuizService{
+		Q: q, Pool: pool, TG: client,
+		MediaBaseURL: "http://media.test", PublicBaseURL: "http://app.test",
+	}
+	ctx := context.Background()
+
+	prev := quizMinInterval
+	quizMinInterval = 40 * time.Millisecond
+	t.Cleanup(func() { quizMinInterval = prev })
+
+	if err := svc.StartOrNext(ctx, -5004, 14); err != nil {
+		t.Fatal(err)
+	}
+	session, err := q.GetActiveQuizSessionByChat(ctx, -5004)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.handleAnswer(ctx, -5004, session.AnswerMessageID, 0); err != nil {
+		t.Fatal(err)
+	}
+	before := len(fake.allMessages())
+	if err := svc.StartOrNext(ctx, -5004, 14); err != nil {
+		t.Fatalf("StartOrNext after answer: %v", err)
+	}
+	msgs := fake.allMessages()
+	if len(msgs) < before+2 {
+		t.Fatalf("expected wait ack + next question, got %d new msgs from %v", len(msgs)-before, msgs[before:])
+	}
+	if !strings.Contains(msgs[before], "Biroz kuting") {
+		t.Fatalf("expected wait ack, got %q", msgs[before])
+	}
+	session, err = q.GetActiveQuizSessionByChat(ctx, -5004)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !session.AwaitingAnswer || session.AskedCount != 2 {
+		t.Fatalf("expected second question armed, session=%+v", session)
 	}
 }
 
