@@ -120,6 +120,23 @@ describe("SessionStartPage", () => {
     );
   });
 
+  it("forwards has_image, count, and the current locale", async () => {
+    navigation.searchParams = new URLSearchParams(
+      "mode=practice&has_image=false&count=20"
+    );
+    const startSession = mockSessionEngine();
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(startSession).toHaveBeenCalledWith("practice", {
+        has_image: false,
+        question_count: 20,
+        locale: "uz-Latn",
+      })
+    );
+  });
+
   it("starts only once when React StrictMode re-runs the effect", async () => {
     navigation.searchParams = new URLSearchParams("mode=exam");
     const startSession = mockSessionEngine();

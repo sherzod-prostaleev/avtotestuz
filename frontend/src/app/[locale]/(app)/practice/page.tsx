@@ -41,6 +41,7 @@ interface CategoryItem {
 
 interface VariantItem {
   number: number;
+  question_count?: number;
 }
 
 interface StatsDTO {
@@ -62,6 +63,7 @@ export default function PracticePage() {
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [variantCount, setVariantCount] = useState<number>(0);
+  const [variants, setVariants] = useState<VariantItem[]>([]);
   const [variantFrom, setVariantFrom] = useState<number>(1);
   const [variantTo, setVariantTo] = useState<number>(10);
   const [withImage, setWithImage] = useState<boolean>(true);
@@ -102,6 +104,7 @@ export default function PracticePage() {
       setNextDueAt(typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null);
 
       const highest = variants.reduce((max, item) => Math.max(max, item.number), 0);
+      setVariants(variants);
       setVariantCount(highest);
       if (highest > 0) {
         setVariantFrom(1);
@@ -110,6 +113,7 @@ export default function PracticePage() {
     } catch {
       setCategories([]);
       setSelectedCategory("");
+      setVariants([]);
       setVariantCount(0);
       setDueCount(0);
       setBankCount(0);
@@ -132,6 +136,15 @@ export default function PracticePage() {
   }, [categories]);
 
   const rangeValid = variantFrom >= 1 && variantTo >= variantFrom && variantTo <= variantCount;
+
+  const variantRangeQuestionCount = useMemo(() => {
+    if (!rangeValid || variants.length === 0) return 0;
+    const inRange = variants.filter((item) => item.number >= variantFrom && item.number <= variantTo);
+    if (inRange.length === 0) {
+      return (variantTo - variantFrom + 1) * 20;
+    }
+    return inRange.reduce((sum, item) => sum + (item.question_count ?? 20), 0);
+  }, [rangeValid, variants, variantFrom, variantTo]);
 
   const effectiveCount = useMemo(() => {
     if (!allowance || allowance.unlimited) return count;
@@ -377,7 +390,7 @@ export default function PracticePage() {
                 {t("variantRangeSummary", {
                   from: variantFrom,
                   to: variantTo,
-                  count: (variantTo - variantFrom + 1) * 20,
+                  count: variantRangeQuestionCount,
                 })}
               </p>
             )}

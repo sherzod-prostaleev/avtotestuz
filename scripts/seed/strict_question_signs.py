@@ -255,6 +255,14 @@ def main() -> int:
         text_blob = uz + "\n" + ca_blob
 
         text_codes = codes_in_text(text_blob, catalog)
+        # Pavement-marking questions cite codes like «1.1» / «1.11» for lines,
+        # not warning sign 1.1 (railway). Never promote those to practice-by-sign.
+        if re.search(
+            r"yo'?l chizig|chiziq nimani|uzuq-uzuq chiziq|1\.1 yoki 1\.11|1\.11 chizi",
+            text_blob + "\n" + all_ans,
+            re.I,
+        ) and not re.search(r"\bbelgi\b|знак", uz, re.I):
+            text_codes = []
         if not q.get("image"):
             # answers may cite 5.15 / 6.11 etc.
             text_codes = codes_in_text(text_blob + "\n" + all_ans, catalog)
@@ -263,6 +271,12 @@ def main() -> int:
                 text_blob + all_ans,
                 re.I,
             ):
+                text_codes = []
+            if re.search(
+                r"yo'?l chizig|chiziq nimani|uzuq-uzuq chiziq|1\.1 yoki 1\.11",
+                text_blob + "\n" + all_ans,
+                re.I,
+            ) and not re.search(r"\bbelgi\b|знак", uz, re.I):
                 text_codes = []
 
         chosen: list[str] = list(text_codes)
