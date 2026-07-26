@@ -4,11 +4,15 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { AdminErrorState } from "@/components/admin/admin-error-state";
+import { PermissionGate } from "@/components/admin/permission-gate";
 
 type ProviderRow = { provider: string; enabled: boolean };
 
 export default function AdminPaymentsProvidersPage() {
   const t = useTranslations("AdminPayments");
+  const tNav = useTranslations("AdminNav");
   const [rows, setRows] = useState<ProviderRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -53,9 +57,7 @@ export default function AdminPaymentsProvidersPage() {
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(
-          json?.error?.code === "forbidden" ? t("errorForbiddenKeys") : t("errorToggle"),
-        );
+        setError(json?.error?.code === "forbidden" ? t("errorForbiddenKeys") : t("errorToggle"));
         return;
       }
       setRows((prev) =>
@@ -73,50 +75,56 @@ export default function AdminPaymentsProvidersPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg space-y-4">
-      <header>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("providersTitle")}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">{t("providersSubtitle")}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{t("providersNote")}</p>
-      </header>
+    <PermissionGate permission="payments.read">
+      <main className="mx-auto max-w-lg space-y-5">
+        <AdminPageHeader
+          badge={tNav("groupPayments")}
+          title={t("providersTitle")}
+          description={t("providersSubtitle")}
+          actions={
+            <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
+              <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
+              {t("refresh")}
+            </Button>
+          }
+        />
+        <p className="-mt-2 text-xs text-muted-foreground">{t("providersNote")}</p>
 
-      <div className="flex gap-2">
-        <Button type="button" size="sm" variant="outline" disabled={loading} onClick={() => void load()}>
-          <RefreshCw aria-hidden className={`mr-1.5 h-3.5 w-3.5 ${loading ? "animate-spin" : ""}`} />
-          {t("refresh")}
-        </Button>
-      </div>
+        {error ? (
+          <AdminErrorState message={error} retryLabel={t("refresh")} onRetry={() => void load()} />
+        ) : null}
 
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-      {!rows ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
-      ) : (
-        <ul className="space-y-3">
-          {rows.map((row) => (
-            <li
-              key={row.provider}
-              className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
-            >
-              <div>
-                <p className="font-bold capitalize">{row.provider}</p>
-                <p className="text-xs text-muted-foreground">
-                  {row.enabled ? t("providerOn") : t("providerOff")}
-                </p>
-              </div>
-              <Button
-                type="button"
-                size="sm"
-                variant={row.enabled ? "outline" : "game"}
-                disabled={busy === row.provider}
-                onClick={() => void toggle(row.provider, !row.enabled)}
+        {!rows ? (
+          <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        ) : (
+          <ul className="space-y-3">
+            {rows.map((row) => (
+              <li
+                key={row.provider}
+                className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
               >
-                {row.enabled ? t("disable") : t("enable")}
-              </Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+                <div>
+                  <p className="font-bold capitalize">{row.provider}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {row.enabled ? t("providerOn") : t("providerOff")}
+                  </p>
+                </div>
+                <PermissionGate permission="payments.keys.manage" mode="hide">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={row.enabled ? "outline" : "game"}
+                    disabled={busy === row.provider}
+                    onClick={() => void toggle(row.provider, !row.enabled)}
+                  >
+                    {row.enabled ? t("disable") : t("enable")}
+                  </Button>
+                </PermissionGate>
+              </li>
+            ))}
+          </ul>
+        )}
+      </main>
+    </PermissionGate>
   );
 }
