@@ -952,7 +952,9 @@
     "checkoutPendingTitle": "Ожидание оплаты...",
     "checkoutPendingSubtitle": "Проверяем статус оплаты. Пожалуйста, подождите.",
     "manualName": "Карта Humo",
-    "manualBusy": "Все карты приёма заняты. Попробуйте чуть позже."
+    "manualBusy": "Все карты приёма заняты. Попробуйте чуть позже.",
+    "planSelected": "Выбрано",
+    "checkoutTitle": "Оплата"
   },
   "OpsUsers": {
     "back": "Назад в кабинет",

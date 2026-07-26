@@ -50,9 +50,9 @@ describe("PremiumPage", () => {
     renderWithIntl();
     expect(await screen.findByText("Matiz")).toBeInTheDocument();
     expect(screen.getByText("Nexia")).toBeInTheDocument();
-    expect(screen.getByText("Gentra")).toBeInTheDocument();
+    expect(screen.getAllByText("Gentra").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Ommabop")).toBeInTheDocument(); // gentra's popular badge, translated
-    expect(screen.getByText("-40%")).toBeInTheDocument(); // gentra's discount_percent
+    expect(screen.getByText("−40%")).toBeInTheDocument(); // gentra's discount_percent
   });
 
   it("does not show the VIP banner when entitlement is inactive", async () => {
@@ -85,12 +85,13 @@ describe("PremiumPage", () => {
     } as never);
 
     renderWithIntl();
+    // Default selection is popular tariff (Gentra); checkout lives in the shared panel.
     const buyButtons = await screen.findAllByText("Sotib olish");
     fireEvent.click(buyButtons[0]);
 
     await waitFor(() =>
       expect(postSpy).toHaveBeenCalledWith("me/checkout?locale=uz-Latn", {
-        tariff_code: "nexia",
+        tariff_code: "gentra",
         provider: "manual",
       })
     );

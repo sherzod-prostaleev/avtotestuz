@@ -951,7 +951,9 @@
     "checkoutPendingTitle": "To me to'lov kutilmoqda...",
     "checkoutPendingSubtitle": "To'lov holati tekshirilmoqda. Iltimos biroz kuting.",
     "manualName": "Humo karta",
-    "manualBusy": "Hozir barcha qabul kartalar band. Bir ozdan keyin qayta urinib ko'ring."
+    "manualBusy": "Hozir barcha qabul kartalar band. Bir ozdan keyin qayta urinib ko'ring.",
+    "planSelected": "Tanlangan",
+    "checkoutTitle": "To'lov"
   },
   "OpsUsers": {
     "back": "Boshqaruvga qaytish",

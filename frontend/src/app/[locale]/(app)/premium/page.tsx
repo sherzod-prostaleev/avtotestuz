@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
@@ -66,6 +65,7 @@ export default function PremiumPage() {
   const [buyError, setBuyError] = useState<string | null>(null);
 
   const [provider, setProvider] = useState<PaymentProvider>("manual");
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
   const [referralMap, setReferralMap] = useState<Record<string, string | null>>({});
   const [providerEnabled, setProviderEnabled] = useState<Partial<Record<PaymentProvider, boolean>>>({
@@ -83,16 +83,16 @@ export default function PremiumPage() {
         apiGet<EntitlementDTO>("me/entitlement"),
         apiGet<ProviderStatusDTO[]>("billing/providers").catch(() => [
           { provider: "manual", enabled: true },
-          { provider: "payme", enabled: true },
-          { provider: "click", enabled: true },
+          { provider: "payme", enabled: false },
+          { provider: "click", enabled: false },
         ]),
       ]);
       setTariffs(tariffData);
       setEntitlement(entitlementData);
       const enabled: Partial<Record<PaymentProvider, boolean>> = {
-        manual: true,
-        payme: true,
-        click: true,
+        manual: false,
+        payme: false,
+        click: false,
       };
       for (const row of providers) {
         if (row.provider === "payme" || row.provider === "click" || row.provider === "manual") {
@@ -101,11 +101,15 @@ export default function PremiumPage() {
       }
       setProviderEnabled(enabled);
       setProvider((prev) => {
-        if (enabled[prev] !== false) return prev;
-        if (enabled.manual !== false) return "manual";
-        if (enabled.payme !== false) return "payme";
-        if (enabled.click !== false) return "click";
+        if (enabled[prev]) return prev;
+        if (enabled.manual) return "manual";
+        if (enabled.payme) return "payme";
+        if (enabled.click) return "click";
         return prev;
+      });
+      setSelectedCode((prev) => {
+        if (prev && tariffData.some((row) => row.code === prev)) return prev;
+        return tariffData.find((row) => row.badge === "popular")?.code ?? tariffData[0]?.code ?? null;
       });
     } catch {
       setLoadError(true);
@@ -119,16 +123,24 @@ export default function PremiumPage() {
   }, [load]);
 
   const paymentsOffline =
-    providerEnabled.payme === false &&
-    providerEnabled.click === false &&
-    providerEnabled.manual === false;
+    !providerEnabled.payme && !providerEnabled.click && !providerEnabled.manual;
+
+  const selectedTariff = useMemo(
+    () => tariffs?.find((row) => row.code === selectedCode) ?? null,
+    [tariffs, selectedCode],
+  );
+  const selectedPromo = selectedTariff ? promoMap[selectedTariff.code] : null;
+  const selectedFinal = selectedPromo ? selectedPromo.final_amount_uzs : selectedTariff?.price_uzs ?? 0;
+  const selectedIsFree = Boolean(selectedPromo && selectedFinal === 0);
+  const selectedDays =
+    (selectedTariff?.days ?? 0) + (selectedPromo?.bonus_days ?? 0);
 
   const handleBuy = async (code: string) => {
     setBuyError(null);
     setBuyingCode(code);
     const promo = promoMap[code];
     const isFree = Boolean(promo && promo.final_amount_uzs === 0);
-    if (!isFree && providerEnabled[provider] === false) {
+    if (!isFree && !providerEnabled[provider]) {
       setBuyError(t("providerUnavailable"));
       setBuyingCode(null);
       return;
@@ -138,14 +150,16 @@ export default function PremiumPage() {
         `me/checkout?locale=${encodeURIComponent(locale)}`,
         {
           tariff_code: code,
-          provider: provider,
+          provider,
           promo_code: promo?.code || referralMap[code] || undefined,
-        }
+        },
       );
       if (result.free) {
         router.push(`/${locale}/checkout/success?free=true`);
       } else if (result.manual?.payment_id) {
-        router.push(`/${locale}/checkout/manual?payment_id=${encodeURIComponent(result.manual.payment_id)}`);
+        router.push(
+          `/${locale}/checkout/manual?payment_id=${encodeURIComponent(result.manual.payment_id)}`,
+        );
       } else if (result.checkout_url) {
         window.location.href = result.checkout_url;
       } else {
@@ -172,15 +186,10 @@ export default function PremiumPage() {
 
   const features = [t("feature1"), t("feature2"), t("feature3"), t("feature4")];
 
-  // Mobile sticky CTA: popular plan first, else first paid tariff (v2 chrome matrix).
-  const featuredTariff =
-    tariffs?.find((row) => row.badge === "popular") ?? tariffs?.[0] ?? null;
-  const featuredPromo = featuredTariff ? promoMap[featuredTariff.code] : null;
-  const featuredIsFree = Boolean(featuredPromo && featuredPromo.final_amount_uzs === 0);
   const stickyBuyDisabled =
-    !featuredTariff ||
-    buyingCode === featuredTariff.code ||
-    (!featuredIsFree && providerEnabled[provider] === false);
+    !selectedTariff ||
+    buyingCode === selectedTariff.code ||
+    (!selectedIsFree && !providerEnabled[provider]);
 
   return (
     <main className="page-shell-tight">
@@ -192,14 +201,23 @@ export default function PremiumPage() {
           <Crown aria-hidden="true" className="h-3.5 w-3.5" />
           {t("badge")}
         </div>
-        <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">{t("title")}</h1>
-        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">{t("subtitle")}</p>
+        <h1 className="mt-3 font-display text-2xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">
+          {t("title")}
+        </h1>
+        <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
+          {t("subtitle")}
+        </p>
       </header>
 
       {entitlement?.active && entitlement.until && (
-        <div role="status" className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success">
+        <div
+          role="status"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success"
+        >
           <ShieldCheck aria-hidden="true" className="h-5 w-5 shrink-0" />
-          {t("vipActiveBanner", { date: new Date(entitlement.until).toLocaleDateString(locale) })}
+          {t("vipActiveBanner", {
+            date: new Date(entitlement.until).toLocaleDateString(locale),
+          })}
         </div>
       )}
 
@@ -220,7 +238,10 @@ export default function PremiumPage() {
       )}
 
       {loadError && (
-        <div role="alert" className="mb-6 flex items-center justify-between rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive">
+        <div
+          role="alert"
+          className="mb-6 flex items-center justify-between rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive"
+        >
           <span>{t("loadError")}</span>
           <Button type="button" variant="outline" size="sm" onClick={() => void load()}>
             {t("retry")}
@@ -229,134 +250,187 @@ export default function PremiumPage() {
       )}
 
       {!loading && !loadError && (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Card className="flex flex-col p-5">
-            <div className="mb-2 inline-flex w-fit items-center rounded-md border border-border bg-background px-2.5 py-0.5 text-[10px] font-bold text-muted-foreground">
-              {t("matizFree")}
-            </div>
-            <h2 className="font-display text-xl font-bold">{t("matizTitle")}</h2>
-            <p className="mt-2 flex-1 text-sm text-muted-foreground">{t("matizDescription")}</p>
-            <Button type="button" variant="outline" size="sm" className="mt-4 w-full" disabled>
-              {t("matizCurrentPlan")}
-            </Button>
-          </Card>
+        <div className="space-y-6">
+          <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+            {features.map((feat) => (
+              <li key={feat} className="flex items-start gap-2">
+                <CheckCircle2
+                  aria-hidden="true"
+                  className="mt-0.5 h-4 w-4 shrink-0 text-gold"
+                />
+                <span className="text-foreground/90">{feat}</span>
+              </li>
+            ))}
+          </ul>
 
-          {tariffs?.map((tariff) => {
-            const label = badgeLabel(tariff.badge);
-            const promo = promoMap[tariff.code];
-            const finalPrice = promo ? promo.final_amount_uzs : tariff.price_uzs;
-            const isFree = promo && finalPrice === 0;
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <article className="flex flex-col rounded-2xl border border-border/70 bg-card/40 p-4">
+              <span className="w-fit rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
+                {t("matizFree")}
+              </span>
+              <h2 className="mt-3 font-display text-xl font-bold">{t("matizTitle")}</h2>
+              <p className="mt-1 flex-1 text-sm text-muted-foreground">{t("matizDescription")}</p>
+              <p className="mt-4 font-display text-2xl font-extrabold tabular-nums">0</p>
+              <p className="text-xs text-muted-foreground">{t("somSuffix")}</p>
+              <Button type="button" variant="outline" size="sm" className="mt-4 w-full" disabled>
+                {t("matizCurrentPlan")}
+              </Button>
+            </article>
 
-            return (
-              <Card
-                key={tariff.code}
-                className={`flex flex-col p-5 ${tariff.badge === "popular" ? "border-2 border-gold" : ""}`}
-              >
-                {label && (
-                  <div className="mb-2 inline-flex w-fit items-center gap-1 rounded-md border border-gold/40 bg-gold/10 px-2.5 py-0.5 text-[10px] font-extrabold text-gold">
-                    <Sparkles aria-hidden="true" className="h-3 w-3" />
-                    {label}
-                  </div>
-                )}
-                <h2 className="font-display text-xl font-bold">{tariff.name}</h2>
-                <p className="mt-1 text-xs text-muted-foreground">{tariff.description}</p>
+            {tariffs?.map((tariff) => {
+              const label = badgeLabel(tariff.badge);
+              const promo = promoMap[tariff.code];
+              const finalPrice = promo ? promo.final_amount_uzs : tariff.price_uzs;
+              const days = tariff.days + (promo?.bonus_days || 0);
+              const perDay = Math.round(finalPrice / Math.max(days, 1));
+              const selected = selectedCode === tariff.code;
+              const popular = tariff.badge === "popular";
 
-                <div className="mt-3">
-                  <div className="flex items-baseline gap-1">
-                    <span className="font-display text-2xl font-extrabold tabular-nums">{formatSom(isFree ? 0 : Math.round(finalPrice / tariff.days))}</span>
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {t("somSuffix")} / {t("perDay")}
-                    </span>
-                  </div>
-                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                    <span className="tabular-nums">
-                      {formatSom(finalPrice)} {t("somSuffix")} / {tariff.days + (promo?.bonus_days || 0)} {t("daysLabel")}
-                    </span>
-                    {promo ? (
-                      <span className="font-bold text-success">-{formatSom(promo.discount_uzs)} {t("somSuffix")}</span>
-                    ) : (
-                      tariff.old_price_uzs !== null && (
-                        <>
-                          <span className="line-through tabular-nums">{formatSom(tariff.old_price_uzs)}</span>
-                          <span className="font-bold text-success">-{tariff.discount_percent}%</span>
-                        </>
-                      )
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 flex-1 space-y-3">
-                  <div className="space-y-2">
-                    {features.map((feat) => (
-                      <div key={feat} className="flex items-start gap-2 text-xs text-foreground">
-                        <CheckCircle2 aria-hidden="true" className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />
-                        {feat}
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3 border-t border-border pt-3">
-                    <PromoInput
-                      tariffCode={tariff.code}
-                      onApplied={(res) => setPromoMap((prev) => ({ ...prev, [tariff.code]: res }))}
-                      onReferralCode={(ref) =>
-                        setReferralMap((prev) => ({ ...prev, [tariff.code]: ref }))
-                      }
-                    />
-                    {!isFree && (
-                      <ProviderPicker
-                        selected={provider}
-                        onChange={(p) => setProvider(p)}
-                        enabled={providerEnabled}
-                      />
-                    )}
-                  </div>
-                </div>
-
-                {buyError && buyingCode === tariff.code && (
-                  <p role="alert" className="mt-2 text-xs text-destructive">
-                    {buyError}
-                  </p>
-                )}
-
-                <Button
+              return (
+                <button
+                  key={tariff.code}
                   type="button"
-                  variant={isFree ? "success" : "gold"}
-                  size="sm"
-                  className="mt-4 w-full"
-                  disabled={
-                    buyingCode === tariff.code ||
-                    (!isFree && providerEnabled[provider] === false)
-                  }
-                  onClick={() => void handleBuy(tariff.code)}
+                  onClick={() => setSelectedCode(tariff.code)}
+                  className={`flex flex-col rounded-2xl border p-4 text-left transition-all ${
+                    selected
+                      ? "border-gold bg-gold/5 shadow-[0_0_0_1px_rgba(234,179,8,0.35)]"
+                      : popular
+                        ? "border-gold/50 bg-card/50 hover:border-gold"
+                        : "border-border/70 bg-card/40 hover:border-border"
+                  }`}
                 >
-                  {buyingCode === tariff.code
-                    ? t("buyLoading")
-                    : isFree
-                    ? t("freeCheckoutButton")
-                    : t("buyButton")}
-                </Button>
-              </Card>
-            );
-          })}
+                  <div className="flex min-h-[1.25rem] items-center justify-between gap-2">
+                    {label ? (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/10 px-2 py-0.5 text-[10px] font-extrabold text-gold">
+                        <Sparkles aria-hidden="true" className="h-3 w-3" />
+                        {label}
+                      </span>
+                    ) : (
+                      <span />
+                    )}
+                    {selected ? (
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-gold">
+                        {t("planSelected")}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <h2 className="mt-3 font-display text-xl font-bold tracking-tight">
+                    {tariff.name}
+                  </h2>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{tariff.description}</p>
+
+                  <div className="mt-4">
+                    <p className="font-display text-3xl font-extrabold tabular-nums tracking-tight">
+                      {formatSom(finalPrice)}
+                      <span className="ml-1 text-sm font-semibold text-muted-foreground">
+                        {t("somSuffix")}
+                      </span>
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {days} {t("daysLabel")} · {formatSom(perDay)} {t("somSuffix")}/{t("perDay")}
+                    </p>
+                    {promo ? (
+                      <p className="mt-1 text-xs font-semibold text-success">
+                        −{formatSom(promo.discount_uzs)} {t("somSuffix")}
+                      </p>
+                    ) : tariff.old_price_uzs !== null ? (
+                      <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="line-through tabular-nums">
+                          {formatSom(tariff.old_price_uzs)}
+                        </span>
+                        <span className="font-bold text-success">−{tariff.discount_percent}%</span>
+                      </p>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedTariff && !paymentsOffline && (
+            <section className="rounded-2xl border border-border/80 bg-gradient-to-b from-card/80 to-background p-4 sm:p-5">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    {t("checkoutTitle")}
+                  </p>
+                  <p className="mt-1 font-display text-lg font-bold">
+                    {selectedTariff.name}
+                    <span className="ml-2 text-base font-semibold text-muted-foreground">
+                      {formatSom(selectedFinal)} {t("somSuffix")}
+                      {selectedDays > 0 ? ` · ${selectedDays} ${t("daysLabel")}` : ""}
+                    </span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="space-y-3">
+                  <PromoInput
+                    key={selectedTariff.code}
+                    tariffCode={selectedTariff.code}
+                    onApplied={(res) =>
+                      setPromoMap((prev) => ({ ...prev, [selectedTariff.code]: res }))
+                    }
+                    onReferralCode={(ref) =>
+                      setReferralMap((prev) => ({ ...prev, [selectedTariff.code]: ref }))
+                    }
+                  />
+                  {!selectedIsFree && (
+                    <ProviderPicker
+                      selected={provider}
+                      onChange={setProvider}
+                      enabled={providerEnabled}
+                    />
+                  )}
+                </div>
+
+                <div className="space-y-2 lg:w-56">
+                  {buyError && (
+                    <p role="alert" className="text-xs text-destructive">
+                      {buyError}
+                    </p>
+                  )}
+                  <Button
+                    type="button"
+                    variant={selectedIsFree ? "success" : "gold"}
+                    size="lg"
+                    className="w-full"
+                    disabled={
+                      buyingCode === selectedTariff.code ||
+                      (!selectedIsFree && !providerEnabled[provider])
+                    }
+                    onClick={() => void handleBuy(selectedTariff.code)}
+                  >
+                    {buyingCode === selectedTariff.code
+                      ? t("buyLoading")
+                      : selectedIsFree
+                        ? t("freeCheckoutButton")
+                        : t("buyButton")}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          )}
         </div>
       )}
 
-      {!loading && !loadError && featuredTariff && (
+      {!loading && !loadError && selectedTariff && (
         <div className="sticky-cta-bar sm:hidden">
           <Button
             type="button"
-            variant={featuredIsFree ? "success" : "gold"}
+            variant={selectedIsFree ? "success" : "gold"}
             size="lg"
             className="w-full"
             disabled={stickyBuyDisabled}
-            onClick={() => void handleBuy(featuredTariff.code)}
+            onClick={() => void handleBuy(selectedTariff.code)}
           >
-            {buyingCode === featuredTariff.code
+            {buyingCode === selectedTariff.code
               ? t("buyLoading")
-              : featuredIsFree
+              : selectedIsFree
                 ? t("freeCheckoutButton")
-                : t("stickyBuy", { name: featuredTariff.name })}
+                : t("stickyBuy", { name: selectedTariff.name })}
           </Button>
         </div>
       )}
