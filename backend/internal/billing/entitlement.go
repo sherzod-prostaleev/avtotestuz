@@ -196,7 +196,7 @@ func (s Service) ProcessPaymentGrant(ctx context.Context, paymentID uuid.UUID) e
 	if _, err := s.GrantDaysForPayment(ctx, payment.ProfileID, days, source, note, uuid.NullUUID{}, uuid.NullUUID{UUID: payment.ID, Valid: true}); err != nil {
 		return err
 	}
-	if err := s.processReferralRewardOnPayment(ctx, payment.ProfileID); err != nil {
+	if err := s.processReferralRewardOnPayment(ctx, payment.ProfileID, payment); err != nil {
 		return err
 	}
 	return nil
@@ -321,15 +321,17 @@ func (s Service) LatestPurchaseProration(ctx context.Context, profileID uuid.UUI
 	return &info, nil
 }
 
-// RevokeEntitlementForPayment clamps the VIP grant linked to a refunded
-// payment so it no longer extends past now. Idempotent: missing grant or an
-// already-expired row is a no-op. Stacked later purchases keep their own rows;
-// only this payment's interval is cut short (tip math for multi-purchase
-// clawback can be tightened later if support needs day-perfect accounting).
+// RevokeEntitlementForPayment clamps VIP grant(s) linked to a refunded
+// payment so they no longer extend past now. Idempotent: missing grant or an
+// already-expired row is a no-op. Also claws back referral commission when
+// the referrer still has available balance.
 func (s Service) RevokeEntitlementForPayment(ctx context.Context, paymentID uuid.UUID) error {
 	ent, err := s.Q.GetEntitlementByPaymentID(ctx, uuid.NullUUID{UUID: paymentID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if err := s.ClawbackReferralCommissionOnRefund(ctx, paymentID); err != nil {
+				return fmt.Errorf("referral commission clawback: %w", err)
+			}
 			return nil
 		}
 		return fmt.Errorf("lookup entitlement for payment %s: %w", paymentID, err)
@@ -338,21 +340,20 @@ func (s Service) RevokeEntitlementForPayment(ctx context.Context, paymentID uuid
 		return fmt.Errorf("lock profile %s for revoke: %w", ent.ProfileID, err)
 	}
 	now := time.Now().UTC()
-	if !ent.EndsAt.Valid || !ent.EndsAt.Time.After(now) {
-		return nil
-	}
-	// CHECK (ends_at > starts_at): if the grant has not started yet, collapse
-	// to a one-second stub so the row stays valid for audit.
+	// CHECK (ends_at > starts_at): collapse not-yet-started grants to a 1s stub.
 	clampTo := now
 	if ent.StartsAt.Valid && !clampTo.After(ent.StartsAt.Time) {
 		clampTo = ent.StartsAt.Time.Add(time.Second)
 	}
-	if err := s.Q.ClampEntitlementEnd(ctx, sqlc.ClampEntitlementEndParams{
-		ID:     ent.ID,
-		EndsAt: pgtype.Timestamptz{Time: clampTo, Valid: true},
-		Note:   " | refunded",
+	if err := s.Q.ClampAllEntitlementsForPayment(ctx, sqlc.ClampAllEntitlementsForPaymentParams{
+		PaymentID: uuid.NullUUID{UUID: paymentID, Valid: true},
+		ClampTo:   pgtype.Timestamptz{Time: clampTo, Valid: true},
+		NoteSuffix: " | refunded",
 	}); err != nil {
-		return fmt.Errorf("clamp entitlement %s: %w", ent.ID, err)
+		return fmt.Errorf("clamp entitlements for payment %s: %w", paymentID, err)
+	}
+	if err := s.ClawbackReferralCommissionOnRefund(ctx, paymentID); err != nil {
+		return fmt.Errorf("referral commission clawback: %w", err)
 	}
 	return nil
 }

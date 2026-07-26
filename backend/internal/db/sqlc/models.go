@@ -410,20 +410,21 @@ type PaymentProviderStatus struct {
 }
 
 type Profile struct {
-	ID           uuid.UUID          `json:"id"`
-	Phone        string             `json:"phone"`
-	Name         string             `json:"name"`
-	Region       string             `json:"region"`
-	District     string             `json:"district"`
-	BirthDate    pgtype.Date        `json:"birth_date"`
-	LocalePref   string             `json:"locale_pref"`
-	ThemePref    string             `json:"theme_pref"`
-	Role         string             `json:"role"`
-	ReferralCode pgtype.Text        `json:"referral_code"`
-	ReferredBy   uuid.NullUUID      `json:"referred_by"`
-	Status       string             `json:"status"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	PasswordHash pgtype.Text        `json:"password_hash"`
+	ID                        uuid.UUID          `json:"id"`
+	Phone                     string             `json:"phone"`
+	Name                      string             `json:"name"`
+	Region                    string             `json:"region"`
+	District                  string             `json:"district"`
+	BirthDate                 pgtype.Date        `json:"birth_date"`
+	LocalePref                string             `json:"locale_pref"`
+	ThemePref                 string             `json:"theme_pref"`
+	Role                      string             `json:"role"`
+	ReferralCode              pgtype.Text        `json:"referral_code"`
+	ReferredBy                uuid.NullUUID      `json:"referred_by"`
+	Status                    string             `json:"status"`
+	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
+	PasswordHash              pgtype.Text        `json:"password_hash"`
+	ReferralCommissionPercent int32              `json:"referral_commission_percent"`
 }
 
 type PromoCode struct {
@@ -504,6 +505,30 @@ type Referral struct {
 	Status       string             `json:"status"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	RewardedAt   pgtype.Timestamptz `json:"rewarded_at"`
+}
+
+type ReferralLedger struct {
+	ID        uuid.UUID          `json:"id"`
+	ProfileID uuid.UUID          `json:"profile_id"`
+	EntryType string             `json:"entry_type"`
+	AmountUzs int64              `json:"amount_uzs"`
+	PaymentID uuid.NullUUID      `json:"payment_id"`
+	PayoutID  uuid.NullUUID      `json:"payout_id"`
+	Meta      json.RawMessage    `json:"meta"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type ReferralPayout struct {
+	ID          uuid.UUID          `json:"id"`
+	ProfileID   uuid.UUID          `json:"profile_id"`
+	AmountUzs   int64              `json:"amount_uzs"`
+	CardNumber  string             `json:"card_number"`
+	CardNetwork string             `json:"card_network"`
+	Status      string             `json:"status"`
+	AdminNote   string             `json:"admin_note"`
+	ProcessedBy uuid.NullUUID      `json:"processed_by"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ProcessedAt pgtype.Timestamptz `json:"processed_at"`
 }
 
 type RefreshToken struct {

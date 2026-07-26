@@ -57,6 +57,7 @@ export default function PremiumPage() {
 
   const [provider, setProvider] = useState<PaymentProvider>("payme");
   const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
+  const [referralMap, setReferralMap] = useState<Record<string, string | null>>({});
   const [providerEnabled, setProviderEnabled] = useState<Partial<Record<PaymentProvider, boolean>>>({
     payme: true,
     click: true,
@@ -119,7 +120,7 @@ export default function PremiumPage() {
         {
           tariff_code: code,
           provider: provider,
-          promo_code: promo?.code || undefined,
+          promo_code: promo?.code || referralMap[code] || undefined,
         }
       );
       if (result.free) {
@@ -272,6 +273,9 @@ export default function PremiumPage() {
                     <PromoInput
                       tariffCode={tariff.code}
                       onApplied={(res) => setPromoMap((prev) => ({ ...prev, [tariff.code]: res }))}
+                      onReferralCode={(ref) =>
+                        setReferralMap((prev) => ({ ...prev, [tariff.code]: ref }))
+                      }
                     />
                     {!isFree && (
                       <ProviderPicker

@@ -20,18 +20,21 @@ export interface ValidatePromoResult {
 interface PromoInputProps {
   tariffCode: string;
   onApplied: (res: ValidatePromoResult | null) => void;
+  /** Fired when a personal REF-* code is attached (no price discount). */
+  onReferralCode?: (code: string | null) => void;
 }
 
 function formatSom(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
-export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
+export function PromoInput({ tariffCode, onApplied, onReferralCode }: PromoInputProps) {
   const t = useTranslations("Premium");
   const locale = useLocale();
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ValidatePromoResult | null>(null);
+  const [referralAttached, setReferralAttached] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleApply = async () => {
@@ -40,6 +43,14 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
     setLoading(true);
     setErrorMsg(null);
     try {
+      if (/^REF-/i.test(trimmed)) {
+        await apiPost("referral/apply", { code: trimmed });
+        setReferralAttached(trimmed.toUpperCase());
+        setResult(null);
+        onApplied(null);
+        onReferralCode?.(trimmed.toUpperCase());
+        return;
+      }
       const res = await apiPost<ValidatePromoResult>(
         `billing/promo/validate?locale=${encodeURIComponent(locale)}`,
         {
@@ -47,12 +58,21 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
           tariff_code: tariffCode,
         }
       );
+      setReferralAttached(null);
+      onReferralCode?.(null);
       setResult(res);
       onApplied(res);
     } catch (err: unknown) {
       setResult(null);
+      setReferralAttached(null);
       onApplied(null);
+      onReferralCode?.(null);
       const apiErr = err as { code?: string };
+      if (apiErr?.code === "referral_already_applied") {
+        setReferralAttached(trimmed.toUpperCase());
+        onReferralCode?.(trimmed.toUpperCase());
+        return;
+      }
       if (apiErr?.code === "promo_expired") {
         setErrorMsg(t("promoErrorExpired"));
       } else if (apiErr?.code === "promo_not_started") {
@@ -61,6 +81,8 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
         setErrorMsg(t("promoErrorLimitReached"));
       } else if (apiErr?.code === "promo_user_limit_reached") {
         setErrorMsg(t("promoErrorUserLimit"));
+      } else if (apiErr?.code?.startsWith("referral_")) {
+        setErrorMsg(t("promoErrorReferral"));
       } else {
         setErrorMsg(t("promoErrorNotFound"));
       }
@@ -72,8 +94,10 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
   const handleClear = () => {
     setCode("");
     setResult(null);
+    setReferralAttached(null);
     setErrorMsg(null);
     onApplied(null);
+    onReferralCode?.(null);
   };
 
   return (
@@ -83,7 +107,7 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
         {t("promoTitle")}
       </label>
 
-      {!result ? (
+      {!result && !referralAttached ? (
         <div className="flex gap-2">
           <input
             type="text"
@@ -102,15 +126,32 @@ export function PromoInput({ tariffCode, onApplied }: PromoInputProps) {
             {loading ? "..." : t("promoApply")}
           </Button>
         </div>
+      ) : referralAttached ? (
+        <div className="flex items-center justify-between rounded-xl border border-success/40 bg-success/10 p-2.5 text-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
+            <div>
+              <p className="font-bold text-success">{t("referralApplied")} ({referralAttached})</p>
+              <p className="text-[11px] text-muted-foreground">{t("referralBonusHint")}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="text-[11px] font-bold text-muted-foreground hover:text-foreground"
+          >
+            ✕
+          </button>
+        </div>
       ) : (
         <div className="flex items-center justify-between rounded-xl border border-success/40 bg-success/10 p-2.5 text-xs">
           <div className="flex items-center gap-2">
             <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
             <div>
-              <p className="font-bold text-success">{t("promoApplied")} ({result.code})</p>
+              <p className="font-bold text-success">{t("promoApplied")} ({result!.code})</p>
               <p className="text-[11px] text-muted-foreground">
-                {t("promoDiscountLabel")} -{formatSom(result.discount_uzs)} {t("somSuffix")}
-                {result.bonus_days > 0 && ` (+${result.bonus_days} ${t("daysLabel")})`}
+                {t("promoDiscountLabel")} -{formatSom(result!.discount_uzs)} {t("somSuffix")}
+                {result!.bonus_days > 0 && ` (+${result!.bonus_days} ${t("daysLabel")})`}
               </p>
             </div>
           </div>

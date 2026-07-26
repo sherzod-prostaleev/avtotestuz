@@ -270,27 +270,46 @@ func TestProcessReferralRewardOnPayment(t *testing.T) {
 		t.Fatalf("create payment failed: %v", err)
 	}
 
-	// Process payment grant (should trigger referral reward)
+	// Process payment grant (should trigger referral cash + buyer bonus days)
 	if err := svc.ProcessPaymentGrant(ctx, paymentID); err != nil {
 		t.Fatalf("ProcessPaymentGrant failed: %v", err)
 	}
 
-	// Check referrer entitlement (should have 7 days VIP)
-	active, until, err := svc.Status(ctx, referrer)
+	// Referrer gets cash, not VIP days
+	active, _, err := svc.Status(ctx, referrer)
 	if err != nil {
 		t.Fatalf("check referrer status failed: %v", err)
 	}
-	if !active || until == nil {
-		t.Fatalf("referrer should have active entitlement")
+	if active {
+		t.Fatalf("referrer should not receive VIP days from referral")
+	}
+	wantCommission := int64(59900 * 20 / 100)
+	bal, err := svc.ReferralBalance(ctx, referrer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bal != wantCommission {
+		t.Errorf("referrer balance=%d, want %d", bal, wantCommission)
 	}
 
-	// Check referrer stats (total_rewarded should be 1, bonus_days_earned = 7)
+	// Buyer gets +7 days referral_buyer bonus on top of purchase
+	var buyerBonus int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM entitlement WHERE profile_id = $1 AND source = 'referral_buyer'`,
+		referee,
+	).Scan(&buyerBonus); err != nil {
+		t.Fatal(err)
+	}
+	if buyerBonus != 1 {
+		t.Errorf("buyer referral_buyer grants=%d, want 1", buyerBonus)
+	}
+
 	stats, err := svc.GetReferralStats(ctx, referrer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.TotalRewarded != 1 || stats.BonusDaysEarned != 7 {
-		t.Errorf("got rewarded=%d bonusDays=%d, want 1 and 7", stats.TotalRewarded, stats.BonusDaysEarned)
+	if stats.TotalRewarded != 1 || stats.EarnedUzs != wantCommission {
+		t.Errorf("got rewarded=%d earned=%d, want 1 and %d", stats.TotalRewarded, stats.EarnedUzs, wantCommission)
 	}
 
 	// Second payment by same referee does not double grant referral reward
@@ -312,17 +331,22 @@ func TestProcessReferralRewardOnPayment(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats2.TotalRewarded != 1 || stats2.BonusDaysEarned != 7 {
-		t.Errorf("got rewarded=%d bonusDays=%d on second payment, want 1 and 7", stats2.TotalRewarded, stats2.BonusDaysEarned)
+	if stats2.TotalRewarded != 1 || stats2.EarnedUzs != wantCommission {
+		t.Errorf("got rewarded=%d earned=%d on second payment, want 1 and %d", stats2.TotalRewarded, stats2.EarnedUzs, wantCommission)
+	}
+	bal2, err := svc.ReferralBalance(ctx, referrer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bal2 != wantCommission {
+		t.Errorf("balance after second payment=%d, want %d (no double credit)", bal2, wantCommission)
 	}
 }
 
 // TestProcessReferralRewardOnPayment_ConcurrentDoubleGrant is a genuine
 // concurrency regression test for the double-grant race: two different
-// payments for the same referee (e.g. a double-submitted checkout in two
-// tabs) reaching ProcessPaymentGrant at nearly the same time must NOT both
-// grant the referrer's +7 day referral bonus. Only one grant should ever
-// land, no matter how many payments race for the same referee.
+// payments for the same referee reaching ProcessPaymentGrant at nearly the
+// same time must NOT both credit the referrer's commission.
 func TestProcessReferralRewardOnPayment_ConcurrentDoubleGrant(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
@@ -386,37 +410,32 @@ func TestProcessReferralRewardOnPayment_ConcurrentDoubleGrant(t *testing.T) {
 		}
 	}
 
-	// Exactly one referral-sourced entitlement row must exist for the
-	// referrer — one grant of +7 days, not one per racing payment.
-	var referralGrants int
+	var commissionRows int
 	if err := pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM entitlement WHERE profile_id = $1 AND source = 'referral'`,
+		`SELECT COUNT(*) FROM referral_ledger WHERE profile_id = $1 AND entry_type = 'commission'`,
 		referrer,
-	).Scan(&referralGrants); err != nil {
+	).Scan(&commissionRows); err != nil {
 		t.Fatal(err)
 	}
-	if referralGrants != 1 {
-		t.Errorf("got %d referral entitlement grants, want exactly 1 (double-grant race)", referralGrants)
+	if commissionRows != 1 {
+		t.Errorf("got %d commission rows, want exactly 1 (double-credit race)", commissionRows)
 	}
 
-	var totalReferralDays float64
-	if err := pool.QueryRow(ctx,
-		`SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (ends_at - starts_at)) / 86400), 0)
-		 FROM entitlement WHERE profile_id = $1 AND source = 'referral'`,
-		referrer,
-	).Scan(&totalReferralDays); err != nil {
+	wantCommission := int64(59900 * 20 / 100)
+	bal, err := svc.ReferralBalance(ctx, referrer)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if totalReferralDays < 6.99 || totalReferralDays > 7.01 {
-		t.Errorf("got %v total referral days granted, want exactly 7 (not 14, 21, ...)", totalReferralDays)
+	if bal != wantCommission {
+		t.Errorf("balance=%d, want %d", bal, wantCommission)
 	}
 
 	stats, err := svc.GetReferralStats(ctx, referrer)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if stats.TotalRewarded != 1 || stats.BonusDaysEarned != 7 {
-		t.Errorf("got rewarded=%d bonusDays=%d, want exactly 1 and 7", stats.TotalRewarded, stats.BonusDaysEarned)
+	if stats.TotalRewarded != 1 || stats.EarnedUzs != wantCommission {
+		t.Errorf("got rewarded=%d earned=%d, want exactly 1 and %d", stats.TotalRewarded, stats.EarnedUzs, wantCommission)
 	}
 
 	var referralStatus string

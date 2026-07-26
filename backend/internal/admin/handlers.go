@@ -100,6 +100,20 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Use(RequirePermission("payments.keys.manage"))
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
 		})
+		pr.Group(func(rr chi.Router) {
+			rr.Use(RequirePermission("referral.read"))
+			rr.Get("/referral/payouts", h.listReferralPayouts)
+			rr.Get("/users/{id}/referral", h.getUserReferral)
+		})
+		pr.Group(func(rr chi.Router) {
+			rr.Use(RequirePermission("referral.payouts.manage"))
+			rr.Post("/referral/payouts/{id}/paid", h.markReferralPayoutPaid)
+			rr.Post("/referral/payouts/{id}/reject", h.rejectReferralPayout)
+		})
+		pr.Group(func(rr chi.Router) {
+			rr.Use(RequirePermission("referral.rates.manage"))
+			rr.Patch("/users/{id}/referral/rate", h.patchUserReferralRate)
+		})
 
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("cms.read"))

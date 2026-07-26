@@ -5,7 +5,7 @@ export const ADMIN_ROUTE_PERMISSIONS: Record<string, string[]> = {
   investors: ["investors.read"],
   users: ["users.read"],
   content: ["content.questions.read"],
-  payments: ["payments.read"],
+  payments: ["payments.read", "referral.read"],
   cms: ["cms.read"],
   settings: ["settings.flags", "settings.config"],
   security: ["security.audit.read", "security.rbac"],

@@ -25,6 +25,28 @@ func (q *Queries) ActiveEntitlementEnd(ctx context.Context, profileID uuid.UUID)
 	return ends_at, err
 }
 
+const clampAllEntitlementsForPayment = `-- name: ClampAllEntitlementsForPayment :exec
+UPDATE entitlement
+SET ends_at = CASE
+      WHEN starts_at >= $1::timestamptz THEN starts_at + interval '1 second'
+      ELSE $1::timestamptz
+    END,
+    note = note || $2
+WHERE payment_id = $3 AND ends_at > $1::timestamptz
+`
+
+type ClampAllEntitlementsForPaymentParams struct {
+	ClampTo    pgtype.Timestamptz `json:"clamp_to"`
+	NoteSuffix string             `json:"note_suffix"`
+	PaymentID  uuid.NullUUID      `json:"payment_id"`
+}
+
+// Clamps purchase + referral_buyer rows for one payment (refund path).
+func (q *Queries) ClampAllEntitlementsForPayment(ctx context.Context, arg ClampAllEntitlementsForPaymentParams) error {
+	_, err := q.db.Exec(ctx, clampAllEntitlementsForPayment, arg.ClampTo, arg.NoteSuffix, arg.PaymentID)
+	return err
+}
+
 const clampEntitlementEnd = `-- name: ClampEntitlementEnd :exec
 UPDATE entitlement
 SET ends_at = $2,
@@ -78,7 +100,7 @@ func (q *Queries) CreateOTPChallenge(ctx context.Context, arg CreateOTPChallenge
 
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profile (phone, referral_code, password_hash, name)
-VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash
+VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent
 `
 
 type CreateProfileParams struct {
@@ -111,6 +133,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.Status,
 		&i.CreatedAt,
 		&i.PasswordHash,
+		&i.ReferralCommissionPercent,
 	)
 	return i, err
 }
@@ -190,7 +213,7 @@ func (q *Queries) GetLatestPurchaseEntitlement(ctx context.Context, profileID uu
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash FROM profile WHERE id = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent FROM profile WHERE id = $1
 `
 
 func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error) {
@@ -211,12 +234,13 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.Status,
 		&i.CreatedAt,
 		&i.PasswordHash,
+		&i.ReferralCommissionPercent,
 	)
 	return i, err
 }
 
 const getProfileByPhone = `-- name: GetProfileByPhone :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash FROM profile WHERE phone = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent FROM profile WHERE phone = $1
 `
 
 func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile, error) {
@@ -237,6 +261,7 @@ func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile,
 		&i.Status,
 		&i.CreatedAt,
 		&i.PasswordHash,
+		&i.ReferralCommissionPercent,
 	)
 	return i, err
 }
@@ -361,7 +386,7 @@ const updateProfileMe = `-- name: UpdateProfileMe :one
 UPDATE profile SET
   name = $2, region = $3, district = $4, birth_date = $5,
   locale_pref = $6, theme_pref = $7
-WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash
+WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent
 `
 
 type UpdateProfileMeParams struct {
@@ -400,6 +425,7 @@ func (q *Queries) UpdateProfileMe(ctx context.Context, arg UpdateProfileMeParams
 		&i.Status,
 		&i.CreatedAt,
 		&i.PasswordHash,
+		&i.ReferralCommissionPercent,
 	)
 	return i, err
 }

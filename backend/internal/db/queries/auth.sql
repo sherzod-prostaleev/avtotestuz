@@ -78,4 +78,14 @@ SET ends_at = $2,
     note = note || $3
 WHERE id = $1 AND ends_at > $2;
 
+-- name: ClampAllEntitlementsForPayment :exec
+-- Clamps purchase + referral_buyer rows for one payment (refund path).
+UPDATE entitlement
+SET ends_at = CASE
+      WHEN starts_at >= sqlc.arg(clamp_to)::timestamptz THEN starts_at + interval '1 second'
+      ELSE sqlc.arg(clamp_to)::timestamptz
+    END,
+    note = note || sqlc.arg(note_suffix)
+WHERE payment_id = sqlc.arg(payment_id) AND ends_at > sqlc.arg(clamp_to)::timestamptz;
+
 

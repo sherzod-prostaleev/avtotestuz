@@ -53,14 +53,32 @@ type SessionRow = {
 };
 
 const GRANT_PRESETS = [7, 30, 90, 365] as const;
-type Tab = "profile" | "security" | "billing" | "activity" | "learning" | "notes" | "actions";
+type Tab = "profile" | "security" | "billing" | "referral" | "activity" | "learning" | "notes" | "actions";
+
+type ReferralAdmin = {
+  total_invited: number;
+  total_rewarded: number;
+  earned_uzs: number;
+  balance_uzs: number;
+  commission_percent: number;
+  referees: Array<{
+    referee_id: string;
+    referee_phone: string;
+    referee_name: string;
+    status: string;
+    commission_uzs: number;
+  }>;
+};
 
 export default function AdminUserDetailPage({ params }: { params: { id: string } }) {
   const t = useTranslations("AdminUsers");
+  const tr = useTranslations("AdminReferral");
   const locale = useLocale();
   const { id } = params;
   const [user, setUser] = useState<UserDetail | null>(null);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
+  const [referral, setReferral] = useState<ReferralAdmin | null>(null);
+  const [rateInput, setRateInput] = useState("20");
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -87,6 +105,13 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
       setUser(uJson.data as UserDetail);
       if (sRes.ok) setSessions(sJson.data as SessionRow[]);
       else setSessions([]);
+      const rRes = await fetch(`/api/admin/users/${id}/referral`, { cache: "no-store" });
+      if (rRes.ok) {
+        const rJson = await rRes.json();
+        const data = rJson.data as ReferralAdmin;
+        setReferral(data);
+        setRateInput(String(data.commission_percent));
+      }
     } catch {
       setError(t("errorLoad"));
     }
@@ -223,6 +248,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
     { id: "profile", label: t("profileTab") },
     { id: "security", label: t("tabSecurity") },
     { id: "billing", label: t("tabBilling") },
+    { id: "referral", label: tr("userTab") },
     { id: "activity", label: t("tabActivity") },
     { id: "learning", label: t("tabLearning") },
     { id: "notes", label: t("tabNotes") },
@@ -491,6 +517,106 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               )}
             </section>
           </div>
+        ) : null}
+
+        {tab === "referral" ? (
+          <section className="space-y-4 rounded-2xl border border-border/80 bg-card/70 p-4">
+            {!referral ? (
+              <p className="text-sm text-muted-foreground">{tr("errorLoad")}</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-4">
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="text-[11px] text-muted-foreground">{tr("statInvited")}</p>
+                    <p className="text-lg font-bold">{referral.total_invited}</p>
+                  </div>
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="text-[11px] text-muted-foreground">{tr("statRewarded")}</p>
+                    <p className="text-lg font-bold">{referral.total_rewarded}</p>
+                  </div>
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="text-[11px] text-muted-foreground">{tr("statEarned")}</p>
+                    <p className="text-lg font-bold">{referral.earned_uzs.toLocaleString()}</p>
+                  </div>
+                  <div className="rounded-xl border border-border p-3">
+                    <p className="text-[11px] text-muted-foreground">{tr("statBalance")}</p>
+                    <p className="text-lg font-bold">{referral.balance_uzs.toLocaleString()}</p>
+                  </div>
+                </div>
+                <PermissionGate permission="referral.rates.manage" mode="hide">
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="space-y-1">
+                      <span className="text-xs text-muted-foreground">{tr("rateLabel")}</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={rateInput}
+                        onChange={(e) => setRateInput(e.target.value)}
+                        className="h-10 w-28 rounded-xl border border-border bg-background px-3 text-sm"
+                      />
+                    </label>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="game"
+                      disabled={busy}
+                      onClick={() => {
+                        void (async () => {
+                          setBusy(true);
+                          setError(null);
+                          try {
+                            const res = await fetch(`/api/admin/users/${id}/referral/rate`, {
+                              method: "PATCH",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ percent: Number(rateInput) }),
+                            });
+                            if (!res.ok) {
+                              setError(tr("errorAction"));
+                              return;
+                            }
+                            setOkMsg(tr("rateSaved"));
+                            await load();
+                          } catch {
+                            setError(tr("errorAction"));
+                          } finally {
+                            setBusy(false);
+                          }
+                        })();
+                      }}
+                    >
+                      {tr("saveRate")}
+                    </Button>
+                  </div>
+                </PermissionGate>
+                <div>
+                  <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                    {tr("refereesTitle")}
+                  </h3>
+                  {!referral.referees.length ? (
+                    <p className="text-sm text-muted-foreground">{tr("refereesEmpty")}</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {referral.referees.map((r) => (
+                        <li
+                          key={r.referee_id}
+                          className="flex flex-wrap justify-between gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"
+                        >
+                          <div>
+                            <p className="font-semibold">{r.referee_name || r.referee_phone}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {r.referee_phone} · {r.status}
+                            </p>
+                          </div>
+                          <p className="font-mono text-sm">{r.commission_uzs.toLocaleString()} so&apos;m</p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
         ) : null}
 
         {tab === "activity" || tab === "learning" || tab === "notes" ? (

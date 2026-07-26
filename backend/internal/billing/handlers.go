@@ -48,6 +48,8 @@ func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Post("/me/checkout", h.checkout)
 	r.Post("/billing/promo/validate", h.validatePromo)
 	r.Get("/me/referral", h.getReferralStats)
+	r.Get("/me/referral/ledger", h.getReferralLedger)
+	r.Post("/me/referral/payout", h.requestReferralPayout)
 	r.Post("/referral/apply", h.applyReferral)
 }
 
@@ -175,6 +177,9 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 				"this payment method is temporarily unavailable")
 			return
 		}
+		if writeReferralError(w, err) {
+			return
+		}
 		if !writePromoOrTariffError(w, err) {
 			httpx.Error(w, http.StatusInternalServerError, "internal", "checkout failed")
 		}
@@ -214,21 +219,78 @@ func (h *Handler) applyReferral(w http.ResponseWriter, r *http.Request) {
 	}
 	err := h.Svc.ApplyReferralCode(r.Context(), claims.ProfileID, body.Code)
 	if err != nil {
-		switch {
-		case errors.Is(err, ErrReferralNotFound):
-			httpx.Error(w, http.StatusBadRequest, "referral_not_found", "referral code not found")
-		case errors.Is(err, ErrReferralSelf):
-			httpx.Error(w, http.StatusBadRequest, "referral_self", "cannot apply your own referral code")
-		case errors.Is(err, ErrReferralAlreadyApplied):
-			httpx.Error(w, http.StatusBadRequest, "referral_already_applied", "referral code already applied")
-		case errors.Is(err, ErrReferralNotEligiblePaid):
-			httpx.Error(w, http.StatusBadRequest, "referral_not_eligible_paid", "account already has a paid payment")
-		case errors.Is(err, ErrReferralWindowClosed):
-			httpx.Error(w, http.StatusBadRequest, "referral_window_closed", "referral attach window has closed")
-		default:
+		if !writeReferralError(w, err) {
 			httpx.Error(w, http.StatusInternalServerError, "internal", "failed to apply referral code")
 		}
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]bool{"success": true})
+}
+
+func writeReferralError(w http.ResponseWriter, err error) bool {
+	switch {
+	case errors.Is(err, ErrReferralNotFound):
+		httpx.Error(w, http.StatusBadRequest, "referral_not_found", "referral code not found")
+	case errors.Is(err, ErrReferralSelf):
+		httpx.Error(w, http.StatusBadRequest, "referral_self", "cannot apply your own referral code")
+	case errors.Is(err, ErrReferralAlreadyApplied):
+		httpx.Error(w, http.StatusBadRequest, "referral_already_applied", "referral code already applied")
+	case errors.Is(err, ErrReferralNotEligiblePaid):
+		httpx.Error(w, http.StatusBadRequest, "referral_not_eligible_paid", "account already has a paid payment")
+	case errors.Is(err, ErrReferralWindowClosed):
+		httpx.Error(w, http.StatusBadRequest, "referral_window_closed", "referral attach window has closed")
+	default:
+		return false
+	}
+	return true
+}
+
+func (h *Handler) getReferralLedger(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	entries, err := h.Svc.ListReferralLedger(r.Context(), claims.ProfileID, 50)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "failed to load ledger")
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"entries": entries})
+}
+
+type payoutBody struct {
+	AmountUzs   int64  `json:"amount_uzs"`
+	CardNumber  string `json:"card_number"`
+	CardNetwork string `json:"card_network"`
+}
+
+func (h *Handler) requestReferralPayout(w http.ResponseWriter, r *http.Request) {
+	claims, ok := auth.FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "auth required")
+		return
+	}
+	var body payoutBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "JSON payload expected")
+		return
+	}
+	res, err := h.Svc.RequestReferralPayout(r.Context(), claims.ProfileID, body.AmountUzs, body.CardNumber, body.CardNetwork)
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrPayoutInvalidAmount):
+			httpx.Error(w, http.StatusBadRequest, "payout_invalid_amount", "amount must be positive")
+		case errors.Is(err, ErrPayoutInvalidCard):
+			httpx.Error(w, http.StatusBadRequest, "payout_invalid_card", "invalid card number")
+		case errors.Is(err, ErrPayoutInvalidNetwork):
+			httpx.Error(w, http.StatusBadRequest, "payout_invalid_network", "card_network must be uzcard or humo")
+		case errors.Is(err, ErrPayoutInsufficientBalance):
+			httpx.Error(w, http.StatusBadRequest, "payout_insufficient_balance", "insufficient referral balance")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "payout request failed")
+		}
+		return
+	}
+	httpx.Data(w, http.StatusOK, res)
 }

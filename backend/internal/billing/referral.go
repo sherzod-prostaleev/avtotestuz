@@ -29,11 +29,15 @@ var (
 )
 
 type ReferralStats struct {
-	ReferralCode    string `json:"referral_code"`
-	InviteURL       string `json:"invite_url"`
-	TotalInvited    int64  `json:"total_invited"`
-	TotalRewarded   int64  `json:"total_rewarded"`
-	BonusDaysEarned int64  `json:"bonus_days_earned"`
+	ReferralCode       string `json:"referral_code"`
+	InviteURL          string `json:"invite_url"`
+	TotalInvited       int64  `json:"total_invited"`
+	TotalRewarded      int64  `json:"total_rewarded"`
+	EarnedUzs          int64  `json:"earned_uzs"`
+	AvailableBalanceUzs int64 `json:"available_balance_uzs"`
+	CommissionPercent  int32  `json:"commission_percent"`
+	// Deprecated: kept for older clients; always 0 (cash rewards replaced VIP days).
+	BonusDaysEarned int64 `json:"bonus_days_earned"`
 }
 
 func generateRandomCode() string {
@@ -159,37 +163,82 @@ func (s Service) GetReferralStats(ctx context.Context, userID uuid.UUID) (*Refer
 		return nil, err
 	}
 
-	totalInvited := stats.TotalInvited
-	totalRewarded := stats.TotalRewarded
-	bonusDays := totalRewarded * 7
+	earned, err := s.Q.GetReferralEarnedCommission(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	balance, err := s.Q.GetReferralBalance(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	percent, err := s.Q.GetReferralCommissionPercent(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
 
 	return &ReferralStats{
-		ReferralCode:    code,
-		InviteURL:       fmt.Sprintf("%s/r/%s", s.publicBaseURL(), code),
-		TotalInvited:    totalInvited,
-		TotalRewarded:   totalRewarded,
-		BonusDaysEarned: bonusDays,
+		ReferralCode:        code,
+		InviteURL:           fmt.Sprintf("%s/r/%s", s.publicBaseURL(), code),
+		TotalInvited:        stats.TotalInvited,
+		TotalRewarded:       stats.TotalRewarded,
+		EarnedUzs:           earned,
+		AvailableBalanceUzs: balance,
+		CommissionPercent:   percent,
+		BonusDaysEarned:     0,
 	}, nil
 }
 
-func (s Service) processReferralRewardOnPayment(ctx context.Context, refereeID uuid.UUID) error {
-	// Claim the pending referral first: the UPDATE...RETURNING atomically
-	// flips status to 'rewarded' and takes a row lock as part of the write,
-	// so if two payments for the same referee race here, only one of them
-	// gets a row back — the other gets pgx.ErrNoRows and no-ops. This
-	// prevents a double grant of the referrer's bonus days (see referral.sql).
+// processReferralRewardOnPayment claims a pending referral for the buyer,
+// grants them tariff-mapped bonus VIP days, and credits the referrer a cash
+// commission on the paid amount. Referrer VIP days are intentionally not granted.
+func (s Service) processReferralRewardOnPayment(ctx context.Context, refereeID uuid.UUID, payment sqlc.GetPaymentForPaymeRow) error {
+	// Claim first so concurrent payments for the same referee cannot both reward.
 	claimed, err := s.Q.ClaimPendingReferralForReferee(ctx, refereeID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil // No pending referral for this user (or already claimed)
+			return nil
 		}
 		return err
 	}
 
-	// Grant +7 VIP days to referrer, now that we own the claim.
-	if _, err := s.GrantDays(ctx, claimed.ReferrerID, 7, "referral", "Referral bonus for inviting friend", uuid.NullUUID{}); err != nil {
-		return fmt.Errorf("failed to grant referral bonus days to referrer: %w", err)
+	bonusDays := BuyerReferralBonusDays(payment.TariffDays)
+	if bonusDays > 0 {
+		note := fmt.Sprintf("Referral buyer bonus (+%d days)", bonusDays)
+		if _, err := s.GrantDaysForPayment(ctx, refereeID, bonusDays, "referral_buyer", note, uuid.NullUUID{}, uuid.NullUUID{UUID: payment.ID, Valid: true}); err != nil {
+			return fmt.Errorf("grant buyer referral bonus days: %w", err)
+		}
 	}
 
+	percent, err := s.Q.GetReferralCommissionPercent(ctx, claimed.ReferrerID)
+	if err != nil {
+		return fmt.Errorf("load referrer commission percent: %w", err)
+	}
+	if err := s.creditReferralCommission(ctx, claimed.ReferrerID, refereeID, payment.ID, payment.AmountUzs, percent, payment.TariffDays); err != nil {
+		return err
+	}
 	return nil
+}
+
+// TryApplyReferralAtCheckout applies a referral code when the checkout promo
+// field holds a personal REF code. Returns (true, nil) if the code was a
+// referral code (applied or already applied). Returns (false, nil) if it is
+// not a referral code so the caller may treat it as a discount promo.
+func (s Service) TryApplyReferralAtCheckout(ctx context.Context, refereeID uuid.UUID, rawCode string) (wasReferral bool, err error) {
+	code := strings.TrimSpace(rawCode)
+	if code == "" {
+		return false, nil
+	}
+	if _, err := s.Q.GetReferralCodeOwner(ctx, code); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	if err := s.ApplyReferralCode(ctx, refereeID, code); err != nil {
+		if errors.Is(err, ErrReferralAlreadyApplied) {
+			return true, nil
+		}
+		return true, err
+	}
+	return true, nil
 }

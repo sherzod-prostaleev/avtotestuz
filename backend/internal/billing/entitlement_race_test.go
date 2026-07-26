@@ -324,13 +324,8 @@ func TestGrantDaysConcurrentSameProfile(t *testing.T) {
 	}
 }
 
-// TestReferralRewardTwoRefereesPayingConcurrently reproduces the auditor's
-// exact scenario end-to-end: one referrer, two different referees, both first
-// payments completing at the same moment. ClaimPendingReferralForReferee
-// serializes per referee row, and two referees are two different rows, so
-// nothing upstream serialized the shared GrantDays(referrer) — both referrals
-// were permanently marked 'rewarded' while the referrer banked 7 days instead
-// of 14. The profile lock inside GrantDays is what closes it.
+// TestReferralRewardTwoRefereesPayingConcurrently: one referrer, two referees
+// paying at once must each produce a commission credit (2 × 20% of gentra).
 func TestReferralRewardTwoRefereesPayingConcurrently(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
@@ -418,14 +413,13 @@ func TestReferralRewardTwoRefereesPayingConcurrently(t *testing.T) {
 		t.Fatalf("rewarded referrals = %d, want %d", rewarded, n)
 	}
 
-	var referrerDays float64
-	if err := pool.QueryRow(ctx,
-		`SELECT COALESCE(EXTRACT(EPOCH FROM (MAX(ends_at) - now())) / 86400, 0)
-		 FROM entitlement WHERE profile_id = $1`, referrerID).Scan(&referrerDays); err != nil {
+	wantBal := int64(n) * (59900 * 20 / 100)
+	bal, err := svc.ReferralBalance(ctx, referrerID)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if referrerDays < 13.9 || referrerDays > 14.1 {
-		t.Errorf("referrer entitlement = %.2f days, want ~14 (7 per rewarded referral, both must stack)", referrerDays)
+	if bal != wantBal {
+		t.Errorf("referrer balance = %d, want %d (commission per rewarded referral)", bal, wantBal)
 	}
 }
 

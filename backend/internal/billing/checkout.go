@@ -147,13 +147,19 @@ func (s Service) StartCheckout(ctx context.Context, profileID uuid.UUID, tariffC
 	var bonusDays int
 
 	if promoCode != "" {
-		valRes, err := txSvc.validatePromoLocked(ctx, profileID, promoCode, tariffCode)
-		if err != nil {
-			return CheckoutResult{}, fmt.Errorf("validate promo: %w", err)
+		wasReferral, refErr := txSvc.TryApplyReferralAtCheckout(ctx, profileID, promoCode)
+		if refErr != nil {
+			return CheckoutResult{}, refErr
 		}
-		amount = valRes.FinalAmountUzs
-		promoID = uuid.NullUUID{UUID: valRes.PromoID, Valid: true}
-		bonusDays = valRes.BonusDays
+		if !wasReferral {
+			valRes, err := txSvc.validatePromoLocked(ctx, profileID, promoCode, tariffCode)
+			if err != nil {
+				return CheckoutResult{}, fmt.Errorf("validate promo: %w", err)
+			}
+			amount = valRes.FinalAmountUzs
+			promoID = uuid.NullUUID{UUID: valRes.PromoID, Valid: true}
+			bonusDays = valRes.BonusDays
+		}
 	}
 
 	// Zero-amount (promo) checkouts skip the provider kill-switch — no Payme/Click hop.
