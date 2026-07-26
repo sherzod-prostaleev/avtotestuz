@@ -8,7 +8,7 @@ import { useTickets, TicketItem } from "@/hooks/use-tickets";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefetchVariantDetail } from "@/lib/prefetch-variant";
-import { ArrowLeft, Search, Lock, Star, Play, RefreshCw } from "lucide-react";
+import { ArrowLeft, Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
 
@@ -17,8 +17,17 @@ function getTicketState(ticket: TicketItem) {
   const isCompleted = ticket.status === "completed" || bestCorrect >= 18;
   const isLocked = ticket.status === "locked" || ticket.unlocked === false;
   const attempts = ticket.attempts ?? (ticket.status !== "unstarted" ? 1 : 0);
+  const totalQuestions = ticket.total_questions ?? 20;
+  const progressPercent = Math.min(100, Math.round((bestCorrect / totalQuestions) * 100));
 
-  return { bestCorrect, isCompleted, isLocked, attempts };
+  return { bestCorrect, isCompleted, isLocked, attempts, totalQuestions, progressPercent };
+}
+
+function ticketTileClass(isCompleted: boolean, isLocked: boolean, attempts: number) {
+  if (isLocked) return "ticket-tile ticket-tile-locked";
+  if (isCompleted) return "ticket-tile ticket-tile-done";
+  if (attempts > 0) return "ticket-tile ticket-tile-progress";
+  return "ticket-tile ticket-tile-open";
 }
 
 export default function TicketsPage() {
@@ -99,38 +108,35 @@ export default function TicketsPage() {
       </header>
 
       <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-        <Card className="overflow-hidden border-accent/20 bg-card p-5 md:p-8">
+        <Card className="asphalt-hero overflow-hidden border-accent/20 p-5 md:p-8">
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-md bg-accent/15 px-3 py-1 text-[11px] font-extrabold text-accent">
+              <span className="rounded-md bg-accent/15 px-3 py-1.5 text-sm font-extrabold text-accent">
                 {t("statTotal", { count: tickets.length })}
               </span>
-              <span className="rounded-md bg-gold/15 px-3 py-1 text-[11px] font-extrabold text-gold">
+              <span className="rounded-md bg-gold/15 px-3 py-1.5 text-sm font-extrabold text-gold">
                 {t("statCompleted", { count: completedCount })}
               </span>
-              <span className="rounded-md bg-success/15 px-3 py-1 text-[11px] font-extrabold text-success">
+              <span className="rounded-md bg-success/15 px-3 py-1.5 text-sm font-extrabold text-success">
                 {t("statInProgress", { count: inProgressCount })}
               </span>
-              <span className="rounded-md bg-muted px-3 py-1 text-[11px] font-extrabold text-muted-foreground">
+              <span className="rounded-md bg-muted px-3 py-1.5 text-sm font-extrabold text-muted-foreground">
                 {t("statLocked", { count: lockedCount })}
               </span>
             </div>
 
             <div className="space-y-3">
-              <div className="inline-flex items-center rounded-md border border-border bg-background px-3 py-1 text-[11px] font-bold text-muted-foreground">
+              <div className="inline-flex items-center rounded-md border border-border/80 bg-background/60 px-3 py-1.5 text-sm font-bold text-muted-foreground backdrop-blur-sm">
                 {t("ticketsProgress", { done: completedCount, total: tickets.length })}
               </div>
-              <h2 className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
+              <h2 className="font-display text-2xl font-extrabold tracking-tight md:text-3xl">
                 {t("heroTitle")}
               </h2>
-              <p className="max-w-xl text-sm text-muted-foreground">
+              <p className="max-w-xl text-base leading-relaxed text-muted-foreground">
                 {t("heroDescription")}
               </p>
-              <p className="max-w-xl text-xs leading-5 text-muted-foreground/90">
-                {t("leftoverNote")}
-              </p>
               <div
-                className="h-2 w-full overflow-hidden rounded-full bg-border"
+                className="ticket-progress-track h-2"
                 role="progressbar"
                 aria-valuenow={completedPercent}
                 aria-valuemin={0}
@@ -138,7 +144,7 @@ export default function TicketsPage() {
                 aria-label={t("ticketsProgress", { done: completedCount, total: tickets.length })}
               >
                 <div
-                  className="h-full rounded-full bg-accent transition-all duration-500"
+                  className="ticket-progress-fill animate-grow-bar"
                   style={{ width: `${completedPercent}%` }}
                 />
               </div>
@@ -146,10 +152,14 @@ export default function TicketsPage() {
           </div>
         </Card>
 
-        <Card className="flex flex-col justify-between bg-card p-5 md:p-8">
-          <div className="flex items-start justify-between gap-4">
+        <Card className="asphalt-hero relative flex flex-col justify-between overflow-hidden border-accent/20 p-5 md:p-8">
+          <span
+            aria-hidden="true"
+            className="absolute inset-y-4 left-0 w-1 rounded-full bg-gradient-to-b from-accent to-accent-shadow"
+          />
+          <div className="flex items-start justify-between gap-4 pl-2">
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
                 {t("nextTicketLabel")}
               </p>
               {loading ? (
@@ -163,7 +173,7 @@ export default function TicketsPage() {
                   <h3 className="mt-2 font-display text-3xl font-black tracking-tight tabular-nums">
                     {nextTicket ? t("ticketNumber", { number: nextTicket.ticket.number }) : t("allDoneTitle")}
                   </h3>
-                  <p className="mt-2 text-xs text-muted-foreground">
+                  <p className="mt-2 text-sm text-muted-foreground">
                     {nextTicket
                       ? t("nextTicketBest", {
                           best: nextTicket.bestCorrect,
@@ -179,18 +189,18 @@ export default function TicketsPage() {
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2 text-[11px] font-bold">
-            <span className="rounded-md bg-background px-3 py-1 text-muted-foreground">
+          <div className="mt-5 flex flex-wrap gap-2 pl-2 text-sm font-bold">
+            <span className="rounded-md bg-background/70 px-3 py-1.5 text-muted-foreground backdrop-blur-sm">
               {t("statAvailable", { count: availableCount })}
             </span>
-            <span className="rounded-md bg-background px-3 py-1 text-muted-foreground">
+            <span className="rounded-md bg-background/70 px-3 py-1.5 text-muted-foreground backdrop-blur-sm">
               {t("statUnstarted", { count: unstartedCount })}
             </span>
           </div>
 
           {/* Desktop/tablet CTA lives in the hero card; the mobile twin is a
               page-end sticky bar so it stays in the thumb zone over the grid. */}
-          <div className="mt-5 hidden sm:block">
+          <div className="mt-5 hidden pl-2 sm:block">
             {loading ? (
               <span aria-hidden="true" className="block h-12 w-full animate-pulse rounded-2xl bg-border/60" />
             ) : nextTicket ? (
@@ -243,60 +253,86 @@ export default function TicketsPage() {
       ) : filteredTickets.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">{t("emptyFiltered")}</div>
       ) : (
-        <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredTickets.map((ticket) => {
-            const { bestCorrect, isCompleted, isLocked, attempts } = getTicketState(ticket);
+            const { bestCorrect, isCompleted, isLocked, attempts, totalQuestions, progressPercent } =
+              getTicketState(ticket);
 
             return (
-              <Card
+              <div
                 key={ticket.number}
                 onClick={() => handleStartTicket(ticket)}
                 onKeyDown={(event) => handleTicketKeyDown(event, ticket)}
                 role="button"
                 tabIndex={0}
                 aria-label={t("openTicket", { number: ticket.number })}
-                className={`relative flex min-h-[9.5rem] cursor-pointer flex-col items-center justify-between p-4 text-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  isCompleted
-                    ? "border-gold/40 bg-gold/5"
-                    : isLocked
-                    ? "border-border bg-card opacity-70"
-                    : "border-accent/30 hover:border-accent"
-                }`}
+                className={ticketTileClass(isCompleted, isLocked, attempts)}
               >
-                {/* Top Badge */}
-                <div className="w-full flex items-center justify-between text-[11px] font-extrabold text-muted-foreground">
-                  <span>{t("ticketNumber", { number: ticket.number })}</span>
+                <div className="flex w-full items-center justify-between gap-2 pl-1">
+                  <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    {t("ticketNumber", { number: ticket.number })}
+                  </span>
                   {isLocked ? (
-                    <Lock aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   ) : isCompleted ? (
-                    <Star aria-hidden="true" className="h-3.5 w-3.5 fill-gold text-gold" />
+                    <Star aria-hidden="true" className="h-3.5 w-3.5 shrink-0 fill-gold text-gold" />
+                  ) : attempts > 0 ? (
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
                   ) : null}
                 </div>
 
-                {/* Main Ticket Icon Number */}
-                <div className="my-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-card border border-border font-display text-2xl font-black text-foreground shadow-sm">
-                  {ticket.number}
-                </div>
-
-                {/* Bottom Status / Score */}
-                <div className="w-full">
-                  {isLocked ? (
-                    <span className="text-[10px] font-bold text-muted-foreground">{t("vipRequiredShort")}</span>
-                  ) : isCompleted ? (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-gold/20 px-2 py-0.5 text-[11px] font-extrabold text-gold">
-                      {t("scoreShort", { score: bestCorrect, total: ticket.total_questions ?? 20 })}
-                    </span>
-                  ) : attempts > 0 ? (
-                    <span className="text-[11px] font-bold text-accent">
-                      {t("scoreShort", { score: bestCorrect, total: ticket.total_questions ?? 20 })}
-                    </span>
-                  ) : (
-                    <span className="inline-flex h-9 w-full items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-3 text-[11px] font-bold text-accent-foreground shadow-3d">
-                      <Play aria-hidden="true" className="mr-1 h-3 w-3" /> {t("solve")}
-                    </span>
+                <div className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-center">
+                  <span
+                    className={`ticket-tile-number ${
+                      isCompleted ? "text-gold" : isLocked ? "text-muted-foreground" : "text-foreground"
+                    }`}
+                  >
+                    {ticket.number}
+                  </span>
+                  {!isLocked && attempts > 0 && !isCompleted && (
+                    <div className="mt-1 w-full max-w-[7.5rem] space-y-1.5 px-1">
+                      <p className="text-xs font-extrabold tabular-nums text-accent">
+                        {t("scoreShort", { score: bestCorrect, total: totalQuestions })}
+                      </p>
+                      <div className="ticket-progress-track">
+                        <div
+                          className="ticket-progress-fill"
+                          style={{ width: `${Math.max(progressPercent, bestCorrect > 0 ? 8 : 0)}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {isCompleted && (
+                    <div className="mt-1 w-full max-w-[7.5rem] space-y-1.5 px-1">
+                      <p className="inline-flex items-center justify-center gap-1 text-xs font-extrabold tabular-nums text-gold">
+                        <Check aria-hidden="true" className="h-3.5 w-3.5" />
+                        {t("scoreShort", { score: bestCorrect, total: totalQuestions })}
+                      </p>
+                      <div className="ticket-progress-track">
+                        <div className="ticket-progress-fill ticket-progress-fill-done" style={{ width: "100%" }} />
+                      </div>
+                    </div>
                   )}
                 </div>
-              </Card>
+
+                <div className="w-full pl-1">
+                  {isLocked ? (
+                    <span className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2 text-xs font-bold text-muted-foreground">
+                      <Lock aria-hidden="true" className="h-3.5 w-3.5" />
+                      {t("vipRequiredShort")}
+                    </span>
+                  ) : isCompleted ? (
+                    <span className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-gold/30 bg-gold/10 px-2 text-xs font-extrabold text-gold">
+                      <Star aria-hidden="true" className="h-3.5 w-3.5 fill-gold" />
+                      {t("filterCompleted")}
+                    </span>
+                  ) : (
+                    <Button as="span" variant="game" size="sm" className="ticket-tile-cta !min-h-9 !border-b-0 !shadow-none">
+                      <Play aria-hidden="true" className="h-3 w-3" /> {t("solve")}
+                    </Button>
+                  )}
+                </div>
+              </div>
             );
           })}
         </div>

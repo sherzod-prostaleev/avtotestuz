@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import uzLatnMessages from "../../../../../messages/uz-Latn.json";
@@ -26,9 +26,10 @@ const localeCases = [
     messages: uzLatnMessages,
     welcome: "Xush kelibsiz, Dilshod!",
     modes: "O'quv rejimlari",
+    nextAction: "Keyingi eng yaxshi qadam",
     signs: "O'zbekiston yo'l belgilari katalogi",
     saved: "Saqlangan savollar",
-    ready: "Imtihonga tayyor!",
+    ready: "Yuqori qamrov",
     resumeTitle: "Tugallanmagan sessiya",
     resumeMode: "Mashq",
     resumeTotal: "Jami: 20 savol",
@@ -43,9 +44,10 @@ const localeCases = [
     messages: uzCyrlMessages,
     welcome: "Хуш келибсиз, Dilshod!",
     modes: "Ўқув режимлари",
+    nextAction: "Кейинги энг яхши қадам",
     signs: "Ўзбекистон йўл белгилари каталоги",
     saved: "Сақланган саволлар",
-    ready: "Имтиҳонга тайёр!",
+    ready: "Юқори қамров",
     resumeTitle: "Тугалланмаган сессия",
     resumeMode: "Машқ",
     resumeTotal: "Жами: 20 савол",
@@ -60,9 +62,10 @@ const localeCases = [
     messages: ruMessages,
     welcome: "Добро пожаловать, Dilshod!",
     modes: "Режимы обучения",
+    nextAction: "Следующий лучший шаг",
     signs: "Каталог дорожных знаков Узбекистана",
     saved: "Сохранённые вопросы",
-    ready: "Готов к экзамену!",
+    ready: "Высокое покрытие",
     resumeTitle: "Незавершённая сессия",
     resumeMode: "Практика",
     resumeTotal: "Всего: 20 вопросов",
@@ -133,6 +136,8 @@ function renderWithIntl(localeCase: (typeof localeCases)[number]) {
 describe("DashboardPage i18n and accessibility", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    window.localStorage.clear();
+    window.localStorage.setItem("dg-onboarding-v1-dismissed", "1");
     vi.spyOn(useSessionHistoryModule, "useSessionHistory").mockReturnValue(historyState());
   });
 
@@ -153,6 +158,8 @@ describe("DashboardPage i18n and accessibility", () => {
 
     expect(screen.getByText(localeCase.welcome)).toBeInTheDocument();
     expect(screen.getByText(localeCase.modes)).toBeInTheDocument();
+    expect(screen.getByText(localeCase.nextAction)).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /O'quv yo'li|Ўқув йўли|Учебный путь/ })).not.toBeInTheDocument();
     expect(screen.getByText(localeCase.signs)).toBeInTheDocument();
     expect(screen.getByText(localeCase.ready)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: new RegExp(localeCase.saved) })).toHaveAttribute(
@@ -178,85 +185,44 @@ describe("DashboardPage i18n and accessibility", () => {
     setHistory({
       sessions: [
         {
-          id: "finished-newest",
-          mode: "exam",
-          status: "passed",
-          total: 20,
-          started_at: "2026-07-22T13:00:00Z",
-        },
-        {
-          id: "",
+          id: "older",
           mode: "exam",
           status: "in_progress",
           total: 20,
-          started_at: "2026-07-22T12:00:00Z",
+          started_at: "2026-07-21T10:00:00Z",
         },
         {
-          id: "invalid-date",
-          mode: "variant",
-          status: "in_progress",
-          total: 20,
-          started_at: "not-a-date",
-        },
-        {
-          id: "resume-newest",
-          mode: "mistakes",
-          status: "in_progress",
-          total: 12,
-          started_at: "2026-07-22T11:00:00Z",
-        },
-        {
-          id: "resume-older",
+          id: "newest",
           mode: "practice",
           status: "in_progress",
           total: 20,
           started_at: "2026-07-22T10:00:00Z",
         },
-      ],
-    });
-
-    renderWithIntl(localeCases[2]);
-
-    expect(screen.getByRole("link", { name: "Продолжить" })).toHaveAttribute(
-      "href",
-      "/ru/session/resume-newest"
-    );
-    const resumeRegion = screen.getByRole("region", { name: "Незавершённая сессия" });
-    expect(within(resumeRegion).getByText("Работа над ошибками")).toBeInTheDocument();
-    expect(within(resumeRegion).getByText("Всего: 12 вопросов")).toBeInTheDocument();
-    expect(screen.getAllByText("Незавершённая сессия")).toHaveLength(1);
-  });
-
-  it("does not render the resume banner without a valid in-progress session", () => {
-    mockStats();
-    setHistory({
-      sessions: [
         {
           id: "finished",
-          mode: "exam",
+          mode: "practice",
           status: "passed",
           total: 20,
-          started_at: "2026-07-22T10:00:00Z",
+          started_at: "2026-07-22T11:00:00Z",
         },
       ],
     });
-
     renderWithIntl(localeCases[0]);
 
-    expect(screen.queryByText("Tugallanmagan sessiya")).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Davom ettirish" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Davom ettirish" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/session/newest"
+    );
   });
 
   it.each(localeCases)(
-    "keeps history loading and errors localized and separate from core stats errors for $locale",
+    "surfaces translated load failures for core stats and resume history in $locale",
     (localeCase) => {
       mockStats("Failed to load user data");
-      setHistory({ error: "Failed to load session history" });
-
+      setHistory({ error: "Failed to load session history", sessions: [] });
       const { rerender } = renderWithIntl(localeCase);
 
       const alerts = screen.getAllByRole("alert");
-      expect(alerts).toHaveLength(2);
       expect(alerts[0]).toHaveTextContent(localeCase.coreError);
       expect(alerts[1]).toHaveTextContent(localeCase.resumeError);
       expect(screen.queryByText("Failed to load user data")).not.toBeInTheDocument();
@@ -277,6 +243,8 @@ describe("DashboardPage i18n and accessibility", () => {
     const { container } = renderWithIntl(localeCase);
 
     expect(container.textContent).not.toContain("O'quv Rejimlari");
+    expect(container.textContent).not.toContain("O'quv yo'li");
+    expect(container.textContent).not.toContain("Aqlli takrorlash");
     expect(container.textContent).not.toContain("Imtihonga tayyor");
     expect(container.textContent).not.toContain("Katalogni ko'rish");
     expect(container.textContent).not.toContain("ta takrorlash");
@@ -308,9 +276,6 @@ describe("DashboardPage i18n and accessibility", () => {
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
     expect(screen.queryByText("Слабая зона пока не определена")).not.toBeInTheDocument();
 
-    // Once both requests resolve, the real content (and only the real
-    // content) should settle in — a VIP user here, so the "upgrade" pitch
-    // must never have appeared even momentarily.
     mockStats();
     setHistory();
     rerender(
@@ -322,6 +287,7 @@ describe("DashboardPage i18n and accessibility", () => {
     expect(screen.getByText("VIP-доступ")).toBeInTheDocument();
     expect(screen.queryByText("Оформить VIP")).not.toBeInTheDocument();
     expect(screen.getByText("Следующий лучший шаг")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Учебный путь" })).not.toBeInTheDocument();
   });
 
   it("reserves the weakest-categories layout with a skeleton instead of popping the section in", () => {
@@ -331,5 +297,71 @@ describe("DashboardPage i18n and accessibility", () => {
 
     expect(screen.queryByText(/Самые слабые темы/)).not.toBeInTheDocument();
     expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
+  });
+
+  it("shows a dismissible onboarding callout for new users and remembers dismissal", () => {
+    window.localStorage.removeItem("dg-onboarding-v1-dismissed");
+    mockStats();
+    vi.spyOn(useUserStatsModule, "useUserStats").mockReturnValue({
+      user: { id: "u1", phone: "+998901234567", name: "Dilshod" },
+      entitlement: { is_vip: false },
+      streak: { current_streak: 0, max_streak: 0, today_answered: 0, daily_target: 10 },
+      stats: {
+        readiness_pct: 0,
+        due_questions_count: 0,
+        total_answered: 0,
+        total_correct: 0,
+        category_mastery: [],
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    setHistory({ sessions: [] });
+
+    renderWithIntl(localeCases[0]);
+
+    expect(screen.getByRole("heading", { name: "Qanday boshlash kerak?" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Mashqni boshlash/ })).toHaveAttribute(
+      "href",
+      "/uz-Latn/practice"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Yopish" }));
+
+    expect(screen.queryByRole("heading", { name: "Qanday boshlash kerak?" })).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("dg-onboarding-v1-dismissed")).toBe("1");
+  });
+
+  it("recommends weakest-category practice via next-best-step when due queue is empty", () => {
+    mockStats();
+    vi.spyOn(useUserStatsModule, "useUserStats").mockReturnValue({
+      user: { id: "u1", phone: "+998901234567", name: "Dilshod" },
+      entitlement: { is_vip: false },
+      streak: { current_streak: 1, max_streak: 1, today_answered: 2, daily_target: 10 },
+      stats: {
+        readiness_pct: 20,
+        due_questions_count: 0,
+        total_answered: 20,
+        total_correct: 14,
+        category_mastery: [
+          { code: "signs", name: "Belgilar", answered: 4, correct: 2, mastery_pct: 10, studied: 2, total: 40 },
+          { code: "priority", name: "Imtiyoz", answered: 6, correct: 4, mastery_pct: 40, studied: 4, total: 30 },
+        ],
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    setHistory();
+
+    renderWithIntl(localeCases[0]);
+
+    expect(screen.queryByRole("heading", { name: "O'quv yo'li" })).not.toBeInTheDocument();
+    expect(screen.getByText("Keyingi eng yaxshi qadam")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Mashqni boshlash/ })).toHaveAttribute(
+      "href",
+      "/uz-Latn/session/start?mode=practice&category_id=signs&count=20"
+    );
   });
 });

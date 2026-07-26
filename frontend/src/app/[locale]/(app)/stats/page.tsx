@@ -25,6 +25,8 @@ export default function StatsPage() {
   const readinessPct = stats?.readiness_pct ?? 0;
   const isReady = readinessPct >= 80;
   const dueCount = stats?.due_questions_count ?? 0;
+  const passEstimate = stats?.pass_estimate;
+  const passPct = passEstimate?.estimated_pass_pct ?? null;
 
   const modeLabels: Record<SessionSummary["mode"], string> = {
     variant: t("modeVariant"),
@@ -33,6 +35,7 @@ export default function StatsPage() {
     mistakes: t("modeMistakes"),
     grand_mock: t("modeGrandMock"),
     review: t("modeReview"),
+    placement: t("modePlacement"),
   };
   const statusLabels: Record<SessionSummary["status"], string> = {
     in_progress: t("statusInProgress"),
@@ -49,6 +52,7 @@ export default function StatsPage() {
         </Link>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        <p className="mt-1 text-xs text-muted-foreground/90">{t("disclaimer")}</p>
       </header>
 
       {loading ? (
@@ -64,8 +68,8 @@ export default function StatsPage() {
         </div>
       ) : (
       <div className="space-y-6">
-        {/* Top Summary: Readiness & Streak */}
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Top Summary: Readiness, pass estimate & Streak */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Card className="flex flex-col items-center justify-center p-6 text-center">
             <ResultRing percent={readinessPct} label={t("readiness")} />
             <span
@@ -77,7 +81,16 @@ export default function StatsPage() {
             </span>
           </Card>
 
-          <Card className="flex flex-col justify-between p-6">
+          <Card className="flex flex-col justify-center p-6">
+            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("passEstimateTitle")}
+            </p>
+            <p className="mt-2 font-display text-4xl font-extrabold text-accent">
+              {passPct === null ? "—" : t("passEstimateValue", { pct: passPct })}
+            </p>
+          </Card>
+
+          <Card className="flex flex-col justify-between p-6 sm:col-span-2 lg:col-span-1">
             <div>
               <div className="flex items-center gap-2">
                 <Flame aria-hidden="true" className="h-8 w-8 text-streak" />

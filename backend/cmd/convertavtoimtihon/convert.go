@@ -274,7 +274,9 @@ func Convert(srcDir string, assignments map[string]string) (Result, error) {
 		if anyComment {
 			res.Dataset.Explanations = append(res.Dataset.Explanations, importer.CanonExplanation{
 				Question:  extID,
-				LegalRefs: nil, // source citations remain inline prose; not machine-extracted
+				// Structured refs filled post-convert by scripts/seed/extract_legal_refs.py
+				// (wired into `make seed-import` / `make extract-legal-refs`).
+				LegalRefs: nil,
 				Blocks:    blocks,
 			})
 			if !allComment {

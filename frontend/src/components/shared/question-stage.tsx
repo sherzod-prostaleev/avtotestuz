@@ -79,10 +79,10 @@ export function QuestionStage({
         <h1
           className={`font-display font-bold leading-snug tracking-tight text-foreground ${
             compact
-              ? "text-[15px] sm:text-lg"
+              ? "text-base sm:text-xl"
               : hasImage
-                ? "text-base sm:text-xl"
-                : "text-lg sm:text-2xl"
+                ? "text-lg sm:text-2xl"
+                : "text-xl sm:text-3xl"
           }`}
         >
           {question.question}

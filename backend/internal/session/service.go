@@ -206,8 +206,18 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		timeLimit = pgtype.Int4{Int32: ExamTimeLimitSec, Valid: true}
 		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
 
+	case "placement":
+		// Free diagnostic: no VIP gate. Records FSRS so placement seeds memory.
+		ids, err = s.Q.RandomQuestionIDs(ctx, int32(PlacementQuestionCount))
+		if err == nil && len(ids) < PlacementQuestionCount {
+			return SessionView{}, ErrInvalidRequest
+		}
+		timeLimit = pgtype.Int4{Int32: PlacementTimeLimitSec, Valid: true}
+		errorsAllowed = pgtype.Int4{Int32: PlacementErrorsAllowed, Valid: true}
+
 	case "practice":
-		// Exactly one selector: category, sign, or image presence.
+		// Exactly one selector: category, sign, variant range, or image presence.
+		// "Hammasi" is a count choice (large LIMIT), not a missing selector.
 		selectors := 0
 		if req.CategoryID != uuid.Nil {
 			selectors++
@@ -406,7 +416,10 @@ func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID
 // applies mistake-bank side effects. Exam-like modes return per-answer
 // correct/wrong feedback immediately (official Avtotest green/red UI) and
 // may stop the session on the 3rd mistake.
-func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questionID, answerID uuid.UUID) (AnswerResult, error) {
+//
+// FSRS side effects (unless opts.SkipFSRS): incorrect → Again; exam-like
+// correct → Good; practice-style correct → FSRSRatingForCorrect(rating, latency).
+func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questionID, answerID uuid.UUID, opts SubmitAnswerOpts) (AnswerResult, error) {
 	row, err := s.Q.GetExamSession(ctx, sessionID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -480,12 +493,23 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		return AnswerResult{}, err
 	}
 
-	rating := learning.Good
-	if !ans.IsCorrect {
-		rating = learning.Again
-	}
-	if _, err := s.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
-		return AnswerResult{}, err
+	if !opts.SkipFSRS {
+		var rating learning.Rating
+		switch {
+		case !ans.IsCorrect:
+			rating = learning.Again
+		case IsExamLike(row.Mode):
+			rating = learning.Good
+		default:
+			latencyMs := 0
+			if opts.LatencyMs != nil {
+				latencyMs = *opts.LatencyMs
+			}
+			rating = FSRSRatingForCorrect(opts.Rating, latencyMs)
+		}
+		if _, err := s.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
+			return AnswerResult{}, err
+		}
 	}
 	if _, err := s.Progress.RecordActivity(ctx, profileID); err != nil {
 		return AnswerResult{}, err
@@ -518,7 +542,11 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 			return AnswerResult{}, err
 		}
 		wrongSoFar := int(after.TotalAnswered - after.CorrectCount)
-		if ShouldStopExam(wrongSoFar) {
+		errorsAllowed := ExamErrorsAllowed
+		if row.ErrorsAllowed.Valid {
+			errorsAllowed = int(row.ErrorsAllowed.Int32)
+		}
+		if ShouldStopForErrors(wrongSoFar, errorsAllowed) {
 			if _, err := s.finishInternal(ctx, row, true, false); err != nil {
 				return AnswerResult{}, err
 			}
@@ -610,9 +638,11 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 }
 
 // unlockThresholdConfigKey is the limit_config key holding the minimum
-// correct-answer count a variant-mode session must reach to unlock the next
-// bilet. Free and VIP tiers currently share the same value (10), so
-// FinishSession reads FreeValue without an extra billing lookup.
+// correct-answer count a variant-mode session must reach to mark the bilet
+// completed (completed_at). Ticket unlock itself is VIP-gated (variant #1
+// free; #2+ require VIP) — see IsVariantUnlocked / StartSession. Free and VIP
+// tiers currently share the same completed threshold (10), so FinishSession
+// reads FreeValue without an extra billing lookup.
 const unlockThresholdConfigKey = "unlock_threshold_correct"
 
 // FinishSession finishes an in-progress session — computing its final
@@ -673,7 +703,12 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 		outcome := EvaluateExam(correctCount, wrong, int(row.Total), timedOut, tooManyErrors)
 		status = outcome.Status
 		reason = outcome.StoppedReason
-	default: // "variant", "practice", "mistakes"
+	case "placement":
+		wrong := totalAnswered - correctCount
+		outcome := EvaluatePlacement(correctCount, wrong, int(row.Total), timedOut, tooManyErrors)
+		status = outcome.Status
+		reason = outcome.StoppedReason
+	default: // "variant", "practice", "mistakes", "review"
 		status = "passed"
 		if totalAnswered < int(row.Total) {
 			status = "abandoned"
@@ -689,11 +724,23 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 		stoppedReason = pgtype.Text{String: reason, Valid: true}
 	}
 
+	var readinessAtFinish pgtype.Int4
+	if row.Mode == "exam" || row.Mode == "grand_mock" || row.Mode == "placement" {
+		if s.Learning != nil {
+			st, statsErr := s.Learning.Stats(ctx, row.ProfileID)
+			if statsErr != nil {
+				return FinishResult{}, statsErr
+			}
+			readinessAtFinish = pgtype.Int4{Int32: int32(st.ReadinessPct), Valid: true}
+		}
+	}
+
 	updated, err := s.Q.FinishExamSession(ctx, sqlc.FinishExamSessionParams{
-		ID:            row.ID,
-		Status:        status,
-		Score:         pgtype.Int4{Int32: int32(correctCount), Valid: true},
-		StoppedReason: stoppedReason,
+		ID:                   row.ID,
+		Status:               status,
+		Score:                pgtype.Int4{Int32: int32(correctCount), Valid: true},
+		StoppedReason:        stoppedReason,
+		ReadinessPctAtFinish: readinessAtFinish,
 	})
 	if err != nil {
 		return FinishResult{}, err
@@ -891,10 +938,9 @@ func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit
 }
 
 // ListVariantStatuses returns every bilet variant, in number order, with the
-// profile's progress against it and whether it's unlocked. A variant is
-// unlocked if it's the first one, or if the *previous* variant's best_correct
-// meets the configured unlock threshold — computed via the pure
-// IsVariantUnlocked rule (rules.go), never reimplemented here.
+// profile's progress against it and whether it's unlocked. Unlock matches
+// StartSession: variant #1 for everyone, variants #2+ only for VIP — via the
+// pure IsVariantUnlocked rule (rules.go), never reimplemented here.
 func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) ([]VariantStatus, error) {
 	variants, err := s.Q.ListVariants(ctx)
 	if err != nil {
@@ -915,14 +961,7 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		return nil, statusErr
 	}
 
-	cfg, err := s.Q.GetLimitConfig(ctx, unlockThresholdConfigKey)
-	if err != nil {
-		return nil, err
-	}
-	threshold := int(cfg.FreeValue)
-
 	statuses := make([]VariantStatus, 0, len(variants))
-	prevBestCorrect := 0
 	for i, v := range variants {
 		variant, err := s.Q.GetVariantByNumber(ctx, v.Number)
 		if err != nil {
@@ -932,10 +971,9 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		status := VariantStatus{
 			Number:        v.Number,
 			QuestionCount: int(v.QuestionCount),
-			Unlocked:      IsVariantUnlocked(i == 0, active, prevBestCorrect, threshold),
+			Unlocked:      IsVariantUnlocked(i == 0, active),
 		}
 
-		bestCorrect := 0
 		if p, ok := progressByVariant[variant.ID]; ok {
 			status.BestCorrect = int(p.BestCorrect)
 			status.Attempts = int(p.Attempts)
@@ -943,9 +981,7 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 				t := p.CompletedAt.Time
 				status.CompletedAt = &t
 			}
-			bestCorrect = int(p.BestCorrect)
 		}
-		prevBestCorrect = bestCorrect
 
 		statuses = append(statuses, status)
 	}
@@ -985,13 +1021,11 @@ type MockEligibilityResult struct {
 // requirements: an active VIP entitlement, enough of the question bank
 // actually studied, and a high enough overall readiness percentage.
 //
-// The volume requirement exists because readiness on its own is an accuracy
-// ratio (learning.Service.Stats weights correct/seen by category size), which
-// made the gate hollow: answering ONE question correctly in every category
-// produced readiness_pct = 100 and unlocked a certificate-granting feature. It
-// counts DISTINCT questions via question_memory, so repeatedly re-answering
-// one easy question cannot satisfy it either, and it is configured as a share
-// of the bank so it does not quietly become trivial as content grows.
+// Readiness is bank-honest (coverage × accuracy), so a handful of correct
+// answers cannot inflate to 100%. The volume floor still blocks sparse study
+// even when accuracy on those few items is perfect. Distinct question_memory
+// rows are counted so replaying one easy question cannot satisfy the floor;
+// the threshold is a share of the bank so it scales with content.
 //
 // Reasons are reported in the order a user should act on them — subscribe,
 // then study more, then improve accuracy — and only the first blocking one is

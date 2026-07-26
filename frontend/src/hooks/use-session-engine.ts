@@ -2,7 +2,14 @@ import { useCallback, useRef, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { defaultLocale } from "@/i18n/config";
 
-export type SessionMode = "variant" | "exam" | "practice" | "mistakes" | "grand_mock" | "review";
+export type SessionMode =
+  | "variant"
+  | "exam"
+  | "practice"
+  | "mistakes"
+  | "grand_mock"
+  | "review"
+  | "placement";
 
 export interface AnswerOptionItem {
   id: string;
@@ -31,8 +38,13 @@ export interface QuestionExplanationBlock {
   items?: QuestionExplanationItem[];
 }
 
+export interface LegalRef {
+  code: string;
+  title: string;
+}
+
 export interface QuestionExplanation {
-  legal_refs?: unknown;
+  legal_refs?: LegalRef[];
   blocks: QuestionExplanationBlock[];
 }
 
@@ -115,6 +127,12 @@ interface QuestionDetailResponse {
   user_answer_id?: string | null;
   correct?: boolean;
   correct_answer_id?: string | null;
+}
+
+export interface SubmitAnswerOptions {
+  rating?: number;
+  latencyMs?: number;
+  skipFsrs?: boolean;
 }
 
 export interface SubmitAnswerResponse {
@@ -222,7 +240,24 @@ function narrowExplanation(raw: RawExplanationPayload | null | undefined): Quest
     });
   }
 
-  return blocks.length > 0 ? { legal_refs: raw.legal_refs, blocks } : null;
+  const legalRefs: LegalRef[] = [];
+  if (Array.isArray(raw.legal_refs)) {
+    for (const item of raw.legal_refs) {
+      if (!item || typeof item !== "object") continue;
+      const candidate = item as { code?: unknown; title?: unknown };
+      if (typeof candidate.code !== "string" || !candidate.code.trim()) continue;
+      legalRefs.push({
+        code: candidate.code.trim(),
+        title: typeof candidate.title === "string" && candidate.title.trim()
+          ? candidate.title.trim()
+          : candidate.code.trim(),
+      });
+    }
+  }
+
+  return blocks.length > 0
+    ? { legal_refs: legalRefs.length > 0 ? legalRefs : undefined, blocks }
+    : null;
 }
 
 function chooseDefined<T>(primary: T | null | undefined, fallback: T | null | undefined): T | undefined {
@@ -447,7 +482,8 @@ export function useSessionEngine(_initialSessionId?: string) {
     async (
       sessionId: string,
       questionId: string,
-      answerId: string
+      answerId: string,
+      options?: SubmitAnswerOptions
     ): Promise<SubmitAnswerResponse | null> => {
       setSubmitting(true);
       setError(null);
@@ -456,6 +492,9 @@ export function useSessionEngine(_initialSessionId?: string) {
         const response = await apiPost<SubmitAnswerResponse>(`sessions/${sessionId}/answers`, {
           question_id: questionId,
           answer_id: answerId,
+          ...(options?.rating !== undefined ? { rating: options.rating } : {}),
+          ...(options?.latencyMs !== undefined ? { latency_ms: options.latencyMs } : {}),
+          ...(options?.skipFsrs ? { skip_fsrs: true } : {}),
         });
 
         if (response.recorded) {

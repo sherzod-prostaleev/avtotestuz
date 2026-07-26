@@ -39,12 +39,20 @@ export interface CategoryMastery {
   mastery_pct: number;
 }
 
+export interface PassEstimate {
+  estimated_pass_pct: number;
+  source: "empirical" | "model" | string;
+  sample_size: number;
+  bucket_lo: number;
+}
+
 export interface UserStats {
   readiness_pct: number;
   due_questions_count: number;
   total_answered: number;
   total_correct: number;
   category_mastery: CategoryMastery[];
+  pass_estimate?: PassEstimate | null;
 }
 
 export interface DashboardData {
@@ -95,6 +103,7 @@ interface StatsResponseDTO {
   categories: CategoryStatDTO[];
   readiness_pct: number;
   due_count: number;
+  pass_estimate?: PassEstimate;
 }
 
 interface CategoryDTO {
@@ -159,6 +168,7 @@ export function useUserStats() {
         total_answered: statsDTO.categories.reduce((sum, category) => sum + category.seen, 0),
         total_correct: statsDTO.categories.reduce((sum, category) => sum + category.correct, 0),
         category_mastery: categoryMastery,
+        pass_estimate: statsDTO.pass_estimate ?? null,
       };
 
       setData({ user: me.profile, entitlement, streak, stats });

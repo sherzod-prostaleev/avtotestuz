@@ -65,7 +65,7 @@ WITH created AS (
     $8,
     COALESCE(cardinality($9::uuid[]), 0)
   )
-  RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason
+  RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish
 ), assigned AS (
   INSERT INTO session_question (session_id, question_id, position)
   SELECT created.id, questions.question_id, questions.position::smallint
@@ -74,7 +74,7 @@ WITH created AS (
     WITH ORDINALITY AS questions(question_id, position)
   RETURNING session_id
 )
-SELECT created.id, created.profile_id, created.mode, created.variant_id, created.category_id, created.sign_id, created.locale, created.time_limit_sec, created.errors_allowed, created.started_at, created.finished_at, created.status, created.score, created.total, created.stopped_reason
+SELECT created.id, created.profile_id, created.mode, created.variant_id, created.category_id, created.sign_id, created.locale, created.time_limit_sec, created.errors_allowed, created.started_at, created.finished_at, created.status, created.score, created.total, created.stopped_reason, created.readiness_pct_at_finish
 FROM created
 CROSS JOIN (SELECT count(*) FROM assigned) persisted
 `
@@ -92,21 +92,22 @@ type CreateExamSessionParams struct {
 }
 
 type CreateExamSessionRow struct {
-	ID            uuid.UUID          `json:"id"`
-	ProfileID     uuid.UUID          `json:"profile_id"`
-	Mode          string             `json:"mode"`
-	VariantID     uuid.NullUUID      `json:"variant_id"`
-	CategoryID    uuid.NullUUID      `json:"category_id"`
-	SignID        uuid.NullUUID      `json:"sign_id"`
-	Locale        string             `json:"locale"`
-	TimeLimitSec  pgtype.Int4        `json:"time_limit_sec"`
-	ErrorsAllowed pgtype.Int4        `json:"errors_allowed"`
-	StartedAt     pgtype.Timestamptz `json:"started_at"`
-	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
-	Status        string             `json:"status"`
-	Score         pgtype.Int4        `json:"score"`
-	Total         int32              `json:"total"`
-	StoppedReason pgtype.Text        `json:"stopped_reason"`
+	ID                   uuid.UUID          `json:"id"`
+	ProfileID            uuid.UUID          `json:"profile_id"`
+	Mode                 string             `json:"mode"`
+	VariantID            uuid.NullUUID      `json:"variant_id"`
+	CategoryID           uuid.NullUUID      `json:"category_id"`
+	SignID               uuid.NullUUID      `json:"sign_id"`
+	Locale               string             `json:"locale"`
+	TimeLimitSec         pgtype.Int4        `json:"time_limit_sec"`
+	ErrorsAllowed        pgtype.Int4        `json:"errors_allowed"`
+	StartedAt            pgtype.Timestamptz `json:"started_at"`
+	FinishedAt           pgtype.Timestamptz `json:"finished_at"`
+	Status               string             `json:"status"`
+	Score                pgtype.Int4        `json:"score"`
+	Total                int32              `json:"total"`
+	StoppedReason        pgtype.Text        `json:"stopped_reason"`
+	ReadinessPctAtFinish pgtype.Int4        `json:"readiness_pct_at_finish"`
 }
 
 func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionParams) (CreateExamSessionRow, error) {
@@ -138,22 +139,28 @@ func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionPa
 		&i.Score,
 		&i.Total,
 		&i.StoppedReason,
+		&i.ReadinessPctAtFinish,
 	)
 	return i, err
 }
 
 const finishExamSession = `-- name: FinishExamSession :one
 UPDATE exam_session
-SET finished_at = now(), status = $2, score = $3, stopped_reason = $4
+SET finished_at = now(),
+    status = $2,
+    score = $3,
+    stopped_reason = $4,
+    readiness_pct_at_finish = COALESCE($5, readiness_pct_at_finish)
 WHERE id = $1
-RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason
+RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish
 `
 
 type FinishExamSessionParams struct {
-	ID            uuid.UUID   `json:"id"`
-	Status        string      `json:"status"`
-	Score         pgtype.Int4 `json:"score"`
-	StoppedReason pgtype.Text `json:"stopped_reason"`
+	ID                   uuid.UUID   `json:"id"`
+	Status               string      `json:"status"`
+	Score                pgtype.Int4 `json:"score"`
+	StoppedReason        pgtype.Text `json:"stopped_reason"`
+	ReadinessPctAtFinish pgtype.Int4 `json:"readiness_pct_at_finish"`
 }
 
 func (q *Queries) FinishExamSession(ctx context.Context, arg FinishExamSessionParams) (ExamSession, error) {
@@ -162,6 +169,7 @@ func (q *Queries) FinishExamSession(ctx context.Context, arg FinishExamSessionPa
 		arg.Status,
 		arg.Score,
 		arg.StoppedReason,
+		arg.ReadinessPctAtFinish,
 	)
 	var i ExamSession
 	err := row.Scan(
@@ -180,6 +188,7 @@ func (q *Queries) FinishExamSession(ctx context.Context, arg FinishExamSessionPa
 		&i.Score,
 		&i.Total,
 		&i.StoppedReason,
+		&i.ReadinessPctAtFinish,
 	)
 	return i, err
 }
@@ -231,7 +240,7 @@ func (q *Queries) GetCorrectAnswerID(ctx context.Context, questionID uuid.UUID) 
 }
 
 const getExamSession = `-- name: GetExamSession :one
-SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason FROM exam_session WHERE id = $1
+SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish FROM exam_session WHERE id = $1
 `
 
 func (q *Queries) GetExamSession(ctx context.Context, id uuid.UUID) (ExamSession, error) {
@@ -253,6 +262,7 @@ func (q *Queries) GetExamSession(ctx context.Context, id uuid.UUID) (ExamSession
 		&i.Score,
 		&i.Total,
 		&i.StoppedReason,
+		&i.ReadinessPctAtFinish,
 	)
 	return i, err
 }
@@ -429,7 +439,7 @@ func (q *Queries) ListMistakeBankQuestionIDs(ctx context.Context, arg ListMistak
 }
 
 const listMySessions = `-- name: ListMySessions :many
-SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason FROM exam_session
+SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish FROM exam_session
 WHERE profile_id = $1
 ORDER BY started_at DESC LIMIT $2
 `
@@ -464,6 +474,7 @@ func (q *Queries) ListMySessions(ctx context.Context, arg ListMySessionsParams) 
 			&i.Score,
 			&i.Total,
 			&i.StoppedReason,
+			&i.ReadinessPctAtFinish,
 		); err != nil {
 			return nil, err
 		}

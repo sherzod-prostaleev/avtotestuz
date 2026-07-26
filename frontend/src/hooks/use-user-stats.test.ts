@@ -43,6 +43,12 @@ describe("useUserStats", () => {
       ],
       readiness_pct: 75,
       due_count: 12,
+      pass_estimate: {
+        estimated_pass_pct: 70,
+        source: "model",
+        sample_size: 0,
+        bucket_lo: 70,
+      },
     };
     const mockCategories = [
       { code: "signs", name: "Дорожные знаки", sort_order: 1 },
@@ -74,6 +80,12 @@ describe("useUserStats", () => {
     expect(result.current.streak?.last_active_date).toBe("2026-07-22");
     expect(result.current.stats?.readiness_pct).toBe(75);
     expect(result.current.stats?.due_questions_count).toBe(12);
+    expect(result.current.stats?.pass_estimate).toEqual({
+      estimated_pass_pct: 70,
+      source: "model",
+      sample_size: 0,
+      bucket_lo: 70,
+    });
     expect(result.current.stats?.total_answered).toBe(30);
     expect(result.current.stats?.total_correct).toBe(20);
     expect(result.current.stats?.category_mastery).toEqual([

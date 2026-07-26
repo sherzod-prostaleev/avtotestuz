@@ -91,6 +91,9 @@ DELETE FROM variant_question WHERE variant_id = $1;
 -- name: InsertVariantQuestion :exec
 INSERT INTO variant_question (variant_id, question_id, position) VALUES ($1, $2, $3);
 
+-- name: GetQuestionIDBySourceExtID :one
+SELECT id FROM question WHERE source_ext_id = $1;
+
 -- name: UpsertExplanation :one
 INSERT INTO explanation (question_id, legal_refs)
 VALUES ($1, $2)

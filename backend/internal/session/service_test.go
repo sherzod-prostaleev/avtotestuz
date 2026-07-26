@@ -151,6 +151,25 @@ func TestStartSessionExamMode(t *testing.T) {
 	}
 }
 
+func TestStartSessionPlacementFree(t *testing.T) {
+	_, svc, profileID := seed(t)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "placement", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession placement (free): %v", err)
+	}
+	if view.Total != session.PlacementQuestionCount || len(view.QuestionIDs) != session.PlacementQuestionCount {
+		t.Fatalf("expected %d questions, got %d", session.PlacementQuestionCount, len(view.QuestionIDs))
+	}
+	if view.TimeLimitSec == nil || *view.TimeLimitSec != session.PlacementTimeLimitSec {
+		t.Fatalf("expected time limit %d, got %v", session.PlacementTimeLimitSec, view.TimeLimitSec)
+	}
+	if view.Mode != "placement" {
+		t.Fatalf("mode=%q want placement", view.Mode)
+	}
+}
+
 func TestStartSessionInvalidMode(t *testing.T) {
 	_, svc, profileID := seed(t)
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
@@ -296,7 +315,7 @@ func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
 	view := startVariantSession(t, q, svc, profileID)
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
 
-	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID)
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{})
 	if err != nil {
 		t.Fatalf("SubmitAnswer: %v", err)
 	}
@@ -308,6 +327,53 @@ func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
 	}
 }
 
+func TestSubmitAnswerSkipFSRSDoesNotRecordReview(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	qid := view.QuestionIDs[0]
+	correctID := correctAnswerID(t, q, qid)
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{
+		SkipFSRS: true,
+	}); err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+	counts, err := q.CountSessionAnswers(context.Background(), view.ID)
+	if err != nil || counts.TotalAnswered != 1 {
+		t.Fatalf("session answer must still be saved: %+v err=%v", counts, err)
+	}
+	if _, err := q.GetQuestionMemory(context.Background(), sqlc.GetQuestionMemoryParams{
+		ProfileID: profileID, QuestionID: qid,
+	}); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("skip_fsrs must leave question_memory empty, got err=%v", err)
+	}
+}
+
+func TestSubmitAnswerLatencyMapsToFSRSRating(t *testing.T) {
+	q, svc, profileID := seed(t)
+	view := startVariantSession(t, q, svc, profileID)
+	qid := view.QuestionIDs[0]
+	correctID := correctAnswerID(t, q, qid)
+	fast := 2000
+
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{
+		LatencyMs: &fast,
+	}); err != nil {
+		t.Fatalf("SubmitAnswer: %v", err)
+	}
+	mem, err := q.GetQuestionMemory(context.Background(), sqlc.GetQuestionMemoryParams{
+		ProfileID: profileID, QuestionID: qid,
+	})
+	if err != nil {
+		t.Fatalf("GetQuestionMemory: %v", err)
+	}
+	want := learning.Review(learning.Card{}, learning.Easy, time.Now(), learning.DefaultDesiredRetention)
+	// First-review Easy has distinctly higher stability than Good/Hard.
+	if float64(mem.Stability) < want.Stability*0.9 {
+		t.Fatalf("fast latency should grade Easy: stability=%v want≈%v", mem.Stability, want.Stability)
+	}
+}
+
 func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
@@ -315,7 +381,7 @@ func TestSubmitAnswerRejectsInvalidAnswerID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartSession: %v", err)
 	}
-	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], uuid.New())
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], uuid.New(), session.SubmitAnswerOpts{})
 	if err == nil {
 		t.Fatal("random answer id must be rejected as invalid")
 	}
@@ -340,7 +406,7 @@ func TestSubmitAnswerRejectsQuestionOutsideSession(t *testing.T) {
 	outsideQuestionID := outsideIDs[0]
 	outsideAnswerID := correctAnswerID(t, q, outsideQuestionID)
 
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, outsideQuestionID, outsideAnswerID); !errors.Is(err, session.ErrQuestionNotAssigned) {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, outsideQuestionID, outsideAnswerID, session.SubmitAnswerOpts{}); !errors.Is(err, session.ErrQuestionNotAssigned) {
 		t.Fatalf("a valid question/answer pair outside the assigned session must return ErrQuestionNotAssigned, got %v", err)
 	}
 	counts, err := q.CountSessionAnswers(context.Background(), view.ID)
@@ -369,7 +435,7 @@ func TestSubmitAnswerExamModeRealSubmissionProvidesFeedback(t *testing.T) {
 	}
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
 
-	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID)
+	res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{})
 	if err != nil {
 		t.Fatalf("SubmitAnswer: %v", err)
 	}
@@ -400,7 +466,7 @@ func TestSubmitAnswerExpiresExamBeforeRecordingSideEffects(t *testing.T) {
 		return view.StartedAt.Add(time.Duration(session.ExamTimeLimitSec+1) * time.Second)
 	}
 
-	result, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], answerID)
+	result, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], answerID, session.SubmitAnswerOpts{})
 	if err != nil {
 		t.Fatalf("SubmitAnswer: %v", err)
 	}
@@ -433,15 +499,15 @@ func TestSubmitAnswerRejectsDuplicateAndWrongQuestionPair(t *testing.T) {
 	view := startVariantSession(t, q, svc, profileID)
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
 
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("first submit: %v", err)
 	}
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != session.ErrAlreadyAnswered {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != session.ErrAlreadyAnswered {
 		t.Fatalf("err=%v want ErrAlreadyAnswered", err)
 	}
 
 	otherCorrect := correctAnswerID(t, q, view.QuestionIDs[1])
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], otherCorrect); err != session.ErrAlreadyAnswered {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], otherCorrect, session.SubmitAnswerOpts{}); err != session.ErrAlreadyAnswered {
 		t.Fatalf("already-answered check must run before mismatch check: err=%v", err)
 	}
 }
@@ -468,7 +534,7 @@ func TestSubmitAnswerExamStopsOnThirdMistake(t *testing.T) {
 				break
 			}
 		}
-		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID)
+		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID, session.SubmitAnswerOpts{})
 		if err != nil {
 			t.Fatalf("submit %d: %v", i, err)
 		}
@@ -503,7 +569,7 @@ func TestSubmitAnswerOwnershipIsEnforced(t *testing.T) {
 		t.Fatalf("create second profile: %v", err)
 	}
 
-	if _, err := svc.SubmitAnswer(context.Background(), profileB.ID, view.ID, view.QuestionIDs[0], correctID); err != session.ErrNotFound {
+	if _, err := svc.SubmitAnswer(context.Background(), profileB.ID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != session.ErrNotFound {
 		t.Fatalf("err=%v want ErrNotFound", err)
 	}
 }
@@ -513,7 +579,7 @@ func TestFinishSessionVariantModeUnlocksNextBilet(t *testing.T) {
 	view := startVariantSession(t, q, svc, profileID)
 	for _, qid := range view.QuestionIDs {
 		correctID := correctAnswerID(t, q, qid)
-		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err != nil {
 			t.Fatalf("submit: %v", err)
 		}
 	}
@@ -543,7 +609,7 @@ func TestFinishSessionIsIdempotent(t *testing.T) {
 	view := startVariantSession(t, q, svc, profileID)
 	for _, qid := range view.QuestionIDs[:5] {
 		correctID := correctAnswerID(t, q, qid)
-		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID); err != nil {
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err != nil {
 			t.Fatalf("submit: %v", err)
 		}
 	}
@@ -564,7 +630,7 @@ func TestFinishSessionAbandonedWhenIncomplete(t *testing.T) {
 	q, svc, profileID := seed(t)
 	view := startVariantSession(t, q, svc, profileID)
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	res, err := svc.FinishSession(context.Background(), profileID, view.ID)
@@ -584,7 +650,7 @@ func TestGetSessionRevealsAnsweredFeedbackDuringInProgressExam(t *testing.T) {
 		t.Fatalf("StartSession: %v", err)
 	}
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
@@ -653,7 +719,7 @@ func TestGetSessionKeepsAssignedOrderWhenAnsweredOutOfOrder(t *testing.T) {
 	for _, index := range []int{7, 2} {
 		answerID := correctAnswerID(t, q, view.QuestionIDs[index])
 		answerIDs[index] = answerID
-		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[index], answerID); err != nil {
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[index], answerID, session.SubmitAnswerOpts{}); err != nil {
 			t.Fatalf("submit question %d: %v", index, err)
 		}
 	}
@@ -894,12 +960,10 @@ func TestStartSessionGrandMockNotEligibleLowMastery(t *testing.T) {
 	}
 }
 
-// TestStartSessionGrandMockNotEligibleTooFewStudied is the regression test for
-// the hollow gate. readiness_pct is a pure accuracy ratio, so answering ONE
-// question correctly in each category reached 100% and unlocked a
-// certificate-granting exam on a handful of answers. The accuracy gate is
-// deliberately still satisfied here — only the volume floor blocks it, which is
-// exactly the hole that was missing.
+// TestStartSessionGrandMockNotEligibleTooFewStudied: with only one correct
+// answer per category, QuestionsStudied is far below the volume floor. Bank-
+// honest readiness is also low, but the gate reports too_few_studied first
+// (action order: VIP → study more → accuracy).
 func TestStartSessionGrandMockNotEligibleTooFewStudied(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)
@@ -909,16 +973,13 @@ func TestStartSessionGrandMockNotEligibleTooFewStudied(t *testing.T) {
 	if err != nil {
 		t.Fatalf("MockEligibility: %v", err)
 	}
-	if elig.MasteryPercent < elig.MinRequiredPercent {
-		t.Fatalf("accuracy gate should be satisfied by one correct answer per category, got %d%% (want >=%d%%)",
-			elig.MasteryPercent, elig.MinRequiredPercent)
-	}
 	if elig.MinRequiredQuestions <= studied {
 		t.Fatalf("volume floor is %d but %d questions were studied — too low for this test to mean anything",
 			elig.MinRequiredQuestions, studied)
 	}
 	if elig.Eligible || elig.Reason != session.MockReasonTooFewStudied {
-		t.Fatalf("eligible=%v reason=%q, want blocked on %q", elig.Eligible, elig.Reason, session.MockReasonTooFewStudied)
+		t.Fatalf("eligible=%v reason=%q mastery=%d%%, want blocked on %q",
+			elig.Eligible, elig.Reason, elig.MasteryPercent, session.MockReasonTooFewStudied)
 	}
 
 	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
@@ -980,7 +1041,7 @@ func TestSubmitAnswerGrandMockStopsOnThirdMistake(t *testing.T) {
 	// pipeline via IsExamLike, so the 3rd mistake must stop it too.
 	for i := 0; i < 3; i++ {
 		wrongID := wrongAnswerID(t, q, view.QuestionIDs[i])
-		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID)
+		res, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[i], wrongID, session.SubmitAnswerOpts{})
 		if err != nil {
 			t.Fatalf("submit %d: %v", i, err)
 		}
@@ -1021,7 +1082,7 @@ func TestFinishSessionGrandMockPassFail(t *testing.T) {
 			} else {
 				answerID = correctAnswerID(t, q, qid)
 			}
-			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID); err != nil {
+			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID, session.SubmitAnswerOpts{}); err != nil {
 				t.Fatalf("submit %d: %v", i, err)
 			}
 		}
@@ -1073,7 +1134,7 @@ func TestFinishSessionGrandMockPassFail(t *testing.T) {
 			} else {
 				answerID = correctAnswerID(t, q, qid)
 			}
-			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID); err != nil {
+			if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, answerID, session.SubmitAnswerOpts{}); err != nil {
 				t.Fatalf("submit %d: %v", i, err)
 			}
 		}
@@ -1091,7 +1152,7 @@ func TestSubmitAnswerBumpsStreak(t *testing.T) {
 	q, svc, profileID := seed(t)
 	view := startVariantSession(t, q, svc, profileID)
 	correctID := correctAnswerID(t, q, view.QuestionIDs[0])
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("submit: %v", err)
 	}
 	streakView, err := svc.Progress.GetStreak(context.Background(), profileID)
@@ -1121,7 +1182,7 @@ func TestSubmitAnswerRecordsLeaderboardPointOnCorrectAnswer(t *testing.T) {
 		t.Fatalf("GetCorrectAnswerID: %v", err)
 	}
 
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("SubmitAnswer: %v", err)
 	}
 
@@ -1151,7 +1212,7 @@ func TestSubmitAnswerWorksWithNilLeaderboard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCorrectAnswerID: %v", err)
 	}
-	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID); err != nil {
+	if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID, session.SubmitAnswerOpts{}); err != nil {
 		t.Fatalf("SubmitAnswer with nil Leaderboard: %v", err)
 	}
 }

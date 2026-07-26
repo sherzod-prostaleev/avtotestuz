@@ -20,7 +20,8 @@
     --border: 220 14% 18%;
     --input: 220 14% 18%;
     --muted: 220 16% 14%;
-    --muted-foreground: 215 12% 62%;
+    /* Brighter secondary text for older eyes (was ~62%). */
+    --muted-foreground: 215 14% 72%;
 
     --accent: 38 96% 52%;
     --accent-foreground: 220 28% 8%;
@@ -39,6 +40,10 @@
     --gold-shadow: 43 94% 34%;
     --ring: 38 96% 52%;
     --radius: 0.875rem;
+    /* Extruded panel lip + ambient (Asphalt & Signal — not soft neumorphism) */
+    --elev-lip: 220 22% 4%;
+    --elev-ambient: 220 40% 2%;
+    --elev-highlight: 0 0% 100%;
     color-scheme: dark;
   }
 
@@ -51,7 +56,8 @@
     --border: 220 12% 88%;
     --input: 220 12% 90%;
     --muted: 220 14% 92%;
-    --muted-foreground: 220 10% 42%;
+    /* Darker secondary text for WCAG-friendlier body copy (was ~42%). */
+    --muted-foreground: 220 12% 34%;
 
     --accent: 38 96% 48%;
     --accent-foreground: 220 28% 8%;
@@ -69,6 +75,9 @@
     --gold: 43 94% 48%;
     --gold-shadow: 43 94% 34%;
     --ring: 38 96% 48%;
+    --elev-lip: 220 14% 78%;
+    --elev-ambient: 220 28% 28%;
+    --elev-highlight: 0 0% 100%;
     color-scheme: light;
   }
 
@@ -77,11 +86,14 @@
   }
 
   body {
-    @apply bg-background text-foreground font-sans antialiased;
+    @apply bg-background text-foreground font-sans text-base antialiased;
     @apply selection:bg-accent/25 selection:text-foreground;
+    text-rendering: optimizeLegibility;
   }
 
   html {
+    /* Mild root bump (17px) — pairs with enlarged Tailwind type scale. */
+    font-size: 106.25%;
     background-color: hsl(220 22% 7%);
   }
   html.light {
@@ -130,9 +142,39 @@
     box-shadow: 0 4px 0 0 hsl(43 94% 34%);
   }
 
+  /* Raised / extruded surfaces — shared by Card, panels, sidebar chips */
+  .surface-raised {
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.07),
+      0 3px 0 0 hsl(var(--elev-lip)),
+      0 14px 28px -16px hsl(var(--elev-ambient) / 0.55);
+  }
+  .surface-raised-sm {
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.05),
+      0 2px 0 0 hsl(var(--elev-lip)),
+      0 8px 18px -14px hsl(var(--elev-ambient) / 0.45);
+  }
+  .surface-interactive {
+    @apply transition-[transform,box-shadow,border-color] duration-200;
+  }
+  .surface-interactive:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.09),
+      0 5px 0 0 hsl(var(--elev-lip)),
+      0 20px 36px -18px hsl(var(--elev-ambient) / 0.6);
+  }
+  .surface-interactive:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.04),
+      0 1px 0 0 hsl(var(--elev-lip)),
+      0 6px 12px -10px hsl(var(--elev-ambient) / 0.4);
+  }
+
   .glass-card {
-    @apply rounded-2xl border border-border bg-card;
-    @apply transition-colors duration-200;
+    @apply surface-raised surface-interactive rounded-2xl border border-border bg-card;
   }
 
   /* Chrome page shell — mobile-first breathing room + safe areas */
@@ -160,14 +202,14 @@
   }
 
   .filter-chip {
-    @apply inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-xs font-bold transition-colors;
+    @apply inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl px-4 text-sm font-bold transition-colors;
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
   .filter-chip-active {
     @apply bg-accent text-accent-foreground shadow-3d;
   }
   .filter-chip-idle {
-    @apply border border-border bg-card text-muted-foreground hover:text-foreground;
+    @apply surface-raised-sm border border-border bg-card text-muted-foreground hover:text-foreground;
   }
 
   .chip-scroll {
@@ -191,14 +233,33 @@
   }
 
   .sidebar-link {
-    @apply flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold;
-    @apply transition-colors duration-150;
+    /* Compact height so the full nav fits; text stays sm for readability. */
+    @apply flex min-h-10 items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-bold;
+    @apply transition-[transform,box-shadow,background-color,color] duration-150;
   }
   .sidebar-link-active {
     @apply bg-accent text-accent-foreground shadow-3d;
   }
   .sidebar-link-inactive {
-    @apply text-muted-foreground hover:bg-card hover:text-foreground;
+    @apply border border-border/70 bg-background/70 text-muted-foreground;
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.04),
+      0 2px 0 0 hsl(var(--elev-lip));
+  }
+  .sidebar-link-inactive:hover {
+    @apply border-border bg-card text-foreground;
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.07),
+      0 3px 0 0 hsl(var(--elev-lip)),
+      0 10px 18px -14px hsl(var(--elev-ambient) / 0.45);
+  }
+  .sidebar-link-inactive:active {
+    transform: translateY(1px);
+    box-shadow: 0 1px 0 0 hsl(var(--elev-lip));
+  }
+  .sidebar-panel {
+    @apply surface-raised-sm rounded-2xl border border-border bg-background;
   }
 
   /* Asphalt hero atmosphere — full-bleed, no inset media card */
@@ -238,6 +299,132 @@
 
   .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
   .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  /* Tickets grid — asphalt tiles with signal accent lane */
+  .ticket-tile {
+    @apply relative flex min-h-[10.5rem] cursor-pointer flex-col overflow-hidden rounded-2xl border p-3.5;
+    @apply transition-[transform,border-color,box-shadow,opacity] duration-200;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
+    background-color: hsl(var(--card));
+    background-image:
+      linear-gradient(
+        165deg,
+        hsl(220 18% 14% / 0.55) 0%,
+        transparent 52%,
+        hsl(38 96% 48% / 0.06) 100%
+      );
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.06),
+      0 3px 0 0 hsl(var(--elev-lip)),
+      0 12px 24px -16px hsl(var(--elev-ambient) / 0.5);
+  }
+  .light .ticket-tile {
+    background-image:
+      linear-gradient(
+        165deg,
+        hsl(220 16% 98%) 0%,
+        hsl(220 14% 96%) 48%,
+        hsl(38 96% 48% / 0.07) 100%
+      );
+  }
+  .ticket-tile::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    border-radius: 999px 0 0 999px;
+    background: hsl(var(--border));
+  }
+  .ticket-tile:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.09),
+      0 5px 0 0 hsl(var(--elev-lip)),
+      0 18px 32px -16px hsl(var(--elev-ambient) / 0.58);
+  }
+  .ticket-tile:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.04),
+      0 1px 0 0 hsl(var(--elev-lip)),
+      0 6px 12px -10px hsl(var(--elev-ambient) / 0.4);
+  }
+  .ticket-tile-open {
+    @apply border-border hover:border-accent/55;
+  }
+  .ticket-tile-open::before {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--accent)) 0%,
+      hsl(var(--accent-shadow)) 100%
+    );
+  }
+  .ticket-tile-progress {
+    @apply border-accent/35 hover:border-accent/70;
+    background-image:
+      linear-gradient(
+        165deg,
+        hsl(38 96% 48% / 0.1) 0%,
+        transparent 55%,
+        hsl(38 96% 48% / 0.08) 100%
+      );
+  }
+  .ticket-tile-progress::before {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--accent)) 0%,
+      hsl(var(--gold)) 100%
+    );
+  }
+  .ticket-tile-done {
+    @apply border-gold/35 hover:border-gold/60;
+    background-image:
+      linear-gradient(
+        165deg,
+        hsl(43 94% 52% / 0.12) 0%,
+        transparent 50%,
+        hsl(43 94% 52% / 0.08) 100%
+      );
+  }
+  .ticket-tile-done::before {
+    background: linear-gradient(
+      180deg,
+      hsl(var(--gold)) 0%,
+      hsl(var(--gold-shadow)) 100%
+    );
+  }
+  .ticket-tile-locked {
+    @apply border-border opacity-75 hover:opacity-90;
+  }
+  .ticket-tile-locked::before {
+    background: hsl(var(--muted-foreground) / 0.35);
+  }
+  .ticket-tile-number {
+    @apply font-display text-[2rem] font-black leading-none tracking-tight tabular-nums;
+  }
+  .ticket-tile-cta {
+    @apply inline-flex h-9 min-h-9 w-full items-center justify-center gap-1 rounded-xl;
+    @apply bg-accent px-3 text-[11px] font-bold tracking-wide text-accent-foreground;
+    @apply shadow-[0_2px_0_0_hsl(var(--accent-shadow))] transition-[filter,transform,box-shadow] duration-150;
+  }
+  .ticket-tile:hover .ticket-tile-cta {
+    filter: brightness(1.05);
+  }
+  .ticket-tile:active .ticket-tile-cta {
+    transform: translateY(1px);
+    box-shadow: none;
+  }
+  .ticket-progress-track {
+    @apply h-1.5 w-full overflow-hidden rounded-full bg-border/80;
+  }
+  .ticket-progress-fill {
+    @apply h-full rounded-full bg-accent transition-[width] duration-500 ease-out;
+    box-shadow: 0 0 10px hsl(var(--accent) / 0.35);
+  }
+  .ticket-progress-fill-done {
+    @apply bg-gold;
+    box-shadow: 0 0 10px hsl(var(--gold) / 0.35);
+  }
 }
 
 @keyframes flamePulse {
@@ -297,6 +484,169 @@
   animation: heroLane 18s linear infinite;
 }
 
+/* Landing — deeper night asphalt + center dashed lane that rolls forward */
+.landing-hero-stage {
+  position: relative;
+  isolation: isolate;
+  min-height: min(92dvh, 52rem);
+  background-color: hsl(var(--background));
+  background-image:
+    radial-gradient(ellipse 90% 55% at 70% 40%, hsl(38 96% 48% / 0.14), transparent 58%),
+    radial-gradient(ellipse 70% 50% at 15% 85%, hsl(220 30% 18% / 0.55), transparent 60%),
+    linear-gradient(180deg, hsl(220 22% 7%) 0%, hsl(220 18% 10%) 55%, hsl(220 16% 8%) 100%);
+}
+.light .landing-hero-stage,
+:root:not(.dark) .landing-hero-stage {
+  background-image:
+    radial-gradient(ellipse 90% 55% at 70% 35%, hsl(38 96% 48% / 0.12), transparent 58%),
+    radial-gradient(ellipse 70% 45% at 20% 90%, hsl(220 16% 80% / 0.45), transparent 62%),
+    linear-gradient(180deg, hsl(220 16% 94%) 0%, hsl(220 14% 90%) 50%, hsl(220 12% 88%) 100%);
+}
+
+.landing-hero-lane {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  opacity: 0.55;
+  background-image:
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 46%,
+      hsl(0 0% 100% / 0.07) 46%,
+      hsl(0 0% 100% / 0.07) 47.2%,
+      transparent 47.2%,
+      transparent 52.8%,
+      hsl(0 0% 100% / 0.07) 52.8%,
+      hsl(0 0% 100% / 0.07) 54%,
+      transparent 54%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 22px,
+      hsl(38 96% 55% / 0.55) 22px,
+      hsl(38 96% 55% / 0.55) 40px,
+      transparent 40px,
+      transparent 62px
+    );
+  background-size: 100% 100%, 14px 120%;
+  background-position: center, 72% 0;
+  background-repeat: no-repeat, repeat-y;
+  mask-image: linear-gradient(90deg, transparent 0%, black 35%, black 100%);
+  animation: landingLaneRoll 7s linear infinite;
+}
+.light .landing-hero-lane,
+:root:not(.dark) .landing-hero-lane {
+  opacity: 0.35;
+  background-image:
+    linear-gradient(
+      105deg,
+      transparent 0%,
+      transparent 46%,
+      hsl(220 20% 20% / 0.08) 46%,
+      hsl(220 20% 20% / 0.08) 47.2%,
+      transparent 47.2%,
+      transparent 52.8%,
+      hsl(220 20% 20% / 0.08) 52.8%,
+      hsl(220 20% 20% / 0.08) 54%,
+      transparent 54%,
+      transparent 100%
+    ),
+    repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 22px,
+      hsl(38 90% 42% / 0.65) 22px,
+      hsl(38 90% 42% / 0.65) 40px,
+      transparent 40px,
+      transparent 62px
+    );
+}
+
+@keyframes landingLaneRoll {
+  from { background-position: center, 72% 0; }
+  to { background-position: center, 72% 120%; }
+}
+
+@keyframes signalPulse {
+  0%, 100% { opacity: 0.55; box-shadow: 0 0 0 0 hsl(38 96% 48% / 0.35); }
+  50% { opacity: 1; box-shadow: 0 0 24px 2px hsl(38 96% 48% / 0.45); }
+}
+.landing-signal {
+  animation: signalPulse 2.4s ease-in-out infinite;
+}
+
+@keyframes cockpitSweep {
+  0% { transform: translateX(-8%); opacity: 0.2; }
+  50% { opacity: 0.55; }
+  100% { transform: translateX(8%); opacity: 0.2; }
+}
+.landing-cockpit-sweep {
+  animation: cockpitSweep 5.5s ease-in-out infinite;
+}
+
+.landing-sticky-cta {
+  @apply fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden;
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* Landing panels — same extruded language as app Card / sidebar */
+.landing-cockpit {
+  box-shadow:
+    inset 0 1px 0 0 hsl(0 0% 100% / 0.1),
+    0 5px 0 0 hsl(220 40% 3%),
+    0 18px 0 -6px hsl(220 35% 6% / 0.55),
+    0 36px 70px -18px hsl(220 40% 2% / 0.9),
+    0 0 0 1px hsl(0 0% 100% / 0.08);
+  transform: perspective(1400px) rotateY(-3.5deg) rotateX(3deg) translateY(-4px);
+  transform-origin: center right;
+  transition: transform 0.35s ease;
+}
+.landing-cockpit:hover {
+  transform: perspective(1400px) rotateY(-1.5deg) rotateX(1.5deg) translateY(-6px);
+}
+@media (max-width: 767px) {
+  .landing-cockpit,
+  .landing-cockpit:hover {
+    transform: none;
+  }
+}
+.landing-panel {
+  @apply rounded-2xl border border-border bg-card;
+  box-shadow:
+    inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.07),
+    0 3px 0 0 hsl(var(--elev-lip)),
+    0 14px 28px -16px hsl(var(--elev-ambient) / 0.55);
+}
+.landing-panel-sm {
+  @apply rounded-2xl border border-border bg-card;
+  box-shadow:
+    inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.05),
+    0 2px 0 0 hsl(var(--elev-lip)),
+    0 8px 18px -14px hsl(var(--elev-ambient) / 0.45);
+}
+.landing-panel-interactive {
+  @apply transition-[transform,box-shadow,border-color] duration-200;
+}
+.landing-panel-interactive:hover {
+  transform: translateY(-2px);
+  border-color: hsl(var(--accent) / 0.45);
+  box-shadow:
+    inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.09),
+    0 5px 0 0 hsl(var(--elev-lip)),
+    0 20px 36px -18px hsl(var(--elev-ambient) / 0.6);
+}
+.landing-fact {
+  @apply rounded-2xl border border-border bg-card/80 px-4 py-5 backdrop-blur-sm;
+  box-shadow:
+    inset 0 1px 0 0 hsl(var(--elev-highlight) / 0.05),
+    0 2px 0 0 hsl(var(--elev-lip)),
+    0 10px 20px -14px hsl(var(--elev-ambient) / 0.45);
+}
+
 /*
   Wrong-answer feedback must NOT use transform/translate shake.
   Shaking a full-width answer remounts/composites the stage (image + siblings)
@@ -322,7 +672,19 @@
   .animate-float,
   .animate-grow-bar,
   .asphalt-hero-live,
+  .landing-hero-lane,
+  .landing-signal,
+  .landing-cockpit-sweep,
   .answer-wrong-pulse {
     animation: none !important;
+  }
+  .ticket-tile:hover,
+  .surface-interactive:hover,
+  .sidebar-link-inactive:hover,
+  .landing-panel-interactive:hover {
+    transform: none;
+  }
+  .landing-cockpit {
+    transform: none;
   }
 }

@@ -33,6 +33,15 @@ type SessionView struct {
 	StartedAt    time.Time
 }
 
+// SubmitAnswerOpts carries optional FSRS grading hints for SubmitAnswer.
+// SkipFSRS leaves question_memory untouched so the client can POST
+// /learn/review after the user picks Hard/Good/Easy (practice-style modes).
+type SubmitAnswerOpts struct {
+	Rating    *int // 1=Again, 2=Hard, 3=Good, 4=Easy (learning.Rating)
+	LatencyMs *int // answer latency in milliseconds; used when Rating is nil
+	SkipFSRS  bool
+}
+
 // AnswerResult is the outcome of a single SubmitAnswer call. In exam mode,
 // Correct and CorrectAnswerID are withheld (left nil) until the exam
 // finishes; other modes populate both immediately.

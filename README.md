@@ -10,11 +10,16 @@ Talablar: Docker (compose bilan), Go 1.26.5+ (`~/.local/go`ga o'rnatilgan bo'lsa
 
 ```bash
 make up        # Postgres + Redis + MinIO (compose)
-make seed      # [NAMUNA] sintetik namuna kontent (2 bilet, 40 savol, signlar katalogi)
-make seed-real # haqiqiy avtoimtihon kontenti (61 bilet, 1235 savol) — pastdagi "Kontent"ga qarang
+make seed-dev  # wipe-restore: committed 1231 savol / 62 bilet / 285 belgi + admin
+make seed      # [NAMUNA] sintetik namuna (faqat smoke/test; real bilan aralashtirmang)
+make seed-real # aaa/ dan qayta eksport (ixtiyoriy; odatda seed-dev yetarli)
 make run       # API :8080 (PORT env bilan o'zgartiriladi)
 make check     # lint + testlar
 ```
+
+**Baza o‘chib ketganda / kontent adashganda:** `make seed-dev` — gitdagi committed
+seedni import qiladi (`aaa/` shart emas). CMS (legal/home/banner) seedlanmaydi:
+bo‘sh bo‘lsa FE i18n fallback ishlaydi; operator CMS orqali qayta saqlaydi.
 
 Sozlash: `backend/.env.example` — `config.Load()` o'qiydigan har bir env
 o'zgaruvchisi default qiymati bilan. Devda hech biri majburiy emas (default'lar
@@ -54,71 +59,62 @@ o'zi tozalamaydi) — ikkalasi ham bilet raqamlari 1 va 2'ni ishlatgani uchun
 bir DB'da aralashtirilsa 1/2-biletlar bir-birini qoplaydi va yetim savollar
 qoladi; shu sababli dev DB'da **bittasini** toza holda ishlating.
 
-### Haqiqiy kontent — `avtoimtihon` (asosiy, `make seed-real`)
+### Haqiqiy kontent — `avtoimtihon` (asosiy, `make seed-dev`)
 
 Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
-(spec D5; jonli scrape emas). Manba: `aaa/src/data/questions.{uz-Latn,uz-Cyrl,ru}.json`
-+ `aaa/public/quiz-images/*.webp`.
+(spec D5; jonli scrape emas). **Gitda committed** `backend/seed/avtoimtihon/data.json`
++ `assignments.json` (rasmlar `images/` odatda local/MinIO). Manba eksport:
+`aaa/src/data/questions.{uz-Latn,uz-Cyrl,ru}.json` + `aaa/public/quiz-images/*.webp`.
 
-- **1235 ta savol**, 3 tilda (uz-Latn / uz-Cyrl / ru), har biri **verified**.
+**Hozirgi committed sonlar (wipe-restore SoT — `make seed-verify`):**
+
+- **1231 ta savol**, 3 tilda (uz-Latn / uz-Cyrl / ru), har biri **verified**.
 - Javob soni har xil: 2/3/4/5 (haqiqiy manba qanday bo'lsa shunday — 4'ga
-  majburlanmaydi). Shulardan 25 tasi to'g'ri javobi 5-o'rinda bo'lgan
-  5-javobli savol (DB CHECK `position 1..5` — migration 0006 bilan kengaytirilgan).
-- **61 ta bilet** (variant), har biri aynan 20 savol — ikki ketma-ket
-  manba-tiketni (10+10) juftlab hosil qilingan (rasmiy imtihon 20 savol
-  formatiga mos). Bu ataylab qilingan qaror.
-- **15 ta savol hech qaysi biletga tayinlanmagan** (toq tiket qoldig'i:
-  `avtoimtihon-1221..1235`) — ular baribir yaroqli, mustaqil savol sifatida
-  mavjud (mashq / xatolar banki / FSRS ularda ishlaydi), faqat raqamli
-  biletga kirmaydi.
-- **Kategoriya**: manbada kategoriya maydoni yo'q edi, shuning uchun barcha
-  1235 ta savol **13 ta tasdiqlangan kategoriya**ga taqsimlangan (izoh
-  matnidagi PDD bob/ilova iqtiboslariga qarab qoidaga asoslangan klassifikator
-  + iqtibossiz 390 ta savol uchun committed `assignments.json` override —
-  `docs/superpowers/research/2026-07-21-category-taxonomy-proposal.md`):
+  majburlanmaydi).
+- **62 ta bilet**: 61×20 savol + **62-bilet 11 savol** (qisqa qoldiq).
+  Barcha yaroqli savollar biletga biriktirilgan (orphan yo‘q).
+- **Kategoriya** (13 ta, `umumiy` yo‘q):
   `road_signs_markings` (334), `priority_intersections` (138),
-  `maneuvering_lane_position` (105), `accidents_first_aid_dynamics` (102),
+  `maneuvering_lane_position` (105), `accidents_first_aid_dynamics` (100),
   `vehicle_equipment_lighting` (94), `stopping_parking` (80),
-  `pedestrians_public_transport` (67), `general_provisions_admin` (65),
+  `pedestrians_public_transport` (66), `general_provisions_admin` (65),
   `overtaking_speed` (62), `traffic_signals_gestures` (56),
-  `special_road_zones` (52), `towing_special_vehicles` (41),
-  `cargo_passenger_carriage` (39). Fallback `umumiy` kategoriyasi endi
-  ishlatilmaydi — regeneratsiya `-strict` bilan ishga tushadi va har bir
-  savolga kategoriya biriktirilmasa muvaffaqiyatsiz tugaydi (nol fallback).
-- **Izohlar**: 1219 ta savolda izoh bor (manba `comment` matnidan). `LegalRefs`
-  bo'sh — manba matnida huquqiy iqtiboslar inline proza sifatida yozilgan,
-  strukturaviy maydonlarga ajratib olinmagan (halol gap, soxta iqtibos emas).
-- **Signlar katalogi bu importdan KELMAYDI** (manbada yo'l-belgi katalogi
-  yo'q, faqat sahna-fotolar). Signlar API'si dev'da bo'sh qaytadi (yoki agar
-  `make seed` alohida ishga tushirilgan bo'lsa, [NAMUNA] sign katalogi).
-- Import Report'i: `categories=13 signs=0 images=715 · questions valid=1235
-  quarantined=0 · variants stored=61 skipped=0` (`images` 715 — noyob
-  fayllar soni; content-hash bo'yicha byte-bir xillari birlashib DB'da 682
-  qatorga tushadi). 1 ta manba-rasm (`i120_9`) yo'q, u savol rasmsiz keladi.
+  `special_road_zones` (52), `towing_special_vehicles` (40),
+  `cargo_passenger_carriage` (39).
+- **Izohlar**: 1219 ta. `LegalRefs` bo'sh (inline proza; soxta iqtibos emas).
+- **Yo‘l belgilari**: alohida `make seed-signs` / `seed-dev` ichida —
+  **7 guruh / 285 belgi** (`backend/seed/signs/`).
+- Import Report (tipik): `categories=13 signs=0 images=715 · questions valid=1231
+  quarantined=0 · variants stored=62` (+ keyin signs import).
 
-Regeneratsiya + import (`backend/`dan):
+**Wipe / toza restore (tavsiya):**
 
 ```bash
-go run ./cmd/convertavtoimtihon -src "/home/sher/Рабочий стол/aaa" -out seed/avtoimtihon \
-  -assignments seed/avtoimtihon/assignments.json -strict
-go run ./cmd/importer -data seed/avtoimtihon -verified
-# yoki repo ildizidan: make seed-real
+make up
+make seed-dev    # truncate content → import committed Q/V → signs → admin
+make seed-verify # ixtiyoriy qayta tekshiruv
 ```
 
-Toza real-only dev DB uchun avval jadvallarni tozalab oling (bu ish
-qilinganida shunday qilingan) — aks holda mavjud [NAMUNA] fixture bilan
-aralashadi.
+**aaa/ dan qayta eksport** (faqat manba o‘zgarganda):
+
+```bash
+make seed-real   # convertavtoimtihon + import + seed-verify
+make seed-signs  # belgilarni qayta qo‘shish
+```
+
+Toza real-only DB uchun `seed-dev` / `seed-reset-content` — aks holda [NAMUNA]
+bilan aralashib bilet 1–2 to‘qnashadi.
 
 ### Sintetik namuna — `[NAMUNA]` fixture (`make seed`)
 
 Backend test suite'lari va tez smoke uchun sun'iy namuna: 2 bilet, 40 savol,
 4 kategoriya (`priority`/`rules`/`safety`/`signs`) va **4 signli katalog**
-(2 guruh). `cmd/genfixture` generatsiya qiladi. Signlar API'sini dev'da
-sinash uchun yagona ma'lumot manbai (haqiqiy import signlar bermaydi).
+(2 guruh). `cmd/genfixture` generatsiya qiladi. **Real kontent o‘rniga emas** —
+faqat unit/smoke; to‘liq lokal muhit uchun `make seed-dev`.
 
-Ikkala `seed/` katalogi ham (`seed/sample/`, `seed/avtoimtihon/`)
-gitignore'da — kod (converter + importer) va yuqoridagi regeneratsiya
-buyruqlari commit qilinadi, 700+ rasm blob'i emas.
+`seed/sample/` gitignore'da (generatsiya). `seed/avtoimtihon/data.json` +
+`assignments.json` **tracked**; `images/` odatda gitignore (blob).
+`seed/signs/images/` vendored; `data.json` `gensigns` bilan qayta yozilishi mumkin.
 
 ## API (M1 Plan 01 holati)
 

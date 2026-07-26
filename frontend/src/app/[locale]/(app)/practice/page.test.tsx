@@ -15,8 +15,18 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock, replace: vi.fn() }),
 }));
 
+const mockUseSigns = vi.hoisted(() =>
+  vi.fn(() => ({ signs: [] as Array<{
+    code: string;
+    group_code: string;
+    name: string;
+    image_url: string | null;
+    question_count: number;
+  }>, loading: false, error: null }))
+);
+
 vi.mock("@/hooks/use-signs", () => ({
-  useSigns: () => ({ signs: [], loading: false, error: null }),
+  useSigns: () => mockUseSigns(),
 }));
 
 const CATEGORIES = [
@@ -32,6 +42,13 @@ function mockEndpoints(overrides: Partial<Record<string, unknown>> = {}) {
     if (path.startsWith("variants")) return (overrides.variants ?? VARIANTS) as never;
     if (path.startsWith("me/practice-allowance")) return (overrides.allowance ?? ALLOWANCE) as never;
     if (path.startsWith("me/stats")) return (overrides.stats ?? { due_count: 0 }) as never;
+    if (path.startsWith("me/mistakes")) {
+      return (overrides.mistakes ?? {
+        due_count: 0,
+        total_bank_count: 0,
+        next_due_at: null,
+      }) as never;
+    }
     return [] as never;
   });
 }
@@ -48,6 +65,7 @@ describe("PracticePage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     pushMock.mockReset();
+    mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
   });
 
   it("sorts categories by sort_order and starts practice with the category code", async () => {
@@ -116,14 +134,66 @@ describe("PracticePage", () => {
     );
   });
 
-  it("starts an AI tahlil review session from the due source", async () => {
-    mockEndpoints({ stats: { due_count: 7 } });
+  it("starts all matching image questions when Hammasi count is selected", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
+    fireEvent.click(screen.getByRole("button", { name: /Rasmsiz savollar/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=1231&has_image=false"
+    );
+  });
+
+  it("allows custom counts above the old 200 ceiling up to the bank size", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.change(screen.getByLabelText(/O'zim kiritaman/), { target: { value: "500" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=500&category_id=priority_intersections"
+    );
+  });
+
+  it("starts an aqlli takrorlash review session from the due source", async () => {
+    mockEndpoints({
+      stats: { due_count: 7 },
+      mistakes: { due_count: 7, total_bank_count: 12, next_due_at: null },
+    });
     renderWithIntl();
 
-    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(AI tahlil\)/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ }));
     fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
 
     expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=review&count=7");
+  });
+
+  it("keeps Takrorlash selectable when the queue is empty and shows a waiting notice", async () => {
+    mockEndpoints({
+      mistakes: {
+        due_count: 0,
+        total_bank_count: 4,
+        next_due_at: "2026-07-27T08:00:00Z",
+      },
+    });
+    renderWithIntl();
+
+    const dueButton = await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ });
+    expect(dueButton).not.toBeDisabled();
+    fireEvent.click(dueButton);
+
+    expect(await screen.findByText("Takrorlash hozircha kutmoqda")).toBeInTheDocument();
+    expect(screen.getByText(/Xotirada 4 ta savol bor/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Oddiy mashqqa o‘tish" }));
+    expect(screen.getByText("Kategoriyani tanlang")).toBeInTheDocument();
   });
 
   it("accepts a custom question count", async () => {
@@ -164,6 +234,35 @@ describe("PracticePage", () => {
     await screen.findByText("Chorrahalar");
 
     expect(screen.getByRole("button", { name: /Belgilar bazasi hali to'ldirilmagan/ })).toBeDisabled();
+  });
+
+  it("lists linked signs with counts and practice deep-links", async () => {
+    mockUseSigns.mockReturnValue({
+      signs: [
+        {
+          code: "3.27",
+          group_code: "prohibiting",
+          name: "To'xtash taqiqlangan",
+          image_url: "/signs/3.27.png",
+          question_count: 6,
+        },
+      ],
+      loading: false,
+      error: null,
+    });
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /Yo'l belgilari/ }));
+
+    const link = await screen.findByRole("link", { name: /To'xtash taqiqlangan/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "/uz-Latn/session/start?mode=practice&sign_id=3.27&count=6"
+    );
+    expect(screen.getByText("6")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Mashqni boshlash" })).not.toBeInTheDocument();
   });
 
   it("shows an honest error with retry and never invents fallback categories", async () => {

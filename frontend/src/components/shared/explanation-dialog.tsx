@@ -135,6 +135,24 @@ export function ExplanationDialog({
 
           <div className="min-h-0 overflow-y-auto p-4 sm:p-5">
             <div className="space-y-3">
+              {Array.isArray(explanation.legal_refs) && explanation.legal_refs.length > 0 && (
+                <section className="rounded-2xl border border-accent/30 bg-accent/5 p-4">
+                  <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-accent">
+                    {t("legalRefsTitle")}
+                  </h3>
+                  <ul className="flex flex-wrap gap-2">
+                    {explanation.legal_refs.map((ref) => (
+                      <li
+                        key={`${ref.code}-${ref.title}`}
+                        className="inline-flex max-w-full items-center rounded-xl border border-border bg-card px-3 py-1.5 text-xs font-bold text-foreground shadow-raised-sm"
+                        title={ref.title}
+                      >
+                        <span className="truncate">{ref.code}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
               {explanation.blocks.map((block, index) => {
                 const style = explanationStyle(block.type);
                 const Icon = style.Icon;

@@ -6,11 +6,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"path"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/blob"
@@ -58,9 +60,10 @@ func looksSVG(data []byte) bool {
 }
 
 type StoreOptions struct {
-	MarkVerified bool        // licensed/trusted import → translations verified
-	Images       ImageSource // resolves relative image paths
-	Source       string      // provenance label stored on rows
+	MarkVerified      bool        // licensed/trusted import → translations verified
+	Images            ImageSource // resolves relative image paths
+	Source            string      // provenance label stored on rows
+	ExplanationsOnly  bool        // skip questions/variants; refresh explanation rows only
 }
 
 // Store validates and persists the dataset in one transaction.
@@ -82,6 +85,10 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 	q := sqlc.New(tx)
+
+	if opts.ExplanationsOnly {
+		return storeExplanationsOnly(ctx, tx, q, ds, opts, rep)
+	}
 
 	imageIDs := map[string]uuid.UUID{} // rel path → image id
 	putImage := func(rel string) (uuid.NullUUID, error) {
@@ -244,16 +251,21 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 				return rep, err
 			}
 		}
-		if err := q.DeleteQuestionSigns(ctx, qid); err != nil {
-			return rep, err
-		}
-		for _, sc := range cq.Signs {
-			sid, ok := signIDs[sc]
-			if !ok {
-				continue // unknown_sign issue already recorded
-			}
-			if err := q.InsertQuestionSign(ctx, sqlc.InsertQuestionSignParams{QuestionID: qid, SignID: sid}); err != nil {
+		// nil Signs means "leave existing question_sign rows alone" so a
+		// questions-only reimport cannot wipe links applied by linkquestionsigns.
+		// An explicit empty slice clears links; non-empty replaces them.
+		if cq.Signs != nil {
+			if err := q.DeleteQuestionSigns(ctx, qid); err != nil {
 				return rep, err
+			}
+			for _, sc := range cq.Signs {
+				sid, ok := signIDs[sc]
+				if !ok {
+					continue // unknown_sign issue already recorded
+				}
+				if err := q.InsertQuestionSign(ctx, sqlc.InsertQuestionSignParams{QuestionID: qid, SignID: sid}); err != nil {
+					return rep, err
+				}
 			}
 		}
 	}
@@ -311,6 +323,48 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 		}
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		return rep, fmt.Errorf("commit: %w", err)
+	}
+	return rep, nil
+}
+
+// storeExplanationsOnly refreshes explanation.legal_refs (+ translations) without
+// touching questions/answers — safe on DBs that already have session_answer rows.
+func storeExplanationsOnly(ctx context.Context, tx pgx.Tx, q *sqlc.Queries, ds Dataset, opts StoreOptions, rep Report) (Report, error) {
+	for _, e := range ds.Explanations {
+		qid, err := q.GetQuestionIDBySourceExtID(ctx, e.Question)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				rep.Issues = append(rep.Issues, Issue{Entity: "dataset", ID: e.Question, Code: "explanation_unknown_question"})
+				continue
+			}
+			return rep, fmt.Errorf("lookup question %s: %w", e.Question, err)
+		}
+		refs, err := json.Marshal(e.LegalRefs)
+		if err != nil {
+			return rep, err
+		}
+		eid, err := q.UpsertExplanation(ctx, sqlc.UpsertExplanationParams{QuestionID: qid, LegalRefs: refs})
+		if err != nil {
+			return rep, err
+		}
+		for loc, blocks := range e.Blocks {
+			bj, err := json.Marshal(blocks)
+			if err != nil {
+				return rep, err
+			}
+			st := "draft"
+			if opts.MarkVerified {
+				st = "verified"
+			}
+			if err := q.UpsertExplanationTranslation(ctx, sqlc.UpsertExplanationTranslationParams{
+				ExplanationID: eid, Locale: loc, Blocks: bj, Status: st, Source: opts.Source,
+			}); err != nil {
+				return rep, err
+			}
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return rep, fmt.Errorf("commit: %w", err)
 	}

@@ -361,6 +361,32 @@ describe("useSessionEngine", () => {
     });
   });
 
+  it("forwards optional FSRS fields on submitAnswer", async () => {
+    const post = vi
+      .spyOn(apiClient, "apiPost")
+      .mockResolvedValueOnce(startResponse() as never)
+      .mockResolvedValueOnce({ recorded: true, correct: true, correct_answer_id: "q-1-a1" } as never);
+    mockOnlyScopedQuestions();
+    const { result } = renderHook(() => useSessionEngine());
+    await startOneQuestionSession(result);
+
+    await act(async () => {
+      await result.current.submitAnswer("sess-99", "q-1", "q-1-a1", {
+        latencyMs: 1200,
+        skipFsrs: true,
+        rating: 4,
+      });
+    });
+
+    expect(post).toHaveBeenLastCalledWith("sessions/sess-99/answers", {
+      question_id: "q-1",
+      answer_id: "q-1-a1",
+      rating: 4,
+      latency_ms: 1200,
+      skip_fsrs: true,
+    });
+  });
+
   it("records exam answer grades from the backend (never invents them client-side)", async () => {
     vi.spyOn(apiClient, "apiPost")
       .mockResolvedValueOnce(startResponse({ mode: "exam", time_limit_sec: 1500 }) as never)

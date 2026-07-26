@@ -169,13 +169,13 @@ func fsrsDueCopy(locale string, dueCount int) (title, body string) {
 	switch locale {
 	case "ru":
 		title = "Время повторения"
-		body = fmt.Sprintf("У вас %d вопрос(ов) к повторению. AI-разбор поможет закрепить слабые места.", dueCount)
+		body = fmt.Sprintf("У вас %d вопрос(ов) к повторению. Умное повторение вернёт слабые места вовремя.", dueCount)
 	case "uz-Cyrl":
 		title = "Такрорлаш вақти"
-		body = fmt.Sprintf("Сизда %d та савол такрорлаш учун тайёр. AI таҳлил билан машқни очинг.", dueCount)
+		body = fmt.Sprintf("Сизда %d та савол такрорлаш учун тайёр. Ақлли такрорлаш билан машқни очинг.", dueCount)
 	default:
 		title = "Takrorlash vaqti"
-		body = fmt.Sprintf("Sizda %d ta savol takrorlash uchun tayyor. AI tahlil bilan mashqni oching.", dueCount)
+		body = fmt.Sprintf("Sizda %d ta savol takrorlash uchun tayyor. Aqlli takrorlash bilan mashqni oching.", dueCount)
 	}
 	return title, body
 }

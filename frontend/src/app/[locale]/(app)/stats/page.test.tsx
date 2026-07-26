@@ -55,7 +55,7 @@ describe("StatsPage", () => {
     expect(screen.getByText("Statistika va Tahlil")).toBeInTheDocument();
     expect(screen.getByText("88%")).toBeInTheDocument();
     expect(screen.getByText("10")).toBeInTheDocument();
-    expect(screen.getByText("Imtihonga tayyor!")).toBeInTheDocument();
+    expect(screen.getByText("Yaxshi o‘zlashtirish")).toBeInTheDocument();
     expect(screen.getByText("Imtihon")).toBeInTheDocument();
     expect(screen.getByText("Muvaffaqiyatli")).toBeInTheDocument();
     expect(screen.getByText("18/20")).toBeInTheDocument();

@@ -510,3 +510,48 @@ func TestStatsDueCount(t *testing.T) {
 		t.Fatalf("due count after backdating one review's due_at into the past = %d, want 1", stats.DueCount)
 	}
 }
+
+func TestModelPassPctBands(t *testing.T) {
+	cases := []struct {
+		readiness int
+		want      int
+	}{
+		{0, 15},
+		{39, 15},
+		{40, 35},
+		{59, 35},
+		{60, 55},
+		{74, 55},
+		{75, 70},
+		{84, 70},
+		{85, 85},
+		{94, 85},
+		{95, 92},
+		{100, 92},
+	}
+	for _, tc := range cases {
+		if got := learning.ModelPassPct(tc.readiness); got != tc.want {
+			t.Fatalf("ModelPassPct(%d)=%d want %d", tc.readiness, got, tc.want)
+		}
+	}
+}
+
+func TestStatsPassEstimateUsesModelUntilCalibrated(t *testing.T) {
+	_, svc, profileID, _ := seed(t)
+	ctx := context.Background()
+	stats, err := svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	if stats.PassEstimate.Source != "model" {
+		t.Fatalf("source=%q want model (no readiness snapshots yet)", stats.PassEstimate.Source)
+	}
+	want := learning.ModelPassPct(stats.ReadinessPct)
+	if stats.PassEstimate.EstimatedPassPct != want {
+		t.Fatalf("estimate=%d want ModelPassPct(%d)=%d",
+			stats.PassEstimate.EstimatedPassPct, stats.ReadinessPct, want)
+	}
+	if stats.PassEstimate.BucketLo != (stats.ReadinessPct/10)*10 {
+		t.Fatalf("bucket_lo=%d readiness=%d", stats.PassEstimate.BucketLo, stats.ReadinessPct)
+	}
+}

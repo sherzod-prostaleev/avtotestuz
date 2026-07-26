@@ -139,14 +139,14 @@ export function DemoQuestionBlock() {
   return (
     <div className="mx-auto max-w-xl" aria-busy={submitting}>
       <div className="space-y-4">
-        <span className="inline-flex rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-extrabold text-accent">
+        <span className="inline-flex rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-extrabold text-accent shadow-raised-sm">
           {t("demoQuestionNumber", { current: 1, total: 1 })}
         </span>
         <h3 className="font-display text-lg font-bold leading-snug tracking-tight sm:text-xl">
           {question.text}
         </h3>
         {question.image_url && (
-          <div className="overflow-hidden rounded-2xl border border-border bg-black/5">
+          <div className="overflow-hidden rounded-2xl border border-border bg-black/5 shadow-raised-sm">
             {/* Demo media URLs are backend-owned and intentionally unoptimized. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -172,7 +172,7 @@ export function DemoQuestionBlock() {
       </div>
 
       {grade && (
-        <div className={`mt-6 rounded-2xl border p-4 sm:p-5 ${grade.correct ? "border-success/40 bg-success/10" : "border-accent/40 bg-accent/10"}`}>
+        <div className={`mt-6 rounded-2xl border p-4 shadow-raised-sm sm:p-5 ${grade.correct ? "border-success/40 bg-success/10" : "border-accent/40 bg-accent/10"}`}>
           <div className="flex items-center gap-2 font-display text-sm font-bold">
             <Sparkles className="h-4 w-4 text-gold shrink-0" />
             {grade.correct ? t("demoSuccessTitle") : t("demoFailureTitle")}

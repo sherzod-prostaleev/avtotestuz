@@ -15,19 +15,6 @@ const testMessages = {
   ...messages,
   Signs: {
     ...messages.Signs,
-    backToDashboard: "Bosh sahifaga qaytish",
-    groupFilterLabel: "Belgilar guruhi",
-    loading: "Yo'l belgilari yuklanmoqda...",
-    loadError: "Yo'l belgilarini serverdan yuklab bo'lmadi.",
-    retry: "Qayta urinish",
-    noResults: "So'rovga mos yo'l belgisi topilmadi.",
-    emptyCatalog: "Tekshirilgan yo'l belgilari katalogi hali serverga yuklanmagan.",
-    imageUnavailable: "Rasm mavjud emas",
-    descriptionTitle: "Tavsif",
-    detailLoading: "Belgi tavsifi yuklanmoqda...",
-    detailLoadError: "Belgi tavsifini yuklab bo'lmadi.",
-    descriptionUnavailable: "Bu belgi uchun tekshirilgan tavsif hali mavjud emas.",
-    close: "Yopish",
   },
 };
 
@@ -70,7 +57,7 @@ describe("SignsPage", () => {
     });
   });
 
-  it("renders the server-provided sign summary", () => {
+  it("renders the server-provided sign summary with question count", () => {
     mockSigns();
 
     renderWithIntl();
@@ -78,11 +65,24 @@ describe("SignsPage", () => {
     expect(screen.getByRole("heading", { name: "Yo'l belgilari katalogi" })).toBeInTheDocument();
     expect(screen.getByText("3.27")).toBeInTheDocument();
     expect(screen.getByText("To'xtash taqiqlangan")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
     expect(useSignsModule.useSigns).toHaveBeenCalledWith("uz-Latn", "all", "");
   });
 
-  it("opens the modal with the description returned by the detail endpoint", () => {
+  it("links signs with questions straight into practice", () => {
     mockSigns();
+
+    renderWithIntl();
+
+    const link = screen.getByRole("link", { name: /To'xtash taqiqlangan/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "/uz-Latn/session/start?mode=practice&sign_id=3.27&count=4"
+    );
+  });
+
+  it("opens the modal for catalog-only signs without linked questions", () => {
+    mockSigns({ signs: [{ ...sign, question_count: 0 }] });
     vi.mocked(useSignsModule.useSignDetail).mockReturnValue({
       sign: {
         code: "3.27",
@@ -90,7 +90,7 @@ describe("SignsPage", () => {
         name: "To'xtash taqiqlangan",
         description: "Transport vositalarining to'xtashi taqiqlanadi.",
         image_url: "/signs/3.27.png",
-        question_ids: ["q-1"],
+        question_ids: [],
       },
       loading: false,
       error: null,
@@ -139,7 +139,7 @@ describe("SignsPage", () => {
   });
 
   it("does not invent a legal description when the verified detail is empty", () => {
-    mockSigns();
+    mockSigns({ signs: [{ ...sign, question_count: 0 }] });
     vi.mocked(useSignsModule.useSignDetail).mockReturnValue({
       sign: {
         code: "3.27",
@@ -164,7 +164,7 @@ describe("SignsPage", () => {
   });
 
   it("shows an honest media state when the API has no image", () => {
-    mockSigns({ signs: [{ ...sign, image_url: null }] });
+    mockSigns({ signs: [{ ...sign, image_url: null, question_count: 0 }] });
 
     renderWithIntl();
 

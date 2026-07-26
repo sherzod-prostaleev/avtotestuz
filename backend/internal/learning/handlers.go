@@ -115,10 +115,18 @@ type categoryStatDTO struct {
 	Total        int     `json:"total"`
 }
 
+type passEstimateDTO struct {
+	EstimatedPassPct int    `json:"estimated_pass_pct"`
+	Source           string `json:"source"`
+	SampleSize       int    `json:"sample_size"`
+	BucketLo         int    `json:"bucket_lo"`
+}
+
 type statsResponse struct {
 	Categories   []categoryStatDTO `json:"categories"`
 	ReadinessPct int               `json:"readiness_pct"`
 	DueCount     int               `json:"due_count"`
+	PassEstimate passEstimateDTO   `json:"pass_estimate"`
 }
 
 func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
@@ -139,6 +147,7 @@ func (h *Handler) stats(w http.ResponseWriter, r *http.Request) {
 		Categories:   cats,
 		ReadinessPct: st.ReadinessPct,
 		DueCount:     st.DueCount,
+		PassEstimate: passEstimateDTO(st.PassEstimate),
 	})
 }
 

@@ -34,27 +34,27 @@ const localeCases = [
   {
     locale: "uz-Latn",
     messages: uzLatnMessages,
-    hero: "oson",
+    hero: "tayyor",
     login: "Kirish",
-    feature: "AI tahlil",
+    feature: "Aqlli takrorlash",
     footer: "O'zbekiston yo'l harakati qoidalari bo'yicha o'quv platformasi",
     question: "O'ngdan keluvchi haydovchi qachon yo'l beradi?",
   },
   {
     locale: "uz-Cyrl",
     messages: uzCyrlMessages,
-    hero: "осон",
+    hero: "тайёр",
     login: "Кириш",
-    feature: "AI tahlil",
+    feature: "Ақлли такрорлаш",
     footer: "Ўзбекистон йўл ҳаракати қоидалари бўйича ўқув платформаси",
     question: "Ўнгдан келаётган ҳайдовчи қачон йўл беради?",
   },
   {
     locale: "ru",
     messages: ruMessages,
-    hero: "права",
+    hero: "готовым",
     login: "Войти",
-    feature: "AI tahlil",
+    feature: "Умное повторение",
     footer: "Учебная платформа по правилам дорожного движения Узбекистана",
     question: "Когда водитель должен уступить машине справа?",
   },
@@ -125,9 +125,9 @@ describe("LandingPage i18n and accessibility", () => {
     const { container } = renderWithIntl(localeCase);
     await screen.findByText(localeCase.question);
 
-    expect(container.textContent).not.toContain("Bepul Boshlash");
+    expect(container.textContent).not.toContain("Bepul boshlash");
     expect(container.textContent).not.toContain("Yo'l belgilari katalogi");
-    expect(container.textContent).not.toContain("Hoziroq o'qishni boshlang");
+    expect(container.textContent).not.toContain("Imtihon zaliga");
     expect(container.textContent).not.toContain("Minglab bo'lajak haydovchilar");
   });
 

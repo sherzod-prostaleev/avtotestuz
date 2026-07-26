@@ -23,12 +23,12 @@ export function MasteryBar({ categoryName, masteryPercent, studied, total }: Mas
       : null;
   return (
     <div>
-      <div className="mb-1 flex items-center justify-between gap-2 text-sm">
-        <span className="min-w-0 truncate font-medium">{categoryName}</span>
+      <div className="mb-1.5 flex items-center justify-between gap-2 text-base">
+        <span className="min-w-0 truncate font-semibold">{categoryName}</span>
         <span className="shrink-0 text-muted-foreground">
           {coverage ? (
             <>
-              <span className="font-semibold text-foreground">{clamped}%</span>
+              <span className="font-bold text-foreground">{clamped}%</span>
               <span className="mx-1 text-border">·</span>
               <span className="tabular-nums">{coverage}</span>
             </>
@@ -37,7 +37,7 @@ export function MasteryBar({ categoryName, masteryPercent, studied, total }: Mas
           )}
         </span>
       </div>
-      <div className="h-2 w-full overflow-hidden rounded-full bg-border" data-testid="mastery-bar-track">
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-border" data-testid="mastery-bar-track">
         <div
           data-testid="mastery-bar-fill"
           className={cn("h-full rounded-full transition-all", colorForMastery(clamped))}

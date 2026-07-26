@@ -87,16 +87,16 @@ export function Sidebar() {
         key={link.href}
         href={link.href}
         onClick={() => setMobileOpen(false)}
-        className={`flex min-h-11 items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`sidebar-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
-            ? "bg-accent text-accent-foreground shadow-3d"
+            ? "sidebar-link-active"
             : link.isGold
-              ? "text-gold hover:bg-gold/10"
-              : "text-muted-foreground hover:bg-background hover:text-foreground"
+              ? "border border-gold/25 bg-gold/10 text-gold shadow-raised-sm hover:bg-gold/15"
+              : "sidebar-link-inactive"
         }`}
       >
         <Icon aria-hidden="true" className="h-4 w-4 shrink-0" />
-        <span>{link.label}</span>
+        <span className="leading-tight">{link.label}</span>
       </Link>
     );
   };
@@ -116,8 +116,8 @@ export function Sidebar() {
         </Link>
 
         <div className="flex items-center gap-2">
-          <div className="flex min-h-11 items-center gap-1 rounded-xl border border-streak/30 bg-streak/10 px-3 text-xs font-bold text-streak">
-            <Flame aria-hidden="true" className="h-3.5 w-3.5 animate-flame" />
+          <div className="flex min-h-11 items-center gap-1.5 rounded-xl border border-streak/30 bg-streak/10 px-3 text-sm font-bold text-streak">
+            <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
             <span className="tabular-nums">{currentStreak}</span>
           </div>
 
@@ -146,21 +146,22 @@ export function Sidebar() {
       )}
 
       <aside
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(18rem,88vw)] flex-col justify-between border-r border-border bg-card p-4 transition-transform duration-300 md:w-64 md:translate-x-0 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(18.5rem,90vw)] flex-col overflow-hidden border-r border-border bg-card p-3 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 md:w-64 md:translate-x-0 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
         style={{
-          paddingTop: "max(1rem, env(safe-area-inset-top))",
-          paddingBottom: "max(1rem, env(safe-area-inset-bottom))",
+          paddingTop: "max(0.75rem, env(safe-area-inset-top))",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))",
         }}
       >
-        <div className="space-y-5">
-          <div className="flex items-center justify-between px-1 pt-1">
+        {/* Header — fixed */}
+        <div className="shrink-0 space-y-2.5">
+          <div className="flex items-center justify-between px-1">
             <Link
               href={`/${currentLocale}/dashboard`}
-              className="flex items-center gap-2.5 font-display text-xl font-black text-foreground"
+              className="flex items-center gap-2 font-display text-lg font-black text-foreground"
             >
-              <BrandLogo size={40} className="h-10 w-10 rounded-2xl object-cover" />
+              <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
               <span>{t("brandName")}</span>
             </Link>
 
@@ -168,45 +169,48 @@ export function Sidebar() {
               type="button"
               aria-label={t("closeMenu")}
               onClick={() => setMobileOpen(false)}
-              className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+              className="flex h-10 w-10 items-center justify-center rounded-xl text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
             >
               <X aria-hidden="true" className="h-5 w-5" />
             </button>
           </div>
 
-          <div className="rounded-2xl border border-border bg-background p-3">
-            <div className="flex items-center justify-between text-xs font-extrabold">
+          <div className="sidebar-panel px-3 py-2">
+            <div className="flex items-center justify-between gap-2 text-sm font-extrabold">
               <span className="flex items-center gap-1.5 text-streak">
                 <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
                 {t("streakCount", { count: currentStreak })}
               </span>
               {loading ? (
-                <span aria-hidden="true" className="h-[18px] w-16 animate-pulse rounded-full bg-border/60" />
+                <span aria-hidden="true" className="h-5 w-14 animate-pulse rounded-full bg-border/60" />
               ) : isVip ? (
-                <span className="rounded-md border border-gold/30 bg-gold/15 px-2 py-0.5 text-[10px] font-extrabold text-gold">
+                <span className="rounded-md border border-gold/30 bg-gold/15 px-2 py-0.5 text-xs font-extrabold text-gold">
                   {t("vipBadge")}
                 </span>
               ) : (
                 <Link href={`/${currentLocale}/premium`}>
-                  <span className="rounded-md bg-accent/20 px-2 py-0.5 text-[10px] font-extrabold text-foreground hover:underline">
+                  <span className="rounded-md bg-accent/20 px-2 py-0.5 text-xs font-extrabold text-foreground hover:underline">
                     {t("upgradeVip")}
                   </span>
                 </Link>
               )}
             </div>
           </div>
+        </div>
 
-          <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} loading={loading} />
+        {/* Scrollable middle — trial + nav always reachable */}
+        <div className="mt-2.5 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable]">
+          <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} loading={loading} compact />
 
           <nav className="space-y-1">
             {primaryLinks.map(renderLink)}
 
-            <div className="pt-2">
+            <div className="pt-1">
               <button
                 type="button"
                 aria-expanded={showMore}
                 onClick={() => setMoreOpen((v) => !v)}
-                className="flex min-h-11 w-full items-center justify-between rounded-xl px-3.5 py-2 text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="sidebar-link sidebar-link-inactive w-full justify-between text-xs font-extrabold uppercase tracking-wider focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {t("navMore")}
                 <ChevronDown
@@ -219,20 +223,21 @@ export function Sidebar() {
           </nav>
         </div>
 
-        <div className="space-y-3 border-t border-border pt-4">
-          <div className="flex items-center justify-between px-1">
-            <LocaleSwitcher size="md" className="border-border bg-background" />
+        {/* Footer — pinned */}
+        <div className="mt-2 shrink-0 space-y-2 border-t border-border pt-2.5">
+          <div className="flex items-center justify-between px-0.5">
+            <LocaleSwitcher size="md" className="border-border bg-background shadow-raised-sm" />
             <ThemeToggle />
           </div>
 
           <Link href={`/${currentLocale}/profile`}>
-            <div className="flex items-center gap-3 rounded-2xl border border-border bg-background p-2.5 transition-colors hover:border-accent">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 text-sm font-black text-foreground">
+            <div className="sidebar-panel flex items-center gap-2.5 p-2.5 transition-[border-color,transform,box-shadow] hover:border-accent surface-interactive">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-accent/20 text-sm font-black text-foreground shadow-raised-sm">
                 {userName.charAt(0).toUpperCase()}
               </div>
-              <div className="flex flex-col truncate">
-                <span className="truncate text-xs font-bold text-foreground">{userName}</span>
-                <span className="text-[10px] text-muted-foreground">{t("viewProfile")}</span>
+              <div className="flex min-w-0 flex-col truncate">
+                <span className="truncate text-sm font-bold text-foreground">{userName}</span>
+                <span className="text-xs text-muted-foreground">{t("viewProfile")}</span>
               </div>
             </div>
           </Link>

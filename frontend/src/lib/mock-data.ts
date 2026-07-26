@@ -81,7 +81,7 @@ export const mockCategoryMastery = [
 ];
 
 export const proofStats = [
-  { value: "1235", label: "savol" },
+  { value: "1231", label: "savol" },
   { value: String(OFFICIAL_TICKET_COUNT), label: "bilet" },
   { value: "13", label: "mavzu" },
   { value: "3", label: "til" },

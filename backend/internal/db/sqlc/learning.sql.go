@@ -276,6 +276,47 @@ func (q *Queries) ListDueQuestions(ctx context.Context, arg ListDueQuestionsPara
 	return items, nil
 }
 
+const passRateByReadinessBucket = `-- name: PassRateByReadinessBucket :many
+SELECT
+  (readiness_pct_at_finish / 10) * 10 AS bucket_lo,
+  count(*)::int AS n,
+  count(*) FILTER (WHERE status = 'passed')::int AS passed
+FROM exam_session
+WHERE readiness_pct_at_finish IS NOT NULL
+  AND mode IN ('exam', 'grand_mock', 'placement')
+  AND status IN ('passed', 'failed')
+GROUP BY 1
+ORDER BY 1
+`
+
+type PassRateByReadinessBucketRow struct {
+	BucketLo int32 `json:"bucket_lo"`
+	N        int32 `json:"n"`
+	Passed   int32 `json:"passed"`
+}
+
+// Empirical P(pass | readiness bucket) from finished exam-like sessions that
+// stored readiness_pct_at_finish. Buckets are 0,10,...,90.
+func (q *Queries) PassRateByReadinessBucket(ctx context.Context) ([]PassRateByReadinessBucketRow, error) {
+	rows, err := q.db.Query(ctx, passRateByReadinessBucket)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PassRateByReadinessBucketRow
+	for rows.Next() {
+		var i PassRateByReadinessBucketRow
+		if err := rows.Scan(&i.BucketLo, &i.N, &i.Passed); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertCategoryMastery = `-- name: UpsertCategoryMastery :one
 INSERT INTO category_mastery (profile_id, category_id, mastery, seen, correct, updated_at)
 VALUES ($1, $2, $3, $4, $5, now())

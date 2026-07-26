@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   ArrowLeft,
   ImageOff,
+  Play,
   RefreshCw,
   Search,
   X,
@@ -14,6 +15,15 @@ import {
 import { useSignDetail, useSigns, type SignItem } from "@/hooks/use-signs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+
+function practiceHref(locale: string, code: string, count: number): string {
+  const params = new URLSearchParams({
+    mode: "practice",
+    sign_id: code,
+    count: String(Math.max(count, 1)),
+  });
+  return `/${locale}/session/start?${params.toString()}`;
+}
 
 export default function SignsPage() {
   const t = useTranslations("Signs");
@@ -54,14 +64,15 @@ export default function SignsPage() {
   const activeDetail =
     signDetail?.code === activeModalSign?.code ? signDetail : null;
   const modalImage = activeDetail?.image_url ?? activeModalSign?.image_url ?? null;
+  const modalCount = activeModalSign?.question_count ?? 0;
 
   return (
     <main className="page-shell space-y-5 sm:space-y-6">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={`/${locale}/dashboard`} className="back-link">
+          <Link href={`/${locale}/practice`} className="back-link">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t("backToDashboard")}
+            {t("backToPractice")}
           </Link>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
@@ -125,37 +136,61 @@ export default function SignsPage() {
 
       {!loading && !error && signs.length > 0 && (
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-          {signs.map((sign) => (
-            <Card key={sign.code} className="overflow-hidden p-0 hover:border-accent">
-              <button
-                type="button"
-                onClick={() => setActiveModalSign(sign)}
-                className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                aria-haspopup="dialog"
-              >
+          {signs.map((sign) => {
+            const hasQuestions = sign.question_count > 0;
+            const content = (
+              <>
+                {hasQuestions && (
+                  <span className="absolute right-2 top-2 inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-extrabold text-accent-foreground shadow-sm">
+                    {t("questionCountBadge", { count: sign.question_count })}
+                  </span>
+                )}
                 <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 p-2">
                   {sign.image_url ? (
                     // Dynamic media URLs are served by the backend and intentionally stay unoptimized.
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={sign.image_url}
-                      alt={sign.name}
+                      alt={hasQuestions ? "" : sign.name}
                       className="max-h-full max-w-full object-contain"
                     />
                   ) : (
-                    <span className="flex flex-col items-center gap-1 text-[10px] text-muted-foreground">
+                    <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
                       <ImageOff className="h-6 w-6" aria-hidden="true" />
                       {t("imageUnavailable")}
                     </span>
                   )}
                 </div>
-                <span className="rounded-full bg-accent/10 px-2 py-0.5 text-[10px] font-extrabold text-accent">
+                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-extrabold text-accent">
                   {sign.code}
                 </span>
-                <span className="mt-2 line-clamp-2 text-xs font-bold text-foreground">{sign.name}</span>
-              </button>
-            </Card>
-          ))}
+                <span className="mt-2 line-clamp-2 text-sm font-bold text-foreground">{sign.name}</span>
+              </>
+            );
+
+            return (
+              <Card key={sign.code} className="surface-interactive relative overflow-hidden p-0 hover:border-accent">
+                {hasQuestions ? (
+                  <Link
+                    href={practiceHref(locale, sign.code, sign.question_count)}
+                    className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    aria-label={`${sign.code}. ${sign.name}. ${t("questionCountLabel", { count: sign.question_count })}`}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setActiveModalSign(sign)}
+                    className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                    aria-haspopup="dialog"
+                  >
+                    {content}
+                  </button>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -227,12 +262,26 @@ export default function SignsPage() {
                     : t("descriptionUnavailable")}
                 </p>
               )}
+              <p className="mt-3 text-xs font-semibold text-muted-foreground">
+                {modalCount > 0
+                  ? t("questionCountLabel", { count: modalCount })
+                  : t("noQuestionsForSign")}
+              </p>
             </div>
 
-            <div className="flex justify-end">
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button variant="outline" size="sm" onClick={() => setActiveModalSign(null)}>
                 {t("close")}
               </Button>
+              {modalCount > 0 && (
+                <Link
+                  href={practiceHref(locale, activeModalSign.code, modalCount)}
+                  className="inline-flex h-9 items-center justify-center rounded-xl bg-accent px-4 text-sm font-extrabold text-accent-foreground"
+                >
+                  <Play className="mr-2 h-4 w-4" aria-hidden="true" />
+                  {t("practiceThisSign")}
+                </Link>
+              )}
             </div>
           </Card>
         </div>

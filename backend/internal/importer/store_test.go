@@ -144,3 +144,43 @@ func TestStoreQuarantinesBroken(t *testing.T) {
 		t.Fatalf("report: %+v", rep)
 	}
 }
+
+// Omitting the signs field on reimport must not wipe question_sign rows that
+// were applied out-of-band (linkquestionsigns / prior import with signs set).
+func TestStorePreservesQuestionSignsWhenOmitted(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+	ds, images := fixture.Sample()
+	blobs := blob.NewLocalDir(t.TempDir())
+
+	if _, err := importer.Store(ctx, pool, blobs, ds, importer.StoreOptions{
+		MarkVerified: true, Images: images, Source: "fixture",
+	}); err != nil {
+		t.Fatalf("initial store: %v", err)
+	}
+
+	var before int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM question_sign`).Scan(&before); err != nil {
+		t.Fatalf("count links: %v", err)
+	}
+	if before == 0 {
+		t.Fatal("fixture sample is expected to seed some question_sign rows")
+	}
+
+	for i := range ds.Questions {
+		ds.Questions[i].Signs = nil
+	}
+	if _, err := importer.Store(ctx, pool, blobs, ds, importer.StoreOptions{
+		MarkVerified: true, Images: images, Source: "fixture",
+	}); err != nil {
+		t.Fatalf("re-store without signs: %v", err)
+	}
+
+	var after int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM question_sign`).Scan(&after); err != nil {
+		t.Fatalf("recount links: %v", err)
+	}
+	if after != before {
+		t.Fatalf("question_sign wiped on omit: before=%d after=%d", before, after)
+	}
+}

@@ -25,7 +25,7 @@ export function ThemeToggle() {
       type="button"
       aria-label={isDark ? t("toLight") : t("toDark")}
       onClick={() => setTheme(isDark ? "light" : "dark")}
-      className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card"
+      className="flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card shadow-raised-sm transition-[transform,box-shadow] duration-150 hover:-translate-y-0.5 active:translate-y-0.5 active:shadow-none"
     >
       {isDark ? (
         <Sun data-testid="theme-toggle-sun" className="h-4 w-4" />

@@ -28,6 +28,20 @@ LIMIT sqlc.arg(limit_count);
 SELECT count(*)::int FROM question_memory
 WHERE profile_id = $1 AND due_at <= now();
 
+-- name: PassRateByReadinessBucket :many
+-- Empirical P(pass | readiness bucket) from finished exam-like sessions that
+-- stored readiness_pct_at_finish. Buckets are 0,10,...,90.
+SELECT
+  (readiness_pct_at_finish / 10) * 10 AS bucket_lo,
+  count(*)::int AS n,
+  count(*) FILTER (WHERE status = 'passed')::int AS passed
+FROM exam_session
+WHERE readiness_pct_at_finish IS NOT NULL
+  AND mode IN ('exam', 'grand_mock', 'placement')
+  AND status IN ('passed', 'failed')
+GROUP BY 1
+ORDER BY 1;
+
 -- name: CountStudiedQuestions :one
 -- How many DISTINCT questions the profile has ever been graded on. Used as
 -- the Grand Mock volume floor (session.MockEligibility): question_memory is

@@ -4,10 +4,16 @@
 // unlock / mistake-bank side effects that finishing triggers.
 package session
 
+import "avtotest.uz/backend/internal/learning"
+
 const (
 	ExamQuestionCount = 20
 	ExamTimeLimitSec  = 25 * 60
 	ExamErrorsAllowed = 2
+
+	PlacementQuestionCount = 10
+	PlacementTimeLimitSec  = 12 * 60
+	PlacementErrorsAllowed = 1
 
 	// MockMasteryThreshold and MockMinStudiedPct document the values SEEDED
 	// into limit_config for the two Grand Mock gates: the minimum overall
@@ -25,21 +31,18 @@ const (
 )
 
 // IsExamLike reports whether mode uses the strict timed/anti-cheat exam
-// pipeline (time limit, answer redaction until finish, EvaluateExam
-// scoring) — currently "exam" and "grand_mock" share this behavior.
+// pipeline (time limit, answer redaction until finish, EvaluateExam /
+// EvaluatePlacement scoring) — "exam", "grand_mock", and "placement".
 func IsExamLike(mode string) bool {
-	return mode == "exam" || mode == "grand_mock"
+	return mode == "exam" || mode == "grand_mock" || mode == "placement"
 }
 
-// IsVariantUnlocked reports whether a variant is unlocked. The first variant
-// in the sequence (isFirst) and any VIP/Premium profile (isVIP) are always
-// unlocked; otherwise it requires the previous variant's best_correct to meet
-// the configured threshold.
-func IsVariantUnlocked(isFirst, isVIP bool, prevBestCorrect, threshold int) bool {
-	if isFirst || isVIP {
-		return true
-	}
-	return prevBestCorrect >= threshold
+// IsVariantUnlocked reports whether a variant is unlocked for listing.
+// Free users only get variant #1 (isFirst); VIP unlocks every variant.
+// This must match StartSession's VIP gate for variant.Number > 1 — UI
+// unlocked=true must never lead to a 402 on start.
+func IsVariantUnlocked(isFirst, isVIP bool) bool {
+	return isFirst || isVIP
 }
 
 type ExamOutcome struct {
@@ -64,8 +67,59 @@ func EvaluateExam(correct, wrong, total int, timedOut, tooManyErrors bool) ExamO
 	return ExamOutcome{Status: "failed", StoppedReason: reason}
 }
 
+// EvaluatePlacement computes the final status of a placement diagnostic.
+// Passing requires a completed run (all questions answered) with
+// wrong <= PlacementErrorsAllowed. Timed out / too many errors always fail.
+func EvaluatePlacement(correct, wrong, total int, timedOut, tooManyErrors bool) ExamOutcome {
+	if tooManyErrors {
+		return ExamOutcome{Status: "failed", StoppedReason: "too_many_errors"}
+	}
+	if timedOut {
+		return ExamOutcome{Status: "failed", StoppedReason: "time_up"}
+	}
+	completed := correct+wrong >= total && total > 0
+	if completed && wrong <= PlacementErrorsAllowed {
+		return ExamOutcome{Status: "passed", StoppedReason: "completed"}
+	}
+	return ExamOutcome{Status: "failed", StoppedReason: "completed"}
+}
+
 // ShouldStopExam reports whether the exam must stop immediately after this
 // wrong answer — the real exam ends on the 3rd mistake.
 func ShouldStopExam(wrongSoFar int) bool {
-	return wrongSoFar > ExamErrorsAllowed
+	return ShouldStopForErrors(wrongSoFar, ExamErrorsAllowed)
+}
+
+// ShouldStopForErrors reports whether an exam-like session must stop after
+// wrongSoFar mistakes given that mode's errors_allowed budget.
+func ShouldStopForErrors(wrongSoFar, errorsAllowed int) bool {
+	return wrongSoFar > errorsAllowed
+}
+
+// FSRSRatingForCorrect maps an optional explicit FSRS rating and/or answer
+// latency into Hard/Good/Easy for a correct practice-style answer.
+//
+// Priority: explicit rating (1–4) → latency thresholds → Good.
+// Again (1) on a correct answer is coerced to Hard; invalid values fall back
+// to Good. latencyMs is only consulted when > 0.
+func FSRSRatingForCorrect(explicit *int, latencyMs int) learning.Rating {
+	if explicit != nil {
+		switch learning.Rating(*explicit) {
+		case learning.Hard, learning.Good, learning.Easy:
+			return learning.Rating(*explicit)
+		case learning.Again:
+			return learning.Hard
+		default:
+			return learning.Good
+		}
+	}
+	if latencyMs > 0 {
+		switch {
+		case latencyMs < 4000:
+			return learning.Easy
+		case latencyMs >= 25000:
+			return learning.Hard
+		}
+	}
+	return learning.Good
 }

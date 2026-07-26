@@ -195,7 +195,12 @@ describe("SessionPage secure session flow", () => {
     fireEvent.keyDown(window, { key: "F5" });
 
     await waitFor(() =>
-      expect(submitAnswer).toHaveBeenCalledWith("sess-123", "q-1", "a-5")
+      expect(submitAnswer).toHaveBeenCalledWith(
+        "sess-123",
+        "q-1",
+        "a-5",
+        expect.objectContaining({ latencyMs: expect.any(Number), skipFsrs: true })
+      )
     );
     expect(trackEvent).toHaveBeenCalledWith(
       "answer",
@@ -217,12 +222,182 @@ describe("SessionPage secure session flow", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /3.28 belgisi/ }));
 
-    await waitFor(() => expect(submitAnswer).toHaveBeenCalledWith("sess-123", "q-1", "a-2"));
+    await waitFor(() =>
+      expect(submitAnswer).toHaveBeenCalledWith(
+        "sess-123",
+        "q-1",
+        "a-2",
+        expect.objectContaining({ latencyMs: expect.any(Number), skipFsrs: true })
+      )
+    );
     // Pending selection must paint immediately — no neutral→dim→wrong flash.
     expect(screen.getByRole("button", { name: /3.28 belgisi/ }).className).toMatch(/border-accent/);
     expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
 
     resolveSubmit({ recorded: true, correct: false, correct_answer_id: "a-1" });
+  });
+
+  it("posts Again to learn/review immediately on incorrect deferred-FSRS answer", async () => {
+    const submitAnswer = vi.fn().mockResolvedValue({
+      recorded: true,
+      correct: false,
+      correct_answer_id: "a-1",
+    });
+    mockEngine(activeSession({ mode: "review" }), { submitAnswer });
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /3.28 belgisi/ }));
+
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 1 })
+    );
+    expect(submitAnswer).toHaveBeenCalledWith(
+      "sess-123",
+      "q-1",
+      "a-2",
+      expect.objectContaining({ skipFsrs: true })
+    );
+  });
+
+  it("shows Hard/Good/Easy after a correct deferred answer and posts the pick", async () => {
+    let graded = false;
+    const gradedSession = () =>
+      activeSession({
+        mode: "variant",
+        questions: [
+          question(
+            graded
+              ? {
+                  answered: true,
+                  user_answer_id: "a-1",
+                  correct: true,
+                  correct_answer_id: "a-1",
+                }
+              : {}
+          ),
+          question({ id: "q-2", question: "Ikkinchi savol" }),
+        ],
+        total: 2,
+      });
+
+    const submitAnswer = vi.fn().mockImplementation(async () => {
+      graded = true;
+      const next = {
+        session: gradedSession(),
+        loading: false,
+        submitting: false,
+        error: null,
+        loadSession: vi.fn().mockResolvedValue(gradedSession()),
+        startSession: vi.fn(),
+        submitAnswer,
+        finishSession: vi.fn().mockResolvedValue(gradedSession()),
+      };
+      vi.mocked(useSessionEngine).mockReturnValue(next);
+      return { recorded: true, correct: true, correct_answer_id: "a-1" };
+    });
+    mockEngine(gradedSession(), { submitAnswer });
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+
+    const { rerender } = renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /3.27 belgisi/ }));
+
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+    rerender(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <SessionPage />
+      </NextIntlClientProvider>
+    );
+
+    expect(screen.getByText("Takrorlash: tez javob → oson; sekin → qiyin")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Oson" }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 4 })
+    );
+  });
+
+  it("defaults pending FSRS to Good when advancing with Keyingisi", async () => {
+    let graded = false;
+    const gradedSession = () =>
+      activeSession({
+        mode: "practice",
+        questions: [
+          question(
+            graded
+              ? {
+                  answered: true,
+                  user_answer_id: "a-1",
+                  correct: true,
+                  correct_answer_id: "a-1",
+                }
+              : {}
+          ),
+          question({ id: "q-2", question: "Ikkinchi savol" }),
+        ],
+        total: 2,
+      });
+    const submitAnswer = vi.fn().mockImplementation(async () => {
+      graded = true;
+      vi.mocked(useSessionEngine).mockReturnValue({
+        session: gradedSession(),
+        loading: false,
+        submitting: false,
+        error: null,
+        loadSession: vi.fn().mockResolvedValue(gradedSession()),
+        startSession: vi.fn(),
+        submitAnswer,
+        finishSession: vi.fn().mockResolvedValue(gradedSession()),
+      });
+      return { recorded: true, correct: true, correct_answer_id: "a-1" };
+    });
+    mockEngine(gradedSession(), { submitAnswer });
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+
+    const { rerender } = renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /3.27 belgisi/ }));
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+    rerender(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <SessionPage />
+      </NextIntlClientProvider>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Keyingisi" }));
+    await waitFor(() =>
+      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 3 })
+    );
+  });
+
+  it("exam mode submits without skip_fsrs", async () => {
+    const submitAnswer = vi.fn().mockResolvedValue({
+      recorded: true,
+      correct: true,
+      correct_answer_id: "a-1",
+    });
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        time_limit_sec: 1500,
+        remaining_sec: 300,
+        questions: [question()],
+      }),
+      { submitAnswer }
+    );
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /3.27 belgisi/ }));
+
+    await waitFor(() =>
+      expect(submitAnswer).toHaveBeenCalledWith(
+        "sess-123",
+        "q-1",
+        "a-1",
+        expect.objectContaining({ latencyMs: expect.any(Number) })
+      )
+    );
+    const opts = submitAnswer.mock.calls[0]?.[3] as { skipFsrs?: boolean } | undefined;
+    expect(opts?.skipFsrs).toBeFalsy();
+    expect(screen.queryByRole("button", { name: "Yaxshi" })).not.toBeInTheDocument();
   });
 
   it("persists a bookmark before changing its visible state", async () => {

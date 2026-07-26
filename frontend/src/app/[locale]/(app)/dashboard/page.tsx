@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useUserStats } from "@/hooks/use-user-stats";
@@ -28,9 +29,20 @@ import {
   BrainCircuit,
   RefreshCw,
   Route,
+  X,
 } from "lucide-react";
 
-const resumableModes: SessionSummary["mode"][] = ["variant", "exam", "practice", "mistakes", "grand_mock", "review"];
+const ONBOARDING_DISMISS_KEY = "dg-onboarding-v1-dismissed";
+
+const resumableModes: SessionSummary["mode"][] = [
+  "variant",
+  "exam",
+  "practice",
+  "mistakes",
+  "grand_mock",
+  "review",
+  "placement",
+];
 const resumeModeKeys: Record<SessionSummary["mode"], string> = {
   variant: "resumeModeVariant",
   exam: "resumeModeExam",
@@ -38,6 +50,7 @@ const resumeModeKeys: Record<SessionSummary["mode"], string> = {
   mistakes: "resumeModeMistakes",
   grand_mock: "resumeModeGrandMock",
   review: "resumeModeReview",
+  placement: "resumeModePlacement",
 };
 
 function newestInProgressSession(sessions: SessionSummary[]): SessionSummary | null {
@@ -73,6 +86,10 @@ function weakestCategory(categories: CategoryMasteryItem[]) {
   return weakestCategories(categories)[0] ?? null;
 }
 
+function isFinishedSession(session: SessionSummary) {
+  return session.status === "passed" || session.status === "failed";
+}
+
 // Reserves the same footprint as a filled-in hero stat card (label + big
 // number + caption) so those cards don't resize once real numbers replace
 // the "0" defaults that `useUserStats` starts with.
@@ -92,6 +109,7 @@ export default function DashboardPage() {
   const locale = useLocale();
   const { user, entitlement, streak, stats, loading, error } = useUserStats();
   const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
+  const [onboardingVisible, setOnboardingVisible] = useState(false);
 
   // Both hooks feed the hero/next-action UI below; treat them as loaded
   // together so those sections settle once instead of updating piecemeal.
@@ -100,6 +118,7 @@ export default function DashboardPage() {
   const userName = user?.name || t("guestUser");
   const isVip = entitlement?.is_vip ?? false;
   const readinessPct = stats?.readiness_pct ?? 0;
+  const passEstimate = stats?.pass_estimate;
   const currentStreak = streak?.current_streak ?? 0;
   const todayAnswered = streak?.today_answered ?? 0;
   const dailyTarget = streak?.daily_target ?? 30;
@@ -111,6 +130,30 @@ export default function DashboardPage() {
   const resumeStartedAt = resumeSession
     ? formatDateWithTime(resumeSession.started_at)
     : null;
+  const hasAnyProgress =
+    sessions.some(isFinishedSession) || (stats?.total_answered ?? 0) > 0;
+  const practiceHref = `/${locale}/practice`;
+
+  useEffect(() => {
+    try {
+      if (window.localStorage.getItem(ONBOARDING_DISMISS_KEY) === "1") return;
+      setOnboardingVisible(true);
+    } catch {
+      setOnboardingVisible(true);
+    }
+  }, []);
+
+  const dismissOnboarding = () => {
+    try {
+      window.localStorage.setItem(ONBOARDING_DISMISS_KEY, "1");
+    } catch {
+      // Ignore quota / private-mode failures; still hide for this visit.
+    }
+    setOnboardingVisible(false);
+  };
+
+  const showOnboarding = onboardingVisible && !isPersonalizationLoading && !hasAnyProgress;
+
   const nextAction = resumeSession
     ? {
         icon: PlayCircle,
@@ -165,93 +208,147 @@ export default function DashboardPage() {
 
   return (
     <main className="page-shell space-y-6 sm:space-y-8">
+      {showOnboarding && (
+        <section
+          aria-labelledby="onboarding-title"
+          className="surface-raised relative overflow-hidden rounded-3xl border border-accent/35 bg-card p-5 md:p-6"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-3">
+              <h2 id="onboarding-title" className="font-display text-lg font-extrabold tracking-tight">
+                {t("onboardingTitle")}
+              </h2>
+              <ul className="space-y-2 text-base leading-relaxed text-muted-foreground">
+                <li className="flex items-start gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                  {t("onboardingBullet1")}
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                  {t("onboardingBullet2")}
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                  {t("onboardingBullet3")}
+                </li>
+              </ul>
+              <Link
+                href={practiceHref}
+                className="inline-flex min-h-12 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-5 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+              >
+                {t("onboardingCta")}
+                <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4" />
+              </Link>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="shrink-0 px-2"
+              onClick={dismissOnboarding}
+              aria-label={t("onboardingDismiss")}
+            >
+              <X aria-hidden="true" className="h-4 w-4" />
+            </Button>
+          </div>
+        </section>
+      )}
+
       <section className="grid gap-4 lg:grid-cols-[1.35fr_0.9fr]">
-        <section className="relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
+        <section className="surface-raised relative overflow-hidden rounded-3xl border border-border bg-card p-6 md:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-6">
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1 text-[11px] font-bold text-muted-foreground">
-                  <BrainCircuit aria-hidden="true" className="h-3.5 w-3.5 text-accent" />
+                <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-bold text-muted-foreground">
+                  <BrainCircuit aria-hidden="true" className="h-4 w-4 text-accent" />
                   {t("todayTitle")}
                 </span>
                 {loading ? (
                   <span
                     aria-hidden="true"
-                    className="inline-flex h-[26px] w-24 animate-pulse items-center rounded-md border border-border bg-background px-3 py-1"
+                    className="inline-flex h-8 w-28 animate-pulse items-center rounded-md border border-border bg-background px-3 py-1"
                   />
                 ) : isVip ? (
-                  <span className="inline-flex items-center gap-1 rounded-md border border-gold/40 bg-gold/15 px-3 py-1 text-xs font-bold text-gold">
-                    <Crown aria-hidden="true" className="h-3.5 w-3.5" /> {t("vipBadge")}
+                  <span className="inline-flex items-center gap-1.5 rounded-md border border-gold/40 bg-gold/15 px-3 py-1.5 text-sm font-bold text-gold">
+                    <Crown aria-hidden="true" className="h-4 w-4" /> {t("vipBadge")}
                   </span>
                 ) : (
                   <Link href={`/${locale}/premium`}>
-                    <span className="inline-flex items-center gap-1 rounded-md border border-border bg-accent/15 px-3 py-1 text-xs font-bold text-foreground hover:border-accent">
-                      <Sparkles aria-hidden="true" className="h-3.5 w-3.5 text-accent" /> {t("upgradeVip")}
+                    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-accent/15 px-3 py-1.5 text-sm font-bold text-foreground hover:border-accent">
+                      <Sparkles aria-hidden="true" className="h-4 w-4 text-accent" /> {t("upgradeVip")}
                     </span>
                   </Link>
                 )}
               </div>
 
               <div className="flex items-start gap-3">
-                <Hand aria-hidden="true" className="mt-1 h-6 w-6 shrink-0 text-accent" />
+                <Hand aria-hidden="true" className="mt-1 h-7 w-7 shrink-0 text-accent" />
                 <div>
-                  <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+                  <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
                     {loading ? (
                       <span
                         aria-hidden="true"
-                        className="inline-block h-8 w-56 max-w-full animate-pulse rounded-lg bg-border/60 align-middle"
+                        className="inline-block h-9 w-56 max-w-full animate-pulse rounded-lg bg-border/60 align-middle"
                       />
                     ) : (
                       t("welcomeUser", { name: userName })
                     )}
                   </h1>
-                  <p className="mt-2 max-w-2xl text-sm text-muted-foreground">{t("welcomeSubtitle")}</p>
+                  <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("welcomeSubtitle")}</p>
                 </div>
               </div>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                      <Flame aria-hidden="true" className="h-4 w-4 text-streak" />
+                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                      <Flame aria-hidden="true" className="h-5 w-5 text-streak" />
                       {t("streakCount", { count: currentStreak })}
                     </div>
-                    <p className="mt-2 font-display text-2xl font-extrabold">{todayAnswered}</p>
-                    <p className="text-xs text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
+                    <p className="mt-2 font-display text-3xl font-extrabold">{todayAnswered}</p>
+                    <p className="mt-1 text-sm leading-snug text-muted-foreground">{t("streakToday", { done: todayAnswered, goal: dailyTarget })}</p>
                   </>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                      <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-success" />
+                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                      <CheckCircle2 aria-hidden="true" className="h-5 w-5 text-success" />
                       {t("readinessLabel")}
                     </div>
-                    <p className="mt-2 font-display text-2xl font-extrabold">{readinessPct}%</p>
-                    <p className="text-xs text-muted-foreground">{readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}</p>
+                    <p className="mt-2 font-display text-3xl font-extrabold">{readinessPct}%</p>
+                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
+                      {readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}
+                      {passEstimate != null && (
+                        <>
+                          {" · "}
+                          {t("passEstimateLabel", { pct: passEstimate.estimated_pass_pct })}
+                        </>
+                      )}
+                    </p>
                   </>
                 )}
               </div>
 
-              <div className="rounded-2xl border border-border bg-background p-4">
+              <div className="surface-raised-sm rounded-2xl border border-border bg-background p-4 sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-                      <AlertTriangle aria-hidden="true" className="h-4 w-4 text-danger" />
+                    <div className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
+                      <AlertTriangle aria-hidden="true" className="h-5 w-5 text-danger" />
                       {t("dueQuestionsLabel")}
                     </div>
-                    <p className="mt-2 font-display text-2xl font-extrabold">{dueQuestionsCount}</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="mt-2 font-display text-3xl font-extrabold">{dueQuestionsCount}</p>
+                    <p className="mt-1 text-sm leading-snug text-muted-foreground">
                       {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
                     </p>
                   </>
@@ -261,7 +358,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <aside className="rounded-3xl border border-border bg-card p-6 md:p-7">
+        <aside className="surface-raised rounded-3xl border border-border bg-card p-6 md:p-7">
           {isPersonalizationLoading ? (
             // The recommendation below depends on stats + session history
             // together (readiness, weakest category, resumable session).
@@ -286,19 +383,19 @@ export default function DashboardPage() {
             <>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">{t("nextActionLabel")}</p>
-                  <h2 className="mt-2 font-display text-xl font-extrabold tracking-tight">{nextAction.title}</h2>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">{t("nextActionLabel")}</p>
+                  <h2 className="mt-2 font-display text-2xl font-extrabold tracking-tight">{nextAction.title}</h2>
                 </div>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-2xl ${nextActionToneClass}`}>
-                  <NextActionIcon aria-hidden="true" className="h-6 w-6" />
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${nextActionToneClass}`}>
+                  <NextActionIcon aria-hidden="true" className="h-7 w-7" />
                 </div>
               </div>
 
-              <p className="mt-4 text-sm leading-6 text-muted-foreground">{nextAction.description}</p>
+              <p className="mt-4 text-base leading-relaxed text-muted-foreground">{nextAction.description}</p>
 
               <Link
                 href={nextAction.href}
-                className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-6 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+                className="mt-6 inline-flex min-h-13 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-6 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
               >
                 {nextAction.cta}
                 <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
@@ -306,12 +403,12 @@ export default function DashboardPage() {
             </>
           )}
 
-          <div className="mt-6 rounded-2xl border border-border bg-background p-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">{t("studyLoopTitle")}</p>
+          <div className="surface-raised-sm mt-6 rounded-2xl border border-border bg-background p-4">
+            <p className="text-sm font-bold uppercase tracking-wider text-muted-foreground">{t("studyLoopTitle")}</p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-md bg-accent/15 px-3 py-1 text-xs font-semibold text-foreground">{t("studyLoopRecall")}</span>
-              <span className="rounded-md bg-gold/15 px-3 py-1 text-xs font-semibold text-gold">{t("studyLoopSpacing")}</span>
-              <span className="rounded-md bg-success/15 px-3 py-1 text-xs font-semibold text-success">{t("studyLoopFeedback")}</span>
+              <span className="rounded-md bg-accent/15 px-3 py-1.5 text-sm font-semibold text-foreground">{t("studyLoopRecall")}</span>
+              <span className="rounded-md bg-gold/15 px-3 py-1.5 text-sm font-semibold text-gold">{t("studyLoopSpacing")}</span>
+              <span className="rounded-md bg-success/15 px-3 py-1.5 text-sm font-semibold text-success">{t("studyLoopFeedback")}</span>
             </div>
           </div>
         </aside>
@@ -341,7 +438,7 @@ export default function DashboardPage() {
       ) : resumeSession && resumeStartedAt ? (
         <section
           aria-labelledby="resume-session-title"
-          className="relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
+          className="surface-raised relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
         >
           <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
             <div className="flex items-start gap-4">
@@ -352,17 +449,17 @@ export default function DashboardPage() {
                 <h2 id="resume-session-title" className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
                   {t("resumeTitle")}
                 </h2>
-                <p className="max-w-xl text-sm text-muted-foreground">{t("resumeDescription")}</p>
-                <div className="flex flex-wrap items-center gap-2 text-xs font-bold">
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-accent">
+                <p className="max-w-xl text-base leading-relaxed text-muted-foreground">{t("resumeDescription")}</p>
+                <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-accent">
                     {t(resumeModeKeys[resumeSession.mode])}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-muted-foreground">
-                    <Clock3 aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
+                    <Clock3 aria-hidden="true" className="h-4 w-4" />
                     {t("resumeStartedAt", { date: resumeStartedAt })}
                   </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1 text-muted-foreground">
-                    <ListChecks aria-hidden="true" className="h-3.5 w-3.5" />
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
+                    <ListChecks aria-hidden="true" className="h-4 w-4" />
                     {t("resumeTotal", { total: resumeSession.total })}
                   </span>
                 </div>
@@ -370,7 +467,7 @@ export default function DashboardPage() {
             </div>
             <Link
               href={`/${locale}/session/${encodeURIComponent(resumeSession.id)}`}
-              className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
+              className="inline-flex min-h-13 shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
             >
               {t("resumeCta")}
               <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
@@ -381,72 +478,71 @@ export default function DashboardPage() {
 
       {/* 4 Main Mode Cards */}
       <section className="space-y-4">
-        <h2 className="font-display text-xl font-bold tracking-tight">{t("modesTitle")}</h2>
+        <h2 className="font-display text-2xl font-bold tracking-tight">{t("modesTitle")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* 1. Biletlar Grid */}
           <Link href={`/${locale}/tickets`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
               <div>
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
                   <BookOpen aria-hidden="true" className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-base">{t("navVariantsTitle")}</CardTitle>
-                <CardDescription className="mt-1">{t("navVariantsDesc")}</CardDescription>
+                <CardTitle className="text-lg">{t("navVariantsTitle")}</CardTitle>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-accent">
+              <div className="mt-4 flex items-center justify-between text-sm font-bold text-accent">
                 <span>{t("variantsMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </div>
             </Card>
           </Link>
 
           {/* 2. Imtihon Simulation */}
           <Link href={`/${locale}/session/start?mode=exam`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-5">
+            <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-5 sm:p-6">
               <div>
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent transition-transform group-hover:scale-105">
                   <Award aria-hidden="true" className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-base">{t("navExamTitle")}</CardTitle>
-                <CardDescription className="mt-1">{t("navExamDesc")}</CardDescription>
+                <CardTitle className="text-lg">{t("navExamTitle")}</CardTitle>
+                <CardDescription className="mt-1.5">{t("navExamDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-accent">
+              <div className="mt-4 flex items-center justify-between text-sm font-bold text-accent">
                 <span>{t("examMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </div>
             </Card>
           </Link>
 
           {/* 3. Mashq Rejimi */}
           <Link href={`/${locale}/practice`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
               <div>
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-success/15 text-success transition-transform group-hover:scale-105">
                   <Target aria-hidden="true" className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-base">{t("navPracticeTitle")}</CardTitle>
-                <CardDescription className="mt-1">{t("navPracticeDesc")}</CardDescription>
+                <CardTitle className="text-lg">{t("navPracticeTitle")}</CardTitle>
+                <CardDescription className="mt-1.5">{t("navPracticeDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-success">
+              <div className="mt-4 flex items-center justify-between text-sm font-bold text-success">
                 <span>{t("practiceMeta")}</span>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </div>
             </Card>
           </Link>
 
           {/* 4. Xatolar Banki */}
           <Link href={`/${locale}/mistakes`} className="block min-h-touch">
-            <Card className="glass-card group flex h-full flex-col justify-between p-5">
+            <Card className="glass-card group flex h-full flex-col justify-between p-5 sm:p-6">
               <div>
                 <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-danger/15 text-danger transition-transform group-hover:scale-105">
                   <AlertTriangle aria-hidden="true" className="h-6 w-6" />
                 </div>
-                <CardTitle className="text-base">{t("navMistakesTitle")}</CardTitle>
-                <CardDescription className="mt-1">{t("navMistakesDesc")}</CardDescription>
+                <CardTitle className="text-lg">{t("navMistakesTitle")}</CardTitle>
+                <CardDescription className="mt-1.5">{t("navMistakesDesc")}</CardDescription>
               </div>
-              <div className="mt-4 flex items-center justify-between text-xs font-bold text-danger">
+              <div className="mt-4 flex items-center justify-between text-sm font-bold text-danger">
                 <span>{t("mistakesMeta", { count: stats?.due_questions_count ?? 0 })}</span>
-                <ChevronRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+                <ChevronRight aria-hidden="true" className="h-5 w-5 transition-transform group-hover:translate-x-1" />
               </div>
             </Card>
           </Link>
@@ -468,8 +564,8 @@ export default function DashboardPage() {
                   <Signpost aria-hidden="true" className="h-7 w-7" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-bold">{t("signsTitle")}</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <h3 className="font-display text-xl font-bold">{t("signsTitle")}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
                     {t("signsDescription")}
                   </p>
                 </div>
@@ -492,8 +588,8 @@ export default function DashboardPage() {
                   <Bookmark aria-hidden="true" className="h-7 w-7" />
                 </div>
                 <div>
-                  <h3 className="font-display text-lg font-bold">{savedT("title")}</h3>
-                  <p className="text-xs text-muted-foreground">{savedT("subtitle")}</p>
+                  <h3 className="font-display text-xl font-bold">{savedT("title")}</h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">{savedT("subtitle")}</p>
                 </div>
               </div>
               <Button as="span" variant="outline" size="sm" className="shrink-0">
@@ -529,20 +625,20 @@ export default function DashboardPage() {
         masteryCategories.length > 0 && (
           <section className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="font-display text-xl font-bold tracking-tight">
+              <h2 className="font-display text-2xl font-bold tracking-tight">
                 {t("weakestCategoriesTitle", { count: masteryCategories.length })}
               </h2>
               {totalCategories > masteryCategories.length && (
                 <Link
                   href={`/${locale}/stats`}
-                  className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+                  className="inline-flex items-center gap-1 text-base font-semibold text-accent hover:underline"
                 >
                   {t("viewAllCategories", { count: totalCategories })}
                   <ChevronRight aria-hidden="true" className="h-4 w-4" />
                 </Link>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">{t("masteryCoverageHint")}</p>
+            <p className="text-sm text-muted-foreground">{t("masteryCoverageHint")}</p>
             <Card className="p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 {masteryCategories.map((cat) => (

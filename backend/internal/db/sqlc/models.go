@@ -275,6 +275,8 @@ type ExamSession struct {
 	Score         pgtype.Int4        `json:"score"`
 	Total         int32              `json:"total"`
 	StoppedReason pgtype.Text        `json:"stopped_reason"`
+	// Bank-honest readiness_pct captured at FinishSession for exam/grand_mock/placement calibration.
+	ReadinessPctAtFinish pgtype.Int4 `json:"readiness_pct_at_finish"`
 }
 
 type Explanation struct {

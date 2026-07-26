@@ -43,14 +43,14 @@ export function LocaleSwitcher({ size = "sm", className = "" }: Props) {
 
   const chip =
     size === "md"
-      ? "min-h-10 rounded-md px-3 text-[11px] font-bold"
-      : "min-h-9 min-w-9 rounded px-2 py-0.5 text-[11px] font-bold";
+      ? "min-h-11 rounded-md px-3 text-sm font-bold"
+      : "min-h-10 min-w-10 rounded px-2.5 py-1 text-xs font-bold";
 
   return (
     <div
       role="group"
       aria-label={t("languageSwitcher")}
-      className={`flex gap-0.5 rounded-lg border border-border/80 bg-card p-0.5 ${className}`}
+      className={`flex gap-0.5 rounded-lg border border-border/80 bg-card p-0.5 shadow-raised-sm ${className}`}
     >
       {LOCALES.map((lang) => (
         <button

@@ -7,12 +7,15 @@ import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
 import { usePracticeAllowance } from "@/hooks/use-practice-allowance";
 import { useSigns } from "@/hooks/use-signs";
+import { SignPracticeGrid } from "@/components/practice/sign-practice-grid";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { formatDateWithTime } from "@/lib/date-format";
 import {
   AlignLeft,
   ArrowLeft,
   BookOpen,
+  CalendarClock,
   CheckCircle2,
   Crown,
   Image as ImageIcon,
@@ -22,9 +25,10 @@ import {
   Signpost,
   BrainCircuit,
 } from "lucide-react";
+import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
 
 const COUNT_PRESETS = [20, 50, 100] as const;
-const MAX_CUSTOM_COUNT = 200;
+const MAX_CUSTOM_COUNT = OFFICIAL_QUESTION_COUNT;
 
 type Source = "due" | "category" | "variant" | "image" | "sign";
 
@@ -43,6 +47,12 @@ interface StatsDTO {
   due_count: number;
 }
 
+interface MistakesDTO {
+  due_count: number;
+  total_bank_count: number;
+  next_due_at: string | null;
+}
+
 export default function PracticePage() {
   const t = useTranslations("Practice");
   const locale = useLocale();
@@ -57,9 +67,12 @@ export default function PracticePage() {
   const [withImage, setWithImage] = useState<boolean>(true);
   const [count, setCount] = useState<number>(20);
   const [customCount, setCustomCount] = useState<string>("");
+  const [allQuestions, setAllQuestions] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<boolean>(false);
   const [dueCount, setDueCount] = useState<number>(0);
+  const [bankCount, setBankCount] = useState<number>(0);
+  const [nextDueAt, setNextDueAt] = useState<string | null>(null);
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
@@ -69,15 +82,24 @@ export default function PracticePage() {
     setLoading(true);
     setLoadError(false);
     try {
-      const [cats, variants, stats] = await Promise.all([
+      const [cats, variants, stats, mistakes] = await Promise.all([
         apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
         apiGet<VariantItem[]>("variants"),
         apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0 })),
+        apiGet<MistakesDTO>("me/mistakes").catch(() => ({
+          due_count: 0,
+          total_bank_count: 0,
+          next_due_at: null,
+        })),
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       setCategories(ordered);
       setSelectedCategory(ordered[0]?.code ?? "");
-      setDueCount(Number.isInteger(stats.due_count) ? stats.due_count : 0);
+      const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
+      const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
+      setDueCount(Math.max(dueFromMistakes, dueFromStats));
+      setBankCount(Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0);
+      setNextDueAt(typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null);
 
       const highest = variants.reduce((max, item) => Math.max(max, item.number), 0);
       setVariantCount(highest);
@@ -90,6 +112,8 @@ export default function PracticePage() {
       setSelectedCategory("");
       setVariantCount(0);
       setDueCount(0);
+      setBankCount(0);
+      setNextDueAt(null);
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -123,11 +147,12 @@ export default function PracticePage() {
     if (exhausted) return false;
     if (source === "category") return Boolean(selectedCategory);
     if (source === "variant") return rangeValid;
-    if (source === "sign") return signsAvailable;
+    if (source === "sign") return false;
     return true;
   })();
 
   const handleStart = () => {
+    if (source === "sign") return;
     if (source === "due") {
       const reviewCount = Math.min(20, Math.max(dueCount, 1));
       router.push(`/${locale}/session/start?mode=review&count=${reviewCount}`);
@@ -142,28 +167,27 @@ export default function PracticePage() {
       router.push(`${base}&variant_from=${variantFrom}&variant_to=${variantTo}`);
       return;
     }
-    if (source === "sign") {
-      router.push(`/${locale}/signs`);
-      return;
-    }
     router.push(`${base}&has_image=${withImage}`);
   };
 
   const applyCustomCount = (raw: string) => {
     setCustomCount(raw);
+    setAllQuestions(false);
     const parsed = Number(raw);
     if (Number.isInteger(parsed) && parsed > 0) {
       setCount(Math.min(parsed, MAX_CUSTOM_COUNT));
     }
   };
 
+  const nextDueLabel = nextDueAt ? formatDateWithTime(nextDueAt) : null;
+
   const sources: { value: Source; icon: typeof BookOpen; label: string; hint: string; disabled?: boolean }[] = [
     {
       value: "due",
       icon: BrainCircuit,
       label: t("sourceDue"),
+      // Always selectable — empty queue shows a waiting notice instead of a dead button.
       hint: dueCount > 0 ? t("sourceDueHint", { count: dueCount }) : t("sourceDueEmpty"),
-      disabled: dueCount <= 0,
     },
     { value: "category", icon: BookOpen, label: t("sourceCategory"), hint: t("sourceCategoryHint") },
     { value: "variant", icon: Layers, label: t("sourceVariant"), hint: t("sourceVariantHint") },
@@ -183,14 +207,14 @@ export default function PracticePage() {
         <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
-        <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t("title")}</h1>
-        <p className="mt-1 max-w-xl text-sm text-muted-foreground">{t("subtitle")}</p>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
+        <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("subtitle")}</p>
       </div>
 
       {loadError && (
         <Card
           role="alert"
-          className="flex flex-col items-start gap-3 border-destructive/40 bg-destructive/10 p-4 text-sm sm:flex-row sm:items-center sm:justify-between"
+          className="flex flex-col items-start gap-3 border-destructive/40 bg-destructive/10 p-4 text-base sm:flex-row sm:items-center sm:justify-between"
         >
           <span>{t("categoriesLoadError")}</span>
           <Button variant="outline" size="sm" onClick={() => void loadContent()}>
@@ -202,7 +226,7 @@ export default function PracticePage() {
 
       {/* Source picker */}
       <section aria-label={t("sourceLabel")} className="space-y-3">
-        <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
           {t("sourceLabel")}
         </h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
@@ -216,18 +240,18 @@ export default function PracticePage() {
                 disabled={item.disabled}
                 aria-pressed={isSelected}
                 onClick={() => setSource(item.value)}
-                className={`min-h-touch rounded-2xl border p-4 text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 ${
+                className={`surface-raised-sm surface-interactive min-h-touch rounded-2xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 ${
                   isSelected
-                    ? "border-accent bg-accent/10"
+                    ? "border-accent bg-accent/10 shadow-3d"
                     : "border-border bg-card hover:border-accent/50"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <Icon aria-hidden="true" className="h-5 w-5 text-accent" />
-                  <span className="font-display text-sm font-bold">{item.label}</span>
-                  {isSelected && <CheckCircle2 aria-hidden="true" className="h-4 w-4 text-accent" />}
+                  <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />
+                  <span className="font-display text-base font-bold">{item.label}</span>
+                  {isSelected && <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />}
                 </div>
-                <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{item.hint}</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.hint}</p>
               </button>
             );
           })}
@@ -236,22 +260,67 @@ export default function PracticePage() {
 
       {/* Source-specific selection */}
       {source === "due" && (
-        <Card className="space-y-2 p-5">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
-            {t("sourceDue")}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            {dueCount > 0 ? t("sourceDueReady", { count: dueCount }) : t("sourceDueEmpty")}
-          </p>
+        <Card
+          className={`space-y-3 p-5 sm:p-6 ${
+            dueCount > 0
+              ? "border-accent/35 bg-accent/5"
+              : "border-gold/35 bg-gold/5"
+          }`}
+        >
+          <div className="flex items-start gap-3">
+            <div
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl ${
+                dueCount > 0 ? "bg-accent/15 text-accent" : "bg-gold/15 text-gold"
+              }`}
+            >
+              {dueCount > 0 ? (
+                <BrainCircuit aria-hidden="true" className="h-5 w-5" />
+              ) : (
+                <CalendarClock aria-hidden="true" className="h-5 w-5" />
+              )}
+            </div>
+            <div className="min-w-0 space-y-1.5">
+              <h2 className="font-display text-lg font-extrabold tracking-tight">
+                {dueCount > 0 ? t("sourceDue") : t("sourceDueWaitingTitle")}
+              </h2>
+              {dueCount > 0 ? (
+                <p className="text-base leading-relaxed text-muted-foreground">
+                  {t("sourceDueReady", { count: dueCount })}
+                </p>
+              ) : (
+                <>
+                  {nextDueLabel && (
+                    <p className="text-base font-semibold text-gold">
+                      {t("sourceDueWaitingNext", { when: nextDueLabel })}
+                    </p>
+                  )}
+                  <p className="text-base leading-relaxed text-muted-foreground">
+                    {bankCount > 0
+                      ? t("sourceDueWaitingBank", { count: bankCount })
+                      : t("sourceDueWaitingEmpty")}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => setSource("category")}
+                  >
+                    {t("sourceDueWaitingCta")}
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
         </Card>
       )}
 
       {source === "category" && (
-        <Card className="space-y-3 p-5">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+        <Card className="space-y-3 p-5 sm:p-6">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("selectCategory")}
           </h2>
-          <div className="grid gap-2 sm:grid-cols-2">
+          <div className="grid gap-2.5 sm:grid-cols-2">
             {categories.map((cat) => {
               const isSelected = selectedCategory === cat.code;
               return (
@@ -260,12 +329,12 @@ export default function PracticePage() {
                   type="button"
                   aria-pressed={isSelected}
                   onClick={() => setSelectedCategory(cat.code)}
-                  className={`flex min-h-11 items-center justify-between gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                  className={`flex min-h-12 items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                     isSelected ? "border-accent bg-accent/10" : "border-border bg-background hover:border-accent/50"
                   }`}
                 >
-                  <span className="text-xs font-bold leading-relaxed">{cat.name}</span>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-bold text-muted-foreground">
+                  <span className="text-base font-bold leading-snug">{cat.name}</span>
+                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-sm font-bold text-muted-foreground">
                     {t("categoryQuestionCount", { count: cat.question_count })}
                   </span>
                 </button>
@@ -276,12 +345,12 @@ export default function PracticePage() {
       )}
 
       {source === "variant" && (
-        <Card className="space-y-4 p-5">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+        <Card className="space-y-4 p-5 sm:p-6">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("variantRangeLabel")}
           </h2>
           <div className="flex flex-wrap items-end gap-4">
-            <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+            <label className="flex flex-col gap-1.5 text-sm font-bold text-muted-foreground">
               {t("variantFrom")}
               <input
                 type="number"
@@ -289,10 +358,10 @@ export default function PracticePage() {
                 max={variantCount || 1}
                 value={variantFrom}
                 onChange={(event) => setVariantFrom(Number(event.target.value))}
-                className="h-11 w-24 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
-            <label className="flex flex-col gap-1 text-xs font-bold text-muted-foreground">
+            <label className="flex flex-col gap-1.5 text-sm font-bold text-muted-foreground">
               {t("variantTo")}
               <input
                 type="number"
@@ -300,11 +369,11 @@ export default function PracticePage() {
                 max={variantCount || 1}
                 value={variantTo}
                 onChange={(event) => setVariantTo(Number(event.target.value))}
-                className="h-11 w-24 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
             {rangeValid && variantCount > 0 && (
-              <p className="pb-2 text-xs font-semibold text-muted-foreground">
+              <p className="pb-2 text-sm font-semibold text-muted-foreground">
                 {t("variantRangeSummary", {
                   from: variantFrom,
                   to: variantTo,
@@ -314,7 +383,7 @@ export default function PracticePage() {
             )}
           </div>
           {!rangeValid && variantCount > 0 && (
-            <p role="alert" className="text-xs font-semibold text-destructive">
+            <p role="alert" className="text-sm font-semibold text-destructive">
               {t("variantRangeInvalid")}
             </p>
           )}
@@ -322,7 +391,7 @@ export default function PracticePage() {
       )}
 
       {source === "image" && (
-        <Card className="grid gap-3 p-5 sm:grid-cols-2">
+        <Card className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
           {[
             { value: true, icon: ImageIcon, label: t("imageWith") },
             { value: false, icon: AlignLeft, label: t("imageWithout") },
@@ -335,13 +404,13 @@ export default function PracticePage() {
                 type="button"
                 aria-pressed={isSelected}
                 onClick={() => setWithImage(item.value)}
-                className={`flex items-center gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex min-h-14 items-center gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   isSelected ? "border-accent bg-accent/10" : "border-border bg-background hover:border-accent/50"
                 }`}
               >
-                <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />
-                <span className="text-sm font-bold">{item.label}</span>
-                {isSelected && <CheckCircle2 aria-hidden="true" className="ml-auto h-4 w-4 text-accent" />}
+                <Icon aria-hidden="true" className="h-6 w-6 shrink-0 text-accent" />
+                <span className="text-base font-bold">{item.label}</span>
+                {isSelected && <CheckCircle2 aria-hidden="true" className="ml-auto h-5 w-5 text-accent" />}
               </button>
             );
           })}
@@ -350,27 +419,41 @@ export default function PracticePage() {
 
       {/* Question count + allowance */}
       {source !== "sign" && source !== "due" && (
-        <Card className="space-y-4 p-5">
-          <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+        <Card className="space-y-4 p-5 sm:p-6">
+          <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("countLabel")}
           </h2>
           <div className="flex flex-wrap gap-3">
             {COUNT_PRESETS.map((preset) => (
               <Button
                 key={preset}
-                variant={count === preset && customCount === "" ? "game" : "outline"}
+                variant={!allQuestions && count === preset && customCount === "" ? "game" : "outline"}
                 size="sm"
-                aria-pressed={count === preset && customCount === ""}
+                aria-pressed={!allQuestions && count === preset && customCount === ""}
                 onClick={() => {
+                  setAllQuestions(false);
                   setCustomCount("");
                   setCount(preset);
                 }}
-                className="min-w-24 py-2 text-xs font-extrabold"
+                className="min-w-28 py-2.5 text-sm font-extrabold"
               >
                 {t("questionCountOption", { count: preset })}
               </Button>
             ))}
-            <label className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
+            <Button
+              variant={allQuestions ? "game" : "outline"}
+              size="sm"
+              aria-pressed={allQuestions}
+              onClick={() => {
+                setAllQuestions(true);
+                setCustomCount("");
+                setCount(MAX_CUSTOM_COUNT);
+              }}
+              className="min-w-28 py-2.5 text-sm font-extrabold"
+            >
+              {t("countAll")}
+            </Button>
+            <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
               {t("countCustom")}
               <input
                 type="number"
@@ -379,14 +462,14 @@ export default function PracticePage() {
                 value={customCount}
                 placeholder={t("countCustomPlaceholder")}
                 onChange={(event) => applyCustomCount(event.target.value)}
-                className="h-11 w-28 rounded-xl border border-border bg-background px-3 text-sm font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               />
             </label>
           </div>
 
           {allowance && (
             <div
-              className={`rounded-xl border p-3 text-xs font-semibold ${
+              className={`rounded-xl border p-3.5 text-sm font-semibold ${
                 exhausted
                   ? "border-gold/40 bg-gold/10 text-gold"
                   : "border-border bg-background text-muted-foreground"
@@ -402,9 +485,9 @@ export default function PracticePage() {
                   <span>{t("allowanceExhausted")}</span>
                   <Link
                     href={`/${locale}/premium`}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-[11px] font-extrabold text-slate-950 hover:brightness-105"
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
                   >
-                    <Crown aria-hidden="true" className="h-3.5 w-3.5" />
+                    <Crown aria-hidden="true" className="h-4 w-4" />
                     {t("allowanceUpgrade")}
                   </Link>
                 </div>
@@ -420,33 +503,45 @@ export default function PracticePage() {
       )}
 
       {source === "sign" && signsAvailable && (
-        <Card className="p-5 text-center">
-          <p className="text-sm text-muted-foreground">{t("sourceSignHint")}</p>
-        </Card>
+        <section className="space-y-3" aria-label={t("sourceSignPick")}>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+                {t("sourceSignPick")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("sourceSignHint")}</p>
+            </div>
+            <Link
+              href={`/${locale}/signs`}
+              className="shrink-0 text-sm font-bold text-accent hover:underline"
+            >
+              {t("openSigns")}
+            </Link>
+          </div>
+          <SignPracticeGrid signs={signs} emptyHint={t("sourceSignEmptyLinks")} />
+        </section>
       )}
 
       {imageCounts === 0 && !loading && !loadError && (
-        <p className="text-center text-xs text-muted-foreground">{t("categoryCountUnavailable")}</p>
+        <p className="text-center text-sm text-muted-foreground">{t("categoryCountUnavailable")}</p>
       )}
 
       {/* Page-level so `sticky bottom-0` can pin to the viewport for the whole
           scroll (inside a Card it could never leave the card's box). */}
-      <div className="sticky-cta-bar">
-        <Button
-          variant="game"
-          size="lg"
-          className="w-full text-base"
-          onClick={handleStart}
-          disabled={!canStart}
-        >
-          {source === "sign" ? (
-            <Signpost aria-hidden="true" className="mr-2 h-5 w-5" />
-          ) : (
+      {source !== "sign" && (
+        <div className="sticky-cta-bar">
+          <Button
+            variant="game"
+            size="lg"
+            className="w-full text-base"
+            onClick={handleStart}
+            disabled={!canStart}
+          >
             <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" />
-          )}
-          {t("startPractice")}
-        </Button>
-      </div>
+            {t("startPractice")}
+          </Button>
+        </div>
+      )}
     </main>
   );
 }

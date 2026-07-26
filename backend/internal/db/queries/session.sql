@@ -107,7 +107,11 @@ SELECT * FROM exam_session WHERE id = $1;
 
 -- name: FinishExamSession :one
 UPDATE exam_session
-SET finished_at = now(), status = $2, score = $3, stopped_reason = $4
+SET finished_at = now(),
+    status = $2,
+    score = $3,
+    stopped_reason = $4,
+    readiness_pct_at_finish = COALESCE(sqlc.narg(readiness_pct_at_finish), readiness_pct_at_finish)
 WHERE id = $1
 RETURNING *;
 

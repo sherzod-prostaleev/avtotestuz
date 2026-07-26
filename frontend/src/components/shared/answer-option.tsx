@@ -36,15 +36,16 @@ export function AnswerOption({
   const normalizedState = state === "incorrect" ? "wrong" : state === "hidden" ? "selected" : state;
 
   const stateStyles: Record<string, string> = {
-    neutral: "border-border bg-card text-foreground hover:border-accent",
-    selected: "border-accent bg-accent/15 text-foreground font-bold ring-2 ring-accent/35",
-    correct: "border-success bg-success/15 text-foreground font-bold ring-2 ring-success/35",
-    wrong: "answer-wrong-pulse border-danger bg-danger/15 text-foreground font-bold ring-2 ring-danger/35",
+    neutral:
+      "border-border bg-card text-foreground shadow-raised-sm hover:border-accent hover:-translate-y-0.5",
+    selected: "border-accent bg-accent/15 text-foreground font-bold shadow-3d ring-2 ring-accent/35",
+    correct: "border-success bg-success/15 text-foreground font-bold shadow-3d-success ring-2 ring-success/35",
+    wrong: "answer-wrong-pulse border-danger bg-danger/15 text-foreground font-bold shadow-3d-danger ring-2 ring-danger/35",
   };
 
   const keyBadgeStyles: Record<string, string> = {
-    neutral: "border-border bg-background text-muted-foreground",
-    selected: "border-accent/40 bg-accent text-accent-foreground font-bold",
+    neutral: "border-border bg-background text-muted-foreground shadow-raised-sm",
+    selected: "border-accent/40 bg-accent text-accent-foreground font-bold shadow-3d",
     correct: "border-success/40 bg-success text-success-foreground font-bold",
     wrong: "border-danger/40 bg-danger text-danger-foreground font-bold",
   };
@@ -58,19 +59,19 @@ export function AnswerOption({
       type="button"
       onClick={handleClick}
       disabled={disabled}
-      className={`group relative flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow] duration-150 disabled:cursor-not-allowed sm:min-h-[3.5rem] sm:gap-4 sm:px-4 ${
-        pressable ? "active:bg-accent/5" : ""
+      className={`group relative flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl border px-3.5 py-3 text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed sm:min-h-[3.5rem] sm:gap-4 sm:px-4 ${
+        pressable ? "active:translate-y-0.5 active:bg-accent/5 active:shadow-none" : ""
       } ${stateStyles[normalizedState]}`}
     >
       <div className="flex min-w-0 items-center gap-3">
         {keyLabel && (
           <span
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-bold transition-colors sm:h-8 sm:w-8 ${keyBadgeStyles[normalizedState]}`}
+            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border text-sm font-bold transition-colors sm:h-9 sm:w-9 ${keyBadgeStyles[normalizedState]}`}
           >
             {keyLabel}
           </span>
         )}
-        <span className="text-[15px] font-medium leading-snug sm:text-sm sm:leading-relaxed">{text}</span>
+        <span className="text-base font-semibold leading-snug sm:text-lg sm:leading-relaxed">{text}</span>
       </div>
 
       {normalizedState === "correct" && (

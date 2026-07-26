@@ -39,6 +39,17 @@ func (q *Queries) DeleteVariantQuestions(ctx context.Context, variantID uuid.UUI
 	return err
 }
 
+const getQuestionIDBySourceExtID = `-- name: GetQuestionIDBySourceExtID :one
+SELECT id FROM question WHERE source_ext_id = $1
+`
+
+func (q *Queries) GetQuestionIDBySourceExtID(ctx context.Context, sourceExtID string) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getQuestionIDBySourceExtID, sourceExtID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const insertAnswer = `-- name: InsertAnswer :one
 INSERT INTO answer (question_id, position, is_correct, image_id)
 VALUES ($1, $2, $3, $4)

@@ -790,8 +790,8 @@ func TestMockEligibilityHandler(t *testing.T) {
 			t.Fatal(err)
 		}
 		grantVIP(t, q, profile.ID)
-		// One correct answer per category: 100% accuracy, nowhere near enough
-		// coverage.
+		// One correct answer per category: bank-honest readiness stays low and
+		// studied count is far below the volume floor (reported first).
 		studied := studyOnePerCategoryCorrectly(t, q, learning.NewService(q), profile.ID)
 
 		status, env := doReq(t, ts, http.MethodGet, "/me/mock-eligibility", tok, nil)
@@ -804,9 +804,6 @@ func TestMockEligibilityHandler(t *testing.T) {
 		}
 		if got.Eligible || got.Reason == nil || *got.Reason != "too_few_studied" {
 			t.Fatalf("expected ineligible/too_few_studied, got %+v", got)
-		}
-		if got.MasteryPercent < got.MinRequiredPercent {
-			t.Fatalf("accuracy gate should be satisfied, got %+v", got)
 		}
 		if got.QuestionsStudied != studied || got.MinRequiredQuestions <= studied {
 			t.Fatalf("expected studied=%d below a meaningful floor, got %+v", studied, got)

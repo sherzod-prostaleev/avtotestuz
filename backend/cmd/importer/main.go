@@ -19,9 +19,10 @@ import (
 func main() {
 	dataDir := flag.String("data", "", "dataset directory (data.json + images/)")
 	verified := flag.Bool("verified", false, "mark translations as verified (licensed source)")
+	explanationsOnly := flag.Bool("explanations-only", false, "refresh explanations/legal_refs only (no question rewrite)")
 	flag.Parse()
 	if *dataDir == "" {
-		fmt.Fprintln(os.Stderr, "usage: importer -data <dir> [-verified]")
+		fmt.Fprintln(os.Stderr, "usage: importer -data <dir> [-verified] [-explanations-only]")
 		os.Exit(2)
 	}
 
@@ -45,13 +46,14 @@ func main() {
 	fatal(err)
 
 	rep, err := importer.Store(context.Background(), pool, blobs, ds, importer.StoreOptions{
-		MarkVerified: *verified,
-		Images:       importer.DirSource(*dataDir),
-		Source:       filepath.Base(*dataDir),
+		MarkVerified:     *verified,
+		Images:           importer.DirSource(*dataDir),
+		Source:           filepath.Base(*dataDir),
+		ExplanationsOnly: *explanationsOnly,
 	})
 	fmt.Print(rep.String())
 	fatal(err)
-	if rep.QuestionsQuarantined > 0 || rep.VariantsSkipped > 0 {
+	if !*explanationsOnly && (rep.QuestionsQuarantined > 0 || rep.VariantsSkipped > 0) {
 		fmt.Println("WARNING: quarantined/skipped entries present — review issues above")
 	}
 }

@@ -33,12 +33,12 @@ export function QuestionCard({
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1 text-xs font-extrabold text-accent">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-3.5 py-1.5 text-sm font-extrabold text-accent">
           {t("questionPosition", { number: questionNumber, total: totalQuestions })}
         </span>
       </div>
 
-      <h1 className="font-display text-xl font-bold leading-snug tracking-tight text-foreground sm:text-2xl">
+      <h1 className="font-display text-2xl font-bold leading-snug tracking-tight text-foreground sm:text-3xl">
         {displayText}
       </h1>
 

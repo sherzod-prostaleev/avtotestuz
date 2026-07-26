@@ -262,10 +262,71 @@ func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error)
 		return Stats{}, err
 	}
 
+	estimate, err := s.estimatePass(ctx, readiness)
+	if err != nil {
+		return Stats{}, err
+	}
+
 	return Stats{
 		Categories:   categories,
 		ReadinessPct: readiness,
 		DueCount:     int(dueCount),
+		PassEstimate: estimate,
+	}, nil
+}
+
+// ModelPassPct is the pedagogical prior used until enough finished sessions
+// with readiness_pct_at_finish exist. Tuned for our 20Q / ≤2-error exam rule.
+func ModelPassPct(readiness int) int {
+	switch {
+	case readiness < 40:
+		return 15
+	case readiness < 60:
+		return 35
+	case readiness < 75:
+		return 55
+	case readiness < 85:
+		return 70
+	case readiness < 95:
+		return 85
+	default:
+		return 92
+	}
+}
+
+const empiricalMinSamples = 30
+
+func (s *Service) estimatePass(ctx context.Context, readiness int) (PassEstimate, error) {
+	bucket := (readiness / 10) * 10
+	if bucket > 90 {
+		bucket = 90
+	}
+	rows, err := s.Q.PassRateByReadinessBucket(ctx)
+	if err != nil {
+		return PassEstimate{}, err
+	}
+	var bucketN, bucketPassed, totalN int
+	for _, row := range rows {
+		totalN += int(row.N)
+		if int(row.BucketLo) == bucket {
+			bucketN = int(row.N)
+			bucketPassed = int(row.Passed)
+		}
+	}
+	if bucketN >= empiricalMinSamples {
+		pct := int(math.Round(100 * float64(bucketPassed) / float64(bucketN)))
+		return PassEstimate{
+			EstimatedPassPct: pct,
+			Source:           "empirical",
+			SampleSize:       bucketN,
+			BucketLo:         bucket,
+		}, nil
+	}
+	return PassEstimate{
+		EstimatedPassPct: ModelPassPct(readiness),
+		Source:           "model",
+		SampleSize:       totalN,
+		BucketLo:         bucket,
 	}, nil
 }
 

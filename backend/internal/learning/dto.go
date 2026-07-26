@@ -16,6 +16,16 @@ type CategoryStat struct {
 	Studied, Total int
 }
 
+// PassEstimate is a calibrated estimate of mock/exam pass chance given the
+// profile's current bank-honest readiness. Source is "empirical" when enough
+// finished sessions with readiness snapshots exist, otherwise "model".
+type PassEstimate struct {
+	EstimatedPassPct int    `json:"estimated_pass_pct"`
+	Source           string `json:"source"` // empirical | model
+	SampleSize       int    `json:"sample_size"`
+	BucketLo         int    `json:"bucket_lo"`
+}
+
 // Stats is the exam-readiness snapshot for a profile: per-category
 // mastery, an overall weighted readiness percentage, and the count of
 // questions currently due for review.
@@ -23,6 +33,7 @@ type Stats struct {
 	Categories   []CategoryStat
 	ReadinessPct int
 	DueCount     int
+	PassEstimate PassEstimate
 }
 
 // MistakeBankSummary separates valid questions due right now from every valid

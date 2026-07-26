@@ -1,0 +1,834 @@
+{
+  "avtoimtihon-1": [
+    "3.27",
+    "7.18"
+  ],
+  "avtoimtihon-2": [
+    "4.1.1"
+  ],
+  "avtoimtihon-12": [
+    "3.2",
+    "7.3.2"
+  ],
+  "avtoimtihon-13": [
+    "5.33"
+  ],
+  "avtoimtihon-22": [
+    "4.1.1"
+  ],
+  "avtoimtihon-23": [
+    "2.6"
+  ],
+  "avtoimtihon-24": [
+    "5.2"
+  ],
+  "avtoimtihon-25": [
+    "5.9"
+  ],
+  "avtoimtihon-31": [
+    "1.20"
+  ],
+  "avtoimtihon-32": [
+    "3.28",
+    "7.4.1"
+  ],
+  "avtoimtihon-33": [
+    "1.3.1"
+  ],
+  "avtoimtihon-43": [
+    "3.16"
+  ],
+  "avtoimtihon-52": [
+    "5.10.1"
+  ],
+  "avtoimtihon-57": [
+    "5.24"
+  ],
+  "avtoimtihon-59": [
+    "3.11"
+  ],
+  "avtoimtihon-62": [
+    "3.18.1"
+  ],
+  "avtoimtihon-67": [
+    "3.1"
+  ],
+  "avtoimtihon-73": [
+    "1.31.3"
+  ],
+  "avtoimtihon-87": [
+    "5.24"
+  ],
+  "avtoimtihon-92": [
+    "5.38"
+  ],
+  "avtoimtihon-93": [
+    "1.6"
+  ],
+  "avtoimtihon-102": [
+    "2.6"
+  ],
+  "avtoimtihon-123": [
+    "2.4"
+  ],
+  "avtoimtihon-132": [
+    "5.10.1"
+  ],
+  "avtoimtihon-141": [
+    "2.5"
+  ],
+  "avtoimtihon-161": [
+    "5.41"
+  ],
+  "avtoimtihon-162": [
+    "3.2",
+    "7.3.3"
+  ],
+  "avtoimtihon-163": [
+    "3.15"
+  ],
+  "avtoimtihon-169": [
+    "3.27"
+  ],
+  "avtoimtihon-173": [
+    "1.10"
+  ],
+  "avtoimtihon-182": [
+    "7.2.1"
+  ],
+  "avtoimtihon-183": [
+    "4.2.2"
+  ],
+  "avtoimtihon-192": [
+    "5.7.1"
+  ],
+  "avtoimtihon-202": [
+    "7.19"
+  ],
+  "avtoimtihon-212": [
+    "4.2.2",
+    "7.19",
+    "7.2.2"
+  ],
+  "avtoimtihon-213": [
+    "3.30"
+  ],
+  "avtoimtihon-214": [
+    "4.7"
+  ],
+  "avtoimtihon-222": [
+    "3.5"
+  ],
+  "avtoimtihon-232": [
+    "5.34.1"
+  ],
+  "avtoimtihon-242": [
+    "5.11.1"
+  ],
+  "avtoimtihon-252": [
+    "3.22"
+  ],
+  "avtoimtihon-262": [
+    "3.7"
+  ],
+  "avtoimtihon-272": [
+    "1.22"
+  ],
+  "avtoimtihon-282": [
+    "4.7"
+  ],
+  "avtoimtihon-292": [
+    "3.20"
+  ],
+  "avtoimtihon-293": [
+    "1.1"
+  ],
+  "avtoimtihon-300": [
+    "7.2.1"
+  ],
+  "avtoimtihon-301": [
+    "3.27",
+    "7.18"
+  ],
+  "avtoimtihon-302": [
+    "1.11.2"
+  ],
+  "avtoimtihon-312": [
+    "5.30.2"
+  ],
+  "avtoimtihon-313": [
+    "1.10"
+  ],
+  "avtoimtihon-322": [
+    "3.28"
+  ],
+  "avtoimtihon-332": [
+    "5.8.1"
+  ],
+  "avtoimtihon-335": [
+    "3.24"
+  ],
+  "avtoimtihon-337": [
+    "5.8.1",
+    "5.8.2"
+  ],
+  "avtoimtihon-342": [
+    "7.12",
+    "7.6.2"
+  ],
+  "avtoimtihon-343": [
+    "1.1"
+  ],
+  "avtoimtihon-348": [
+    "3.24"
+  ],
+  "avtoimtihon-352": [
+    "7.2.1"
+  ],
+  "avtoimtihon-358": [
+    "3.24"
+  ],
+  "avtoimtihon-362": [
+    "3.7"
+  ],
+  "avtoimtihon-367": [
+    "5.24"
+  ],
+  "avtoimtihon-377": [
+    "5.24"
+  ],
+  "avtoimtihon-382": [
+    "3.4"
+  ],
+  "avtoimtihon-392": [
+    "2.6"
+  ],
+  "avtoimtihon-402": [
+    "3.31"
+  ],
+  "avtoimtihon-405": [
+    "5.9"
+  ],
+  "avtoimtihon-412": [
+    "2.4"
+  ],
+  "avtoimtihon-422": [
+    "2.4"
+  ],
+  "avtoimtihon-432": [
+    "3.4"
+  ],
+  "avtoimtihon-434": [
+    "5.15",
+    "6.11"
+  ],
+  "avtoimtihon-435": [
+    "5.9"
+  ],
+  "avtoimtihon-442": [
+    "4.4",
+    "7.3.3"
+  ],
+  "avtoimtihon-443": [
+    "5.29.1"
+  ],
+  "avtoimtihon-452": [
+    "5.11.1"
+  ],
+  "avtoimtihon-462": [
+    "4.1.3"
+  ],
+  "avtoimtihon-463": [
+    "3.13"
+  ],
+  "avtoimtihon-472": [
+    "3.17.1"
+  ],
+  "avtoimtihon-482": [
+    "3.2"
+  ],
+  "avtoimtihon-484": [
+    "1.3.2"
+  ],
+  "avtoimtihon-487": [
+    "5.29.1"
+  ],
+  "avtoimtihon-491": [
+    "3.7"
+  ],
+  "avtoimtihon-492": [
+    "5.34.2"
+  ],
+  "avtoimtihon-493": [
+    "5.13"
+  ],
+  "avtoimtihon-502": [
+    "3.19"
+  ],
+  "avtoimtihon-503": [
+    "5.3"
+  ],
+  "avtoimtihon-507": [
+    "5.24"
+  ],
+  "avtoimtihon-512": [
+    "1.3.1"
+  ],
+  "avtoimtihon-513": [
+    "3.7"
+  ],
+  "avtoimtihon-522": [
+    "4.4"
+  ],
+  "avtoimtihon-532": [
+    "5.5"
+  ],
+  "avtoimtihon-541": [
+    "5.12"
+  ],
+  "avtoimtihon-542": [
+    "1.1"
+  ],
+  "avtoimtihon-543": [
+    "3.4"
+  ],
+  "avtoimtihon-547": [
+    "3.6"
+  ],
+  "avtoimtihon-552": [
+    "6.9"
+  ],
+  "avtoimtihon-553": [
+    "4.1.2",
+    "7.4.3"
+  ],
+  "avtoimtihon-562": [
+    "7.10",
+    "7.4.1",
+    "7.6.1",
+    "7.6.2",
+    "7.6.3",
+    "7.7"
+  ],
+  "avtoimtihon-566": [
+    "5.1"
+  ],
+  "avtoimtihon-568": [
+    "5.24"
+  ],
+  "avtoimtihon-570": [
+    "5.19.1"
+  ],
+  "avtoimtihon-572": [
+    "7.7"
+  ],
+  "avtoimtihon-582": [
+    "3.18.2"
+  ],
+  "avtoimtihon-584": [
+    "2.5"
+  ],
+  "avtoimtihon-592": [
+    "5.5"
+  ],
+  "avtoimtihon-593": [
+    "3.12"
+  ],
+  "avtoimtihon-602": [
+    "3.18.2"
+  ],
+  "avtoimtihon-603": [
+    "3.13"
+  ],
+  "avtoimtihon-610": [
+    "5.28"
+  ],
+  "avtoimtihon-612": [
+    "3.27"
+  ],
+  "avtoimtihon-633": [
+    "7.19"
+  ],
+  "avtoimtihon-642": [
+    "5.6"
+  ],
+  "avtoimtihon-643": [
+    "3.22"
+  ],
+  "avtoimtihon-645": [
+    "4.1.1"
+  ],
+  "avtoimtihon-653": [
+    "5.3"
+  ],
+  "avtoimtihon-662": [
+    "3.11"
+  ],
+  "avtoimtihon-663": [
+    "7.2.1"
+  ],
+  "avtoimtihon-672": [
+    "5.15",
+    "7.17",
+    "7.2.1"
+  ],
+  "avtoimtihon-673": [
+    "5.1"
+  ],
+  "avtoimtihon-682": [
+    "3.28",
+    "7.4.1"
+  ],
+  "avtoimtihon-683": [
+    "3.3"
+  ],
+  "avtoimtihon-692": [
+    "2.7"
+  ],
+  "avtoimtihon-693": [
+    "7.1.1"
+  ],
+  "avtoimtihon-709": [
+    "5.5"
+  ],
+  "avtoimtihon-711": [
+    "3.24",
+    "7.16"
+  ],
+  "avtoimtihon-713": [
+    "5.15",
+    "7.6.2"
+  ],
+  "avtoimtihon-714": [
+    "3.2",
+    "3.3"
+  ],
+  "avtoimtihon-726": [
+    "5.10.1"
+  ],
+  "avtoimtihon-727": [
+    "1.6"
+  ],
+  "avtoimtihon-729": [
+    "5.8.1"
+  ],
+  "avtoimtihon-731": [
+    "4.1.1",
+    "7.4.1"
+  ],
+  "avtoimtihon-734": [
+    "5.37"
+  ],
+  "avtoimtihon-745": [
+    "4.1.1"
+  ],
+  "avtoimtihon-747": [
+    "5.23"
+  ],
+  "avtoimtihon-756": [
+    "7.1.1",
+    "7.2.1",
+    "7.2.2"
+  ],
+  "avtoimtihon-758": [
+    "1.13",
+    "1.14"
+  ],
+  "avtoimtihon-762": [
+    "4.1.2"
+  ],
+  "avtoimtihon-788": [
+    "2.5"
+  ],
+  "avtoimtihon-791": [
+    "5.15",
+    "7.6.2"
+  ],
+  "avtoimtihon-794": [
+    "4.1.1",
+    "7.4.1"
+  ],
+  "avtoimtihon-798": [
+    "5.22",
+    "5.24"
+  ],
+  "avtoimtihon-799": [
+    "3.28"
+  ],
+  "avtoimtihon-802": [
+    "1.32"
+  ],
+  "avtoimtihon-803": [
+    "1.30"
+  ],
+  "avtoimtihon-807": [
+    "5.16.1",
+    "5.16.2"
+  ],
+  "avtoimtihon-816": [
+    "2.6"
+  ],
+  "avtoimtihon-817": [
+    "3.31"
+  ],
+  "avtoimtihon-818": [
+    "5.16.1",
+    "5.16.2"
+  ],
+  "avtoimtihon-819": [
+    "3.2"
+  ],
+  "avtoimtihon-823": [
+    "4.5"
+  ],
+  "avtoimtihon-824": [
+    "3.17.1"
+  ],
+  "avtoimtihon-826": [
+    "3.32"
+  ],
+  "avtoimtihon-828": [
+    "3.20"
+  ],
+  "avtoimtihon-831": [
+    "3.21",
+    "3.23"
+  ],
+  "avtoimtihon-839": [
+    "2.5"
+  ],
+  "avtoimtihon-843": [
+    "7.16"
+  ],
+  "avtoimtihon-844": [
+    "1.13"
+  ],
+  "avtoimtihon-845": [
+    "2.5"
+  ],
+  "avtoimtihon-856": [
+    "1.14"
+  ],
+  "avtoimtihon-857": [
+    "5.10.1"
+  ],
+  "avtoimtihon-862": [
+    "1.31"
+  ],
+  "avtoimtihon-867": [
+    "1.16"
+  ],
+  "avtoimtihon-870": [
+    "4.1.1",
+    "7.4.1"
+  ],
+  "avtoimtihon-879": [
+    "3.17.1"
+  ],
+  "avtoimtihon-880": [
+    "3.32"
+  ],
+  "avtoimtihon-887": [
+    "7.6.2"
+  ],
+  "avtoimtihon-894": [
+    "2.4"
+  ],
+  "avtoimtihon-895": [
+    "5.22",
+    "5.25"
+  ],
+  "avtoimtihon-900": [
+    "1.31"
+  ],
+  "avtoimtihon-902": [
+    "3.32"
+  ],
+  "avtoimtihon-903": [
+    "4.2.3"
+  ],
+  "avtoimtihon-904": [
+    "3.28"
+  ],
+  "avtoimtihon-909": [
+    "3.24",
+    "7.16"
+  ],
+  "avtoimtihon-915": [
+    "2.3.1"
+  ],
+  "avtoimtihon-917": [
+    "3.4"
+  ],
+  "avtoimtihon-918": [
+    "5.42"
+  ],
+  "avtoimtihon-919": [
+    "5.19.1"
+  ],
+  "avtoimtihon-922": [
+    "7.1.3",
+    "7.1.4"
+  ],
+  "avtoimtihon-923": [
+    "2.3.3"
+  ],
+  "avtoimtihon-924": [
+    "3.27",
+    "7.21"
+  ],
+  "avtoimtihon-928": [
+    "5.9"
+  ],
+  "avtoimtihon-931": [
+    "1.11.1"
+  ],
+  "avtoimtihon-933": [
+    "5.15",
+    "5.41"
+  ],
+  "avtoimtihon-936": [
+    "1.13"
+  ],
+  "avtoimtihon-939": [
+    "1.31"
+  ],
+  "avtoimtihon-946": [
+    "1.9"
+  ],
+  "avtoimtihon-954": [
+    "3.32"
+  ],
+  "avtoimtihon-960": [
+    "5.10.2"
+  ],
+  "avtoimtihon-962": [
+    "3.24"
+  ],
+  "avtoimtihon-970": [
+    "1.1"
+  ],
+  "avtoimtihon-971": [
+    "1.10",
+    "7.12"
+  ],
+  "avtoimtihon-975": [
+    "3.27"
+  ],
+  "avtoimtihon-977": [
+    "5.15",
+    "6.11"
+  ],
+  "avtoimtihon-985": [
+    "5.1"
+  ],
+  "avtoimtihon-988": [
+    "3.4",
+    "5.3"
+  ],
+  "avtoimtihon-991": [
+    "2.5"
+  ],
+  "avtoimtihon-995": [
+    "3.24",
+    "7.2.1"
+  ],
+  "avtoimtihon-999": [
+    "1.20"
+  ],
+  "avtoimtihon-1013": [
+    "5.35",
+    "5.37",
+    "1.9"
+  ],
+  "avtoimtihon-1019": [
+    "3.18.2"
+  ],
+  "avtoimtihon-1021": [
+    "3.24"
+  ],
+  "avtoimtihon-1022": [
+    "1.4.3"
+  ],
+  "avtoimtihon-1026": [
+    "5.46"
+  ],
+  "avtoimtihon-1032": [
+    "1.21"
+  ],
+  "avtoimtihon-1037": [
+    "5.3"
+  ],
+  "avtoimtihon-1039": [
+    "1.33"
+  ],
+  "avtoimtihon-1040": [
+    "3.7"
+  ],
+  "avtoimtihon-1041": [
+    "1.13"
+  ],
+  "avtoimtihon-1042": [
+    "1.21"
+  ],
+  "avtoimtihon-1043": [
+    "5.15"
+  ],
+  "avtoimtihon-1044": [
+    "4.4"
+  ],
+  "avtoimtihon-1045": [
+    "5.46"
+  ],
+  "avtoimtihon-1047": [
+    "5.46"
+  ],
+  "avtoimtihon-1054": [
+    "2.5"
+  ],
+  "avtoimtihon-1064": [
+    "4.1.1"
+  ],
+  "avtoimtihon-1065": [
+    "5.48"
+  ],
+  "avtoimtihon-1070": [
+    "5.19.2"
+  ],
+  "avtoimtihon-1076": [
+    "1.15"
+  ],
+  "avtoimtihon-1080": [
+    "4.1.4"
+  ],
+  "avtoimtihon-1082": [
+    "4.4"
+  ],
+  "avtoimtihon-1083": [
+    "4.1.1"
+  ],
+  "avtoimtihon-1088": [
+    "2.5"
+  ],
+  "avtoimtihon-1089": [
+    "3.34"
+  ],
+  "avtoimtihon-1090": [
+    "4.1.1"
+  ],
+  "avtoimtihon-1092": [
+    "4.1.1"
+  ],
+  "avtoimtihon-1094": [
+    "1.18.2"
+  ],
+  "avtoimtihon-1096": [
+    "5.8.1"
+  ],
+  "avtoimtihon-1097": [
+    "3.18.2"
+  ],
+  "avtoimtihon-1099": [
+    "5.46"
+  ],
+  "avtoimtihon-1100": [
+    "5.16.1"
+  ],
+  "avtoimtihon-1103": [
+    "4.1.1"
+  ],
+  "avtoimtihon-1105": [
+    "5.15.1"
+  ],
+  "avtoimtihon-1106": [
+    "5.5"
+  ],
+  "avtoimtihon-1111": [
+    "7.20"
+  ],
+  "avtoimtihon-1113": [
+    "7.2.1",
+    "7.5.4"
+  ],
+  "avtoimtihon-1121": [
+    "3.18.1",
+    "3.18.2"
+  ],
+  "avtoimtihon-1132": [
+    "3.21"
+  ],
+  "avtoimtihon-1134": [
+    "2.5"
+  ],
+  "avtoimtihon-1136": [
+    "5.9"
+  ],
+  "avtoimtihon-1138": [
+    "4.1.4"
+  ],
+  "avtoimtihon-1141": [
+    "5.33"
+  ],
+  "avtoimtihon-1146": [
+    "5.15",
+    "7.6.2"
+  ],
+  "avtoimtihon-1147": [
+    "5.8.1"
+  ],
+  "avtoimtihon-1149": [
+    "2.3.1"
+  ],
+  "avtoimtihon-1164": [
+    "3.19"
+  ],
+  "avtoimtihon-1168": [
+    "3.1"
+  ],
+  "avtoimtihon-1171": [
+    "3.19"
+  ],
+  "avtoimtihon-1174": [
+    "3.18.1"
+  ],
+  "avtoimtihon-1175": [
+    "7.5.1"
+  ],
+  "avtoimtihon-1177": [
+    "3.18.2",
+    "5.10.2",
+    "5.7.2"
+  ],
+  "avtoimtihon-1179": [
+    "4.1.4"
+  ],
+  "avtoimtihon-1188": [
+    "5.11.1"
+  ],
+  "avtoimtihon-1191": [
+    "1.21"
+  ],
+  "avtoimtihon-1192": [
+    "1.14"
+  ],
+  "avtoimtihon-1201": [
+    "5.42"
+  ],
+  "avtoimtihon-1210": [
+    "3.35"
+  ],
+  "avtoimtihon-1216": [
+    "5.5"
+  ],
+  "avtoimtihon-1217": [
+    "5.8.1"
+  ],
+  "avtoimtihon-1220": [
+    "1.31"
+  ],
+  "avtoimtihon-1230": [
+    "3.5",
+    "4.4",
+    "7.3.3"
+  ]
+}

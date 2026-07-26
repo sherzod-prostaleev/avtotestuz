@@ -2,6 +2,7 @@ COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
+	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
 	backup-pg backup-restore-drill
 
@@ -44,9 +45,52 @@ seed:
 seed-admin:
 	cd backend && go run ./cmd/seedadmin
 
-# Real, user-licensed avtoimtihon content (61 bilets, 1235 questions). Regenerates
-# the canonical dataset from the source tree, then imports it (upsert; truncate the
-# DB first for a clean real-only dev DB). Both seed/ dirs are gitignored.
+# Committed corpus parity gate (1231 Q / 62 bilets / 285 signs). Run after any
+# convertavtoimtihon / gensigns regeneration before trusting wipe-restore.
+seed-verify:
+	python3 scripts/seed/verify-committed.py
+
+# Fill explanation.legal_refs from inline YHQ/ПДД citations in blocks.
+extract-legal-refs:
+	python3 scripts/seed/extract_legal_refs.py
+
+# Refresh explanation.legal_refs in an existing DB (safe with session history).
+seed-sync-legal-refs: extract-legal-refs
+	cd backend && go run ./cmd/importer -data seed/avtoimtihon -verified -explanations-only
+
+# Import the COMMITTED avtoimtihon JSON (no aaa/ reconvert). Use this after a
+# DB wipe so local matches git, not whatever is currently on disk in aaa/.
+# Prefer `make seed-dev` after truncate; for legal_refs-only use seed-sync-legal-refs.
+seed-import: seed-verify extract-legal-refs
+	cd backend && go run ./cmd/importer -data seed/avtoimtihon -verified
+
+# Real road-sign catalogue (7 groups / 285 signs). data.json may be regenerated
+# with gensigns; images are vendored under seed/signs/images/.
+seed-signs:
+	@if [ ! -f backend/seed/signs/data.json ]; then \
+		cd backend && go run ./cmd/gensigns -out seed/signs; \
+	fi
+	cd backend && go run ./cmd/importer -data seed/signs -verified
+
+# Apply committed question↔sign links (requires questions + signs already imported).
+seed-link-signs:
+	cd backend && go run ./cmd/linkquestionsigns -links seed/avtoimtihon/question_signs.json
+
+# Content-only truncate (keeps profiles/payments/admin/limit_config).
+seed-reset-content:
+	$(COMPOSE) exec -T postgres psql -U avtotest -d avtotest -v ON_ERROR_STOP=1 \
+		-f - < scripts/seed/truncate-content.sql
+
+# Full local content restore after wipe / drift: clean content → committed
+# questions+bilets → signs → question_sign links → admin. CMS chrome/legal stay
+# empty (FE i18n fallback) until an operator saves them again — intentional.
+seed-dev: seed-reset-content seed-import seed-signs seed-link-signs seed-admin
+	@echo "seed-dev complete: 1231 questions, 62 bilets, 285 signs, question↔sign links, admin user"
+
+# Real, user-licensed avtoimtihon content. Regenerates canonical JSON from the
+# aaa/ source tree (1231 questions / 62 bilets after dedupe), then imports
+# (upsert). Prefer `make seed-dev` for wipe-restore from git; use seed-real only
+# when intentionally re-exporting from aaa/. Truncate first for a clean DB.
 # Checks that the three locale files still describe the same questions before
 # a conversion is attempted. The converter joins them by id and stops at the
 # first bad one; this lists every offender so the export can be repaired.
@@ -55,6 +99,7 @@ validate-real:
 
 seed-real:
 	cd backend && go run ./cmd/convertavtoimtihon -src "$(AAA_SRC)" -out seed/avtoimtihon -assignments seed/avtoimtihon/assignments.json -strict && go run ./cmd/importer -data seed/avtoimtihon -verified
+	$(MAKE) seed-verify
 AAA_SRC ?= /home/sher/Рабочий стол/aaa
 
 run:

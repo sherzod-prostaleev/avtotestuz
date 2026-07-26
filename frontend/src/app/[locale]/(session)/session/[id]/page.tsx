@@ -35,11 +35,21 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
 /** Modes that share the strict timed/anti-cheat exam pipeline — timer,
- * answer redaction until finish, F-key exam UI. Currently "exam" and
- * "grand_mock" (mirrors backend session.IsExamLike). */
+ * answer redaction until finish, F-key exam UI. Currently "exam",
+ * "grand_mock", and "placement" (mirrors backend session.IsExamLike). */
 function isExamLikeMode(mode: SessionMode): boolean {
-  return mode === "exam" || mode === "grand_mock";
+  return mode === "exam" || mode === "grand_mock" || mode === "placement";
 }
+
+/** Practice-style modes defer FSRS to /learn/review after reveal. */
+function usesDeferredFsrs(mode: SessionMode): boolean {
+  return mode === "practice" || mode === "review" || mode === "variant" || mode === "mistakes";
+}
+
+const FSRS_AGAIN = 1;
+const FSRS_HARD = 2;
+const FSRS_GOOD = 3;
+const FSRS_EASY = 4;
 
 interface SavedItemDTO {
   question_id: string;
@@ -90,9 +100,12 @@ export default function TestSessionPage() {
   const [finishing, setFinishing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [certificateOpen, setCertificateOpen] = useState(false);
+  const [pendingFsrsQuestionId, setPendingFsrsQuestionId] = useState<string | null>(null);
   const initializedSessionRef = useRef<string | null>(null);
   const viewedQuestionsRef = useRef<Set<string>>(new Set());
   const certificateShownForRef = useRef<string | null>(null);
+  const questionShownAtRef = useRef(Date.now());
+  const fsrsSubmittedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     if (sessionId) void loadSession(sessionId, locale);
@@ -146,6 +159,44 @@ export default function TestSessionPage() {
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
+  const postLearnReview = useCallback(async (questionId: string, rating: number) => {
+    if (fsrsSubmittedRef.current.has(questionId)) return;
+    fsrsSubmittedRef.current.add(questionId);
+    setPendingFsrsQuestionId((current) => (current === questionId ? null : current));
+    try {
+      await apiPost("learn/review", { question_id: questionId, rating });
+    } catch {
+      // Session answer is already saved; allow retry only for correct-answer grades.
+      fsrsSubmittedRef.current.delete(questionId);
+      if (rating !== FSRS_AGAIN) {
+        setPendingFsrsQuestionId((current) => current ?? questionId);
+      }
+    }
+  }, []);
+
+  const flushPendingFsrs = useCallback(
+    async (rating = FSRS_GOOD) => {
+      if (!pendingFsrsQuestionId) return;
+      await postLearnReview(pendingFsrsQuestionId, rating);
+    },
+    [pendingFsrsQuestionId, postLearnReview]
+  );
+
+  const goToQuestion = useCallback(
+    (index: number) => {
+      // Keep navigation synchronous when there is nothing to grade so existing
+      // UI (and tests) update on the same tick.
+      if (!pendingFsrsQuestionId) {
+        setCurrentIndex(index);
+        return;
+      }
+      void postLearnReview(pendingFsrsQuestionId, FSRS_GOOD).finally(() => {
+        setCurrentIndex(index);
+      });
+    },
+    [pendingFsrsQuestionId, postLearnReview]
+  );
+
   const handleSelectAnswer = useCallback(
     async (questionId: string, answerId: string) => {
       const question = session?.questions.find((item) => item.id === questionId);
@@ -153,14 +204,26 @@ export default function TestSessionPage() {
         return;
       }
 
+      const latencyMs = Math.max(0, Date.now() - questionShownAtRef.current);
+      const deferFsrs = usesDeferredFsrs(session.mode);
       setPendingAnswer({ questionId, answerId });
-      const response = await submitAnswer(sessionId, questionId, answerId);
+      const response = await submitAnswer(sessionId, questionId, answerId, {
+        latencyMs,
+        ...(deferFsrs ? { skipFsrs: true } : {}),
+      });
       if (!response) {
         // Keep pending for retry UI when the network/API call fails.
         return;
       }
 
       setPendingAnswer(null);
+      if (deferFsrs && response.recorded) {
+        if (response.correct === false) {
+          void postLearnReview(questionId, FSRS_AGAIN);
+        } else if (response.correct === true) {
+          setPendingFsrsQuestionId(questionId);
+        }
+      }
       const answerProps: SafeAnalyticsProps = {
         session_id: session.id,
         question_id: questionId,
@@ -180,7 +243,7 @@ export default function TestSessionPage() {
         });
       }
     },
-    [session, sessionId, submitAnswer, submitting]
+    [postLearnReview, session, sessionId, submitAnswer, submitting]
   );
 
   const handleFinish = useCallback(async () => {
@@ -188,6 +251,7 @@ export default function TestSessionPage() {
     setFinishing(true);
     setPendingAnswer(null);
     try {
+      await flushPendingFsrs(FSRS_GOOD);
       const completed = await finishSession(sessionId);
       if (completed) {
         trackEvent("session_finish", {
@@ -206,11 +270,15 @@ export default function TestSessionPage() {
     } finally {
       setFinishing(false);
     }
-  }, [finishSession, finishing, session, sessionId, submitting]);
+  }, [finishSession, finishing, flushPendingFsrs, session, sessionId, submitting]);
 
   const questions = session?.questions ?? [];
   const currentQuestion = questions[currentIndex];
   const currentAnswered = currentQuestion ? hasAnswer(currentQuestion) : false;
+
+  useEffect(() => {
+    questionShownAtRef.current = Date.now();
+  }, [currentQuestion?.id]);
 
   useEffect(() => {
     if (!session || !currentQuestion || session.status !== "active") return;
@@ -236,12 +304,12 @@ export default function TestSessionPage() {
 
       if (event.key === "ArrowLeft" && currentIndex > 0) {
         event.preventDefault();
-        setCurrentIndex((value) => Math.max(0, value - 1));
+        goToQuestion(currentIndex - 1);
         return;
       }
       if (event.key === "ArrowRight" && currentAnswered && currentIndex < questions.length - 1) {
         event.preventDefault();
-        setCurrentIndex((value) => Math.min(questions.length - 1, value + 1));
+        goToQuestion(currentIndex + 1);
         return;
       }
 
@@ -259,6 +327,7 @@ export default function TestSessionPage() {
     currentAnswered,
     currentIndex,
     currentQuestion,
+    goToQuestion,
     handleSelectAnswer,
     questions.length,
     session,
@@ -308,6 +377,7 @@ export default function TestSessionPage() {
       | "modeMistakes"
       | "modeGrandMock"
       | "modeReview"
+      | "modePlacement"
     > = {
       variant: "modeVariant",
       exam: "modeExam",
@@ -315,6 +385,7 @@ export default function TestSessionPage() {
       mistakes: "modeMistakes",
       grand_mock: "modeGrandMock",
       review: "modeReview",
+      placement: "modePlacement",
     };
     return t(keys[mode]);
   };
@@ -558,7 +629,7 @@ export default function TestSessionPage() {
       <OfficialAvtotestExamView
         session={session}
         currentIndex={currentIndex}
-        onSelectIndex={(index) => setCurrentIndex(index)}
+        onSelectIndex={(index) => goToQuestion(index)}
         onSelectAnswer={(questionId, answerId) => void handleSelectAnswer(questionId, answerId)}
         onFinish={() => void handleFinish()}
         pendingAnswer={pendingAnswer}
@@ -702,7 +773,7 @@ export default function TestSessionPage() {
             <button
               key={question.id}
               type="button"
-              onClick={() => setCurrentIndex(index)}
+              onClick={() => goToQuestion(index)}
               aria-current={isCurrent ? "step" : undefined}
               aria-label={t("questionNavLabel", { number: index + 1, status })}
               className={`relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border text-xs font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${style}`}
@@ -744,6 +815,46 @@ export default function TestSessionPage() {
               {t("answerAccepted")}
             </p>
           )}
+
+          {session &&
+            usesDeferredFsrs(session.mode) &&
+            currentAnswered &&
+            currentQuestion.correct === true && (
+              <div className="shrink-0 space-y-2 rounded-xl border border-border bg-muted/40 p-2.5">
+                <p className="text-xs text-muted-foreground sm:text-sm">{t("fsrsHint")}</p>
+                {pendingFsrsQuestionId === currentQuestion.id ? (
+                  <div className="flex flex-wrap gap-2" role="group" aria-label={t("fsrsRatingLabel")}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10 flex-1"
+                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_HARD)}
+                    >
+                      {t("fsrsHard")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10 flex-1"
+                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_GOOD)}
+                    >
+                      {t("fsrsGood")}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-10 flex-1"
+                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_EASY)}
+                    >
+                      {t("fsrsEasy")}
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
+            )}
         </Card>
       )}
 
@@ -752,7 +863,7 @@ export default function TestSessionPage() {
           variant="outline"
           className="min-h-12 flex-1 sm:flex-none"
           disabled={currentIndex === 0}
-          onClick={() => setCurrentIndex((value) => Math.max(0, value - 1))}
+          onClick={() => goToQuestion(Math.max(0, currentIndex - 1))}
         >
           <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
           <span className="hidden xs:inline sm:inline">{t("previous")}</span>
@@ -773,7 +884,7 @@ export default function TestSessionPage() {
             variant="game"
             className="min-h-12 flex-[1.4] sm:flex-none"
             disabled={!canGoNext}
-            onClick={() => setCurrentIndex((value) => Math.min(questions.length - 1, value + 1))}
+            onClick={() => goToQuestion(Math.min(questions.length - 1, currentIndex + 1))}
           >
             {t("next")}
             <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />

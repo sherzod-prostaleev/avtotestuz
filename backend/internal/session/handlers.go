@@ -229,6 +229,9 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
 type submitAnswerBody struct {
 	QuestionID uuid.UUID `json:"question_id"`
 	AnswerID   uuid.UUID `json:"answer_id"`
+	Rating     *int      `json:"rating,omitempty"`
+	LatencyMs  *int      `json:"latency_ms,omitempty"`
+	SkipFSRS   bool      `json:"skip_fsrs,omitempty"`
 }
 
 type submitAnswerResponse struct {
@@ -254,7 +257,11 @@ func (h *Handler) submitAnswer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.Svc.SubmitAnswer(r.Context(), claims.ProfileID, sessionID, body.QuestionID, body.AnswerID)
+	result, err := h.Svc.SubmitAnswer(r.Context(), claims.ProfileID, sessionID, body.QuestionID, body.AnswerID, SubmitAnswerOpts{
+		Rating:    body.Rating,
+		LatencyMs: body.LatencyMs,
+		SkipFSRS:  body.SkipFSRS,
+	})
 	if err != nil {
 		writeSessionError(w, err)
 		return

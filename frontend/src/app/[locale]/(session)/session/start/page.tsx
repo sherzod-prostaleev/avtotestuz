@@ -12,7 +12,15 @@ import {
   type StartSessionOptions,
 } from "@/hooks/use-session-engine";
 
-const SESSION_MODES: SessionMode[] = ["variant", "exam", "practice", "mistakes", "grand_mock", "review"];
+const SESSION_MODES: SessionMode[] = [
+  "variant",
+  "exam",
+  "practice",
+  "mistakes",
+  "grand_mock",
+  "review",
+  "placement",
+];
 
 function isSessionMode(value: string | null): value is SessionMode {
   return value !== null && SESSION_MODES.includes(value as SessionMode);

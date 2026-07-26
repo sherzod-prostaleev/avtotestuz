@@ -28,46 +28,92 @@ import {
 } from "lucide-react";
 
 const primaryCta =
-  "inline-flex items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none";
+  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl border-b-4 border-accent-shadow bg-accent font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none";
 const outlineCta =
-  "inline-flex items-center justify-center rounded-2xl border border-border bg-card font-bold tracking-wide text-foreground transition-colors duration-150 hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "inline-flex items-center justify-center whitespace-nowrap rounded-2xl border border-border/80 bg-card/80 font-bold tracking-wide text-foreground shadow-raised-sm backdrop-blur-sm transition-[transform,box-shadow,border-color,color] duration-150 hover:-translate-y-0.5 hover:border-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0.5 active:shadow-none";
+const heroPrimaryCta = `${primaryCta} h-12 min-h-12 px-7 text-sm font-extrabold sm:px-8 sm:text-[15px]`;
+const heroOutlineCta = `${outlineCta} h-12 min-h-12 px-6 text-sm`;
 
-function PhoneMock({
-  readiness,
-  streak,
-  nextAction,
+/** Dominant hero visual — official exam cockpit, not a floating media card. */
+function ExamCockpit({
+  timerLabel,
+  questionLabel,
+  optionA,
+  optionB,
 }: {
-  readiness: string;
-  streak: string;
-  nextAction: string;
+  timerLabel: string;
+  questionLabel: string;
+  optionA: string;
+  optionB: string;
 }) {
   return (
-    <div aria-hidden="true" className="relative mx-auto w-[240px] sm:w-[260px]">
-      <div className="animate-float rounded-[2rem] border border-border bg-card p-2 shadow-modal">
-        <div className="overflow-hidden rounded-[1.5rem] border border-border bg-background">
-          <div className="flex items-center justify-between border-b border-border px-4 py-3">
-            <span className="font-display text-sm font-black text-foreground">Driver Go</span>
-            <span className="rounded-md bg-accent/15 px-2 py-0.5 text-[10px] font-bold text-foreground">
-              {streak}
+    <div
+      aria-hidden="true"
+      className="relative w-full max-w-lg justify-self-stretch md:max-w-none md:justify-self-end"
+    >
+      <div className="landing-cockpit relative overflow-hidden rounded-2xl border border-white/10 bg-[#0a1624]">
+        <div className="landing-cockpit-sweep pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-accent/20 to-transparent" />
+        <div className="flex items-center justify-between border-b border-[#1c3554] bg-[#081320] px-4 py-2.5">
+          <span className="font-display text-sm font-black tracking-wide text-white">
+            Drive<span className="text-accent">Go</span>
+          </span>
+          <span className="rounded-md border border-amber-300/30 bg-amber-300/10 px-2 py-0.5 font-mono text-sm font-bold tabular-nums text-amber-300 shadow-[0_2px_0_0_hsl(38_85%_28%)]">
+            {timerLabel}
+          </span>
+        </div>
+        <div className="border-b border-[#204a75] bg-[#0d2e4d] px-4 py-3 text-center text-sm font-extrabold leading-snug text-white">
+          {questionLabel}
+        </div>
+        <div className="grid gap-2 p-4 sm:grid-cols-[1.1fr_1fr] sm:gap-3">
+          <div className="space-y-2">
+            {[optionA, optionB].map((text, index) => (
+              <div
+                key={text}
+                className={`flex overflow-hidden rounded-xl border text-left text-xs font-semibold text-white shadow-[0_2px_0_0_rgba(0,0,0,0.45)] ${
+                  index === 0
+                    ? "border-green-500/80 bg-[#163820]"
+                    : "border-[#354f6e] bg-[#162738]"
+                }`}
+              >
+                <span
+                  className={`flex w-9 shrink-0 items-center justify-center border-r text-[11px] font-black ${
+                    index === 0
+                      ? "border-green-500 bg-green-600"
+                      : "border-[#354f6e] bg-[#1d334a]"
+                  }`}
+                >
+                  F{index + 1}
+                </span>
+                <span className="px-3 py-2.5 leading-snug">{text}</span>
+              </div>
+            ))}
+          </div>
+          <div className="relative min-h-[7.5rem] overflow-hidden rounded-xl border border-slate-500/40 bg-black shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04),0_2px_0_0_rgba(0,0,0,0.5)]">
+            <div className="absolute inset-0 opacity-40">
+              <div className="landing-hero-lane !opacity-70" />
+            </div>
+            <div className="absolute right-3 top-3 flex flex-col gap-1.5">
+              <span className="landing-signal h-2.5 w-2.5 rounded-full bg-accent" />
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
+              <span className="h-2.5 w-2.5 rounded-full bg-slate-600" />
+            </div>
+          </div>
+        </div>
+        <div className="flex gap-1.5 border-t border-[#1c3554] bg-[#081320] px-4 py-3">
+          {Array.from({ length: 8 }, (_, i) => (
+            <span
+              key={i}
+              className={`flex h-7 w-7 items-center justify-center rounded-md text-[11px] font-extrabold shadow-[0_2px_0_0_rgba(0,0,0,0.55)] ${
+                i === 0
+                  ? "bg-green-600 text-white ring-2 ring-white/80"
+                  : i === 1
+                    ? "bg-blue-600 text-white"
+                    : "bg-[#1c334d] text-slate-200"
+              }`}
+            >
+              {i + 1}
             </span>
-          </div>
-          <div className="space-y-3 p-4">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                {readiness}
-              </p>
-              <p className="mt-1 font-display text-3xl font-black tabular-nums text-foreground">72%</p>
-              <div className="mt-2 h-2 overflow-hidden rounded-full bg-border">
-                <div className="animate-grow-bar h-full w-[72%] rounded-full bg-success" />
-              </div>
-            </div>
-            <div className="rounded-xl border border-border bg-card p-3">
-              <p className="text-[11px] font-bold leading-snug text-foreground">{nextAction}</p>
-              <div className="mt-3 h-8 rounded-lg bg-accent text-center text-[11px] font-extrabold leading-8 text-accent-foreground">
-                →
-              </div>
-            </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>
@@ -151,6 +197,12 @@ export default function LandingPage() {
     { value: t("factLanguagesValue"), label: t("proofLanguages") },
   ];
 
+  const holds = [
+    { title: t("hold1Title"), text: t("hold1Text") },
+    { title: t("hold2Title"), text: t("hold2Text") },
+    { title: t("hold3Title"), text: t("hold3Text") },
+  ];
+
   const footerNav = [
     { href: `/${locale}/login`, label: t("login") },
     { href: `/${locale}/narxlar`, label: t("footerNavPricing") },
@@ -163,16 +215,37 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
-      <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-background/90 backdrop-blur-md">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-[4.75rem] sm:pb-0">
+      <header className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 shadow-[0_8px_24px_-18px_hsl(var(--elev-ambient)/0.55)] backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
           <Link
             href={`/${locale}`}
             className="flex items-center gap-2.5 font-display text-xl font-black tracking-tight text-foreground sm:text-2xl"
           >
-            <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover" />
+            <BrandLogo size={36} className="h-9 w-9 rounded-2xl object-cover shadow-raised-sm" />
             <span>{t("brandName")}</span>
           </Link>
+
+          <nav className="hidden items-center gap-2 text-sm font-bold text-muted-foreground md:flex">
+            <a
+              href="#demo"
+              className="rounded-xl border border-border/70 bg-card/60 px-3 py-1.5 shadow-raised-sm transition-[transform,color,border-color] hover:-translate-y-0.5 hover:border-accent/40 hover:text-foreground"
+            >
+              {t("navTry")}
+            </a>
+            <a
+              href="#method"
+              className="rounded-xl border border-border/70 bg-card/60 px-3 py-1.5 shadow-raised-sm transition-[transform,color,border-color] hover:-translate-y-0.5 hover:border-accent/40 hover:text-foreground"
+            >
+              {t("navMethod")}
+            </a>
+            <a
+              href="#faq"
+              className="rounded-xl border border-border/70 bg-card/60 px-3 py-1.5 shadow-raised-sm transition-[transform,color,border-color] hover:-translate-y-0.5 hover:border-accent/40 hover:text-foreground"
+            >
+              {t("faqTitle")}
+            </a>
+          </nav>
 
           <div className="flex items-center gap-2 sm:gap-3">
             <LocaleSwitcher />
@@ -185,55 +258,93 @@ export default function LandingPage() {
         </div>
       </header>
 
-      <section className="asphalt-hero asphalt-hero-live relative overflow-hidden border-b border-border">
-        <div className="relative mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-2 md:gap-12 md:py-20">
-          <div className="space-y-6 text-left animate-fade-in">
-            <p className="font-display text-3xl font-black tracking-tight text-foreground sm:text-4xl">
+      {/* Hero — one composition: brand, headline, line, CTAs, dominant exam stage */}
+      <section className="landing-hero-stage relative overflow-hidden border-b border-border">
+        <div className="landing-hero-lane" />
+        <div className="relative z-10 mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] md:gap-12 md:py-20 lg:py-24">
+          <div className="space-y-7 text-left animate-fade-in">
+            <p className="font-display text-4xl font-black tracking-tight text-foreground sm:text-5xl md:text-6xl">
               {t("brandName")}
             </p>
-            <h1 className="max-w-xl font-display text-4xl font-black leading-[1.08] tracking-tight sm:text-5xl md:text-6xl">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">
+              {t("heroAudience")}
+            </p>
+            <h1 className="max-w-xl font-display text-4xl font-black leading-[1.05] tracking-tight sm:text-5xl md:text-[3.35rem]">
               {useCmsHeadline ? (
                 heroHeadline
               ) : (
                 <>
                   {t("heroTitleBefore")}{" "}
-                  <span className="text-accent">{t("heroTitleAccent")}</span>{" "}
-                  {t("heroTitleAfter")}
+                  <span className="text-accent">{t("heroTitleAccent")}</span>
+                  {t("heroTitleAfter") ? <> {t("heroTitleAfter")}</> : null}
                 </>
               )}
             </h1>
             <p className="max-w-md text-base leading-relaxed text-muted-foreground sm:text-lg">
               {heroSubtitle}
             </p>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <Link
-                href={heroCtaHref}
-                className={`${primaryCta} h-12 px-8 text-sm font-extrabold sm:text-base`}
-              >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+              <Link href={heroCtaHref} className={heroPrimaryCta}>
                 {heroCtaLabel}
-                <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
+                <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
-              <a href="#demo" className={`${outlineCta} h-12 px-6 text-sm`}>
+              <a href="#demo" className={heroOutlineCta}>
                 {t("ctaNoSignup")}
               </a>
             </div>
           </div>
 
-          <div className="animate-fade-in md:justify-self-end" style={{ animationDelay: "120ms" }}>
-            <PhoneMock
-              readiness={t("mockReadiness")}
-              streak={t("mockStreak")}
-              nextAction={t("mockNextAction")}
+          <div className="animate-fade-in" style={{ animationDelay: "140ms" }}>
+            <ExamCockpit
+              timerLabel={t("cockpitTimer")}
+              questionLabel={t("cockpitQuestion")}
+              optionA={t("cockpitOptionA")}
+              optionB={t("cockpitOptionB")}
             />
           </div>
         </div>
       </section>
 
-      <Reveal className="border-b border-border bg-card/60">
-        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-4 px-4 py-8 sm:grid-cols-4 sm:gap-6">
+      {/* Demo-first conversion magnet — product before more marketing */}
+      <section id="demo" className="scroll-mt-24 border-b border-border bg-card/40">
+        <div className="mx-auto max-w-6xl space-y-10 px-4 py-16">
+          <Reveal className="max-w-2xl space-y-3">
+            <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-accent">
+              {t("demoBadge")}
+            </p>
+            <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
+              {t("demoSectionTitle")}
+            </h2>
+            <p className="text-base text-muted-foreground">{t("demoDescription")}</p>
+          </Reveal>
+
+          <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
+            <Reveal delayMs={60} className="mx-auto w-full max-w-xl lg:mx-0">
+              <div className="landing-panel p-5 sm:p-6">
+                <DemoQuestionBlock />
+              </div>
+            </Reveal>
+            <div className="space-y-4">
+              {holds.map((item, i) => (
+                <Reveal
+                  key={item.title}
+                  delayMs={100 + i * 80}
+                  className="landing-panel-sm landing-panel-interactive p-4 sm:p-5"
+                >
+                  <p className="font-display text-lg font-bold">{item.title}</p>
+                  <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{item.text}</p>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <Reveal className="border-b border-border">
+        <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 px-4 py-10 sm:grid-cols-4 sm:gap-4">
           {productFacts.map((fact, i) => (
-            <Reveal key={fact.label} delayMs={i * 70} className="text-center sm:text-left">
-              <p className="font-display text-2xl font-black tabular-nums text-foreground sm:text-3xl">
+            <Reveal key={fact.label} delayMs={i * 70} className="landing-fact text-center sm:text-left">
+              <p className="font-display text-3xl font-black tabular-nums text-foreground sm:text-4xl">
                 {fact.value}
               </p>
               <p className="mt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
@@ -244,19 +355,26 @@ export default function LandingPage() {
         </div>
       </Reveal>
 
-      <main className="mx-auto w-full max-w-6xl flex-1 space-y-20 px-4 py-16">
+      <main className="mx-auto w-full max-w-6xl flex-1 space-y-24 px-4 py-20">
         <Reveal>
-          <section className="space-y-8">
+          <section id="method" className="scroll-mt-24 space-y-10">
             <div className="max-w-xl space-y-3">
-              <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              <p className="text-xs font-extrabold uppercase tracking-[0.16em] text-accent">
+                {t("methodBadge")}
+              </p>
+              <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
                 {t("methodTitle")}
               </h2>
-              <p className="text-sm text-muted-foreground">{t("methodSubtitle")}</p>
+              <p className="text-base text-muted-foreground">{t("methodSubtitle")}</p>
             </div>
-            <div className="grid gap-8 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               {methodSteps.map((item, i) => (
-                <Reveal key={item.title} delayMs={i * 90} className="space-y-2 border-t border-border pt-4">
-                  <p className="font-display text-lg font-bold">{item.title}</p>
+                <Reveal
+                  key={item.title}
+                  delayMs={i * 90}
+                  className="landing-panel landing-panel-interactive space-y-2 p-5"
+                >
+                  <p className="font-display text-xl font-bold">{item.title}</p>
                   <p className="text-sm leading-relaxed text-muted-foreground">{item.text}</p>
                 </Reveal>
               ))}
@@ -265,37 +383,23 @@ export default function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <section id="demo" className="scroll-mt-24 space-y-8">
+          <section className="space-y-10">
             <div className="max-w-xl space-y-3">
-              <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
-                {t("demoSectionTitle")}
-              </h2>
-              <p className="text-sm text-muted-foreground">{t("demoDescription")}</p>
-            </div>
-            <div className="mx-auto max-w-xl">
-              <DemoQuestionBlock />
-            </div>
-          </section>
-        </Reveal>
-
-        <Reveal>
-          <section className="space-y-8">
-            <div className="max-w-xl space-y-3">
-              <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
                 {t("whyUsTitle")}
               </h2>
-              <p className="text-sm text-muted-foreground">{t("whyUsSubtitle")}</p>
+              <p className="text-base text-muted-foreground">{t("whyUsSubtitle")}</p>
             </div>
-            <div className="grid gap-6 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-2">
               {features.map((f, i) => {
                 const Icon = f.icon;
                 return (
                   <Reveal
                     key={f.title}
                     delayMs={i * 80}
-                    className="flex items-start gap-4 border-t border-border pt-5"
+                    className="landing-panel landing-panel-interactive flex items-start gap-4 p-5"
                   >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-foreground transition-transform duration-300 hover:scale-105">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-foreground shadow-raised-sm">
                       <Icon aria-hidden="true" className="h-5 w-5" />
                     </div>
                     <div className="space-y-1">
@@ -310,18 +414,20 @@ export default function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <section className="space-y-8">
+          <section className="space-y-10">
             <div className="max-w-xl space-y-3">
-              <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
                 {t("howItWorksTitle")}
               </h2>
-              <p className="text-sm text-muted-foreground">{t("howItWorksSubtitle")}</p>
+              <p className="text-base text-muted-foreground">{t("howItWorksSubtitle")}</p>
             </div>
-            <div className="grid gap-8 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-3">
               {steps.map((s, i) => (
-                <Reveal key={s.n} delayMs={i * 100} className="space-y-3">
-                  <p className="font-display text-4xl font-black text-accent">{s.n}</p>
-                  <h3 className="font-display text-base font-bold">{s.title}</h3>
+                <Reveal key={s.n} delayMs={i * 100} className="landing-panel landing-panel-interactive space-y-3 p-5">
+                  <p className="font-display text-5xl font-black text-accent drop-shadow-[0_3px_0_hsl(var(--accent-shadow))]">
+                    {s.n}
+                  </p>
+                  <h3 className="font-display text-lg font-bold">{s.title}</h3>
                   <p className="text-sm leading-relaxed text-muted-foreground">{s.text}</p>
                 </Reveal>
               ))}
@@ -330,17 +436,17 @@ export default function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <section className="space-y-8">
-            <h2 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+          <section id="faq" className="scroll-mt-24 space-y-8">
+            <h2 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">
               {t("faqTitle")}
             </h2>
-            <div className="mx-auto max-w-2xl space-y-2">
+            <div className="mx-auto max-w-2xl space-y-3">
               {faqs.map((f) => (
                 <details
                   key={f.q}
-                  className="group rounded-2xl border border-border bg-card p-5 transition-colors open:border-accent/40 [&_summary::-webkit-details-marker]:hidden"
+                  className="landing-panel-sm group px-4 py-4 transition-[border-color,box-shadow] open:border-accent/35 [&_summary::-webkit-details-marker]:hidden"
                 >
-                  <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-bold">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-bold">
                     <span className="flex items-center gap-2.5">
                       <HelpCircle aria-hidden="true" className="h-4 w-4 shrink-0 text-accent" />
                       {f.q}
@@ -350,9 +456,7 @@ export default function LandingPage() {
                       className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-90"
                     />
                   </summary>
-                  <p className="mt-3 border-t border-border pt-3 text-sm leading-relaxed text-muted-foreground">
-                    {f.a}
-                  </p>
+                  <p className="mt-3 pl-7 text-sm leading-relaxed text-muted-foreground">{f.a}</p>
                 </details>
               ))}
             </div>
@@ -360,16 +464,18 @@ export default function LandingPage() {
         </Reveal>
 
         <Reveal>
-          <section className="border border-border bg-card px-6 py-10 text-center sm:px-10">
-            <h2 className="font-display text-2xl font-extrabold sm:text-3xl">{t("bottomCtaTitle")}</h2>
-            <p className="mx-auto mt-3 max-w-md text-sm text-muted-foreground">{t("bottomCtaText")}</p>
-            <Link
-              href={`/${locale}/login`}
-              className={`${primaryCta} mt-6 inline-flex h-12 px-8 text-sm font-extrabold`}
-            >
-              {t("ctaStart")}
-              <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-            </Link>
+          <section className="landing-panel relative overflow-hidden px-6 py-12 text-center sm:px-12">
+            <div className="pointer-events-none absolute inset-0 opacity-40">
+              <div className="landing-hero-lane" />
+            </div>
+            <div className="relative">
+              <h2 className="font-display text-3xl font-extrabold sm:text-4xl">{t("bottomCtaTitle")}</h2>
+              <p className="mx-auto mt-3 max-w-md text-base text-muted-foreground">{t("bottomCtaText")}</p>
+              <Link href={`/${locale}/login`} className={`${heroPrimaryCta} mt-7`}>
+                {t("ctaStart")}
+                <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
+              </Link>
+            </div>
           </section>
         </Reveal>
       </main>
@@ -469,6 +575,17 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile thumb-zone CTA — always one tap from signup */}
+      <div className="landing-sticky-cta">
+        <Link
+          href={heroCtaHref}
+          className={`${primaryCta} h-12 w-full text-sm font-extrabold`}
+        >
+          {heroCtaLabel}
+          <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
+        </Link>
+      </div>
     </div>
   );
 }
