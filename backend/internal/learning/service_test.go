@@ -427,6 +427,52 @@ func TestStatsReadinessWeightedByQuestionCount(t *testing.T) {
 	if stats.ReadinessPct >= 100 {
 		t.Fatalf("readiness should be < 100 since only 1 of 4 categories was touched, got %d", stats.ReadinessPct)
 	}
+
+	var signsStat learning.CategoryStat
+	for _, c := range stats.Categories {
+		if c.CategoryCode == "signs" {
+			signsStat = c
+			break
+		}
+	}
+	if signsStat.Total <= 0 || signsStat.Studied != answered {
+		t.Fatalf("signs studied=%d total=%d answered=%d", signsStat.Studied, signsStat.Total, answered)
+	}
+	// Bank-honest: perfect accuracy on the studied subset → mastery = studied/total.
+	wantMastery := float64(answered) / float64(signsStat.Total)
+	if signsStat.Mastery < wantMastery-0.01 || signsStat.Mastery > wantMastery+0.01 {
+		t.Fatalf("signs mastery=%.3f want ≈%.3f (studied/total with 100%% accuracy)", signsStat.Mastery, wantMastery)
+	}
+}
+
+func TestStatsMasteryDoesNotInflateOnTinySubset(t *testing.T) {
+	_, svc, profileID, qids := seed(t)
+	ctx := context.Background()
+
+	if _, err := svc.RecordReview(ctx, profileID, qids[0], learning.Good); err != nil {
+		t.Fatalf("review: %v", err)
+	}
+	stats, err := svc.Stats(ctx, profileID)
+	if err != nil {
+		t.Fatalf("Stats: %v", err)
+	}
+	var touched learning.CategoryStat
+	for _, c := range stats.Categories {
+		if c.Studied > 0 {
+			touched = c
+			break
+		}
+	}
+	if touched.Total < 2 {
+		t.Fatalf("fixture category too small to prove coverage penalty: total=%d", touched.Total)
+	}
+	// One correct question in a multi-question category must stay well below 100%.
+	if touched.Mastery >= 0.5 {
+		t.Fatalf("mastery=%.3f after 1/%d questions — coverage inflation bug", touched.Mastery, touched.Total)
+	}
+	if stats.ReadinessPct >= 25 {
+		t.Fatalf("readiness=%d after a single answer — too high for bank-honest formula", stats.ReadinessPct)
+	}
 }
 
 func TestStatsDueCount(t *testing.T) {

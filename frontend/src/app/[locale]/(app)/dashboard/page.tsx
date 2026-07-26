@@ -102,7 +102,7 @@ export default function DashboardPage() {
   const readinessPct = stats?.readiness_pct ?? 0;
   const currentStreak = streak?.current_streak ?? 0;
   const todayAnswered = streak?.today_answered ?? 0;
-  const dailyTarget = streak?.daily_target ?? 20;
+  const dailyTarget = streak?.daily_target ?? 30;
   const dueQuestionsCount = stats?.due_questions_count ?? 0;
   const totalCategories = stats?.category_mastery?.length ?? 0;
   const masteryCategories = stats?.category_mastery ? weakestCategories(stats.category_mastery).slice(0, 4) : [];
@@ -542,10 +542,17 @@ export default function DashboardPage() {
                 </Link>
               )}
             </div>
+            <p className="text-xs text-muted-foreground">{t("masteryCoverageHint")}</p>
             <Card className="p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 {masteryCategories.map((cat) => (
-                  <MasteryBar key={cat.code} categoryName={cat.name} masteryPercent={cat.mastery_pct} />
+                  <MasteryBar
+                    key={cat.code}
+                    categoryName={cat.name}
+                    masteryPercent={cat.mastery_pct}
+                    studied={cat.studied}
+                    total={cat.total}
+                  />
                 ))}
               </div>
             </Card>

@@ -38,8 +38,8 @@ describe("useUserStats", () => {
     };
     const mockStats = {
       categories: [
-        { category_code: "signs", mastery: 0.755, seen: 20, correct: 15 },
-        { category_code: "priority", mastery: 0.5, seen: 10, correct: 5 },
+        { category_code: "signs", mastery: 0.755, seen: 20, correct: 15, studied: 18, total: 100 },
+        { category_code: "priority", mastery: 0.5, seen: 10, correct: 5, studied: 10, total: 50 },
       ],
       readiness_pct: 75,
       due_count: 12,
@@ -77,8 +77,8 @@ describe("useUserStats", () => {
     expect(result.current.stats?.total_answered).toBe(30);
     expect(result.current.stats?.total_correct).toBe(20);
     expect(result.current.stats?.category_mastery).toEqual([
-      { code: "signs", name: "Дорожные знаки", answered: 20, correct: 15, mastery_pct: 76 },
-      { code: "priority", name: "Приоритет", answered: 10, correct: 5, mastery_pct: 50 },
+      { code: "signs", name: "Дорожные знаки", answered: 20, correct: 15, studied: 18, total: 100, mastery_pct: 76 },
+      { code: "priority", name: "Приоритет", answered: 10, correct: 5, studied: 10, total: 50, mastery_pct: 50 },
     ]);
     expect(apiClient.apiGet).toHaveBeenCalledWith("categories?locale=ru");
     expect(apiClient.apiGet).not.toHaveBeenCalledWith("me/entitlement");

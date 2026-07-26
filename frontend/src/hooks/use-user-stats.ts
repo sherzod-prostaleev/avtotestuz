@@ -34,6 +34,8 @@ export interface CategoryMastery {
   name: string;
   answered: number;
   correct: number;
+  studied: number;
+  total: number;
   mastery_pct: number;
 }
 
@@ -85,6 +87,8 @@ interface CategoryStatDTO {
   mastery: number;
   seen: number;
   correct: number;
+  studied: number;
+  total: number;
 }
 
 interface StatsResponseDTO {
@@ -132,6 +136,8 @@ export function useUserStats() {
           name,
           answered: category.seen,
           correct: category.correct,
+          studied: category.studied ?? 0,
+          total: category.total ?? 0,
           mastery_pct: Math.round(category.mastery * 100),
         };
       });

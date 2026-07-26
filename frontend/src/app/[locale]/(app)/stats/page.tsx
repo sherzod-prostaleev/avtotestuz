@@ -101,11 +101,18 @@ export default function StatsPage() {
           <Card className="p-6">
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-lg font-bold">{t("categoryMastery")}</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">{t("categoryMasteryHint")}</p>
             </CardHeader>
             <CardContent className="p-0">
               <div className="grid gap-4 sm:grid-cols-2">
                 {stats.category_mastery.map((cat) => (
-                  <MasteryBar key={cat.code} categoryName={cat.name} masteryPercent={cat.mastery_pct} />
+                  <MasteryBar
+                    key={cat.code}
+                    categoryName={cat.name}
+                    masteryPercent={cat.mastery_pct}
+                    studied={cat.studied}
+                    total={cat.total}
+                  />
                 ))}
               </div>
             </CardContent>

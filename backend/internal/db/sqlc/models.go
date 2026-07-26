@@ -12,6 +12,75 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AdminAuditLog struct {
+	ID          uuid.UUID          `json:"id"`
+	AdminUserID uuid.NullUUID      `json:"admin_user_id"`
+	Action      string             `json:"action"`
+	EntityType  string             `json:"entity_type"`
+	EntityID    pgtype.Text        `json:"entity_id"`
+	BeforeJson  []byte             `json:"before_json"`
+	AfterJson   []byte             `json:"after_json"`
+	Ip          *netip.Addr        `json:"ip"`
+	Ua          string             `json:"ua"`
+	RequestID   string             `json:"request_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type AdminPermission struct {
+	ID          uuid.UUID `json:"id"`
+	Code        string    `json:"code"`
+	Description string    `json:"description"`
+}
+
+type AdminRole struct {
+	ID          uuid.UUID `json:"id"`
+	Code        string    `json:"code"`
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+}
+
+type AdminRolePermission struct {
+	RoleID       uuid.UUID `json:"role_id"`
+	PermissionID uuid.UUID `json:"permission_id"`
+}
+
+type AdminSession struct {
+	ID          uuid.UUID          `json:"id"`
+	AdminUserID uuid.UUID          `json:"admin_user_id"`
+	RefreshHash string             `json:"refresh_hash"`
+	Ip          *netip.Addr        `json:"ip"`
+	Ua          string             `json:"ua"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type AdminUser struct {
+	ID            uuid.UUID          `json:"id"`
+	Email         string             `json:"email"`
+	Phone         pgtype.Text        `json:"phone"`
+	DisplayName   string             `json:"display_name"`
+	PasswordHash  string             `json:"password_hash"`
+	Status        string             `json:"status"`
+	TotpSecretEnc pgtype.Text        `json:"totp_secret_enc"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AdminUserRole struct {
+	AdminUserID uuid.UUID `json:"admin_user_id"`
+	RoleID      uuid.UUID `json:"role_id"`
+}
+
+type AlertRule struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Kind        string             `json:"kind"`
+	Enabled     bool               `json:"enabled"`
+	Description string             `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type Answer struct {
 	ID         uuid.UUID     `json:"id"`
 	QuestionID uuid.UUID     `json:"question_id"`
@@ -75,6 +144,44 @@ type AuditLog struct {
 	Before    []byte             `json:"before"`
 	After     []byte             `json:"after"`
 	Ip        *netip.Addr        `json:"ip"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type B2bInvite struct {
+	ID         uuid.UUID          `json:"id"`
+	Token      string             `json:"token"`
+	OrgID      uuid.UUID          `json:"org_id"`
+	Phone      string             `json:"phone"`
+	Role       string             `json:"role"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	CreatedBy  uuid.NullUUID      `json:"created_by"`
+	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
+	AcceptedBy uuid.NullUUID      `json:"accepted_by"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type B2bOrg struct {
+	ID        uuid.UUID          `json:"id"`
+	Name      string             `json:"name"`
+	Status    string             `json:"status"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type B2bOrgLicense struct {
+	ID        uuid.UUID          `json:"id"`
+	OrgID     uuid.UUID          `json:"org_id"`
+	Seats     int32              `json:"seats"`
+	StartsAt  pgtype.Timestamptz `json:"starts_at"`
+	EndsAt    pgtype.Timestamptz `json:"ends_at"`
+	Note      string             `json:"note"`
+	CreatedBy string             `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type B2bOrgMember struct {
+	OrgID     uuid.UUID          `json:"org_id"`
+	ProfileID uuid.UUID          `json:"profile_id"`
+	Role      string             `json:"role"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -192,6 +299,15 @@ type ExplanationTranslation struct {
 	VerifiedBy    uuid.NullUUID      `json:"verified_by"`
 	VerifiedAt    pgtype.Timestamptz `json:"verified_at"`
 	Source        string             `json:"source"`
+}
+
+type FeatureFlag struct {
+	Key         string             `json:"key"`
+	Type        string             `json:"type"`
+	ValueJson   json.RawMessage    `json:"value_json"`
+	Description string             `json:"description"`
+	UpdatedBy   string             `json:"updated_by"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type GrandMockCertificate struct {
@@ -437,6 +553,13 @@ type SignTranslation struct {
 	Status      string    `json:"status"`
 }
 
+type SiteSetting struct {
+	Key       string             `json:"key"`
+	ValueJson json.RawMessage    `json:"value_json"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	UpdatedBy pgtype.Text        `json:"updated_by"`
+}
+
 type Streak struct {
 	ProfileID      uuid.UUID   `json:"profile_id"`
 	Current        int32       `json:"current"`
@@ -444,6 +567,21 @@ type Streak struct {
 	LastActiveDate pgtype.Date `json:"last_active_date"`
 	DailyGoal      int32       `json:"daily_goal"`
 	TodayDone      int32       `json:"today_done"`
+}
+
+type SupportTicket struct {
+	ID           uuid.UUID          `json:"id"`
+	ProfileID    uuid.NullUUID      `json:"profile_id"`
+	ContactEmail string             `json:"contact_email"`
+	ContactPhone string             `json:"contact_phone"`
+	Subject      string             `json:"subject"`
+	Body         string             `json:"body"`
+	Status       string             `json:"status"`
+	Locale       string             `json:"locale"`
+	Source       string             `json:"source"`
+	AdminNote    string             `json:"admin_note"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Tariff struct {

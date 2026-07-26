@@ -4,10 +4,16 @@ import "time"
 
 // CategoryStat summarizes a profile's progress in a single content
 // category, for display in exam-readiness stats.
+//
+// Mastery is bank-honest: (studied/total) × (correct/seen). Unseen
+// questions in the category pull the percentage toward zero, so 100%
+// requires covering the full category with correct answers — not re-
+// drilling a handful of easy items.
 type CategoryStat struct {
-	CategoryCode  string
-	Mastery       float64
-	Seen, Correct int
+	CategoryCode   string
+	Mastery        float64
+	Seen, Correct  int
+	Studied, Total int
 }
 
 // Stats is the exam-readiness snapshot for a profile: per-category

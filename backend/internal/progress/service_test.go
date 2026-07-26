@@ -76,8 +76,8 @@ func TestGetStreakFreshProfile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetStreak: %v", err)
 	}
-	if view.Current != 0 || view.Best != 0 || view.DailyGoal != 10 {
-		t.Fatalf("fresh streak = %+v, want DailyGoal=10 (limit_config default)", view)
+	if view.Current != 0 || view.Best != 0 || view.DailyGoal != 30 {
+		t.Fatalf("fresh streak = %+v, want DailyGoal=30 (limit_config default)", view)
 	}
 }
 
@@ -87,7 +87,7 @@ func TestRecordActivityFirstCallCreatesStreak(t *testing.T) {
 	if err != nil {
 		t.Fatalf("RecordActivity: %v", err)
 	}
-	if view.Current != 1 || view.Best != 1 || view.TodayDone != 1 || view.DailyGoal != 10 {
+	if view.Current != 1 || view.Best != 1 || view.TodayDone != 1 || view.DailyGoal != 30 {
 		t.Fatalf("first activity = %+v", view)
 	}
 }

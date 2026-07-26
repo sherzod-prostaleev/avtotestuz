@@ -181,6 +181,14 @@ func (s *Service) NextDue(ctx context.Context, profileID uuid.UUID, limit int) (
 // (including categories the profile has never touched, at mastery=0), an
 // overall readiness percentage weighted by each category's question count,
 // and the count of questions currently due for review.
+//
+// Mastery is coverage-weighted accuracy:
+//
+//	mastery = (studied/total) × (correct/seen)
+//
+// so unanswered bank mass keeps readiness honest — 100% means the learner
+// has covered the category and answered correctly, not that a tiny subset
+// was drilled to perfection.
 func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error) {
 	masteryRows, err := s.Q.ListCategoryMasteryForProfile(ctx, profileID)
 	if err != nil {
@@ -200,6 +208,15 @@ func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error)
 		countByCategory[c.CategoryID] = c.QuestionCount
 	}
 
+	studiedRows, err := s.Q.CountStudiedQuestionsByCategory(ctx, profileID)
+	if err != nil {
+		return Stats{}, err
+	}
+	studiedByCategory := make(map[uuid.UUID]int32, len(studiedRows))
+	for _, c := range studiedRows {
+		studiedByCategory[c.CategoryID] = c.StudiedCount
+	}
+
 	catInfo, err := s.Q.ListCategories(ctx, contentLocale)
 	if err != nil {
 		return Stats{}, err
@@ -209,21 +226,27 @@ func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error)
 	var weightedMasterySum float64
 	var totalQuestionCount int64
 	for _, ci := range catInfo {
-		var mastery float64
 		var seen, correct int32
 		if m, ok := masteryByCategory[ci.ID]; ok {
-			mastery = float64(m.Mastery)
 			seen = m.Seen
 			correct = m.Correct
 		}
+		total := int(countByCategory[ci.ID])
+		studied := int(studiedByCategory[ci.ID])
+		if studied > total && total > 0 {
+			studied = total
+		}
+		mastery := bankHonestMastery(studied, total, int(correct), int(seen))
 		categories = append(categories, CategoryStat{
 			CategoryCode: ci.Code,
 			Mastery:      mastery,
 			Seen:         int(seen),
 			Correct:      int(correct),
+			Studied:      studied,
+			Total:        total,
 		})
 
-		if count := int64(countByCategory[ci.ID]); count > 0 {
+		if count := int64(total); count > 0 {
 			weightedMasterySum += mastery * float64(count)
 			totalQuestionCount += count
 		}
@@ -244,6 +267,27 @@ func (s *Service) Stats(ctx context.Context, profileID uuid.UUID) (Stats, error)
 		ReadinessPct: readiness,
 		DueCount:     int(dueCount),
 	}, nil
+}
+
+// bankHonestMastery combines bank coverage with answer accuracy.
+// Unseen questions contribute 0; perfect accuracy on a fraction of the
+// bank yields that same fraction (e.g. 10/100 correct-only → 0.10).
+func bankHonestMastery(studied, total, correct, seen int) float64 {
+	if total <= 0 || studied <= 0 || seen <= 0 {
+		return 0
+	}
+	coverage := float64(studied) / float64(total)
+	if coverage > 1 {
+		coverage = 1
+	}
+	accuracy := float64(correct) / float64(seen)
+	if accuracy > 1 {
+		accuracy = 1
+	}
+	if accuracy < 0 {
+		accuracy = 0
+	}
+	return coverage * accuracy
 }
 
 // MistakeBankSummary returns the two distinct counters required by the UI:

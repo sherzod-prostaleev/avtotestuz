@@ -70,6 +70,16 @@ SELECT category_id, count(*)::int AS question_count
 FROM question WHERE validation_status = 'valid'
 GROUP BY category_id;
 
+-- name: CountStudiedQuestionsByCategory :many
+-- Distinct questions the profile has graded at least once, per category.
+-- Used with category bank size so mastery/readiness cannot inflate by
+-- re-drilling a tiny subset of easy questions.
+SELECT q.category_id, count(*)::int AS studied_count
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1
+GROUP BY q.category_id;
+
 -- name: CountValidQuestions :one
 -- Bank size, used to turn the Grand Mock volume floor
 -- (limit_config.grand_mock_min_studied_pct) into an absolute question count so

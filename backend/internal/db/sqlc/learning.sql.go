@@ -40,6 +40,42 @@ func (q *Queries) CountStudiedQuestions(ctx context.Context, profileID uuid.UUID
 	return column_1, err
 }
 
+const countStudiedQuestionsByCategory = `-- name: CountStudiedQuestionsByCategory :many
+SELECT q.category_id, count(*)::int AS studied_count
+FROM question_memory qm
+JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+WHERE qm.profile_id = $1
+GROUP BY q.category_id
+`
+
+type CountStudiedQuestionsByCategoryRow struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	StudiedCount int32     `json:"studied_count"`
+}
+
+// Distinct questions the profile has graded at least once, per category.
+// Used with category bank size so mastery/readiness cannot inflate by
+// re-drilling a tiny subset of easy questions.
+func (q *Queries) CountStudiedQuestionsByCategory(ctx context.Context, profileID uuid.UUID) ([]CountStudiedQuestionsByCategoryRow, error) {
+	rows, err := q.db.Query(ctx, countStudiedQuestionsByCategory, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountStudiedQuestionsByCategoryRow
+	for rows.Next() {
+		var i CountStudiedQuestionsByCategoryRow
+		if err := rows.Scan(&i.CategoryID, &i.StudiedCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countValidQuestions = `-- name: CountValidQuestions :one
 SELECT count(*)::int FROM question WHERE validation_status = 'valid'
 `

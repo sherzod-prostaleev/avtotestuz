@@ -111,6 +111,8 @@ type categoryStatDTO struct {
 	Mastery      float64 `json:"mastery"`
 	Seen         int     `json:"seen"`
 	Correct      int     `json:"correct"`
+	Studied      int     `json:"studied"`
+	Total        int     `json:"total"`
 }
 
 type statsResponse struct {

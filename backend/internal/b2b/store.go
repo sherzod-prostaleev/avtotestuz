@@ -255,12 +255,31 @@ func (s Store) listMembersWithProgress(ctx context.Context, orgID uuid.UUID) ([]
 		  FROM question WHERE validation_status = 'valid'
 		  GROUP BY category_id
 		),
+		studied AS (
+		  SELECT qm.profile_id, q.category_id, COUNT(*)::bigint AS n
+		  FROM question_memory qm
+		  JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
+		  GROUP BY qm.profile_id, q.category_id
+		),
+		member_profiles AS (
+		  SELECT profile_id FROM b2b_org_member WHERE org_id = $1
+		),
 		readiness AS (
-		  SELECT cm.profile_id,
-		         COALESCE(ROUND(100.0 * SUM(cm.mastery * qc.n) / NULLIF(SUM(qc.n), 0)), 0)::int AS pct
-		  FROM category_mastery cm
-		  JOIN qcounts qc ON qc.category_id = cm.category_id
-		  GROUP BY cm.profile_id
+		  SELECT mp.profile_id,
+		         COALESCE(ROUND(100.0 * SUM(
+		           (LEAST(COALESCE(st.n, 0), qc.n)::float8 / NULLIF(qc.n, 0)::float8)
+		           * CASE WHEN COALESCE(cm.seen, 0) > 0
+		                  THEN cm.correct::float8 / cm.seen::float8
+		                  ELSE 0 END
+		           * qc.n::float8
+		         ) / NULLIF(SUM(qc.n), 0)::float8), 0)::int AS pct
+		  FROM member_profiles mp
+		  CROSS JOIN qcounts qc
+		  LEFT JOIN category_mastery cm
+		    ON cm.profile_id = mp.profile_id AND cm.category_id = qc.category_id
+		  LEFT JOIN studied st
+		    ON st.profile_id = mp.profile_id AND st.category_id = qc.category_id
+		  GROUP BY mp.profile_id
 		)
 		SELECT m.profile_id, p.phone, p.name, m.role,
 		       (SELECT COUNT(*) FROM exam_session es WHERE es.profile_id = m.profile_id),
