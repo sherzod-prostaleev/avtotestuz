@@ -40,7 +40,11 @@ export function adminNav(locale: string): AdminNavGroup[] {
     },
     {
       titleKey: "groupAnalytics",
-      items: [{ href: `${base}/analytics/overview`, labelKey: "overview" }],
+      items: [
+        { href: `${base}/analytics/overview`, labelKey: "overview" },
+        { href: `${base}/analytics/funnels`, labelKey: "funnels", stub: true },
+        { href: `${base}/analytics/exports`, labelKey: "exports", stub: true },
+      ],
     },
     {
       titleKey: "groupInvestors",
@@ -77,8 +81,10 @@ export function adminNav(locale: string): AdminNavGroup[] {
     {
       titleKey: "groupCMS",
       items: [
-        { href: `${base}/cms/chrome`, labelKey: "headerFooter" },
         { href: `${base}/cms/home`, labelKey: "homepage" },
+        { href: `${base}/cms/chrome`, labelKey: "headerFooter" },
+        { href: `${base}/cms/brand`, labelKey: "brand", stub: true },
+        { href: `${base}/cms/surfaces`, labelKey: "surfaces", stub: true },
         { href: `${base}/cms/legal`, labelKey: "legal" },
       ],
     },
@@ -94,7 +100,8 @@ export function adminNav(locale: string): AdminNavGroup[] {
       titleKey: "groupSecurity",
       items: [
         { href: `${base}/security/totp`, labelKey: "totp" },
-        { href: `${base}/security/rbac`, labelKey: "adminsRbac", stub: true },
+        { href: `${base}/security/rbac`, labelKey: "adminsRbac" },
+        { href: `${base}/security/ip`, labelKey: "ipAllowlist", stub: true },
         { href: `${base}/security/audit`, labelKey: "auditLog" },
       ],
     },
