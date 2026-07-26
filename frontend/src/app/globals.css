@@ -677,6 +677,43 @@
   isolation: isolate;
 }
 
+/* Exam-pass win theater — asphalt gold, not purple glow */
+@keyframes examPassPanelIn {
+  from { opacity: 0; transform: translateY(18px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes examPassMedalIn {
+  0% { opacity: 0; transform: scale(0.7) rotate(-8deg); }
+  60% { opacity: 1; transform: scale(1.08) rotate(3deg); }
+  100% { opacity: 1; transform: scale(1) rotate(0deg); }
+}
+@keyframes examPassTextIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes biletPraiseSlideIn {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.exam-pass-panel {
+  animation: examPassPanelIn 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.exam-pass-medal {
+  animation: examPassMedalIn 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.exam-pass-eyebrow {
+  animation: examPassTextIn 0.4s ease-out 0.08s both;
+}
+.exam-pass-title {
+  animation: examPassTextIn 0.45s ease-out 0.14s both;
+}
+.exam-pass-body {
+  animation: examPassTextIn 0.45s ease-out 0.2s both;
+}
+.bilet-praise-banner > div {
+  animation: biletPraiseSlideIn 0.35s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal {
     opacity: 1;
@@ -689,7 +726,13 @@
   .landing-hero-lane,
   .landing-signal,
   .landing-cockpit-sweep,
-  .answer-wrong-pulse {
+  .answer-wrong-pulse,
+  .exam-pass-panel,
+  .exam-pass-medal,
+  .exam-pass-eyebrow,
+  .exam-pass-title,
+  .exam-pass-body,
+  .bilet-praise-banner > div {
     animation: none !important;
   }
   .ticket-tile:hover,

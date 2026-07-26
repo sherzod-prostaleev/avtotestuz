@@ -1,9 +1,9 @@
 "use client";
 
-import { startTransition, useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { startTransition, useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { X, ZoomIn } from "lucide-react";
+import { LoaderCircle, X, ZoomIn } from "lucide-react";
 import type { SessionQuestionItem, SessionState } from "@/hooks/use-session-engine";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
@@ -64,11 +64,18 @@ export function OfficialAvtotestExamView({
 }: OfficialAvtotestExamViewProps) {
   const locale = useLocale();
   const router = useRouter();
+  const t = useTranslations("Session");
 
   const questions = session.questions ?? [];
   const currentQuestion = questions[currentIndex];
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
+  const allAnswered = useMemo(
+    () =>
+      questions.length > 0 &&
+      questions.every((q) => q.answered === true || Boolean(q.user_answer_id)),
+    [questions]
+  );
 
   useEffect(() => {
     activeChipRef.current?.scrollIntoView({
@@ -199,11 +206,11 @@ export function OfficialAvtotestExamView({
       <div className="relative z-10 w-full shrink-0">
         {isFailed ? (
           <div className="w-full bg-[#dc2626] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm">
-            Topshirilmadi
+            {t("examBannerFailed")}
           </div>
         ) : isCompleted ? (
           <div className="w-full bg-[#16a34a] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm">
-            Topshirildi
+            {t("examBannerPassed")}
           </div>
         ) : (
           <div className="w-full bg-[#0d2e4d] border-y border-[#204a75] text-white text-center py-3.5 px-8 text-lg font-extrabold leading-relaxed tracking-wide shadow-md max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
@@ -275,7 +282,27 @@ export function OfficialAvtotestExamView({
 
       {/* ═══ BOTTOM BAR ═══ */}
       <footer className="relative z-10 flex h-[60px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-t border-[#1c3554] max-lg:h-auto max-lg:flex-row max-lg:items-center max-lg:gap-2 max-lg:px-2 max-lg:py-1.5 max-lg:pb-[max(0.35rem,env(safe-area-inset-bottom))]">
-        <div className="w-20 max-lg:hidden" />
+        <div className="flex w-28 shrink-0 items-center max-lg:w-auto">
+          {allAnswered && !isCompleted ? (
+            <button
+              type="button"
+              onClick={onFinish}
+              disabled={finishing || submitting}
+              className="rounded-sm border border-emerald-400/70 bg-emerald-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-60 max-lg:h-8 max-lg:px-2.5 max-lg:text-xs"
+            >
+              {finishing ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                  {t("finishing")}
+                </span>
+              ) : (
+                t("finish")
+              )}
+            </button>
+          ) : (
+            <div className="w-20 max-lg:hidden" />
+          )}
+        </div>
 
         {/* Question number pills */}
         <div className="flex items-center gap-1.5 max-lg:min-w-0 max-lg:flex-1 max-lg:gap-1 max-lg:overflow-x-auto max-lg:scrollbar-none">

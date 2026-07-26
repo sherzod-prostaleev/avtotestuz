@@ -25,6 +25,8 @@ vi.mock("@/hooks/use-session-engine", async (importOriginal) => {
 
 vi.mock("@/lib/analytics-events", () => ({ trackEvent: vi.fn() }));
 
+vi.mock("canvas-confetti", () => ({ default: vi.fn() }));
+
 function question(overrides: Partial<SessionQuestionItem> = {}): SessionQuestionItem {
   return {
     id: "q-1",
@@ -441,12 +443,80 @@ describe("SessionPage secure session flow", () => {
 
     renderPage();
 
-    expect(screen.getByText("Imtihondan o'tdingiz!")).toBeInTheDocument();
-    expect(screen.getByText("1 / 1")).toBeInTheDocument();
+    expect(screen.getByText("Tabriklaymiz — o'tdingiz!")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Tabriklaymiz!" })).toBeInTheDocument();
     expect(screen.getByText("Savollar bo'yicha tahlil")).toBeInTheDocument();
     expect(screen.getAllByText("3.27 belgisi")).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "Natijani ko'rish" }));
     fireEvent.click(screen.getByText("Rasmiy izohni ochish"));
     expect(screen.getByText("Rasmiy yakuniy izoh")).toBeInTheDocument();
+  });
+
+  it("auto-finishes an exam when every question is answered", async () => {
+    const finished = activeSession({
+      mode: "exam",
+      status: "completed",
+      score: 1,
+      total: 1,
+      passed: true,
+      completed_at: "2026-07-22T12:00:00Z",
+      questions: [
+        question({
+          answered: true,
+          user_answer_id: "a-1",
+          correct: true,
+          correct_answer_id: "a-1",
+        }),
+      ],
+    });
+    const finishSession = vi.fn().mockResolvedValue(finished);
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        time_limit_sec: 1500,
+        remaining_sec: 300,
+        questions: [
+          question({
+            answered: true,
+            user_answer_id: "a-1",
+            correct: true,
+            correct_answer_id: "a-1",
+          }),
+        ],
+        total: 1,
+      }),
+      { finishSession }
+    );
+
+    renderPage();
+
+    await waitFor(() => expect(finishSession).toHaveBeenCalledWith("sess-123"));
+  });
+
+  it("praises a strong bilet finish without the exam celebration dialog", () => {
+    mockEngine(
+      activeSession({
+        mode: "variant",
+        status: "completed",
+        score: 18,
+        total: 20,
+        passed: true,
+        completed_at: "2026-07-22T12:00:00Z",
+        questions: [
+          question({
+            answered: true,
+            user_answer_id: "a-1",
+            correct: true,
+            correct_answer_id: "a-1",
+          }),
+        ],
+      })
+    );
+
+    renderPage();
+
+    expect(screen.getByText("Zo'r natija!")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Tabriklaymiz!" })).not.toBeInTheDocument();
   });
 
   it("never exposes a raw backend error message", () => {

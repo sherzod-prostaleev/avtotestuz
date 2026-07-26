@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Award, Check, Share2, X } from "lucide-react";
-import confetti from "canvas-confetti";
 import { Button } from "@/components/ui/button";
 import { certificateShareUrl, shareOrCopyCertificateLink } from "@/lib/certificate-share";
+import { fireExamPassSalute } from "@/lib/celebration-confetti";
 
 interface GrandMockCertificateDialogProps {
   open: boolean;
@@ -38,32 +38,16 @@ export function GrandMockCertificateDialog({
 
   useEffect(() => {
     if (!open) return;
-    const duration = 2000;
-    const end = Date.now() + duration;
-    const frame = () => {
-      confetti({
-        particleCount: 3,
-        angle: 60,
-        spread: 60,
-        origin: { x: 0, y: 0.7 },
-        colors: ["#facc15", "#22c55e", "#3b82f6"],
-      });
-      confetti({
-        particleCount: 3,
-        angle: 120,
-        spread: 60,
-        origin: { x: 1, y: 0.7 },
-        colors: ["#facc15", "#22c55e", "#3b82f6"],
-      });
-      if (Date.now() < end) requestAnimationFrame(frame);
-    };
-    frame();
+    const stop = fireExamPassSalute(2000);
 
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") onClose();
     }
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      stop();
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [open, onClose]);
 
   if (!open) return null;

@@ -30,9 +30,12 @@ import { type AnswerState } from "@/components/shared/answer-option";
 import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
 import { OfficialAvtotestExamView } from "@/components/exam/official-avtotest-exam-view";
+import { ExamPassCelebration } from "@/components/exam/exam-pass-celebration";
+import { BiletPraiseBanner } from "@/components/exam/bilet-praise-banner";
 import { GrandMockCertificateDialog } from "@/components/mock/grand-mock-certificate-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { meetsExamPassThreshold } from "@/lib/celebration-confetti";
 
 /** Modes that share the strict timed/anti-cheat exam pipeline — timer,
  * answer redaction until finish, F-key exam UI. Currently "exam",
@@ -100,10 +103,15 @@ export default function TestSessionPage() {
   const [finishing, setFinishing] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [certificateOpen, setCertificateOpen] = useState(false);
+  const [examPassOpen, setExamPassOpen] = useState(false);
+  const [biletPraiseOpen, setBiletPraiseOpen] = useState(false);
   const [pendingFsrsQuestionId, setPendingFsrsQuestionId] = useState<string | null>(null);
   const initializedSessionRef = useRef<string | null>(null);
   const viewedQuestionsRef = useRef<Set<string>>(new Set());
   const certificateShownForRef = useRef<string | null>(null);
+  const examPassShownForRef = useRef<string | null>(null);
+  const biletPraiseShownForRef = useRef<string | null>(null);
+  const autoFinishAttemptedRef = useRef<string | null>(null);
   const questionShownAtRef = useRef(Date.now());
   const fsrsSubmittedRef = useRef<Set<string>>(new Set());
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
@@ -161,6 +169,38 @@ export default function TestSessionPage() {
       certificateShownForRef.current = session.id;
       setCertificateOpen(true);
     }
+  }, [session]);
+
+  // Official exam simulation win moment — once per passed session.
+  useEffect(() => {
+    if (
+      session &&
+      session.mode === "exam" &&
+      session.status === "completed" &&
+      session.passed === true &&
+      examPassShownForRef.current !== session.id
+    ) {
+      examPassShownForRef.current = session.id;
+      setExamPassOpen(true);
+    }
+  }, [session]);
+
+  // Bilet praise when the learner hits the exam pass bar (≥18/20) — lighter
+  // than the full exam salute.
+  useEffect(() => {
+    if (
+      !session ||
+      session.mode !== "variant" ||
+      session.status !== "completed" ||
+      biletPraiseShownForRef.current === session.id
+    ) {
+      return;
+    }
+    const score = session.score ?? 0;
+    const total = session.total ?? session.questions.length;
+    if (!meetsExamPassThreshold(score, total)) return;
+    biletPraiseShownForRef.current = session.id;
+    setBiletPraiseOpen(true);
   }, [session]);
 
   useEffect(() => {
@@ -257,7 +297,7 @@ export default function TestSessionPage() {
   );
 
   const handleFinish = useCallback(async () => {
-    if (!session || session.status !== "active" || finishing || submitting) return;
+    if (!session || session.status !== "active" || finishing || submitting) return null;
     setFinishing(true);
     setPendingAnswer(null);
     try {
@@ -277,10 +317,26 @@ export default function TestSessionPage() {
           stopped_reason: completed.stopped_reason,
         });
       }
+      return completed;
     } finally {
       setFinishing(false);
     }
   }, [finishSession, finishing, flushPendingFsrs, session, sessionId, submitting]);
+
+  // Exam-like modes had no reachable finish control after the last answer, so
+  // a clean pass could sit on the active UI until the timer expired. Auto-finish
+  // once every question is recorded (manual Finish remains as a backup).
+  useEffect(() => {
+    if (!session || session.status !== "active" || finishing || submitting) return;
+    if (!isExamLikeMode(session.mode)) return;
+    const qs = session.questions ?? [];
+    if (qs.length === 0 || !qs.every(hasAnswer)) return;
+    if (autoFinishAttemptedRef.current === session.id) return;
+    autoFinishAttemptedRef.current = session.id;
+    void handleFinish().then((completed) => {
+      if (!completed) autoFinishAttemptedRef.current = null;
+    });
+  }, [session, finishing, submitting, handleFinish]);
 
   const questions = session?.questions ?? [];
   const currentQuestion = questions[currentIndex];
@@ -624,6 +680,28 @@ export default function TestSessionPage() {
             score={score}
             total={total}
             shareCode={session.certificate_share_code}
+          />
+        )}
+
+        {session.mode === "exam" && (
+          <ExamPassCelebration
+            open={examPassOpen}
+            onClose={() => setExamPassOpen(false)}
+            onDashboard={() => {
+              setExamPassOpen(false);
+              router.push(`/${locale}/dashboard`);
+            }}
+            score={score}
+            total={total}
+          />
+        )}
+
+        {session.mode === "variant" && (
+          <BiletPraiseBanner
+            open={biletPraiseOpen}
+            onClose={() => setBiletPraiseOpen(false)}
+            score={score}
+            total={total}
           />
         )}
       </main>
