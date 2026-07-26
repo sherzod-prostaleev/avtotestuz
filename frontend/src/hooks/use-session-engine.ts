@@ -96,6 +96,9 @@ export interface StartSessionOptions {
   sign_id?: string;
   /** Practice selector: true = illustrated questions only, false = text-only. */
   has_image?: boolean;
+  /** Practice bilet span (inclusive numbers), e.g. 1–60. */
+  variant_from?: number;
+  variant_to?: number;
   question_count?: number;
   locale?: string;
 }
@@ -393,6 +396,17 @@ export function useSessionEngine(_initialSessionId?: string) {
         }
         if (options?.has_image !== undefined) {
           payload.has_image = options.has_image;
+        }
+        if (
+          options?.variant_from !== undefined &&
+          options?.variant_to !== undefined &&
+          Number.isInteger(options.variant_from) &&
+          Number.isInteger(options.variant_to) &&
+          options.variant_from > 0 &&
+          options.variant_to >= options.variant_from
+        ) {
+          payload.variant_from = options.variant_from;
+          payload.variant_to = options.variant_to;
         }
         if (options?.question_count !== undefined && options.question_count !== null) {
           payload.count = options.question_count;

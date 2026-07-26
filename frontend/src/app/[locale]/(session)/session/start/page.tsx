@@ -51,6 +51,8 @@ function SessionStartContent() {
       const categoryParam = searchParams.get("category_id");
       const signParam = searchParams.get("sign_id");
       const hasImageParam = searchParams.get("has_image");
+      const variantFromParam = searchParams.get("variant_from");
+      const variantToParam = searchParams.get("variant_to");
       const countParam = searchParams.get("count");
 
       const mode: SessionMode = isSessionMode(modeParam) ? modeParam : variantParam ? "variant" : "exam";
@@ -63,6 +65,17 @@ function SessionStartContent() {
       // a malformed URL cannot silently narrow the question pool.
       if (hasImageParam === "true" || hasImageParam === "false") {
         options.has_image = hasImageParam === "true";
+      }
+      const variantFrom = variantFromParam ? Number(variantFromParam) : NaN;
+      const variantTo = variantToParam ? Number(variantToParam) : NaN;
+      if (
+        Number.isInteger(variantFrom) &&
+        Number.isInteger(variantTo) &&
+        variantFrom > 0 &&
+        variantTo >= variantFrom
+      ) {
+        options.variant_from = variantFrom;
+        options.variant_to = variantTo;
       }
 
       if (countParam) {

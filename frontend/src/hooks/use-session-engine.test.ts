@@ -134,6 +134,29 @@ describe("useSessionEngine", () => {
     expect(apiClient.apiGet).toHaveBeenCalledWith(scopedQuestionPath("sess-99", "q-1", "ru"));
   });
 
+  it("serializes practice bilet range selectors", async () => {
+    const post = vi.spyOn(apiClient, "apiPost").mockResolvedValue(startResponse() as never);
+    mockOnlyScopedQuestions();
+    const { result } = renderHook(() => useSessionEngine());
+
+    await act(async () => {
+      await result.current.startSession("practice", {
+        variant_from: 1,
+        variant_to: 60,
+        question_count: 50,
+        locale: LOCALE,
+      });
+    });
+
+    expect(post).toHaveBeenCalledWith("sessions", {
+      mode: "practice",
+      locale: LOCALE,
+      variant_from: 1,
+      variant_to: 60,
+      count: 50,
+    });
+  });
+
   it.each([
     [402, "vip_required", "active entitlement required"],
     [429, "daily_limit_reached", "daily practice limit reached"],

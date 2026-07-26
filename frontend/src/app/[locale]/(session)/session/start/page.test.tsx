@@ -102,6 +102,24 @@ describe("SessionStartPage", () => {
     );
   });
 
+  it("forwards variant_from/variant_to, count, and the current locale", async () => {
+    navigation.searchParams = new URLSearchParams(
+      "mode=practice&variant_from=1&variant_to=60&count=50"
+    );
+    const startSession = mockSessionEngine();
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(startSession).toHaveBeenCalledWith("practice", {
+        variant_from: 1,
+        variant_to: 60,
+        question_count: 50,
+        locale: "uz-Latn",
+      })
+    );
+  });
+
   it("starts only once when React StrictMode re-runs the effect", async () => {
     navigation.searchParams = new URLSearchParams("mode=exam");
     const startSession = mockSessionEngine();
