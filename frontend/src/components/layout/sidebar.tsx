@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { startTransition, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -76,7 +76,9 @@ export function Sidebar() {
   const handleLanguageChange = (newLocale: string) => {
     if (newLocale === currentLocale) return;
     const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    router.push(newPath);
+    startTransition(() => {
+      router.replace(newPath);
+    });
   };
 
   const isLinkActive = (href: string) => {

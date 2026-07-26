@@ -8,7 +8,12 @@ import { ThemeToggle } from "./theme-toggle";
 function renderWithTheme() {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="dark"
+        enableSystem={false}
+        value={{ light: "light", dark: "dark" }}
+      >
         <ThemeToggle />
       </ThemeProvider>
     </NextIntlClientProvider>

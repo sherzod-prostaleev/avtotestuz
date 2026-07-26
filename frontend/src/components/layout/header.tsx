@@ -1,5 +1,6 @@
 "use client";
 
+import { startTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -30,7 +31,9 @@ export function Header() {
   const handleLanguageChange = (newLocale: string) => {
     if (newLocale === currentLocale) return;
     const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    router.push(newPath);
+    startTransition(() => {
+      router.replace(newPath);
+    });
   };
 
   const navLinks = [

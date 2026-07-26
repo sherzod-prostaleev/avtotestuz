@@ -9,39 +9,10 @@
 */
 
 @layer base {
-  :root {
-    /* Day asphalt — cool stone, not warm cream cliché */
-    --background: 220 16% 96%;
-    --foreground: 220 28% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 220 28% 10%;
-    --border: 220 12% 88%;
-    --input: 220 12% 90%;
-    --muted: 220 14% 92%;
-    --muted-foreground: 220 10% 42%;
-
-    /* Signal amber — attention / go */
-    --accent: 38 96% 48%;
-    --accent-foreground: 220 28% 8%;
-    --accent-shadow: 38 90% 36%;
-
-    --success: 152 72% 36%;
-    --success-foreground: 0 0% 100%;
-    --success-shadow: 152 72% 26%;
-    --danger: 4 78% 48%;
-    --danger-foreground: 0 0% 100%;
-    --danger-shadow: 4 78% 34%;
-    --destructive: 4 78% 48%;
-
-    --streak: 18 92% 48%;
-    --gold: 43 94% 48%;
-    --gold-shadow: 43 94% 34%;
-    --ring: 38 96% 48%;
-    --radius: 0.875rem;
-  }
-
+  :root,
   .dark {
-    /* Night asphalt */
+    /* Night asphalt — default paint (matches defaultTheme=dark).
+       Locale remounts must not flash light :root before .dark lands. */
     --background: 220 22% 7%;
     --foreground: 210 20% 96%;
     --card: 220 18% 11%;
@@ -67,6 +38,38 @@
     --gold: 43 94% 52%;
     --gold-shadow: 43 94% 34%;
     --ring: 38 96% 52%;
+    --radius: 0.875rem;
+    color-scheme: dark;
+  }
+
+  .light {
+    /* Day asphalt — cool stone, not warm cream cliché */
+    --background: 220 16% 96%;
+    --foreground: 220 28% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 28% 10%;
+    --border: 220 12% 88%;
+    --input: 220 12% 90%;
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 10% 42%;
+
+    --accent: 38 96% 48%;
+    --accent-foreground: 220 28% 8%;
+    --accent-shadow: 38 90% 36%;
+
+    --success: 152 72% 36%;
+    --success-foreground: 0 0% 100%;
+    --success-shadow: 152 72% 26%;
+    --danger: 4 78% 48%;
+    --danger-foreground: 0 0% 100%;
+    --danger-shadow: 4 78% 34%;
+    --destructive: 4 78% 48%;
+
+    --streak: 18 92% 48%;
+    --gold: 43 94% 48%;
+    --gold-shadow: 43 94% 34%;
+    --ring: 38 96% 48%;
+    color-scheme: light;
   }
 
   * {
@@ -78,11 +81,10 @@
     @apply selection:bg-accent/25 selection:text-foreground;
   }
 
-  /* Match defaultTheme=dark so first paint / locale remount never flashes light :root. */
   html {
     background-color: hsl(220 22% 7%);
   }
-  html:not(.dark) {
+  html.light {
     background-color: hsl(220 16% 96%);
   }
 

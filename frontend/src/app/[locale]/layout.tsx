@@ -61,11 +61,10 @@ export default async function LocaleLayout({
   return (
     <html lang={locale} suppressHydrationWarning className={`${baloo.variable} ${manrope.variable}`}>
       <head>
-        {/* Paint dark class before hydration — defaultTheme is dark; without this,
-            locale navigations remount <html> and flash :root (light) background. */}
+        {/* Default CSS is dark; script keeps next-themes class in sync before paint. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem("theme");if(t!=="light"){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}else{document.documentElement.classList.remove("dark");document.documentElement.style.colorScheme="light";}}catch(e){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";}})();`,
+            __html: `(function(){try{var d=document.documentElement;var t=localStorage.getItem("theme");if(t==="light"){d.classList.add("light");d.classList.remove("dark");d.style.colorScheme="light";d.style.backgroundColor="hsl(220 16% 96%)";}else{d.classList.add("dark");d.classList.remove("light");d.style.colorScheme="dark";d.style.backgroundColor="hsl(220 22% 7%)";}}catch(e){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";document.documentElement.style.backgroundColor="hsl(220 22% 7%)";}})();`,
           }}
         />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />

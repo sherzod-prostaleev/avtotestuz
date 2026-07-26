@@ -12,6 +12,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
       enableSystem={false}
       storageKey="theme"
       disableTransitionOnChange
+      value={{ light: "light", dark: "dark" }}
     >
       <InitSentry />
       <RegisterServiceWorker />
