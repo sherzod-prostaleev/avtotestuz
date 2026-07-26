@@ -100,6 +100,38 @@ type ListExplanationsResult struct {
 	Total int                   `json:"total"`
 }
 
+// TicketDirectoryRow is a list row for GET /admin/v1/content/tickets (variant/bilet).
+type TicketDirectoryRow struct {
+	Number        int `json:"number"`
+	QuestionCount int `json:"question_count"`
+	SortOrder     int `json:"sort_order"`
+}
+
+// ListTicketsResult is a paginated tickets (variants) directory.
+type ListTicketsResult struct {
+	Items []TicketDirectoryRow `json:"items"`
+	Page  int                  `json:"page"`
+	Limit int                  `json:"limit"`
+	Total int                  `json:"total"`
+}
+
+// SignDirectoryRow is a list row for GET /admin/v1/content/signs.
+type SignDirectoryRow struct {
+	Code          string `json:"code"`
+	GroupCode     string `json:"group_code"`
+	Name          string `json:"name"`
+	QuestionCount int    `json:"question_count"`
+	HasImage      bool   `json:"has_image"`
+}
+
+// ListSignsResult is a paginated signs directory.
+type ListSignsResult struct {
+	Items []SignDirectoryRow `json:"items"`
+	Page  int                `json:"page"`
+	Limit int                `json:"limit"`
+	Total int                `json:"total"`
+}
+
 // ListQuestions returns questions matching search/filters, newest updated first.
 func (s Store) ListQuestions(ctx context.Context, q, category, validation, explanation string, page, limit int) (ListQuestionsResult, error) {
 	if page < 1 {
@@ -197,6 +229,113 @@ func (s Store) ListQuestions(ctx context.Context, q, category, validation, expla
 		return ListQuestionsResult{}, err
 	}
 	return ListQuestionsResult{Items: items, Page: page, Limit: limit, Total: total}, nil
+}
+
+// ListTickets returns numbered bilets (variants) with question counts.
+func (s Store) ListTickets(ctx context.Context, q string, page, limit int) (ListTicketsResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	q = strings.TrimSpace(q)
+	offset := (page - 1) * limit
+
+	where := `WHERE ($1 = '' OR v.number::text ILIKE '%' || $1 || '%')`
+
+	var total int
+	err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int FROM variant v `+where, q).Scan(&total)
+	if err != nil {
+		return ListTicketsResult{}, err
+	}
+
+	rows, err := s.Pool.Query(ctx, `
+		SELECT v.number, v.sort_order, count(vq.question_id)::int AS question_count
+		FROM variant v
+		LEFT JOIN variant_question vq ON vq.variant_id = v.id
+		`+where+`
+		GROUP BY v.id, v.number, v.sort_order
+		ORDER BY v.number
+		LIMIT $2 OFFSET $3`, q, limit, offset)
+	if err != nil {
+		return ListTicketsResult{}, err
+	}
+	defer rows.Close()
+
+	items := make([]TicketDirectoryRow, 0)
+	for rows.Next() {
+		var row TicketDirectoryRow
+		if err := rows.Scan(&row.Number, &row.SortOrder, &row.QuestionCount); err != nil {
+			return ListTicketsResult{}, err
+		}
+		items = append(items, row)
+	}
+	if err := rows.Err(); err != nil {
+		return ListTicketsResult{}, err
+	}
+	return ListTicketsResult{Items: items, Page: page, Limit: limit, Total: total}, nil
+}
+
+// ListSigns returns road signs with uz-Latn name preview and question counts.
+func (s Store) ListSigns(ctx context.Context, q, group string, page, limit int) (ListSignsResult, error) {
+	if page < 1 {
+		page = 1
+	}
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	q = strings.TrimSpace(q)
+	group = strings.TrimSpace(group)
+	offset := (page - 1) * limit
+
+	where := `
+		WHERE ($1 = '' OR g.code = $1)
+		AND ($2 = '' OR s.code ILIKE '%' || $2 || '%'
+		  OR COALESCE(st.name, '') ILIKE '%' || $2 || '%')`
+
+	var total int
+	err := s.Pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int
+		FROM sign s
+		JOIN sign_group g ON g.id = s.group_id
+		LEFT JOIN sign_translation st
+		  ON st.sign_id = s.id AND st.locale = 'uz-Latn'
+		`+where, group, q).Scan(&total)
+	if err != nil {
+		return ListSignsResult{}, err
+	}
+
+	rows, err := s.Pool.Query(ctx, `
+		SELECT s.code, g.code AS group_code,
+		       COALESCE(st.name, '') AS name,
+		       (SELECT count(*)::int FROM question_sign qs WHERE qs.sign_id = s.id) AS question_count,
+		       (s.image_id IS NOT NULL) AS has_image
+		FROM sign s
+		JOIN sign_group g ON g.id = s.group_id
+		LEFT JOIN sign_translation st
+		  ON st.sign_id = s.id AND st.locale = 'uz-Latn'
+		`+where+`
+		ORDER BY g.sort_order, s.sort_order, s.code
+		LIMIT $3 OFFSET $4`, group, q, limit, offset)
+	if err != nil {
+		return ListSignsResult{}, err
+	}
+	defer rows.Close()
+
+	items := make([]SignDirectoryRow, 0)
+	for rows.Next() {
+		var row SignDirectoryRow
+		if err := rows.Scan(&row.Code, &row.GroupCode, &row.Name, &row.QuestionCount, &row.HasImage); err != nil {
+			return ListSignsResult{}, err
+		}
+		items = append(items, row)
+	}
+	if err := rows.Err(); err != nil {
+		return ListSignsResult{}, err
+	}
+	return ListSignsResult{Items: items, Page: page, Limit: limit, Total: total}, nil
 }
 
 // GetQuestion returns one question with answers, translations, variants, explanation.

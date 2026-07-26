@@ -59,8 +59,8 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [
         { href: `${base}/content/questions`, labelKey: "questions" },
         { href: `${base}/content/explanations`, labelKey: "explanations" },
-        { href: `${base}/content/tickets`, labelKey: "tickets", stub: true },
-        { href: `${base}/content/signs`, labelKey: "signs", stub: true },
+        { href: `${base}/content/tickets`, labelKey: "tickets" },
+        { href: `${base}/content/signs`, labelKey: "signs" },
       ],
     },
     {
@@ -68,7 +68,9 @@ export function adminNav(locale: string): AdminNavGroup[] {
       items: [
         { href: `${base}/payments/transactions`, labelKey: "transactions" },
         { href: `${base}/payments/refunds`, labelKey: "refunds" },
+        { href: `${base}/payments/webhooks`, labelKey: "webhooks", stub: true },
         { href: `${base}/payments/providers`, labelKey: "providers" },
+        { href: `${base}/payments/catalog`, labelKey: "catalog", stub: true },
         { href: `${base}/payments/recon`, labelKey: "recon" },
       ],
     },

@@ -211,6 +211,74 @@ func TestAdminContentQuestionsAndExplanations(t *testing.T) {
 		}
 	})
 
+	t.Run("list tickets", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/admin/v1/content/tickets?q=7&page=1&limit=20", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data ListTicketsResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.Total != 1 || len(env.Data.Items) != 1 {
+			t.Fatalf("got %+v", env.Data)
+		}
+		if env.Data.Items[0].Number != 7 || env.Data.Items[0].QuestionCount != 1 {
+			t.Fatalf("row=%+v", env.Data.Items[0])
+		}
+	})
+
+	t.Run("list signs", func(t *testing.T) {
+		var sgID, signID uuid.UUID
+		if err := pool.QueryRow(context.Background(),
+			`INSERT INTO sign_group (code, sort_order) VALUES ('warning', 1) RETURNING id`).Scan(&sgID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO sign_group_translation VALUES ($1,'uz-Latn','Ogohlantirish','verified')`, sgID); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(context.Background(),
+			`INSERT INTO sign (group_id, code, sort_order) VALUES ($1,'1.1',1) RETURNING id`, sgID).Scan(&signID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO sign_translation VALUES ($1,'uz-Latn','Xavfli burilish','','verified')`, signID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO question_sign VALUES ($1,$2)`, qID, signID); err != nil {
+			t.Fatal(err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet,
+			"/admin/v1/content/signs?q=Xavf&group=warning&page=1&limit=20", nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		}
+		var env struct {
+			Data ListSignsResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.Total != 1 || len(env.Data.Items) != 1 {
+			t.Fatalf("got %+v", env.Data)
+		}
+		row := env.Data.Items[0]
+		if row.Code != "1.1" || row.GroupCode != "warning" || row.QuestionCount != 1 {
+			t.Fatalf("row=%+v", row)
+		}
+	})
+
 	t.Run("support denied content.read", func(t *testing.T) {
 		supportID := uuid.New()
 		hash, err := auth.HashPassword("password123")

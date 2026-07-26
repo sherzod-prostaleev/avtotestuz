@@ -76,6 +76,8 @@ func (h *Handler) Routes(r chi.Router) {
 			cr.Get("/content/questions/{id}", h.getQuestion)
 			cr.Get("/content/questions/{id}/revisions", h.listQuestionRevisions)
 			cr.Get("/content/explanations", h.listExplanations)
+			cr.Get("/content/tickets", h.listTickets)
+			cr.Get("/content/signs", h.listSigns)
 		})
 		pr.Group(func(cr chi.Router) {
 			cr.Use(RequirePermission("content.questions.write"))
@@ -115,6 +117,7 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(mr chi.Router) {
 			mr.Use(RequirePermission("monitoring.read"))
 			mr.Get("/monitoring/health", h.getMonitoringHealth)
+			mr.Get("/monitoring/stream", h.streamMonitoring)
 			mr.Get("/monitoring/metrics", h.getMonitoringMetrics)
 			mr.Get("/monitoring/jobs", h.listMonitoringJobs)
 			mr.Get("/monitoring/feed", h.getMonitoringFeed)
@@ -646,6 +649,33 @@ func (h *Handler) listQuestions(w http.ResponseWriter, r *http.Request) {
 	)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "questions query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listTickets(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	out, err := h.Svc.Store.ListTickets(r.Context(), r.URL.Query().Get("q"), page, limit)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "tickets query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listSigns(w http.ResponseWriter, r *http.Request) {
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	out, err := h.Svc.Store.ListSigns(
+		r.Context(),
+		r.URL.Query().Get("q"),
+		r.URL.Query().Get("group"),
+		page, limit,
+	)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "signs query failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
