@@ -65,16 +65,16 @@ export function AnswerOption({
       data-answer-option=""
       className={`group relative flex h-auto w-full shrink-0 items-start justify-between overflow-visible text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed ${
         dense
-          ? "min-h-10 gap-2 rounded-xl border px-2.5 py-2 sm:min-h-12 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+          ? "session-answer-option min-h-9 gap-1.5 rounded-xl border px-2 py-1.5 sm:min-h-12 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-2.5"
           : "min-h-14 gap-3 rounded-2xl border px-3.5 py-3 sm:min-h-[3.5rem] sm:gap-4 sm:px-4"
       } ${pressable ? "active:translate-y-0.5 active:bg-accent/5 active:shadow-none" : ""} ${stateStyles[normalizedState]}`}
     >
-      <div className={`flex min-w-0 flex-1 items-start ${dense ? "gap-2 sm:gap-3" : "gap-3"}`}>
+      <div className={`flex min-w-0 flex-1 items-start ${dense ? "gap-1.5 sm:gap-3" : "gap-3"}`}>
         {keyLabel && (
           <span
             className={`mt-0.5 flex shrink-0 items-center justify-center border font-bold transition-colors ${
               dense
-                ? "h-8 w-8 rounded-lg text-xs sm:h-9 sm:w-9 sm:rounded-xl sm:text-sm"
+                ? "session-answer-badge h-7 w-7 rounded-lg text-[11px] sm:h-9 sm:w-9 sm:rounded-xl sm:text-sm"
                 : "h-10 w-10 rounded-xl text-sm sm:h-9 sm:w-9"
             } ${keyBadgeStyles[normalizedState]}`}
           >
@@ -83,7 +83,9 @@ export function AnswerOption({
         )}
         <span
           className={`min-w-0 flex-1 break-words whitespace-normal font-semibold leading-snug [overflow-wrap:anywhere] ${
-            dense ? "text-sm sm:text-base sm:leading-relaxed" : "text-base sm:text-lg sm:leading-relaxed"
+            dense
+              ? "session-answer-text text-[13px] sm:text-base sm:leading-relaxed"
+              : "text-base sm:text-lg sm:leading-relaxed"
           }`}
         >
           {text}

@@ -119,7 +119,7 @@ describe("QuestionStage", () => {
     expect(screen.queryByRole("button", { name: "Ekspert tahlili" })).not.toBeInTheDocument();
   });
 
-  it("keeps answer rows content-sized so long options can scroll instead of crush", () => {
+  it("keeps answer rows content-sized so options never crush or overlap", () => {
     renderStage(
       buildQuestion({
         answers: [
@@ -133,6 +133,10 @@ describe("QuestionStage", () => {
       } as Partial<SessionQuestionItem>)
     );
 
+    const stage = screen.getByTestId("question-stage");
+    expect(stage.className).toMatch(/\boverflow-hidden\b/);
+    expect(stage.className).not.toMatch(/\boverflow-y-auto\b/);
+
     const list = screen.getByTestId("answer-list");
     const buttons = list.querySelectorAll("[data-answer-option]");
     expect(buttons).toHaveLength(3);
@@ -140,5 +144,11 @@ describe("QuestionStage", () => {
       expect(button.className).toMatch(/\bshrink-0\b/);
       expect(button.className).toMatch(/\bh-auto\b/);
     });
+  });
+
+  it("exposes a fit-scale attribute for viewport compaction", () => {
+    renderStage(buildQuestion());
+    const stage = screen.getByTestId("question-stage");
+    expect(stage).toHaveAttribute("data-fit-scale");
   });
 });

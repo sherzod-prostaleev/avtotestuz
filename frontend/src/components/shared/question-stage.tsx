@@ -3,12 +3,13 @@
 import { useTranslations } from "next-intl";
 import { BookOpen, ZoomIn } from "lucide-react";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
+import { useFitScale } from "@/hooks/use-fit-scale";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
 
 /**
  * Beyond this much combined question + answer text the default density stops fitting a short
- * laptop viewport, so the stage drops one step rather than letting the page scroll.
+ * laptop viewport, so the stage drops one step rather than overflowing.
  */
 const COMPACT_TEXT_THRESHOLD = 420;
 const COMPACT_ANSWER_COUNT = 5;
@@ -34,11 +35,11 @@ function isCompact(question: SessionQuestionItem): boolean {
 }
 
 /**
- * Answering surface for practice/exam sessions.
+ * Answering surface for practice sessions.
  *
- * Mobile: content-sized column that scrolls inside the handed height — answer buttons must
- * never be height-crushed (that caused overlapping F1/F2/F3 labels). Image is capped with
- * vh + dvh so older engines that reject `dvh` still get a usable max.
+ * Mobile: fixed-height shell — no page/stage scroll. Image/gaps/type compact via CSS;
+ * if content still exceeds the handed height, useFitScale scales the block down (never up).
+ * Answers stay content-sized (shrink-0 / h-auto) so F1/F2 labels never overlap.
  *
  * Desktop (lg+): two-column grid; image absorbs slack via object-contain.
  */
@@ -59,9 +60,17 @@ export function QuestionStage({
   const hasExplanation = Boolean(question.explanation && question.explanation.blocks.length > 0);
   const progressPct = totalQuestions > 0 ? Math.round((questionNumber / totalQuestions) * 100) : 0;
 
+  const { viewportRef, contentRef, scale, contentStyle } = useFitScale([
+    question.id,
+    question.question,
+    question.answers.length,
+    answered,
+    hasExplanation,
+  ]);
+
   const questionColumn = (
-    <div className="flex min-h-0 w-full flex-col gap-1.5 sm:gap-3 lg:h-full">
-      <div className="shrink-0 space-y-1 sm:space-y-2">
+    <div className="session-question-copy flex min-h-0 w-full flex-col gap-1 sm:gap-3 lg:h-full">
+      <div className="shrink-0 space-y-0.5 sm:space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-extrabold tabular-nums text-accent sm:px-3 sm:py-1 sm:text-xs">
             {t("questionPosition", { number: questionNumber, total: totalQuestions })}
@@ -83,14 +92,14 @@ export function QuestionStage({
             style={{ width: `${progressPct}%` }}
           />
         </div>
-        <h1 className="font-display text-sm font-bold leading-snug tracking-tight text-foreground sm:text-xl">
+        <h1 className="session-question-title font-display font-bold leading-snug tracking-tight text-foreground">
           {question.question}
         </h1>
       </div>
 
       <div
         data-testid="answer-list"
-        className="flex flex-col gap-1.5 sm:gap-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+        className="flex flex-col gap-1 sm:gap-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
       >
         {question.answers.map((answer, index) => (
           <AnswerOption
@@ -123,33 +132,41 @@ export function QuestionStage({
 
   return (
     <div
+      ref={viewportRef}
       data-testid="question-stage"
       data-layout="two-column"
       data-density={compact ? "compact" : "default"}
-      className="flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto overscroll-contain sm:gap-3 lg:grid lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden"
+      data-fit-scale={scale.toFixed(3)}
+      className="h-full min-h-0 overflow-hidden"
     >
-      <button
-        type="button"
-        onClick={onZoomImage}
-        aria-label={t("zoomImage")}
-        className="session-question-image group relative order-first min-h-[7rem] w-full shrink-0 overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-2xl lg:order-last lg:h-full lg:min-h-0"
+      <div
+        ref={contentRef}
+        style={contentStyle}
+        className="flex flex-col gap-1 sm:gap-3 lg:grid lg:h-full lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4"
       >
-        {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          key={question.id}
-          src={imageUrl}
-          alt={t("questionImageAlt", { number: questionNumber })}
-          decoding="async"
-          className="h-full w-full object-contain"
-        />
-        <span className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/90 text-background sm:bottom-2 sm:right-2 sm:min-h-9 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:font-bold">
-          <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
-          <span className="hidden sm:inline">{t("zoomImage")}</span>
-        </span>
-      </button>
+        <button
+          type="button"
+          onClick={onZoomImage}
+          aria-label={t("zoomImage")}
+          className="session-question-image group relative order-first w-full min-h-0 shrink overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-2xl lg:order-last lg:h-full lg:min-h-0 lg:shrink"
+        >
+          {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            key={question.id}
+            src={imageUrl}
+            alt={t("questionImageAlt", { number: questionNumber })}
+            decoding="async"
+            className="h-auto max-h-full w-full object-contain lg:h-full"
+          />
+          <span className="absolute bottom-1.5 right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/90 text-background sm:bottom-2 sm:right-2 sm:min-h-9 sm:w-auto sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs sm:font-bold">
+            <ZoomIn className="h-3.5 w-3.5 sm:h-4 sm:w-4" aria-hidden="true" />
+            <span className="hidden sm:inline">{t("zoomImage")}</span>
+          </span>
+        </button>
 
-      {questionColumn}
+        {questionColumn}
+      </div>
     </div>
   );
 }

@@ -7,6 +7,7 @@ import { LoaderCircle, X, ZoomIn } from "lucide-react";
 import type { SessionQuestionItem, SessionState } from "@/hooks/use-session-engine";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
+import { useFitScale } from "@/hooks/use-fit-scale";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
 
 interface OfficialAvtotestExamViewProps {
@@ -77,6 +78,13 @@ export function OfficialAvtotestExamView({
   const allAnswered =
     questions.length > 0 &&
     questions.every((q) => q.answered === true || Boolean(q.user_answer_id));
+
+  const { viewportRef, contentRef, scale, contentStyle } = useFitScale([
+    currentQuestion?.id,
+    currentQuestion?.question,
+    currentQuestion?.answers.length,
+    currentIndex,
+  ]);
 
   useEffect(() => {
     activeChipRef.current?.scrollIntoView({
@@ -214,65 +222,77 @@ export function OfficialAvtotestExamView({
             {t("examBannerPassed")}
           </div>
         ) : (
-          <div className="w-full bg-[#0d2e4d] border-y border-[#204a75] text-white text-center py-3.5 px-8 text-lg font-extrabold leading-relaxed tracking-wide shadow-md max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
+          <div className="exam-question-banner w-full border-y border-[#204a75] bg-[#0d2e4d] px-8 py-3.5 text-center text-lg font-extrabold leading-relaxed tracking-wide text-white shadow-md max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
             {currentQuestion ? currentQuestion.question : "Yuklanmoqda..."}
           </div>
         )}
       </div>
 
-      {/* ═══ MAIN 2-COLUMN LAYOUT (desktop) / STACKED (mobile only) ═══ */}
-      <main className="relative z-10 flex flex-1 min-h-0 w-full px-5 py-4 gap-5 items-stretch max-lg:flex-col max-lg:gap-1.5 max-lg:overflow-hidden max-lg:px-2 max-lg:py-1.5">
-        {/* LEFT: Answer options — on mobile rendered after image */}
-        <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:min-h-0 max-lg:w-full max-lg:flex-1 max-lg:gap-1.5 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pt-0">
-          {currentQuestion?.answers.map((answer, index) => {
-            const shortcutLabel = `F${index + 1}`;
-            const visual = examVisual(currentQuestion, answer.id, pendingAnswer);
-            const isAnswered = currentQuestion.answered || Boolean(currentQuestion.user_answer_id);
+      {/* ═══ MAIN 2-COLUMN LAYOUT (desktop) / STACKED fit-to-viewport (mobile) ═══ */}
+      <main className="relative z-10 flex min-h-0 w-full flex-1 flex-col overflow-hidden px-5 py-4 max-lg:px-2 max-lg:py-1.5">
+        <div
+          ref={viewportRef}
+          data-fit-scale={scale.toFixed(3)}
+          className="min-h-0 w-full flex-1 overflow-hidden"
+        >
+          <div
+            ref={contentRef}
+            style={contentStyle}
+            className="flex h-full min-h-0 w-full items-stretch gap-5 max-lg:h-auto max-lg:flex-col max-lg:gap-1.5"
+          >
+            {/* LEFT: Answer options — on mobile rendered after image; never scroll/crush */}
+            <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:w-full max-lg:gap-1 max-lg:pt-0">
+              {currentQuestion?.answers.map((answer, index) => {
+                const shortcutLabel = `F${index + 1}`;
+                const visual = examVisual(currentQuestion, answer.id, pendingAnswer);
+                const isAnswered = currentQuestion.answered || Boolean(currentQuestion.user_answer_id);
 
-            return (
-              <button
-                key={answer.id}
-                type="button"
-                disabled={isAnswered || submitting || finishing || isCompleted}
-                onClick={() => onSelectAnswer(currentQuestion.id, answer.id)}
-                className={`group flex h-auto w-full shrink-0 items-stretch rounded-sm border transition-all text-left text-base font-semibold max-lg:min-h-9 ${btnStyles[visual]}`}
-              >
-                {/* F-key badge */}
-                <div
-                  className={`flex w-12 shrink-0 items-center justify-center font-black text-base border-r transition-colors max-lg:w-9 max-lg:text-xs ${badgeStyles[visual]}`}
-                >
-                  {shortcutLabel}
-                </div>
-                {/* Text — wrap inside the button; never crush height (overflow overlap bug). */}
-                <div className="flex min-w-0 flex-1 items-center break-words whitespace-normal px-4 py-3 leading-normal text-white font-medium [overflow-wrap:anywhere] max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] max-lg:leading-snug">
-                  {answer.text}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* RIGHT: Question image — real media when present, Driver Go cars placeholder otherwise */}
-        {currentQuestion && questionImageUrl ? (
-          <div className="exam-question-image flex flex-1 items-center justify-center min-h-0 max-lg:order-1 max-lg:min-h-0 max-lg:shrink-0 max-lg:flex-none lg:h-auto lg:max-h-none">
-            <div
-              className="relative flex h-full w-full items-center justify-center border-2 border-slate-300 bg-black overflow-hidden cursor-pointer shadow-xl rounded-sm"
-              onClick={() => setZoomImageUrl(questionImageUrl)}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                key={currentQuestion.id}
-                src={questionImageUrl}
-                alt={currentQuestion.question}
-                decoding="async"
-                className="h-full w-full object-contain"
-              />
-              <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 hover:text-white transition-opacity max-lg:top-1 max-lg:right-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center max-lg:p-0">
-                <ZoomIn className="w-5 h-5 max-lg:h-3.5 max-lg:w-3.5" />
-              </div>
+                return (
+                  <button
+                    key={answer.id}
+                    type="button"
+                    disabled={isAnswered || submitting || finishing || isCompleted}
+                    onClick={() => onSelectAnswer(currentQuestion.id, answer.id)}
+                    className={`group flex h-auto w-full shrink-0 items-stretch rounded-sm border transition-all text-left text-base font-semibold max-lg:min-h-8 ${btnStyles[visual]}`}
+                  >
+                    {/* F-key badge */}
+                    <div
+                      className={`flex w-12 shrink-0 items-center justify-center font-black text-base border-r transition-colors max-lg:w-8 max-lg:text-[11px] ${badgeStyles[visual]}`}
+                    >
+                      {shortcutLabel}
+                    </div>
+                    {/* Text — wrap inside the button; never crush height (overflow overlap bug). */}
+                    <div className="exam-answer-text flex min-w-0 flex-1 items-center break-words whitespace-normal px-4 py-3 leading-normal text-white font-medium [overflow-wrap:anywhere] max-lg:px-2 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
+                      {answer.text}
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            {/* RIGHT: Question image — real media when present, Driver Go cars placeholder otherwise */}
+            {currentQuestion && questionImageUrl ? (
+              <div className="exam-question-image flex min-h-0 flex-1 items-center justify-center max-lg:order-1 max-lg:w-full lg:h-auto lg:max-h-none">
+                <div
+                  className="relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden rounded-sm border-2 border-slate-300 bg-black shadow-xl"
+                  onClick={() => setZoomImageUrl(questionImageUrl)}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    key={currentQuestion.id}
+                    src={questionImageUrl}
+                    alt={currentQuestion.question}
+                    decoding="async"
+                    className="h-auto max-h-full w-full object-contain lg:h-full"
+                  />
+                  <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 transition-opacity hover:text-white max-lg:top-1 max-lg:right-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center max-lg:p-0">
+                    <ZoomIn className="h-5 w-5 max-lg:h-3.5 max-lg:w-3.5" />
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
-        ) : null}
+        </div>
       </main>
 
       {/* ═══ BOTTOM BAR ═══ */}
