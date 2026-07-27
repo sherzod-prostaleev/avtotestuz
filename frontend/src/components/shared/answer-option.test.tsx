@@ -32,6 +32,36 @@ describe("AnswerOption", () => {
     expect(screen.getByRole("button").className).not.toMatch(/active:scale/);
   });
 
+  it("never shrinks below content height (prevents overlapping answer text)", () => {
+    render(
+      <AnswerOption
+        shortcutLabel="F1"
+        text="Transport vositalaridan foydalanish va texnik holatiga javobgar mansabdor shaxslarning majburiyatlari"
+        state="correct"
+        dense
+      />
+    );
+    const button = screen.getByRole("button");
+    expect(button.className).toMatch(/\bshrink-0\b/);
+    expect(button.className).toMatch(/\bh-auto\b/);
+    expect(button.className).toMatch(/\boverflow-visible\b/);
+  });
+
+  it("lets long answer copy wrap inside the button", () => {
+    render(
+      <AnswerOption
+        shortcutLabel="F2"
+        text="Uzoq matn: chorrahada imtiyozga ega bo'lgan transport vositalarining harakatlanish tartibi"
+        state="neutral"
+        dense
+      />
+    );
+    const label = screen.getByText(/Uzoq matn/);
+    expect(label.className).toMatch(/\bbreak-words\b/);
+    expect(label.className).toMatch(/\bmin-w-0\b/);
+    expect(label.className).toMatch(/\bwhitespace-normal\b/);
+  });
+
   it("applies wrong-answer pulse class only for wrong/incorrect states", () => {
     const { rerender } = render(<AnswerOption shortcutLabel="F1" text="Variant" state="selected" />);
     expect(screen.getByRole("button").className).not.toContain("answer-wrong-pulse");

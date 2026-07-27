@@ -34,9 +34,13 @@ function isCompact(question: SessionQuestionItem): boolean {
 }
 
 /**
- * Owns the height budget of the answering surface. The page around it is a fixed-height flex
- * column, so this component must never grow past the space it is handed: the image absorbs the
- * slack via object-contain, and only the answer list may scroll internally as a last resort.
+ * Answering surface for practice/exam sessions.
+ *
+ * Mobile: content-sized column that scrolls inside the handed height — answer buttons must
+ * never be height-crushed (that caused overlapping F1/F2/F3 labels). Image is capped with
+ * vh + dvh so older engines that reject `dvh` still get a usable max.
+ *
+ * Desktop (lg+): two-column grid; image absorbs slack via object-contain.
  */
 export function QuestionStage({
   question,
@@ -56,7 +60,7 @@ export function QuestionStage({
   const progressPct = totalQuestions > 0 ? Math.round((questionNumber / totalQuestions) * 100) : 0;
 
   const questionColumn = (
-    <div className="flex h-full min-h-0 flex-col gap-1.5 sm:gap-3">
+    <div className="flex min-h-0 w-full flex-col gap-1.5 sm:gap-3 lg:h-full">
       <div className="shrink-0 space-y-1 sm:space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-extrabold tabular-nums text-accent sm:px-3 sm:py-1 sm:text-xs">
@@ -84,7 +88,10 @@ export function QuestionStage({
         </h1>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain sm:gap-2.5">
+      <div
+        data-testid="answer-list"
+        className="flex flex-col gap-1.5 sm:gap-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+      >
         {question.answers.map((answer, index) => (
           <AnswerOption
             key={answer.id}
@@ -119,13 +126,13 @@ export function QuestionStage({
       data-testid="question-stage"
       data-layout="two-column"
       data-density={compact ? "compact" : "default"}
-      className="grid h-full min-h-0 grid-rows-[minmax(0,22dvh)_minmax(0,1fr)] gap-1.5 sm:gap-3 lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4"
+      className="flex h-full min-h-0 flex-col gap-1.5 overflow-y-auto overscroll-contain sm:gap-3 lg:grid lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4 lg:overflow-hidden"
     >
       <button
         type="button"
         onClick={onZoomImage}
         aria-label={t("zoomImage")}
-        className="group relative order-first min-h-0 overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-2xl lg:order-last"
+        className="session-question-image group relative order-first min-h-[7rem] w-full shrink-0 overflow-hidden rounded-xl border border-border bg-muted/40 transition-colors hover:border-accent/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-2xl lg:order-last lg:h-full lg:min-h-0"
       >
         {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
         {/* eslint-disable-next-line @next/next/no-img-element */}

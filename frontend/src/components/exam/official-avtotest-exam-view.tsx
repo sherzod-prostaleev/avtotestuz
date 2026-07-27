@@ -133,7 +133,7 @@ export function OfficialAvtotestExamView({
   };
 
   return (
-    <div className="relative flex h-screen w-screen flex-col overflow-hidden bg-[#091726] text-white font-sans select-none subpixel-antialiased max-lg:h-[100dvh]">
+    <div className="exam-shell relative flex h-screen w-screen flex-col overflow-hidden bg-[#091726] text-white font-sans select-none subpixel-antialiased">
       {/* 3D cube mesh background (matching video wallpaper) */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -223,7 +223,7 @@ export function OfficialAvtotestExamView({
       {/* ═══ MAIN 2-COLUMN LAYOUT (desktop) / STACKED (mobile only) ═══ */}
       <main className="relative z-10 flex flex-1 min-h-0 w-full px-5 py-4 gap-5 items-stretch max-lg:flex-col max-lg:gap-1.5 max-lg:overflow-hidden max-lg:px-2 max-lg:py-1.5">
         {/* LEFT: Answer options — on mobile rendered after image */}
-        <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:min-h-0 max-lg:w-full max-lg:flex-1 max-lg:gap-1 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pt-0">
+        <div className="flex w-[38%] flex-col gap-3 justify-start pt-2 max-lg:order-2 max-lg:min-h-0 max-lg:w-full max-lg:flex-1 max-lg:gap-1.5 max-lg:overflow-y-auto max-lg:overscroll-contain max-lg:pt-0">
           {currentQuestion?.answers.map((answer, index) => {
             const shortcutLabel = `F${index + 1}`;
             const visual = examVisual(currentQuestion, answer.id, pendingAnswer);
@@ -235,7 +235,7 @@ export function OfficialAvtotestExamView({
                 type="button"
                 disabled={isAnswered || submitting || finishing || isCompleted}
                 onClick={() => onSelectAnswer(currentQuestion.id, answer.id)}
-                className={`group flex w-full items-stretch rounded-sm overflow-hidden border transition-all text-left text-base font-semibold max-lg:min-h-9 ${btnStyles[visual]}`}
+                className={`group flex h-auto w-full shrink-0 items-stretch rounded-sm border transition-all text-left text-base font-semibold max-lg:min-h-9 ${btnStyles[visual]}`}
               >
                 {/* F-key badge */}
                 <div
@@ -243,8 +243,8 @@ export function OfficialAvtotestExamView({
                 >
                   {shortcutLabel}
                 </div>
-                {/* Text */}
-                <div className="flex flex-1 items-center px-4 py-3 leading-normal text-white font-medium max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
+                {/* Text — wrap inside the button; never crush height (overflow overlap bug). */}
+                <div className="flex min-w-0 flex-1 items-center break-words whitespace-normal px-4 py-3 leading-normal text-white font-medium [overflow-wrap:anywhere] max-lg:px-2.5 max-lg:py-2 max-lg:text-[13px] max-lg:leading-snug">
                   {answer.text}
                 </div>
               </button>
@@ -254,7 +254,7 @@ export function OfficialAvtotestExamView({
 
         {/* RIGHT: Question image — real media when present, Driver Go cars placeholder otherwise */}
         {currentQuestion && questionImageUrl ? (
-          <div className="flex flex-1 items-center justify-center min-h-0 max-lg:order-1 max-lg:h-[22dvh] max-lg:max-h-[22dvh] max-lg:min-h-0 max-lg:shrink-0 max-lg:flex-none">
+          <div className="exam-question-image flex flex-1 items-center justify-center min-h-0 max-lg:order-1 max-lg:min-h-0 max-lg:shrink-0 max-lg:flex-none lg:h-auto lg:max-h-none">
             <div
               className="relative flex h-full w-full items-center justify-center border-2 border-slate-300 bg-black overflow-hidden cursor-pointer shadow-xl rounded-sm"
               onClick={() => setZoomImageUrl(questionImageUrl)}

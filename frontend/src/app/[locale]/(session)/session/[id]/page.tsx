@@ -730,7 +730,7 @@ export default function TestSessionPage() {
 
   return (
     <main
-      className="flex h-[100dvh] flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
+      className="session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
     >
       <header className="flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-1.5 py-1 sm:gap-3 sm:rounded-2xl sm:p-3">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -885,7 +885,7 @@ export default function TestSessionPage() {
 
       {currentQuestion && (
         <Card className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
-          <div className="min-h-0 flex-1">
+          <div className="min-h-0 flex-1 overflow-hidden">
             <QuestionStage
               question={currentQuestion}
               questionNumber={currentIndex + 1}
@@ -1003,13 +1003,13 @@ export default function TestSessionPage() {
           }}
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 p-0 sm:items-center sm:p-4"
         >
-          <div className="relative max-h-[92dvh] w-full max-w-5xl rounded-t-3xl bg-card p-3 sm:rounded-2xl sm:bg-transparent sm:p-0">
+          <div className="session-zoom-panel relative w-full max-w-5xl rounded-t-3xl bg-card p-3 sm:rounded-2xl sm:bg-transparent sm:p-0">
             {/* Dynamic media URL is served by the backend. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={zoomImageUrl}
               alt={t("zoomedImageAlt")}
-              className="max-h-[80dvh] w-full rounded-2xl object-contain sm:max-h-[88vh]"
+              className="session-zoom-image w-full rounded-2xl object-contain"
             />
             <button
               type="button"

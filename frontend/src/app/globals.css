@@ -673,8 +673,61 @@
 }
 .answer-wrong-pulse {
   animation: answerWrongPulse 0.45s ease-out 1;
-  contain: paint;
+  /* Do NOT use contain:paint — it forces flex min-size to 0 and crushes
+     answer button height so option text overlaps on mobile/WebViews. */
   isolation: isolate;
+}
+
+/* Session shell — vh first, dvh overrides when supported (older Safari/WebViews). */
+.session-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+.session-question-image {
+  max-height: 22vh;
+  max-height: 22dvh;
+}
+@media (min-width: 640px) {
+  .session-question-image {
+    max-height: 28vh;
+    max-height: 28dvh;
+  }
+}
+@media (min-width: 1024px) {
+  .session-question-image {
+    max-height: none;
+  }
+}
+.session-zoom-panel {
+  max-height: 92vh;
+  max-height: 92dvh;
+}
+.session-zoom-image {
+  max-height: 80vh;
+  max-height: 80dvh;
+}
+@media (min-width: 640px) {
+  .session-zoom-image {
+    max-height: 88vh;
+  }
+}
+.session-explanation-panel {
+  height: 92vh;
+  height: 92dvh;
+  max-height: 96vh;
+  max-height: 96dvh;
+}
+.exam-shell {
+  height: 100vh;
+  height: 100dvh;
+}
+@media (max-width: 1023px) {
+  .exam-question-image {
+    height: 22vh;
+    max-height: 22vh;
+    height: 22dvh;
+    max-height: 22dvh;
+  }
 }
 
 /* Exam-pass win theater — asphalt gold, not purple glow */

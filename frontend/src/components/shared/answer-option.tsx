@@ -62,16 +62,17 @@ export function AnswerOption({
       type="button"
       onClick={handleClick}
       disabled={disabled}
-      className={`group relative flex w-full items-center justify-between text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed ${
+      data-answer-option=""
+      className={`group relative flex h-auto w-full shrink-0 items-start justify-between overflow-visible text-left transition-[border-color,background-color,box-shadow,transform] duration-150 disabled:cursor-not-allowed ${
         dense
-          ? "min-h-10 gap-2 rounded-xl border px-2.5 py-1.5 sm:min-h-12 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-2.5"
+          ? "min-h-10 gap-2 rounded-xl border px-2.5 py-2 sm:min-h-12 sm:gap-3 sm:rounded-2xl sm:px-3.5 sm:py-2.5"
           : "min-h-14 gap-3 rounded-2xl border px-3.5 py-3 sm:min-h-[3.5rem] sm:gap-4 sm:px-4"
       } ${pressable ? "active:translate-y-0.5 active:bg-accent/5 active:shadow-none" : ""} ${stateStyles[normalizedState]}`}
     >
-      <div className={`flex min-w-0 items-center ${dense ? "gap-2 sm:gap-3" : "gap-3"}`}>
+      <div className={`flex min-w-0 flex-1 items-start ${dense ? "gap-2 sm:gap-3" : "gap-3"}`}>
         {keyLabel && (
           <span
-            className={`flex shrink-0 items-center justify-center border font-bold transition-colors ${
+            className={`mt-0.5 flex shrink-0 items-center justify-center border font-bold transition-colors ${
               dense
                 ? "h-8 w-8 rounded-lg text-xs sm:h-9 sm:w-9 sm:rounded-xl sm:text-sm"
                 : "h-10 w-10 rounded-xl text-sm sm:h-9 sm:w-9"
@@ -81,7 +82,7 @@ export function AnswerOption({
           </span>
         )}
         <span
-          className={`font-semibold leading-snug ${
+          className={`min-w-0 flex-1 break-words whitespace-normal font-semibold leading-snug [overflow-wrap:anywhere] ${
             dense ? "text-sm sm:text-base sm:leading-relaxed" : "text-base sm:text-lg sm:leading-relaxed"
           }`}
         >
@@ -92,14 +93,14 @@ export function AnswerOption({
       {normalizedState === "correct" && (
         <CheckCircle2
           data-testid="answer-correct-icon"
-          className={`shrink-0 text-success ${dense ? "h-4 w-4" : "h-5 w-5"}`}
+          className={`mt-0.5 shrink-0 text-success ${dense ? "h-4 w-4" : "h-5 w-5"}`}
           aria-hidden="true"
         />
       )}
       {normalizedState === "wrong" && (
         <XCircle
           data-testid="answer-incorrect-icon"
-          className={`shrink-0 text-danger ${dense ? "h-4 w-4" : "h-5 w-5"}`}
+          className={`mt-0.5 shrink-0 text-danger ${dense ? "h-4 w-4" : "h-5 w-5"}`}
           aria-hidden="true"
         />
       )}

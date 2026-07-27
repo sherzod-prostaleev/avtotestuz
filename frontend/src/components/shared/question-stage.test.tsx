@@ -118,4 +118,27 @@ describe("QuestionStage", () => {
 
     expect(screen.queryByRole("button", { name: "Ekspert tahlili" })).not.toBeInTheDocument();
   });
+
+  it("keeps answer rows content-sized so long options can scroll instead of crush", () => {
+    renderStage(
+      buildQuestion({
+        answers: [
+          {
+            id: "a1",
+            text: "Transport vositalaridan foydalanish va texnik holatiga javobgar mansabdor shaxslarning majburiyatlari",
+          },
+          { id: "a2", text: "Ikkinchi javob matni ham yetarlicha uzun bo'lishi mumkin" },
+          { id: "a3", text: "Uchinchi variant" },
+        ],
+      } as Partial<SessionQuestionItem>)
+    );
+
+    const list = screen.getByTestId("answer-list");
+    const buttons = list.querySelectorAll("[data-answer-option]");
+    expect(buttons).toHaveLength(3);
+    buttons.forEach((button) => {
+      expect(button.className).toMatch(/\bshrink-0\b/);
+      expect(button.className).toMatch(/\bh-auto\b/);
+    });
+  });
 });
