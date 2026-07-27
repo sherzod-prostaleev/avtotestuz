@@ -146,6 +146,21 @@ describe("QuestionStage", () => {
     });
   });
 
+  it("shows the full question image with object-contain and no flex-shrink crop", () => {
+    renderStage(buildQuestion({ image_url: "https://media.example.test/stop.webp" }));
+
+    const img = screen.getByRole("img", { name: "1-savol rasmi" });
+    expect(img.className).toMatch(/\bobject-contain\b/);
+    expect(img.className).not.toMatch(/\bobject-cover\b/);
+    // Avoid w-full + max-h-full: parent height is auto so % max-height fails and overflow clips.
+    expect(img.className).not.toMatch(/\bw-full\b/);
+    expect(img.className).not.toMatch(/\bmax-h-full\b/);
+
+    const imageButton = img.closest("button");
+    expect(imageButton?.className).toMatch(/\bsession-question-image\b/);
+    expect(imageButton?.className).toMatch(/\bshrink-0\b/);
+  });
+
   it("exposes a fit-scale attribute for viewport compaction", () => {
     renderStage(buildQuestion());
     const stage = screen.getByTestId("question-stage");

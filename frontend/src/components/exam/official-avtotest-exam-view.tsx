@@ -272,18 +272,19 @@ export function OfficialAvtotestExamView({
 
             {/* RIGHT: Question image — real media when present, Driver Go cars placeholder otherwise */}
             {currentQuestion && questionImageUrl ? (
-              <div className="exam-question-image flex min-h-0 flex-1 items-center justify-center max-lg:order-1 max-lg:w-full lg:h-auto lg:max-h-none">
+              <div className="exam-question-image flex min-h-0 flex-1 items-center justify-center max-lg:order-1 max-lg:w-full max-lg:shrink-0 max-lg:flex-none lg:h-auto lg:max-h-none">
                 <div
                   className="relative flex h-full w-full cursor-pointer items-center justify-center overflow-hidden rounded-sm border-2 border-slate-300 bg-black shadow-xl"
                   onClick={() => setZoomImageUrl(questionImageUrl)}
                 >
+                  {/* Sizing: globals .exam-question-image img — max-height:inherit + object-contain (never crop). */}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     key={currentQuestion.id}
                     src={questionImageUrl}
                     alt={currentQuestion.question}
                     decoding="async"
-                    className="h-auto max-h-full w-full object-contain lg:h-full"
+                    className="object-contain lg:h-full lg:w-full lg:max-h-full"
                   />
                   <div className="absolute top-2 right-2 rounded bg-black/60 p-1.5 text-white/70 transition-opacity hover:text-white max-lg:top-1 max-lg:right-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center max-lg:p-0">
                     <ZoomIn className="h-5 w-5 max-lg:h-3.5 max-lg:w-3.5" />

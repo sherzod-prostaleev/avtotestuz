@@ -679,15 +679,29 @@
 }
 
 /* Session shell — vh first, dvh overrides when supported (older Safari/WebViews).
-   Fit-to-viewport: image/gaps/type compact first; JS scale-fit is last resort. */
+   Fit-to-viewport: image/gaps/type compact first; JS scale-fit is last resort.
+   Question images must NEVER crop: cap via max-height on the img (inherit),
+   object-contain + letterbox. Do not rely on overflow:hidden clipping. */
 .session-shell {
   height: 100vh;
   height: 100dvh;
 }
 .session-question-image {
-  flex: 0 1 auto;
-  max-height: 18vh;
-  max-height: 18dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  max-height: 22vh;
+  max-height: 22dvh;
+}
+.session-question-image > img {
+  /* Parent only has max-height (height:auto) — % max-height on img is unreliable.
+     Inherit the vh cap so object-contain actually shrinks instead of overflowing+clipping. */
+  max-height: inherit;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 .session-question-title {
   font-size: clamp(0.78rem, 2.1vh, 0.875rem);
@@ -695,8 +709,8 @@
 }
 @media (min-width: 640px) {
   .session-question-image {
-    max-height: 26vh;
-    max-height: 26dvh;
+    max-height: 28vh;
+    max-height: 28dvh;
   }
   .session-question-title {
     font-size: 1.25rem;
@@ -705,14 +719,14 @@
 }
 @media (max-width: 1023px) and (max-height: 720px) {
   .session-question-image {
-    max-height: 14vh;
-    max-height: 14dvh;
+    max-height: 18vh;
+    max-height: 18dvh;
   }
 }
 @media (max-width: 1023px) and (max-height: 620px) {
   .session-question-image {
-    max-height: 11vh;
-    max-height: 11dvh;
+    max-height: 16vh;
+    max-height: 16dvh;
   }
   .session-question-title {
     font-size: clamp(0.72rem, 1.9vh, 0.8125rem);
@@ -736,6 +750,12 @@
   .session-question-image {
     max-height: none;
     flex: 1 1 auto;
+  }
+  .session-question-image > img {
+    max-height: 100%;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
   }
 }
 .session-zoom-panel {
@@ -763,14 +783,24 @@
 }
 @media (max-width: 1023px) {
   .exam-question-image {
-    flex: 0 1 auto;
+    flex: 0 0 auto;
     height: auto;
-    max-height: 16vh;
-    max-height: 16dvh;
+    max-height: 22vh;
+    max-height: 22dvh;
   }
   .exam-question-image > div {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     height: auto;
     max-height: inherit;
+  }
+  .exam-question-image img {
+    max-height: inherit;
+    max-width: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
   }
   .exam-question-banner {
     font-size: clamp(0.75rem, 1.9vh, 0.8125rem);
@@ -781,14 +811,14 @@
 }
 @media (max-width: 1023px) and (max-height: 720px) {
   .exam-question-image {
-    max-height: 12vh;
-    max-height: 12dvh;
+    max-height: 18vh;
+    max-height: 18dvh;
   }
 }
 @media (max-width: 1023px) and (max-height: 620px) {
   .exam-question-image {
-    max-height: 9vh;
-    max-height: 9dvh;
+    max-height: 16vh;
+    max-height: 16dvh;
   }
   .exam-answer-text {
     font-size: clamp(0.72rem, 1.8vh, 0.8125rem);
