@@ -148,7 +148,13 @@ async function handle(request: Request, context: { params: { path: string[] } })
       }
     }
     const response = NextResponse.json(data, { status: 401 });
-    if (refreshToken || accessToken) {
+    // Critical: after a successful rotation, NEVER clear cookies on a lingering
+    // endpoint 401. Dashboard/tickets fire many parallel /api/proxy calls near
+    // AT expiry; one sibling may setAuthCookies while another clearAuthCookies
+    // — last Set-Cookie wins and intermittently logs the user out.
+    if (newTokens) {
+      setAuthCookies(response, newTokens);
+    } else if (refreshToken || accessToken) {
       clearAuthCookies(response);
     }
     return response;

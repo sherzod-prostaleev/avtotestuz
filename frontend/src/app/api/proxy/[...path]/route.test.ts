@@ -90,6 +90,44 @@ describe("proxy route", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps rotated cookies when retry still 401s after a successful refresh", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { access_token: "fresh-at", refresh_token: "fresh-rt" } }), {
+          status: 200,
+        })
+      )
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ error: { code: "unauthorized", message: "endpoint denied" } }), {
+          status: 401,
+        })
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), { params: { path: ["me"] } });
+
+    expect(response.status).toBe(401);
+    expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("fresh-at");
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("fresh-rt");
+  });
+
+  it("returns 502 without clearing cookies when refresh upstream is 5xx", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }))
+      .mockResolvedValueOnce(new Response("upstream down", { status: 503 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), { params: { path: ["me"] } });
+
+    expect(response.status).toBe(502);
+    expect((await response.json()).error.code).toBe("network_error");
+    expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
+
   it("forwards a POST body correctly, reusing the exact same body across the retry", async () => {
     const fetchMock = vi
       .fn()

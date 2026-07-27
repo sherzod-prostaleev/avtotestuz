@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -419,10 +420,103 @@ func (s *Service) issueSession(ctx context.Context, q *sqlc.Queries, profile sql
 	return Tokens{Access: access, Refresh: refresh}, nil
 }
 
+// refreshGraceTTL is how long a just-rotated refresh token may be presented
+// again and still receive the same successor pair. Parallel BFF/proxy calls
+// (and multi-tab) often race with the old cookie after rotation; treating that
+// as theft + revoke-all caused intermittent production logouts. Past this
+// window, reuse still triggers revoke-all (compromise signal).
+const refreshGraceTTL = 45 * time.Second
+
+func refreshGraceKey(raw string) string {
+	return "auth:rtgrace:" + HashToken(raw)
+}
+
+type storedRefreshPair struct {
+	Access  string `json:"a"`
+	Refresh string `json:"r"`
+}
+
+func (s *Service) readRefreshGrace(ctx context.Context, raw string) (Tokens, bool) {
+	if s.Lim.R == nil {
+		return Tokens{}, false
+	}
+	val, err := s.Lim.R.Get(ctx, refreshGraceKey(raw)).Result()
+	if err != nil {
+		return Tokens{}, false
+	}
+	var pair storedRefreshPair
+	if err := json.Unmarshal([]byte(val), &pair); err != nil || pair.Access == "" || pair.Refresh == "" {
+		return Tokens{}, false
+	}
+	return Tokens{Access: pair.Access, Refresh: pair.Refresh}, true
+}
+
+func (s *Service) writeRefreshGrace(ctx context.Context, oldRaw string, tokens Tokens) {
+	if s.Lim.R == nil {
+		return
+	}
+	payload, err := json.Marshal(storedRefreshPair{Access: tokens.Access, Refresh: tokens.Refresh})
+	if err != nil {
+		return
+	}
+	// Best-effort: a Redis blip must not fail the successful rotation.
+	_ = s.Lim.R.Set(ctx, refreshGraceKey(oldRaw), payload, refreshGraceTTL).Err()
+}
+
+// claimRefreshRotation serializes concurrent rotations of the same raw token
+// across API instances. Losers wait briefly for the winner's grace entry.
+func (s *Service) claimRefreshRotation(ctx context.Context, raw string) bool {
+	if s.Lim.R == nil {
+		return true
+	}
+	ok, err := s.Lim.R.SetNX(ctx, refreshClaimKey(raw), "1", 15*time.Second).Result()
+	if err != nil {
+		// Fail open: prefer a rare dual-issue over blocking every refresh.
+		return true
+	}
+	return ok
+}
+
+func refreshClaimKey(raw string) string {
+	return "auth:rtclaim:" + HashToken(raw)
+}
+
+func (s *Service) refreshClaimHeld(ctx context.Context, raw string) bool {
+	if s.Lim.R == nil {
+		return false
+	}
+	n, err := s.Lim.R.Exists(ctx, refreshClaimKey(raw)).Result()
+	return err == nil && n > 0
+}
+
+func (s *Service) waitRefreshGrace(ctx context.Context, raw string) (Tokens, bool) {
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if cached, ok := s.readRefreshGrace(ctx, raw); ok {
+			return cached, true
+		}
+		if time.Now().After(deadline) {
+			return Tokens{}, false
+		}
+		select {
+		case <-ctx.Done():
+			return Tokens{}, false
+		case <-time.After(25 * time.Millisecond):
+		}
+	}
+}
+
 // Refresh rotates a refresh token: the presented raw token is single-use.
-// Presenting an already-rotated (revoked) token is treated as a compromise
-// signal and revokes every refresh token belonging to that profile.
+// Presenting an already-rotated (revoked) token outside the short grace
+// window is treated as a compromise signal and revokes every refresh token
+// belonging to that profile. Within the grace window (concurrent/late
+// retries with the old cookie), the same successor pair is returned.
 func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
+	// Fast path for late/parallel callers that still hold the pre-rotation cookie.
+	if cached, ok := s.readRefreshGrace(ctx, raw); ok {
+		return cached, nil
+	}
+
 	rt, err := s.Q.GetRefreshToken(ctx, HashToken(raw))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -431,12 +525,30 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 		return Tokens{}, err
 	}
 	if rt.RevokedAt.Valid {
+		// Winner may have written grace between our miss and this Get.
+		if cached, ok := s.readRefreshGrace(ctx, raw); ok {
+			return cached, nil
+		}
+		// Concurrent rotator still holding the claim — wait for its grace write.
+		if s.refreshClaimHeld(ctx, raw) {
+			if cached, ok := s.waitRefreshGrace(ctx, raw); ok {
+				return cached, nil
+			}
+		}
 		if err := s.Q.RevokeAllRefreshTokens(ctx, rt.ProfileID); err != nil {
 			return Tokens{}, err
 		}
 		return Tokens{}, ErrReusedRefresh
 	}
 	if time.Now().After(rt.ExpiresAt.Time) {
+		return Tokens{}, ErrInvalidRefresh
+	}
+
+	if !s.claimRefreshRotation(ctx, raw) {
+		if cached, ok := s.waitRefreshGrace(ctx, raw); ok {
+			return cached, nil
+		}
+		// Winner vanished without writing grace — soft-fail without revoke-all.
 		return Tokens{}, ErrInvalidRefresh
 	}
 
@@ -464,7 +576,9 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 		return Tokens{}, err
 	}
 
-	return Tokens{Access: access, Refresh: newRaw}, nil
+	tokens := Tokens{Access: access, Refresh: newRaw}
+	s.writeRefreshGrace(ctx, raw, tokens)
+	return tokens, nil
 }
 
 // Logout deletes the refresh token if present; missing tokens are a no-op.

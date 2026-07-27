@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -185,13 +186,71 @@ func TestRefreshRotationAndReuseDetection(t *testing.T) {
 		t.Fatalf("expected new distinct tokens: %+v", rotated)
 	}
 
-	if _, err := svc.Refresh(ctx, oldRefresh); !errors.Is(err, ErrReusedRefresh) {
-		t.Fatalf("reuse of old token: err=%v want ErrReusedRefresh", err)
+	// Within the grace window, presenting the old token must return the same
+	// successor pair — not revoke-all (parallel BFF / multi-tab).
+	again, err := svc.Refresh(ctx, oldRefresh)
+	if err != nil {
+		t.Fatalf("grace reuse: %v", err)
+	}
+	if again.Access != rotated.Access || again.Refresh != rotated.Refresh {
+		t.Fatalf("grace reuse tokens=%+v want %+v", again, rotated)
 	}
 
-	// revoke-all proof: the token issued by the rotation above must now be revoked too
+	// Past grace: reuse is theft → revoke-all, including the rotated token.
+	if err := svc.Lim.R.Del(ctx, refreshGraceKey(oldRefresh), refreshClaimKey(oldRefresh)).Err(); err != nil {
+		t.Fatalf("clear grace: %v", err)
+	}
+	if _, err := svc.Refresh(ctx, oldRefresh); !errors.Is(err, ErrReusedRefresh) {
+		t.Fatalf("reuse of old token after grace: err=%v want ErrReusedRefresh", err)
+	}
+
 	if _, err := svc.Refresh(ctx, rotated.Refresh); !errors.Is(err, ErrReusedRefresh) {
 		t.Fatalf("rotated token should have been revoked by revoke-all: err=%v want ErrReusedRefresh", err)
+	}
+}
+
+func TestRefreshConcurrentCallersShareGracePair(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	verifyRes, err := svc.VerifyOTP(ctx, testPhone, sender.last)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	oldRefresh := verifyRes.Refresh
+
+	const n = 8
+	results := make([]Tokens, n)
+	errs := make([]error, n)
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			defer wg.Done()
+			results[i], errs[i] = svc.Refresh(ctx, oldRefresh)
+		}(i)
+	}
+	wg.Wait()
+
+	var first Tokens
+	for i := 0; i < n; i++ {
+		if errs[i] != nil {
+			t.Fatalf("caller %d: %v", i, errs[i])
+		}
+		if results[i].Access == "" || results[i].Refresh == "" {
+			t.Fatalf("caller %d empty tokens", i)
+		}
+		if first.Refresh == "" {
+			first = results[i]
+			continue
+		}
+		if results[i].Refresh != first.Refresh || results[i].Access != first.Access {
+			t.Fatalf("caller %d got different pair %+v want %+v", i, results[i], first)
+		}
 	}
 }
 
