@@ -107,6 +107,12 @@ func (e EloStore) ApplyResult(ctx context.Context, _ uuid.UUID, a, b uuid.UUID, 
 	return da, db, nil
 }
 
+// QuestionLoader loads public question payloads for live duels.
+// The bool from LoadQuestionDetail is locale fallbackUsed — never treat it as ok.
+type QuestionLoader interface {
+	LoadQuestionDetail(ctx context.Context, id uuid.UUID, loc string) (content.QuestionDetailDTO, bool, error)
+}
+
 // Service owns tickets, matchmaking, and match lifecycle.
 type Service struct {
 	Q        *sqlc.Queries
@@ -114,7 +120,7 @@ type Service struct {
 	R        *redis.Client
 	Lim      auth.Limiter
 	Billing  billing.Service
-	Content  *content.Handler
+	Content  QuestionLoader
 	Learning *learning.Service
 	Progress *progress.Service
 	Rating   RatingProvider
@@ -133,7 +139,7 @@ func NewService(
 	pool *pgxpool.Pool,
 	r *redis.Client,
 	billingSvc billing.Service,
-	contentH *content.Handler,
+	contentH QuestionLoader,
 	learningSvc *learning.Service,
 	progressSvc *progress.Service,
 	log *zap.Logger,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeClient, medalLabel, parseEnvelope } from "@/lib/arena-protocol";
+import { encodeClient, isPlayableQuestion, medalLabel, parseEnvelope } from "@/lib/arena-protocol";
 
 describe("arena-protocol", () => {
   it("round-trips encode/parse", () => {
@@ -19,5 +19,18 @@ describe("arena-protocol", () => {
   it("maps medal labels", () => {
     expect(medalLabel("bronze")).toBe("Bronze");
     expect(medalLabel("brilliant")).toBe("Brilliant");
+  });
+
+  it("rejects incomplete question payloads that used to crash Arena", () => {
+    expect(isPlayableQuestion({ id: "q1" })).toBe(false);
+    expect(isPlayableQuestion({ id: "q1", answers: [] })).toBe(false);
+    expect(isPlayableQuestion({ id: "q1", answers: null })).toBe(false);
+    expect(
+      isPlayableQuestion({
+        id: "q1",
+        text: "Savol?",
+        answers: [{ id: "a1", position: 1, text: "A" }],
+      })
+    ).toBe(true);
   });
 });

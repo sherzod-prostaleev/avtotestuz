@@ -1130,8 +1130,8 @@
     "starting": "Duel boshlanmoqda...",
     "questionProgress": "Savol {current}/{total}",
     "forfeit": "Tashlab ketish",
-    "youWon": "G'alaba!",
-    "youLost": "Mag'lubiyat",
+    "youWon": "Tabriklaymiz! Siz g'olib bo'ldingiz!",
+    "youLost": "Siz mag'lub bo'ldingiz",
     "draw": "Durrang",
     "correctLine": "To'g'ri: siz {you}, raqib {opponent}",
     "ratingDelta": "Reyting {delta}",
@@ -1145,6 +1145,7 @@
     "historyTitle": "So'nggi duellar",
     "connectError": "Ulanish amalga oshmadi",
     "vipRequired": "VIP talab qilinadi",
+    "questionLoadError": "Savol yuklanmadi. Qayta urinib ko'ring yoki o'yinni davom ettiring.",
     "opponentDisconnected": "Raqib uzildi",
     "opponentConnected": "Raqib qaytdi"
   },

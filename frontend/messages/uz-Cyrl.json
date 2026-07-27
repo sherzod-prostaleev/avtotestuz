@@ -1130,8 +1130,8 @@
     "starting": "Дуэль бошланмоқда...",
     "questionProgress": "Савол {current}/{total}",
     "forfeit": "Ташлаб кетиш",
-    "youWon": "Ғалаба!",
-    "youLost": "Мағлубият",
+    "youWon": "Табриклаймиз! Сиз ғолиб бўлдингиз!",
+    "youLost": "Сиз мағлуб бўлдингиз",
     "draw": "Дурранг",
     "correctLine": "Тўғри: сиз {you}, рақиб {opponent}",
     "ratingDelta": "Рейтинг {delta}",
@@ -1145,6 +1145,7 @@
     "historyTitle": "Сўнгги дуэллар",
     "connectError": "Уланиш амалга ошмади",
     "vipRequired": "VIP талаб қилинади",
+    "questionLoadError": "Савол юкланмади. Қайта уриниб кўринг ёки ўйинни давом эттиринг.",
     "opponentDisconnected": "Рақиб узилди",
     "opponentConnected": "Рақиб қайтди"
   },

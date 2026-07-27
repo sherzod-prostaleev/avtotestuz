@@ -7,6 +7,7 @@ import { Swords, Trophy, Users, Clock, Crown, ArrowLeft } from "lucide-react";
 import { apiGet } from "@/lib/api-client";
 import { ArenaSocket } from "@/lib/arena-client";
 import {
+  isPlayableQuestion,
   medalLabel,
   type ArenaEnvelope,
   type ArenaPhase,
@@ -107,6 +108,13 @@ export default function ArenaPage() {
           break;
         }
         case "question": {
+          const q = d.question;
+          if (!isPlayableQuestion(q)) {
+            setPhase("error");
+            setStatusMsg(t("questionLoadError"));
+            setQuestion(null);
+            break;
+          }
           setPhase("question");
           setQIndex(Number(d.index ?? 0));
           setQTotal(Number(d.total ?? 10));
@@ -114,7 +122,6 @@ export default function ArenaPage() {
           setSelected(null);
           setAcked(false);
           setRevealCorrect(null);
-          const q = d.question as QuestionPayload;
           setQuestion(q);
           break;
         }
@@ -154,6 +161,9 @@ export default function ArenaPage() {
           if (code === "vip_required") {
             setPhase("error");
             setStatusMsg(t("vipRequired"));
+          } else if (code === "question_unavailable") {
+            // Stay in match; server still advances on timer. Surface a soft notice.
+            setStatusMsg(t("questionLoadError"));
           } else {
             setStatusMsg(String(d.message ?? code));
           }
@@ -417,7 +427,7 @@ export default function ArenaPage() {
         </section>
       )}
 
-      {(phase === "question" || phase === "reveal") && question && (
+      {(phase === "question" || phase === "reveal") && question && question.answers?.length > 0 && (
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-bold">
             <span>

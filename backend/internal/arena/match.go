@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Match is the single writer for one duel. All mutations happen on Run's goroutine.
@@ -302,8 +303,12 @@ func (m *Match) startQuestion(ctx context.Context, index int) {
 func (m *Match) pushQuestion(ctx context.Context, profileID uuid.UUID, locale string, qid uuid.UUID, index int) {
 	var detail any
 	if m.svc.Content != nil {
-		d, ok, err := m.svc.Content.LoadQuestionDetail(ctx, qid, locale)
-		if err == nil && ok {
+		// LoadQuestionDetail's bool is fallbackUsed, NOT success. Gating on it
+		// dropped every native-locale question to {"id":...} with no answers,
+		// which crashed the Arena UI (error boundary) and ended matches as
+		// both_disconnected within the first question tick.
+		d, _, err := m.svc.Content.LoadQuestionDetail(ctx, qid, locale)
+		if err == nil && len(d.Answers) > 0 {
 			d.Explanation = nil
 			detail = d
 			if m.validAns[qid] == nil {
@@ -315,10 +320,24 @@ func (m *Match) pushQuestion(ctx context.Context, profileID uuid.UUID, locale st
 				}
 				m.validAns[qid] = set
 			}
+		} else if err != nil && m.svc.Log != nil {
+			m.svc.Log.Warn("arena question load failed",
+				zap.String("question_id", qid.String()),
+				zap.String("locale", locale),
+				zap.Error(err),
+			)
 		}
 	}
 	if detail == nil {
-		detail = map[string]any{"id": qid.String()}
+		// Prefer an explicit error frame over a half-empty question that the
+		// client cannot render. Match continues on the timer so both players
+		// stay in sync; answers will score as unanswered for this index.
+		_ = m.svc.sendJSON(profileID, "error", ErrorData{
+			Code: "question_unavailable", Message: "question payload unavailable",
+		})
+		detail = map[string]any{
+			"id": qid.String(), "text": "", "answers": []any{},
+		}
 	}
 	_ = m.svc.sendJSON(profileID, "question", QuestionData{
 		Index: index, Total: len(m.questions),

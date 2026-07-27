@@ -24,6 +24,21 @@ export type QuestionPayload = {
   answers: { id: string; position: number; text: string; image_url?: string | null }[];
 };
 
+/** True when a WS question payload is safe to render (avoids error-boundary crash). */
+export function isPlayableQuestion(q: unknown): q is QuestionPayload {
+  if (!q || typeof q !== "object") return false;
+  const obj = q as Partial<QuestionPayload>;
+  if (typeof obj.id !== "string" || !obj.id) return false;
+  if (!Array.isArray(obj.answers) || obj.answers.length === 0) return false;
+  return obj.answers.every(
+    (a) =>
+      a &&
+      typeof a === "object" &&
+      typeof a.id === "string" &&
+      typeof a.text === "string"
+  );
+}
+
 export function parseEnvelope(raw: string): ArenaEnvelope {
   const env = JSON.parse(raw) as ArenaEnvelope;
   if (env.v !== 1 || typeof env.t !== "string") {

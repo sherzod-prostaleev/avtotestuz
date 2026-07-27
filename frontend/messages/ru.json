@@ -1131,8 +1131,8 @@
     "starting": "Дуэль начинается...",
     "questionProgress": "Вопрос {current}/{total}",
     "forfeit": "Сдаться",
-    "youWon": "Победа!",
-    "youLost": "Поражение",
+    "youWon": "Поздравляем! Вы победили!",
+    "youLost": "Вы проиграли",
     "draw": "Ничья",
     "correctLine": "Верно: вы {you}, соперник {opponent}",
     "ratingDelta": "Рейтинг {delta}",
@@ -1146,6 +1146,7 @@
     "historyTitle": "Недавние дуэли",
     "connectError": "Не удалось подключиться",
     "vipRequired": "Нужен VIP",
+    "questionLoadError": "Не удалось загрузить вопрос. Попробуйте ещё раз или продолжите матч.",
     "opponentDisconnected": "Соперник отключился",
     "opponentConnected": "Соперник вернулся"
   },
