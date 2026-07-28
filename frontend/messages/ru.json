@@ -2147,5 +2147,9 @@
     "sessionPlaceholder": "1BVtsOHwBu... (длинная строка из make_session.py)",
     "tgSaved": "Настройки Telegram сохранены.",
     "tgTestOk": "Credentials OK"
+  },
+  "AdminTable": {
+    "rowsLabel": "Строки таблицы",
+    "cardsLabel": "Список записей"
   }
 }

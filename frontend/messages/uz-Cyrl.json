@@ -2147,5 +2147,9 @@
     "sessionPlaceholder": "1BVtsOHwBu... (make_session.py матни)",
     "tgSaved": "Telegram созламалари сақланди.",
     "tgTestOk": "Credentials OK"
+  },
+  "AdminTable": {
+    "rowsLabel": "Жадвал қаторлари",
+    "cardsLabel": "Ёзувлар рўйхати"
   }
 }
