@@ -133,10 +133,20 @@ export default function AdminSecurityRBACPage() {
                     {data.permissions.map((perm) => (
                       <tr key={perm.code} className="border-b border-border/60 last:border-0">
                         <td className="sticky left-0 z-10 bg-card/95 px-2 py-2">
-                          <p className="font-mono font-semibold">{perm.code}</p>
-                          {perm.description ? (
-                            <p className="mt-0.5 max-w-xs text-[10px] text-muted-foreground">{perm.description}</p>
-                          ) : null}
+                          {/* min-w-max sizes the frozen column by its widest
+                              content. Uncapped, that column grows wider than a
+                              phone viewport and hides the matrix it labels — so
+                              the cap goes on a block inside the cell, since
+                              max-width on a <td> is only advisory in auto
+                              table layout. */}
+                          <div className="max-w-[9.5rem] sm:max-w-xs">
+                            <p className="break-words font-mono font-semibold">{perm.code}</p>
+                            {perm.description ? (
+                              <p className="mt-0.5 text-[10px] text-muted-foreground">
+                                {perm.description}
+                              </p>
+                            ) : null}
+                          </div>
                         </td>
                         {data.roles.map((role) => {
                           const granted = permSetByRole.get(role.code)?.has(perm.code);
