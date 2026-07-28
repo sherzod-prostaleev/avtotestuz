@@ -439,3 +439,43 @@ func TestRequestOTPEchoesCodeWhenExplicitlyEnabled(t *testing.T) {
 		t.Errorf("DebugCode = %q, want the delivered code %q", res.DebugCode, sender.last)
 	}
 }
+
+type disabledChannelSender struct{ called bool }
+
+func (d *disabledChannelSender) Send(context.Context, string, string) error {
+	d.called = true
+	return nil
+}
+
+func (*disabledChannelSender) Channel() string { return "off" }
+
+// TestOTPRefusedWhenChannelOff covers the deployment this product actually
+// runs: sign-in is phone+password and no SMS/Telegram gateway exists, so
+// OTP_CHANNEL=off keeps the endpoints mounted but inert. Both halves must
+// refuse — request so no code is ever minted, and verify so a challenge
+// created before the switch cannot still be redeemed into a session.
+func TestOTPRefusedWhenChannelOff(t *testing.T) {
+	pool := testdb.New(t)
+	c := redisx.NewTest(t)
+	sender := &disabledChannelSender{}
+	svc := NewService(sqlc.New(pool), pool, Limiter{R: c}, sender, []byte("test-secret"), "prod")
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, "901234567", "1.2.3.4"); !errors.Is(err, ErrOTPDisabled) {
+		t.Fatalf("RequestOTP err = %v, want ErrOTPDisabled", err)
+	}
+	if sender.called {
+		t.Error("sender was invoked: no code should be generated when the channel is off")
+	}
+	var challenges int
+	if err := pool.QueryRow(ctx, "SELECT count(*) FROM otp_challenge").Scan(&challenges); err != nil {
+		t.Fatalf("count otp_challenge: %v", err)
+	}
+	if challenges != 0 {
+		t.Errorf("otp_challenge rows = %d, want 0", challenges)
+	}
+
+	if _, err := svc.VerifyOTP(ctx, "901234567", "123456"); !errors.Is(err, ErrOTPDisabled) {
+		t.Fatalf("VerifyOTP err = %v, want ErrOTPDisabled", err)
+	}
+}

@@ -29,7 +29,7 @@ type Config struct {
 	PublicBaseURL string
 
 	JWTSecret  string
-	OTPChannel string // sandbox | telegram
+	OTPChannel string // off | sandbox | telegram
 	// OTPDebugEcho echoes the generated OTP back in the HTTP response of
 	// POST /auth/otp/request. It is a deliberate, explicit opt-in (default
 	// off) rather than being inferred from ENV: a host left on ENV=dev by
@@ -153,6 +153,10 @@ func (c Config) validate() error {
 	}
 
 	switch c.OTPChannel {
+	case "off":
+		// Phone+password is the live sign-in path; OTP is not wired into the
+		// UI. "off" lets a deployment run ENV=prod (and therefore every
+		// startup fail-safe) without procuring an SMS/Telegram gateway.
 	case "sandbox":
 	case "telegram":
 		if strings.TrimSpace(c.TelegramGatewayToken) == "" {
@@ -161,7 +165,7 @@ func (c Config) validate() error {
 	case "sms":
 		return fmt.Errorf("invalid OTP_CHANNEL %q: no sender implementation is configured", c.OTPChannel)
 	default:
-		return fmt.Errorf("invalid OTP_CHANNEL %q: must be sandbox or telegram", c.OTPChannel)
+		return fmt.Errorf("invalid OTP_CHANNEL %q: must be off, sandbox or telegram", c.OTPChannel)
 	}
 
 	if c.Env == "staging" || c.Env == "prod" {

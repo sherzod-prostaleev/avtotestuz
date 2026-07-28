@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -16,6 +17,19 @@ type Sender interface {
 	Channel() string
 }
 
+// ErrOTPDisabled is returned when OTP_CHANNEL=off. Sign-in runs on
+// phone+password; the OTP endpoints stay mounted but refuse, so no code is
+// ever generated, stored, or delivered.
+var ErrOTPDisabled = errors.New("otp channel disabled")
+
+// DisabledSender is the OTP_CHANNEL=off sender. It never delivers anything;
+// Service refuses before reaching it, and it fails closed if ever called.
+type DisabledSender struct{}
+
+func (DisabledSender) Send(context.Context, string, string) error { return ErrOTPDisabled }
+
+func (DisabledSender) Channel() string { return "off" }
+
 // SandboxSender logs the code instead of delivering it; used in dev/test.
 type SandboxSender struct{ Log *zap.Logger }
 
@@ -29,6 +43,8 @@ func (SandboxSender) Channel() string { return "sandbox" }
 // SenderFor picks the OTP delivery channel from config.
 func SenderFor(cfg config.Config, log *zap.Logger) (Sender, error) {
 	switch cfg.OTPChannel {
+	case "off":
+		return DisabledSender{}, nil
 	case "", "sandbox":
 		return SandboxSender{Log: log}, nil
 	case "telegram":

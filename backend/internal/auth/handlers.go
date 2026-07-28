@@ -178,6 +178,11 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
+	case errors.Is(err, ErrOTPDisabled):
+		// 404 rather than 4xx-with-detail: OTP is not part of this
+		// deployment's sign-in, so the endpoint should look absent instead
+		// of advertising a disabled feature to probe.
+		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 	case errors.Is(err, ErrRateLimited):
 		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many requests, try again later")
 	case errors.Is(err, ErrInvalidPhone):

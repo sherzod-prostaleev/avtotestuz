@@ -81,6 +81,9 @@ type OTPRequestResult struct {
 
 // RequestOTP enforces cooldown/rate limits, then generates and sends a code.
 func (s *Service) RequestOTP(ctx context.Context, rawPhone, ip string) (OTPRequestResult, error) {
+	if s.Sender.Channel() == "off" {
+		return OTPRequestResult{}, ErrOTPDisabled
+	}
 	phone, err := NormalizePhone(rawPhone)
 	if err != nil {
 		return OTPRequestResult{}, ErrInvalidPhone
@@ -140,6 +143,11 @@ type VerifyResult struct {
 // VerifyOTP checks the latest challenge for phone, provisions a profile on
 // first sign-in, and issues an access+refresh token pair.
 func (s *Service) VerifyOTP(ctx context.Context, rawPhone, code string) (VerifyResult, error) {
+	// Also refused here, not just in RequestOTP: a challenge created while the
+	// channel was live must not stay redeemable after OTP is turned off.
+	if s.Sender.Channel() == "off" {
+		return VerifyResult{}, ErrOTPDisabled
+	}
 	phone, err := NormalizePhone(rawPhone)
 	if err != nil {
 		return VerifyResult{}, ErrInvalidPhone
