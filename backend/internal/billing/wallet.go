@@ -361,15 +361,24 @@ func (s Service) creditReferralCommission(ctx context.Context, referrerID, refer
 	return nil
 }
 
-// ClawbackReferralCommissionOnRefund reverses a commission for a refunded
-// payment when the referrer still has enough available balance. If balance
-// is insufficient (already withdrawn), writes a clawback of the available
-// remainder is skipped — instead we still record a full clawback that may
-// drive balance negative only when hold hasn't consumed it; if balance <
-// commission we write clawback for min(balance, commission) only when
-// balance > 0, else skip to avoid silent accounting lies — plan: clawback
-// when not yet withdrawn. Here: if balance >= commission, full clawback;
-// else if balance > 0, clawback balance; else no-op (admin must reconcile).
+// ClawbackReferralCommissionOnRefund reverses a commission when its payment
+// is refunded. It always writes the FULL commission back, even when that
+// drives the balance negative.
+//
+// It used to clamp the clawback to the current balance and skip entirely
+// when that balance was <= 0. Because a pending payout writes a negative
+// payout_hold row, merely *requesting* a withdrawal drove the balance to 0
+// and silently cancelled the clawback — so "refer yourself, buy, request a
+// payout, then refund the purchase" extracted the commission in cash with
+// nothing left to reverse it, repeatably.
+//
+// A negative balance is the correct accounting outcome: RequestReferralPayout
+// refuses while bal < amount, so the debt simply blocks further withdrawals
+// until future commissions work it off.
+//
+// Idempotent per payment via the clawback unique index and the early return
+// below. Callers must supply a transaction-bound Service — the profile lock
+// only holds for the caller's transaction.
 func (s Service) ClawbackReferralCommissionOnRefund(ctx context.Context, paymentID uuid.UUID) error {
 	comm, err := s.Q.GetCommissionByPaymentID(ctx, uuid.NullUUID{UUID: paymentID, Valid: true})
 	if err != nil {
@@ -387,14 +396,7 @@ func (s Service) ClawbackReferralCommissionOnRefund(ctx context.Context, payment
 	if _, err := s.Q.LockProfileForGrant(ctx, comm.ProfileID); err != nil {
 		return err
 	}
-	bal, err := s.Q.GetReferralBalance(ctx, comm.ProfileID)
-	if err != nil {
-		return err
-	}
 	claw := comm.AmountUzs
-	if bal < claw {
-		claw = bal
-	}
 	if claw <= 0 {
 		return nil
 	}

@@ -328,7 +328,14 @@ type cancelTransactionResult struct {
 // performed (state==2) transaction cancels to -2, marks the payment
 // 'refunded', and clamps any VIP entitlement granted for that payment.
 func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionParams) (cancelTransactionResult, *rpcError) {
-	existing, err := h.Q.GetPaymeTransaction(ctx, p.ID)
+	tx, err := h.Pool.Begin(ctx)
+	if err != nil {
+		return cancelTransactionResult{}, errInternal
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	existing, err := q.GetPaymeTransactionForUpdate(ctx, p.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return cancelTransactionResult{}, errTransactionNotFound
@@ -337,6 +344,9 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 	}
 
 	if existing.State == -1 || existing.State == -2 {
+		if err := tx.Commit(ctx); err != nil {
+			return cancelTransactionResult{}, errInternal
+		}
 		return cancelTransactionResult{
 			Transaction: existing.PaymentID.String(),
 			CancelTime:  existing.CancelTime,
@@ -360,7 +370,7 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 	}
 
 	now := time.Now().UnixMilli()
-	if err := h.Q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
+	if err := q.CancelPaymeTransaction(ctx, sqlc.CancelPaymeTransactionParams{
 		PaymeID:    p.ID,
 		State:      newState,
 		Reason:     pgtype.Int4{Int32: p.Reason, Valid: true},
@@ -368,7 +378,7 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 	}); err != nil {
 		return cancelTransactionResult{}, errInternal
 	}
-	if err := h.Q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
+	if err := q.SetPaymentStatus(ctx, sqlc.SetPaymentStatusParams{
 		ID:     existing.PaymentID,
 		Status: paymentStatus,
 	}); err != nil {
@@ -376,9 +386,14 @@ func (h *Handler) cancelTransaction(ctx context.Context, p cancelTransactionPara
 	}
 
 	if paymentStatus == "refunded" {
-		if err := h.Svc.RevokeEntitlementForPayment(ctx, existing.PaymentID); err != nil {
+		txSvc := billing.Service{Q: q}
+		if err := txSvc.RevokeEntitlementForPayment(ctx, existing.PaymentID); err != nil {
 			return cancelTransactionResult{}, errInternal
 		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return cancelTransactionResult{}, errInternal
 	}
 
 	return cancelTransactionResult{

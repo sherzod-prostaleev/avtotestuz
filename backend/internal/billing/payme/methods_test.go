@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -790,6 +791,107 @@ func TestCancelTransaction_FromPaid(t *testing.T) {
 		t.Fatalf("status after refund: %v", err)
 	} else if active {
 		t.Errorf("entitlement still active after refund revoke, want inactive")
+	}
+}
+
+// TestCancelTransaction_ConcurrentRefundsAreSerialized asserts the refund is
+// applied exactly once under concurrent cancels: one state flip, one status
+// change, one clawback row, entitlement inactive.
+//
+// Honest scope note: this is a behavioural test, not a proven regression
+// test. The pre-fix code (pool, no transaction, no FOR UPDATE) also passes
+// it, because the losing callers almost always read the already-committed
+// -2 and take the idempotent branch — the racy window is too narrow to hit
+// reliably without fault injection. The atomicity guarantee itself rests on
+// the structure: cancel now mirrors performTransaction, which has a real
+// injected-failure rollback test (TestPerformTransaction_GrantDaysFailure-
+// RollsBack). What this test does protect is the observable contract, so a
+// future refactor that starts double-clawing back or leaves the payment
+// un-refunded fails here.
+func TestCancelTransaction_ConcurrentRefundsAreSerialized(t *testing.T) {
+	pool := testdb.New(t)
+	h := newMethodsHandler(pool)
+	paymentID := seedPayment(t, pool, "paid")
+	paymeID := "payme-cancel-concurrent"
+	seedPaymeTransaction(t, pool, paymeID, paymentID, 2, time.Now().UnixMilli())
+
+	profileID := profileOf(t, pool, paymentID)
+	if _, err := h.Svc.GrantDaysForPayment(
+		context.Background(), profileID, 30, "purchase", "paid grant",
+		uuid.NullUUID{}, uuid.NullUUID{UUID: paymentID, Valid: true},
+	); err != nil {
+		t.Fatalf("grant: %v", err)
+	}
+
+	// A referral commission is what makes the refund side non-trivial: the
+	// clawback is guarded by a unique index per payment, so an unserialized
+	// second caller trying to write it again is exactly what surfaces the
+	// missing lock.
+	referrerID := uuid.New()
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO profile (id, phone) VALUES ($1, '+998905550001')`, referrerID); err != nil {
+		t.Fatalf("seed referrer: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO referral_ledger (profile_id, entry_type, amount_uzs, payment_id)
+		 VALUES ($1, 'commission', 4980, $2)`, referrerID, paymentID); err != nil {
+		t.Fatalf("seed commission: %v", err)
+	}
+
+	const callers = 6
+	var wg sync.WaitGroup
+	start := make(chan struct{})
+	errs := make([]bool, callers)
+	for i := 0; i < callers; i++ {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			<-start
+			resp := rpcCall(t, h, "CancelTransaction", map[string]any{"id": paymeID, "reason": 3})
+			_, isErr := rpcErrorCode(t, resp)
+			errs[i] = isErr
+		}(i)
+	}
+	close(start)
+	wg.Wait()
+
+	for i, isErr := range errs {
+		if isErr {
+			t.Errorf("caller %d returned an RPC error; concurrent cancels must serialize, not collide", i)
+		}
+	}
+
+	var state int32
+	var status string
+	if err := pool.QueryRow(context.Background(),
+		`SELECT t.state, p.status FROM payme_transaction t
+		 JOIN payment p ON p.id = t.payment_id WHERE t.payme_id = $1`,
+		paymeID,
+	).Scan(&state, &status); err != nil {
+		t.Fatal(err)
+	}
+	if state != -2 {
+		t.Errorf("state = %d, want -2", state)
+	}
+	if status != "refunded" {
+		t.Errorf("payment.status = %q, want refunded", status)
+	}
+
+	var clawbacks int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM referral_ledger WHERE payment_id = $1 AND entry_type = 'clawback'`,
+		paymentID,
+	).Scan(&clawbacks); err != nil {
+		t.Fatal(err)
+	}
+	if clawbacks != 1 {
+		t.Errorf("clawback rows = %d, want exactly 1", clawbacks)
+	}
+
+	if active, _, err := h.Svc.Status(context.Background(), profileID); err != nil {
+		t.Fatalf("status after refund: %v", err)
+	} else if active {
+		t.Errorf("entitlement still active after concurrent refunds, want inactive")
 	}
 }
 

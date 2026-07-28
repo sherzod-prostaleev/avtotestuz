@@ -3,6 +3,7 @@ package billing
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sync"
 	"testing"
 
@@ -305,7 +306,15 @@ func TestAudit_ClawbackOnRefund(t *testing.T) {
 	}
 }
 
-func TestAudit_ClawbackPartialWhenHeld(t *testing.T) {
+// TestAudit_ClawbackIsFullEvenWhenPayoutPending pins the fix for a cash
+// extraction loop. The clawback used to be clamped to the current balance
+// and skipped entirely at <= 0. A pending payout writes a negative
+// payout_hold row, so simply *requesting* a withdrawal zeroed the balance
+// and cancelled the clawback — "refer yourself, buy, request payout, refund
+// the purchase" then kept both the refund and the commission, repeatably.
+// The full commission must now come back, driving the balance negative,
+// which correctly blocks further withdrawals until it is worked off.
+func TestAudit_ClawbackIsFullEvenWhenPayoutPending(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 	referrer, referee, svc := setupReferrerPair(t, pool, "+998901300009", "+998901300010", 20)
@@ -313,16 +322,13 @@ func TestAudit_ClawbackPartialWhenHeld(t *testing.T) {
 	payReferee(t, pool, svc, referee, paymentID, 24900)
 	commission := int64(24900 * 20 / 100)
 	holdAmt := commission / 2
-	if _, err := svc.RequestReferralPayout(ctx, referrer, holdAmt, "8600123456789012", "uzcard"); err != nil {
+	if _, err := svc.RequestReferralPayout(ctx, referrer, holdAmt, "8600312345678906", "uzcard"); err != nil {
 		t.Fatal(err)
 	}
 	if err := svc.ClawbackReferralCommissionOnRefund(ctx, paymentID); err != nil {
 		t.Fatal(err)
 	}
-	bal, _ := svc.ReferralBalance(ctx, referrer)
-	if bal != 0 {
-		t.Fatalf("partial clawback left balance=%d, want 0", bal)
-	}
+
 	var clawAmt int64
 	if err := pool.QueryRow(ctx,
 		`SELECT amount_uzs FROM referral_ledger WHERE payment_id = $1 AND entry_type = 'clawback'`,
@@ -330,8 +336,21 @@ func TestAudit_ClawbackPartialWhenHeld(t *testing.T) {
 	).Scan(&clawAmt); err != nil {
 		t.Fatal(err)
 	}
-	if clawAmt != -(commission - holdAmt) {
-		t.Fatalf("claw amount=%d, want %d", clawAmt, -(commission - holdAmt))
+	if clawAmt != -commission {
+		t.Fatalf("claw amount=%d, want the full -%d", clawAmt, commission)
+	}
+
+	bal, _ := svc.ReferralBalance(ctx, referrer)
+	if want := -holdAmt; bal != want {
+		t.Fatalf("balance after full clawback=%d, want %d", bal, want)
+	}
+	if bal != ledgerSum(t, pool, referrer) {
+		t.Errorf("balance != ledger sum after clawback")
+	}
+
+	// The debt must actually stop further withdrawals.
+	if _, err := svc.RequestReferralPayout(ctx, referrer, 1, "8600312345678906", "uzcard"); !errors.Is(err, ErrPayoutInsufficientBalance) {
+		t.Fatalf("payout on a negative balance err=%v, want ErrPayoutInsufficientBalance", err)
 	}
 }
 
