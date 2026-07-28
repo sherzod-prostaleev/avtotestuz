@@ -1,12 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { type ColumnDef } from "@tanstack/react-table";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 import { Button } from "@/components/ui/button";
 import { PermissionGate } from "@/components/admin/permission-gate";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type PayoutRow = {
   id: string;
@@ -58,25 +63,106 @@ export default function AdminReferralPayoutsPage() {
     void load();
   }, [load]);
 
-  async function act(id: string, action: "paid" | "reject") {
-    setBusyId(id);
-    try {
-      const res = await fetch(`/api/admin/referral/payouts/${id}/${action}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ note: "" }),
-      });
-      if (!res.ok) {
+  const act = useCallback(
+    async (id: string, action: "paid" | "reject") => {
+      setBusyId(id);
+      try {
+        const res = await fetch(`/api/admin/referral/payouts/${id}/${action}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ note: "" }),
+        });
+        if (!res.ok) {
+          setError(t("errorAction"));
+          return;
+        }
+        await load();
+      } catch {
         setError(t("errorAction"));
-        return;
+      } finally {
+        setBusyId(null);
       }
-      await load();
-    } catch {
-      setError(t("errorAction"));
-    } finally {
-      setBusyId(null);
-    }
-  }
+    },
+    [load, t],
+  );
+
+  const columns = useMemo<ColumnDef<PayoutRow>[]>(
+    () => [
+      {
+        accessorKey: "profile_name",
+        header: t("colUser"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">{row.original.profile_name || "—"}</div>
+            <div className="text-xs text-muted-foreground">{row.original.profile_phone}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "amount_uzs",
+        header: t("colAmount"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => <span className="font-mono">{formatSom(row.original.amount_uzs)}</span>,
+      },
+      {
+        accessorKey: "card_number",
+        header: t("colCard"),
+        cell: ({ row }) => (
+          <div>
+            <div className="font-mono text-xs">{row.original.card_number}</div>
+            <div className="text-[11px] uppercase text-muted-foreground">
+              {row.original.card_network}
+            </div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: t("colStatus"),
+        cell: ({ row }) => row.original.status,
+      },
+      {
+        accessorKey: "created_at",
+        header: t("colCreated"),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {new Date(row.original.created_at).toLocaleString()}
+          </span>
+        ),
+      },
+      {
+        id: "actions",
+        header: t("colActions"),
+        cell: ({ row }) =>
+          row.original.status === "pending" ? (
+            <PermissionGate permission="referral.payouts.manage" mode="hide">
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="success"
+                  disabled={busyId === row.original.id}
+                  onClick={() => void act(row.original.id, "paid")}
+                >
+                  {t("markPaid")}
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busyId === row.original.id}
+                  onClick={() => void act(row.original.id, "reject")}
+                >
+                  {t("reject")}
+                </Button>
+              </div>
+            </PermissionGate>
+          ) : null,
+      },
+    ],
+    [t, busyId, act],
+  );
 
   return (
     <div className="space-y-6">
@@ -100,72 +186,12 @@ export default function AdminReferralPayoutsPage() {
       {error && <AdminErrorState message={error} onRetry={() => void load()} />}
 
       {!loading && !error && (
-        <div className="overflow-x-auto rounded-xl border border-border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/40 text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-3 py-2">{t("colUser")}</th>
-                <th className="px-3 py-2">{t("colAmount")}</th>
-                <th className="px-3 py-2">{t("colCard")}</th>
-                <th className="px-3 py-2">{t("colStatus")}</th>
-                <th className="px-3 py-2">{t("colCreated")}</th>
-                <th className="px-3 py-2">{t("colActions")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="px-3 py-8 text-center text-muted-foreground">
-                    {t("empty")}
-                  </td>
-                </tr>
-              )}
-              {items.map((row) => (
-                <tr key={row.id} className="border-t border-border">
-                  <td className="px-3 py-2">
-                    <div className="font-medium">{row.profile_name || "—"}</div>
-                    <div className="text-xs text-muted-foreground">{row.profile_phone}</div>
-                  </td>
-                  <td className="px-3 py-2 font-mono">{formatSom(row.amount_uzs)}</td>
-                  <td className="px-3 py-2">
-                    <div className="font-mono text-xs">{row.card_number}</div>
-                    <div className="text-[11px] uppercase text-muted-foreground">{row.card_network}</div>
-                  </td>
-                  <td className="px-3 py-2">{row.status}</td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {new Date(row.created_at).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.status === "pending" && (
-                      <PermissionGate permission="referral.payouts.manage" mode="hide">
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="success"
-                            disabled={busyId === row.id}
-                            onClick={() => void act(row.id, "paid")}
-                          >
-                            {t("markPaid")}
-                          </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={busyId === row.id}
-                            onClick={() => void act(row.id, "reject")}
-                          >
-                            {t("reject")}
-                          </Button>
-                        </div>
-                      </PermissionGate>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminDataTable
+          data={items}
+          columns={columns}
+          emptyTitle={t("empty")}
+          getRowId={(row) => row.id}
+        />
       )}
     </div>
   );

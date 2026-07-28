@@ -1,9 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -11,6 +12,10 @@ import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import { useAdminMeOptional } from "@/components/admin/admin-me-context";
 import { hasPermission } from "@/lib/admin-permissions";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type PaymentRow = {
   id: string;
@@ -86,35 +91,112 @@ export default function AdminPaymentsTransactionsPage() {
     void load(page);
   }, [page, load]);
 
-  async function removePayment(row: PaymentRow) {
-    if (!window.confirm(t("confirmDelete", { phone: row.phone_masked, status: row.status }))) {
-      return;
-    }
-    setDeletingId(row.id);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/payments/transactions/${row.id}`, { method: "DELETE" });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        const code = json?.error?.code as string | undefined;
-        setError(
-          code === "forbidden"
-            ? t("errorForbiddenDelete")
-            : code === "not_found"
-              ? t("errorNotFound")
-              : t("errorDelete"),
-        );
+  const removePayment = useCallback(
+    async (row: PaymentRow) => {
+      if (!window.confirm(t("confirmDelete", { phone: row.phone_masked, status: row.status }))) {
         return;
       }
-      await load(page);
-    } catch {
-      setError(t("errorDelete"));
-    } finally {
-      setDeletingId(null);
-    }
-  }
+      setDeletingId(row.id);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/payments/transactions/${row.id}`, { method: "DELETE" });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          const code = json?.error?.code as string | undefined;
+          setError(
+            code === "forbidden"
+              ? t("errorForbiddenDelete")
+              : code === "not_found"
+                ? t("errorNotFound")
+                : t("errorDelete"),
+          );
+          return;
+        }
+        await load(page);
+      } catch {
+        setError(t("errorDelete"));
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [load, page, t],
+  );
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
+
+  const columns = useMemo<ColumnDef<PaymentRow>[]>(
+    () => [
+      {
+        accessorKey: "phone_masked",
+        header: t("colPhone"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <Link
+            href={`/${locale}/admin/payments/transactions/${row.original.id}`}
+            className="font-mono text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {row.original.phone_masked}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "provider",
+        header: t("colProvider"),
+        cell: ({ row }) => row.original.provider,
+      },
+      {
+        accessorKey: "status",
+        header: t("colStatus"),
+        cell: ({ row }) => (
+          <span className="text-xs font-bold uppercase text-muted-foreground">
+            {row.original.status}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "amount_uzs",
+        header: t("colAmount"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => row.original.amount_uzs.toLocaleString(locale),
+      },
+      {
+        accessorKey: "tariff_code",
+        header: t("colTariff"),
+        cell: ({ row }) => row.original.tariff_code || "—",
+      },
+      {
+        accessorKey: "created_at",
+        header: t("colCreated"),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {new Date(row.original.created_at).toLocaleString(locale)}
+          </span>
+        ),
+      },
+      ...(canDelete
+        ? ([
+            {
+              id: "actions",
+              header: t("colActions"),
+              cell: ({ row }) => (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={deletingId === row.original.id || loading}
+                  onClick={() => void removePayment(row.original)}
+                  aria-label={t("delete")}
+                >
+                  <Trash2 aria-hidden className="mr-1 h-3.5 w-3.5" />
+                  {deletingId === row.original.id ? t("deleting") : t("delete")}
+                </Button>
+              ),
+            },
+          ] as ColumnDef<PaymentRow>[])
+        : []),
+    ],
+    [t, locale, canDelete, deletingId, loading, removePayment],
+  );
 
   return (
     <PermissionGate permission="payments.read">
@@ -191,63 +273,14 @@ export default function AdminPaymentsTransactionsPage() {
           <AdminErrorState message={error} retryLabel={t("refresh")} onRetry={() => void load(page)} />
         ) : !data ? (
           <p className="text-sm text-muted-foreground">{t("loading")}</p>
-        ) : data.items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("empty")}</p>
         ) : (
           <>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">{t("colPhone")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colProvider")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colStatus")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colAmount")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colTariff")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colCreated")}</th>
-                    {canDelete ? <th className="px-3 py-2 font-bold">{t("colActions")}</th> : null}
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((row) => (
-                    <tr key={row.id} className="border-b border-border/60 last:border-0 hover:bg-card/60">
-                      <td className="px-3 py-2 font-mono text-xs">
-                        <Link
-                          href={`/${locale}/admin/payments/transactions/${row.id}`}
-                          className="font-semibold text-accent hover:underline"
-                        >
-                          {row.phone_masked}
-                        </Link>
-                      </td>
-                      <td className="px-3 py-2">{row.provider}</td>
-                      <td className="px-3 py-2">
-                        <span className="text-xs font-bold uppercase text-muted-foreground">{row.status}</span>
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{row.amount_uzs.toLocaleString(locale)}</td>
-                      <td className="px-3 py-2">{row.tariff_code || "—"}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {new Date(row.created_at).toLocaleString(locale)}
-                      </td>
-                      {canDelete ? (
-                        <td className="px-3 py-2">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={deletingId === row.id || loading}
-                            onClick={() => void removePayment(row)}
-                            aria-label={t("delete")}
-                          >
-                            <Trash2 aria-hidden className="mr-1 h-3.5 w-3.5" />
-                            {deletingId === row.id ? t("deleting") : t("delete")}
-                          </Button>
-                        </td>
-                      ) : null}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AdminDataTable
+              data={data.items}
+              columns={columns}
+              emptyTitle={t("empty")}
+              getRowId={(row) => row.id}
+            />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <p>
                 {t("total", { count: data.total })} · {t("pageOf", { page: data.page, pages: totalPages })}
