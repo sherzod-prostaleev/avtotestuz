@@ -48,6 +48,10 @@ type Service struct {
 	Sender Sender
 	Secret []byte
 	Env    string
+	// DebugEcho returns the generated OTP in the request response. Explicit
+	// opt-in (config.OTPDebugEcho), never inferred from Env — a host left on
+	// ENV=dev by mistake must not hand out every account.
+	DebugEcho bool
 
 	AccessTTL  time.Duration
 	RefreshTTL time.Duration
@@ -72,7 +76,7 @@ func NewService(q *sqlc.Queries, pool *pgxpool.Pool, lim Limiter, sender Sender,
 
 type OTPRequestResult struct {
 	Channel   string
-	DebugCode string // set only when Env=="dev" and channel=="sandbox"
+	DebugCode string // set only when DebugEcho is on AND channel=="sandbox"
 }
 
 // RequestOTP enforces cooldown/rate limits, then generates and sends a code.
@@ -116,7 +120,7 @@ func (s *Service) RequestOTP(ctx context.Context, rawPhone, ip string) (OTPReque
 	}
 
 	res := OTPRequestResult{Channel: s.Sender.Channel()}
-	if s.Env == "dev" && s.Sender.Channel() == "sandbox" {
+	if s.DebugEcho && s.Sender.Channel() == "sandbox" {
 		res.DebugCode = code
 	}
 	return res, nil

@@ -398,3 +398,44 @@ func TestRegisterWeakPassword(t *testing.T) {
 		t.Fatalf("err=%v want ErrWeakPassword", err)
 	}
 }
+
+// TestRequestOTPNeverEchoesCodeByDefault pins the fix for a live account
+// takeover: the OTP used to be echoed in the HTTP response whenever
+// Env=="dev" and the sandbox sender was active. Production ran with
+// ENV=dev + OTP_CHANNEL=sandbox, so POST /auth/otp/request returned a
+// working code for ANY phone number. The echo is now an explicit opt-in
+// (DebugEcho) that defaults to off, so an Env misconfiguration alone can
+// never re-open it. newTestService deliberately builds the exact old
+// trigger conditions — Env "dev" plus a sandbox-channel sender.
+func TestRequestOTPNeverEchoesCodeByDefault(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+
+	res, err := svc.RequestOTP(context.Background(), "901234567", "1.2.3.4")
+	if err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
+	if res.DebugCode != "" {
+		t.Errorf("DebugCode = %q, want empty: the OTP must never reach the response without an explicit opt-in", res.DebugCode)
+	}
+	if sender.last == "" {
+		t.Fatal("sender received no code: the OTP should still be generated and delivered")
+	}
+}
+
+// TestRequestOTPEchoesCodeWhenExplicitlyEnabled keeps the local-dev
+// convenience working, so the fix above cannot be "reverted" later on the
+// grounds that it broke developer flow.
+func TestRequestOTPEchoesCodeWhenExplicitlyEnabled(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	svc.DebugEcho = true
+
+	res, err := svc.RequestOTP(context.Background(), "901234567", "1.2.3.4")
+	if err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
+	if res.DebugCode != sender.last {
+		t.Errorf("DebugCode = %q, want the delivered code %q", res.DebugCode, sender.last)
+	}
+}

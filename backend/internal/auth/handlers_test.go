@@ -23,6 +23,10 @@ func setupHandlerServer(t *testing.T) *httptest.Server {
 	pool := testdb.New(t)
 	c := redisx.NewTest(t)
 	svc := NewService(sqlc.New(pool), pool, Limiter{R: c}, SandboxSender{Log: zap.NewNop()}, []byte(handlerSecret), "dev")
+	// The sandbox sender only logs the code, so this HTTP round-trip test
+	// needs the echo to learn it. Opt in explicitly — the echo is off by
+	// default now (see TestRequestOTPNeverEchoesCodeByDefault).
+	svc.DebugEcho = true
 
 	r := chi.NewRouter()
 	h := &Handler{Svc: svc}
@@ -75,7 +79,7 @@ func TestOTPRequestVerifyProbeAndRefreshOverHTTP(t *testing.T) {
 		t.Fatal(err)
 	}
 	if reqOut.DebugCode == "" {
-		t.Fatal("expected debug_code in dev+sandbox response")
+		t.Fatal("expected debug_code when DebugEcho is explicitly enabled")
 	}
 
 	status, env = postJSON(t, ts, "/auth/otp/verify", map[string]string{"phone": "901234567", "code": reqOut.DebugCode})

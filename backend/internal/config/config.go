@@ -28,8 +28,15 @@ type Config struct {
 	// making the referral flow impossible to test end-to-end.
 	PublicBaseURL string
 
-	JWTSecret               string
-	OTPChannel              string // sandbox | telegram
+	JWTSecret  string
+	OTPChannel string // sandbox | telegram
+	// OTPDebugEcho echoes the generated OTP back in the HTTP response of
+	// POST /auth/otp/request. It is a deliberate, explicit opt-in (default
+	// off) rather than being inferred from ENV: a host left on ENV=dev by
+	// accident must never turn every account into a takeover target. Only
+	// honoured together with the sandbox sender, and never in staging/prod
+	// (see validate).
+	OTPDebugEcho            bool
 	TelegramGatewayToken    string
 	TelegramGatewayURL      string
 	ClientIPAssertionSecret string
@@ -104,6 +111,7 @@ func Load() (Config, error) {
 
 		JWTSecret:               getenv("JWT_SECRET", defaultJWTSecret),
 		OTPChannel:              getenv("OTP_CHANNEL", "sandbox"),
+		OTPDebugEcho:            getenvBool("OTP_DEBUG_ECHO", false),
 		TelegramGatewayToken:    getenv("TELEGRAM_GATEWAY_TOKEN", ""),
 		TelegramGatewayURL:      getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 		ClientIPAssertionSecret: getenv("CLIENT_IP_ASSERTION_SECRET", ""),
@@ -159,6 +167,11 @@ func (c Config) validate() error {
 	if c.Env == "staging" || c.Env == "prod" {
 		if c.OTPChannel == "sandbox" {
 			return fmt.Errorf("OTP_CHANNEL sandbox is not allowed when ENV=%s", c.Env)
+		}
+		// Echoing the OTP in the HTTP response is remote account takeover
+		// for any phone number; it must never be reachable off a dev box.
+		if c.OTPDebugEcho {
+			return fmt.Errorf("OTP_DEBUG_ECHO must not be enabled when ENV=%s", c.Env)
 		}
 		if c.JWTSecret == defaultJWTSecret {
 			return fmt.Errorf("JWT_SECRET must not use the development default when ENV=%s", c.Env)
@@ -223,4 +236,19 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+// getenvBool reads a boolean env var, accepting the same spellings as the
+// rest of the codebase (see admin.TOTPEnforce). Anything unrecognised —
+// including a typo — falls back to def, so a malformed value can never
+// silently enable a security-relevant switch.
+func getenvBool(key string, def bool) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes":
+		return true
+	case "0", "false", "no":
+		return false
+	default:
+		return def
+	}
 }
