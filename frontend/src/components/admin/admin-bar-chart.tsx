@@ -19,9 +19,12 @@ export function AdminBarChart({
   valueFormatter = (n) => String(n),
   height = 160,
 }: AdminBarChartProps) {
-  if (!points.length) {
+  // A 14-day series where 13 days are zero is not a chart — it is one bar and
+  // a field of ghosts. Say so instead of drawing it.
+  const populatedDays = points.filter((p) => p.value > 0).length;
+  if (populatedDays < 2) {
     return (
-      <p className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+      <p className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
         {emptyLabel}
       </p>
     );

@@ -1282,7 +1282,7 @@
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
     "chartHint": "Честные SQL-агрегаты (UTC)",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "quickLinks": "Быстрый доступ",
     "linkUsers": "Каталог пользователей",
     "linkAnalytics": "Аналитика",
@@ -1730,7 +1730,7 @@
     "tileEvents7d": "Events (7д)",
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "eventsTitle": "Top event names (7д)",
     "eventsEmpty": "Событий нет.",
     "generatedAt": "Посчитано: {time}"
@@ -1761,7 +1761,7 @@
     "tileEntitlements": "Активный VIP",
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "generatedAt": "Посчитано: {time}"
   },
   "AdminFlags": {

@@ -1282,7 +1282,7 @@
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
     "chartHint": "Ҳақиқий SQL агрегатлар (UTC)",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "quickLinks": "Тезкор кириш",
     "linkUsers": "Фойдаланувчилар каталоги",
     "linkAnalytics": "Аналитика",
@@ -1730,7 +1730,7 @@
     "tileEvents7d": "Events (7 кун)",
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "eventsTitle": "Top event names (7 кун)",
     "eventsEmpty": "Event йўқ.",
     "generatedAt": "Ҳисобланган: {time}"
@@ -1761,7 +1761,7 @@
     "tileEntitlements": "Фаол VIP",
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "generatedAt": "Ҳисобланган: {time}"
   },
   "AdminFlags": {

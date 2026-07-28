@@ -1282,7 +1282,7 @@
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
     "chartHint": "Haqiqiy SQL agregatlar (UTC)",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "quickLinks": "Tezkor kirish",
     "linkUsers": "Foydalanuvchilar katalogi",
     "linkAnalytics": "Analitika",
@@ -1730,7 +1730,7 @@
     "tileEvents7d": "Events (7 kun)",
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "eventsTitle": "Top event names (7 kun)",
     "eventsEmpty": "Event yo‘q.",
     "generatedAt": "Hisoblangan: {time}"
@@ -1761,7 +1761,7 @@
     "tileEntitlements": "Faol VIP",
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "generatedAt": "Hisoblangan: {time}"
   },
   "AdminFlags": {
