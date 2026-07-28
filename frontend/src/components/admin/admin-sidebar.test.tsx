@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { AdminSidebar } from "./admin-sidebar";
@@ -34,7 +34,7 @@ const ALL_PERMISSIONS = [
   "support.broadcast",
 ];
 
-function renderSidebar(activePath: string) {
+function renderSidebar(activePath: string, permissions: string[] = ALL_PERMISSIONS) {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
       <AdminMeProvider
@@ -43,7 +43,7 @@ function renderSidebar(activePath: string) {
           email: "admin@example.com",
           display_name: "Admin",
           roles: ["admin"],
-          permissions: ALL_PERMISSIONS,
+          permissions,
         }}
       >
         <AdminSidebar locale="uz-Latn" activePath={activePath} />
@@ -94,5 +94,43 @@ describe("AdminSidebar", () => {
   it("uses design tokens, not hard-coded colors", () => {
     const { container } = renderSidebar("/uz-Latn/admin/users");
     expect(container.innerHTML).not.toMatch(/hsl\(220_28%_7%\)/);
+  });
+});
+
+// The sidebar is the operator's map of the panel: a group it renders is a
+// capability the operator believes they hold. These tests pin the deny path so
+// a future refactor of the filter cannot silently widen it.
+describe("AdminSidebar permission gate", () => {
+  it("hides groups whose permission the admin lacks", () => {
+    renderSidebar("/uz-Latn/admin/users", ["users.read"]);
+    // users.read is held -> its group is there, and so is B2B (same permission).
+    expect(screen.getByRole("button", { name: /Foydalanuvchilar/ })).toBeInTheDocument();
+    // Everything gated behind another permission is gone entirely — header included.
+    expect(screen.queryByRole("button", { name: /To‘lovlar/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Xavfsizlik/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Kontent/ })).not.toBeInTheDocument();
+  });
+
+  it("honours any-of permissions", () => {
+    // payments maps to ["payments.read", "referral.read"] — either one opens it.
+    renderSidebar("/uz-Latn/admin/users", ["referral.read"]);
+    expect(screen.getByRole("button", { name: /To‘lovlar/ })).toBeInTheDocument();
+  });
+
+  it("fails closed when the admin has no permissions at all", () => {
+    renderSidebar("/uz-Latn/admin", []);
+    for (const label of [
+      /Foydalanuvchilar/,
+      /To‘lovlar/,
+      /Xavfsizlik/,
+      /Kontent/,
+      /Nazorat/,
+      /Analitika/,
+      /Investorlar/,
+      /Sozlamalar/,
+      /Qo‘llab-quvvatlash/,
+    ]) {
+      expect(screen.queryByRole("button", { name: label }), `${label} leaked`).not.toBeInTheDocument();
+    }
   });
 });
