@@ -1,14 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 import { PermissionGate } from "@/components/admin/permission-gate";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type Ticket = {
   id: string;
@@ -81,6 +86,51 @@ export default function AdminSupportInboxPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
+  const columns = useMemo<ColumnDef<Ticket>[]>(
+    () => [
+      {
+        accessorKey: "subject",
+        header: t("colSubject"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <>
+            <Link
+              href={`/${locale}/admin/support/inbox/${row.original.id}`}
+              className="font-semibold text-accent hover:underline"
+            >
+              {row.original.subject}
+            </Link>
+            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{row.original.body}</p>
+          </>
+        ),
+      },
+      {
+        accessorKey: "status",
+        header: t("colStatus"),
+        cell: ({ row }) => (
+          <span className="text-xs font-semibold">
+            {t(`status_${row.original.status}` as "status_open")}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "source",
+        header: t("colSource"),
+        cell: ({ row }) => <span className="text-xs">{row.original.source}</span>,
+      },
+      {
+        accessorKey: "created_at",
+        header: t("colCreated"),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {new Date(row.original.created_at).toLocaleString(locale)}
+          </span>
+        ),
+      },
+    ],
+    [t, locale],
+  );
+
   return (
     <PermissionGate permission="support.inbox">
       <main className="mx-auto max-w-5xl space-y-5">
@@ -147,47 +197,12 @@ export default function AdminSupportInboxPage() {
 
         {data ? (
           <>
-            <div className="overflow-x-auto rounded-2xl border border-border/80 bg-card/70">
-              <table className="w-full min-w-[40rem] text-left text-sm">
-                <thead className="border-b border-border bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">{t("colSubject")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colStatus")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colSource")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colCreated")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={4} className="px-3 py-6 text-muted-foreground">
-                        {t("empty")}
-                      </td>
-                    </tr>
-                  ) : null}
-                  {data.items.map((row) => (
-                    <tr key={row.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="px-3 py-2">
-                        <Link
-                          href={`/${locale}/admin/support/inbox/${row.id}`}
-                          className="font-semibold text-accent hover:underline"
-                        >
-                          {row.subject}
-                        </Link>
-                        <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">{row.body}</p>
-                      </td>
-                      <td className="px-3 py-2 text-xs font-semibold">
-                        {t(`status_${row.status}` as "status_open")}
-                      </td>
-                      <td className="px-3 py-2 text-xs">{row.source}</td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {new Date(row.created_at).toLocaleString(locale)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AdminDataTable
+              data={data.items}
+              columns={columns}
+              emptyTitle={t("empty")}
+              getRowId={(row) => row.id}
+            />
 
             {data.total > data.limit ? (
               <div className="flex items-center justify-between gap-2 text-sm">

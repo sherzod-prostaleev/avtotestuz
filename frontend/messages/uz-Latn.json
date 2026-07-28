@@ -1403,7 +1403,9 @@
     "blockWarn2": "Foydalanuvchi kira olmaydi.",
     "blockPhrase": "Tasdiqlash uchun yozing:",
     "confirmBlock": "BLOK",
-    "cancel": "Bekor qilish"
+    "cancel": "Bekor qilish",
+    "colSession": "Sessiya",
+    "colActions": "Amallar"
   },
   "AdminContent": {
     "questionsTitle": "Savollar",
@@ -1511,7 +1513,9 @@
     "ledgerTitle": "Ledger (yozuvlar)",
     "ledgerEmpty": "Yozuvlar yo‘q.",
     "refereesTitle": "Taklif qilinganlar",
-    "refereesEmpty": "Hali referallar yo‘q."
+    "refereesEmpty": "Hali referallar yo‘q.",
+    "colEntry": "Yozuv turi",
+    "colCommission": "Komissiya"
   },
   "AdminPayments": {
     "transactionsTitle": "To‘lovlar",

@@ -1403,7 +1403,9 @@
     "blockWarn2": "Пользователь не сможет войти.",
     "blockPhrase": "Для подтверждения введите:",
     "confirmBlock": "BLOK",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "colSession": "Сессия",
+    "colActions": "Действия"
   },
   "AdminContent": {
     "questionsTitle": "Вопросы",
@@ -1511,7 +1513,9 @@
     "ledgerTitle": "Ledger (записи)",
     "ledgerEmpty": "Записей нет.",
     "refereesTitle": "Приглашённые",
-    "refereesEmpty": "Пока нет рефералов."
+    "refereesEmpty": "Пока нет рефералов.",
+    "colEntry": "Тип записи",
+    "colCommission": "Комиссия"
   },
   "AdminPayments": {
     "transactionsTitle": "Платежи",

@@ -1403,7 +1403,9 @@
     "blockWarn2": "Фойдаланувчи кира олмайди.",
     "blockPhrase": "Тасдиқлаш учун ёзинг:",
     "confirmBlock": "BLOK",
-    "cancel": "Бекор қилиш"
+    "cancel": "Бекор қилиш",
+    "colSession": "Сессия",
+    "colActions": "Амаллар"
   },
   "AdminContent": {
     "questionsTitle": "Саволлар",
@@ -1511,7 +1513,9 @@
     "ledgerTitle": "Ledger (ёзувлар)",
     "ledgerEmpty": "Ёзувлар йўқ.",
     "refereesTitle": "Таклиф қилинганлар",
-    "refereesEmpty": "Ҳали рефераллар йўқ."
+    "refereesEmpty": "Ҳали рефераллар йўқ.",
+    "colEntry": "Ёзув тури",
+    "colCommission": "Комиссия"
   },
   "AdminPayments": {
     "transactionsTitle": "Тўловлар",

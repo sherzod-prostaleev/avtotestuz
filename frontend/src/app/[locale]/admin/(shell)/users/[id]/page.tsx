@@ -1,11 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
 import { ArrowLeft, Copy, KeyRound, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
@@ -70,6 +75,15 @@ type ReferralAdmin = {
   }>;
 };
 
+type RefereeRow = ReferralAdmin["referees"][number];
+
+type LedgerRow = {
+  id: string;
+  entry_type: string;
+  amount_uzs: number;
+  created_at: string;
+};
+
 export default function AdminUserDetailPage({ params }: { params: { id: string } }) {
   const t = useTranslations("AdminUsers");
   const tr = useTranslations("AdminReferral");
@@ -81,9 +95,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
   const [rateInput, setRateInput] = useState("20");
   const [balanceInput, setBalanceInput] = useState("0");
   const [balanceNote, setBalanceNote] = useState("");
-  const [ledger, setLedger] = useState<
-    Array<{ id: string; entry_type: string; amount_uzs: number; created_at: string }>
-  >([]);
+  const [ledger, setLedger] = useState<LedgerRow[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -184,24 +196,29 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
     }
   }
 
-  async function revokeOne(sessionId: string) {
-    setBusy(true);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/users/${id}/sessions/${sessionId}/revoke`, {
-        method: "POST",
-      });
-      if (!res.ok) {
+  // useCallback (not a plain declaration) so the sessions column defs below stay
+  // referentially stable across renders.
+  const revokeOne = useCallback(
+    async (sessionId: string) => {
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/users/${id}/sessions/${sessionId}/revoke`, {
+          method: "POST",
+        });
+        if (!res.ok) {
+          setError(t("errorAction"));
+          return;
+        }
+        await load();
+      } catch {
         setError(t("errorAction"));
-        return;
+      } finally {
+        setBusy(false);
       }
-      await load();
-    } catch {
-      setError(t("errorAction"));
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+    [id, t, load],
+  );
 
   async function grantVip() {
     if (grantDays < 1 || grantDays > 3660) {
@@ -240,6 +257,159 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
       setBusy(false);
     }
   }
+
+  const sessionColumns = useMemo<ColumnDef<SessionRow>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: t("colSession"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => <p className="font-mono text-xs">{row.original.id.slice(0, 8)}…</p>,
+      },
+      {
+        accessorKey: "created_at",
+        header: t("colCreated"),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {new Date(row.original.created_at).toLocaleString(locale)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "active",
+        header: t("colStatus"),
+        cell: ({ row }) => (
+          <span className="text-xs text-muted-foreground">
+            {row.original.active ? t("sessionActive") : t("sessionInactive")}
+          </span>
+        ),
+      },
+      {
+        // Deliberately not `hideOnCard`: revoking a leaked session is incident
+        // response, and the operator doing it is often holding a phone.
+        id: "actions",
+        header: t("colActions"),
+        cell: ({ row }) =>
+          row.original.active ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy}
+              onClick={() => void revokeOne(row.original.id)}
+            >
+              {t("revokeOne")}
+            </Button>
+          ) : null,
+      },
+    ],
+    [t, locale, busy, revokeOne],
+  );
+
+  const entitlementColumns = useMemo<ColumnDef<EntitlementRow>[]>(
+    () => [
+      {
+        accessorKey: "source",
+        header: t("colSource"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <>
+            <p className="font-semibold">{row.original.source}</p>
+            {row.original.note ? (
+              <p className="text-[11px] text-muted-foreground">{row.original.note}</p>
+            ) : null}
+          </>
+        ),
+      },
+      {
+        accessorKey: "starts_at",
+        header: t("colStarts"),
+        cell: ({ row }) => (
+          <span className="text-xs">{new Date(row.original.starts_at).toLocaleString(locale)}</span>
+        ),
+      },
+      {
+        accessorKey: "ends_at",
+        header: t("colEnds"),
+        cell: ({ row }) => (
+          <span className="text-xs">{new Date(row.original.ends_at).toLocaleString(locale)}</span>
+        ),
+      },
+      {
+        accessorKey: "active",
+        header: t("colActive"),
+        cell: ({ row }) => (
+          <span className="text-xs font-bold uppercase">
+            {row.original.active ? t("entitlementActive") : t("entitlementInactive")}
+          </span>
+        ),
+      },
+    ],
+    [t, locale],
+  );
+
+  const ledgerColumns = useMemo<ColumnDef<LedgerRow>[]>(
+    () => [
+      {
+        accessorKey: "entry_type",
+        header: tr("colEntry"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs text-muted-foreground">{row.original.entry_type}</span>
+        ),
+      },
+      {
+        accessorKey: "amount_uzs",
+        header: tr("colAmount"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span
+            className={`font-mono text-xs font-bold ${row.original.amount_uzs >= 0 ? "text-emerald-500" : "text-destructive"}`}
+          >
+            {row.original.amount_uzs >= 0 ? "+" : ""}
+            {row.original.amount_uzs.toLocaleString()}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "created_at",
+        header: tr("colCreated"),
+        cell: ({ row }) => (
+          <span className="text-[11px] text-muted-foreground">
+            {new Date(row.original.created_at).toLocaleString(locale)}
+          </span>
+        ),
+      },
+    ],
+    [tr, locale],
+  );
+
+  const refereeColumns = useMemo<ColumnDef<RefereeRow>[]>(
+    () => [
+      {
+        accessorKey: "referee_id",
+        header: tr("colUser"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <div>
+            <p className="font-semibold">{row.original.referee_name || row.original.referee_phone}</p>
+            <p className="text-xs text-muted-foreground">
+              {row.original.referee_phone} · {row.original.status}
+            </p>
+          </div>
+        ),
+      },
+      {
+        accessorKey: "commission_uzs",
+        header: tr("colCommission"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <p className="font-mono text-sm">{row.original.commission_uzs.toLocaleString()} so&apos;m</p>
+        ),
+      },
+    ],
+    [tr],
+  );
 
   if (error && !user) {
     return (
@@ -404,37 +574,13 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {t("sessionsTab")}
             </h3>
-            {!sessions?.length ? (
-              <p className="text-sm text-muted-foreground">{t("sessionsEmpty")}</p>
-            ) : (
-              <ul className="space-y-2">
-                {sessions.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"
-                  >
-                    <div>
-                      <p className="font-mono text-xs">{s.id.slice(0, 8)}…</p>
-                      <p className="text-xs text-muted-foreground">
-                        {new Date(s.created_at).toLocaleString(locale)} ·{" "}
-                        {s.active ? t("sessionActive") : t("sessionInactive")}
-                      </p>
-                    </div>
-                    {s.active ? (
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => void revokeOne(s.id)}
-                      >
-                        {t("revokeOne")}
-                      </Button>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            )}
+            <AdminDataTable
+              data={sessions ?? []}
+              columns={sessionColumns}
+              emptyTitle={t("sessionsEmpty")}
+              getRowId={(row) => row.id}
+              maxHeight={320}
+            />
           </section>
         ) : null}
 
@@ -493,41 +639,13 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
                 {t("entitlementsTab")}
               </h2>
-              {!user.entitlements?.length ? (
-                <p className="text-sm text-muted-foreground">{t("entitlementsEmpty")}</p>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[520px] text-left text-sm">
-                    <thead className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <tr>
-                        <th className="pb-2 pr-3 font-bold">{t("colSource")}</th>
-                        <th className="pb-2 pr-3 font-bold">{t("colStarts")}</th>
-                        <th className="pb-2 pr-3 font-bold">{t("colEnds")}</th>
-                        <th className="pb-2 font-bold">{t("colActive")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {user.entitlements.map((e) => (
-                        <tr key={e.id} className="border-t border-border/50">
-                          <td className="py-2 pr-3">
-                            <p className="font-semibold">{e.source}</p>
-                            {e.note ? <p className="text-[11px] text-muted-foreground">{e.note}</p> : null}
-                          </td>
-                          <td className="py-2 pr-3 text-xs">
-                            {new Date(e.starts_at).toLocaleString(locale)}
-                          </td>
-                          <td className="py-2 pr-3 text-xs">
-                            {new Date(e.ends_at).toLocaleString(locale)}
-                          </td>
-                          <td className="py-2 text-xs font-bold uppercase">
-                            {e.active ? t("entitlementActive") : t("entitlementInactive")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              <AdminDataTable
+                data={user.entitlements ?? []}
+                columns={entitlementColumns}
+                emptyTitle={t("entitlementsEmpty")}
+                getRowId={(row) => row.id}
+                maxHeight={320}
+              />
             </section>
           </div>
         ) : null}
@@ -669,52 +787,25 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                   <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
                     {tr("ledgerTitle")}
                   </h3>
-                  {!ledger.length ? (
-                    <p className="text-sm text-muted-foreground">{tr("ledgerEmpty")}</p>
-                  ) : (
-                    <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
-                      {ledger.map((e) => (
-                        <li
-                          key={e.id}
-                          className="flex flex-wrap justify-between gap-2 rounded-lg border border-border/50 px-2 py-1.5"
-                        >
-                          <span className="font-mono text-xs text-muted-foreground">{e.entry_type}</span>
-                          <span className={`font-mono text-xs font-bold ${e.amount_uzs >= 0 ? "text-emerald-500" : "text-destructive"}`}>
-                            {e.amount_uzs >= 0 ? "+" : ""}
-                            {e.amount_uzs.toLocaleString()}
-                          </span>
-                          <span className="w-full text-[11px] text-muted-foreground">
-                            {new Date(e.created_at).toLocaleString(locale)}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <AdminDataTable
+                    data={ledger}
+                    columns={ledgerColumns}
+                    emptyTitle={tr("ledgerEmpty")}
+                    getRowId={(row) => row.id}
+                    maxHeight={320}
+                  />
                 </div>
                 <div>
                   <h3 className="mb-2 text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
                     {tr("refereesTitle")}
                   </h3>
-                  {!referral.referees.length ? (
-                    <p className="text-sm text-muted-foreground">{tr("refereesEmpty")}</p>
-                  ) : (
-                    <ul className="space-y-2">
-                      {referral.referees.map((r) => (
-                        <li
-                          key={r.referee_id}
-                          className="flex flex-wrap justify-between gap-2 rounded-xl border border-border/70 px-3 py-2 text-sm"
-                        >
-                          <div>
-                            <p className="font-semibold">{r.referee_name || r.referee_phone}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {r.referee_phone} · {r.status}
-                            </p>
-                          </div>
-                          <p className="font-mono text-sm">{r.commission_uzs.toLocaleString()} so&apos;m</p>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+                  <AdminDataTable
+                    data={referral.referees}
+                    columns={refereeColumns}
+                    emptyTitle={tr("refereesEmpty")}
+                    getRowId={(row) => row.referee_id}
+                    maxHeight={320}
+                  />
                 </div>
               </>
             )}
