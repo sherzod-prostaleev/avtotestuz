@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type TicketRow = {
   number: number;
@@ -68,6 +72,34 @@ export default function AdminTicketsPage() {
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
+  const columns = useMemo<ColumnDef<TicketRow>[]>(
+    () => [
+      {
+        accessorKey: "number",
+        header: t("colNumber"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold tabular-nums">{row.original.number}</span>
+        ),
+      },
+      {
+        accessorKey: "question_count",
+        header: t("colQuestionCount"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => row.original.question_count,
+      },
+      {
+        accessorKey: "sort_order",
+        header: t("colSortOrder"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span className="text-muted-foreground">{row.original.sort_order}</span>
+        ),
+      },
+    ],
+    [t],
+  );
+
   return (
     <PermissionGate permission="content.questions.read">
       <main className="mx-auto max-w-6xl space-y-4">
@@ -123,30 +155,14 @@ export default function AdminTicketsPage() {
           <AdminErrorState message={error} />
         ) : !data ? (
           <AdminSkeleton rows={8} />
-        ) : data.items.length === 0 ? (
-          <AdminEmptyState title={t("empty")} />
         ) : (
           <>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[480px] text-left text-sm">
-                <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">{t("colNumber")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colQuestionCount")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colSortOrder")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((row) => (
-                    <tr key={row.number} className="border-b border-border/60 last:border-0 hover:bg-card/60">
-                      <td className="px-3 py-2 font-mono text-xs font-semibold tabular-nums">{row.number}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.question_count}</td>
-                      <td className="px-3 py-2 tabular-nums text-muted-foreground">{row.sort_order}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AdminDataTable
+              data={data.items}
+              columns={columns}
+              emptyTitle={t("empty")}
+              getRowId={(row) => String(row.number)}
+            />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <p>
                 {t("total", { count: data.total })} · {t("pageOf", { page: data.page, pages: totalPages })}

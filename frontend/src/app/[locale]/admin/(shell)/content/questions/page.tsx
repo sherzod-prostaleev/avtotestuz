@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type QuestionRow = {
   id: string;
@@ -77,6 +81,70 @@ export default function AdminQuestionsPage() {
   }, [page, validation, explanation, load]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
+
+  const columns = useMemo<ColumnDef<QuestionRow>[]>(
+    () => [
+      {
+        accessorKey: "source_ext_id",
+        header: t("colExtId"),
+        cell: ({ row }) => (
+          <Link
+            href={`/${locale}/admin/content/questions/${row.original.id}`}
+            className="font-mono text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {row.original.source_ext_id}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "category_code",
+        header: t("colCategory"),
+        cell: ({ row }) => <span className="text-xs">{row.original.category_code}</span>,
+      },
+      {
+        accessorKey: "text_preview",
+        header: t("colText"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span className="block max-w-xs truncate">{row.original.text_preview || "—"}</span>
+        ),
+      },
+      {
+        accessorKey: "variant_numbers",
+        header: t("colVariants"),
+        cell: ({ row }) => (
+          <span className="tabular-nums text-xs">
+            {row.original.variant_numbers?.length ? row.original.variant_numbers.join(", ") : "—"}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "validation_status",
+        header: t("colValidation"),
+        cell: ({ row }) => (
+          <span
+            className={`text-xs font-bold uppercase ${
+              row.original.validation_status === "quarantined"
+                ? "text-destructive"
+                : "text-muted-foreground"
+            }`}
+          >
+            {row.original.validation_status}
+          </span>
+        ),
+      },
+      {
+        accessorKey: "explanation_status",
+        header: t("colExplanation"),
+        cell: ({ row }) => (
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            {row.original.explanation_status}
+          </span>
+        ),
+      },
+    ],
+    [t, locale],
+  );
 
   return (
     <PermissionGate permission="content.questions.read">
@@ -161,57 +229,14 @@ export default function AdminQuestionsPage() {
         <AdminErrorState message={error} />
       ) : !data ? (
         <AdminSkeleton rows={8} />
-      ) : data.items.length === 0 ? (
-        <AdminEmptyState title={t("empty")} />
       ) : (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[720px] text-left text-sm">
-              <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-bold">{t("colExtId")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colCategory")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colText")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colVariants")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colValidation")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colExplanation")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((row) => (
-                  <tr key={row.id} className="border-b border-border/60 last:border-0 hover:bg-card/60">
-                    <td className="px-3 py-2 font-mono text-xs">
-                      <Link
-                        href={`/${locale}/admin/content/questions/${row.id}`}
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        {row.source_ext_id}
-                      </Link>
-                    </td>
-                    <td className="px-3 py-2 text-xs">{row.category_code}</td>
-                    <td className="max-w-xs truncate px-3 py-2">{row.text_preview || "—"}</td>
-                    <td className="px-3 py-2 tabular-nums text-xs">
-                      {row.variant_numbers?.length ? row.variant_numbers.join(", ") : "—"}
-                    </td>
-                    <td className="px-3 py-2">
-                      <span
-                        className={`text-xs font-bold uppercase ${
-                          row.validation_status === "quarantined"
-                            ? "text-destructive"
-                            : "text-muted-foreground"
-                        }`}
-                      >
-                        {row.validation_status}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                      {row.explanation_status}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AdminDataTable
+            data={data.items}
+            columns={columns}
+            emptyTitle={t("empty")}
+            getRowId={(row) => row.id}
+          />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <p>
               {t("total", { count: data.total })} · {t("pageOf", { page: data.page, pages: totalPages })}

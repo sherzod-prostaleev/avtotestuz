@@ -1,15 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
-import { AdminEmptyState } from "@/components/admin/admin-empty-state";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type SignRow = {
   code: string;
@@ -71,6 +75,47 @@ export default function AdminSignsPage() {
   }, [page, group, load]);
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
+
+  const columns = useMemo<ColumnDef<SignRow>[]>(
+    () => [
+      {
+        accessorKey: "code",
+        header: t("colCode"),
+        cell: ({ row }) => (
+          <span className="font-mono text-xs font-semibold">{row.original.code}</span>
+        ),
+      },
+      {
+        accessorKey: "group_code",
+        header: t("colGroup"),
+        cell: ({ row }) => <span className="text-xs">{row.original.group_code}</span>,
+      },
+      {
+        accessorKey: "name",
+        header: t("colName"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <span className="block max-w-xs truncate">{row.original.name || "—"}</span>
+        ),
+      },
+      {
+        accessorKey: "question_count",
+        header: t("colQuestionCount"),
+        meta: { numeric: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => row.original.question_count,
+      },
+      {
+        accessorKey: "has_image",
+        header: t("colImage"),
+        cell: ({ row }) => (
+          <span className="text-xs font-semibold uppercase text-muted-foreground">
+            {row.original.has_image ? t("yes") : t("no")}
+          </span>
+        ),
+      },
+    ],
+    [t],
+  );
 
   return (
     <PermissionGate permission="content.questions.read">
@@ -137,36 +182,14 @@ export default function AdminSignsPage() {
           <AdminErrorState message={error} />
         ) : !data ? (
           <AdminSkeleton rows={8} />
-        ) : data.items.length === 0 ? (
-          <AdminEmptyState title={t("empty")} />
         ) : (
           <>
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full min-w-[640px] text-left text-sm">
-                <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 font-bold">{t("colCode")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colGroup")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colName")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colQuestionCount")}</th>
-                    <th className="px-3 py-2 font-bold">{t("colImage")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.items.map((row) => (
-                    <tr key={row.code} className="border-b border-border/60 last:border-0 hover:bg-card/60">
-                      <td className="px-3 py-2 font-mono text-xs font-semibold">{row.code}</td>
-                      <td className="px-3 py-2 text-xs">{row.group_code}</td>
-                      <td className="max-w-xs truncate px-3 py-2">{row.name || "—"}</td>
-                      <td className="px-3 py-2 tabular-nums">{row.question_count}</td>
-                      <td className="px-3 py-2 text-xs font-semibold uppercase text-muted-foreground">
-                        {row.has_image ? t("yes") : t("no")}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <AdminDataTable
+              data={data.items}
+              columns={columns}
+              emptyTitle={t("empty")}
+              getRowId={(row) => row.code}
+            />
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <p>
                 {t("total", { count: data.total })} · {t("pageOf", { page: data.page, pages: totalPages })}
