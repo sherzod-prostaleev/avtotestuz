@@ -87,6 +87,19 @@ export function AdminDataTable<T>({
 
   const asCards = variant === "cards" || (variant === "auto" && isCompact);
 
+  // Virtual rows stay in normal table flow and the scrolled-past space is held
+  // open by two spacer rows. The obvious alternative — absolutely positioning
+  // each <tr> — silently breaks the table: an absolutely positioned element is
+  // blockified, so `display: table-row` computes to `block`, the row stops
+  // participating in the table's column-width algorithm, and every row sizes
+  // its own columns independently of the sticky header above it.
+  const virtualRows = virtualizer.getVirtualItems();
+  const columnCount = table.getAllLeafColumns().length;
+  const padTop = virtualRows.length ? virtualRows[0].start : 0;
+  const padBottom = virtualRows.length
+    ? virtualizer.getTotalSize() - virtualRows[virtualRows.length - 1].end
+    : 0;
+
   if (asCards) {
     return (
       <ul role="list" aria-label={t("cardsLabel")} className="space-y-2.5">
@@ -132,21 +145,20 @@ export function AdminDataTable<T>({
               </tr>
             ))}
           </thead>
-          <tbody
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              position: "relative",
-            }}
-          >
-            {virtualizer.getVirtualItems().map((vRow) => {
+          <tbody>
+            {padTop > 0 ? (
+              <tr aria-hidden>
+                <td colSpan={columnCount} style={{ height: padTop, padding: 0, border: 0 }} />
+              </tr>
+            ) : null}
+            {virtualRows.map((vRow) => {
               const row = rows[vRow.index];
               return (
                 <tr
                   key={row.id}
                   data-index={vRow.index}
                   ref={virtualizer.measureElement}
-                  className="absolute left-0 w-full border-b border-border/60 hover:bg-accent/[0.06]"
-                  style={{ transform: `translateY(${vRow.start}px)` }}
+                  className="border-b border-border/60 hover:bg-accent/[0.06]"
                 >
                   {row.getVisibleCells().map((cell) => {
                     const meta = metaOf(cell);
@@ -164,6 +176,11 @@ export function AdminDataTable<T>({
                 </tr>
               );
             })}
+            {padBottom > 0 ? (
+              <tr aria-hidden>
+                <td colSpan={columnCount} style={{ height: padBottom, padding: 0, border: 0 }} />
+              </tr>
+            ) : null}
           </tbody>
         </table>
       </div>
@@ -188,18 +205,27 @@ function DerivedCard<T>({ row }: { row: TanRow<T> }) {
         </div>
       ) : null}
       <dl className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-x-3 gap-y-1.5">
-        {bodyCells.map((cell) => (
-          <div key={cell.id} className="contents">
-            <dt className="admin-label self-center">
-              {typeof cell.column.columnDef.header === "string"
-                ? cell.column.columnDef.header
-                : cell.column.id}
-            </dt>
-            <dd className="min-w-0 break-words text-sm">
-              {flexRender(cell.column.columnDef.cell, cell.getContext())}
-            </dd>
-          </div>
-        ))}
+        {bodyCells.map((cell) => {
+          const meta = metaOf(cell);
+          return (
+            <div key={cell.id} className="contents">
+              <dt className="admin-label self-center">
+                {typeof cell.column.columnDef.header === "string"
+                  ? cell.column.columnDef.header
+                  : cell.column.id}
+              </dt>
+              {/* A money column stays a money column on a phone: lining figures
+                  so amounts of the same magnitude line up when cards stack. */}
+              <dd
+                className={`min-w-0 break-words text-sm ${
+                  meta.numeric ? "tabular-nums" : ""
+                }`}
+              >
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </dd>
+            </div>
+          );
+        })}
       </dl>
     </div>
   );

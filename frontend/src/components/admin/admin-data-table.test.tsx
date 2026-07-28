@@ -107,4 +107,36 @@ describe("AdminDataTable", () => {
     expect(screen.getByText("custom:Musharraf Qodirova")).toBeInTheDocument();
     expect(screen.queryByText("Summa")).not.toBeInTheDocument();
   });
+
+  // Regression guard. Absolutely positioning a <tr> blockifies it — `display:
+  // table-row` computes to `block` — so the row stops participating in the
+  // table's column-width algorithm and its cells no longer line up with the
+  // sticky header. Rows must stay in normal flow, with scrolled-past space
+  // held open by spacer rows instead.
+  it("keeps virtual rows in normal table flow so columns track the header", () => {
+    const { container } = renderTable(
+      <AdminDataTable data={rows} columns={columns} emptyTitle="Bo‘sh" variant="table" />,
+    );
+    const dataRows = container.querySelectorAll("tbody tr[data-index]");
+    expect(dataRows.length).toBeGreaterThan(0);
+    for (const tr of dataRows) {
+      expect((tr as HTMLElement).style.position).not.toBe("absolute");
+      expect((tr as HTMLElement).style.transform).toBe("");
+    }
+    // Any space the virtualizer holds open is a real <tr>, not a positioned gap.
+    for (const spacer of container.querySelectorAll("tbody tr[aria-hidden]")) {
+      const cell = spacer.querySelector("td");
+      expect(cell).not.toBeNull();
+      expect(cell!.getAttribute("colspan")).toBe(String(columns.length));
+    }
+  });
+
+  it("keeps numeric columns lining-figured on cards", () => {
+    renderTable(
+      <AdminDataTable data={rows} columns={columns} emptyTitle="Bo‘sh" variant="cards" />,
+    );
+    const amount = screen.getByText("49000").closest("dd");
+    expect(amount).not.toBeNull();
+    expect(amount!.className).toContain("tabular-nums");
+  });
 });
