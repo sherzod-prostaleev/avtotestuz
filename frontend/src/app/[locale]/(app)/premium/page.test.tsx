@@ -112,4 +112,22 @@ describe("PremiumPage", () => {
     renderWithIntl();
     expect(await screen.findByText("Sotib olish — Gentra")).toBeInTheDocument();
   });
+
+  // Selecting a tariff used to show two pay buttons at once on phones: the
+  // card CTA had no responsive class, so it rendered alongside the sticky
+  // bottom bar. They must be mutually exclusive — card on >=sm, sticky
+  // below it. jsdom does not evaluate media queries, so the DOM contains
+  // both regardless; the responsive classes are the actual mechanism and
+  // therefore what this pins.
+  it("shows only one pay CTA per viewport: card on desktop, sticky on mobile", async () => {
+    mockApiGet({ active: false, until: null });
+    renderWithIntl();
+
+    const cardCta = await screen.findByText("Sotib olish");
+    expect(cardCta).toHaveClass("hidden");
+    expect(cardCta).toHaveClass("sm:inline-flex");
+
+    const stickyCta = screen.getByText("Sotib olish — Gentra");
+    expect(stickyCta.closest("div")).toHaveClass("sm:hidden");
+  });
 });

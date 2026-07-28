@@ -392,11 +392,14 @@ export default function PremiumPage() {
                       {buyError}
                     </p>
                   )}
+                  {/* Hidden below sm: on phones the sticky bottom bar is the
+                      CTA. Without this the card button and the sticky bar
+                      both rendered, showing two pay buttons at once. */}
                   <Button
                     type="button"
                     variant={selectedIsFree ? "success" : "gold"}
                     size="lg"
-                    className="w-full"
+                    className="hidden w-full sm:inline-flex"
                     disabled={
                       buyingCode === selectedTariff.code ||
                       (!selectedIsFree && !providerEnabled[provider])
