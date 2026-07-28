@@ -48,7 +48,7 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			f.sent = append(f.sent, text)
 			f.mu.Unlock()
 			msgID++
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"ok":true,"result":{"message_id":%d}}`, msgID)))
+			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, msgID)
 			return
 		}
 		_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))

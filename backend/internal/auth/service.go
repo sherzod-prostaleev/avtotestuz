@@ -452,14 +452,14 @@ func (s *Service) readRefreshGrace(ctx context.Context, raw string) (Tokens, boo
 	if err := json.Unmarshal([]byte(val), &pair); err != nil || pair.Access == "" || pair.Refresh == "" {
 		return Tokens{}, false
 	}
-	return Tokens{Access: pair.Access, Refresh: pair.Refresh}, true
+	return Tokens(pair), true
 }
 
 func (s *Service) writeRefreshGrace(ctx context.Context, oldRaw string, tokens Tokens) {
 	if s.Lim.R == nil {
 		return
 	}
-	payload, err := json.Marshal(storedRefreshPair{Access: tokens.Access, Refresh: tokens.Refresh})
+	payload, err := json.Marshal(storedRefreshPair(tokens))
 	if err != nil {
 		return
 	}
