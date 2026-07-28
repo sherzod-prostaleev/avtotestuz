@@ -35,10 +35,14 @@ export function AdminMobileBar({
     return hasPermission(me?.permissions, need);
   });
 
+  // z-20 keeps the bar above page content but below the drawer scrim (z-30).
+  // At an equal z-index the bar wins on document order, paints over the scrim,
+  // and stays tappable while the drawer is open — the "tap outside to close"
+  // contract would silently not hold in the bottom strip of the screen.
   return (
     <nav
       aria-label={tShell("primaryNav")}
-      className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-20 border-t border-border bg-card lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <ul className="flex items-stretch justify-between">

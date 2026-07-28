@@ -60,7 +60,7 @@ export function AdminCommandPalette({ locale }: AdminCommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-black/55 px-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-foreground/50 px-4 pt-[12vh] backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label={tShell("commandPalette")}
@@ -68,7 +68,7 @@ export function AdminCommandPalette({ locale }: AdminCommandPaletteProps) {
         if (e.target === e.currentTarget) setOpen(false);
       }}
     >
-      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border/80 bg-[hsl(220_28%_9%)] shadow-2xl">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
         <input
           autoFocus
           value={q}

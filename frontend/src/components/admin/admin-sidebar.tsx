@@ -34,6 +34,7 @@ export function AdminSidebar({
   onNavigate,
 }: AdminSidebarProps) {
   const t = useTranslations("AdminNav");
+  const tShell = useTranslations("AdminShell");
   const me = useAdminMeOptional();
   const groups = adminNav(locale);
   const activeGroup = activeGroupTitleKey(groups, activePath);
@@ -60,9 +61,16 @@ export function AdminSidebar({
           {t("badge")}
         </p>
         {me?.email ? (
-          <p className="mt-3 truncate rounded-xl bg-muted px-2 py-1 text-[11px] text-muted-foreground">
-            {me.email}
-          </p>
+          <div className="mt-3 rounded-xl bg-muted px-2 py-1.5">
+            <p className="truncate text-[11px] font-bold text-foreground">
+              {me.display_name || me.email}
+            </p>
+            {/* Which hat the operator is wearing decides what the panel will
+                let them do, so it stays visible rather than living in /me. */}
+            <p className="truncate text-[10px] text-muted-foreground">
+              {me.roles.length ? me.roles.join(", ") : tShell("staff")}
+            </p>
+          </div>
         ) : null}
       </div>
 

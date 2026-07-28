@@ -39,7 +39,7 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
           <Tooltip.Content
             side="top"
             sideOffset={6}
-            className="z-50 max-w-xs rounded-xl border border-border/80 bg-[hsl(220_28%_10%)] px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl"
+            className="z-50 max-w-xs rounded-xl border border-border/80 bg-card px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl"
           >
             <p className="font-semibold text-foreground">{content.what}</p>
             {content.why ? (
@@ -66,7 +66,7 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
                 {content.recommend}
               </p>
             ) : null}
-            <Tooltip.Arrow className="fill-[hsl(220_28%_10%)]" />
+            <Tooltip.Arrow className="fill-card" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>

@@ -80,7 +80,7 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
           onNavigate={() => setNavOpen(false)}
         />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-2.5 sm:px-6">
+          <header className="sticky top-0 z-20 flex items-center justify-between gap-3 border-b border-border bg-background px-4 py-1.5 sm:px-6">
             <div className="flex min-w-0 flex-1 items-center gap-3">
               <Button
                 type="button"

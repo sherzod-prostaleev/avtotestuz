@@ -21,17 +21,21 @@ export function AdminBreadcrumbs({
   const tShell = useTranslations("AdminShell");
   const base = `/${locale}/admin`;
   const groups = adminNav(locale);
-  const groupKey = activeGroupTitleKey(groups, pathname);
+  // At the root the trail would read Home > Main > Overview — three crumbs for
+  // one page. The home crumb already says it.
+  const atRoot = pathname === base || pathname === `${base}/`;
+  const groupKey = atRoot ? null : activeGroupTitleKey(groups, pathname);
   const group = groups.find((g) => g.titleKey === groupKey);
   const leaf = group?.items.find((item) => isNavItemActive(item.href, pathname, base));
 
   return (
     <nav aria-label={tShell("breadcrumbLabel")} className="min-w-0">
-      <ol className="flex min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+      <ol className="flex min-h-[44px] min-w-0 items-center gap-1.5 text-xs font-semibold text-muted-foreground">
         <li className="shrink-0">
           <Link
             href={base}
-            className="rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:text-accent"
+            aria-current={atRoot ? "page" : undefined}
+            className="-mx-1.5 inline-flex min-h-[44px] items-center rounded px-1.5 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {tShell("home")}
           </Link>
