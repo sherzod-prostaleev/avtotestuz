@@ -420,6 +420,26 @@
     @apply bg-gold;
     box-shadow: 0 0 10px hsl(var(--gold) / 0.35);
   }
+
+  /* --- Admin Control Center density layer (M3-UX Wave 1) --- */
+  .admin-shell-pad {
+    @apply px-4 py-4 sm:px-6 sm:py-6;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .admin-stack {
+    @apply space-y-4 sm:space-y-5;
+  }
+  .admin-panel {
+    @apply rounded-2xl border border-border bg-card;
+  }
+  .admin-label {
+    @apply text-[11px] font-bold uppercase tracking-wider text-muted-foreground;
+  }
+  .admin-scroll-x {
+    @apply overflow-x-auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
 }
 
 @keyframes flamePulse {
