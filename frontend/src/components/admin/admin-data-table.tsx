@@ -103,7 +103,7 @@ export function AdminDataTable<T>({
     <div className="admin-panel overflow-hidden">
       <div
         ref={parentRef}
-        className="admin-scroll-x relative w-full overflow-y-auto"
+        className="admin-scroll-x relative w-full overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         style={{ maxHeight }}
         role="region"
         aria-label={t("rowsLabel")}
