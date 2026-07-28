@@ -15,12 +15,38 @@ import (
 var (
 	ErrInvalidCreds = errors.New("invalid email or password")
 	ErrDisabled     = errors.New("admin account disabled")
+	// ErrLoginThrottled is returned when an account or source IP has spent
+	// its attempt budget. Deliberately distinct from ErrInvalidCreds so the
+	// handler can answer 429 instead of feeding a guesser a clean signal.
+	ErrLoginThrottled = errors.New("too many login attempts")
+	// ErrTOTPSetupRequired is returned when ADMIN_TOTP_ENFORCE is on and the
+	// account has no authenticator enrolled. Enforcement used to be a
+	// cosmetic flag on /me while login still handed out a full token pair.
+	ErrTOTPSetupRequired = errors.New("totp enrollment required")
 )
 
 // Service handles staff login/session lifecycle.
 type Service struct {
 	Store  Store
 	Secret []byte
+	// Lim throttles password guessing. Nil disables throttling, which is
+	// only appropriate in tests that are not exercising it.
+	Lim auth.Limiter
+}
+
+const (
+	// adminLoginIPWindow/Limit bound how fast one source can try accounts.
+	adminLoginIPWindow = time.Hour
+	adminLoginIPLimit  = 60
+	// adminLoginFailWindow/Limit lock a single account after a run of wrong
+	// passwords. Sized so a human who mistypes a few times is unaffected,
+	// while an online guesser is stopped long before bcrypt cost alone would.
+	adminLoginFailWindow = 15 * time.Minute
+	adminLoginFailLimit  = 10
+)
+
+func adminLoginFailKey(email string) string {
+	return "admin:login:fail:" + strings.ToLower(strings.TrimSpace(email))
 }
 
 // TokenPair is returned on login/refresh.
@@ -50,9 +76,42 @@ type LoginResult struct {
 }
 
 func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.IP) (LoginResult, error) {
+	failKey := adminLoginFailKey(email)
+	throttled := s.Lim.R != nil
+
+	// Check the lockout before doing any work: bcrypt at cost 12 is the only
+	// thing that used to slow a guesser down, and it slowed the server too.
+	if throttled {
+		n, err := s.Lim.Count(ctx, failKey)
+		if err != nil {
+			return LoginResult{}, err
+		}
+		if n >= adminLoginFailLimit {
+			return LoginResult{}, ErrLoginThrottled
+		}
+		if ip != nil {
+			ok, err := s.Lim.Allow(ctx, "admin:login:ip:"+ip.String(), adminLoginIPLimit, adminLoginIPWindow)
+			if err != nil {
+				return LoginResult{}, err
+			}
+			if !ok {
+				return LoginResult{}, ErrLoginThrottled
+			}
+		}
+	}
+
+	countFailure := func() {
+		if throttled {
+			_, _ = s.Lim.Allow(ctx, failKey, adminLoginFailLimit, adminLoginFailWindow)
+		}
+	}
+
 	u, err := s.Store.GetUserByEmail(ctx, email)
 	if err != nil {
 		if IsNoRows(err) {
+			// Counted too: without this an attacker could enumerate which
+			// identifiers exist by watching only real accounts lock out.
+			countFailure()
 			return LoginResult{}, ErrInvalidCreds
 		}
 		return LoginResult{}, err
@@ -61,7 +120,16 @@ func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.
 		return LoginResult{}, ErrDisabled
 	}
 	if !auth.CheckPassword(u.PasswordHash, password) {
+		countFailure()
 		return LoginResult{}, ErrInvalidCreds
+	}
+	if throttled {
+		_ = s.Lim.Reset(ctx, failKey)
+	}
+	// Enforcement must block the token pair, not just decorate /me: an
+	// account without a second factor is exactly the one worth protecting.
+	if TOTPEnforce() && !u.TOTPEnabled() {
+		return LoginResult{}, ErrTOTPSetupRequired
 	}
 	if u.TOTPEnabled() {
 		ch, err := IssueTOTPChallenge(s.Secret, u.ID, u.Email)

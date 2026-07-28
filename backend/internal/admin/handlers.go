@@ -247,10 +247,24 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	out, err := h.Svc.Login(r.Context(), body.Email, body.Password, r.UserAgent(), ip)
 	if err != nil {
 		switch err {
+		case ErrInvalidCreds, ErrDisabled, ErrLoginThrottled:
+			// Audit every rejected attempt (never the password), so a
+			// guessing run is visible to security.audit.read instead of
+			// leaving the log showing only the eventual success.
+			_ = h.Svc.Store.WriteAudit(r.Context(), nil, "admin.login.failed", "admin_user", "", nil, map[string]any{
+				"email":  body.Email,
+				"reason": err.Error(),
+			}, ip, r.UserAgent(), middleware.GetReqID(r.Context()))
+		}
+		switch err {
 		case ErrInvalidCreds:
 			httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "invalid email or password")
 		case ErrDisabled:
 			httpx.Error(w, http.StatusForbidden, "disabled", "admin account disabled")
+		case ErrLoginThrottled:
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many login attempts, try again later")
+		case ErrTOTPSetupRequired:
+			httpx.Error(w, http.StatusForbidden, "totp_setup_required", "two-factor authentication must be enrolled before signing in")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "internal", "login failed")
 		}
@@ -1005,9 +1019,9 @@ func (h *Handler) runPaymentRecon(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]any{
-		"dry_run":  true,
-		"note":     "Local payment↔provider txn consistency only — no live Payme/Click API calls",
-		"result":   out,
+		"dry_run": true,
+		"note":    "Local payment↔provider txn consistency only — no live Payme/Click API calls",
+		"result":  out,
 	})
 }
 
