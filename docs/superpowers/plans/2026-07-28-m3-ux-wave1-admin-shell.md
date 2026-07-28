@@ -1145,12 +1145,33 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { AdminMobileBar } from "./admin-mobile-bar";
+import { AdminMeProvider } from "./admin-me-context";
 import messages from "../../../messages/uz-Latn.json";
 
-function renderBar(activePath: string) {
+// Four of the five thumb-zone destinations are permission-gated routes
+// (payments, users, monitoring, support). The bar must answer the same way
+// the sidebar does — it is the phone's only nav, so an item here is a promise.
+const ALL_PERMISSIONS = [
+  "payments.read",
+  "users.read",
+  "monitoring.read",
+  "support.inbox",
+];
+
+function renderBar(activePath: string, permissions: string[] = ALL_PERMISSIONS) {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
-      <AdminMobileBar locale="uz-Latn" activePath={activePath} />
+      <AdminMeProvider
+        me={{
+          id: "1",
+          email: "admin@example.com",
+          display_name: "Admin",
+          roles: ["admin"],
+          permissions,
+        }}
+      >
+        <AdminMobileBar locale="uz-Latn" activePath={activePath} />
+      </AdminMeProvider>
     </NextIntlClientProvider>,
   );
 }
@@ -1174,6 +1195,20 @@ describe("AdminMobileBar", () => {
     renderBar("/uz-Latn/admin/users");
     expect(screen.getByRole("link", { name: /Umumiy/ })).not.toHaveAttribute("aria-current");
   });
+
+  it("hides destinations the admin has no permission for", () => {
+    renderBar("/uz-Latn/admin", ["support.inbox"]);
+    const nav = screen.getByRole("navigation", { name: "Asosiy bo‘limlar" });
+    // Overview is ungated, support.inbox is held -> 2 links, nothing else.
+    expect(within(nav).getAllByRole("link")).toHaveLength(2);
+    expect(screen.queryByRole("link", { name: /Manual Humo/ })).not.toBeInTheDocument();
+  });
+
+  it("fails closed when the admin has no permissions at all", () => {
+    renderBar("/uz-Latn/admin", []);
+    const nav = screen.getByRole("navigation", { name: "Asosiy bo‘limlar" });
+    expect(within(nav).getAllByRole("link")).toHaveLength(1);
+  });
 });
 ```
 
@@ -1191,10 +1226,16 @@ Create `frontend/src/components/admin/admin-mobile-bar.tsx`:
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { useAdminMeOptional } from "@/components/admin/admin-me-context";
 import {
   adminMobilePrimary,
   isNavItemActive,
 } from "@/components/admin/admin-nav-config";
+import {
+  ADMIN_ROUTE_PERMISSIONS,
+  hasPermission,
+  routePermissionKey,
+} from "@/lib/admin-permissions";
 
 /** Thumb-zone navigation for the operations an admin runs from a phone. */
 export function AdminMobileBar({
@@ -1206,8 +1247,17 @@ export function AdminMobileBar({
 }) {
   const t = useTranslations("AdminNav");
   const tShell = useTranslations("AdminShell");
+  const me = useAdminMeOptional();
   const base = `/${locale}/admin`;
-  const items = adminMobilePrimary(locale);
+  // Same gate as the sidebar, and for the same reason: on a phone this bar is
+  // the whole navigation, so an item it shows is a capability claim.
+  const items = adminMobilePrimary(locale).filter((item) => {
+    const key = routePermissionKey(item.href, locale);
+    if (!key) return true;
+    const need = ADMIN_ROUTE_PERMISSIONS[key];
+    if (!need) return true;
+    return hasPermission(me?.permissions, need);
+  });
 
   return (
     <nav
