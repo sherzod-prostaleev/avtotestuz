@@ -1261,7 +1261,11 @@
     "inbox": "Kiruvchi xabarlar",
     "broadcasts": "Ommaviy xabarlar",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Guruhni yig‘ish",
+    "expandGroup": "Guruhni ochish",
+    "collapseRail": "Menyuni toraytirish",
+    "expandRail": "Menyuni kengaytirish"
   },
   "AdminOverview": {
     "controlBadge": "Boshqaruv markazi",

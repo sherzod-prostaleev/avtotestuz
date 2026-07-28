@@ -1261,7 +1261,11 @@
     "inbox": "Входящие",
     "broadcasts": "Рассылки",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Свернуть группу",
+    "expandGroup": "Развернуть группу",
+    "collapseRail": "Свернуть меню",
+    "expandRail": "Развернуть меню"
   },
   "AdminOverview": {
     "controlBadge": "Центр управления",

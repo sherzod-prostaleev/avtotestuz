@@ -1261,7 +1261,11 @@
     "inbox": "Inbox",
     "broadcasts": "Broadcastлар",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Гуруҳни йиғиш",
+    "expandGroup": "Гуруҳни очиш",
+    "collapseRail": "Менюни торайтириш",
+    "expandRail": "Менюни кенгайтириш"
   },
   "AdminOverview": {
     "controlBadge": "Бошқарув маркази",
