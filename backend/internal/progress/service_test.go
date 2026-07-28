@@ -16,6 +16,37 @@ import (
 	"avtotest.uz/backend/internal/testdb"
 )
 
+// setDailyGoalLimits overrides the daily_goal_default limit for one test and
+// restores the previous values afterwards. testdb.Truncate deliberately keeps
+// limit_config (it is migration-seeded config), so a test that mutates it and
+// walks away poisons the package's database for every later run: the suite
+// passes once on a fresh database and then fails on the next invocation with
+// a stale goal. Restoring keeps these tests order- and run-count-independent.
+func setDailyGoalLimits(t *testing.T, pool *pgxpool.Pool, free, vip int) {
+	t.Helper()
+	ctx := context.Background()
+	var prevFree, prevVIP int
+	if err := pool.QueryRow(ctx,
+		`SELECT free_value, vip_value FROM limit_config WHERE key = 'daily_goal_default'`,
+	).Scan(&prevFree, &prevVIP); err != nil {
+		t.Fatalf("read daily_goal_default: %v", err)
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE limit_config SET free_value = $1, vip_value = $2 WHERE key = 'daily_goal_default'`,
+		free, vip,
+	); err != nil {
+		t.Fatalf("bump limit_config: %v", err)
+	}
+	t.Cleanup(func() {
+		if _, err := pool.Exec(context.Background(),
+			`UPDATE limit_config SET free_value = $1, vip_value = $2 WHERE key = 'daily_goal_default'`,
+			prevFree, prevVIP,
+		); err != nil {
+			t.Errorf("restore daily_goal_default: %v", err)
+		}
+	})
+}
+
 func seed(t *testing.T) (*pgxpool.Pool, *sqlc.Queries, *progress.Service, uuid.UUID, uuid.UUID) {
 	t.Helper()
 	pool := testdb.New(t)
@@ -115,11 +146,7 @@ func TestGetStreakReadsLiveLimitConfig(t *testing.T) {
 	if _, err := svc.RecordActivity(ctx, profileID); err != nil {
 		t.Fatalf("seed activity: %v", err)
 	}
-	if _, err := pool.Exec(ctx, `
-		UPDATE limit_config SET free_value = 77, vip_value = 88
-		WHERE key = 'daily_goal_default'`); err != nil {
-		t.Fatalf("bump limit_config: %v", err)
-	}
+	setDailyGoalLimits(t, pool, 77, 88)
 	view, err := svc.GetStreak(ctx, profileID)
 	if err != nil {
 		t.Fatalf("GetStreak: %v", err)
@@ -133,11 +160,7 @@ func TestGetStreakUsesVIPLimitWhenEntitled(t *testing.T) {
 	pool, q, svc, profileID, _ := seed(t)
 	ctx := context.Background()
 	svc.Billing = billing.Service{Q: q}
-	if _, err := pool.Exec(ctx, `
-		UPDATE limit_config SET free_value = 40, vip_value = 90
-		WHERE key = 'daily_goal_default'`); err != nil {
-		t.Fatalf("bump limit_config: %v", err)
-	}
+	setDailyGoalLimits(t, pool, 40, 90)
 	view, err := svc.GetStreak(ctx, profileID)
 	if err != nil {
 		t.Fatalf("GetStreak free: %v", err)
