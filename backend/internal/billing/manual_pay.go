@@ -422,8 +422,9 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 
 func humoPushFingerprint(msgID int64, raw string) string {
 	h := sha256.New()
-	fmt.Fprintf(h, "%d\n", msgID)
-	h.Write([]byte(strings.TrimSpace(raw)))
+	// hash.Hash writes never fail, hence the discards.
+	_, _ = fmt.Fprintf(h, "%d\n", msgID)
+	_, _ = h.Write([]byte(strings.TrimSpace(raw)))
 	return hex.EncodeToString(h.Sum(nil))
 }
 

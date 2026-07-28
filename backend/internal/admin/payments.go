@@ -344,7 +344,7 @@ func (s Store) HardDeletePayment(ctx context.Context, id uuid.UUID) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	var found uuid.UUID
 	if err := tx.QueryRow(ctx, `SELECT id FROM payment WHERE id = $1 FOR UPDATE`, id).Scan(&found); err != nil {
