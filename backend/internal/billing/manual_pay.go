@@ -19,6 +19,12 @@ import (
 
 const ManualHoldDuration = 10 * time.Minute
 
+// manualAmountSlots is how many distinct som suffixes an assignment may add
+// to the tariff price so that every open assignment on a card is identified
+// by its exact sum. 100 slots x 4 cards is far beyond real concurrency, and
+// the largest nudge (+99 som, about a US cent) is immaterial to the payer.
+const manualAmountSlots = 100
+
 var (
 	ErrManualNoCardAvailable = errors.New("no manual pay card available")
 	ErrManualNotFound        = errors.New("manual payment not found")
@@ -105,6 +111,15 @@ func (s Service) StartManualCheckout(ctx context.Context, profileID uuid.UUID, t
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ManualCheckoutInfo{}, ErrManualNoCardAvailable
 		}
+		return ManualCheckoutInfo{}, err
+	}
+
+	// Make the expected sum unique among the assignments currently open on
+	// this card. Matching keys on (card, amount), so two users owing the same
+	// tariff price on the same card were previously indistinguishable and the
+	// newest assignment captured the other's transfer.
+	amount, err = uniqueManualAmount(ctx, q, card.ID, amount)
+	if err != nil {
 		return ManualCheckoutInfo{}, err
 	}
 
@@ -385,7 +400,7 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 	cand, err := s.Q.FindManualPayMatchCandidate(ctx, sqlc.FindManualPayMatchCandidateParams{
 		PanLast4:   parsed.PanLast4,
 		AmountUzs:  parsed.AmountUzs,
-		AssignedAt: pgtype.Timestamptz{Time: parsed.TransferAt.UTC(), Valid: true},
+		TransferAt: pgtype.Timestamptz{Time: parsed.TransferAt.UTC(), Valid: true},
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -459,4 +474,28 @@ func FormatCardDisplay(pan string) string {
 		b.WriteRune(r)
 	}
 	return b.String()
+}
+
+// uniqueManualAmount returns base plus the smallest offset in [0,
+// manualAmountSlots) that no open assignment on this card is already
+// expecting. Amounts only need to be unique per card, since matching is
+// keyed on (pan_last4, amount).
+func uniqueManualAmount(ctx context.Context, q *sqlc.Queries, cardID uuid.UUID, base int64) (int64, error) {
+	taken, err := q.ListOpenManualAmountsForCard(ctx, cardID)
+	if err != nil {
+		return 0, fmt.Errorf("list open amounts: %w", err)
+	}
+	used := make(map[int64]struct{}, len(taken))
+	for _, amt := range taken {
+		used[amt] = struct{}{}
+	}
+	for offset := int64(0); offset < manualAmountSlots; offset++ {
+		candidate := base + offset
+		if _, clash := used[candidate]; !clash {
+			return candidate, nil
+		}
+	}
+	// Every suffix for this price is in flight on this card. Treat it like a
+	// busy pool rather than handing out a colliding amount.
+	return 0, ErrManualNoCardAvailable
 }

@@ -109,9 +109,36 @@ SET manual_state = 'rejected',
 WHERE payment_id = $1
   AND manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review');
 
+-- name: ListOpenManualAmountsForCard :many
+-- Amounts currently claimable on one card. StartManualCheckout picks an
+-- amount not in this set so every open assignment on a card is uniquely
+-- identifiable by the transferred sum. The predicate must stay identical to
+-- FindManualPayMatchCandidate's, or a "free" amount could collide with an
+-- assignment that is in fact still matchable.
+SELECT a.amount_uzs
+FROM manual_pay_assignment a
+JOIN payment p ON p.id = a.payment_id
+WHERE a.card_id = $1
+  AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
+  AND p.status IN ('created', 'pending');
+
 -- name: FindManualPayMatchCandidate :one
--- Match open assignment by last4 + exact amount where transfer_at >= assigned_at.
--- Prefer the assignment whose assigned_at is closest (latest) before transfer_at.
+-- Match an open assignment by (last4, exact amount) inside a bounded window.
+--
+-- Amounts are unique per card among open assignments (see
+-- ListOpenManualAmountsForCard), so at most one row can match and the old
+-- "newest assignment on the card wins" tie-break is gone. That tie-break was
+-- exploitable: with only 4 cards x 3 tariff prices, an attacker could loop
+-- checkouts to always own the newest assignment on a card and have a genuine
+-- late payer's transfer confirm HIS payment instead.
+--
+-- The window is bounded at both ends. Lower: the bank push carries only
+-- HH:MM, so transfer_at has its seconds zeroed and can legitimately read up
+-- to 59s before assigned_at — without the tolerance, anyone paying in the
+-- same minute they checked out failed to auto-confirm. Upper: hold_until
+-- plus a day of grace keeps genuinely late transfers working while stopping
+-- an abandoned assignment from staying claimable forever and capturing an
+-- unrelated future credit.
 SELECT a.payment_id, a.id AS assignment_id, a.assigned_at, a.amount_uzs, a.manual_state
 FROM manual_pay_assignment a
 JOIN manual_pay_card c ON c.id = a.card_id
@@ -120,13 +147,9 @@ WHERE c.pan_last4 = $1
   AND a.amount_uzs = $2
   AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
   AND p.status IN ('created', 'pending')
-  AND a.assigned_at <= $3
-  AND NOT EXISTS (
-    SELECT 1 FROM manual_pay_assignment a2
-    WHERE a2.card_id = a.card_id
-      AND a2.assigned_at > a.assigned_at
-      AND a2.assigned_at <= $3
-  )
+  AND sqlc.arg(transfer_at)::timestamptz
+      BETWEEN a.assigned_at - interval '90 seconds'
+          AND a.hold_until + interval '24 hours'
 ORDER BY a.assigned_at DESC
 LIMIT 1;
 
