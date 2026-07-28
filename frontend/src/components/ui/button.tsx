@@ -55,10 +55,15 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     },
     ref
   ) => {
+    // as="span" renders a button-looking element with no button semantics,
+    // for use inside a <Link> (an <a><button> nesting is invalid HTML).
+    // The span carries the visible label, so it must stay in the
+    // accessibility tree: it is what gives the wrapping anchor its
+    // accessible name. Marking it aria-hidden left every such link
+    // announced as a bare "link" with no name.
     if (as === "span") {
       return (
         <span
-          aria-hidden="true"
           className={buttonClassName(variant, size, className, {
             disabledVisual: Boolean(disabled),
           })}

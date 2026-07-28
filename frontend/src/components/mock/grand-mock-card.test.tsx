@@ -82,8 +82,10 @@ describe("GrandMockCard", () => {
     expect(
       await screen.findByText("Bosh imtihon faqat VIP obunachilar uchun. Obunani faollashtiring.")
     ).toBeInTheDocument();
-    const button = screen.getByRole("button", { name: "VIP obunani faollashtirish" });
-    expect(button.closest("a")).toHaveAttribute("href", "/uz-Latn/premium");
+    // The CTA renders as <Link><Button as="span">, i.e. a real anchor rather
+    // than a <button> nested inside one, so its accessible role is "link".
+    const link = screen.getByRole("link", { name: "VIP obunani faollashtirish" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/premium");
   });
 
   it("does not offer the premium link when the block is study progress", async () => {
@@ -100,8 +102,8 @@ describe("GrandMockCard", () => {
 
     renderWithIntl();
 
-    const button = await screen.findByRole("button", { name: "Bosh Imtihonni Boshlash" });
-    expect(button.closest("a")).toHaveAttribute("href", "/uz-Latn/session/start?mode=grand_mock");
+    const link = await screen.findByRole("link", { name: "Bosh Imtihonni Boshlash" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/session/start?mode=grand_mock");
   });
 
   it("shows an error state when the eligibility request fails", async () => {

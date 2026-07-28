@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"avtotest.uz/backend/internal/testdb"
@@ -51,18 +52,45 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 func TestConstraintsAndSeeds(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
-	var n int
-	// 4 rows from 0003 + leaderboard_daily_points (0017) +
-	// grand_mock_min_studied_pct (0018) + referral_attach_window_days (0024).
-	// Bump this when a migration seeds another.
-	if err := pool.QueryRow(ctx, "SELECT count(*) FROM limit_config").Scan(&n); err != nil || n != 7 {
-		t.Fatalf("limit_config seed count=%d err=%v, want 7", n, err)
+	// Assert the exact seeded key set rather than a bare count: a count told
+	// us only "the number moved" and had to be hand-bumped three times, each
+	// time leaving CI red until someone guessed which migration did it. The
+	// set makes the failure name the offending key, so adding a seed is a
+	// one-line, obvious update here.
+	wantLimitKeys := []string{
+		"daily_goal_default",                  // 0003
+		"daily_practice_questions",            // 0003
+		"grand_mock_min_studied_pct",          // 0018
+		"grand_mock_threshold_pct",            // 0003
+		"leaderboard_daily_points",            // 0017
+		"referral_attach_window_days",         // 0024
+		"referral_commission_percent_default", // 0041
+		"unlock_threshold_correct",            // 0003
+	}
+	rows, err := pool.Query(ctx, "SELECT key FROM limit_config ORDER BY key")
+	if err != nil {
+		t.Fatalf("select limit_config: %v", err)
+	}
+	var gotLimitKeys []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			t.Fatalf("scan limit_config key: %v", err)
+		}
+		gotLimitKeys = append(gotLimitKeys, k)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate limit_config: %v", err)
+	}
+	if !slices.Equal(gotLimitKeys, wantLimitKeys) {
+		t.Fatalf("limit_config keys = %v, want %v", gotLimitKeys, wantLimitKeys)
 	}
 	// invalid locale must be rejected by domain
 	if _, err := pool.Exec(ctx, "INSERT INTO category (code) VALUES ('x')"); err != nil {
 		t.Fatalf("insert category: %v", err)
 	}
-	_, err := pool.Exec(ctx, `
+	_, err = pool.Exec(ctx, `
 		INSERT INTO category_translation (category_id, locale, name)
 		SELECT id, 'en', 'X' FROM category WHERE code='x'`)
 	if err == nil {

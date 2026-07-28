@@ -185,7 +185,19 @@ func setup() (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
-// Truncate wipes app tables. limit_config is intentionally kept (seeded config).
+// Truncate wipes app tables. Tables seeded by migrations are intentionally
+// kept: limit_config, feature_flag, payment_provider_status, alert_rule,
+// manual_tg_settings, and the admin_permission/admin_role RBAC catalogue —
+// truncating those would delete configuration the app assumes exists.
+//
+// The list is explicit rather than derived, because "everything except a
+// keep-list" would wipe exactly those seeded tables. **A new table must be
+// added here by hand.** manual_pay_card was missed when 0043 landed: it has
+// no FK into anything truncated, so CASCADE never reached it and its rows
+// leaked between tests, surfacing as a duplicate pan_last4 in an unrelated
+// admin test. Tables that do carry an FK (manual_pay_assignment,
+// referral_ledger, …) are listed anyway so the set does not silently depend
+// on which cascade happens to cover them.
 func Truncate(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
 	var err error
@@ -195,7 +207,10 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				notification, event, audit_log, push_subscription, grand_mock_certificate,
 				streak, saved_question, category_mastery, question_memory,
 				variant_progress, session_answer, exam_session,
-				referral, user_referral_code, promo_redemption, entitlement, payment,
+				referral, user_referral_code,
+				referral_ledger, referral_payout,
+				manual_pay_assignment, manual_pay_event, manual_pay_card,
+				promo_redemption, entitlement, payment,
 				promo_code, tariff_translation, tariff,
 				explanation_feedback, refresh_token, device, telegram_account, telegram_link_token,
 				otp_challenge, profile,

@@ -187,7 +187,12 @@ describe("useSessionEngine", () => {
   it("resumes in position order, merges persisted answer fields, and keeps the original exam deadline", async () => {
     vi.setSystemTime(new Date("2026-07-22T10:10:00Z"));
     const realExplanation = {
-      legal_refs: [{ document: "YHQ", clause: "3.27" }],
+      // Matches the real backend shape: explanation.legal_refs is a JSON
+      // array of {code, title} (verified against the explanation table —
+      // e.g. {"code": "YHQ/ПДД п.3.27", "title": "ПДД пункт 3.27"}), which
+      // is what narrowExplanation parses. The previous {document, clause}
+      // fixture was invented and could never survive the parser.
+      legal_refs: [{ code: "YHQ п.3.27", title: "YHQ punkt 3.27" }],
       blocks: [
         { type: "muhim", text: "REAL_TEXT_SENTINEL" },
         {
