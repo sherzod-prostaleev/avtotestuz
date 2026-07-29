@@ -11,11 +11,60 @@ import (
 	"github.com/google/uuid"
 )
 
+const advanceQuizSessionQuestion = `-- name: AdvanceQuizSessionQuestion :one
+UPDATE telegram_quiz_session
+SET question_no = question_no + 1, last_activity_at = now()
+WHERE id = $1 AND active = true
+RETURNING question_no
+`
+
+func (q *Queries) AdvanceQuizSessionQuestion(ctx context.Context, id uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, advanceQuizSessionQuestion, id)
+	var question_no int32
+	err := row.Scan(&question_no)
+	return question_no, err
+}
+
+const closeQuizPoll = `-- name: CloseQuizPoll :exec
+UPDATE telegram_quiz_poll SET closed = true WHERE poll_id = $1
+`
+
+func (q *Queries) CloseQuizPoll(ctx context.Context, pollID string) error {
+	_, err := q.db.Exec(ctx, closeQuizPoll, pollID)
+	return err
+}
+
+const createQuizPoll = `-- name: CreateQuizPoll :exec
+INSERT INTO telegram_quiz_poll
+  (poll_id, session_id, question_id, question_no, correct_idx)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateQuizPollParams struct {
+	PollID     string        `json:"poll_id"`
+	SessionID  uuid.UUID     `json:"session_id"`
+	QuestionID uuid.NullUUID `json:"question_id"`
+	QuestionNo int32         `json:"question_no"`
+	CorrectIdx int32         `json:"correct_idx"`
+}
+
+func (q *Queries) CreateQuizPoll(ctx context.Context, arg CreateQuizPollParams) error {
+	_, err := q.db.Exec(ctx, createQuizPoll,
+		arg.PollID,
+		arg.SessionID,
+		arg.QuestionID,
+		arg.QuestionNo,
+		arg.CorrectIdx,
+	)
+	return err
+}
+
 const createQuizSession = `-- name: CreateQuizSession :one
 INSERT INTO telegram_quiz_session (chat_id, started_by_tg_user_id)
 VALUES ($1, $2)
 RETURNING id, chat_id, started_by_tg_user_id, active, question_id, awaiting_answer,
-          answer_message_id, asked_count, correct_count, last_activity_at, created_at
+          answer_message_id, asked_count, correct_count, last_activity_at, created_at,
+          total_questions, question_no, mode
 `
 
 type CreateQuizSessionParams struct {
@@ -38,6 +87,9 @@ func (q *Queries) CreateQuizSession(ctx context.Context, arg CreateQuizSessionPa
 		&i.CorrectCount,
 		&i.LastActivityAt,
 		&i.CreatedAt,
+		&i.TotalQuestions,
+		&i.QuestionNo,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -78,7 +130,8 @@ func (q *Queries) DeleteTelegramAccountByTgUserID(ctx context.Context, tgUserID 
 
 const getActiveQuizSessionByChat = `-- name: GetActiveQuizSessionByChat :one
 SELECT id, chat_id, started_by_tg_user_id, active, question_id, awaiting_answer,
-       answer_message_id, asked_count, correct_count, last_activity_at, created_at
+       answer_message_id, asked_count, correct_count, last_activity_at, created_at,
+       total_questions, question_no, mode
 FROM telegram_quiz_session
 WHERE chat_id = $1 AND active = true
 `
@@ -98,13 +151,17 @@ func (q *Queries) GetActiveQuizSessionByChat(ctx context.Context, chatID int64) 
 		&i.CorrectCount,
 		&i.LastActivityAt,
 		&i.CreatedAt,
+		&i.TotalQuestions,
+		&i.QuestionNo,
+		&i.Mode,
 	)
 	return i, err
 }
 
 const getActiveQuizSessionByChatForUpdate = `-- name: GetActiveQuizSessionByChatForUpdate :one
 SELECT id, chat_id, started_by_tg_user_id, active, question_id, awaiting_answer,
-       answer_message_id, asked_count, correct_count, last_activity_at, created_at
+       answer_message_id, asked_count, correct_count, last_activity_at, created_at,
+       total_questions, question_no, mode
 FROM telegram_quiz_session
 WHERE chat_id = $1 AND active = true
 FOR UPDATE
@@ -125,6 +182,40 @@ func (q *Queries) GetActiveQuizSessionByChatForUpdate(ctx context.Context, chatI
 		&i.CorrectCount,
 		&i.LastActivityAt,
 		&i.CreatedAt,
+		&i.TotalQuestions,
+		&i.QuestionNo,
+		&i.Mode,
+	)
+	return i, err
+}
+
+const getLimitConfigValue = `-- name: GetLimitConfigValue :one
+SELECT free_value FROM limit_config WHERE key = $1
+`
+
+func (q *Queries) GetLimitConfigValue(ctx context.Context, key string) (int32, error) {
+	row := q.db.QueryRow(ctx, getLimitConfigValue, key)
+	var free_value int32
+	err := row.Scan(&free_value)
+	return free_value, err
+}
+
+const getQuizPoll = `-- name: GetQuizPoll :one
+SELECT poll_id, session_id, question_id, question_no, correct_idx, opened_at, closed
+FROM telegram_quiz_poll WHERE poll_id = $1
+`
+
+func (q *Queries) GetQuizPoll(ctx context.Context, pollID string) (TelegramQuizPoll, error) {
+	row := q.db.QueryRow(ctx, getQuizPoll, pollID)
+	var i TelegramQuizPoll
+	err := row.Scan(
+		&i.PollID,
+		&i.SessionID,
+		&i.QuestionID,
+		&i.QuestionNo,
+		&i.CorrectIdx,
+		&i.OpenedAt,
+		&i.Closed,
 	)
 	return i, err
 }
@@ -168,6 +259,50 @@ func (q *Queries) ListQuizAnswers(ctx context.Context, arg ListQuizAnswersParams
 			&i.Position,
 			&i.IsCorrect,
 			&i.Text,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQuizRanking = `-- name: ListQuizRanking :many
+SELECT tg_user_id, display_name, answered_count, correct_count, total_ms
+FROM telegram_quiz_participant
+WHERE session_id = $1
+ORDER BY correct_count DESC,
+         (total_ms::numeric / GREATEST(answered_count, 1)) ASC,
+         first_seen_at ASC
+`
+
+type ListQuizRankingRow struct {
+	TgUserID      int64  `json:"tg_user_id"`
+	DisplayName   string `json:"display_name"`
+	AnsweredCount int32  `json:"answered_count"`
+	CorrectCount  int32  `json:"correct_count"`
+	TotalMs       int64  `json:"total_ms"`
+}
+
+// Reyting: to'g'ri javob soni, tenglikda o'rtacha javob vaqti tezrog'i.
+func (q *Queries) ListQuizRanking(ctx context.Context, sessionID uuid.UUID) ([]ListQuizRankingRow, error) {
+	rows, err := q.db.Query(ctx, listQuizRanking, sessionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListQuizRankingRow
+	for rows.Next() {
+		var i ListQuizRankingRow
+		if err := rows.Scan(
+			&i.TgUserID,
+			&i.DisplayName,
+			&i.AnsweredCount,
+			&i.CorrectCount,
+			&i.TotalMs,
 		); err != nil {
 			return nil, err
 		}
@@ -259,6 +394,67 @@ func (q *Queries) MarkQuizSessionAnswered(ctx context.Context, arg MarkQuizSessi
 	return result.RowsAffected(), nil
 }
 
+const randomPollableQuestionIDs = `-- name: RandomPollableQuestionIDs :many
+SELECT q.id FROM question q
+WHERE q.validation_status = 'valid'
+  AND (q.image_id IS NOT NULL) = $1::boolean
+  AND (SELECT COUNT(*) FROM answer a WHERE a.question_id = q.id) BETWEEN 2 AND 10
+  AND NOT EXISTS (
+    SELECT 1 FROM answer a
+    JOIN answer_translation at
+      ON at.answer_id = a.id AND at.locale = 'uz-Latn' AND at.status = 'verified'
+    WHERE a.question_id = q.id
+      AND char_length(at.text) > $2::int
+  )
+ORDER BY random()
+LIMIT $3
+`
+
+type RandomPollableQuestionIDsParams struct {
+	HasImage     bool  `json:"has_image"`
+	MaxAnswerLen int32 `json:"max_answer_len"`
+	LimitCount   int32 `json:"limit_count"`
+}
+
+// Telegram poll varianti 100 belgidan oshmasligi kerak: uzun javobli
+// savollar tanlanmaydi (kesish o'rniga chetlab o'tiladi).
+func (q *Queries) RandomPollableQuestionIDs(ctx context.Context, arg RandomPollableQuestionIDsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, randomPollableQuestionIDs, arg.HasImage, arg.MaxAnswerLen, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setQuizSessionMode = `-- name: SetQuizSessionMode :exec
+UPDATE telegram_quiz_session
+SET mode = $1, total_questions = $2
+WHERE id = $3
+`
+
+type SetQuizSessionModeParams struct {
+	Mode           string    `json:"mode"`
+	TotalQuestions int32     `json:"total_questions"`
+	ID             uuid.UUID `json:"id"`
+}
+
+func (q *Queries) SetQuizSessionMode(ctx context.Context, arg SetQuizSessionModeParams) error {
+	_, err := q.db.Exec(ctx, setQuizSessionMode, arg.Mode, arg.TotalQuestions, arg.ID)
+	return err
+}
+
 const setQuizSessionQuestion = `-- name: SetQuizSessionQuestion :exec
 UPDATE telegram_quiz_session
 SET question_id = $2,
@@ -288,6 +484,41 @@ WHERE id = $1
 
 func (q *Queries) TouchQuizSessionActivity(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, touchQuizSessionActivity, id)
+	return err
+}
+
+const upsertQuizParticipant = `-- name: UpsertQuizParticipant :exec
+INSERT INTO telegram_quiz_participant
+  (session_id, tg_user_id, display_name, answered_count, correct_count, total_ms)
+VALUES (
+  $1, $2, $3,
+  1, $4, $5
+)
+ON CONFLICT (session_id, tg_user_id) DO UPDATE SET
+  answered_count = telegram_quiz_participant.answered_count + 1,
+  correct_count  = telegram_quiz_participant.correct_count + EXCLUDED.correct_count,
+  total_ms       = telegram_quiz_participant.total_ms + EXCLUDED.total_ms,
+  display_name   = CASE WHEN EXCLUDED.display_name <> ''
+                        THEN EXCLUDED.display_name
+                        ELSE telegram_quiz_participant.display_name END
+`
+
+type UpsertQuizParticipantParams struct {
+	SessionID    uuid.UUID `json:"session_id"`
+	TgUserID     int64     `json:"tg_user_id"`
+	DisplayName  string    `json:"display_name"`
+	CorrectDelta int32     `json:"correct_delta"`
+	ElapsedMs    int64     `json:"elapsed_ms"`
+}
+
+func (q *Queries) UpsertQuizParticipant(ctx context.Context, arg UpsertQuizParticipantParams) error {
+	_, err := q.db.Exec(ctx, upsertQuizParticipant,
+		arg.SessionID,
+		arg.TgUserID,
+		arg.DisplayName,
+		arg.CorrectDelta,
+		arg.ElapsedMs,
+	)
 	return err
 }
 
