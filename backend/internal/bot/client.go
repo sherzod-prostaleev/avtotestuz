@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"unicode/utf8"
 )
 
 // Client is a minimal Telegram Bot API client — only the handful of methods
@@ -162,7 +163,7 @@ func (c *Client) GetUpdates(ctx context.Context, offset int64, timeoutSec int) (
 		"offset":  offset,
 		"timeout": timeoutSec,
 		"allowed_updates": []string{
-			"message", "callback_query", "my_chat_member",
+			"message", "callback_query", "my_chat_member", "poll_answer",
 		},
 	}, &updates)
 	return updates, err
@@ -178,7 +179,7 @@ func (c *Client) SetWebhook(ctx context.Context, url, secretToken string) error 
 		"url":          url,
 		"secret_token": secretToken,
 		"allowed_updates": []string{
-			"message", "callback_query", "my_chat_member",
+			"message", "callback_query", "my_chat_member", "poll_answer",
 		},
 	}, nil)
 }
@@ -187,4 +188,110 @@ func (c *Client) SetWebhook(ctx context.Context, url, secretToken string) error 
 // long-poll mode (the two are mutually exclusive on Telegram's side).
 func (c *Client) DeleteWebhook(ctx context.Context) error {
 	return c.call(ctx, "deleteWebhook", map[string]any{}, nil)
+}
+
+// Telegram Bot API limits for polls. Exceeding any of them is a 400 from
+// Telegram, so they are checked here where the caller gets a usable error.
+const (
+	pollQuestionMaxChars = 300
+	pollOptionMaxChars   = 100
+	pollExplanationMax   = 200
+	pollMinOptions       = 2
+	pollMaxOptions       = 10
+	pollMinOpenPeriod    = 5
+	pollMaxOpenPeriod    = 600
+)
+
+// SendPoll sends a quiz-type poll and returns the message id and the poll id.
+// The poll id is what inbound poll_answer updates carry — it is the only
+// handle back to the question that was asked.
+func (c *Client) SendPoll(ctx context.Context, chatID int64, req PollRequest) (int64, string, error) {
+	if n := utf8.RuneCountInString(req.Question); n < 1 || n > pollQuestionMaxChars {
+		return 0, "", fmt.Errorf("poll question must be 1..%d chars, got %d", pollQuestionMaxChars, n)
+	}
+	if len(req.Options) < pollMinOptions || len(req.Options) > pollMaxOptions {
+		return 0, "", fmt.Errorf("poll needs %d..%d options, got %d", pollMinOptions, pollMaxOptions, len(req.Options))
+	}
+	for i, opt := range req.Options {
+		if n := utf8.RuneCountInString(opt); n < 1 || n > pollOptionMaxChars {
+			return 0, "", fmt.Errorf("poll option %d must be 1..%d chars, got %d", i, pollOptionMaxChars, n)
+		}
+	}
+	if req.CorrectIdx < 0 || req.CorrectIdx >= len(req.Options) {
+		return 0, "", fmt.Errorf("correct index %d out of range", req.CorrectIdx)
+	}
+	if req.OpenPeriod < pollMinOpenPeriod || req.OpenPeriod > pollMaxOpenPeriod {
+		return 0, "", fmt.Errorf("open_period must be %d..%d, got %d", pollMinOpenPeriod, pollMaxOpenPeriod, req.OpenPeriod)
+	}
+
+	payload := map[string]any{
+		"chat_id":           chatID,
+		"question":          req.Question,
+		"options":           req.Options,
+		"type":              "quiz",
+		"correct_option_id": req.CorrectIdx,
+		"is_anonymous":      false,
+		"open_period":       req.OpenPeriod,
+	}
+	if req.Explanation != "" {
+		payload["explanation"] = truncateRunes(req.Explanation, pollExplanationMax)
+	}
+	if req.ReplyTo != 0 {
+		payload["reply_to_message_id"] = req.ReplyTo
+	}
+
+	var msg struct {
+		MessageID int64 `json:"message_id"`
+		Poll      struct {
+			ID string `json:"id"`
+		} `json:"poll"`
+	}
+	if err := c.call(ctx, "sendPoll", payload, &msg); err != nil {
+		return 0, "", err
+	}
+	return msg.MessageID, msg.Poll.ID, nil
+}
+
+// SendTextWithEffect sends text with an optional full-screen message effect.
+// Telegram applies message_effect_id in private chats only; callers must not
+// pass one for a group.
+func (c *Client) SendTextWithEffect(ctx context.Context, chatID int64, text, effectID string, markup *InlineKeyboardMarkup) (int64, error) {
+	payload := map[string]any{
+		"chat_id":                  chatID,
+		"text":                     text,
+		"disable_web_page_preview": true,
+	}
+	if effectID != "" {
+		payload["message_effect_id"] = effectID
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	var msg Message
+	if err := c.call(ctx, "sendMessage", payload, &msg); err != nil {
+		return 0, err
+	}
+	return msg.MessageID, nil
+}
+
+// SetMessageReaction puts a single emoji reaction on a message — the one
+// celebration primitive that works in groups.
+func (c *Client) SetMessageReaction(ctx context.Context, chatID, messageID int64, emoji string) error {
+	return c.call(ctx, "setMessageReaction", map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"reaction":   []map[string]string{{"type": "emoji", "emoji": emoji}},
+	}, nil)
+}
+
+// SendSticker posts a sticker by file_id. Callers skip it when no file_id is
+// configured — an unverified file_id is a runtime error, not a decoration.
+func (c *Client) SendSticker(ctx context.Context, chatID int64, fileID string) error {
+	if strings.TrimSpace(fileID) == "" {
+		return nil
+	}
+	return c.call(ctx, "sendSticker", map[string]any{
+		"chat_id": chatID,
+		"sticker": fileID,
+	}, nil)
 }

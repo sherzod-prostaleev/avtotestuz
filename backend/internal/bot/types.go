@@ -3,10 +3,11 @@ package bot
 // Update is a Telegram Bot API update. Only the fields this bot reads are
 // modeled — Telegram's payload has many more, all ignored on decode.
 type Update struct {
-	UpdateID      int64           `json:"update_id"`
-	Message       *Message        `json:"message,omitempty"`
-	CallbackQuery *CallbackQuery  `json:"callback_query,omitempty"`
-	MyChatMember  *ChatMemberUpd  `json:"my_chat_member,omitempty"`
+	UpdateID      int64          `json:"update_id"`
+	Message       *Message       `json:"message,omitempty"`
+	CallbackQuery *CallbackQuery `json:"callback_query,omitempty"`
+	MyChatMember  *ChatMemberUpd `json:"my_chat_member,omitempty"`
+	PollAnswer    *PollAnswer    `json:"poll_answer,omitempty"`
 }
 
 type Message struct {
@@ -58,4 +59,23 @@ type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	CallbackData string `json:"callback_data,omitempty"`
 	URL          string `json:"url,omitempty"`
+}
+
+// PollAnswer is a vote in a non-anonymous poll the bot sent. Anonymous polls
+// deliver no user, which is why every quiz poll sets is_anonymous=false.
+type PollAnswer struct {
+	PollID    string `json:"poll_id"`
+	User      User   `json:"user"`
+	OptionIDs []int  `json:"option_ids"`
+}
+
+// PollRequest is one quiz poll to send. Telegram's limits are enforced by
+// Client.SendPoll before the request leaves the process.
+type PollRequest struct {
+	Question    string
+	Options     []string
+	CorrectIdx  int
+	Explanation string
+	OpenPeriod  int   // seconds, 5..600
+	ReplyTo     int64 // photo message this poll belongs to; 0 = none
 }
