@@ -155,7 +155,7 @@ export default function AdminQuestionsPage() {
         actions={
           <Link
             href={`/${locale}/admin/content/explanations`}
-            className="back-link"
+            className="back-link text-accent-ink"
           >
             {t("explanationsLink")}
           </Link>

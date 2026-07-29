@@ -219,8 +219,11 @@ function DerivedCard<T>({ row }: { row: TanRow<T> }) {
                 <dt className="admin-label self-center">{label}</dt>
               ) : (
                 // A blank header (a selection checkbox column) must not leave an
-                // empty label sitting in the grid's first column.
-                <dt className="sr-only">{cell.column.id}</dt>
+                // empty label sitting in the grid's first column. The cell's own
+                // control carries the accessible name — announcing the internal
+                // column id here would read an English identifier aloud in an
+                // Uzbek UI.
+                <dt className="sr-only" aria-hidden />
               )}
               {/* A money column stays a money column on a phone: lining figures
                   so amounts of the same magnitude line up when cards stack. */}

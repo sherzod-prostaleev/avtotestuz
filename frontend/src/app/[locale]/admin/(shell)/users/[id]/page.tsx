@@ -456,7 +456,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               <div className="flex flex-wrap gap-2">
                 <span
                   className={`rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase ${
-                    blocked ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
+                    blocked ? "bg-destructive/15 text-danger-ink" : "bg-success/15 text-success-ink"
                   }`}
                 >
                   {user.status}

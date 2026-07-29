@@ -36,6 +36,9 @@ const config: Config = {
           shadow: "hsl(var(--danger-shadow))",
         },
         overlay: "hsl(var(--overlay))",
+        "success-ink": "hsl(var(--success-ink))",
+        "warning-ink": "hsl(var(--warning-ink))",
+        "danger-ink": "hsl(var(--danger-ink))",
         "accent-ink": "hsl(var(--accent-ink))",
         warning: {
           DEFAULT: "hsl(var(--warning))",

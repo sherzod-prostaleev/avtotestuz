@@ -126,7 +126,7 @@ export default function AdminSignsPage() {
           actions={
             <Link
               href={`/${locale}/admin/content/questions`}
-              className="back-link"
+              className="back-link text-accent-ink"
             >
               {t("questionsLink")}
             </Link>

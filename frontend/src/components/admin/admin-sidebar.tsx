@@ -55,7 +55,7 @@ export function AdminSidebar({
       // leaves every link in the tab order and the a11y tree, so a keyboard or
       // screen-reader user on a phone walks the whole hidden nav before
       // reaching the page. visibility also animates, so the slide survives.
-      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border bg-card transition-transform lg:visible lg:static lg:translate-x-0 ${
+      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border bg-card transition-[transform,visibility] lg:visible lg:static lg:translate-x-0 ${
         mobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
       }`}
     >
