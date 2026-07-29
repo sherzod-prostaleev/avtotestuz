@@ -142,6 +142,82 @@ func TestAllowedUpdatesIncludePollAnswer(t *testing.T) {
 	}
 }
 
+// Both SetWebhook and GetUpdates must have identical allowed_updates lists
+// containing poll_answer, or poll votes silently vanish in one mode.
+func TestAllowedUpdatesConsistentBothModes(t *testing.T) {
+	c := &capturedPoll{}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var body map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&body)
+		c.mu.Lock()
+		c.path = r.URL.Path
+		c.payload = body
+		c.mu.Unlock()
+
+		// Return appropriate response per method; GetUpdates expects []Update
+		if strings.HasSuffix(r.URL.Path, "/getUpdates") {
+			_, _ = fmt.Fprint(w, `{"ok":true,"result":[]}`)
+		} else {
+			_, _ = fmt.Fprint(w, `{"ok":true,"result":{"message_id":42}}`)
+		}
+	}))
+	t.Cleanup(srv.Close)
+	client := NewClient(srv.URL, "T", srv.Client())
+
+	// SetWebhook
+	if err := client.SetWebhook(context.Background(), "https://x.test/hook", "s"); err != nil {
+		t.Fatal(err)
+	}
+	webhookUpdates, _ := c.payload["allowed_updates"].([]any)
+
+	// GetUpdates
+	if _, err := client.GetUpdates(context.Background(), 0, 10); err != nil {
+		t.Fatal(err)
+	}
+	pollUpdates, _ := c.payload["allowed_updates"].([]any)
+
+	// Check poll_answer is in SetWebhook
+	found := false
+	for _, v := range webhookUpdates {
+		if v == "poll_answer" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("SetWebhook: allowed_updates = %v, missing poll_answer", webhookUpdates)
+	}
+
+	// Check poll_answer is in GetUpdates
+	found = false
+	for _, v := range pollUpdates {
+		if v == "poll_answer" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("GetUpdates: allowed_updates = %v, missing poll_answer", pollUpdates)
+	}
+
+	// Check lists are equal
+	if len(webhookUpdates) != len(pollUpdates) {
+		t.Fatalf("allowed_updates length mismatch: SetWebhook=%v, GetUpdates=%v", webhookUpdates, pollUpdates)
+	}
+	for _, wh := range webhookUpdates {
+		found := false
+		for _, poll := range pollUpdates {
+			if wh == poll {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("SetWebhook and GetUpdates mismatch: SetWebhook=%v, GetUpdates=%v", webhookUpdates, pollUpdates)
+		}
+	}
+}
+
 func TestSetMessageReaction(t *testing.T) {
 	cap, client := newPollCapture(t)
 	if err := client.SetMessageReaction(context.Background(), -900, 42, "🎉"); err != nil {
