@@ -1,6 +1,14 @@
 import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
+
+// `waitFor`/`findBy*` give up after 1000ms by default, which is a deadline on
+// the machine, not on the component. A shared CI runner blew straight through
+// it once at 1062ms and reported a green suite as red — the assertion was
+// already true, the runner was just busy. The timeout only elapses on failure,
+// so raising it costs passing tests nothing and only makes a genuine failure
+// take longer to report.
+configure({ asyncUtilTimeout: 5000 });
 
 // @testing-library/react only auto-registers its afterEach(cleanup) when it
 // detects a global `afterEach` (i.e. Vitest's `test.globals: true`). This
