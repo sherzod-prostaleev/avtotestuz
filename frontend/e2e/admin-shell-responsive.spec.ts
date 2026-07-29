@@ -1,18 +1,23 @@
 import { expect, test, type Page } from "@playwright/test";
+import { ADMIN_ROW_FIXTURES } from "./fixtures/admin-rows";
 
 /**
- * Stack-free phone gate for the admin *chrome*.
+ * Stack-free layout gate for the admin panel.
  *
- * `admin-responsive.spec.ts` is the authoritative gate, but it needs a live
- * backend and a seeded admin, so it only runs when someone opts in. That
- * makes it a poor regression net for the shell itself — the sidebar drawer,
- * the header, the breadcrumb trail and the thumb-zone bar, which are on every
- * admin route and are where a 390px layout most easily breaks.
+ * `admin-responsive.spec.ts` logs in for real, but it needs a live backend and
+ * a seeded admin, so it only runs when someone opts in — a poor regression net
+ * for something that breaks silently on every route.
  *
  * This spec fulfils the admin API at the network boundary instead, so it runs
- * anywhere the frontend runs, with no database and no credentials. It proves
- * the chrome fits a phone on every route. It deliberately does NOT prove that
- * a table full of production rows fits — that is the other spec's job.
+ * anywhere the frontend does, with no database and no credentials. It feeds
+ * the directories deliberately hostile rows (see fixtures/admin-rows.ts) and
+ * asserts one of those rows is on screen before measuring, so a wrong-shaped
+ * fixture cannot quietly reduce the test to measuring an empty table.
+ *
+ * Two viewports, because the failure differs:
+ *   390px  — nothing may push the document sideways.
+ *   1280px — the directories are virtualized tables here, so every header must
+ *            still sit above the column it names.
  */
 
 const LOCALE = "uz-Latn";
@@ -34,6 +39,21 @@ const ROUTES = [
   "/monitoring/health",
   "/analytics/overview",
 ];
+
+/**
+ * Routes fed hostile rows, and a string from those rows that must be on
+ * screen before the measurement is worth anything.
+ */
+const POPULATED: Record<string, string> = {
+  "/users": "Musharrafxon",
+  "/content/questions": "AVTOTEST-2026-BILET",
+  "/content/tickets": "20",
+  "/content/signs": "axborot",
+  "/content/explanations": "AVTOTEST-2026-BILET",
+  "/payments/transactions": "PAYME-TXN",
+  "/payments/referral-payouts": "Musharrafxon",
+  "/support/inbox": "premium ochilmadi",
+};
 
 /** A superadmin, so no nav group is hidden and the chrome is at its widest. */
 const ME = {
@@ -113,11 +133,16 @@ async function stubAdminApi(page: Page): Promise<void> {
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: ME }) }),
   );
   await page.route("**/api/admin/**", (route) => {
-    if (route.request().url().includes("/api/admin/me")) return route.fallback();
+    const url = new URL(route.request().url());
+    if (url.pathname === "/api/admin/me") return route.fallback();
+
+    // A populated table is the only one that can overflow, so the directories
+    // get hostile rows; everything else falls back to the empty envelope.
+    const rows = ADMIN_ROW_FIXTURES[url.pathname];
     return route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(ENVELOPE),
+      body: JSON.stringify(rows ? { data: rows } : ENVELOPE),
     });
   });
 }
@@ -155,6 +180,14 @@ test.describe("admin chrome at 390px", () => {
       await page.goto(`/${LOCALE}/admin${route}`);
       await expect(page.getByRole("navigation", { name: "Asosiy bo‘limlar" })).toBeVisible();
 
+      // Prove the fixture actually landed. A wrong-shaped fixture renders the
+      // empty state, and an empty table cannot overflow — the test would pass
+      // while measuring nothing.
+      const marker = POPULATED[route];
+      if (marker) {
+        await expect(page.getByText(marker, { exact: false }).first()).toBeVisible();
+      }
+
       const { overflow, widest } = await measureOverflow(page);
       expect(
         overflow,
@@ -164,6 +197,7 @@ test.describe("admin chrome at 390px", () => {
   }
 
   test("the nav drawer covers the thumb bar while it is open", async ({ page }) => {
+    await page.setViewportSize(IPHONE_12);
     await page.goto(`/${LOCALE}/admin`);
     const bar = page.getByRole("navigation", { name: "Asosiy bo‘limlar" });
     await expect(bar).toBeVisible();
@@ -181,4 +215,45 @@ test.describe("admin chrome at 390px", () => {
     });
     expect(barIsOnTop, "the bottom bar is still hit-testable while the drawer is open").toBe(false);
   });
+});
+
+/**
+ * Desktop counterpart. The directories are virtualized tables here, not cards,
+ * so this is where the column-alignment fix has to hold: rows must stay in
+ * normal table flow, or each row sizes its own columns and the sticky header
+ * stops sitting above the values it names.
+ */
+test.describe("admin directories at 1280px", () => {
+  test.beforeEach(async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await seedAdminCookie(page, baseURL);
+    await stubAdminApi(page);
+  });
+
+  for (const route of Object.keys(POPULATED)) {
+    test(`header cells sit above their column: ${route}`, async ({ page }) => {
+      await page.goto(`/${LOCALE}/admin${route}`);
+      await expect(page.getByText(POPULATED[route], { exact: false }).first()).toBeVisible();
+
+      const drift = await page.evaluate(() => {
+        const table = document.querySelector("table");
+        if (!table) return null;
+        const heads = Array.from(table.querySelectorAll("thead th"));
+        const firstRow = table.querySelector("tbody tr[data-index]");
+        if (!firstRow || heads.length === 0) return null;
+        const cells = Array.from(firstRow.querySelectorAll("td"));
+        if (cells.length !== heads.length) return { mismatch: [cells.length, heads.length] };
+        return heads.map((h, i) =>
+          Math.round(Math.abs(h.getBoundingClientRect().left - cells[i].getBoundingClientRect().left)),
+        );
+      });
+
+      // Pages without a virtualized table (none today) simply skip the check.
+      if (drift === null) return;
+      expect(Array.isArray(drift), `column count differs from header count: ${JSON.stringify(drift)}`).toBe(true);
+      for (const d of drift as number[]) {
+        expect(d, `a header is ${d}px away from its column: ${JSON.stringify(drift)}`).toBeLessThanOrEqual(1);
+      }
+    });
+  }
 });
