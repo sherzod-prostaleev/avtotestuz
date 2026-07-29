@@ -38,6 +38,7 @@ type QuizService struct {
 	TG            *Client
 	MediaBaseURL  string
 	PublicBaseURL string
+	WinnerSticker string // optional file_id; empty skips the sticker
 	Log           *zap.Logger
 }
 

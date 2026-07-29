@@ -75,6 +75,67 @@ func seedQuizQuestion(t *testing.T, pool *pgxpool.Pool, withImage bool) uuid.UUI
 	return qID
 }
 
+// seedQuizQuestionWithAnswers seeds a question whose answer texts are given
+// explicitly, so tests can exercise the poll length filter.
+func seedQuizQuestionWithAnswers(t *testing.T, pool *pgxpool.Pool, withImage bool, texts []string) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	var catID, qID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO category (code, sort_order) VALUES ($1, 1) RETURNING id`,
+		"tg_poll_"+uuid.NewString()[:8],
+	).Scan(&catID); err != nil {
+		t.Fatal(err)
+	}
+	var imageID any
+	if withImage {
+		var img uuid.UUID
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO image (storage_key, sha256, width, height, mime)
+			 VALUES ($1, $2, 100, 100, 'image/png') RETURNING id`,
+			"q/"+uuid.NewString()+".png", uuid.NewString(),
+		).Scan(&img); err != nil {
+			t.Fatal(err)
+		}
+		imageID = img
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO question (source_ext_id, category_id, content_hash, image_id)
+		VALUES ($1, $2, $3, $4) RETURNING id`,
+		"tgp-"+uuid.NewString(), catID, uuid.NewString(), imageID,
+	).Scan(&qID); err != nil {
+		t.Fatal(err)
+	}
+	var correctID uuid.UUID
+	for i, text := range texts {
+		var aID uuid.UUID
+		if err := pool.QueryRow(ctx,
+			`INSERT INTO answer (question_id, position, is_correct) VALUES ($1,$2,$3) RETURNING id`,
+			qID, i+1, i == 0,
+		).Scan(&aID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO answer_translation (answer_id, locale, text, status)
+			 VALUES ($1,'uz-Latn',$2,'verified')`, aID, text); err != nil {
+			t.Fatal(err)
+		}
+		if i == 0 {
+			correctID = aID
+		}
+	}
+	if _, err := pool.Exec(ctx,
+		`UPDATE question SET correct_answer_id=$2 WHERE id=$1`, qID, correctID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO question_translation (question_id, locale, text, status, source)
+		 VALUES ($1,'uz-Latn','Poll savoli?','verified','')`, qID); err != nil {
+		t.Fatal(err)
+	}
+	return qID
+}
+
 func TestQuizStartSendsQuestionWithAnswers(t *testing.T) {
 	pool := testdb.New(t)
 	q := sqlc.New(pool)
