@@ -58,15 +58,28 @@ async function loginAsAdmin(page: Page): Promise<void> {
 
   // A TOTP-enrolled admin cannot be driven from a spec; fail loudly rather
   // than silently measuring the login page instead of the panel.
+  // Promise.race abandons the loser, and the loser here is a 15s timeout that
+  // would reject with nothing attached — one unhandled rejection per test,
+  // surfaced against whichever test happens to be running when it fires.
+  // Both branches swallow their own timeout so only the winner speaks.
   const totp = page.getByPlaceholder("000000");
-  const landed = page.waitForURL(new RegExp(`/${LOCALE}/admin(?!/login)`), { timeout: 15_000 });
-  const challenged = totp.waitFor({ state: "visible", timeout: 15_000 }).then(() => "totp" as const);
+  const landed = page
+    .waitForURL(new RegExp(`/${LOCALE}/admin(?!/login)`), { timeout: 15_000 })
+    .then(() => "in" as const)
+    .catch(() => "pending" as const);
+  const challenged = totp
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .then(() => "totp" as const)
+    .catch(() => "pending" as const);
 
-  const outcome = await Promise.race([landed.then(() => "in" as const), challenged]);
+  const outcome = await Promise.race([landed, challenged]);
   if (outcome === "totp") {
     throw new Error(
       "the seeded admin has TOTP enrolled; this spec needs an admin without TOTP (see `make seed-admin`)",
     );
+  }
+  if (outcome === "pending") {
+    throw new Error("admin login neither landed nor presented a TOTP challenge within 15s");
   }
 }
 

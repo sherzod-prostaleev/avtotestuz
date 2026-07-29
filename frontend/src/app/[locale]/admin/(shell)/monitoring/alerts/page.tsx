@@ -92,7 +92,7 @@ export default function AdminMonitoringAlertsPage() {
                 <span
                   className={`text-xs font-bold ${
                     a.status === "ok" || a.status === "skipped"
-                      ? "text-accent"
+                      ? "text-accent-ink"
                       : a.status === "warn"
                         ? "text-foreground"
                         : "text-destructive"

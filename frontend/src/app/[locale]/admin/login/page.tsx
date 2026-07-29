@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
       />
       <div className="relative w-full max-w-md rounded-3xl border border-border/70 bg-card/70 p-6 shadow-2xl backdrop-blur">
         <p className="font-display text-2xl font-black tracking-tight">Driver Go</p>
-        <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent">
+        <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent-ink">
           {t("badge")}
         </p>
         <h1 className="mt-4 font-display text-xl font-extrabold">{t("title")}</h1>

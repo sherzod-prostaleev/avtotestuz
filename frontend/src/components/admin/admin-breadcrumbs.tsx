@@ -35,20 +35,24 @@ export function AdminBreadcrumbs({
           <Link
             href={base}
             aria-current={atRoot ? "page" : undefined}
-            className="-mx-1.5 inline-flex min-h-[44px] items-center rounded px-1.5 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-mx-1.5 inline-flex min-h-[44px] items-center rounded px-1.5 hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {tShell("home")}
           </Link>
         </li>
         {group ? (
           <>
-            <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            <li aria-hidden className="flex shrink-0 items-center">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </li>
             <li className="shrink-0">{t(group.titleKey)}</li>
           </>
         ) : null}
         {leaf ? (
           <>
-            <ChevronRight aria-hidden className="h-3.5 w-3.5 shrink-0" />
+            <li aria-hidden className="flex shrink-0 items-center">
+              <ChevronRight className="h-3.5 w-3.5" />
+            </li>
             <li className="min-w-0 truncate text-foreground" aria-current="page">
               {t(leaf.labelKey)}
             </li>

@@ -1263,9 +1263,7 @@
     "totp": "TOTP / 2FA",
     "manualPay": "Manual Humo",
     "collapseGroup": "Guruhni yig‘ish",
-    "expandGroup": "Guruhni ochish",
-    "collapseRail": "Menyuni toraytirish",
-    "expandRail": "Menyuni kengaytirish"
+    "expandGroup": "Guruhni ochish"
   },
   "AdminOverview": {
     "controlBadge": "Boshqaruv markazi",

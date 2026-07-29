@@ -113,15 +113,18 @@ export default function AdminSecurityRBACPage() {
                   projection of it that stays readable, so it keeps its <table>
                   and instead scrolls inside its own focusable region. */}
               <div
-                className="admin-scroll-x mt-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                className="admin-scroll-x mt-3 max-h-[70vh] overflow-y-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 role="region"
                 aria-label={t("matrixTitle")}
                 tabIndex={0}
               >
                 <table className="w-full min-w-max text-left text-xs">
-                  <thead className="border-b border-border text-[10px] uppercase tracking-wide text-muted-foreground">
+                  {/* Sticky, and the region is height-bounded: a 30-row matrix
+                      otherwise scrolls its own headers away and leaves the
+                      operator reading unlabelled ticks. */}
+                  <thead className="sticky top-0 z-20 bg-card text-[10px] uppercase tracking-wide text-muted-foreground [&_th]:border-b [&_th]:border-border">
                     <tr>
-                      <th className="sticky left-0 z-10 bg-card/95 px-2 py-2 font-bold">{t("colPermission")}</th>
+                      <th className="sticky left-0 z-30 bg-card px-2 py-2 font-bold">{t("colPermission")}</th>
                       {data.roles.map((role) => (
                         <th key={role.code} className="px-2 py-2 font-bold">
                           <span className="font-mono">{role.code}</span>
@@ -132,7 +135,7 @@ export default function AdminSecurityRBACPage() {
                   <tbody>
                     {data.permissions.map((perm) => (
                       <tr key={perm.code} className="border-b border-border/60 last:border-0">
-                        <td className="sticky left-0 z-10 bg-card/95 px-2 py-2">
+                        <td className="sticky left-0 z-10 bg-card px-2 py-2">
                           {/* min-w-max sizes the frozen column by its widest
                               content. Uncapped, that column grows wider than a
                               phone viewport and hides the matrix it labels — so
@@ -153,6 +156,7 @@ export default function AdminSecurityRBACPage() {
                           return (
                             <td key={role.code} className="px-2 py-2 text-center">
                               <span
+                                role="img"
                                 className={
                                   granted
                                     ? "inline-flex h-5 w-5 items-center justify-center rounded-md bg-success/20 text-success"

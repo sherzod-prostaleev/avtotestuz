@@ -133,7 +133,7 @@ export default function AdminPaymentsTransactionsPage() {
         cell: ({ row }) => (
           <Link
             href={`/${locale}/admin/payments/transactions/${row.original.id}`}
-            className="font-mono text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-[44px] items-center md:min-h-0 font-mono text-xs font-semibold text-accent-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {row.original.phone_masked}
           </Link>

@@ -414,7 +414,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
   if (error && !user) {
     return (
       <main className="mx-auto max-w-4xl space-y-3">
-        <Link href={`/${locale}/admin/users`} className="text-sm font-semibold text-accent hover:underline">
+        <Link href={`/${locale}/admin/users`} className="text-sm font-semibold text-accent-ink hover:underline">
           ← {t("back")}
         </Link>
         <AdminErrorState message={error} />
@@ -444,7 +444,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
         <div>
           <Link
             href={`/${locale}/admin/users`}
-            className="inline-flex items-center gap-1 text-sm font-semibold text-accent hover:underline"
+            className="inline-flex items-center gap-1 text-sm font-semibold text-accent-ink hover:underline"
           >
             <ArrowLeft aria-hidden className="h-4 w-4" /> {t("back")}
           </Link>
@@ -463,7 +463,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                 </span>
                 <span
                   className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase ${
-                    user.vip_active ? "bg-accent/20 text-accent" : "bg-muted text-muted-foreground"
+                    user.vip_active ? "bg-accent/20 text-accent-ink" : "bg-muted text-muted-foreground"
                   }`}
                 >
                   <Shield aria-hidden className="h-3.5 w-3.5" />
@@ -498,8 +498,8 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               type="button"
               role="tab"
               aria-selected={tab === tb.id}
-              className={`rounded-lg px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                tab === tb.id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-white/[0.04]"
+              className={`min-h-[44px] rounded-lg px-3 py-1.5 text-xs font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                tab === tb.id ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-foreground/[0.04]"
               }`}
               onClick={() => setTab(tb.id)}
             >
@@ -588,7 +588,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
           <div className="space-y-4">
             <PermissionGate permission="users.entitlements.grant" mode="hide">
               <section className="space-y-3 rounded-2xl border border-accent/25 bg-gradient-to-br from-accent/10 via-card/80 to-card p-4">
-                <h2 className="text-xs font-extrabold uppercase tracking-wider text-accent">
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-accent-ink">
                   {t("grantVipTitle")}
                 </h2>
                 <p className="text-xs text-muted-foreground">{t("grantVipHint")}</p>
@@ -659,7 +659,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
                 <div className="grid gap-3 sm:grid-cols-5">
                   <div className="rounded-xl border border-accent/30 bg-accent/5 p-3">
                     <p className="text-[11px] text-muted-foreground">{tr("statPercent")}</p>
-                    <p className="text-lg font-bold text-accent">{referral.commission_percent}%</p>
+                    <p className="text-lg font-bold text-accent-ink">{referral.commission_percent}%</p>
                   </div>
                   <div className="rounded-xl border border-border p-3">
                     <p className="text-[11px] text-muted-foreground">{tr("statInvited")}</p>

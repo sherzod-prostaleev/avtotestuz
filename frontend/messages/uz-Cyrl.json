@@ -1263,9 +1263,7 @@
     "totp": "TOTP / 2FA",
     "manualPay": "Manual Humo",
     "collapseGroup": "Гуруҳни йиғиш",
-    "expandGroup": "Гуруҳни очиш",
-    "collapseRail": "Менюни торайтириш",
-    "expandRail": "Менюни кенгайтириш"
+    "expandGroup": "Гуруҳни очиш"
   },
   "AdminOverview": {
     "controlBadge": "Бошқарув маркази",

@@ -1263,9 +1263,7 @@
     "totp": "TOTP / 2FA",
     "manualPay": "Manual Humo",
     "collapseGroup": "Свернуть группу",
-    "expandGroup": "Развернуть группу",
-    "collapseRail": "Свернуть меню",
-    "expandRail": "Развернуть меню"
+    "expandGroup": "Развернуть группу"
   },
   "AdminOverview": {
     "controlBadge": "Центр управления",

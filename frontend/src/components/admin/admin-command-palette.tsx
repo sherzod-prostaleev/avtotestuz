@@ -60,7 +60,7 @@ export function AdminCommandPalette({ locale }: AdminCommandPaletteProps) {
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-start justify-center bg-foreground/50 px-4 pt-[12vh] backdrop-blur-[2px]"
+      className="fixed inset-0 z-[60] flex items-start justify-center bg-overlay/70 px-4 pt-[12vh] backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-label={tShell("commandPalette")}
@@ -74,7 +74,7 @@ export function AdminCommandPalette({ locale }: AdminCommandPaletteProps) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder={tShell("commandPlaceholder")}
-          className="h-12 w-full border-b border-border/70 bg-transparent px-4 text-sm focus:outline-none"
+          className="h-12 w-full border-b border-border/70 bg-transparent px-4 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         />
         <ul className="max-h-72 overflow-y-auto p-1.5">
           {filtered.length === 0 ? (

@@ -35,6 +35,8 @@ const config: Config = {
           foreground: "hsl(var(--danger-foreground))",
           shadow: "hsl(var(--danger-shadow))",
         },
+        overlay: "hsl(var(--overlay))",
+        "accent-ink": "hsl(var(--accent-ink))",
         warning: {
           DEFAULT: "hsl(var(--warning))",
           foreground: "hsl(var(--warning-foreground))",

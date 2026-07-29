@@ -26,6 +26,7 @@ const IPHONE_12 = { width: 390, height: 844 };
 const ROUTES = [
   "",
   "/users",
+  "/users/u-0-99998888-7777-6666-5555-444433332222",
   "/content/questions",
   "/content/tickets",
   "/content/signs",
@@ -53,6 +54,7 @@ const POPULATED: Record<string, string> = {
   "/payments/transactions": "PAYME-TXN",
   "/payments/referral-payouts": "Musharrafxon",
   "/support/inbox": "premium ochilmadi",
+  "/security/rbac": "users.sessions.revoke",
 };
 
 /** A superadmin, so no nav group is hidden and the chrome is at its widest. */

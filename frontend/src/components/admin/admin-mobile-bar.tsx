@@ -55,7 +55,7 @@ export function AdminMobileBar({
                 href={item.href}
                 aria-current={active ? "page" : undefined}
                 className={`flex min-h-[56px] flex-col items-center justify-center gap-1 px-1 py-2 text-[10px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-                  active ? "text-accent" : "text-muted-foreground"
+                  active ? "text-accent-ink" : "text-muted-foreground"
                 }`}
               >
                 <Icon className="h-5 w-5" aria-hidden />

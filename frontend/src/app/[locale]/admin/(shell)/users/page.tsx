@@ -7,7 +7,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { KeyRound, RefreshCw, Search, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { AdminDataTable } from "@/components/admin/admin-data-table";
+import { AdminDataTable, type AdminColumnMeta } from "@/components/admin/admin-data-table";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 import { PermissionGate } from "@/components/admin/permission-gate";
@@ -86,11 +86,12 @@ export default function AdminUsersPage() {
     () => [
       {
         accessorKey: "phone",
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
         header: t("colPhone"),
         cell: ({ row }) => (
           <Link
             href={`/${locale}/admin/users/${row.original.id}`}
-            className="font-mono text-[13px] font-semibold tracking-tight text-foreground hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-[44px] items-center md:min-h-0 font-mono text-[13px] font-semibold tracking-tight text-foreground hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {row.original.phone || row.original.phone_masked}
           </Link>
@@ -122,7 +123,7 @@ export default function AdminUsersPage() {
         header: t("colVip"),
         cell: ({ getValue }) =>
           getValue<boolean>() ? (
-            <span className="inline-flex items-center gap-1 text-xs font-bold text-accent">
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-accent-ink">
               <Shield aria-hidden className="h-3.5 w-3.5" />
               {t("vipYes")}
             </span>

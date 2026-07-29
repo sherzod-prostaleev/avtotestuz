@@ -145,14 +145,19 @@ export default function AdminExplanationsPage() {
         header: " ",
         cell: ({ row }) =>
           row.original.status !== "verified" ? (
-            <input
-              type="checkbox"
-              checked={Boolean(selected[row.original.question_id])}
-              onChange={(e) =>
-                setSelected((s) => ({ ...s, [row.original.question_id]: e.target.checked }))
-              }
-              aria-label={row.original.source_ext_id}
-            />
+            // 44px hit area on a phone, where this is the only way to reach
+            // bulk verify; the box itself stays visually small.
+            <label className="-my-2 inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center md:my-0 md:min-h-0 md:min-w-0">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                checked={Boolean(selected[row.original.question_id])}
+                onChange={(e) =>
+                  setSelected((s) => ({ ...s, [row.original.question_id]: e.target.checked }))
+                }
+                aria-label={row.original.source_ext_id}
+              />
+            </label>
           ) : null,
       },
       {
@@ -162,7 +167,7 @@ export default function AdminExplanationsPage() {
         cell: ({ row }) => (
           <Link
             href={`/${locale}/admin/content/questions/${row.original.question_id}`}
-            className="font-mono text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-[44px] items-center md:min-h-0 font-mono text-xs font-semibold text-accent-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {row.original.source_ext_id}
           </Link>
@@ -172,7 +177,7 @@ export default function AdminExplanationsPage() {
         accessorKey: "text_preview",
         header: t("colText"),
         cell: ({ row }) => (
-          <span className="block max-w-sm truncate">{row.original.text_preview || "—"}</span>
+          <span className="block md:max-w-sm md:truncate">{row.original.text_preview || "—"}</span>
         ),
       },
       {
@@ -188,9 +193,11 @@ export default function AdminExplanationsPage() {
         ),
       },
       {
+        // NOT hideOnCard. Verifying an explanation is ordinary queue work and
+        // the operator doing it is often holding a phone; hiding it here left
+        // a 13px checkbox as the only way through.
         id: "actions",
         header: t("colActions"),
-        meta: { hideOnCard: true } satisfies AdminColumnMeta,
         cell: ({ row }) =>
           row.original.status !== "verified" ? (
             <Button
@@ -218,7 +225,7 @@ export default function AdminExplanationsPage() {
         actions={
           <Link
             href={`/${locale}/admin/content/questions`}
-            className="text-sm font-semibold text-accent hover:underline"
+            className="back-link"
           >
             {t("questionsLink")}
           </Link>

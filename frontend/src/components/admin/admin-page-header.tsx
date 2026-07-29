@@ -12,7 +12,7 @@ export function AdminPageHeader({ badge, title, description, actions }: AdminPag
     <header className="flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
         {badge ? (
-          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent-ink">
             {badge}
           </p>
         ) : null}

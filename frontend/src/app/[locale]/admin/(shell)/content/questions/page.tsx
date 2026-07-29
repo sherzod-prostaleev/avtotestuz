@@ -90,7 +90,7 @@ export default function AdminQuestionsPage() {
         cell: ({ row }) => (
           <Link
             href={`/${locale}/admin/content/questions/${row.original.id}`}
-            className="font-mono text-xs font-semibold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex min-h-[44px] items-center md:min-h-0 font-mono text-xs font-semibold text-accent-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             {row.original.source_ext_id}
           </Link>
@@ -155,7 +155,7 @@ export default function AdminQuestionsPage() {
         actions={
           <Link
             href={`/${locale}/admin/content/explanations`}
-            className="text-sm font-semibold text-accent hover:underline"
+            className="back-link"
           >
             {t("explanationsLink")}
           </Link>

@@ -114,7 +114,7 @@ export default function AdminB2BOrgsPage() {
                     {row.status} · {t("membersSeats", { members: row.members ?? 0, seats: row.active_seats ?? 0 })}
                   </p>
                 </div>
-                <span className="text-xs font-semibold text-accent">{t("open")}</span>
+                <span className="text-xs font-semibold text-accent-ink">{t("open")}</span>
               </Link>
             </li>
           ))}

@@ -195,7 +195,7 @@ export default function AdminPaymentDetailPage({ params }: { params: { id: strin
             </section>
 
             <p className="text-xs text-muted-foreground">
-              <Link href={`/${locale}/admin/users/${data.profile_id}`} className="text-accent hover:underline">
+              <Link href={`/${locale}/admin/users/${data.profile_id}`} className="text-accent-ink hover:underline">
                 {t("openUser")}
               </Link>
             </p>

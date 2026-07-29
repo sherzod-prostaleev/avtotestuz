@@ -23,14 +23,27 @@ describe("AdminBarChart", () => {
     expect(screen.getByRole("img", { name: "chart" })).toBeInTheDocument();
   });
 
-  it("shows the empty label when only one day carries data", () => {
+  // The API always returns a full 14-day window, so an all-zero series is the
+  // only honest "no data" case. A single populated day must still be drawn:
+  // hiding it contradicts the revenue tile sitting directly above the chart.
+  it("shows the empty label only when every day is zero", () => {
+    const points = Array.from({ length: 14 }, (_, i) => ({
+      label: `2026-07-${String(i + 15).padStart(2, "0")}`,
+      value: 0,
+    }));
+    render(<AdminBarChart points={points} emptyLabel="Ma’lumot yetarli emas" />);
+    expect(screen.getByText("Ma’lumot yetarli emas")).toBeInTheDocument();
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("still draws the chart when only one day carries data", () => {
     const points = Array.from({ length: 14 }, (_, i) => ({
       label: `2026-07-${String(i + 15).padStart(2, "0")}`,
       value: i === 13 ? 3 : 0,
     }));
     render(<AdminBarChart points={points} emptyLabel="Ma’lumot yetarli emas" />);
-    expect(screen.getByText("Ma’lumot yetarli emas")).toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.queryByText("Ma’lumot yetarli emas")).not.toBeInTheDocument();
+    expect(screen.getByRole("img")).toBeInTheDocument();
   });
 
   it("renders the chart once two or more days carry data", () => {

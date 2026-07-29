@@ -29,7 +29,7 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
         <Tooltip.Trigger asChild>
           <button
             type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-white/[0.06] hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-foreground/[0.06] hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={label}
           >
             <Info className="h-3.5 w-3.5" aria-hidden />

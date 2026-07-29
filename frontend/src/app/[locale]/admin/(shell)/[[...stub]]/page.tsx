@@ -157,7 +157,7 @@ export default function AdminStubOrOverviewPage({
             <Link
               key={l.href}
               href={l.href}
-              className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm font-semibold transition hover:border-accent/40 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm font-semibold transition hover:border-accent/40 hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {l.label}
               <ArrowUpRight className="h-4 w-4 opacity-60" aria-hidden />

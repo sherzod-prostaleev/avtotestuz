@@ -94,7 +94,7 @@ export default function AdminSupportInboxDetailPage() {
       <main className="mx-auto max-w-2xl space-y-5">
         <Link
           href={`/${locale}/admin/support/inbox`}
-          className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-accent"
+          className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-accent-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" />
           {t("back")}

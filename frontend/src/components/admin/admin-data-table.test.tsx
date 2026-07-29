@@ -120,15 +120,16 @@ describe("AdminDataTable", () => {
     const dataRows = container.querySelectorAll("tbody tr[data-index]");
     expect(dataRows.length).toBeGreaterThan(0);
     for (const tr of dataRows) {
+      // Both spellings of the bug: an inline style and a utility class. jsdom
+      // has no layout, so the class form is only reachable by inspecting it.
       expect((tr as HTMLElement).style.position).not.toBe("absolute");
       expect((tr as HTMLElement).style.transform).toBe("");
+      expect(tr.className).not.toMatch(/(^|\s)absolute(\s|$)/);
     }
-    // Any space the virtualizer holds open is a real <tr>, not a positioned gap.
-    for (const spacer of container.querySelectorAll("tbody tr[aria-hidden]")) {
-      const cell = spacer.querySelector("td");
-      expect(cell).not.toBeNull();
-      expect(cell!.getAttribute("colspan")).toBe(String(columns.length));
-    }
+    // NOTE: spacer <tr>s are deliberately not asserted here. jsdom reports
+    // every height as 0, so the virtualizer renders the whole set and both
+    // spacers collapse to nothing. The 1280px Playwright suite in
+    // e2e/admin-shell-responsive.spec.ts measures the real geometry.
   });
 
   it("keeps numeric columns lining-figured on cards", () => {

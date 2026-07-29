@@ -96,7 +96,7 @@ export default function AdminSupportInboxPage() {
           <>
             <Link
               href={`/${locale}/admin/support/inbox/${row.original.id}`}
-              className="font-semibold text-accent hover:underline"
+              className="font-semibold text-accent-ink hover:underline"
             >
               {row.original.subject}
             </Link>

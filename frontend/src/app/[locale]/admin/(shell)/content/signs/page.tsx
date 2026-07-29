@@ -126,7 +126,7 @@ export default function AdminSignsPage() {
           actions={
             <Link
               href={`/${locale}/admin/content/questions`}
-              className="text-sm font-semibold text-accent hover:underline"
+              className="back-link"
             >
               {t("questionsLink")}
             </Link>

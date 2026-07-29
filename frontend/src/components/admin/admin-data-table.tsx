@@ -207,17 +207,25 @@ function DerivedCard<T>({ row }: { row: TanRow<T> }) {
       <dl className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-x-3 gap-y-1.5">
         {bodyCells.map((cell) => {
           const meta = metaOf(cell);
+          const rawHeader = cell.column.columnDef.header;
+          const label = typeof rawHeader === "string" ? rawHeader.trim() : "";
           return (
-            <div key={cell.id} className="contents">
-              <dt className="admin-label self-center">
-                {typeof cell.column.columnDef.header === "string"
-                  ? cell.column.columnDef.header
-                  : cell.column.id}
-              </dt>
+            // `admin-card-row` hides itself when its <dd> renders nothing. Cells
+            // routinely render null — a row action wrapped in a PermissionGate,
+            // or an action that only exists in one status — and without this a
+            // read-only operator gets a card full of labels with no values.
+            <div key={cell.id} className="admin-card-row contents">
+              {label ? (
+                <dt className="admin-label self-center">{label}</dt>
+              ) : (
+                // A blank header (a selection checkbox column) must not leave an
+                // empty label sitting in the grid's first column.
+                <dt className="sr-only">{cell.column.id}</dt>
+              )}
               {/* A money column stays a money column on a phone: lining figures
                   so amounts of the same magnitude line up when cards stack. */}
               <dd
-                className={`min-w-0 break-words text-sm ${
+                className={`min-w-0 break-words text-sm ${label ? "" : "col-span-2"} ${
                   meta.numeric ? "tabular-nums" : ""
                 }`}
               >

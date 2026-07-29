@@ -25,7 +25,7 @@ export default function AdminPaymentsRefundsPage() {
           <p>
             <Link
               href={`/${locale}/admin/payments/transactions?status=refunded`}
-              className="font-semibold text-accent hover:underline"
+              className="font-semibold text-accent-ink hover:underline"
             >
               {t("refundsLink")}
             </Link>

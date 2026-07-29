@@ -109,3 +109,64 @@ describe("row actions in the card projection", () => {
     expect(screen.getAllByRole("button", { name: "Bekor qilish" })).toHaveLength(2);
   });
 });
+
+/**
+ * The gate that actually ships. A permission-gated action must be removed as a
+ * COLUMN, not merely emptied inside its cell — an emptied cell still leaves a
+ * header on the table and a labelled blank on every card. This pins the
+ * conditional-spread pattern used by payments/transactions and
+ * payments/referral-payouts.
+ */
+describe("a permission-gated action column", () => {
+  function columnsFor(canManage: boolean): ColumnDef<SessionRow>[] {
+    return [
+      {
+        accessorKey: "id",
+        header: "Sessiya",
+        meta: { cardTitle: true },
+        cell: ({ row }) => <span>{row.original.id.slice(0, 8)}…</span>,
+      },
+      ...(canManage
+        ? ([
+            {
+              id: "actions",
+              header: "Amallar",
+              cell: () => <button type="button">Bekor qilish</button>,
+            },
+          ] as ColumnDef<SessionRow>[])
+        : []),
+    ];
+  }
+
+  function renderAs(canManage: boolean, variant: "cards" | "table") {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <AdminDataTable
+          data={rows}
+          columns={columnsFor(canManage)}
+          emptyTitle="Bo‘sh"
+          variant={variant}
+          getRowId={(row) => row.id}
+        />
+      </NextIntlClientProvider>,
+    );
+  }
+
+  it("shows the action to an operator who holds the permission", () => {
+    renderAs(true, "cards");
+    expect(screen.getAllByRole("button", { name: "Bekor qilish" })).toHaveLength(3);
+  });
+
+  it("leaves neither button nor label when the operator does not", () => {
+    renderAs(false, "cards");
+    expect(screen.queryByRole("button", { name: "Bekor qilish" })).not.toBeInTheDocument();
+    // The header must be gone too — an empty labelled row is the bug.
+    expect(screen.queryByText("Amallar")).not.toBeInTheDocument();
+  });
+
+  it("removes the column header from the desktop table as well", () => {
+    renderAs(false, "table");
+    expect(screen.queryByRole("columnheader", { name: "Amallar" })).not.toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Sessiya" })).toBeInTheDocument();
+  });
+});

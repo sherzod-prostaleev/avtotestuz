@@ -68,7 +68,7 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
         {navOpen ? (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-foreground/40 lg:hidden"
+            className="fixed inset-0 z-30 bg-overlay/60 lg:hidden"
             aria-label={t("closeNav")}
             onClick={() => setNavOpen(false)}
           />
@@ -101,7 +101,7 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
               {me.totp_setup_required ? (
                 <Link
                   href={`/${locale}/admin/security/totp`}
-                  className="rounded-xl border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="rounded-xl border border-accent/50 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {t("totpSetupBanner")}
                 </Link>

@@ -51,13 +51,17 @@ export function AdminSidebar({
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border bg-card transition-transform lg:static lg:translate-x-0 ${
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      // `invisible` and not just a transform: translating the drawer off-screen
+      // leaves every link in the tab order and the a11y tree, so a keyboard or
+      // screen-reader user on a phone walks the whole hidden nav before
+      // reaching the page. visibility also animates, so the slide survives.
+      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border bg-card transition-transform lg:visible lg:static lg:translate-x-0 ${
+        mobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
       }`}
     >
       <div className="border-b border-border px-4 py-4">
         <p className="font-display text-xl font-black tracking-tight">Driver Go</p>
-        <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
+        <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent-ink">
           {t("badge")}
         </p>
         {me?.email ? (
@@ -119,10 +123,10 @@ export function AdminSidebar({
                           href={item.href}
                           onClick={onNavigate}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-[40px] items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                          className={`flex min-h-[44px] items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                             active
                               ? "bg-accent text-accent-foreground"
-                              : "text-foreground/80 hover:bg-accent/10 hover:text-accent"
+                              : "text-foreground/80 hover:bg-accent/10 hover:text-accent-ink"
                           }`}
                         >
                           <span className="truncate">{t(item.labelKey)}</span>

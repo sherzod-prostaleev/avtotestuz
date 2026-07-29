@@ -157,3 +157,35 @@ export const ADMIN_ROW_FIXTURES: Record<string, unknown> = {
     total: 5140,
   },
 };
+
+/**
+ * The RBAC matrix keeps a real <table> and is the one admin surface with no
+ * card projection, so it is the most likely to overflow — and it was being
+ * measured empty. Production shape: 7 roles x 30 permissions.
+ */
+const RBAC_ROLES = [
+  "superadmin", "admin", "finance", "content", "support", "analyst", "auditor",
+];
+const RBAC_PERMS = [
+  "monitoring.read", "analytics.read", "investors.read", "users.read",
+  "users.block", "users.sessions.revoke", "users.entitlements.grant",
+  "content.questions.read", "content.questions.write", "content.signs.write",
+  "payments.read", "payments.delete", "payments.refund", "referral.read",
+  "referral.payouts.manage", "referral.rates.manage", "cms.read", "cms.write",
+  "settings.flags", "settings.config", "settings.limits", "security.audit.read",
+  "security.rbac", "security.ip", "support.inbox", "support.broadcast",
+  "b2b.read", "b2b.write", "exports.run", "jobs.manage",
+];
+
+ADMIN_ROW_FIXTURES["/api/admin/security/rbac"] = {
+  roles: RBAC_ROLES.map((code, i) => ({
+    code,
+    name: `${code} roli`,
+    description: "Ushbu rol uchun to‘liq tavsif matni",
+    permissions: RBAC_PERMS.filter((_, j) => (i + j) % (i + 2) !== 0),
+  })),
+  permissions: RBAC_PERMS.map((code) => ({
+    code,
+    description: "Bu ruxsat nimaga imkon berishini tushuntiruvchi uzun tavsif",
+  })),
+};

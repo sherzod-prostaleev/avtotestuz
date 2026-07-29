@@ -7,7 +7,8 @@ import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
 import { Button } from "@/components/ui/button";
-import { PermissionGate } from "@/components/admin/permission-gate";
+import { useAdminMeOptional } from "@/components/admin/admin-me-context";
+import { hasPermission } from "@/lib/admin-permissions";
 import {
   AdminDataTable,
   type AdminColumnMeta,
@@ -86,6 +87,9 @@ export default function AdminReferralPayoutsPage() {
     [load, t],
   );
 
+  const me = useAdminMeOptional();
+  const canManage = hasPermission(me?.permissions, "referral.payouts.manage");
+
   const columns = useMemo<ColumnDef<PayoutRow>[]>(
     () => [
       {
@@ -131,13 +135,16 @@ export default function AdminReferralPayoutsPage() {
           </span>
         ),
       },
-      {
+      // Spread, not a gate inside the cell: gating only the contents leaves the
+      // column standing, so a read-only operator got an empty Actions column on
+      // desktop and a labelled blank on every phone card.
+      ...(canManage
+        ? ([{
         id: "actions",
         header: t("colActions"),
         cell: ({ row }) =>
           row.original.status === "pending" ? (
-            <PermissionGate permission="referral.payouts.manage" mode="hide">
-              <div className="flex gap-2">
+            <div className="flex gap-2">
                 <Button
                   type="button"
                   size="sm"
@@ -156,16 +163,16 @@ export default function AdminReferralPayoutsPage() {
                 >
                   {t("reject")}
                 </Button>
-              </div>
-            </PermissionGate>
+            </div>
           ) : null,
-      },
+      }] as ColumnDef<PayoutRow>[])
+        : []),
     ],
-    [t, busyId, act],
+    [t, busyId, act, canManage],
   );
 
   return (
-    <div className="space-y-6">
+    <main className="space-y-6">
       <AdminPageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex flex-wrap gap-2">
@@ -193,6 +200,6 @@ export default function AdminReferralPayoutsPage() {
           getRowId={(row) => row.id}
         />
       )}
-    </div>
+    </main>
   );
 }
