@@ -88,6 +88,10 @@ export default function AdminUsersPage() {
         accessorKey: "phone",
         meta: { cardTitle: true } satisfies AdminColumnMeta,
         header: t("colPhone"),
+        // Unmasked first, `phone_masked` only as a fallback. Support answers
+        // users by calling them back, and the phone is also how an operator
+        // tells two accounts with the same name apart, so a masked directory
+        // would make the page unusable for the job it exists to do.
         cell: ({ row }) => (
           <Link
             href={`/${locale}/admin/users/${row.original.id}`}

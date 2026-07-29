@@ -112,6 +112,13 @@ export default function AdminReferralPayoutsPage() {
       {
         accessorKey: "card_number",
         header: t("colCard"),
+        // The full PAN, deliberately — `card_masked` exists on the row and is
+        // NOT used here. This screen is where an operator actually sends the
+        // referral money from a bank app, and you cannot transfer to a masked
+        // number. The only control on the exposure is the `referral.read`
+        // permission on GET /admin/v1/referral/payouts; reads are not audited
+        // (audit rows are written per mutation), so grant that permission
+        // narrowly.
         cell: ({ row }) => (
           <div>
             <div className="font-mono text-xs">{row.original.card_number}</div>
