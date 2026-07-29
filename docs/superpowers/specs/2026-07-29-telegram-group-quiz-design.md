@@ -233,8 +233,13 @@ Ikkalasida ham ostida CTA: «Ilovada ochish».
 | Hodisa | Guruh | Shaxsiy |
 |---|---|---|
 | To'g'ri javob | Telegram quiz poll'ining o'z konfettisi (avtomatik) | Xuddi shu |
-| O'yin yakuni | G'olibga animatsion stiker + 🎉 reaksiya | `message_effect_id` 🎉 salyut |
+| O'yin yakuni | Yakuniy xabarga 🎉 reaksiya (+ ixtiyoriy stiker) | `message_effect_id` 🎉 salyut |
 | Xato javob | Poll'ning o'z belgisi + `explanation` matnida to'g'ri javob izohi | Xuddi shu |
+
+Animatsion stiker **kodga qotirilmaydi**: Telegram `file_id` lari tekshirilmasa
+ishonchsiz. `tg_quiz_winner_sticker` sozlamasi (bo'sh = o'tkazib yuboriladi)
+orqali beriladi, keyinroq haqiqiy stiker tanlab qo'yiladi. Kafolatlangan
+effekt — `setMessageReaction` 🎉, u har doim ishlaydi.
 
 `message_effect_id` guruhda **ishlamaydi** — Telegram cheklovi, aylanib
 o'tib bo'lmaydi. Shuning uchun guruhda stiker + reaksiya ishlatiladi.
