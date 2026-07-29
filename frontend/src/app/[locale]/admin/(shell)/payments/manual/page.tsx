@@ -261,7 +261,7 @@ export default function AdminManualPayPage() {
         />
         {error ? <AdminErrorState message={error} onRetry={() => void load()} /> : null}
         {okMsg ? (
-          <p className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-800 dark:text-emerald-200">
+          <p className="rounded-xl border border-success/40 bg-success/10 px-3 py-2 text-sm text-success">
             {okMsg}
           </p>
         ) : null}

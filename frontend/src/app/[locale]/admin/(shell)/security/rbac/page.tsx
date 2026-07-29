@@ -155,7 +155,7 @@ export default function AdminSecurityRBACPage() {
                               <span
                                 className={
                                   granted
-                                    ? "inline-flex h-5 w-5 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-300"
+                                    ? "inline-flex h-5 w-5 items-center justify-center rounded-md bg-success/20 text-success"
                                     : "inline-flex h-5 w-5 items-center justify-center rounded-md bg-muted/30 text-muted-foreground/40"
                                 }
                                 aria-label={granted ? t("granted") : t("denied")}

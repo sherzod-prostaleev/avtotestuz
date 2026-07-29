@@ -115,12 +115,12 @@ export default function AdminTOTPPage() {
           <span className="font-bold">{enabled ? t("statusOn") : t("statusOff")}</span>
         </p>
         {me.totp_setup_required && !enabled ? (
-          <p className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+          <p className="rounded-xl border border-warning/50 bg-warning-surface px-3 py-2 text-sm text-foreground">
             {t("enforceHint")}
           </p>
         ) : null}
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        {ok ? <p className="text-sm text-emerald-300">{ok}</p> : null}
+        {ok ? <p className="text-sm text-success">{ok}</p> : null}
 
         {!enabled && !secret ? (
           <Button type="button" disabled={busy} onClick={() => void enroll()}>

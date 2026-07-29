@@ -109,7 +109,7 @@ export default function AdminUsersPage() {
           return (
             <span
               className={`inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-extrabold uppercase ${
-                s === "blocked" ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-400"
+                s === "blocked" ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
               }`}
             >
               {s}

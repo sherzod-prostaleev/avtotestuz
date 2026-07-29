@@ -35,6 +35,11 @@ const config: Config = {
           foreground: "hsl(var(--danger-foreground))",
           shadow: "hsl(var(--danger-shadow))",
         },
+        warning: {
+          DEFAULT: "hsl(var(--warning))",
+          foreground: "hsl(var(--warning-foreground))",
+          surface: "hsl(var(--warning-surface))",
+        },
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--danger-foreground))",

@@ -184,7 +184,7 @@ export default function AdminSupportBroadcastsPage() {
           ) : null}
         </section>
 
-        <section className="space-y-3 rounded-2xl border border-amber-500/30 bg-card/70 p-4">
+        <section className="space-y-3 rounded-2xl border border-warning/40 bg-card/70 p-4">
           <div className="flex items-center gap-1">
             <h2 className="text-sm font-bold">{t("pushTitle")}</h2>
             <AdminTooltip

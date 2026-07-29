@@ -55,13 +55,13 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
               </p>
             ) : null}
             {content.risks ? (
-              <p className="mt-1 text-amber-200/90">
+              <p className="mt-1 text-warning">
                 <span className="font-semibold">Xavf: </span>
                 {content.risks}
               </p>
             ) : null}
             {content.recommend ? (
-              <p className="mt-1 text-emerald-300/90">
+              <p className="mt-1 text-success">
                 <span className="font-semibold">Tavsiya: </span>
                 {content.recommend}
               </p>

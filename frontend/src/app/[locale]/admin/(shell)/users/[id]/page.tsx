@@ -364,7 +364,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
         meta: { numeric: true } satisfies AdminColumnMeta,
         cell: ({ row }) => (
           <span
-            className={`font-mono text-xs font-bold ${row.original.amount_uzs >= 0 ? "text-emerald-500" : "text-destructive"}`}
+            className={`font-mono text-xs font-bold ${row.original.amount_uzs >= 0 ? "text-success" : "text-destructive"}`}
           >
             {row.original.amount_uzs >= 0 ? "+" : ""}
             {row.original.amount_uzs.toLocaleString()}
@@ -456,7 +456,7 @@ export default function AdminUserDetailPage({ params }: { params: { id: string }
               <div className="flex flex-wrap gap-2">
                 <span
                   className={`rounded-lg px-2 py-1 text-[11px] font-extrabold uppercase ${
-                    blocked ? "bg-destructive/15 text-destructive" : "bg-emerald-500/15 text-emerald-400"
+                    blocked ? "bg-destructive/15 text-destructive" : "bg-success/15 text-success"
                   }`}
                 >
                   {user.status}

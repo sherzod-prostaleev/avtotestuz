@@ -66,7 +66,7 @@ export function DangerConfirm({
               </button>
             </Dialog.Close>
           </div>
-          <ul id="danger-confirm-warnings" className="mt-3 space-y-1.5 text-sm text-amber-100/90">
+          <ul id="danger-confirm-warnings" className="mt-3 space-y-1.5 text-sm text-warning">
             {warnings.map((w) => (
               <li key={w}>⚠ {w}</li>
             ))}

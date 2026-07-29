@@ -35,6 +35,13 @@
     --danger-shadow: 4 78% 38%;
     --destructive: 4 78% 56%;
 
+    /* Caution, not call-to-action. Nudged off --accent's hue so a warning is
+       not mistaken for a primary action, and given a foreground that keeps
+       contrast in both palettes. */
+    --warning: 32 92% 52%;
+    --warning-foreground: 30 45% 12%;
+    --warning-surface: 32 80% 12%;
+
     --streak: 18 92% 54%;
     --gold: 43 94% 52%;
     --gold-shadow: 43 94% 34%;
@@ -70,6 +77,10 @@
     --danger-foreground: 0 0% 100%;
     --danger-shadow: 4 78% 34%;
     --destructive: 4 78% 48%;
+
+    --warning: 30 88% 38%;
+    --warning-foreground: 0 0% 100%;
+    --warning-surface: 36 92% 94%;
 
     --streak: 18 92% 48%;
     --gold: 43 94% 48%;

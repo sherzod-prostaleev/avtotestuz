@@ -259,7 +259,7 @@ export default function AdminExplanationsPage() {
         </Button>
       </div>
 
-      {bulkMsg ? <p className="text-sm text-emerald-300">{bulkMsg}</p> : null}
+      {bulkMsg ? <p className="text-sm text-success">{bulkMsg}</p> : null}
       {error ? <AdminErrorState message={error} /> : null}
       {!data && !error ? <p className="text-sm text-muted-foreground">{t("loading")}</p> : null}
 
