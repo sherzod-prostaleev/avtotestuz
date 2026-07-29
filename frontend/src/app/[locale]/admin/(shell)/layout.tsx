@@ -117,9 +117,11 @@ export default function AdminShellLayout({ children }: { children: React.ReactNo
               </Button>
             </div>
           </header>
-          <main className="admin-shell-pad flex-1 pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-6">
+          {/* A div, not a <main>: all 41 admin pages render their own <main>, and
+              two landmarks in one document is invalid and confuses screen readers. */}
+          <div className="admin-shell-pad flex-1 pb-[calc(56px+env(safe-area-inset-bottom))] lg:pb-6">
             {children}
-          </main>
+          </div>
         </div>
         <AdminMobileBar locale={locale} activePath={pathname} />
         <AdminCommandPalette locale={locale} />

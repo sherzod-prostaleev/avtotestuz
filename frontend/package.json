@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:admin": "playwright test e2e/admin-shell-responsive.spec.ts e2e/admin-responsive.spec.ts"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.23",
