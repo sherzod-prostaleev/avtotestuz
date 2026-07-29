@@ -1,13 +1,18 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { type ColumnDef } from "@tanstack/react-table";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
+import {
+  AdminDataTable,
+  type AdminColumnMeta,
+} from "@/components/admin/admin-data-table";
 
 type ExplRow = {
   question_id: string;
@@ -106,29 +111,110 @@ export default function AdminExplanationsPage() {
     }
   }
 
-  async function verify(questionID: string) {
-    setBusyID(questionID);
-    setError(null);
-    try {
-      const res = await fetch(`/api/admin/content/questions/${questionID}/explanation/verify`, {
-        method: "POST",
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json?.error?.message ?? t("errorAction"));
-        return;
+  const verify = useCallback(
+    async (questionID: string) => {
+      setBusyID(questionID);
+      setError(null);
+      try {
+        const res = await fetch(`/api/admin/content/questions/${questionID}/explanation/verify`, {
+          method: "POST",
+        });
+        const json = await res.json();
+        if (!res.ok) {
+          setError(json?.error?.message ?? t("errorAction"));
+          return;
+        }
+        await load(status, page);
+      } catch {
+        setError(t("errorAction"));
+      } finally {
+        setBusyID(null);
       }
-      await load(status, page);
-    } catch {
-      setError(t("errorAction"));
-    } finally {
-      setBusyID(null);
-    }
-  }
+    },
+    [load, page, status, t],
+  );
 
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
 
   const selectedCount = Object.values(selected).filter(Boolean).length;
+
+  const columns = useMemo<ColumnDef<ExplRow>[]>(
+    () => [
+      {
+        id: "select",
+        header: " ",
+        cell: ({ row }) =>
+          row.original.status !== "verified" ? (
+            // 44px hit area on a phone, where this is the only way to reach
+            // bulk verify; the box itself stays visually small.
+            <label className="-my-2 inline-flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center md:my-0 md:min-h-0 md:min-w-0">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-[hsl(var(--accent))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                checked={Boolean(selected[row.original.question_id])}
+                onChange={(e) =>
+                  setSelected((s) => ({ ...s, [row.original.question_id]: e.target.checked }))
+                }
+                aria-label={row.original.source_ext_id}
+              />
+            </label>
+          ) : null,
+      },
+      {
+        accessorKey: "source_ext_id",
+        header: t("colExtId"),
+        meta: { cardTitle: true } satisfies AdminColumnMeta,
+        cell: ({ row }) => (
+          <Link
+            href={`/${locale}/admin/content/questions/${row.original.question_id}`}
+            className="inline-flex min-h-[44px] items-center md:min-h-0 font-mono text-xs font-semibold text-accent-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {row.original.source_ext_id}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "text_preview",
+        header: t("colText"),
+        cell: ({ row }) => (
+          <span className="block md:max-w-sm md:truncate">{row.original.text_preview || "—"}</span>
+        ),
+      },
+      {
+        accessorKey: "category_code",
+        header: t("colCategory"),
+        cell: ({ row }) => <span className="text-xs">{row.original.category_code}</span>,
+      },
+      {
+        accessorKey: "status",
+        header: t("colExplanation"),
+        cell: ({ row }) => (
+          <span className="text-xs font-semibold uppercase">{row.original.status}</span>
+        ),
+      },
+      {
+        // NOT hideOnCard. Verifying an explanation is ordinary queue work and
+        // the operator doing it is often holding a phone; hiding it here left
+        // a 13px checkbox as the only way through.
+        id: "actions",
+        header: t("colActions"),
+        cell: ({ row }) =>
+          row.original.status !== "verified" ? (
+            <Button
+              type="button"
+              size="sm"
+              disabled={busyID === row.original.question_id}
+              onClick={() => void verify(row.original.question_id)}
+            >
+              {t("verifyExplanation")}
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          ),
+      },
+    ],
+    [t, locale, selected, busyID, verify],
+  );
 
   return (
     <PermissionGate permission="content.questions.read">
@@ -139,7 +225,7 @@ export default function AdminExplanationsPage() {
         actions={
           <Link
             href={`/${locale}/admin/content/questions`}
-            className="text-sm font-semibold text-accent hover:underline"
+            className="back-link text-accent-ink"
           >
             {t("questionsLink")}
           </Link>
@@ -180,73 +266,18 @@ export default function AdminExplanationsPage() {
         </Button>
       </div>
 
-      {bulkMsg ? <p className="text-sm text-emerald-300">{bulkMsg}</p> : null}
+      {bulkMsg ? <p className="text-sm text-success">{bulkMsg}</p> : null}
       {error ? <AdminErrorState message={error} /> : null}
       {!data && !error ? <p className="text-sm text-muted-foreground">{t("loading")}</p> : null}
 
-      {data && data.items.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t("empty")}</p>
-      ) : null}
-
-      {data && data.items.length > 0 ? (
+      {data ? (
         <>
-          <div className="overflow-x-auto rounded-xl border border-border">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-card text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-3 py-2 font-bold"> </th>
-                  <th className="px-3 py-2 font-bold">{t("colExtId")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colText")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colCategory")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colExplanation")}</th>
-                  <th className="px-3 py-2 font-bold">{t("colActions")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((row) => (
-                  <tr key={row.explanation_id} className="border-b border-border/60 last:border-0">
-                    <td className="px-3 py-2">
-                      {row.status !== "verified" ? (
-                        <input
-                          type="checkbox"
-                          checked={Boolean(selected[row.question_id])}
-                          onChange={(e) =>
-                            setSelected((s) => ({ ...s, [row.question_id]: e.target.checked }))
-                          }
-                          aria-label={row.source_ext_id}
-                        />
-                      ) : null}
-                    </td>
-                    <td className="px-3 py-2 font-mono text-xs">
-                      <Link
-                        href={`/${locale}/admin/content/questions/${row.question_id}`}
-                        className="font-semibold text-accent hover:underline"
-                      >
-                        {row.source_ext_id}
-                      </Link>
-                    </td>
-                    <td className="max-w-sm truncate px-3 py-2">{row.text_preview || "—"}</td>
-                    <td className="px-3 py-2 text-xs">{row.category_code}</td>
-                    <td className="px-3 py-2 text-xs font-semibold uppercase">{row.status}</td>
-                    <td className="px-3 py-2">
-                      {row.status !== "verified" ? (
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={busyID === row.question_id}
-                          onClick={() => void verify(row.question_id)}
-                        >
-                          {t("verifyExplanation")}
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AdminDataTable
+            data={data.items}
+            columns={columns}
+            emptyTitle={t("empty")}
+            getRowId={(row) => row.explanation_id}
+          />
           <div className="flex items-center justify-between text-xs text-muted-foreground">
             <p>
               {t("total", { count: data.total })} · {t("pageOf", { page: data.page, pages: totalPages })}

@@ -1261,7 +1261,9 @@
     "inbox": "Входящие",
     "broadcasts": "Рассылки",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Свернуть группу",
+    "expandGroup": "Развернуть группу"
   },
   "AdminOverview": {
     "controlBadge": "Центр управления",
@@ -1278,7 +1280,7 @@
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
     "chartHint": "Честные SQL-агрегаты (UTC)",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "quickLinks": "Быстрый доступ",
     "linkUsers": "Каталог пользователей",
     "linkAnalytics": "Аналитика",
@@ -1399,7 +1401,9 @@
     "blockWarn2": "Пользователь не сможет войти.",
     "blockPhrase": "Для подтверждения введите:",
     "confirmBlock": "BLOK",
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "colSession": "Сессия",
+    "colActions": "Действия"
   },
   "AdminContent": {
     "questionsTitle": "Вопросы",
@@ -1507,7 +1511,9 @@
     "ledgerTitle": "Ledger (записи)",
     "ledgerEmpty": "Записей нет.",
     "refereesTitle": "Приглашённые",
-    "refereesEmpty": "Пока нет рефералов."
+    "refereesEmpty": "Пока нет рефералов.",
+    "colEntry": "Тип записи",
+    "colCommission": "Комиссия"
   },
   "AdminPayments": {
     "transactionsTitle": "Платежи",
@@ -1722,7 +1728,7 @@
     "tileEvents7d": "Events (7д)",
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "eventsTitle": "Top event names (7д)",
     "eventsEmpty": "Событий нет.",
     "generatedAt": "Посчитано: {time}"
@@ -1753,7 +1759,7 @@
     "tileEntitlements": "Активный VIP",
     "chartSignups": "Регистрации · 14 дней",
     "chartRevenue": "Выручка · 14 дней",
-    "chartEmpty": "Пока нет данных",
+    "chartEmpty": "Пока недостаточно данных для графика",
     "generatedAt": "Посчитано: {time}"
   },
   "AdminFlags": {
@@ -2047,6 +2053,9 @@
     "staff": "сотрудник",
     "openNav": "Открыть меню",
     "closeNav": "Закрыть меню",
+    "breadcrumbLabel": "Навигация",
+    "primaryNav": "Основные разделы",
+    "home": "Центр управления",
     "commandHint": "⌘K — быстрый поиск",
     "commandPalette": "Командная палитра",
     "commandPlaceholder": "Найти раздел…",
@@ -2147,5 +2156,9 @@
     "sessionPlaceholder": "1BVtsOHwBu... (длинная строка из make_session.py)",
     "tgSaved": "Настройки Telegram сохранены.",
     "tgTestOk": "Credentials OK"
+  },
+  "AdminTable": {
+    "rowsLabel": "Строки таблицы",
+    "cardsLabel": "Список записей"
   }
 }

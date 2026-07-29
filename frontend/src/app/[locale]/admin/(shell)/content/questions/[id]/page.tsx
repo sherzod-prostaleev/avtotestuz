@@ -135,7 +135,7 @@ export default function AdminQuestionDetailPage({ params }: { params: { id: stri
     <main className="mx-auto max-w-3xl space-y-4">
       <Link
         href={`/${locale}/admin/content/questions`}
-        className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-accent"
+        className="inline-flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-accent-ink"
       >
         <ArrowLeft aria-hidden className="h-3.5 w-3.5" />
         {t("backQuestions")}

@@ -140,14 +140,14 @@ export default function AdminSettingsLimitsPage() {
                 <li
                   key={row.key}
                   className={`rounded-2xl border bg-card/70 px-4 py-3 ${
-                    dangerous ? "border-amber-500/30" : "border-border/80"
+                    dangerous ? "border-warning/40" : "border-border/80"
                   }`}
                 >
                   <div className="flex items-center gap-1">
                     <p className="font-mono text-sm font-bold">{row.key}</p>
                     {tooltip ? <AdminTooltip content={tooltip} label={t("tipLabel")} /> : null}
                     {dangerous ? (
-                      <span className="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                      <span className="rounded-md bg-warning/15 px-1.5 py-0.5 text-[10px] font-bold uppercase text-warning-ink">
                         {t("dangerBadge")}
                       </span>
                     ) : null}

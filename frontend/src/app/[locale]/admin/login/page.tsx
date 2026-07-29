@@ -59,7 +59,7 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[hsl(220_28%_6%)] px-4 py-10">
+    <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-10">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.08]"
@@ -71,7 +71,7 @@ export default function AdminLoginPage() {
       />
       <div className="relative w-full max-w-md rounded-3xl border border-border/70 bg-card/70 p-6 shadow-2xl backdrop-blur">
         <p className="font-display text-2xl font-black tracking-tight">Driver Go</p>
-        <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent">
+        <p className="mt-1 text-[11px] font-extrabold uppercase tracking-[0.18em] text-accent-ink">
           {t("badge")}
         </p>
         <h1 className="mt-4 font-display text-xl font-extrabold">{t("title")}</h1>

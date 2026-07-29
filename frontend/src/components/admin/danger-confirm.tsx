@@ -44,9 +44,9 @@ export function DangerConfirm({
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-[2px]" />
+        <Dialog.Overlay className="fixed inset-0 z-50 bg-overlay/70 backdrop-blur-[2px]" />
         <Dialog.Content
-          className="fixed left-1/2 top-1/2 z-50 w-[min(440px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-destructive/40 bg-[hsl(220_28%_9%)] p-5 shadow-2xl focus:outline-none"
+          className="fixed left-1/2 top-1/2 z-50 w-[min(440px,calc(100vw-2rem))] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-destructive/40 bg-card p-5 shadow-2xl focus:outline-none"
           aria-describedby="danger-confirm-warnings"
         >
           <div className="flex items-start justify-between gap-3">
@@ -59,14 +59,14 @@ export function DangerConfirm({
             <Dialog.Close asChild>
               <button
                 type="button"
-                className="rounded-lg p-1 text-muted-foreground hover:bg-white/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg p-1 text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 aria-label={cancelLabel}
               >
                 <X className="h-4 w-4" />
               </button>
             </Dialog.Close>
           </div>
-          <ul id="danger-confirm-warnings" className="mt-3 space-y-1.5 text-sm text-amber-100/90">
+          <ul id="danger-confirm-warnings" className="mt-3 space-y-1.5 text-sm text-warning">
             {warnings.map((w) => (
               <li key={w}>⚠ {w}</li>
             ))}

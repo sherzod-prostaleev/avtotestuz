@@ -1261,7 +1261,9 @@
     "inbox": "Kiruvchi xabarlar",
     "broadcasts": "Ommaviy xabarlar",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Guruhni yig‘ish",
+    "expandGroup": "Guruhni ochish"
   },
   "AdminOverview": {
     "controlBadge": "Boshqaruv markazi",
@@ -1278,7 +1280,7 @@
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
     "chartHint": "Haqiqiy SQL agregatlar (UTC)",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "quickLinks": "Tezkor kirish",
     "linkUsers": "Foydalanuvchilar katalogi",
     "linkAnalytics": "Analitika",
@@ -1399,7 +1401,9 @@
     "blockWarn2": "Foydalanuvchi kira olmaydi.",
     "blockPhrase": "Tasdiqlash uchun yozing:",
     "confirmBlock": "BLOK",
-    "cancel": "Bekor qilish"
+    "cancel": "Bekor qilish",
+    "colSession": "Sessiya",
+    "colActions": "Amallar"
   },
   "AdminContent": {
     "questionsTitle": "Savollar",
@@ -1507,7 +1511,9 @@
     "ledgerTitle": "Ledger (yozuvlar)",
     "ledgerEmpty": "Yozuvlar yo‘q.",
     "refereesTitle": "Taklif qilinganlar",
-    "refereesEmpty": "Hali referallar yo‘q."
+    "refereesEmpty": "Hali referallar yo‘q.",
+    "colEntry": "Yozuv turi",
+    "colCommission": "Komissiya"
   },
   "AdminPayments": {
     "transactionsTitle": "To‘lovlar",
@@ -1722,7 +1728,7 @@
     "tileEvents7d": "Events (7 kun)",
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "eventsTitle": "Top event names (7 kun)",
     "eventsEmpty": "Event yo‘q.",
     "generatedAt": "Hisoblangan: {time}"
@@ -1753,7 +1759,7 @@
     "tileEntitlements": "Faol VIP",
     "chartSignups": "Ro‘yxatdan o‘tish · 14 kun",
     "chartRevenue": "Daromad · 14 kun",
-    "chartEmpty": "Hali ma’lumot yo‘q",
+    "chartEmpty": "Grafik uchun ma’lumot hali yetarli emas",
     "generatedAt": "Hisoblangan: {time}"
   },
   "AdminFlags": {
@@ -2047,6 +2053,9 @@
     "staff": "xodim",
     "openNav": "Menyuni ochish",
     "closeNav": "Menyuni yopish",
+    "breadcrumbLabel": "Joylashuv",
+    "primaryNav": "Asosiy bo‘limlar",
+    "home": "Boshqaruv markazi",
     "commandHint": "⌘K — tezkor qidiruv",
     "commandPalette": "Tezkor buyruqlar",
     "commandPlaceholder": "Bo‘lim qidirish…",
@@ -2147,5 +2156,9 @@
     "sessionPlaceholder": "1BVtsOHwBu... (make_session.py chiqargan uzun matn)",
     "tgSaved": "Telegram sozlamalari saqlandi.",
     "tgTestOk": "Credentials OK"
+  },
+  "AdminTable": {
+    "rowsLabel": "Jadval qatorlari",
+    "cardsLabel": "Yozuvlar ro‘yxati"
   }
 }

@@ -1261,7 +1261,9 @@
     "inbox": "Inbox",
     "broadcasts": "Broadcastлар",
     "totp": "TOTP / 2FA",
-    "manualPay": "Manual Humo"
+    "manualPay": "Manual Humo",
+    "collapseGroup": "Гуруҳни йиғиш",
+    "expandGroup": "Гуруҳни очиш"
   },
   "AdminOverview": {
     "controlBadge": "Бошқарув маркази",
@@ -1278,7 +1280,7 @@
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
     "chartHint": "Ҳақиқий SQL агрегатлар (UTC)",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "quickLinks": "Тезкор кириш",
     "linkUsers": "Фойдаланувчилар каталоги",
     "linkAnalytics": "Аналитика",
@@ -1399,7 +1401,9 @@
     "blockWarn2": "Фойдаланувчи кира олмайди.",
     "blockPhrase": "Тасдиқлаш учун ёзинг:",
     "confirmBlock": "BLOK",
-    "cancel": "Бекор қилиш"
+    "cancel": "Бекор қилиш",
+    "colSession": "Сессия",
+    "colActions": "Амаллар"
   },
   "AdminContent": {
     "questionsTitle": "Саволлар",
@@ -1507,7 +1511,9 @@
     "ledgerTitle": "Ledger (ёзувлар)",
     "ledgerEmpty": "Ёзувлар йўқ.",
     "refereesTitle": "Таклиф қилинганлар",
-    "refereesEmpty": "Ҳали рефераллар йўқ."
+    "refereesEmpty": "Ҳали рефераллар йўқ.",
+    "colEntry": "Ёзув тури",
+    "colCommission": "Комиссия"
   },
   "AdminPayments": {
     "transactionsTitle": "Тўловлар",
@@ -1722,7 +1728,7 @@
     "tileEvents7d": "Events (7 кун)",
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "eventsTitle": "Top event names (7 кун)",
     "eventsEmpty": "Event йўқ.",
     "generatedAt": "Ҳисобланган: {time}"
@@ -1753,7 +1759,7 @@
     "tileEntitlements": "Фаол VIP",
     "chartSignups": "Рўйхатдан ўтиш · 14 кун",
     "chartRevenue": "Даромад · 14 кун",
-    "chartEmpty": "Ҳали маълумот йўқ",
+    "chartEmpty": "График учун маълумот ҳали етарли эмас",
     "generatedAt": "Ҳисобланган: {time}"
   },
   "AdminFlags": {
@@ -2047,6 +2053,9 @@
     "staff": "ходим",
     "openNav": "Менюни очиш",
     "closeNav": "Менюни ёпиш",
+    "breadcrumbLabel": "Жойлашув",
+    "primaryNav": "Асосий бўлимлар",
+    "home": "Бошқарув маркази",
     "commandHint": "⌘K — тезкор қидирув",
     "commandPalette": "Тезкор буйруқлар",
     "commandPlaceholder": "Бўлим қидириш…",
@@ -2147,5 +2156,9 @@
     "sessionPlaceholder": "1BVtsOHwBu... (make_session.py матни)",
     "tgSaved": "Telegram созламалари сақланди.",
     "tgTestOk": "Credentials OK"
+  },
+  "AdminTable": {
+    "rowsLabel": "Жадвал қаторлари",
+    "cardsLabel": "Ёзувлар рўйхати"
   }
 }

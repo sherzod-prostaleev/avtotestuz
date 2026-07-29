@@ -137,7 +137,7 @@ export default function AdminMonitoringHealthPage() {
             <li className="rounded-xl border border-border bg-card px-4 py-3">
               <div className="flex items-center justify-between">
                 <p className="font-bold">{t("liveTitle")}</p>
-                <span className="text-xs font-bold text-accent">{data.live}</span>
+                <span className="text-xs font-bold text-accent-ink">{data.live}</span>
               </div>
               <p className="mt-1 text-xs text-muted-foreground">{t("liveHint")}</p>
             </li>
@@ -146,7 +146,7 @@ export default function AdminMonitoringHealthPage() {
                 <p className="font-bold">{t("readyTitle")}</p>
                 <span
                   className={`text-xs font-bold ${
-                    data.status === "ok" ? "text-accent" : "text-destructive"
+                    data.status === "ok" ? "text-accent-ink" : "text-destructive"
                   }`}
                 >
                   {data.status}
@@ -186,7 +186,7 @@ export default function AdminMonitoringHealthPage() {
                       <span
                         className={`shrink-0 font-bold ${
                           a.status === "ok" || a.status === "skipped"
-                            ? "text-accent"
+                            ? "text-accent-ink"
                             : a.status === "warn"
                               ? "text-foreground"
                               : "text-destructive"

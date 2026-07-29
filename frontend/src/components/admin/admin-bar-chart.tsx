@@ -19,9 +19,15 @@ export function AdminBarChart({
   valueFormatter = (n) => String(n),
   height = 160,
 }: AdminBarChartProps) {
-  if (!points.length) {
+  // The API always returns a full 14-day window (generate_series), so "no
+  // points" never happens and "every day zero" is the real empty case. Hiding
+  // the chart at fewer than two populated days was worse than the ghosts it
+  // removed: on a quiet week the panel claimed there was no data while the
+  // revenue tile directly above it showed a non-zero sum.
+  const populatedDays = points.filter((p) => p.value > 0).length;
+  if (populatedDays === 0) {
     return (
-      <p className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+      <p className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border px-4 text-center text-sm text-muted-foreground">
         {emptyLabel}
       </p>
     );

@@ -82,7 +82,7 @@ export default function AdminStubOrOverviewPage({
   ];
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6">
+    <main className="admin-stack mx-auto max-w-[1400px]">
       <AdminPageHeader
         badge={t("controlBadge")}
         title={t("title")}
@@ -102,7 +102,7 @@ export default function AdminStubOrOverviewPage({
         {!data && !error ? <AdminSkeletonTiles /> : null}
         {data ? (
           <>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
               <MetricTile
                 label={t("kpiUsers")}
                 value={String(data.profiles_total)}
@@ -120,7 +120,7 @@ export default function AdminStubOrOverviewPage({
               <MetricTile label={t("kpiEvents7d")} value={String(data.events_last_7d)} />
             </div>
             <div className="grid gap-4 lg:grid-cols-2">
-              <section className="rounded-2xl border border-border/80 bg-card/70 p-4">
+              <section className="admin-panel p-4">
                 <h2 className="text-sm font-bold">{t("chartSignups")}</h2>
                 <div className="mt-3">
                   <AdminBarChart
@@ -132,7 +132,7 @@ export default function AdminStubOrOverviewPage({
                   />
                 </div>
               </section>
-              <section className="rounded-2xl border border-border/80 bg-card/70 p-4">
+              <section className="admin-panel p-4">
                 <h2 className="text-sm font-bold">{t("chartRevenue")}</h2>
                 <div className="mt-3">
                   <AdminBarChart
@@ -150,14 +150,14 @@ export default function AdminStubOrOverviewPage({
         ) : null}
       </PermissionGate>
 
-      <section className="rounded-2xl border border-border/80 bg-card/50 p-4">
+      <section className="admin-panel p-4">
         <h2 className="text-sm font-bold">{t("quickLinks")}</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
-              className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm font-semibold transition hover:border-accent/40 hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex items-center justify-between rounded-xl border border-border/70 px-3 py-2.5 text-sm font-semibold transition hover:border-accent/40 hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {l.label}
               <ArrowUpRight className="h-4 w-4 opacity-60" aria-hidden />

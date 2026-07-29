@@ -169,7 +169,7 @@ export default function AdminB2BOrgDetailPage({ params }: { params: { id: string
 
   return (
     <main className="mx-auto max-w-2xl space-y-4">
-      <Link href={`/${locale}/admin/b2b/orgs`} className="text-sm font-semibold text-accent">
+      <Link href={`/${locale}/admin/b2b/orgs`} className="text-sm font-semibold text-accent-ink">
         ← {t("back")}
       </Link>
       {!data ? (

@@ -29,7 +29,7 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
         <Tooltip.Trigger asChild>
           <button
             type="button"
-            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-white/[0.06] hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="inline-flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition hover:bg-foreground/[0.06] hover:text-accent-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={label}
           >
             <Info className="h-3.5 w-3.5" aria-hidden />
@@ -39,7 +39,7 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
           <Tooltip.Content
             side="top"
             sideOffset={6}
-            className="z-50 max-w-xs rounded-xl border border-border/80 bg-[hsl(220_28%_10%)] px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl"
+            className="z-50 max-w-xs rounded-xl border border-border/80 bg-card px-3 py-2.5 text-xs leading-relaxed text-foreground shadow-xl"
           >
             <p className="font-semibold text-foreground">{content.what}</p>
             {content.why ? (
@@ -55,18 +55,18 @@ export function AdminTooltip({ content, label = "Ma'lumot" }: AdminTooltipProps)
               </p>
             ) : null}
             {content.risks ? (
-              <p className="mt-1 text-amber-200/90">
+              <p className="mt-1 text-warning">
                 <span className="font-semibold">Xavf: </span>
                 {content.risks}
               </p>
             ) : null}
             {content.recommend ? (
-              <p className="mt-1 text-emerald-300/90">
+              <p className="mt-1 text-success">
                 <span className="font-semibold">Tavsiya: </span>
                 {content.recommend}
               </p>
             ) : null}
-            <Tooltip.Arrow className="fill-[hsl(220_28%_10%)]" />
+            <Tooltip.Arrow className="fill-card" />
           </Tooltip.Content>
         </Tooltip.Portal>
       </Tooltip.Root>

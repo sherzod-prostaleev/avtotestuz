@@ -1,121 +1,24 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { ChevronDown } from "lucide-react";
 import { useAdminMeOptional } from "@/components/admin/admin-me-context";
+import {
+  activeGroupTitleKey,
+  adminNav,
+  isNavItemActive,
+  type AdminNavGroup,
+} from "@/components/admin/admin-nav-config";
 import {
   ADMIN_ROUTE_PERMISSIONS,
   hasPermission,
   routePermissionKey,
 } from "@/lib/admin-permissions";
 
-export type AdminNavItem = {
-  href: string;
-  labelKey: string;
-  stub?: boolean;
-};
-
-export type AdminNavGroup = {
-  titleKey: string;
-  items: AdminNavItem[];
-};
-
-/** Sidebar IA from M3 SoT — stub pages use ComingSoon. Labels via AdminNav i18n. */
-export function adminNav(locale: string): AdminNavGroup[] {
-  const base = `/${locale}/admin`;
-  return [
-    {
-      titleKey: "groupMain",
-      items: [{ href: base, labelKey: "overview" }],
-    },
-    {
-      titleKey: "groupMonitoring",
-      items: [
-        { href: `${base}/monitoring/health`, labelKey: "systemHealth" },
-        { href: `${base}/monitoring/perf`, labelKey: "apiDb" },
-        { href: `${base}/monitoring/logs`, labelKey: "liveLogs" },
-        { href: `${base}/monitoring/jobs`, labelKey: "jobs" },
-        { href: `${base}/monitoring/alerts`, labelKey: "alerts" },
-      ],
-    },
-    {
-      titleKey: "groupAnalytics",
-      items: [
-        { href: `${base}/analytics/overview`, labelKey: "overview" },
-        { href: `${base}/analytics/funnels`, labelKey: "funnels", stub: true },
-        { href: `${base}/analytics/exports`, labelKey: "exports", stub: true },
-      ],
-    },
-    {
-      titleKey: "groupInvestors",
-      items: [{ href: `${base}/investors`, labelKey: "overview" }],
-    },
-    {
-      titleKey: "groupB2B",
-      items: [{ href: `${base}/b2b/orgs`, labelKey: "organizations" }],
-    },
-    {
-      titleKey: "groupUsers",
-      items: [{ href: `${base}/users`, labelKey: "directory" }],
-    },
-    {
-      titleKey: "groupContent",
-      items: [
-        { href: `${base}/content/questions`, labelKey: "questions" },
-        { href: `${base}/content/explanations`, labelKey: "explanations" },
-        { href: `${base}/content/tickets`, labelKey: "tickets" },
-        { href: `${base}/content/signs`, labelKey: "signs" },
-      ],
-    },
-    {
-      titleKey: "groupPayments",
-      items: [
-        { href: `${base}/payments/transactions`, labelKey: "transactions" },
-        { href: `${base}/payments/referral-payouts`, labelKey: "referralPayouts" },
-        { href: `${base}/payments/manual`, labelKey: "manualPay" },
-        { href: `${base}/payments/refunds`, labelKey: "refunds" },
-        { href: `${base}/payments/webhooks`, labelKey: "webhooks", stub: true },
-        { href: `${base}/payments/providers`, labelKey: "providers" },
-        { href: `${base}/payments/catalog`, labelKey: "catalog", stub: true },
-        { href: `${base}/payments/recon`, labelKey: "recon" },
-      ],
-    },
-    {
-      titleKey: "groupCMS",
-      items: [
-        { href: `${base}/cms/home`, labelKey: "homepage" },
-        { href: `${base}/cms/chrome`, labelKey: "headerFooter" },
-        { href: `${base}/cms/brand`, labelKey: "brand", stub: true },
-        { href: `${base}/cms/surfaces`, labelKey: "surfaces", stub: true },
-        { href: `${base}/cms/legal`, labelKey: "legal" },
-      ],
-    },
-    {
-      titleKey: "groupSettings",
-      items: [
-        { href: `${base}/settings/flags`, labelKey: "featureFlags" },
-        { href: `${base}/settings/limits`, labelKey: "limits" },
-        { href: `${base}/settings/config`, labelKey: "runtimeConfig", stub: true },
-      ],
-    },
-    {
-      titleKey: "groupSecurity",
-      items: [
-        { href: `${base}/security/totp`, labelKey: "totp" },
-        { href: `${base}/security/rbac`, labelKey: "adminsRbac" },
-        { href: `${base}/security/ip`, labelKey: "ipAllowlist", stub: true },
-        { href: `${base}/security/audit`, labelKey: "auditLog" },
-      ],
-    },
-    {
-      titleKey: "groupSupport",
-      items: [
-        { href: `${base}/support/inbox`, labelKey: "inbox" },
-        { href: `${base}/support/broadcasts`, labelKey: "broadcasts" },
-      ],
-    },
-  ];
-}
+export { adminNav } from "@/components/admin/admin-nav-config";
+export type { AdminNavGroup, AdminNavItem } from "@/components/admin/admin-nav-config";
 
 type AdminSidebarProps = {
   locale: string;
@@ -124,32 +27,57 @@ type AdminSidebarProps = {
   onNavigate?: () => void;
 };
 
-export function AdminSidebar({ locale, activePath, mobileOpen, onNavigate }: AdminSidebarProps) {
+export function AdminSidebar({
+  locale,
+  activePath,
+  mobileOpen,
+  onNavigate,
+}: AdminSidebarProps) {
   const t = useTranslations("AdminNav");
+  const tShell = useTranslations("AdminShell");
   const me = useAdminMeOptional();
   const groups = adminNav(locale);
+  const activeGroup = activeGroupTitleKey(groups, activePath);
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const base = `/${locale}/admin`;
+
+  function isOpen(group: AdminNavGroup): boolean {
+    return openGroups[group.titleKey] ?? group.titleKey === activeGroup;
+  }
+
+  function toggle(titleKey: string, current: boolean) {
+    setOpenGroups((prev) => ({ ...prev, [titleKey]: !current }));
+  }
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border/80 bg-[hsl(220_28%_7%)] text-foreground transition-transform lg:static lg:translate-x-0 ${
-        mobileOpen ? "translate-x-0" : "-translate-x-full"
+      // `invisible` and not just a transform: translating the drawer off-screen
+      // leaves every link in the tab order and the a11y tree, so a keyboard or
+      // screen-reader user on a phone walks the whole hidden nav before
+      // reaching the page. visibility also animates, so the slide survives.
+      className={`fixed inset-y-0 left-0 z-40 flex w-[272px] flex-col border-r border-border bg-card transition-[transform,visibility] lg:visible lg:static lg:translate-x-0 ${
+        mobileOpen ? "visible translate-x-0" : "invisible -translate-x-full"
       }`}
     >
-      <div className="relative overflow-hidden border-b border-border/70 px-4 py-5">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-6 -top-8 h-24 w-24 rounded-full bg-accent/20 blur-2xl"
-        />
-        <p className="relative font-display text-xl font-black tracking-tight">Driver Go</p>
-        <p className="relative mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent">
+      <div className="border-b border-border px-4 py-4">
+        <p className="font-display text-xl font-black tracking-tight">Driver Go</p>
+        <p className="mt-0.5 text-[10px] font-extrabold uppercase tracking-[0.2em] text-accent-ink">
           {t("badge")}
         </p>
         {me?.email ? (
-          <p className="relative mt-3 truncate rounded-lg bg-background/40 px-2 py-1 text-[11px] text-muted-foreground">
-            {me.email}
-          </p>
+          <div className="mt-3 rounded-xl bg-muted px-2 py-1.5">
+            <p className="truncate text-[11px] font-bold text-foreground">
+              {me.display_name || me.email}
+            </p>
+            {/* Which hat the operator is wearing decides what the panel will
+                let them do, so it stays visible rather than living in /me. */}
+            <p className="truncate text-[10px] text-muted-foreground">
+              {me.roles.length ? me.roles.join(", ") : tShell("staff")}
+            </p>
+          </div>
         ) : null}
       </div>
+
       <nav className="flex-1 overflow-y-auto px-2 py-3" aria-label={t("badge")}>
         {groups.map((group) => {
           const visibleItems = group.items.filter((item) => {
@@ -160,44 +88,63 @@ export function AdminSidebar({ locale, activePath, mobileOpen, onNavigate }: Adm
             return hasPermission(me?.permissions, need);
           });
           if (visibleItems.length === 0) return null;
+
+          const open = isOpen(group);
+          const Icon = group.icon;
+          const panelId = `admin-nav-${group.titleKey}`;
+
           return (
-            <div key={group.titleKey} className="mb-3.5">
-              <p className="mb-1 px-2 text-[10px] font-extrabold uppercase tracking-[0.16em] text-muted-foreground/80">
-                {t(group.titleKey)}
-              </p>
-              <ul className="space-y-0.5">
-                {visibleItems.map((item) => {
-                  const active =
-                    item.href === `/${locale}/admin`
-                      ? activePath === item.href
-                      : activePath === item.href || activePath.startsWith(item.href + "/");
-                  return (
-                    <li key={item.href}>
-                      <Link
-                        href={item.href}
-                        onClick={onNavigate}
-                        className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                          active
-                            ? "bg-accent text-accent-foreground shadow-[0_2px_0_0_hsl(var(--accent-shadow))]"
-                            : "text-foreground/85 hover:bg-white/[0.04] hover:text-accent"
-                        }`}
-                        aria-current={active ? "page" : undefined}
-                      >
-                        <span>{t(item.labelKey)}</span>
-                        {item.stub ? (
-                          <span
-                            className={`text-[9px] font-bold uppercase ${
-                              active ? "text-accent-foreground/70" : "text-muted-foreground"
-                            }`}
-                          >
-                            {t("soon")}
-                          </span>
-                        ) : null}
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
+            <div key={group.titleKey} className="mb-1">
+              <button
+                type="button"
+                onClick={() => toggle(group.titleKey, open)}
+                aria-expanded={open}
+                aria-controls={panelId}
+                aria-label={`${t(group.titleKey)} — ${open ? t("collapseGroup") : t("expandGroup")}`}
+                className="flex min-h-[44px] w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-[13px] font-bold text-foreground/90 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <span className="flex-1 truncate">{t(group.titleKey)}</span>
+                <ChevronDown
+                  aria-hidden
+                  className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+                    open ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {open ? (
+                <ul id={panelId} className="mb-2 mt-0.5 space-y-0.5 pl-6">
+                  {visibleItems.map((item) => {
+                    const active = isNavItemActive(item.href, activePath, base);
+                    return (
+                      <li key={item.href}>
+                        <Link
+                          href={item.href}
+                          onClick={onNavigate}
+                          aria-current={active ? "page" : undefined}
+                          className={`flex min-h-[44px] items-center justify-between gap-2 rounded-xl px-2.5 py-1.5 text-[13px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                            active
+                              ? "bg-accent text-accent-foreground"
+                              : "text-foreground/80 hover:bg-accent/10 hover:text-accent-ink"
+                          }`}
+                        >
+                          <span className="truncate">{t(item.labelKey)}</span>
+                          {item.stub ? (
+                            <span
+                              className={`shrink-0 text-[9px] font-bold uppercase ${
+                                active ? "text-accent-foreground/70" : "text-muted-foreground"
+                              }`}
+                            >
+                              {t("soon")}
+                            </span>
+                          ) : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
             </div>
           );
         })}

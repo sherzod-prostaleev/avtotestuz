@@ -30,3 +30,23 @@ if (!window.matchMedia) {
 if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
+
+// @tanstack/react-virtual measures its scroll container via offsetHeight, which
+// jsdom always reports as 0 (it has no layout engine). Without a nonzero size the
+// virtualizer's range calculation short-circuits to `null` and renders zero rows,
+// which has nothing to do with component correctness — it's purely a test-env gap.
+// Stub a generous constant so virtualized lists actually mount their rows under test.
+if (!Object.getOwnPropertyDescriptor(HTMLElement.prototype, "__mockedOffsetSize")) {
+  Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+    configurable: true,
+    get: () => 600,
+  });
+  Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => 800,
+  });
+  Object.defineProperty(HTMLElement.prototype, "__mockedOffsetSize", {
+    configurable: true,
+    value: true,
+  });
+}

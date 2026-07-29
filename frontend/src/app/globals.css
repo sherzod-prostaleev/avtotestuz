@@ -35,6 +35,27 @@
     --danger-shadow: 4 78% 38%;
     --destructive: 4 78% 56%;
 
+    /* Caution, not call-to-action. Nudged off --accent's hue so a warning is
+       not mistaken for a primary action, and given a foreground that keeps
+       contrast in both palettes. */
+    --warning: 32 92% 52%;
+    --warning-foreground: 30 45% 12%;
+    --warning-surface: 32 80% 12%;
+
+    /* A scrim dims the page it covers, in BOTH themes. It cannot be --foreground:
+       that is near-white in the dark palette, so a modal would wash the page out
+       instead of dimming it. */
+    --overlay: 220 40% 3%;
+    /* Ink variants: a badge paints its colour at 15% over the card, and the
+       base colour is not readable on that tint in the light palette. */
+    --success-ink: 152 70% 42%;
+    --warning-ink: 32 92% 52%;
+    --danger-ink: 4 78% 56%;
+    /* --accent as INK. The CTA amber is tuned to be a background with dark text
+       on it; as text on a light card it lands at 2.26:1. This is the same colour
+       darkened until it reads. */
+    --accent-ink: 38 96% 52%;
+
     --streak: 18 92% 54%;
     --gold: 43 94% 52%;
     --gold-shadow: 43 94% 34%;
@@ -71,10 +92,20 @@
     --danger-shadow: 4 78% 34%;
     --destructive: 4 78% 48%;
 
+    --warning: 30 88% 36%;
+    --warning-foreground: 0 0% 100%;
+    --warning-surface: 36 92% 94%;
+
+    --overlay: 220 30% 12%;
+    --success-ink: 152 72% 26%;
+    --warning-ink: 30 88% 32%;
+    --danger-ink: 4 78% 42%;
+    --accent-ink: 36 90% 30%;
+
     --streak: 18 92% 48%;
     --gold: 43 94% 48%;
     --gold-shadow: 43 94% 34%;
-    --ring: 38 96% 48%;
+    --ring: 36 90% 38%;
     --elev-lip: 220 14% 78%;
     --elev-ambient: 220 28% 28%;
     --elev-highlight: 0 0% 100%;
@@ -419,6 +450,32 @@
   .ticket-progress-fill-done {
     @apply bg-gold;
     box-shadow: 0 0 10px hsl(var(--gold) / 0.35);
+  }
+
+  /* --- Admin Control Center density layer (M3-UX Wave 1) --- */
+  .admin-shell-pad {
+    @apply px-4 py-4 sm:px-6 sm:py-6;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+  .admin-stack {
+    @apply space-y-4 sm:space-y-5;
+  }
+  .admin-panel {
+    @apply rounded-2xl border border-border bg-card;
+  }
+  .admin-label {
+    @apply text-[11px] font-bold uppercase tracking-wider text-muted-foreground;
+  }
+  /* A card row whose value renders nothing removes itself, label and all.
+     :has() is the only way to reach the <dt> from an empty <dd> — CSS has no
+     previous-sibling combinator. */
+  .admin-card-row:has(> dd:empty) {
+    display: none;
+  }
+  .admin-scroll-x {
+    @apply overflow-x-auto;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
