@@ -50,6 +50,9 @@ type Config struct {
 	TelegramBotUsername   string // no leading '@'
 	TelegramBotMode       string // off | webhook | longpoll
 	TelegramWebhookSecret string
+	// Optional file_id for the group winner sticker. Empty skips the sticker
+	// entirely — an unverified file_id would fail on every finished game.
+	TelegramQuizWinnerSticker string
 
 	PaymeMerchantID string // cashbox id for the checkout URL
 	PaymeEnv        string // test | prod (selects which key)
@@ -116,11 +119,12 @@ func Load() (Config, error) {
 		TelegramGatewayURL:      getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 		ClientIPAssertionSecret: getenv("CLIENT_IP_ASSERTION_SECRET", ""),
 
-		TelegramBotToken:      getenv("TELEGRAM_BOT_TOKEN", ""),
-		TelegramBotAPIBaseURL: getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org"),
-		TelegramBotUsername:   getenv("TELEGRAM_BOT_USERNAME", ""),
-		TelegramBotMode:       getenv("TELEGRAM_BOT_MODE", "off"),
-		TelegramWebhookSecret: getenv("TELEGRAM_WEBHOOK_SECRET", ""),
+		TelegramBotToken:          getenv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramBotAPIBaseURL:     getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org"),
+		TelegramBotUsername:       getenv("TELEGRAM_BOT_USERNAME", ""),
+		TelegramBotMode:           getenv("TELEGRAM_BOT_MODE", "off"),
+		TelegramWebhookSecret:     getenv("TELEGRAM_WEBHOOK_SECRET", ""),
+		TelegramQuizWinnerSticker: getenv("TELEGRAM_QUIZ_WINNER_STICKER", ""),
 
 		PaymeMerchantID: getenv("PAYME_MERCHANT_ID", ""),
 		PaymeEnv:        getenv("PAYME_ENV", "test"),

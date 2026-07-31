@@ -65,6 +65,8 @@ func TestConstraintsAndSeeds(t *testing.T) {
 		"leaderboard_daily_points",            // 0017
 		"referral_attach_window_days",         // 0024
 		"referral_commission_percent_default", // 0041
+		"tg_quiz_questions",                   // 0046
+		"tg_quiz_seconds",                     // 0046
 		"unlock_threshold_correct",            // 0003
 	}
 	rows, err := pool.Query(ctx, "SELECT key FROM limit_config ORDER BY key")

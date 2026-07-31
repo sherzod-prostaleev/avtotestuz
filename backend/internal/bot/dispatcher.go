@@ -63,6 +63,15 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	if u.MyChatMember != nil {
 		return b.handleMyChatMember(ctx, u.MyChatMember)
 	}
+	if u.PollAnswer != nil {
+		if b.Quiz == nil {
+			return nil
+		}
+		if err := b.Quiz.HandlePollAnswer(ctx, *u.PollAnswer); err != nil {
+			b.logger().Error("bot: poll answer failed", zap.Error(err))
+		}
+		return nil
+	}
 	if u.CallbackQuery != nil {
 		if b.Quiz == nil {
 			return nil
@@ -90,12 +99,21 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	}
 
 	switch cmd {
-	case "/quiz", "/next":
+	case "/quiz":
+		if b.Quiz == nil {
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		if err := b.Quiz.StartGame(ctx, chatID, tgUserID, chatType); err != nil {
+			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		return nil
+	case "/next":
 		if b.Quiz == nil {
 			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
 		}
 		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
-			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
 			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
 		}
 		return nil

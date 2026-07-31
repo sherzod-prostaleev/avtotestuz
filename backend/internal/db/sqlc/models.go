@@ -718,6 +718,26 @@ type TelegramLinkToken struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type TelegramQuizParticipant struct {
+	SessionID     uuid.UUID          `json:"session_id"`
+	TgUserID      int64              `json:"tg_user_id"`
+	DisplayName   string             `json:"display_name"`
+	AnsweredCount int32              `json:"answered_count"`
+	CorrectCount  int32              `json:"correct_count"`
+	TotalMs       int64              `json:"total_ms"`
+	FirstSeenAt   pgtype.Timestamptz `json:"first_seen_at"`
+}
+
+type TelegramQuizPoll struct {
+	PollID     string             `json:"poll_id"`
+	SessionID  uuid.UUID          `json:"session_id"`
+	QuestionID uuid.NullUUID      `json:"question_id"`
+	QuestionNo int32              `json:"question_no"`
+	CorrectIdx int32              `json:"correct_idx"`
+	OpenedAt   pgtype.Timestamptz `json:"opened_at"`
+	Closed     bool               `json:"closed"`
+}
+
 type TelegramQuizSession struct {
 	ID                uuid.UUID          `json:"id"`
 	ChatID            int64              `json:"chat_id"`
@@ -730,6 +750,9 @@ type TelegramQuizSession struct {
 	CorrectCount      int32              `json:"correct_count"`
 	LastActivityAt    pgtype.Timestamptz `json:"last_activity_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	TotalQuestions    int32              `json:"total_questions"`
+	QuestionNo        int32              `json:"question_no"`
+	Mode              string             `json:"mode"`
 }
 
 type UserReferralCode struct {

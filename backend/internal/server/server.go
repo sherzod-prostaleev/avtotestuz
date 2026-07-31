@@ -240,8 +240,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 						TG:            tgClient,
 						MediaBaseURL:  cfg.MediaBaseURL,
 						PublicBaseURL: cfg.PublicBaseURL,
+						WinnerSticker: cfg.TelegramQuizWinnerSticker,
 						Log:           log,
 					}
+					quizSvc.Advance = bot.NewAdvanceScheduler(quizSvc, log)
 					botSvc := &bot.Bot{
 						Link:          linkSvc,
 						Quiz:          quizSvc,
