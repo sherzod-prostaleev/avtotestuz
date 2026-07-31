@@ -240,3 +240,110 @@ func TestSessionDeleteCascades(t *testing.T) {
 		t.Fatalf("cascade left orphans: %d polls, %d participants", polls, participants)
 	}
 }
+
+// Two different Telegram users answering the same poll must produce two
+// separate rows. Before polls, the first tap answered for the whole chat.
+func TestHandlePollAnswerScoresEachUserSeparately(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	_ = seedQuizQuestionWithAnswers(t, pool, false, []string{"To'g'ri", "Xato"})
+
+	_, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client, PublicBaseURL: "http://app.test"}
+
+	if err := svc.StartGame(ctx, -8100, 31, "supergroup"); err != nil {
+		t.Fatal(err)
+	}
+
+	// correct index is 0 (seed marks the first answer correct)
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID: "poll-1", User: User{ID: 401, FirstName: "Aziz"}, OptionIDs: []int{0},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID: "poll-1", User: User{ID: 402, FirstName: "Malika"}, OptionIDs: []int{1},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	session, _ := q.GetActiveQuizSessionByChat(ctx, -8100)
+	rows, err := q.ListQuizRanking(ctx, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("want 2 participants, got %d", len(rows))
+	}
+	if rows[0].DisplayName != "Aziz" || rows[0].CorrectCount != 1 {
+		t.Fatalf("winner row = %+v", rows[0])
+	}
+	if rows[1].DisplayName != "Malika" || rows[1].CorrectCount != 0 {
+		t.Fatalf("second row = %+v", rows[1])
+	}
+}
+
+// A poll_answer for a poll we never recorded (an old game, another bot run)
+// must be ignored rather than error the webhook.
+func TestHandlePollAnswerIgnoresUnknownPoll(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	_, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client}
+
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID: "does-not-exist", User: User{ID: 1}, OptionIDs: []int{0},
+	}); err != nil {
+		t.Fatalf("unknown poll must be ignored, got %v", err)
+	}
+}
+
+// Retracting a vote sends option_ids: [] — it must not count as an answer.
+func TestHandlePollAnswerIgnoresEmptyVote(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	_ = seedQuizQuestionWithAnswers(t, pool, false, []string{"To'g'ri", "Xato"})
+	_, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client, PublicBaseURL: "http://app.test"}
+
+	if err := svc.StartGame(ctx, -8101, 32, "supergroup"); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID: "poll-1", User: User{ID: 501, FirstName: "Bekzod"}, OptionIDs: []int{},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	session, _ := q.GetActiveQuizSessionByChat(ctx, -8101)
+	rows, _ := q.ListQuizRanking(ctx, session.ID)
+	if len(rows) != 0 {
+		t.Fatalf("retracted vote created a participant: %+v", rows)
+	}
+}
+
+// A user with no first name still needs a label in the ranking.
+func TestHandlePollAnswerFallsBackToUsername(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	_ = seedQuizQuestionWithAnswers(t, pool, false, []string{"To'g'ri", "Xato"})
+	_, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client, PublicBaseURL: "http://app.test"}
+
+	if err := svc.StartGame(ctx, -8102, 33, "supergroup"); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID: "poll-1", User: User{ID: 601, Username: "nodira_u"}, OptionIDs: []int{0},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	session, _ := q.GetActiveQuizSessionByChat(ctx, -8102)
+	rows, _ := q.ListQuizRanking(ctx, session.ID)
+	if len(rows) != 1 || rows[0].DisplayName != "nodira_u" {
+		t.Fatalf("display name fallback failed: %+v", rows)
+	}
+}

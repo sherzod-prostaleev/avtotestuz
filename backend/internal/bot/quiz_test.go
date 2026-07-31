@@ -162,46 +162,6 @@ func TestQuizStartSendsQuestionWithAnswers(t *testing.T) {
 	}
 }
 
-func TestQuizAnswerGradesAndIsIdempotent(t *testing.T) {
-	pool := testdb.New(t)
-	q := sqlc.New(pool)
-	_ = seedQuizQuestion(t, pool, false)
-	fake, client := newFakeTelegram(t)
-	svc := &QuizService{
-		Q: q, Pool: pool, TG: client,
-		MediaBaseURL: "http://media.test", PublicBaseURL: "http://app.test",
-	}
-	ctx := context.Background()
-	if err := svc.StartOrNext(ctx, -5002, 12); err != nil {
-		t.Fatal(err)
-	}
-	session, _ := q.GetActiveQuizSessionByChat(ctx, -5002)
-
-	// Wrong answer index 0, correct is index 1.
-	if err := svc.handleAnswer(ctx, -5002, session.AnswerMessageID, 0); err != nil {
-		t.Fatalf("handleAnswer: %v", err)
-	}
-	if !strings.Contains(fake.lastMessage(), "Noto'g'ri") {
-		t.Fatalf("reply = %q", fake.lastMessage())
-	}
-	session, _ = q.GetActiveQuizSessionByChat(ctx, -5002)
-	if session.AwaitingAnswer {
-		t.Fatal("expected awaiting_answer=false after grade")
-	}
-	if session.CorrectCount != 0 {
-		t.Fatalf("correct_count=%d", session.CorrectCount)
-	}
-
-	// Double-tap must not bump counts again.
-	if err := svc.handleAnswer(ctx, -5002, session.AnswerMessageID, 1); err != nil {
-		t.Fatal(err)
-	}
-	session, _ = q.GetActiveQuizSessionByChat(ctx, -5002)
-	if session.CorrectCount != 0 || session.AskedCount != 1 {
-		t.Fatalf("double-tap mutated session: %+v", session)
-	}
-}
-
 func TestQuizStartOrNextDeliversAfterMinInterval(t *testing.T) {
 	pool := testdb.New(t)
 	q := sqlc.New(pool)
@@ -225,7 +185,12 @@ func TestQuizStartOrNextDeliversAfterMinInterval(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.handleAnswer(ctx, -5004, session.AnswerMessageID, 0); err != nil {
+	// Simulate the question having been answered (the poll flow now clears
+	// awaiting_answer via a poll_answer, not a callback tap) so the throttle
+	// gate below is free to deliver the next question.
+	if _, err := q.MarkQuizSessionAnswered(ctx, sqlc.MarkQuizSessionAnsweredParams{
+		CorrectDelta: 0, ID: session.ID,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	before := len(fake.allMessages())
@@ -276,15 +241,5 @@ func TestTruncateRunes(t *testing.T) {
 	got := truncateRunes("abcdef", 4)
 	if got != "abc…" {
 		t.Fatalf("got %q", got)
-	}
-}
-
-func TestParseAnswerIndex(t *testing.T) {
-	n, ok := parseAnswerIndex("a:2")
-	if !ok || n != 2 {
-		t.Fatalf("n=%d ok=%v", n, ok)
-	}
-	if _, ok := parseAnswerIndex("a:x"); ok {
-		t.Fatal("expected false")
 	}
 }

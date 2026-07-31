@@ -63,6 +63,15 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	if u.MyChatMember != nil {
 		return b.handleMyChatMember(ctx, u.MyChatMember)
 	}
+	if u.PollAnswer != nil {
+		if b.Quiz == nil {
+			return nil
+		}
+		if err := b.Quiz.HandlePollAnswer(ctx, *u.PollAnswer); err != nil {
+			b.logger().Error("bot: poll answer failed", zap.Error(err))
+		}
+		return nil
+	}
 	if u.CallbackQuery != nil {
 		if b.Quiz == nil {
 			return nil

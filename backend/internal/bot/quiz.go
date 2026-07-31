@@ -21,9 +21,8 @@ const (
 	quizLocale  = "uz-Latn"
 	quizIdleTTL = 30 * time.Minute
 
-	cbAnswerPrefix = "a:"
-	cbNext         = "n"
-	cbStop         = "x"
+	cbNext = "n"
+	cbStop = "x"
 )
 
 // quizMinInterval throttles /quiz and "Keyingi savol" taps. Overridable in tests.
@@ -134,7 +133,7 @@ func (s *QuizService) Stop(ctx context.Context, chatID int64) error {
 	return err
 }
 
-// HandleCallback processes inline answer / next / stop taps.
+// HandleCallback processes the next / stop taps that follow a finished game.
 func (s *QuizService) HandleCallback(ctx context.Context, cq CallbackQuery) error {
 	if s == nil || s.TG == nil {
 		return nil
@@ -144,19 +143,11 @@ func (s *QuizService) HandleCallback(ctx context.Context, cq CallbackQuery) erro
 		return nil
 	}
 	chatID := cq.Message.Chat.ID
-	data := strings.TrimSpace(cq.Data)
-
-	switch {
-	case data == cbNext:
+	switch strings.TrimSpace(cq.Data) {
+	case cbNext:
 		return s.StartOrNext(ctx, chatID, cq.From.ID)
-	case data == cbStop:
+	case cbStop:
 		return s.Stop(ctx, chatID)
-	case strings.HasPrefix(data, cbAnswerPrefix):
-		idx, ok := parseAnswerIndex(data)
-		if !ok {
-			return nil
-		}
-		return s.handleAnswer(ctx, chatID, cq.Message.MessageID, idx)
 	default:
 		return nil
 	}
@@ -299,118 +290,12 @@ func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.Telegra
 	})
 }
 
-func (s *QuizService) handleAnswer(ctx context.Context, chatID, messageID int64, answerIdx int) error {
-	tx, err := s.Pool.Begin(ctx)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-	qtx := sqlc.New(tx)
-
-	session, err := qtx.GetActiveQuizSessionByChatForUpdate(ctx, chatID)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		return err
-	}
-	if !session.AwaitingAnswer || !session.QuestionID.Valid {
-		return nil
-	}
-	if session.AnswerMessageID != 0 && messageID != 0 && session.AnswerMessageID != messageID {
-		// Tap on a stale keyboard — ignore quietly.
-		return nil
-	}
-
-	answers, err := qtx.ListQuizAnswers(ctx, sqlc.ListQuizAnswersParams{
-		QuestionID: session.QuestionID.UUID, Locale: quizLocale,
-	})
-	if err != nil {
-		return err
-	}
-	if answerIdx < 0 || answerIdx >= len(answers) {
-		return nil
-	}
-	chosen := answers[answerIdx]
-	correctDelta := int32(0)
-	if chosen.IsCorrect {
-		correctDelta = 1
-	}
-	n, err := qtx.MarkQuizSessionAnswered(ctx, sqlc.MarkQuizSessionAnsweredParams{
-		CorrectDelta: correctDelta,
-		ID:           session.ID,
-	})
-	if err != nil {
-		return err
-	}
-	if n == 0 {
-		return nil // double-tap race loser
-	}
-	if err := tx.Commit(ctx); err != nil {
-		return err
-	}
-
-	_ = s.TG.EditMessageReplyMarkup(ctx, chatID, session.AnswerMessageID, nil)
-
-	var correctText string
-	for _, a := range answers {
-		if a.IsCorrect {
-			correctText = strings.TrimSpace(a.Text)
-			break
-		}
-	}
-
-	var body string
-	if chosen.IsCorrect {
-		body = "✅ To'g'ri!"
-	} else {
-		body = "❌ Noto'g'ri."
-		if correctText != "" {
-			body += "\nTo'g'ri javob: " + truncateRunes(correctText, 200)
-		}
-	}
-	body += fmt.Sprintf("\n\nNatija: %d/%d", session.CorrectCount+correctDelta, session.AskedCount)
-	body += "\n\nDriver Go — rasmiy formatda bepul mashq"
-
-	_, err = s.TG.SendText(ctx, chatID, body, s.afterAnswerMarkup())
-	return err
-}
-
 func (s *QuizService) ctaMarkup() *InlineKeyboardMarkup {
 	return &InlineKeyboardMarkup{
 		InlineKeyboard: [][]InlineKeyboardButton{{
 			{Text: "Ilovada ochish", URL: s.ctaURL()},
 		}},
 	}
-}
-
-func (s *QuizService) afterAnswerMarkup() *InlineKeyboardMarkup {
-	return &InlineKeyboardMarkup{
-		InlineKeyboard: [][]InlineKeyboardButton{
-			{
-				{Text: "Keyingi savol", CallbackData: cbNext},
-				{Text: "To'xtatish", CallbackData: cbStop},
-			},
-			{
-				{Text: "Ilovada ochish", URL: s.ctaURL()},
-			},
-		},
-	}
-}
-
-func parseAnswerIndex(data string) (int, bool) {
-	raw := strings.TrimPrefix(data, cbAnswerPrefix)
-	if raw == "" {
-		return 0, false
-	}
-	n := 0
-	for _, r := range raw {
-		if r < '0' || r > '9' {
-			return 0, false
-		}
-		n = n*10 + int(r-'0')
-	}
-	return n, true
 }
 
 func truncateRunes(s string, max int) string {
