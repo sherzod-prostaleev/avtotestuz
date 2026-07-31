@@ -90,12 +90,21 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	}
 
 	switch cmd {
-	case "/quiz", "/next":
+	case "/quiz":
+		if b.Quiz == nil {
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		if err := b.Quiz.StartGame(ctx, chatID, tgUserID, chatType); err != nil {
+			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+		}
+		return nil
+	case "/next":
 		if b.Quiz == nil {
 			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
 		}
 		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
-			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
 			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
 		}
 		return nil

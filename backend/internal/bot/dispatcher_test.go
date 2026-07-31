@@ -32,6 +32,7 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 	t.Helper()
 	f := &fakeTelegram{}
 	msgID := int64(100)
+	pollSeq := 0
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
 		if strings.Contains(path, "sendMessage") || strings.Contains(path, "sendPhoto") {
@@ -49,6 +50,24 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			f.mu.Unlock()
 			msgID++
 			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, msgID)
+			return
+		}
+		if strings.Contains(path, "sendPoll") {
+			// A poll is the "message" a question arrives as now, so record its
+			// question text the same way sendMessage/sendPhoto do — otherwise
+			// callers asserting on f.sent would see a poll-only question as if
+			// nothing had been sent at all.
+			var body struct {
+				Question string `json:"question"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			f.mu.Lock()
+			f.sent = append(f.sent, body.Question)
+			pollSeq++
+			f.mu.Unlock()
+			msgID++
+			_, _ = fmt.Fprintf(w,
+				`{"ok":true,"result":{"message_id":%d,"poll":{"id":"fake-poll-%d"}}}`, msgID, pollSeq)
 			return
 		}
 		_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))

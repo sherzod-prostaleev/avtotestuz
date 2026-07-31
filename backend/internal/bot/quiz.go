@@ -18,10 +18,8 @@ import (
 )
 
 const (
-	quizLocale          = "uz-Latn"
-	quizIdleTTL         = 30 * time.Minute
-	quizCaptionMaxRunes = 1000
-	quizButtonMaxRunes  = 60
+	quizLocale  = "uz-Latn"
+	quizIdleTTL = 30 * time.Minute
 
 	cbAnswerPrefix = "a:"
 	cbNext         = "n"
@@ -83,8 +81,8 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 	if err != nil {
 		return err
 	}
-	if session.AwaitingAnswer {
-		_, err := s.TG.SendText(ctx, chatID, "Avval joriy savolga javob bering, keyin davom etamiz.", nil)
+	if session.QuestionNo >= session.TotalQuestions {
+		_, err := s.TG.SendText(ctx, session.ChatID, "O'yin tugadi.", s.ctaMarkup())
 		return err
 	}
 	if session.AskedCount > 0 && session.LastActivityAt.Valid {
@@ -186,13 +184,55 @@ func (s *QuizService) ensureActiveSession(ctx context.Context, chatID, tgUserID 
 	}
 }
 
+// StartGame begins a quiz, recording whether the chat is a group so the
+// final message can pick its format. Chat type decides the mode — a group
+// with one participant is still a group.
+func (s *QuizService) StartGame(ctx context.Context, chatID, tgUserID int64, chatType string) error {
+	if s == nil || s.TG == nil || s.Q == nil {
+		return fmt.Errorf("quiz service not configured")
+	}
+	enabled, err := flags.Bool(ctx, s.Pool, flags.KeyTelegramQuiz, true)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		_, err := s.TG.SendText(ctx, chatID, "Quiz hozircha o'chirilgan. Keyinroq qayta urinib ko'ring.", nil)
+		return err
+	}
+
+	session, err := s.ensureActiveSession(ctx, chatID, tgUserID)
+	if err != nil {
+		return err
+	}
+	if session.QuestionNo == 0 {
+		mode := "solo"
+		if IsGroupChat(chatType) {
+			mode = "group"
+		}
+		total := s.quizQuestionCount(ctx)
+		if err := s.Q.SetQuizSessionMode(ctx, sqlc.SetQuizSessionModeParams{
+			ID: session.ID, Mode: mode, TotalQuestions: int32(total),
+		}); err != nil {
+			return err
+		}
+		session.Mode = mode
+		session.TotalQuestions = int32(total)
+		intro := fmt.Sprintf("🚦 Quiz boshlandi!\n%d savol · har biriga %d sekund",
+			total, s.quizSeconds(ctx))
+		if _, err := s.TG.SendText(ctx, chatID, intro, nil); err != nil {
+			return err
+		}
+	}
+	return s.sendNextQuestion(ctx, session)
+}
+
 func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.TelegramQuizSession) error {
-	qID, err := s.pickQuestionID(ctx)
+	qID, err := s.pickPollableQuestionID(ctx)
 	if err != nil {
 		return err
 	}
 	if qID == uuid.Nil {
-		_, err := s.TG.SendText(ctx, session.ChatID, "Hozircha savol topilmadi. Keyinroq qayta urinib ko'ring.", nil)
+		_, err := s.TG.SendText(ctx, session.ChatID, "Hozircha mos savol topilmadi. Keyinroq qayta urinib ko'ring.", nil)
 		return err
 	}
 
@@ -206,34 +246,49 @@ func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.Telegra
 	if err != nil {
 		return err
 	}
-	if len(answers) < 2 {
-		_, err := s.TG.SendText(ctx, session.ChatID, "Bu savolda javob variantlari yetarli emas. /quiz bilan qayta urinib ko'ring.", nil)
+
+	questionNo, err := s.Q.AdvanceQuizSessionQuestion(ctx, session.ID)
+	if err != nil {
 		return err
 	}
 
-	text := strings.TrimSpace(detail.Text)
-	if text == "" {
-		text = "Savol"
-	}
-	caption := truncateRunes(text, quizCaptionMaxRunes)
-	markup := answerMarkup(answers)
-
-	var msgID int64
-	photoURL := ""
+	// The photo goes first and the poll replies to it: Telegram polls cannot
+	// carry an image, so one question is two messages.
+	var photoMsgID int64
 	if detail.ImageKey.Valid {
-		photoURL = s.mediaURL(detail.ImageKey.String)
-	}
-	if photoURL != "" {
-		msgID, err = s.TG.SendPhoto(ctx, session.ChatID, photoURL, caption, markup)
-		if err != nil {
-			s.logger().Warn("quiz: sendPhoto failed, falling back to text",
-				zap.Error(err), zap.Int64("chat_id", session.ChatID))
-			msgID, err = s.TG.SendText(ctx, session.ChatID, caption, markup)
+		if url := s.mediaURL(detail.ImageKey.String); url != "" {
+			caption := fmt.Sprintf("Savol %d/%d", questionNo, session.TotalQuestions)
+			photoMsgID, err = s.TG.SendPhoto(ctx, session.ChatID, url, caption, nil)
+			if err != nil {
+				s.logger().Warn("quiz: sendPhoto failed, continuing with poll only",
+					zap.Error(err), zap.Int64("chat_id", session.ChatID))
+				photoMsgID = 0
+			}
 		}
-	} else {
-		msgID, err = s.TG.SendText(ctx, session.ChatID, caption, markup)
 	}
+
+	req, err := buildPollRequest(detail.Text, answers, "", s.quizSeconds(ctx), photoMsgID)
 	if err != nil {
+		// The corpus filter should have excluded this question; say so and
+		// move on rather than stranding the chat.
+		s.logger().Warn("quiz: question is not pollable, skipping",
+			zap.Error(err), zap.String("question_id", qID.String()))
+		_, sendErr := s.TG.SendText(ctx, session.ChatID, "Bu savol o'tkazib yuborildi. /next bilan davom eting.", nil)
+		return sendErr
+	}
+
+	msgID, pollID, err := s.TG.SendPoll(ctx, session.ChatID, req)
+	if err != nil {
+		return err
+	}
+
+	if err := s.Q.CreateQuizPoll(ctx, sqlc.CreateQuizPollParams{
+		PollID:     pollID,
+		SessionID:  session.ID,
+		QuestionID: uuid.NullUUID{UUID: qID, Valid: true},
+		QuestionNo: questionNo,
+		CorrectIdx: int32(req.CorrectIdx),
+	}); err != nil {
 		return err
 	}
 
@@ -242,26 +297,6 @@ func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.Telegra
 		QuestionID:      uuid.NullUUID{UUID: qID, Valid: true},
 		AnswerMessageID: msgID,
 	})
-}
-
-func (s *QuizService) pickQuestionID(ctx context.Context) (uuid.UUID, error) {
-	ids, err := s.Q.RandomQuestionIDsByImagePresence(ctx, sqlc.RandomQuestionIDsByImagePresenceParams{
-		HasImage: true, LimitCount: 1,
-	})
-	if err != nil {
-		return uuid.Nil, err
-	}
-	if len(ids) > 0 {
-		return ids[0], nil
-	}
-	ids, err = s.Q.RandomQuestionIDs(ctx, 1)
-	if err != nil {
-		return uuid.Nil, err
-	}
-	if len(ids) == 0 {
-		return uuid.Nil, nil
-	}
-	return ids[0], nil
 }
 
 func (s *QuizService) handleAnswer(ctx context.Context, chatID, messageID int64, answerIdx int) error {
@@ -361,22 +396,6 @@ func (s *QuizService) afterAnswerMarkup() *InlineKeyboardMarkup {
 			},
 		},
 	}
-}
-
-func answerMarkup(answers []sqlc.ListQuizAnswersRow) *InlineKeyboardMarkup {
-	rows := make([][]InlineKeyboardButton, 0, len(answers))
-	for i, a := range answers {
-		label := strings.TrimSpace(a.Text)
-		if label == "" {
-			label = fmt.Sprintf("%d-javob", i+1)
-		}
-		label = truncateRunes(label, quizButtonMaxRunes)
-		rows = append(rows, []InlineKeyboardButton{{
-			Text:         label,
-			CallbackData: fmt.Sprintf("%s%d", cbAnswerPrefix, i),
-		}})
-	}
-	return &InlineKeyboardMarkup{InlineKeyboard: rows}
 }
 
 func parseAnswerIndex(data string) (int, bool) {

@@ -139,29 +139,26 @@ func seedQuizQuestionWithAnswers(t *testing.T, pool *pgxpool.Pool, withImage boo
 func TestQuizStartSendsQuestionWithAnswers(t *testing.T) {
 	pool := testdb.New(t)
 	q := sqlc.New(pool)
-	_ = seedQuizQuestion(t, pool, true)
-	fake, client := newFakeTelegram(t)
-	svc := &QuizService{
-		Q: q, Pool: pool, TG: client,
-		MediaBaseURL: "http://media.test", PublicBaseURL: "http://app.test",
-	}
+	ctx := context.Background()
+	_ = seedQuizQuestionWithAnswers(t, pool, true, []string{"To'g'ri", "Xato"})
 
-	if err := svc.StartOrNext(context.Background(), -5001, 11); err != nil {
-		t.Fatalf("StartOrNext: %v", err)
+	rec, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client,
+		MediaBaseURL: "http://media.test", PublicBaseURL: "http://app.test"}
+
+	if err := svc.StartGame(ctx, -5001, 11, "supergroup"); err != nil {
+		t.Fatalf("StartGame: %v", err)
 	}
-	msg := fake.lastMessage()
-	if !strings.Contains(msg, "Yo'l belgisi") && !strings.Contains(msg, "Yo''l") {
-		// caption may be the question text
-		if !strings.Contains(msg, "belgisi") {
-			t.Fatalf("unexpected question payload: %q", msg)
-		}
+	polls := rec.methodCalls("sendPoll")
+	if len(polls) != 1 {
+		t.Fatalf("want 1 poll, got %d", len(polls))
 	}
-	session, err := q.GetActiveQuizSessionByChat(context.Background(), -5001)
+	session, err := q.GetActiveQuizSessionByChat(ctx, -5001)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !session.AwaitingAnswer || session.AskedCount != 1 {
-		t.Fatalf("session = %+v", session)
+	if session.QuestionNo != 1 {
+		t.Fatalf("QuestionNo = %d, want 1", session.QuestionNo)
 	}
 }
 
