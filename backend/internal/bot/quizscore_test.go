@@ -347,3 +347,95 @@ func TestHandlePollAnswerFallsBackToUsername(t *testing.T) {
 		t.Fatalf("display name fallback failed: %+v", rows)
 	}
 }
+
+// In a channel's linked discussion group, a vote cast on behalf of the
+// channel arrives with Telegram's @Channel_Bot placeholder user (id
+// 136817688, first name "Channel") and the real sender in voter_chat.
+// Keying on the placeholder collapses every anonymous voter into one row
+// labelled "Channel", which is both wrong and unreadable in the ranking.
+func TestHandlePollAnswerAttributesChannelVoteToTheChannel(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	svc := &QuizService{Q: q, Pool: pool}
+
+	session, err := q.CreateQuizSession(ctx, sqlc.CreateQuizSessionParams{
+		ChatID: -7100, StartedByTgUserID: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.CreateQuizPoll(ctx, sqlc.CreateQuizPollParams{
+		PollID: "poll-chan", SessionID: session.ID,
+		QuestionID: uuid.NullUUID{}, QuestionNo: 1, CorrectIdx: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := svc.HandlePollAnswer(ctx, PollAnswer{
+		PollID:    "poll-chan",
+		User:      User{ID: anonymousVoterUserID, FirstName: "Channel"},
+		VoterChat: &Chat{ID: -1004461379280, Type: "channel", Title: "Driver GO"},
+		OptionIDs: []int{0},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rows, err := q.ListQuizRanking(ctx, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 participant, got %d", len(rows))
+	}
+	if rows[0].TgUserID != -1004461379280 {
+		t.Fatalf("channel vote keyed on %d, want the voting chat id", rows[0].TgUserID)
+	}
+	if rows[0].DisplayName != "Driver GO" {
+		t.Fatalf("display name = %q, want the channel title", rows[0].DisplayName)
+	}
+}
+
+// Two different channels voting must stay two participants, not merge into
+// the single placeholder user id Telegram sends for both.
+func TestHandlePollAnswerKeepsChannelVotersApart(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	svc := &QuizService{Q: q, Pool: pool}
+
+	session, err := q.CreateQuizSession(ctx, sqlc.CreateQuizSessionParams{
+		ChatID: -7101, StartedByTgUserID: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.CreateQuizPoll(ctx, sqlc.CreateQuizPollParams{
+		PollID: "poll-two", SessionID: session.ID,
+		QuestionID: uuid.NullUUID{}, QuestionNo: 1, CorrectIdx: 0,
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, c := range []Chat{
+		{ID: -1001, Type: "channel", Title: "Birinchi"},
+		{ID: -1002, Type: "channel", Title: "Ikkinchi"},
+	} {
+		if err := svc.HandlePollAnswer(ctx, PollAnswer{
+			PollID:    "poll-two",
+			User:      User{ID: anonymousVoterUserID, FirstName: "Channel"},
+			VoterChat: &c,
+			OptionIDs: []int{0},
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	rows, err := q.ListQuizRanking(ctx, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("two channels merged into %d participant(s)", len(rows))
+	}
+}
