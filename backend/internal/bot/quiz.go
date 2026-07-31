@@ -158,15 +158,33 @@ func (s *QuizService) finishGame(ctx context.Context, session sqlc.TelegramQuizS
 	return nil
 }
 
-// sendFinalMessage delivers the end-of-game text. Task 7 replaces this with
-// richer delivery (message effects, reactions); this is the plain version.
+// Telegram's 🎉 message effect. Private chats only — passing it to a group
+// is an API error, which is why sendFinalMessage branches on mode.
+const effectCelebrate = "5046509860389126442"
+
 func (s *QuizService) sendFinalMessage(ctx context.Context, session sqlc.TelegramQuizSession, body string) (int64, error) {
-	return s.TG.SendText(ctx, session.ChatID, body, s.ctaMarkup())
+	if session.Mode == "group" {
+		return s.TG.SendText(ctx, session.ChatID, body, s.ctaMarkup())
+	}
+	return s.TG.SendTextWithEffect(ctx, session.ChatID, body, effectCelebrate, s.ctaMarkup())
 }
 
-// celebrate is Task 7's seam for post-game visual flourish (winner sticker,
-// reactions). A no-op here on purpose.
-func (s *QuizService) celebrate(_ context.Context, _ sqlc.TelegramQuizSession, _ int64) {}
+// celebrate adds the decoration that survives a group chat. A reaction always
+// works; the sticker is optional because an unverified file_id would fail on
+// every finished game. Neither failure is worth aborting the result message.
+func (s *QuizService) celebrate(ctx context.Context, session sqlc.TelegramQuizSession, msgID int64) {
+	if session.Mode != "group" || msgID == 0 {
+		return
+	}
+	if err := s.TG.SetMessageReaction(ctx, session.ChatID, msgID, "🎉"); err != nil {
+		s.logger().Debug("quiz: reaction failed", zap.Error(err))
+	}
+	if sticker := s.winnerStickerID(); sticker != "" {
+		if err := s.TG.SendSticker(ctx, session.ChatID, sticker); err != nil {
+			s.logger().Debug("quiz: sticker failed", zap.Error(err))
+		}
+	}
+}
 
 // HandleCallback processes the next / stop taps that follow a finished game.
 func (s *QuizService) HandleCallback(ctx context.Context, cq CallbackQuery) error {
