@@ -22,6 +22,7 @@ var configEnvKeys = []string{
 	"TELEGRAM_BOT_USERNAME",
 	"TELEGRAM_BOT_MODE",
 	"TELEGRAM_WEBHOOK_SECRET",
+	"TELEGRAM_QUIZ_WINNER_STICKER",
 }
 
 func isolateConfigEnv(t *testing.T) {
@@ -54,6 +55,24 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.TelegramBotToken != "" || cfg.TelegramBotUsername != "" || cfg.TelegramWebhookSecret != "" {
 		t.Errorf("unexpected telegram bot secrets: %+v", cfg)
+	}
+	if cfg.TelegramQuizWinnerSticker != "" {
+		t.Errorf("TelegramQuizWinnerSticker default = %q, want empty (no default file_id — an unverified one would fail every finished game)", cfg.TelegramQuizWinnerSticker)
+	}
+}
+
+// The winner sticker is decoration only, so unlike the other TELEGRAM_BOT_*
+// settings it must never gate startup — it just needs to reach the config
+// struct when an operator does set it.
+func TestLoadTelegramQuizWinnerStickerOverride(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("TELEGRAM_QUIZ_WINNER_STICKER", "CAACAgIAAxkBAA_sticker_file_id")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.TelegramQuizWinnerSticker != "CAACAgIAAxkBAA_sticker_file_id" {
+		t.Errorf("TelegramQuizWinnerSticker = %q, want the configured file_id", cfg.TelegramQuizWinnerSticker)
 	}
 }
 

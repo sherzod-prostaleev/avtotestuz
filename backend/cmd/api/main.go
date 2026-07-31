@@ -85,8 +85,10 @@ func main() {
 			TG:            tgClient,
 			MediaBaseURL:  cfg.MediaBaseURL,
 			PublicBaseURL: cfg.PublicBaseURL,
+			WinnerSticker: cfg.TelegramQuizWinnerSticker,
 			Log:           logger,
 		}
+		quizSvc.Advance = bot.NewAdvanceScheduler(quizSvc, logger)
 		progressSvc := progress.NewService(q)
 		progressSvc.Billing = billing.Service{Q: q}
 		botSvc := &bot.Bot{

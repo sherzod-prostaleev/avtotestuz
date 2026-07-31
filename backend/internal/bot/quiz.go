@@ -84,6 +84,48 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 	if err != nil {
 		return err
 	}
+	return s.continueSession(ctx, session)
+}
+
+// ContinueScheduledGame advances chatID's quiz if a game is still active,
+// and does nothing otherwise. This, not StartOrNext, is the entry point a
+// scheduled auto-advance timer must call: StartOrNext creates a fresh
+// session when none is active — exactly what a live /quiz or /next tap
+// wants — but a timer that outlives /stop, an idle timeout, or the quiz
+// flag being switched off mid-game must never resurrect a game the room
+// already ended. The scheduler has no way to cancel a timer that is already
+// in flight (see NewAdvanceScheduler), so this has to be the entry point
+// itself, not a check before scheduling.
+func (s *QuizService) ContinueScheduledGame(ctx context.Context, chatID int64) error {
+	if s == nil || s.TG == nil || s.Q == nil {
+		return fmt.Errorf("quiz service not configured")
+	}
+	enabled, err := flags.Bool(ctx, s.Pool, flags.KeyTelegramQuiz, true)
+	if err != nil {
+		return err
+	}
+	if !enabled {
+		// Unlike StartOrNext, a scheduled advance says nothing when the
+		// feature is off: there was no user action to acknowledge, and a
+		// stray "Quiz hozircha o'chirilgan" arriving from a timer with no
+		// prompting message would be confusing.
+		return nil
+	}
+	session, err := s.Q.GetActiveQuizSessionByChat(ctx, chatID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	return s.continueSession(ctx, session)
+}
+
+// continueSession is the shared tail of StartOrNext and
+// ContinueScheduledGame: given a session that is known to exist, finish the
+// game if it just ran out of questions, wait out the anti-spam throttle if
+// the last question was very recent, and otherwise ask the next one.
+func (s *QuizService) continueSession(ctx context.Context, session sqlc.TelegramQuizSession) error {
 	if session.QuestionNo >= session.TotalQuestions {
 		return s.finishGame(ctx, session)
 	}
@@ -93,7 +135,7 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 			// Acknowledge the tap, then actually deliver the next question after
 			// the throttle window. Returning here used to leave the chat stuck
 			// with only "Biroz kuting…" and no follow-up.
-			if _, err := s.TG.SendText(ctx, chatID, "Biroz kuting — keyingi savol hozir chiqadi.", nil); err != nil {
+			if _, err := s.TG.SendText(ctx, session.ChatID, "Biroz kuting — keyingi savol hozir chiqadi.", nil); err != nil {
 				return err
 			}
 			timer := time.NewTimer(wait)
@@ -103,7 +145,7 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 				return ctx.Err()
 			case <-timer.C:
 			}
-			session, err = s.Q.GetActiveQuizSessionByChat(ctx, chatID)
+			refreshed, err := s.Q.GetActiveQuizSessionByChat(ctx, session.ChatID)
 			if err != nil {
 				return err
 			}
@@ -113,9 +155,10 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 			// replaced that path, the column stays true for the whole game —
 			// there is no single reply that clears it any more — so it no
 			// longer tells us anything the Active check below doesn't.
-			if !session.Active {
+			if !refreshed.Active {
 				return nil
 			}
+			session = refreshed
 		}
 	}
 	return s.sendNextQuestion(ctx, session)
