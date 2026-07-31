@@ -129,15 +129,11 @@ func TestStartOrNextMarksGroupMode(t *testing.T) {
 	q := sqlc.New(pool)
 	ctx := context.Background()
 	_ = seedQuizQuestionWithAnswers(t, pool, false, []string{"To'g'ri", "Xato"})
-	// limit_config is seeded by migration and never truncated between tests
-	// (testdb.Truncate keeps it on purpose); other tests in this package
-	// deliberately overwrite tg_quiz_questions to a non-default value and
-	// leave it that way, so pin it back to the default explicitly rather
-	// than assume a pristine table.
-	if _, err := pool.Exec(ctx,
-		`DELETE FROM limit_config WHERE key = 'tg_quiz_questions'`); err != nil {
-		t.Fatal(err)
-	}
+	// Pin the length to something that is neither the code default nor the
+	// column default, so the assertion below can only pass if StartGame
+	// actually read limit_config and wrote the answer to the session.
+	six := 6
+	setQuizLimit(t, pool, limitKeyQuizQuestions, &six)
 
 	_, client := newRecordingTelegram(t)
 	svc := &QuizService{Q: q, Pool: pool, TG: client, PublicBaseURL: "http://app.test"}
@@ -152,8 +148,8 @@ func TestStartOrNextMarksGroupMode(t *testing.T) {
 	if session.Mode != "group" {
 		t.Fatalf("Mode = %q, want group", session.Mode)
 	}
-	if session.TotalQuestions != defaultQuizQuestions {
-		t.Fatalf("TotalQuestions = %d, want %d", session.TotalQuestions, defaultQuizQuestions)
+	if session.TotalQuestions != int32(six) {
+		t.Fatalf("TotalQuestions = %d, want the configured %d", session.TotalQuestions, six)
 	}
 }
 

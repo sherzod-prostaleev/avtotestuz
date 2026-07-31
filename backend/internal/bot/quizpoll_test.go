@@ -2,8 +2,12 @@ package bot
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/testdb"
@@ -103,15 +107,63 @@ func TestPickPollableQuestionSkipsLongAnswers(t *testing.T) {
 	}
 }
 
+// setQuizLimit points a limit_config row at value (a nil value deletes the
+// row) and restores whatever was there when the test ends. limit_config is
+// seeded by migration and deliberately excluded from testdb truncation, so a
+// test that writes it without this leaks its value into every later test and
+// into the next run of the reused physical database.
+func setQuizLimit(t *testing.T, pool *pgxpool.Pool, key string, value *int) {
+	t.Helper()
+	ctx := context.Background()
+
+	var prev *int32
+	err := pool.QueryRow(ctx,
+		`SELECT free_value FROM limit_config WHERE key = $1`, key).Scan(&prev)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		prev = nil
+	case err != nil:
+		t.Fatal(err)
+	}
+
+	t.Cleanup(func() {
+		restore := context.Background()
+		if prev == nil {
+			if _, err := pool.Exec(restore,
+				`DELETE FROM limit_config WHERE key = $1`, key); err != nil {
+				t.Errorf("restore limit_config %s: %v", key, err)
+			}
+			return
+		}
+		if _, err := pool.Exec(restore,
+			`INSERT INTO limit_config (key, free_value, vip_value) VALUES ($1, $2, $2)
+			 ON CONFLICT (key) DO UPDATE SET free_value = EXCLUDED.free_value`,
+			key, *prev); err != nil {
+			t.Errorf("restore limit_config %s: %v", key, err)
+		}
+	})
+
+	if value == nil {
+		if _, err := pool.Exec(ctx,
+			`DELETE FROM limit_config WHERE key = $1`, key); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO limit_config (key, free_value, vip_value) VALUES ($1, $2, $2)
+		 ON CONFLICT (key) DO UPDATE SET free_value = EXCLUDED.free_value`,
+		key, *value); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestQuizSecondsFallsBackWhenKeyMissing(t *testing.T) {
 	pool := testdb.New(t)
 	ctx := context.Background()
 	svc := &QuizService{Q: sqlc.New(pool), Pool: pool}
 
-	if _, err := pool.Exec(ctx,
-		`DELETE FROM limit_config WHERE key = 'tg_quiz_seconds'`); err != nil {
-		t.Fatal(err)
-	}
+	setQuizLimit(t, pool, limitKeyQuizSeconds, nil)
 	if got := svc.quizSeconds(ctx); got != defaultQuizSeconds {
 		t.Fatalf("quizSeconds = %d, want fallback %d", got, defaultQuizSeconds)
 	}
@@ -124,19 +176,13 @@ func TestQuizSecondsClampsOutOfRangeConfig(t *testing.T) {
 	ctx := context.Background()
 	svc := &QuizService{Q: sqlc.New(pool), Pool: pool}
 
-	if _, err := pool.Exec(ctx,
-		`INSERT INTO limit_config (key, free_value, vip_value) VALUES ('tg_quiz_seconds', 2, 2)
-		 ON CONFLICT (key) DO UPDATE SET free_value = 2`); err != nil {
-		t.Fatal(err)
-	}
+	tooSmall, tooLarge := 2, 5000
+	setQuizLimit(t, pool, limitKeyQuizSeconds, &tooSmall)
 	if got := svc.quizSeconds(ctx); got != pollMinOpenPeriod {
 		t.Fatalf("quizSeconds = %d, want clamp to %d", got, pollMinOpenPeriod)
 	}
 
-	if _, err := pool.Exec(ctx,
-		`UPDATE limit_config SET free_value = 5000 WHERE key = 'tg_quiz_seconds'`); err != nil {
-		t.Fatal(err)
-	}
+	setQuizLimit(t, pool, limitKeyQuizSeconds, &tooLarge)
 	if got := svc.quizSeconds(ctx); got != pollMaxOpenPeriod {
 		t.Fatalf("quizSeconds = %d, want clamp to %d", got, pollMaxOpenPeriod)
 	}
@@ -147,11 +193,8 @@ func TestQuizQuestionCountReadsConfig(t *testing.T) {
 	ctx := context.Background()
 	svc := &QuizService{Q: sqlc.New(pool), Pool: pool}
 
-	if _, err := pool.Exec(ctx,
-		`INSERT INTO limit_config (key, free_value, vip_value) VALUES ('tg_quiz_questions', 7, 7)
-		 ON CONFLICT (key) DO UPDATE SET free_value = 7`); err != nil {
-		t.Fatal(err)
-	}
+	seven := 7
+	setQuizLimit(t, pool, limitKeyQuizQuestions, &seven)
 	if got := svc.quizQuestionCount(ctx); got != 7 {
 		t.Fatalf("quizQuestionCount = %d, want 7", got)
 	}
