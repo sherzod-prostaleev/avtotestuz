@@ -64,9 +64,14 @@ type InlineKeyboardButton struct {
 // PollAnswer is a vote in a non-anonymous poll the bot sent. Anonymous polls
 // deliver no user, which is why every quiz poll sets is_anonymous=false.
 type PollAnswer struct {
-	PollID    string `json:"poll_id"`
-	User      User   `json:"user"`
-	OptionIDs []int  `json:"option_ids"`
+	PollID string `json:"poll_id"`
+	User   User   `json:"user"`
+	// VoterChat is set when the vote was cast on behalf of a chat rather
+	// than a person — a channel voting in its own linked discussion group.
+	// Telegram then fills User with a shared placeholder account, so this is
+	// the only field that tells one such voter from another.
+	VoterChat *Chat `json:"voter_chat,omitempty"`
+	OptionIDs []int `json:"option_ids"`
 }
 
 // PollRequest is one quiz poll to send. Telegram's limits are enforced by

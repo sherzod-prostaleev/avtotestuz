@@ -12,6 +12,11 @@ import (
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
+// anonymousVoterUserID is Telegram's @Channel_Bot service account. It stands
+// in for the sender whenever a vote is cast on behalf of a chat, so every
+// such voter arrives carrying this one id — the real one is in voter_chat.
+const anonymousVoterUserID int64 = 136817688
+
 // displayName picks the best label Telegram gave us for the ranking.
 func displayName(u User) string {
 	if n := strings.TrimSpace(u.FirstName); n != "" {
@@ -21,6 +26,22 @@ func displayName(u User) string {
 		return n
 	}
 	return "Ishtirokchi"
+}
+
+// voterIdentity resolves who a vote belongs to. A vote cast on behalf of a
+// chat (a channel playing in its own discussion group) reports the shared
+// placeholder account, so keying on the user id would fold every such voter
+// into one row labelled "Channel". The voting chat's own id is negative and
+// cannot collide with a user id, which makes it a safe key.
+func voterIdentity(pa PollAnswer) (int64, string) {
+	if pa.VoterChat != nil && pa.VoterChat.ID != 0 {
+		name := strings.TrimSpace(pa.VoterChat.Title)
+		if name == "" {
+			name = "Kanal"
+		}
+		return pa.VoterChat.ID, name
+	}
+	return pa.User.ID, displayName(pa.User)
 }
 
 // HandlePollAnswer records one vote. Unlike the old callback path it knows
@@ -53,10 +74,11 @@ func (s *QuizService) HandlePollAnswer(ctx context.Context, pa PollAnswer) error
 		elapsed = 0
 	}
 
+	voterID, name := voterIdentity(pa)
 	return s.Q.UpsertQuizParticipant(ctx, sqlc.UpsertQuizParticipantParams{
 		SessionID:    poll.SessionID,
-		TgUserID:     pa.User.ID,
-		DisplayName:  displayName(pa.User),
+		TgUserID:     voterID,
+		DisplayName:  name,
 		CorrectDelta: correctDelta,
 		ElapsedMs:    elapsed,
 	})
