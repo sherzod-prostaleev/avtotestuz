@@ -327,7 +327,12 @@ func (s *QuizService) StartGame(ctx context.Context, chatID, tgUserID int64, cha
 			return err
 		}
 	}
-	return s.sendNextQuestion(ctx, session)
+	// continueSession rather than sendNextQuestion: on a fresh session it does
+	// exactly the same thing (asked_count is 0, so the throttle is skipped),
+	// but on a game already in progress it applies the same spacing /next
+	// gets. Calling sendNextQuestion directly let repeated /quiz taps in a
+	// group walk the game forward one question per tap, with no pause.
+	return s.continueSession(ctx, session)
 }
 
 func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.TelegramQuizSession) error {

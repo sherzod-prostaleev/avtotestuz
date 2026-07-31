@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/testdb"
@@ -168,5 +169,41 @@ func TestStartGameMarksSoloModeInPrivate(t *testing.T) {
 	session, _ := q.GetActiveQuizSessionByChat(ctx, 9001)
 	if session.Mode != "solo" {
 		t.Fatalf("Mode = %q, want solo", session.Mode)
+	}
+}
+
+// /quiz on a game already in progress must go through the same throttle as
+// /next. StartGame used to call sendNextQuestion directly, so repeated taps
+// in a group walked the game forward one question each with no spacing —
+// a room could burn all ten questions in a couple of seconds.
+func TestStartGameThrottlesTapsMidGame(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+	_ = seedQuizQuestionWithAnswers(t, pool, false, []string{"To'g'ri", "Xato"})
+
+	prev := quizMinInterval
+	quizMinInterval = 40 * time.Millisecond
+	t.Cleanup(func() { quizMinInterval = prev })
+
+	rec, client := newRecordingTelegram(t)
+	svc := &QuizService{Q: q, Pool: pool, TG: client, PublicBaseURL: "http://app.test"}
+
+	if err := svc.StartGame(ctx, -8010, 31, "supergroup"); err != nil {
+		t.Fatalf("first StartGame: %v", err)
+	}
+	// A second tap lands inside the throttle window.
+	if err := svc.StartGame(ctx, -8010, 31, "supergroup"); err != nil {
+		t.Fatalf("second StartGame: %v", err)
+	}
+
+	var throttled bool
+	for _, p := range rec.methodCalls("sendMessage") {
+		if text, _ := p["text"].(string); strings.Contains(text, "Biroz kuting") {
+			throttled = true
+		}
+	}
+	if !throttled {
+		t.Fatal("second /quiz inside the throttle window was not throttled")
 	}
 }
