@@ -213,6 +213,10 @@ func TestQuizStartOrNextDeliversAfterMinInterval(t *testing.T) {
 	}
 }
 
+// Stop now routes through finishGame (Task 6), so a /stop with nobody having
+// answered yet reports the same "game over, nobody played" ranking message
+// finishGame would send at the natural end of a game, rather than its own
+// separate "to'xtatildi" summary line.
 func TestQuizStopSummarizes(t *testing.T) {
 	pool := testdb.New(t)
 	q := sqlc.New(pool)
@@ -229,7 +233,7 @@ func TestQuizStopSummarizes(t *testing.T) {
 	if err := svc.Stop(ctx, -5003); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(fake.lastMessage(), "to'xtatildi") {
+	if !strings.Contains(fake.lastMessage(), "O'yin tugadi") {
 		t.Fatalf("reply = %q", fake.lastMessage())
 	}
 	if _, err := q.GetActiveQuizSessionByChat(ctx, -5003); err == nil {

@@ -37,6 +37,10 @@ type QuizService struct {
 	PublicBaseURL string
 	WinnerSticker string // optional file_id; empty skips the sticker
 	Log           *zap.Logger
+
+	// Advance schedules the next question. Injected so tests drive the clock
+	// instead of sleeping through a real countdown.
+	Advance func(chatID int64, after time.Duration)
 }
 
 func (s *QuizService) logger() *zap.Logger {
@@ -81,8 +85,7 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 		return err
 	}
 	if session.QuestionNo >= session.TotalQuestions {
-		_, err := s.TG.SendText(ctx, session.ChatID, "O'yin tugadi.", s.ctaMarkup())
-		return err
+		return s.finishGame(ctx, session)
 	}
 	if session.AskedCount > 0 && session.LastActivityAt.Valid {
 		if elapsed := time.Since(session.LastActivityAt.Time); elapsed < quizMinInterval {
@@ -104,7 +107,13 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 			if err != nil {
 				return err
 			}
-			if !session.Active || session.AwaitingAnswer {
+			// AwaitingAnswer used to gate this: it went false the moment the
+			// one expected inline-button reply came in, so re-checking it
+			// caught a session that had been stopped mid-wait. Since polls
+			// replaced that path, the column stays true for the whole game —
+			// there is no single reply that clears it any more — so it no
+			// longer tells us anything the Active check below doesn't.
+			if !session.Active {
 				return nil
 			}
 		}
@@ -112,7 +121,7 @@ func (s *QuizService) StartOrNext(ctx context.Context, chatID, tgUserID int64) e
 	return s.sendNextQuestion(ctx, session)
 }
 
-// Stop ends the active quiz session for the chat.
+// Stop ends the active quiz session for the chat and reports scores so far.
 func (s *QuizService) Stop(ctx context.Context, chatID int64) error {
 	session, err := s.Q.GetActiveQuizSessionByChat(ctx, chatID)
 	if err != nil {
@@ -122,16 +131,42 @@ func (s *QuizService) Stop(ctx context.Context, chatID int64) error {
 		}
 		return err
 	}
+	return s.finishGame(ctx, session)
+}
+
+// finishGame closes the session and reports the ranking. It is the only
+// place a game ends, so /stop and the last question share one code path.
+func (s *QuizService) finishGame(ctx context.Context, session sqlc.TelegramQuizSession) error {
+	rows, err := s.Q.ListQuizRanking(ctx, session.ID)
+	if err != nil {
+		return err
+	}
 	if err := s.Q.DeactivateQuizSession(ctx, session.ID); err != nil {
 		return err
 	}
-	summary := fmt.Sprintf(
-		"Quiz to'xtatildi.\nNatija: %d/%d to'g'ri.\n\nDriver Go — rasmiy formatda bepul mashq\n%s",
-		session.CorrectCount, session.AskedCount, s.ctaURL(),
-	)
-	_, err = s.TG.SendText(ctx, chatID, summary, s.ctaMarkup())
-	return err
+
+	body := rankingText(rows, session.Mode, session.TotalQuestions)
+	body += "\n\nDriver Go — rasmiy formatda bepul mashq"
+
+	msgID, err := s.sendFinalMessage(ctx, session, body)
+	if err != nil {
+		return err
+	}
+	if len(rows) > 0 {
+		s.celebrate(ctx, session, msgID)
+	}
+	return nil
 }
+
+// sendFinalMessage delivers the end-of-game text. Task 7 replaces this with
+// richer delivery (message effects, reactions); this is the plain version.
+func (s *QuizService) sendFinalMessage(ctx context.Context, session sqlc.TelegramQuizSession, body string) (int64, error) {
+	return s.TG.SendText(ctx, session.ChatID, body, s.ctaMarkup())
+}
+
+// celebrate is Task 7's seam for post-game visual flourish (winner sticker,
+// reactions). A no-op here on purpose.
+func (s *QuizService) celebrate(_ context.Context, _ sqlc.TelegramQuizSession, _ int64) {}
 
 // HandleCallback processes the next / stop taps that follow a finished game.
 func (s *QuizService) HandleCallback(ctx context.Context, cq CallbackQuery) error {
@@ -194,6 +229,23 @@ func (s *QuizService) StartGame(ctx context.Context, chatID, tgUserID int64, cha
 	session, err := s.ensureActiveSession(ctx, chatID, tgUserID)
 	if err != nil {
 		return err
+	}
+	if session.QuestionNo != 0 && session.QuestionNo >= session.TotalQuestions {
+		// A finished game whose finishGame never ran (crashed process, lost
+		// advance timer) is still "active" in the row. question_no != 0
+		// would otherwise skip the intro below and fall straight into
+		// sendNextQuestion, asking question after question forever. /quiz
+		// on a dead game should behave like /quiz on no game: start a fresh
+		// one.
+		if err := s.Q.DeactivateQuizSession(ctx, session.ID); err != nil {
+			return err
+		}
+		session, err = s.Q.CreateQuizSession(ctx, sqlc.CreateQuizSessionParams{
+			ChatID: chatID, StartedByTgUserID: tgUserID,
+		})
+		if err != nil {
+			return err
+		}
 	}
 	if session.QuestionNo == 0 {
 		mode := "solo"
@@ -283,11 +335,27 @@ func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.Telegra
 		return err
 	}
 
-	return s.Q.SetQuizSessionQuestion(ctx, sqlc.SetQuizSessionQuestionParams{
+	if err := s.Q.SetQuizSessionQuestion(ctx, sqlc.SetQuizSessionQuestionParams{
 		ID:              session.ID,
 		QuestionID:      uuid.NullUUID{UUID: qID, Valid: true},
 		AnswerMessageID: msgID,
-	})
+	}); err != nil {
+		return err
+	}
+
+	s.scheduleAdvance(session.ChatID, s.quizSeconds(ctx))
+	return nil
+}
+
+// scheduleAdvance moves the game on after the poll closes. Telegram closes
+// the poll itself; this only decides when to ask the next question. A lost
+// timer (deploy, restart) is recoverable with /next — it is deliberately not
+// durable state.
+func (s *QuizService) scheduleAdvance(chatID int64, seconds int) {
+	if s.Advance == nil {
+		return
+	}
+	s.Advance(chatID, time.Duration(seconds+1)*time.Second)
 }
 
 func (s *QuizService) ctaMarkup() *InlineKeyboardMarkup {
