@@ -272,7 +272,7 @@ YAKUNIY LOCAL VERIFIKATSIYA
 - gofmt gate -- PASS; go vet -- PASS;
 - govulncheck v1.6 -- 0 symbol-reachable vulnerability;
 - frontend lint -- PASS; typecheck -- PASS;
-- Vitest: 97 file / 469 test -- PASS;
+- Vitest: 95 file / 459 test -- PASS;
 - Next.js 16.2.12 production build: 51 static page -- PASS;
 - Playwright: 43 PASS, 32 SKIP (auth credential yo'q);
 - npm online audit -- 0 vulnerability;
@@ -281,6 +281,27 @@ YAKUNIY LOCAL VERIFIKATSIYA
 - production compose config -- PASS;
 - migration full up/down/up -- PASS;
 - shell syntax va `git diff --check` -- PASS.
+
+POST-REMEDIATION REPOSITORY CLEANUP
+------------------------------------------------------------
+
+2026-08-01 kuni reference/import graph, public asset reference scan va build
+dalillari asosida runtimega aloqasi bo'lmagan 8 ta tracked frontend fayli
+o'chirildi: eski mock dataset va testi, foydalanilmaydigan Header va testi,
+ikki orphan UI component hamda ikki unreferenced logo asset. O'chirishdan keyin
+frontend lint, typecheck, 95 file / 459 test va Next.js production build PASS.
+
+Local-only generatsiya/AI qoldiqlari ham tozalandi: `.next`, test/build cache,
+`.claude`, `.superpowers` va Humo `__pycache__`. Workspace hajmi `du` bo'yicha
+taxminan 1.5 GB'dan 818 MB'gacha kamaydi. `.agents` va `.codex` bo'sh environment
+mount point bo'lgani uchun filesystemdan o'chirib bo'lmaydi; Git va deploy ignore
+ro'yxatlariga kiritildi, repository/runtime tarkibiga kirmaydi.
+
+Quyidagilar dalilsiz junk deb olinmadi va saqlandi: `.git`, `.run/backups`, env
+secretlari, `frontend/node_modules`, Humo `.venv`, backend seed/import rasmlari
+va loyiha qarorlari/test dalillarini saqlovchi `docs/superpowers`. PostgreSQL,
+Redis, MinIO volume yoki production foydalanuvchi/premium ma'lumotlariga bu
+cleanupda hech qanday write/delete bajarilmadi.
 
 QOLGAN INSUFFICIENT EVIDENCE / EXTERNAL ACTIONLAR
 ------------------------------------------------------------

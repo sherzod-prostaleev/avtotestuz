@@ -1,6 +1,6 @@
 # AvtoTest Frontend
 
-Next.js 14 (App Router) + TypeScript + Tailwind CSS + next-intl.
+Next.js 16 (App Router) + TypeScript + Tailwind CSS + next-intl.
 
 ## Dev
 
@@ -29,19 +29,16 @@ or append `X-Forwarded-For` consistently; the selected address is counted from
 the right. Missing/invalid production configuration returns `network_error`
 without forwarding an OTP request.
 
-## Phase A mockup routes (still present, still mock-data-driven)
+## Runtime architecture
 
-- `/[locale]/` — Landing, `/[locale]/dashboard`, `/[locale]/exam-mockup`
-
-## Phase B1 additions (this phase)
-
-- Real phone+OTP login: `/[locale]/login` → `/[locale]/login/verify` → `/[locale]/dashboard`
-- Auth session lives in httpOnly cookies (`at`/`rt`) set by Next.js Route
-  Handlers under `/api/auth/*` — no token is ever visible to client JS.
-- `/api/proxy/[...path]` is the one path all future authenticated API calls
-  go through; it single-flight-refreshes on a 401 and retries once.
-- 3 locales (uz-Latn default, uz-Cyrl, ru) via next-intl; middleware redirects
-  bare URLs to the default locale and gates `/dashboard`+`/exam-mockup` behind
-  a session-cookie check.
-- Dashboard/exam-mockup still render `lib/mock-data.ts` after login — wiring
-  them to the real backend is Phase B2.
+- Auth sessions use secure `HttpOnly` access/refresh cookies; browser code does
+  not receive raw tokens.
+- `/api/proxy/[...path]` is the learner BFF and retries once after an atomic
+  refresh-token rotation.
+- `/api/admin/*` is the permission-aware admin BFF with the same safe rotation
+  semantics for JSON, binary and SSE responses.
+- `uz-Latn` (default), `uz-Cyrl` and `ru` are served through `next-intl`.
+- Public landing, diagnostic, pricing, legal and support routes do not require
+  authentication; learner/admin application routes are cookie-gated.
+- Dashboard, sessions, progress and payment screens use the Go API; obsolete
+  Phase A mock datasets are not part of the runtime tree.

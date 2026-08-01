@@ -3,6 +3,8 @@
 
 .git/
 .deployed-commit
+.agents/
+.codex/
 .github/
 .claude/
 .mimocode/
@@ -39,5 +41,4 @@ photo_*_2026-*.jpg
 AVTOTEST-MASTER-PROMPT.txt
 HANDOFF-*.txt
 docs/
-.superpowers/
 *.canvas.tsx

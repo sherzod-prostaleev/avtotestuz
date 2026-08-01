@@ -21,6 +21,8 @@ scratch/
 111.png
 
 # Agent / IDE local-only (never deploy)
+.agents/
+.codex/
 .mimocode/
 .superpowers/
 .worktrees/
