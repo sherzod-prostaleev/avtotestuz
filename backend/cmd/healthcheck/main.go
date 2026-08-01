@@ -18,7 +18,10 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
-	defer resp.Body.Close()
+	if err := resp.Body.Close(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		fmt.Fprintf(os.Stderr, "unhealthy status: %d\n", resp.StatusCode)
 		os.Exit(1)

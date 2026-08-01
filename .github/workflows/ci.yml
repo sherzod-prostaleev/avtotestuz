@@ -164,7 +164,12 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate production Compose
-        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.prod.env.example config >/dev/null
+        run: |
+          # Service-level env_file is deliberately required in production.
+          # Materialize the non-secret example so a clean CI checkout validates
+          # the same fail-closed path without depending on an ignored app.env.
+          install -m 600 deploy/app.prod.env.example deploy/app.env
+          docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.prod.env.example config >/dev/null
       - name: Build API image
         run: docker build --pull=false -t drivergo-api:ci -f backend/Dockerfile backend
       - name: Build web image

@@ -848,7 +848,7 @@ func (s Store) ExportMembersCSV(ctx context.Context, orgID uuid.UUID) ([]byte, e
 	if err := w.Error(); err != nil {
 		return nil, err
 	}
-	return []byte(b.String()), nil
+	return b.Bytes(), nil
 }
 
 func spreadsheetSafe(value string) string {
