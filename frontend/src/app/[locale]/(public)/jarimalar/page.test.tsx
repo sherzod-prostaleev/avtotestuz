@@ -11,12 +11,20 @@ vi.mock("next/link", () => ({
 }));
 
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
+vi.mock("next-intl/server", () => ({
+  getLocale: async () => "uz-Latn",
+  getTranslations: async (namespace: "Jarimalar" | "Landing") => {
+    const messages = uzLatnMessages[namespace];
+    return (key: string) => messages[key as keyof typeof messages];
+  },
+}));
 
 describe("JarimalarPage", () => {
-  it("renders honest SEO shell without invented fine amounts", () => {
+  it("renders honest SEO shell without invented fine amounts", async () => {
+    const page = await JarimalarPage();
     render(
       <NextIntlClientProvider locale="uz-Latn" messages={uzLatnMessages}>
-        <JarimalarPage />
+        {page}
       </NextIntlClientProvider>
     );
     expect(screen.getByRole("heading", { level: 1, name: "Yo'l jarimalari" })).toBeInTheDocument();

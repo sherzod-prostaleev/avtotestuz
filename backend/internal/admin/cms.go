@@ -40,7 +40,7 @@ func (h *Handler) putCMSContacts(w http.ResponseWriter, r *http.Request) {
 	updatedBy := "admin:" + adminID.String()
 	after, err := h.siteStore().PutContacts(r.Context(), body, updatedBy)
 	if err != nil {
-		if strings.Contains(err.Error(), "too long") {
+		if strings.Contains(err.Error(), "too long") || strings.Contains(err.Error(), "allowed https URL") {
 			httpx.Error(w, http.StatusBadRequest, "invalid_field", err.Error())
 			return
 		}

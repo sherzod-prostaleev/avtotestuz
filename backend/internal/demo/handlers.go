@@ -20,6 +20,7 @@ type Handler struct {
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/demo/question", h.getQuestion)
+	r.Get("/demo/diagnostic", h.getDiagnostic)
 	r.Post("/demo/answer", h.submitAnswer)
 }
 
@@ -49,6 +50,32 @@ func (h *Handler) getQuestion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.DataMeta(w, http.StatusOK, detail, content.LocaleMeta{Locale: loc, Fallback: fallback})
+}
+
+type diagnosticResponse struct {
+	Questions    []content.QuestionDetailDTO `json:"questions"`
+	TotalSeconds int                         `json:"total_seconds"`
+}
+
+func (h *Handler) getDiagnostic(w http.ResponseWriter, r *http.Request) {
+	loc, ok := i18n.Parse(r)
+	if !ok {
+		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
+		return
+	}
+	questions, fallback, err := h.Svc.GetDiagnostic(r.Context(), clientIP(r), loc)
+	switch {
+	case err == nil:
+		httpx.DataMeta(w, http.StatusOK, diagnosticResponse{
+			Questions: questions, TotalSeconds: 12 * 60,
+		}, content.LocaleMeta{Locale: loc, Fallback: fallback})
+	case errors.Is(err, ErrNotFound):
+		httpx.Error(w, http.StatusNotFound, "not_found", "no diagnostic questions available")
+	case errors.Is(err, ErrRateLimited):
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many requests, try again later")
+	default:
+		httpx.Error(w, http.StatusInternalServerError, "internal", "diagnostic question query failed")
+	}
 }
 
 type demoAnswerBody struct {

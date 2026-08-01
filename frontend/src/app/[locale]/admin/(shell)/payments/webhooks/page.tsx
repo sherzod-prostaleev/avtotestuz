@@ -1,15 +1,15 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
 
 /** No admin webhook inbox API — inbound Payme/Click only, no persisted audit table. */
-export default function AdminPaymentsWebhooksPage() {
-  const t = useTranslations("AdminPaymentsWebhooks");
-  const tNav = useTranslations("AdminNav");
-  const tShell = useTranslations("AdminShell");
+export default async function AdminPaymentsWebhooksPage() {
+  const [t, tNav, tShell] = await Promise.all([
+    getTranslations("AdminPaymentsWebhooks"),
+    getTranslations("AdminNav"),
+    getTranslations("AdminShell"),
+  ]);
 
   return (
     <PermissionGate permission="payments.read">

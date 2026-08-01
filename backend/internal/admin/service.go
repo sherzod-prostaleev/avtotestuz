@@ -236,15 +236,23 @@ func (s Service) Refresh(ctx context.Context, refreshRaw, ua string, ip *net.IP)
 	if err != nil || u.Status != "active" {
 		return TokenPair{}, ErrDisabled
 	}
-	newRaw := NewRefreshToken()
-	newHash := HashToken(newRaw)
-	expires := time.Now().Add(refreshTTL)
-	if err := s.Store.RotateSession(ctx, sess.ID, newHash, expires); err != nil {
-		return TokenPair{}, err
-	}
 	access, err := IssueAccess(s.Secret, u.ID, u.Email, accessTTL)
 	if err != nil {
 		return TokenPair{}, err
+	}
+	newRaw, err := NewRefreshToken()
+	if err != nil {
+		return TokenPair{}, err
+	}
+	newHash := HashToken(newRaw)
+	expires := time.Now().Add(refreshTTL)
+	rotated, err := s.Store.RotateSession(ctx, sess.ID, hash, newHash, expires)
+	if err != nil {
+		return TokenPair{}, err
+	}
+	if !rotated {
+		// Another request already consumed this one-time refresh token.
+		return TokenPair{}, ErrInvalidCreds
 	}
 	_ = ua
 	_ = ip
@@ -310,7 +318,10 @@ func (s Service) meFromUser(ctx context.Context, u User) (MeResponse, error) {
 }
 
 func (s Service) issuePair(ctx context.Context, u User, ua string, ip *net.IP) (TokenPair, error) {
-	raw := NewRefreshToken()
+	raw, err := NewRefreshToken()
+	if err != nil {
+		return TokenPair{}, err
+	}
 	hash := HashToken(raw)
 	expires := time.Now().Add(refreshTTL)
 	if _, err := s.Store.CreateSession(ctx, u.ID, hash, ua, ip, expires); err != nil {

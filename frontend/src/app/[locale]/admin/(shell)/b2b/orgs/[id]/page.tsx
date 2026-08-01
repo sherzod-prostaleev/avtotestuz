@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 
@@ -21,9 +22,10 @@ type OrgStats = {
   pending_invites: number;
 };
 
-export default function AdminB2BOrgDetailPage({ params }: { params: { id: string } }) {
+export default function AdminB2BOrgDetailPage() {
   const t = useTranslations("AdminB2B");
   const locale = useLocale();
+  const params = useParams<{ id: string }>();
   const [data, setData] = useState<Detail | null>(null);
   const [stats, setStats] = useState<OrgStats | null>(null);
   const [error, setError] = useState<string | null>(null);

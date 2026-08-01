@@ -29,13 +29,13 @@ var (
 )
 
 type ReferralStats struct {
-	ReferralCode       string `json:"referral_code"`
-	InviteURL          string `json:"invite_url"`
-	TotalInvited       int64  `json:"total_invited"`
-	TotalRewarded      int64  `json:"total_rewarded"`
-	EarnedUzs          int64  `json:"earned_uzs"`
-	AvailableBalanceUzs int64 `json:"available_balance_uzs"`
-	CommissionPercent  int32  `json:"commission_percent"`
+	ReferralCode        string `json:"referral_code"`
+	InviteURL           string `json:"invite_url"`
+	TotalInvited        int64  `json:"total_invited"`
+	TotalRewarded       int64  `json:"total_rewarded"`
+	EarnedUzs           int64  `json:"earned_uzs"`
+	AvailableBalanceUzs int64  `json:"available_balance_uzs"`
+	CommissionPercent   int32  `json:"commission_percent"`
 	// Deprecated: kept for older clients; always 0 (cash rewards replaced VIP days).
 	BonusDaysEarned int64 `json:"bonus_days_earned"`
 }

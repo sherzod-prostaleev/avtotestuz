@@ -11,6 +11,9 @@ import (
 const monitoringStreamInterval = 5 * time.Second
 
 func (h *Handler) streamMonitoring(w http.ResponseWriter, r *http.Request) {
+	// The server has a finite WriteTimeout for ordinary responses. SSE is the
+	// deliberate exception and manages its own lifecycle through r.Context().
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Time{})
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming not supported", http.StatusInternalServerError)

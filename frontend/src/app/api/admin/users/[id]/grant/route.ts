@@ -2,11 +2,12 @@ import { adminProxy } from "@/lib/admin-proxy";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
 export async function POST(request: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
   const body = await request.text();
-  return adminProxy(request, `/users/${ctx.params.id}/grant`, {
+  return adminProxy(request, `/users/${id}/grant`, {
     method: "POST",
     body,
   });

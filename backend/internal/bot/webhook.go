@@ -60,11 +60,12 @@ func (h *WebhookHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), webhookDispatchTimeout)
 	defer cancel()
 	if err := h.Bot.HandleUpdate(ctx, u); err != nil {
-		// HandleUpdate already turns user-facing failures into a reply and
-		// only returns an error for infra faults; log it but still 200 —
-		// Telegram retrying the same update wouldn't help if e.g. our DB is
-		// down for that one request, and a 5xx storm makes it worse.
+		// A non-2xx response is required for Telegram to retry transient infra
+		// failures. Returning 200 here used to acknowledge and permanently lose
+		// the update while Postgres/Redis was unavailable.
 		h.logger().Error("bot webhook: dispatch failed", zap.Error(err))
+		http.Error(w, "temporary dispatch failure", http.StatusServiceUnavailable)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 }

@@ -260,6 +260,13 @@ type Event struct {
 	Ts        pgtype.Timestamptz `json:"ts"`
 }
 
+type EventBatch struct {
+	ProfileID      uuid.UUID          `json:"profile_id"`
+	IdempotencyKey uuid.UUID          `json:"idempotency_key"`
+	EventCount     int32              `json:"event_count"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type EventDefault struct {
 	ID        int64              `json:"id"`
 	ProfileID uuid.NullUUID      `json:"profile_id"`
@@ -368,8 +375,9 @@ type ManualPayAssignment struct {
 }
 
 type ManualPayCard struct {
-	ID         uuid.UUID          `json:"id"`
-	Network    string             `json:"network"`
+	ID      uuid.UUID `json:"id"`
+	Network string    `json:"network"`
+	// AES-GCM envelope enc:v1:<last4>:<ciphertext>; legacy plaintext is migrated by cmd/encryptpan
 	PanFull    string             `json:"pan_full"`
 	PanLast4   string             `json:"pan_last4"`
 	HolderName string             `json:"holder_name"`
@@ -462,6 +470,14 @@ type PaymentProviderStatus struct {
 	Enabled   bool               `json:"enabled"`
 	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 	UpdatedBy pgtype.Text        `json:"updated_by"`
+}
+
+type PaymentVoid struct {
+	PaymentID      uuid.UUID          `json:"payment_id"`
+	PreviousStatus string             `json:"previous_status"`
+	Reason         string             `json:"reason"`
+	RequestedBy    uuid.UUID          `json:"requested_by"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 }
 
 type Profile struct {
@@ -574,9 +590,10 @@ type ReferralLedger struct {
 }
 
 type ReferralPayout struct {
-	ID          uuid.UUID          `json:"id"`
-	ProfileID   uuid.UUID          `json:"profile_id"`
-	AmountUzs   int64              `json:"amount_uzs"`
+	ID        uuid.UUID `json:"id"`
+	ProfileID uuid.UUID `json:"profile_id"`
+	AmountUzs int64     `json:"amount_uzs"`
+	// AES-GCM envelope enc:v1:<last4>:<ciphertext>; legacy plaintext is migrated by cmd/encryptpan
 	CardNumber  string             `json:"card_number"`
 	CardNetwork string             `json:"card_network"`
 	Status      string             `json:"status"`

@@ -73,8 +73,8 @@ type QueueTimeoutData struct {
 }
 
 type MatchFoundData struct {
-	MatchID         uuid.UUID `json:"match_id"`
-	Opponent        struct {
+	MatchID  uuid.UUID `json:"match_id"`
+	Opponent struct {
 		Name string `json:"name"`
 	} `json:"opponent"`
 	QuestionCount  int   `json:"question_count"`

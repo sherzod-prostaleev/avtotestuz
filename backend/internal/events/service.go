@@ -6,17 +6,26 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
 // maxBatchSize is a sane per-request cap — clients batch periodically, not
 // unboundedly.
-const maxBatchSize = 100
+const (
+	maxBatchSize      = 100
+	maxEventNameRunes = 64
+	maxPropsBytes     = 4096
+)
+
+var eventNamePattern = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
 // ErrInvalidRequest indicates an empty or oversized event batch.
 var ErrInvalidRequest = errors.New("invalid event batch")
@@ -30,23 +39,46 @@ type Event struct {
 
 // Service inserts batches of client events attributed to a profile.
 type Service struct {
-	Q *sqlc.Queries
+	Q    *sqlc.Queries
+	Pool *pgxpool.Pool
 }
 
-func NewService(q *sqlc.Queries) *Service {
-	return &Service{Q: q}
+func NewService(q *sqlc.Queries, pool *pgxpool.Pool) *Service {
+	return &Service{Q: q, Pool: pool}
 }
 
 // LogBatch inserts every event, all attributed to profileID. An empty
 // batch or a batch with more than 100 events is ErrInvalidRequest (a
 // sane per-request cap — clients batch periodically, not unboundedly).
-func (s *Service) LogBatch(ctx context.Context, profileID uuid.UUID, events []Event) error {
-	if len(events) == 0 || len(events) > maxBatchSize {
+func (s *Service) LogBatch(ctx context.Context, profileID uuid.UUID, idempotencyKey string, events []Event) error {
+	batchID, err := uuid.Parse(strings.TrimSpace(idempotencyKey))
+	if err != nil || len(events) == 0 || len(events) > maxBatchSize || s.Pool == nil {
 		return ErrInvalidRequest
 	}
+	for _, event := range events {
+		if !validEvent(event) {
+			return ErrInvalidRequest
+		}
+	}
 
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	tag, err := tx.Exec(ctx, `
+		INSERT INTO event_batch (profile_id, idempotency_key, event_count)
+		VALUES ($1,$2,$3)
+		ON CONFLICT (profile_id, idempotency_key) DO NOTHING`, profileID, batchID, len(events))
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return tx.Commit(ctx)
+	}
+	q := sqlc.New(tx)
 	for _, e := range events {
-		if err := s.Q.InsertEvent(ctx, sqlc.InsertEventParams{
+		if err := q.InsertEvent(ctx, sqlc.InsertEventParams{
 			ProfileID: uuid.NullUUID{UUID: profileID, Valid: true},
 			Name:      e.Name,
 			Props:     propsOrEmptyObject(e.Props),
@@ -55,8 +87,30 @@ func (s *Service) LogBatch(ctx context.Context, profileID uuid.UUID, events []Ev
 			return err
 		}
 	}
+	return tx.Commit(ctx)
+}
 
-	return nil
+func validEvent(event Event) bool {
+	name := strings.TrimSpace(event.Name)
+	if len([]rune(name)) == 0 || len([]rune(name)) > maxEventNameRunes || !eventNamePattern.MatchString(name) {
+		return false
+	}
+	if len(event.Props) > maxPropsBytes {
+		return false
+	}
+	if len(event.Props) > 0 {
+		var object map[string]any
+		if !json.Valid(event.Props) || json.Unmarshal(event.Props, &object) != nil || object == nil {
+			return false
+		}
+	}
+	if event.TS != nil {
+		now := time.Now()
+		if event.TS.Before(now.Add(-7*24*time.Hour)) || event.TS.After(now.Add(5*time.Minute)) {
+			return false
+		}
+	}
+	return true
 }
 
 // propsOrEmptyObject defaults a nil/empty props payload to '{}'.

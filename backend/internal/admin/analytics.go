@@ -8,20 +8,20 @@ import (
 
 // AnalyticsOverview is honest SQL aggregates — not a BI funnel product.
 type AnalyticsOverview struct {
-	GeneratedAt           time.Time            `json:"generated_at"`
-	ProfilesTotal         int64                `json:"profiles_total"`
-	ProfilesCreated24h    int64                `json:"profiles_created_24h"`
-	ProfilesCreated7d     int64                `json:"profiles_created_7d"`
-	PaymentsPaidTotal     int64                `json:"payments_paid_total"`
-	PaymentsPaid7d        int64                `json:"payments_paid_7d"`
-	RevenuePaidUzsTotal   int64                `json:"revenue_paid_uzs_total"`
-	RevenuePaidUzs7d      int64                `json:"revenue_paid_uzs_7d"`
-	EntitlementsActive    int64                `json:"entitlements_active"`
-	EventsLast7d          int64                `json:"events_last_7d"`
-	TopEventNames7d       []AnalyticsNameCount `json:"top_event_names_7d"`
-	SignupsByDay14d       []AnalyticsDayCount  `json:"signups_by_day_14d"`
-	RevenueByDay14d       []AnalyticsDayCount  `json:"revenue_by_day_14d"`
-	Note                  string               `json:"note"`
+	GeneratedAt         time.Time            `json:"generated_at"`
+	ProfilesTotal       int64                `json:"profiles_total"`
+	ProfilesCreated24h  int64                `json:"profiles_created_24h"`
+	ProfilesCreated7d   int64                `json:"profiles_created_7d"`
+	PaymentsPaidTotal   int64                `json:"payments_paid_total"`
+	PaymentsPaid7d      int64                `json:"payments_paid_7d"`
+	RevenuePaidUzsTotal int64                `json:"revenue_paid_uzs_total"`
+	RevenuePaidUzs7d    int64                `json:"revenue_paid_uzs_7d"`
+	EntitlementsActive  int64                `json:"entitlements_active"`
+	EventsLast7d        int64                `json:"events_last_7d"`
+	TopEventNames7d     []AnalyticsNameCount `json:"top_event_names_7d"`
+	SignupsByDay14d     []AnalyticsDayCount  `json:"signups_by_day_14d"`
+	RevenueByDay14d     []AnalyticsDayCount  `json:"revenue_by_day_14d"`
+	Note                string               `json:"note"`
 }
 
 // AnalyticsDayCount is a calendar-day series point for charts.

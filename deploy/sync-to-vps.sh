@@ -10,9 +10,11 @@ HOST="${1:-root@89.117.59.137}"
 DEST="${DEPLOY_PATH:-/opt/drivergo}"
 EXCLUDE="${ROOT}/deploy/rsync-exclude.txt"
 
-# --delete is safe for junk, but must NOT wipe host-only secrets.
-# Filter protects deploy/app.env on the destination.
-rsync -az --delete \
+# Runtime code is mirrored exactly so removed security-sensitive routes cannot
+# survive a deploy. Host-only secrets, backups, caches and Docker volumes are
+# excluded/protected by the filter file and explicit app.env rule.
+rsync -az \
+  --delete-delay \
   --exclude-from="${EXCLUDE}" \
   --filter='P deploy/app.env' \
   -e 'ssh -o StrictHostKeyChecking=accept-new' \

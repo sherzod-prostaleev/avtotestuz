@@ -66,9 +66,9 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 }
 
 type vipDTO struct {
-	Active    bool                    `json:"active"`
-	Until     *string                 `json:"until"`
-	Proration *billing.ProrationInfo  `json:"proration,omitempty"`
+	Active    bool                   `json:"active"`
+	Until     *string                `json:"until"`
+	Proration *billing.ProrationInfo `json:"proration,omitempty"`
 }
 
 func toVIPDTO(active bool, until *time.Time) vipDTO {

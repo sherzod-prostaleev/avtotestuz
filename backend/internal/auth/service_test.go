@@ -293,13 +293,17 @@ func TestRequestOTPCooldown(t *testing.T) {
 
 func TestRegisterLoginHappyPath(t *testing.T) {
 	pool := testdb.New(t)
-	svc, _ := newTestService(t, pool)
+	svc, sender := newTestService(t, pool)
 	ctx := context.Background()
+	if _, err := svc.RequestOTP(ctx, "901234567", "1.1.1.1"); err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
 
 	reg, err := svc.Register(ctx, RegisterInput{
 		Phone:    "901234567",
 		Password: "secret123",
 		Name:     "Ali",
+		Code:     sender.last,
 		IP:       "1.1.1.1",
 	})
 	if err != nil {
@@ -326,19 +330,20 @@ func TestRegisterLoginHappyPath(t *testing.T) {
 	if _, err := svc.Login(ctx, LoginInput{Phone: "901234567", Password: "wrongpass", IP: "1.1.1.1"}); !errors.Is(err, ErrInvalidCreds) {
 		t.Fatalf("err=%v want ErrInvalidCreds", err)
 	}
-	if _, err := svc.Register(ctx, RegisterInput{Phone: "901234567", Password: "secret123", IP: "1.1.1.1"}); !errors.Is(err, ErrPhoneTaken) {
-		t.Fatalf("err=%v want ErrPhoneTaken", err)
-	}
 }
 
 func TestLoginAndRefreshRejectBanned(t *testing.T) {
 	pool := testdb.New(t)
-	svc, _ := newTestService(t, pool)
+	svc, sender := newTestService(t, pool)
 	ctx := context.Background()
+	if _, err := svc.RequestOTP(ctx, "901112233", "1.1.1.1"); err != nil {
+		t.Fatalf("RequestOTP: %v", err)
+	}
 
 	reg, err := svc.Register(ctx, RegisterInput{
 		Phone:    "901112233",
 		Password: "secret123",
+		Code:     sender.last,
 		IP:       "1.1.1.1",
 	})
 	if err != nil {
@@ -358,7 +363,7 @@ func TestLoginAndRefreshRejectBanned(t *testing.T) {
 	}
 }
 
-func TestLoginPasswordNotSetThenSetPassword(t *testing.T) {
+func TestPasswordlessOTPAccountCannotClaimPasswordWithoutAnotherProof(t *testing.T) {
 	pool := testdb.New(t)
 	svc, sender := newTestService(t, pool)
 	ctx := context.Background()
@@ -374,20 +379,12 @@ func TestLoginPasswordNotSetThenSetPassword(t *testing.T) {
 		t.Fatalf("err=%v want ErrPasswordNotSet", err)
 	}
 
-	set, err := svc.SetPassword(ctx, SetPasswordInput{Phone: testPhone, Password: "secret123", IP: ""})
-	if err != nil {
-		t.Fatalf("SetPassword: %v", err)
+	var passwordHash *string
+	if err := pool.QueryRow(ctx, `SELECT password_hash FROM profile WHERE phone = $1`, testPhone).Scan(&passwordHash); err != nil {
+		t.Fatal(err)
 	}
-	if set.Access == "" {
-		t.Fatal("expected tokens after set-password")
-	}
-
-	if _, err := svc.SetPassword(ctx, SetPasswordInput{Phone: testPhone, Password: "another12", IP: ""}); !errors.Is(err, ErrPasswordSet) {
-		t.Fatalf("err=%v want ErrPasswordSet", err)
-	}
-
-	if _, err := svc.Login(ctx, LoginInput{Phone: testPhone, Password: "secret123", IP: ""}); err != nil {
-		t.Fatalf("Login after set-password: %v", err)
+	if passwordHash != nil {
+		t.Fatal("OTP-only account unexpectedly acquired a password")
 	}
 }
 
@@ -396,6 +393,31 @@ func TestRegisterWeakPassword(t *testing.T) {
 	svc, _ := newTestService(t, pool)
 	if _, err := svc.Register(context.Background(), RegisterInput{Phone: "901234567", Password: "short"}); !errors.Is(err, ErrWeakPassword) {
 		t.Fatalf("err=%v want ErrWeakPassword", err)
+	}
+}
+
+func TestRegisterRejectsMissingOrWrongOTPWithoutCreatingProfileOrTrial(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	ctx := context.Background()
+
+	for _, code := range []string{"", "000000"} {
+		_, err := svc.Register(ctx, RegisterInput{
+			Phone: "901234567", Password: "secret123", Code: code, IP: "1.1.1.1",
+		})
+		if !errors.Is(err, ErrInvalidCode) {
+			t.Fatalf("code=%q err=%v want ErrInvalidCode", code, err)
+		}
+	}
+	var profiles, entitlements int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM profile`).Scan(&profiles); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM entitlement`).Scan(&entitlements); err != nil {
+		t.Fatal(err)
+	}
+	if profiles != 0 || entitlements != 0 {
+		t.Fatalf("unverified registration wrote profiles=%d entitlements=%d", profiles, entitlements)
 	}
 }
 

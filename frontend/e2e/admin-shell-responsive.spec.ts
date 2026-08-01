@@ -70,7 +70,7 @@ const ME = {
     "users.read",
     "content.questions.read",
     "payments.read",
-    "payments.delete",
+    "payments.void",
     "referral.read",
     "referral.payouts.manage",
     "cms.read",

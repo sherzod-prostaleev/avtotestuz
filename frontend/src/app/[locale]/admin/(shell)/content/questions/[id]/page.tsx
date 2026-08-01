@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
@@ -46,10 +47,10 @@ type QuestionDetail = {
   };
 };
 
-export default function AdminQuestionDetailPage({ params }: { params: { id: string } }) {
+export default function AdminQuestionDetailPage() {
   const t = useTranslations("AdminContent");
   const locale = useLocale();
-  const { id } = params;
+  const { id } = useParams<{ id: string }>();
   const [q, setQ] = useState<QuestionDetail | null>(null);
   const [revisions, setRevisions] = useState<
     { id: string; note?: string; created_at: string; snapshot_json: unknown }[]

@@ -247,7 +247,7 @@ func TestAdminPaymentsListDetailProviders(t *testing.T) {
 	})
 }
 
-func TestAdminPaymentHardDelete(t *testing.T) {
+func TestAdminPaymentVoidPreservesFinancialHistory(t *testing.T) {
 	pool := testdb.New(t)
 	testdb.Truncate(t, pool)
 	store := Store{Pool: pool}
@@ -333,13 +333,13 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO payment (id, profile_id, tariff_id, amount_uzs, provider, status, idempotency_key,
 		                     tariff_days_snapshot, tariff_price_uzs_snapshot)
-		VALUES ($1, $2, $3, 19900, 'click', 'created', $4, 7, 19900)`,
+		VALUES ($1, $2, $3, 19900, 'click', 'canceled', $4, 7, 19900)`,
 		clickPay, profileID, tariffID, "del-click-"+clickPay.String()); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(context.Background(), `
 		INSERT INTO click_transaction (click_trans_id, click_paydoc_id, payment_id, amount_uzs, state)
-		VALUES ($1, $2, $3, 19900, 0)`,
+		VALUES ($1, $2, $3, 19900, -1)`,
 		"click-"+clickPay.String(), "doc-"+clickPay.String(), clickPay); err != nil {
 		t.Fatal(err)
 	}
@@ -349,19 +349,30 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 		Svc:     svc,
 		Pool:    pool,
 		Secret:  secret,
-		Billing: billing.Service{Q: q, Pool: pool},
+		Billing: billing.Service{Q: q, Pool: pool, Secret: secret},
 	}
 	r := chi.NewRouter()
 	r.Route("/admin/v1", h.Routes)
 	access := loginAccess(t, r, "ops@example.uz", "password123")
 
-	t.Run("hard delete paid payme cleans related", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+paymentID.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
+	voidRequest := func(t *testing.T, token string, id uuid.UUID, reason string) *httptest.ResponseRecorder {
+		t.Helper()
+		body, err := json.Marshal(map[string]string{"reason": reason})
+		if err != nil {
+			t.Fatal(err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/admin/v1/payments/transactions/"+id.String()+"/void", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+token)
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+		return w
+	}
+
+	t.Run("settled Payme payment and all related rows are preserved", func(t *testing.T) {
+		w := voidRequest(t, access, paymentID, "settled payment must stay immutable")
+		if w.Code != http.StatusConflict {
+			t.Fatalf("status=%d want 409 body=%s", w.Code, w.Body.String())
 		}
 
 		var n int
@@ -377,27 +388,23 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 			if err := pool.QueryRow(context.Background(), c.q, paymentID).Scan(&n); err != nil {
 				t.Fatal(err)
 			}
-			if n != 0 {
-				t.Fatalf("expected 0 rows for %q, got %d", c.q, n)
+			if n != 1 {
+				t.Fatalf("expected preserved row for %q, got %d", c.q, n)
 			}
 		}
 
-		var auditCount int
+		var voidCount int
 		if err := pool.QueryRow(context.Background(),
-			`SELECT COUNT(*)::int FROM admin_audit_log
-			 WHERE action='payments.transactions.delete' AND entity_id=$1`, paymentID.String()).Scan(&auditCount); err != nil {
+			`SELECT COUNT(*)::int FROM payment_void WHERE payment_id=$1`, paymentID).Scan(&voidCount); err != nil {
 			t.Fatal(err)
 		}
-		if auditCount < 1 {
-			t.Fatal("expected delete audit")
+		if voidCount != 0 {
+			t.Fatalf("settled payment unexpectedly voided: %d", voidCount)
 		}
 	})
 
-	t.Run("hard delete manual cleans assignment and unmatches event", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+manualPay.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+	t.Run("manual payment is voided without deleting assignment or event", func(t *testing.T) {
+		w := voidRequest(t, access, manualPay, "operator confirmed duplicate checkout")
 		if w.Code != http.StatusOK {
 			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 		}
@@ -406,26 +413,43 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 			`SELECT COUNT(*)::int FROM manual_pay_assignment WHERE payment_id = $1`, manualPay).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
-		if n != 0 {
-			t.Fatalf("assignment leftover=%d", n)
+		if n != 1 {
+			t.Fatalf("assignment was not preserved: %d", n)
 		}
-		var status string
+		var paymentStatus, assignmentStatus, eventStatus string
 		var matched *uuid.UUID
 		if err := pool.QueryRow(context.Background(),
-			`SELECT status, matched_payment_id FROM manual_pay_event WHERE fingerprint = $1`,
-			"fp-"+manualPay.String()).Scan(&status, &matched); err != nil {
+			`SELECT status FROM payment WHERE id=$1`, manualPay).Scan(&paymentStatus); err != nil {
 			t.Fatal(err)
 		}
-		if status != "unmatched" || matched != nil {
-			t.Fatalf("event status=%s matched=%v", status, matched)
+		if err := pool.QueryRow(context.Background(),
+			`SELECT manual_state FROM manual_pay_assignment WHERE payment_id=$1`, manualPay).Scan(&assignmentStatus); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(context.Background(),
+			`SELECT status, matched_payment_id FROM manual_pay_event WHERE fingerprint = $1`,
+			"fp-"+manualPay.String()).Scan(&eventStatus, &matched); err != nil {
+			t.Fatal(err)
+		}
+		if paymentStatus != "voided" || assignmentStatus != "rejected" || eventStatus != "unmatched" || matched != nil {
+			t.Fatalf("payment=%s assignment=%s event=%s matched=%v", paymentStatus, assignmentStatus, eventStatus, matched)
+		}
+		var voidCount, auditCount int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*)::int FROM payment_void WHERE payment_id=$1`, manualPay).Scan(&voidCount); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*)::int FROM admin_audit_log WHERE action='payments.transactions.void' AND entity_id=$1`, manualPay.String()).Scan(&auditCount); err != nil {
+			t.Fatal(err)
+		}
+		if voidCount != 1 || auditCount != 1 {
+			t.Fatalf("void=%d audit=%d want 1/1", voidCount, auditCount)
 		}
 	})
 
-	t.Run("hard delete click cleans txn", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+clickPay.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+	t.Run("click transaction remains linked after void", func(t *testing.T) {
+		w := voidRequest(t, access, clickPay, "checkout abandoned by the operator")
 		if w.Code != http.StatusOK {
 			t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
 		}
@@ -434,16 +458,20 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 			`SELECT COUNT(*)::int FROM click_transaction WHERE payment_id = $1`, clickPay).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
-		if n != 0 {
-			t.Fatalf("click txn leftover=%d", n)
+		if n != 1 {
+			t.Fatalf("click transaction was not preserved: %d", n)
+		}
+		var status string
+		if err := pool.QueryRow(context.Background(), `SELECT status FROM payment WHERE id=$1`, clickPay).Scan(&status); err != nil {
+			t.Fatal(err)
+		}
+		if status != "voided" {
+			t.Fatalf("status=%s want voided", status)
 		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+uuid.New().String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+		w := voidRequest(t, access, uuid.New(), "payment does not exist in database")
 		if w.Code != http.StatusNotFound {
 			t.Fatalf("status=%d want 404", w.Code)
 		}
@@ -474,10 +502,7 @@ func TestAdminPaymentHardDelete(t *testing.T) {
 			orphan, profileID, tariffID, "del-orphan-"+orphan.String()); err != nil {
 			t.Fatal(err)
 		}
-		req := httptest.NewRequest(http.MethodDelete, "/admin/v1/payments/transactions/"+orphan.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+edAccess)
-		w := httptest.NewRecorder()
-		r.ServeHTTP(w, req)
+		w := voidRequest(t, edAccess, orphan, "operator requested a safe payment void")
 		if w.Code != http.StatusForbidden {
 			t.Fatalf("status=%d want 403", w.Code)
 		}

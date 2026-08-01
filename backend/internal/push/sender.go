@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	webpush "github.com/SherClockHolmes/webpush-go"
 )
@@ -61,6 +62,7 @@ func (s *VAPIDSender) Send(ctx context.Context, sub Subscription, payload []byte
 
 // FakeSender records payloads for tests.
 type FakeSender struct {
+	mu    sync.Mutex
 	Calls []FakeSend
 	Err   error
 }
@@ -71,6 +73,8 @@ type FakeSend struct {
 }
 
 func (f *FakeSender) Send(_ context.Context, sub Subscription, payload []byte) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.Calls = append(f.Calls, FakeSend{Sub: sub, Payload: append([]byte(nil), payload...)})
 	return f.Err
 }

@@ -35,6 +35,8 @@ const demoVariantNumber = 1
 // the same fixed-window Limiter as the auth/OTP package.
 const demoAnswerRateLimit = 60
 
+const diagnosticLoadRateLimit = 30
+
 // Service implements the public, unauthenticated demo surface: one
 // real question a visitor can answer without registration. It is
 // completely stateless aside from the Redis rate-limit counter — no
@@ -55,6 +57,18 @@ func NewService(q *sqlc.Queries, ch *content.Handler, lim auth.Limiter) *Service
 // whitelistIDs returns the current demo whitelist (see rules.go), or
 // ErrNotFound if variant number 1 doesn't exist or has no questions.
 func (s *Service) whitelistIDs(ctx context.Context) ([]uuid.UUID, error) {
+	ordered, err := s.orderedDemoIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	wl := Whitelist(ordered)
+	if len(wl) == 0 {
+		return nil, ErrNotFound
+	}
+	return wl, nil
+}
+
+func (s *Service) orderedDemoIDs(ctx context.Context) ([]uuid.UUID, error) {
 	v, err := s.Q.GetVariantByNumber(ctx, demoVariantNumber)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -66,11 +80,10 @@ func (s *Service) whitelistIDs(ctx context.Context) ([]uuid.UUID, error) {
 	if err != nil {
 		return nil, err
 	}
-	wl := Whitelist(ordered)
-	if len(wl) == 0 {
+	if len(ordered) == 0 {
 		return nil, ErrNotFound
 	}
-	return wl, nil
+	return ordered, nil
 }
 
 // GetQuestion returns one randomly-chosen question from the demo whitelist,
@@ -92,6 +105,38 @@ func (s *Service) GetQuestion(ctx context.Context, locale string) (content.Quest
 	return detail, fallback, nil
 }
 
+// GetDiagnostic returns the deterministic public 10-question assessment.
+// Correctness and explanations are stripped exactly as in GetQuestion.
+func (s *Service) GetDiagnostic(ctx context.Context, ip, locale string) ([]content.QuestionDetailDTO, bool, error) {
+	if ip != "" {
+		ok, err := s.Lim.Allow(ctx, "demo:diagnostic:ip:"+ip, diagnosticLoadRateLimit, time.Hour)
+		if err != nil {
+			return nil, false, err
+		}
+		if !ok {
+			return nil, false, ErrRateLimited
+		}
+	}
+
+	ordered, err := s.orderedDemoIDs(ctx)
+	if err != nil {
+		return nil, false, err
+	}
+	ids := DiagnosticWhitelist(ordered)
+	questions := make([]content.QuestionDetailDTO, 0, len(ids))
+	anyFallback := false
+	for _, id := range ids {
+		detail, fallback, err := s.Content.LoadQuestionDetail(ctx, id, locale)
+		if err != nil {
+			return nil, false, err
+		}
+		detail.Explanation = nil
+		questions = append(questions, detail)
+		anyFallback = anyFallback || fallback
+	}
+	return questions, anyFallback, nil
+}
+
 // SubmitAnswer grades a single answer against a whitelisted demo question.
 // It never grades anything outside the whitelist (ErrNotFound), and never
 // accepts an answer_id that doesn't belong to question_id (ErrInvalidAnswer)
@@ -109,10 +154,11 @@ func (s *Service) SubmitAnswer(ctx context.Context, ip string, questionID, answe
 		}
 	}
 
-	ids, err := s.whitelistIDs(ctx)
+	ordered, err := s.orderedDemoIDs(ctx)
 	if err != nil {
 		return false, uuid.UUID{}, err
 	}
+	ids := DiagnosticWhitelist(ordered)
 	if !IsWhitelisted(ids, questionID) {
 		return false, uuid.UUID{}, ErrNotFound
 	}

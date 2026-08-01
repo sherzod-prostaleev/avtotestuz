@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -35,6 +36,7 @@ var (
 
 type Service struct {
 	Q           *sqlc.Queries
+	Pool        *pgxpool.Pool
 	Billing     billing.Service
 	Learning    *learning.Service
 	Progress    *progress.Service
@@ -42,8 +44,27 @@ type Service struct {
 	Now         func() time.Time
 }
 
-func NewService(q *sqlc.Queries, b billing.Service, l *learning.Service, p *progress.Service) *Service {
-	return &Service{Q: q, Billing: b, Learning: l, Progress: p}
+func NewService(q *sqlc.Queries, pool *pgxpool.Pool, b billing.Service, l *learning.Service, p *progress.Service) *Service {
+	return &Service{Q: q, Pool: pool, Billing: b, Learning: l, Progress: p}
+}
+
+// transactional returns a service whose related persistence components all
+// share one pgx transaction. Optional collaborators keep their original
+// enablement semantics (notably Billing in tests).
+func (s *Service) transactional(q *sqlc.Queries) *Service {
+	l := learning.NewService(q)
+	p := progress.NewService(q)
+	p.Learning = l
+	if s.Progress != nil && s.Progress.Billing.Q != nil {
+		p.Billing = s.Progress.Billing
+		p.Billing.Q = q
+	}
+	b := s.Billing
+	b.Q = q
+	return &Service{
+		Q: q, Pool: s.Pool, Billing: b, Learning: l, Progress: p,
+		Leaderboard: s.Leaderboard, Now: s.Now,
+	}
 }
 
 func (s *Service) now() time.Time {
@@ -437,11 +458,29 @@ func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID
 // FSRS side effects (unless opts.SkipFSRS): incorrect → Again; exam-like
 // correct → Good; practice-style correct → FSRSRatingForCorrect(rating, latency).
 func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questionID, answerID uuid.UUID, opts SubmitAnswerOpts) (AnswerResult, error) {
-	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if s.Pool == nil {
+		return AnswerResult{}, errors.New("session transaction pool is not configured")
+	}
+	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
+		return AnswerResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Serialize every answer/finish mutation for one session. This prevents an
+	// answer from being inserted after a concurrent finish and makes the
+	// duplicate-answer check reliable before any FSRS/streak side effect.
+	var lockedID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM exam_session WHERE id = $1 FOR UPDATE`, sessionID).Scan(&lockedID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AnswerResult{}, ErrNotFound
 		}
+		return AnswerResult{}, err
+	}
+	q := sqlc.New(tx)
+	txSvc := s.transactional(q)
+	row, err := q.GetExamSession(ctx, sessionID)
+	if err != nil {
 		return AnswerResult{}, err
 	}
 	if row.ProfileID != profileID {
@@ -452,14 +491,17 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	}
 	if IsExamLike(row.Mode) && row.TimeLimitSec.Valid &&
 		!s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32)*time.Second)) {
-		finished, finishErr := s.finishInternal(ctx, row, false, true)
+		finished, finishErr := txSvc.finishInternal(ctx, row, false, true)
 		if finishErr != nil {
 			return AnswerResult{}, finishErr
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return AnswerResult{}, err
 		}
 		return AnswerResult{Stopped: true, StopReason: finished.StoppedReason}, nil
 	}
 
-	assigned, err := s.Q.GetSessionQuestion(ctx, sqlc.GetSessionQuestionParams{
+	assigned, err := q.GetSessionQuestion(ctx, sqlc.GetSessionQuestionParams{
 		SessionID: sessionID, QuestionID: questionID,
 	})
 	if err != nil {
@@ -468,16 +510,17 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		}
 		return AnswerResult{}, err
 	}
-
-	_, err = s.Q.GetSessionAnswer(ctx, sqlc.GetSessionAnswerParams{SessionID: sessionID, QuestionID: questionID})
-	if err == nil {
+	if _, err = q.GetSessionAnswer(ctx, sqlc.GetSessionAnswerParams{
+		SessionID: sessionID, QuestionID: questionID,
+	}); err == nil {
 		return AnswerResult{}, ErrAlreadyAnswered
-	}
-	if !errors.Is(err, pgx.ErrNoRows) {
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return AnswerResult{}, err
 	}
 
-	ans, err := s.Q.GetAnswerForScoring(ctx, sqlc.GetAnswerForScoringParams{ID: answerID, QuestionID: questionID})
+	ans, err := q.GetAnswerForScoring(ctx, sqlc.GetAnswerForScoringParams{
+		ID: answerID, QuestionID: questionID,
+	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AnswerResult{}, ErrInvalidAnswer
@@ -487,7 +530,7 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 
 	var explanation *ExplanationPayload
 	if !IsExamLike(row.Mode) {
-		expl, explErr := s.Q.GetVerifiedExplanation(ctx, sqlc.GetVerifiedExplanationParams{
+		expl, explErr := q.GetVerifiedExplanation(ctx, sqlc.GetVerifiedExplanationParams{
 			QuestionID: questionID, Locale: row.Locale,
 		})
 		switch {
@@ -500,16 +543,12 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		}
 	}
 
-	if _, err := s.Q.InsertSessionAnswer(ctx, sqlc.InsertSessionAnswerParams{
-		SessionID:  sessionID,
-		QuestionID: questionID,
-		AnswerID:   answerID,
-		IsCorrect:  ans.IsCorrect,
-		Position:   assigned.Position,
+	if _, err := q.InsertSessionAnswer(ctx, sqlc.InsertSessionAnswerParams{
+		SessionID: sessionID, QuestionID: questionID, AnswerID: answerID,
+		IsCorrect: ans.IsCorrect, Position: assigned.Position,
 	}); err != nil {
 		return AnswerResult{}, err
 	}
-
 	if !opts.SkipFSRS {
 		var rating learning.Rating
 		switch {
@@ -524,37 +563,27 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 			}
 			rating = FSRSRatingForCorrect(opts.Rating, latencyMs)
 		}
-		if _, err := s.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
+		if _, err := txSvc.Learning.RecordReview(ctx, profileID, questionID, rating); err != nil {
 			return AnswerResult{}, err
 		}
 	}
-	if _, err := s.Progress.RecordActivity(ctx, profileID); err != nil {
+	if _, err := txSvc.Progress.RecordActivity(ctx, profileID); err != nil {
 		return AnswerResult{}, err
 	}
 
-	// Best-effort: leaderboard standing is a side effect, never the source
-	// of truth for anything else (session_answer already recorded this
-	// answer above, via the code preceding this block). This codebase has
-	// no logging framework — the error is deliberately discarded rather
-	// than failing the request or introducing a new logging dependency for
-	// a single low-stakes call site.
-	if ans.IsCorrect && s.Leaderboard != nil {
-		_ = s.Leaderboard.RecordPoint(ctx, profileID)
-	}
-
+	var result AnswerResult
 	if IsExamLike(row.Mode) {
-		// Compute per-answer correct/wrong feedback so the exam UI can show
-		// green/red immediately, matching the official Avtotest desktop app.
 		examCorrectID := answerID
 		if !ans.IsCorrect {
-			examCorrectID, err = s.Q.GetCorrectAnswerID(ctx, questionID)
+			examCorrectID, err = q.GetCorrectAnswerID(ctx, questionID)
 			if err != nil {
 				return AnswerResult{}, err
 			}
 		}
 		examCorrect := ans.IsCorrect
+		result = AnswerResult{Recorded: true, Correct: &examCorrect, CorrectAnswerID: &examCorrectID}
 
-		after, err := s.Q.CountSessionAnswers(ctx, sessionID)
+		after, err := q.CountSessionAnswers(ctx, sessionID)
 		if err != nil {
 			return AnswerResult{}, err
 		}
@@ -564,25 +593,36 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 			errorsAllowed = int(row.ErrorsAllowed.Int32)
 		}
 		if ShouldStopForErrors(wrongSoFar, errorsAllowed) {
-			if _, err := s.finishInternal(ctx, row, true, false); err != nil {
+			if _, err := txSvc.finishInternal(ctx, row, true, false); err != nil {
 				return AnswerResult{}, err
 			}
-			return AnswerResult{Recorded: true, Correct: &examCorrect, CorrectAnswerID: &examCorrectID, Stopped: true, StopReason: "too_many_errors"}, nil
+			result.Stopped = true
+			result.StopReason = "too_many_errors"
 		}
-		return AnswerResult{Recorded: true, Correct: &examCorrect, CorrectAnswerID: &examCorrectID}, nil
+	} else {
+		correctID := answerID
+		if !ans.IsCorrect {
+			correctID, err = q.GetCorrectAnswerID(ctx, questionID)
+			if err != nil {
+				return AnswerResult{}, err
+			}
+		}
+		correct := ans.IsCorrect
+		result = AnswerResult{
+			Recorded: true, Correct: &correct, CorrectAnswerID: &correctID, Explanation: explanation,
+		}
 	}
 
-	correctID := answerID
-	if !ans.IsCorrect {
-		correctID, err = s.Q.GetCorrectAnswerID(ctx, questionID)
-		if err != nil {
-			return AnswerResult{}, err
-		}
+	if err := tx.Commit(ctx); err != nil {
+		return AnswerResult{}, err
 	}
-	correct := ans.IsCorrect
-	return AnswerResult{
-		Recorded: true, Correct: &correct, CorrectAnswerID: &correctID, Explanation: explanation,
-	}, nil
+	// Leaderboard is intentionally outside the source-of-truth transaction:
+	// it is a reconstructable Redis projection, while answer/FSRS/streak are
+	// committed together above.
+	if ans.IsCorrect && s.Leaderboard != nil {
+		_ = s.Leaderboard.RecordPoint(ctx, profileID)
+	}
+	return result, nil
 }
 
 // GetSessionQuestionAccess authorizes a session-scoped question read and
@@ -667,11 +707,24 @@ const unlockThresholdConfigKey = "unlock_threshold_correct"
 // progress. It is idempotent: finishing an already-finished session returns
 // the stored result with no additional writes.
 func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.UUID) (FinishResult, error) {
-	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if s.Pool == nil {
+		return FinishResult{}, errors.New("session transaction pool is not configured")
+	}
+	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
+		return FinishResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	var lockedID uuid.UUID
+	if err := tx.QueryRow(ctx, `SELECT id FROM exam_session WHERE id = $1 FOR UPDATE`, sessionID).Scan(&lockedID); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return FinishResult{}, ErrNotFound
 		}
+		return FinishResult{}, err
+	}
+	q := sqlc.New(tx)
+	row, err := q.GetExamSession(ctx, sessionID)
+	if err != nil {
 		return FinishResult{}, err
 	}
 	if row.ProfileID != profileID {
@@ -682,7 +735,14 @@ func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.U
 	if IsExamLike(row.Mode) && row.TimeLimitSec.Valid {
 		timedOut = !s.now().Before(row.StartedAt.Time.Add(time.Duration(row.TimeLimitSec.Int32) * time.Second))
 	}
-	return s.finishInternal(ctx, row, false, timedOut)
+	result, err := s.transactional(q).finishInternal(ctx, row, false, timedOut)
+	if err != nil {
+		return FinishResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return FinishResult{}, err
+	}
+	return result, nil
 }
 
 // finishInternal marks a session as finished. It is the shared landing point

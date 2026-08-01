@@ -1,5 +1,3 @@
-"use client";
-
 import { ComingSoon } from "@/components/admin/coming-soon";
 
 export default function AdminSecurityIPPage() {

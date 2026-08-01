@@ -7,7 +7,7 @@ vi.mock("next-intl/middleware", () => ({
   default: () => () => NextResponse.next(),
 }));
 
-import middleware from "./middleware";
+import proxy from "./proxy";
 import { AUTH_COOKIE } from "@/lib/auth-cookies";
 
 function makeRequest(pathname: string, cookieHeader?: string): NextRequest {
@@ -16,7 +16,7 @@ function makeRequest(pathname: string, cookieHeader?: string): NextRequest {
   return new NextRequest(`http://localhost:3000${pathname}`, { headers });
 }
 
-describe("middleware auth guard", () => {
+describe("proxy auth guard", () => {
   it.each([
     "/uz-Latn/dashboard",
     "/uz-Latn/exam-mockup",
@@ -31,18 +31,18 @@ describe("middleware auth guard", () => {
     "/uz-Latn/session/start",
     "/uz-Latn/session/session-id",
   ])("redirects unauthenticated requests for %s to login", (pathname) => {
-    const response = middleware(makeRequest(pathname));
+    const response = proxy(makeRequest(pathname));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/login");
   });
 
   it("does not redirect a protected page when the access-token cookie is present", () => {
-    const response = middleware(makeRequest("/uz-Latn/dashboard", `${AUTH_COOKIE}=some-token`));
+    const response = proxy(makeRequest("/uz-Latn/dashboard", `${AUTH_COOKIE}=some-token`));
     expect(response.headers.get("location")).toBeNull();
   });
 
   it("redirects an already-logged-in user away from the login page", () => {
-    const response = middleware(makeRequest("/uz-Latn/login", `${AUTH_COOKIE}=some-token`));
+    const response = proxy(makeRequest("/uz-Latn/login", `${AUTH_COOKIE}=some-token`));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard");
   });
@@ -51,28 +51,44 @@ describe("middleware auth guard", () => {
   // already signed in gets bounced off /login. Dropping the query here loses
   // the referral outright, since nothing downstream can recover the code.
   it("carries ?ref across the login redirect for an authenticated visitor", () => {
-    const response = middleware(makeRequest("/uz-Latn/login?ref=FRIEND01", `${AUTH_COOKIE}=some-token`));
+    const response = proxy(makeRequest("/uz-Latn/login?ref=FRIEND01", `${AUTH_COOKIE}=some-token`));
     expect(response.status).toBe(307);
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard?ref=FRIEND01");
   });
 
   it("forwards only ref, not arbitrary query params, on that redirect", () => {
-    const response = middleware(
+    const response = proxy(
       makeRequest("/uz-Latn/login?ref=FRIEND01&next=%2Fevil", `${AUTH_COOKIE}=some-token`)
     );
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard?ref=FRIEND01");
   });
 
   it("does not touch the public landing page regardless of session state", () => {
-    const withSession = middleware(makeRequest("/uz-Latn", `${AUTH_COOKIE}=some-token`));
-    const withoutSession = middleware(makeRequest("/uz-Latn"));
+    const withSession = proxy(makeRequest("/uz-Latn", `${AUTH_COOKIE}=some-token`));
+    const withoutSession = proxy(makeRequest("/uz-Latn"));
     expect(withSession.headers.get("location")).toBeNull();
     expect(withoutSession.headers.get("location")).toBeNull();
   });
 
   it("delegates to next-intl untouched when the URL has no locale prefix yet", () => {
-    const response = middleware(makeRequest("/dashboard"));
+    const response = proxy(makeRequest("/dashboard"));
     expect(response.headers.get("location")).toBeNull(); // the mocked intl middleware returns NextResponse.next()
+  });
+
+  it.each([
+    ["health", "monitoring/health"],
+    ["providers", "payments/providers"],
+    ["contacts", "cms/chrome"],
+    ["users", "users"],
+    ["payments", "payments/transactions"],
+    ["audit", "security/audit"],
+    ["limits", "settings/limits"],
+  ])("moves legacy shared-token Ops %s to admin RBAC", (legacy, adminPath) => {
+    const response = proxy(makeRequest(`/uz-Latn/ops/${legacy}`));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      `http://localhost:3000/uz-Latn/admin/${adminPath}`,
+    );
   });
 
   // PROTECTED_SEGMENTS is a hand-maintained list, so adding a route without
@@ -98,7 +114,7 @@ describe("middleware auth guard", () => {
     expect(routes).toContain("session");
     expect(routes.length).toBeGreaterThan(1);
     for (const route of routes) {
-      const response = middleware(makeRequest(`/uz-Latn/${route}`));
+      const response = proxy(makeRequest(`/uz-Latn/${route}`));
       expect(response.headers.get("location"), `/${route} is not auth-guarded`).toBe(
         "http://localhost:3000/uz-Latn/login"
       );

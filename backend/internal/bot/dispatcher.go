@@ -23,18 +23,18 @@ const (
 	msgStartGroup     = "Driver Go quiz boti guruhda.\n\n" +
 		"Boshlash: /quiz\nKeyingi: /next\nTo'xtatish: /stop\n\n" +
 		"Rasmiy formatdagi savollar — bepul sinab ko'ring."
-	msgLinkUsage     = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
-	msgLinkSuccess   = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring. Mashq: /quiz"
-	msgLinkAlreadyOK = "Bu Telegram hisobi allaqachon shu profilga ulangan."
-	msgLinkExpired   = "Havola muddati tugagan. Saytdan yangi havola oling."
-	msgLinkUsed      = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
-	msgLinkNotFound  = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
-	msgLinkElsewhere = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing (/unlink) yoki qo'llab-quvvatlashga yozing."
-	msgLinkInternal  = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
-	msgStatusUnlinked = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
-	msgUnlinkOK       = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
-	msgUnlinkNone     = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
-	msgUnknown        = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
+	msgLinkUsage       = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
+	msgLinkSuccess     = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring. Mashq: /quiz"
+	msgLinkAlreadyOK   = "Bu Telegram hisobi allaqachon shu profilga ulangan."
+	msgLinkExpired     = "Havola muddati tugagan. Saytdan yangi havola oling."
+	msgLinkUsed        = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
+	msgLinkNotFound    = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
+	msgLinkElsewhere   = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing (/unlink) yoki qo'llab-quvvatlashga yozing."
+	msgLinkInternal    = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
+	msgStatusUnlinked  = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
+	msgUnlinkOK        = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
+	msgUnlinkNone      = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
+	msgUnknown         = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
 	msgQuizUnavailable = "Quiz hozircha ishlamayapti. Keyinroq qayta urinib ko'ring."
 )
 
@@ -69,6 +69,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if err := b.Quiz.HandlePollAnswer(ctx, *u.PollAnswer); err != nil {
 			b.logger().Error("bot: poll answer failed", zap.Error(err))
+			return err
 		}
 		return nil
 	}
@@ -78,6 +79,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if err := b.Quiz.HandleCallback(ctx, *u.CallbackQuery); err != nil {
 			b.logger().Error("bot: quiz callback failed", zap.Error(err))
+			return err
 		}
 		return nil
 	}
@@ -105,7 +107,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if err := b.Quiz.StartGame(ctx, chatID, tgUserID, chatType); err != nil {
 			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
-			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		return nil
 	case "/next":
@@ -114,7 +116,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
 			b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
-			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		return nil
 	case "/stop":
@@ -123,14 +125,14 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if err := b.Quiz.Stop(ctx, chatID); err != nil {
 			b.logger().Error("bot: quiz stop failed", zap.Error(err))
-			return b.TG.SendMessage(ctx, chatID, msgLinkInternal)
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 		}
 		return nil
 	case "/unlink":
 		reply, err := b.handleUnlink(ctx, tgUserID)
 		if err != nil {
 			b.logger().Error("bot: unlink failed", zap.Error(err))
-			reply = msgLinkInternal
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 		}
 		return b.TG.SendMessage(ctx, chatID, reply)
 	case "/start":
@@ -145,7 +147,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
 			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-			reply = msgLinkInternal
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 		}
 		if reply == "" {
 			return nil
@@ -155,7 +157,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
 			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-			reply = msgLinkInternal
+			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 		}
 		if reply == "" {
 			return nil

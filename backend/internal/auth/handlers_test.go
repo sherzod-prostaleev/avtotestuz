@@ -128,7 +128,7 @@ func TestOTPRequestVerifyProbeAndRefreshOverHTTP(t *testing.T) {
 	}
 }
 
-func TestRegisterLoginSetPasswordOverHTTP(t *testing.T) {
+func TestRegisterRequiresOTPAndSetPasswordRouteIsAbsent(t *testing.T) {
 	ts := setupHandlerServer(t)
 
 	status, env := postJSON(t, ts, "/auth/register", map[string]string{
@@ -136,8 +136,26 @@ func TestRegisterLoginSetPasswordOverHTTP(t *testing.T) {
 		"password": "secret123",
 		"name":     "Test",
 	})
+	if status != http.StatusBadRequest || env.Error == nil || env.Error.Code != "invalid_code" {
+		t.Fatalf("unverified register status=%d env=%+v", status, env)
+	}
+
+	status, env = postJSON(t, ts, "/auth/otp/request", map[string]string{"phone": "901112233"})
+	if status != http.StatusOK {
+		t.Fatalf("otp request status=%d env=%+v", status, env)
+	}
+	var reqOut otpRequestResponse
+	if err := json.Unmarshal(env.Data, &reqOut); err != nil {
+		t.Fatal(err)
+	}
+	status, env = postJSON(t, ts, "/auth/register", map[string]string{
+		"phone":    "901112233",
+		"password": "secret123",
+		"name":     "Test",
+		"code":     reqOut.DebugCode,
+	})
 	if status != http.StatusCreated {
-		t.Fatalf("register status=%d env=%+v", status, env)
+		t.Fatalf("verified register status=%d env=%+v", status, env)
 	}
 	var toks tokensResponse
 	if err := json.Unmarshal(env.Data, &toks); err != nil {
@@ -169,25 +187,16 @@ func TestRegisterLoginSetPasswordOverHTTP(t *testing.T) {
 		t.Fatal("expected tokens on login")
 	}
 
-	// OTP-created account without password → set-password hatch
-	status, env = postJSON(t, ts, "/auth/otp/request", map[string]string{"phone": "909998877"})
-	if status != http.StatusOK {
-		t.Fatalf("otp request status=%d", status)
-	}
-	var reqOut otpRequestResponse
-	if err := json.Unmarshal(env.Data, &reqOut); err != nil {
+	body, err := json.Marshal(map[string]string{"phone": "909998877", "password": "secret123"})
+	if err != nil {
 		t.Fatal(err)
 	}
-	status, _ = postJSON(t, ts, "/auth/otp/verify", map[string]string{"phone": "909998877", "code": reqOut.DebugCode})
-	if status != http.StatusOK {
-		t.Fatalf("otp verify status=%d", status)
+	resp, err := ts.Client().Post(ts.URL+"/auth/set-password", "application/json", bytes.NewReader(body))
+	if err != nil {
+		t.Fatal(err)
 	}
-	status, env = postJSON(t, ts, "/auth/login", map[string]string{"phone": "909998877", "password": "secret123"})
-	if status != http.StatusConflict || env.Error == nil || env.Error.Code != "password_not_set" {
-		t.Fatalf("login without hash status=%d env=%+v", status, env)
-	}
-	status, env = postJSON(t, ts, "/auth/set-password", map[string]string{"phone": "909998877", "password": "secret123"})
-	if status != http.StatusOK {
-		t.Fatalf("set-password status=%d env=%+v", status, env)
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("set-password status=%d, want 404", resp.StatusCode)
 	}
 }

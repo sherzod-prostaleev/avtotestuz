@@ -2,6 +2,7 @@ package db_test
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 	"testing"
 
@@ -46,6 +47,92 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 	}
 	if dead != nil {
 		t.Errorf("referral_attribution still present (%s); expected dropped by 0028", *dead)
+	}
+}
+
+func TestAtomicAuditFallbackRollsBackMutationAndRedactsSecrets(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+
+	var profileID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO profile (phone, name, password_hash)
+		VALUES ('+998900009951', 'Before', 'must-not-enter-audit')
+		RETURNING id`).Scan(&profileID); err != nil {
+		t.Fatal(err)
+	}
+
+	var afterJSON []byte
+	if err := pool.QueryRow(ctx, `
+		SELECT after_json FROM admin_audit_log
+		WHERE action = 'db.insert' AND entity_type = 'profile' AND entity_id = $1
+		ORDER BY created_at DESC LIMIT 1`, profileID).Scan(&afterJSON); err != nil {
+		t.Fatal(err)
+	}
+	var snapshot map[string]any
+	if err := json.Unmarshal(afterJSON, &snapshot); err != nil {
+		t.Fatal(err)
+	}
+	if _, exists := snapshot["password_hash"]; exists {
+		t.Fatal("atomic audit snapshot must redact password_hash")
+	}
+
+	if _, err := pool.Exec(ctx, `
+		CREATE FUNCTION test_reject_atomic_audit() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN
+		  IF NEW.action = 'db.update' THEN
+		    RAISE EXCEPTION 'injected audit failure';
+		  END IF;
+		  RETURN NEW;
+		END $$;
+		CREATE TRIGGER test_reject_atomic_audit_trigger
+		BEFORE INSERT ON admin_audit_log
+		FOR EACH ROW EXECUTE FUNCTION test_reject_atomic_audit()`); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `
+			DROP TRIGGER IF EXISTS test_reject_atomic_audit_trigger ON admin_audit_log;
+			DROP FUNCTION IF EXISTS test_reject_atomic_audit()`)
+	})
+
+	if _, err := pool.Exec(ctx, `UPDATE profile SET name = 'After' WHERE id = $1`, profileID); err == nil {
+		t.Fatal("mutation must fail when its same-transaction audit insert fails")
+	}
+	var name string
+	if err := pool.QueryRow(ctx, `SELECT name FROM profile WHERE id = $1`, profileID).Scan(&name); err != nil {
+		t.Fatal(err)
+	}
+	if name != "Before" {
+		t.Fatalf("profile mutation was not rolled back: name=%q", name)
+	}
+}
+
+func TestAdminAuditAndContentRevisionAreAppendOnly(t *testing.T) {
+	pool := testdb.New(t)
+	ctx := context.Background()
+
+	var auditID string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO admin_audit_log (action, entity_type)
+		VALUES ('test.append', 'test') RETURNING id`).Scan(&auditID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM admin_audit_log WHERE id = $1`, auditID); err == nil {
+		t.Fatal("admin audit rows must be immutable")
+	}
+
+	var entityID, revisionID string
+	if err := pool.QueryRow(ctx, `SELECT gen_random_uuid()`).Scan(&entityID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO content_revision (entity_type, entity_id, snapshot_json)
+		VALUES ('test', $1, '{}') RETURNING id`, entityID).Scan(&revisionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE content_revision SET note = 'changed' WHERE id = $1`, revisionID); err == nil {
+		t.Fatal("content revisions must be immutable")
 	}
 }
 

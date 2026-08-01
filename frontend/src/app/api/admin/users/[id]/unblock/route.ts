@@ -2,9 +2,10 @@ import { adminProxy } from "@/lib/admin-proxy";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
-export async function POST(request: Request, { params }: Ctx) {
+export async function POST(request: Request, ctx: Ctx) {
+  const params = await ctx.params;
   const body = await request.text();
   return adminProxy(request, `/users/${params.id}/unblock`, {
     method: "POST",

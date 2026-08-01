@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ArrowLeft, Copy, KeyRound, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,11 +85,11 @@ type LedgerRow = {
   created_at: string;
 };
 
-export default function AdminUserDetailPage({ params }: { params: { id: string } }) {
+export default function AdminUserDetailPage() {
   const t = useTranslations("AdminUsers");
   const tr = useTranslations("AdminReferral");
   const locale = useLocale();
-  const { id } = params;
+  const { id } = useParams<{ id: string }>();
   const [user, setUser] = useState<UserDetail | null>(null);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [referral, setReferral] = useState<ReferralAdmin | null>(null);

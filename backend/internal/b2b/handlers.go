@@ -206,9 +206,9 @@ func (h *Handler) listLicenses(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]any{
-		"licenses":    licenses,
+		"licenses":     licenses,
 		"active_seats": seats,
-		"seats_used":  used,
+		"seats_used":   used,
 	})
 }
 

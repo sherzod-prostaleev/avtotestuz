@@ -2,8 +2,10 @@
 package b2b
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/csv"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -58,11 +60,11 @@ type MemberRow struct {
 
 // LicenseRow is a seat window summary.
 type LicenseRow struct {
-	ID       uuid.UUID `json:"id"`
-	Seats    int       `json:"seats"`
-	EndsAt   time.Time `json:"ends_at"`
-	Active   bool      `json:"active"`
-	Note     string    `json:"note"`
+	ID     uuid.UUID `json:"id"`
+	Seats  int       `json:"seats"`
+	EndsAt time.Time `json:"ends_at"`
+	Active bool      `json:"active"`
+	Note   string    `json:"note"`
 }
 
 // OrgDetail is teacher dashboard payload.
@@ -92,20 +94,20 @@ type InviteResult struct {
 
 // OrgStats aggregates for the teacher/admin dashboard.
 type OrgStats struct {
-	OrgID              uuid.UUID `json:"org_id"`
-	MembersTotal       int64     `json:"members_total"`
-	Owners             int64     `json:"owners"`
-	Teachers           int64     `json:"teachers"`
-	Students           int64     `json:"students"`
-	ActiveSeats        int64     `json:"active_seats"`
-	SeatsUsed          int64     `json:"seats_used"`
-	SeatsRemaining     int64     `json:"seats_remaining"`
-	ActiveB2BVIP       int64     `json:"active_b2b_vip"`
-	AvgReadinessPct    int       `json:"avg_readiness_pct"`
-	SessionsFinished7d int64     `json:"sessions_finished_7d"`
-	SessionsFinished30d int64    `json:"sessions_finished_30d"`
-	ActiveMembers7d    int64     `json:"active_members_7d"`
-	PendingInvites     int64     `json:"pending_invites"`
+	OrgID               uuid.UUID `json:"org_id"`
+	MembersTotal        int64     `json:"members_total"`
+	Owners              int64     `json:"owners"`
+	Teachers            int64     `json:"teachers"`
+	Students            int64     `json:"students"`
+	ActiveSeats         int64     `json:"active_seats"`
+	SeatsUsed           int64     `json:"seats_used"`
+	SeatsRemaining      int64     `json:"seats_remaining"`
+	ActiveB2BVIP        int64     `json:"active_b2b_vip"`
+	AvgReadinessPct     int       `json:"avg_readiness_pct"`
+	SessionsFinished7d  int64     `json:"sessions_finished_7d"`
+	SessionsFinished30d int64     `json:"sessions_finished_30d"`
+	ActiveMembers7d     int64     `json:"active_members_7d"`
+	PendingInvites      int64     `json:"pending_invites"`
 }
 
 func (s Store) teacherRole(ctx context.Context, profileID, orgID uuid.UUID) (string, error) {
@@ -822,17 +824,36 @@ func (s Store) ExportMembersCSV(ctx context.Context, orgID uuid.UUID) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-	var b strings.Builder
-	b.WriteString("profile_id,phone_masked,name,role,sessions_count,readiness_pct,streak_current,has_b2b_vip\n")
+	var b bytes.Buffer
+	w := csv.NewWriter(&b)
+	if err := w.Write([]string{"profile_id", "phone_masked", "name", "role", "sessions_count", "readiness_pct", "streak_current", "has_b2b_vip"}); err != nil {
+		return nil, err
+	}
 	for _, m := range members {
 		vip := "0"
 		if m.HasB2BVIP {
 			vip = "1"
 		}
-		name := strings.ReplaceAll(m.Name, `"`, `""`)
-		fmt.Fprintf(&b, "%s,%s,\"%s\",%s,%d,%d,%d,%s\n",
-			m.ProfileID, m.PhoneMasked, name, m.Role,
-			m.SessionsCount, m.ReadinessPct, m.StreakCurrent, vip)
+		record := []string{
+			spreadsheetSafe(m.ProfileID.String()), spreadsheetSafe(m.PhoneMasked),
+			spreadsheetSafe(m.Name), spreadsheetSafe(m.Role),
+			fmt.Sprint(m.SessionsCount), fmt.Sprint(m.ReadinessPct),
+			fmt.Sprint(m.StreakCurrent), vip,
+		}
+		if err := w.Write(record); err != nil {
+			return nil, err
+		}
+	}
+	w.Flush()
+	if err := w.Error(); err != nil {
+		return nil, err
 	}
 	return []byte(b.String()), nil
+}
+
+func spreadsheetSafe(value string) string {
+	if value != "" && strings.ContainsRune("=+-@\t\r", rune(value[0])) {
+		return "'" + value
+	}
+	return value
 }

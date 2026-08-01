@@ -59,5 +59,5 @@ PY
 upsert_a "${ZONE_NAME}"
 upsert_a "www.${ZONE_NAME}"
 
-echo "DNS upserted. SSL/TLS mode: use Flexible (HTTP origin) or Full if you add origin certs."
+echo "DNS upserted. Install the origin certificate, then require Cloudflare SSL/TLS Full (strict)."
 echo "Smoke: curl -fsS https://${ZONE_NAME}/healthz"

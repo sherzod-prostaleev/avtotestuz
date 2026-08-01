@@ -18,10 +18,10 @@ name: drivergo
 
 services:
   postgres:
-    image: postgres:16-alpine
+    image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
     environment:
       POSTGRES_USER: avtotest
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-avtotest}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: avtotest
     # Internal only — no host publish (avoids clash with system Postgres :5432).
     volumes:
@@ -33,6 +33,9 @@ services:
       timeout: 5s
       retries: 10
     restart: unless-stopped
+    cpus: "1.50"
+    mem_limit: 1536m
+    pids_limit: 256
     logging:
       driver: json-file
       options:
@@ -40,9 +43,20 @@ services:
         max-file: "3"
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - drivergo_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     # Internal only — no host publish (avoids clash with system Redis :6379).
     restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: 512m
+    pids_limit: 128
     logging:
       driver: json-file
       options:
@@ -50,17 +64,20 @@ services:
         max-file: "3"
 
   minio:
-    image: minio/minio:latest
+    image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-avtotest}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-avtotest123}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
     # Nginx proxies /media → this; keep off the public interface.
     ports:
       - "127.0.0.1:9010:9000"
     volumes:
       - drivergo_minio:/data
     restart: unless-stopped
+    cpus: "0.75"
+    mem_limit: 1024m
+    pids_limit: 256
     logging:
       driver: json-file
       options:
@@ -68,17 +85,20 @@ services:
         max-file: "3"
 
   minio-init:
-    image: minio/mc:latest
+    image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
     depends_on: [minio]
     entrypoint: >
       /bin/sh -c "
-      until mc alias set local http://minio:9000 $${MINIO_ROOT_USER:-avtotest} $${MINIO_ROOT_PASSWORD:-avtotest123}; do sleep 1; done;
+      until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done;
       mc mb -p local/media || true;
       mc anonymous set download local/media;
       exit 0"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-avtotest}
-      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-avtotest123}
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+    cpus: "0.25"
+    mem_limit: 256m
+    pids_limit: 64
 
   api:
     build:
@@ -91,15 +111,15 @@ services:
       - path: app.env
         required: true
     environment:
-      ENV: ${ENV:-dev}
+      ENV: ${ENV:?ENV is required}
       PORT: "8080"
-      DATABASE_URL: ${DATABASE_URL:-postgres://avtotest:avtotest@postgres:5432/avtotest?sslmode=disable}
-      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
-      MEDIA_BASE_URL: ${MEDIA_BASE_URL:-https://drivergo.uz/media}
-      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://drivergo.uz}
-      JWT_SECRET: ${JWT_SECRET}
-      OTP_CHANNEL: ${OTP_CHANNEL:-sandbox}
-      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      MEDIA_BASE_URL: ${MEDIA_BASE_URL:?MEDIA_BASE_URL is required}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      OTP_CHANNEL: ${OTP_CHANNEL:?OTP_CHANNEL is required}
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET:?CLIENT_IP_ASSERTION_SECRET is required}
       TELEGRAM_GATEWAY_TOKEN: ${TELEGRAM_GATEWAY_TOKEN:-}
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
@@ -107,22 +127,33 @@ services:
       TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
       TELEGRAM_QUIZ_WINNER_STICKER: ${TELEGRAM_QUIZ_WINNER_STICKER:-}
       PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID:-}
-      PAYME_ENV: ${PAYME_ENV:-test}
+      PAYME_ENV: ${PAYME_ENV:?PAYME_ENV is required}
       PAYME_KEY: ${PAYME_KEY:-}
       PAYME_TEST_KEY: ${PAYME_TEST_KEY:-}
       CLICK_SERVICE_ID: ${CLICK_SERVICE_ID:-}
       CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID:-}
       CLICK_SECRET_KEY: ${CLICK_SECRET_KEY:-}
-      OPS_ADMIN_TOKEN: ${OPS_ADMIN_TOKEN:-}
+      # Legacy shared-token Ops routes stay disabled in production. Their UI
+      # has moved to /admin and HttpOnly-cookie RBAC.
+      OPS_ADMIN_TOKEN: ""
       MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
       SENTRY_DSN: ${SENTRY_DSN:-}
-      ADMIN_TOTP_ENFORCE: ${ADMIN_TOTP_ENFORCE:-false}
+      ADMIN_TOTP_ENFORCE: ${ADMIN_TOTP_ENFORCE:?ADMIN_TOTP_ENFORCE is required}
     depends_on:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     restart: unless-stopped
+    cpus: "1.50"
+    mem_limit: 1024m
+    pids_limit: 256
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
     logging:
       driver: json-file
       options:
@@ -138,9 +169,16 @@ services:
       API_BASE_URL: ${API_BASE_URL:-http://api:8080/api/v1}
       MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
       HUMO_CREDS_POLL_SEC: ${HUMO_CREDS_POLL_SEC:-30}
+      HUMO_QUEUE_DB: /data/humo-queue.sqlite3
+    volumes:
+      - drivergo_humo_queue:/data
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    cpus: "0.50"
+    mem_limit: 512m
+    pids_limit: 128
     logging:
       driver: json-file
       options:
@@ -163,8 +201,12 @@ services:
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    cpus: "1.50"
+    mem_limit: 1024m
+    pids_limit: 256
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/uz-Latn"]
       interval: 15s
@@ -178,5 +220,7 @@ services:
         max-file: "3"
 
 volumes:
+  drivergo_humo_queue:
   drivergo_pgdata:
+  drivergo_redisdata:
   drivergo_minio:

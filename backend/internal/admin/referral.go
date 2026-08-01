@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
@@ -25,7 +26,6 @@ type ReferralPayoutRow struct {
 	ProfilePhone string     `json:"profile_phone"`
 	ProfileName  string     `json:"profile_name"`
 	AmountUzs    int64      `json:"amount_uzs"`
-	CardNumber   string     `json:"card_number"`
 	CardMasked   string     `json:"card_masked"`
 	CardNetwork  string     `json:"card_network"`
 	Status       string     `json:"status"`
@@ -41,31 +41,24 @@ type ReferralPayoutListResult struct {
 }
 
 type UserReferralAdminStats struct {
-	TotalInvited       int64              `json:"total_invited"`
-	TotalRewarded      int64              `json:"total_rewarded"`
-	EarnedUzs          int64              `json:"earned_uzs"`
-	BalanceUzs         int64              `json:"balance_uzs"`
-	CommissionPercent  int32              `json:"commission_percent"`
-	Referees           []RefereeAdminRow  `json:"referees"`
+	TotalInvited      int64             `json:"total_invited"`
+	TotalRewarded     int64             `json:"total_rewarded"`
+	EarnedUzs         int64             `json:"earned_uzs"`
+	BalanceUzs        int64             `json:"balance_uzs"`
+	CommissionPercent int32             `json:"commission_percent"`
+	Referees          []RefereeAdminRow `json:"referees"`
 }
 
 type RefereeAdminRow struct {
-	ID             uuid.UUID  `json:"id"`
-	RefereeID      uuid.UUID  `json:"referee_id"`
-	RefereePhone   string     `json:"referee_phone"`
-	RefereeName    string     `json:"referee_name"`
-	ReferralCode   string     `json:"referral_code"`
-	Status         string     `json:"status"`
-	CommissionUzs  int64      `json:"commission_uzs"`
-	CreatedAt      time.Time  `json:"created_at"`
-	RewardedAt     *time.Time `json:"rewarded_at,omitempty"`
-}
-
-func maskCard(digits string) string {
-	if len(digits) < 4 {
-		return "****"
-	}
-	return "**** **** **** " + digits[len(digits)-4:]
+	ID            uuid.UUID  `json:"id"`
+	RefereeID     uuid.UUID  `json:"referee_id"`
+	RefereePhone  string     `json:"referee_phone"`
+	RefereeName   string     `json:"referee_name"`
+	ReferralCode  string     `json:"referral_code"`
+	Status        string     `json:"status"`
+	CommissionUzs int64      `json:"commission_uzs"`
+	CreatedAt     time.Time  `json:"created_at"`
+	RewardedAt    *time.Time `json:"rewarded_at,omitempty"`
 }
 
 func (s Store) ListReferralPayouts(ctx context.Context, status string, limit, offset int32) (*ReferralPayoutListResult, error) {
@@ -96,8 +89,7 @@ func (s Store) ListReferralPayouts(ctx context.Context, status string, limit, of
 			ProfilePhone: row.ProfilePhone,
 			ProfileName:  row.ProfileName,
 			AmountUzs:    row.AmountUzs,
-			CardNumber:   row.CardNumber,
-			CardMasked:   maskCard(row.CardNumber),
+			CardMasked:   billing.MaskStoredPAN(row.CardNumber),
 			CardNetwork:  row.CardNetwork,
 			Status:       row.Status,
 			AdminNote:    row.AdminNote,
@@ -278,11 +270,11 @@ func (s Store) SetUserReferralBalance(ctx context.Context, profileID, adminID uu
 		return current, nil
 	}
 	meta, _ := json.Marshal(map[string]any{
-		"admin_id":    adminID.String(),
-		"note":        strings.TrimSpace(note),
-		"from_uzs":    current,
-		"to_uzs":      targetUzs,
-		"delta_uzs":   delta,
+		"admin_id":  adminID.String(),
+		"note":      strings.TrimSpace(note),
+		"from_uzs":  current,
+		"to_uzs":    targetUzs,
+		"delta_uzs": delta,
 	})
 	if _, err := q.InsertReferralLedger(ctx, sqlc.InsertReferralLedgerParams{
 		ProfileID: profileID,

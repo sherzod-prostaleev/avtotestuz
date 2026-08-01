@@ -41,6 +41,7 @@ describe("analytics event queue", () => {
 
     expect(send).toHaveBeenCalledTimes(1);
     expect(send).toHaveBeenCalledWith({
+      idempotency_key: expect.any(String),
       events: [
         {
           name: "view_question",
@@ -255,6 +256,7 @@ describe("analytics event queue", () => {
     );
     const request = fetchMock.mock.calls[0][1] as RequestInit;
     expect(JSON.parse(String(request.body))).toEqual({
+      idempotency_key: expect.any(String),
       events: [
         expect.objectContaining({
           name: "session_finish",

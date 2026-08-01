@@ -1,15 +1,15 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
 
 /** Tariffs are seed/DB managed; no admin CRUD API (GET /tariffs is public read-only). */
-export default function AdminPaymentsCatalogPage() {
-  const t = useTranslations("AdminPaymentsCatalog");
-  const tNav = useTranslations("AdminNav");
-  const tShell = useTranslations("AdminShell");
+export default async function AdminPaymentsCatalogPage() {
+  const [t, tNav, tShell] = await Promise.all([
+    getTranslations("AdminPaymentsCatalog"),
+    getTranslations("AdminNav"),
+    getTranslations("AdminShell"),
+  ]);
 
   return (
     <PermissionGate permission="payments.read">

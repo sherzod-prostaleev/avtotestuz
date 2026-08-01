@@ -120,6 +120,31 @@ func TestDemoQuestionEmptyDBOverHTTP(t *testing.T) {
 	}
 }
 
+func TestDiagnosticOverHTTP(t *testing.T) {
+	ts, _, _ := setupDemoServer(t, true)
+
+	status, env := doJSON(t, ts, http.MethodGet, "/api/v1/demo/diagnostic?locale=uz-Latn", nil)
+	if status != http.StatusOK {
+		t.Fatalf("status=%d env=%+v", status, env)
+	}
+	var result struct {
+		Questions []json.RawMessage `json:"questions"`
+		Seconds   int               `json:"total_seconds"`
+	}
+	if err := json.Unmarshal(env.Data, &result); err != nil {
+		t.Fatal(err)
+	}
+	if len(result.Questions) != 10 || result.Seconds != 720 {
+		t.Fatalf("questions=%d seconds=%d want 10/720", len(result.Questions), result.Seconds)
+	}
+	for i, raw := range result.Questions {
+		serialized := string(raw)
+		if strings.Contains(serialized, "is_correct") || strings.Contains(serialized, "correct_answer") {
+			t.Fatalf("question[%d] leaked correctness: %s", i, serialized)
+		}
+	}
+}
+
 func TestDemoAnswerWhitelistEnforcementOverHTTP(t *testing.T) {
 	ts, q, _ := setupDemoServer(t, true)
 	ctx := context.Background()
@@ -132,10 +157,10 @@ func TestDemoAnswerWhitelistEnforcementOverHTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ids) <= 5 {
-		t.Fatal("fixture must have more than 5 questions in variant 1")
+	if len(ids) <= 10 {
+		t.Fatal("fixture must have more than 10 questions in variant 1")
 	}
-	outsideID := ids[5]
+	outsideID := ids[10]
 	correctID, err := q.GetCorrectAnswerID(ctx, outsideID)
 	if err != nil {
 		t.Fatal(err)

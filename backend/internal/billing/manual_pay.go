@@ -113,6 +113,10 @@ func (s Service) StartManualCheckout(ctx context.Context, profileID uuid.UUID, t
 		}
 		return ManualCheckoutInfo{}, err
 	}
+	panFull, err := s.DecryptPAN(card.PanFull)
+	if err != nil {
+		return ManualCheckoutInfo{}, fmt.Errorf("decrypt assigned card: %w", err)
+	}
 
 	// Make the expected sum unique among the assignments currently open on
 	// this card. Matching keys on (card, amount), so two users owing the same
@@ -158,7 +162,7 @@ func (s Service) StartManualCheckout(ctx context.Context, profileID uuid.UUID, t
 	return ManualCheckoutInfo{
 		PaymentID:   paymentID,
 		AmountUzs:   amount,
-		PanFull:     card.PanFull,
+		PanFull:     panFull,
 		PanLast4:    card.PanLast4,
 		HolderName:  card.HolderName,
 		Network:     card.Network,
@@ -190,11 +194,15 @@ func (s Service) GetManualPaymentStatus(ctx context.Context, profileID, paymentI
 		PaymentStatus: pay.Status,
 		ManualState:   row.ManualState,
 		AmountUzs:     row.AmountUzs,
-		PanFull:       row.PanFull,
+		PanFull:       "",
 		PanLast4:      row.PanLast4,
 		HolderName:    row.HolderName,
 		Network:       row.Network,
 		HoldUntil:     row.HoldUntil.Time,
+	}
+	out.PanFull, err = s.DecryptPAN(row.PanFull)
+	if err != nil {
+		return ManualPaymentStatus{}, fmt.Errorf("decrypt assigned card: %w", err)
 	}
 	if row.ReleasedAt.Valid {
 		t := row.ReleasedAt.Time

@@ -9,15 +9,25 @@ import (
 func TestGenerateCode(t *testing.T) {
 	re := regexp.MustCompile(`^\d{6}$`)
 	for i := 0; i < 50; i++ {
-		if c := GenerateCode(); !re.MatchString(c) {
+		c, err := GenerateCode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !re.MatchString(c) {
 			t.Fatalf("bad code %q", c)
 		}
 	}
 }
 
 func TestHashVerifyCode(t *testing.T) {
-	code := GenerateCode()
-	stored := HashCode(code)
+	code, err := GenerateCode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	stored, err := HashCode(code)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(stored, "$") {
 		t.Fatalf("stored format: %q", stored)
 	}
@@ -31,7 +41,11 @@ func TestHashVerifyCode(t *testing.T) {
 		t.Fatal("verify must fail for malformed stored value")
 	}
 	// salted: same code twice → different stored values
-	if HashCode(code) == stored {
+	second, err := HashCode(code)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second == stored {
 		t.Fatal("hash must be salted")
 	}
 }
@@ -39,7 +53,10 @@ func TestHashVerifyCode(t *testing.T) {
 func TestNewReferralCode(t *testing.T) {
 	seen := map[string]bool{}
 	for i := 0; i < 1000; i++ {
-		c := NewReferralCode()
+		c, err := NewReferralCode()
+		if err != nil {
+			t.Fatal(err)
+		}
 		if len(c) != 8 {
 			t.Fatalf("len(%q)=%d", c, len(c))
 		}

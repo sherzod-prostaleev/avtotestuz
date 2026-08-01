@@ -625,9 +625,24 @@ func (q *Queries) ListVariantQuestionIDsOrdered(ctx context.Context, variantID u
 }
 
 const randomQuestionIDs = `-- name: RandomQuestionIDs :many
-SELECT id FROM question
-WHERE validation_status = 'valid'
-ORDER BY random()
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid' AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid' AND q.id < p.id
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT $1
 `
 
@@ -652,19 +667,38 @@ func (q *Queries) RandomQuestionIDs(ctx context.Context, limit int32) ([]uuid.UU
 }
 
 const randomQuestionIDsByCategory = `-- name: RandomQuestionIDsByCategory :many
-SELECT id FROM question
-WHERE validation_status = 'valid' AND category_id = $1
-ORDER BY random()
-LIMIT $2
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.category_id = $2
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.category_id = $2
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
+LIMIT $1
 `
 
 type RandomQuestionIDsByCategoryParams struct {
-	CategoryID uuid.UUID `json:"category_id"`
 	LimitCount int32     `json:"limit_count"`
+	CategoryID uuid.UUID `json:"category_id"`
 }
 
 func (q *Queries) RandomQuestionIDsByCategory(ctx context.Context, arg RandomQuestionIDsByCategoryParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, randomQuestionIDsByCategory, arg.CategoryID, arg.LimitCount)
+	rows, err := q.db.Query(ctx, randomQuestionIDsByCategory, arg.LimitCount, arg.CategoryID)
 	if err != nil {
 		return nil, err
 	}
@@ -684,21 +718,39 @@ func (q *Queries) RandomQuestionIDsByCategory(ctx context.Context, arg RandomQue
 }
 
 const randomQuestionIDsByImagePresence = `-- name: RandomQuestionIDsByImagePresence :many
-SELECT id FROM question
-WHERE validation_status = 'valid'
-  AND (image_id IS NOT NULL) = $1::boolean
-ORDER BY random()
-LIMIT $2
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = $2::boolean
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = $2::boolean
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
+LIMIT $1
 `
 
 type RandomQuestionIDsByImagePresenceParams struct {
-	HasImage   bool  `json:"has_image"`
 	LimitCount int32 `json:"limit_count"`
+	HasImage   bool  `json:"has_image"`
 }
 
 // has_image=true selects illustrated questions, false selects text-only ones.
 func (q *Queries) RandomQuestionIDsByImagePresence(ctx context.Context, arg RandomQuestionIDsByImagePresenceParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, randomQuestionIDsByImagePresence, arg.HasImage, arg.LimitCount)
+	rows, err := q.db.Query(ctx, randomQuestionIDsByImagePresence, arg.LimitCount, arg.HasImage)
 	if err != nil {
 		return nil, err
 	}
@@ -718,20 +770,42 @@ func (q *Queries) RandomQuestionIDsByImagePresence(ctx context.Context, arg Rand
 }
 
 const randomQuestionIDsBySign = `-- name: RandomQuestionIDsBySign :many
-SELECT q.id FROM question q
-JOIN question_sign qs ON qs.question_id = q.id
-WHERE q.validation_status = 'valid' AND qs.sign_id = $1
-ORDER BY random()
-LIMIT $2
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question_sign qs
+  JOIN question q ON q.id = qs.question_id
+  CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND qs.sign_id = $2
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question_sign qs
+  JOIN question q ON q.id = qs.question_id
+  CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND qs.sign_id = $2
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
+LIMIT $1
 `
 
 type RandomQuestionIDsBySignParams struct {
-	SignID     uuid.UUID `json:"sign_id"`
 	LimitCount int32     `json:"limit_count"`
+	SignID     uuid.UUID `json:"sign_id"`
 }
 
 func (q *Queries) RandomQuestionIDsBySign(ctx context.Context, arg RandomQuestionIDsBySignParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, randomQuestionIDsBySign, arg.SignID, arg.LimitCount)
+	rows, err := q.db.Query(ctx, randomQuestionIDsBySign, arg.LimitCount, arg.SignID)
 	if err != nil {
 		return nil, err
 	}
@@ -751,30 +825,53 @@ func (q *Queries) RandomQuestionIDsBySign(ctx context.Context, arg RandomQuestio
 }
 
 const randomQuestionIDsByVariantRange = `-- name: RandomQuestionIDsByVariantRange :many
-SELECT id FROM (
-  SELECT DISTINCT q.id
-  FROM question q
-  JOIN variant_question vq ON vq.question_id = q.id
-  JOIN variant v ON v.id = vq.variant_id
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
   WHERE q.validation_status = 'valid'
-    AND v.number BETWEEN $1 AND $2
-) candidates
-ORDER BY random()
-LIMIT $3
+    AND q.id >= p.id
+    AND EXISTS (
+      SELECT 1
+      FROM variant_question vq
+      JOIN variant v ON v.id = vq.variant_id
+      WHERE vq.question_id = q.id
+        AND v.number BETWEEN $2 AND $3
+    )
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.id < p.id
+    AND EXISTS (
+      SELECT 1
+      FROM variant_question vq
+      JOIN variant v ON v.id = vq.variant_id
+      WHERE vq.question_id = q.id
+        AND v.number BETWEEN $2 AND $3
+    )
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
+LIMIT $1
 `
 
 type RandomQuestionIDsByVariantRangeParams struct {
+	LimitCount int32 `json:"limit_count"`
 	FromNumber int32 `json:"from_number"`
 	ToNumber   int32 `json:"to_number"`
-	LimitCount int32 `json:"limit_count"`
 }
 
 // Draws across a contiguous span of bilets so a learner can mix-review the
 // range they have already worked through, which one-bilet-at-a-time cannot do.
-// DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
-// ordered by an expression that is not in the select list, and random() is.
 func (q *Queries) RandomQuestionIDsByVariantRange(ctx context.Context, arg RandomQuestionIDsByVariantRangeParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, randomQuestionIDsByVariantRange, arg.FromNumber, arg.ToNumber, arg.LimitCount)
+	rows, err := q.db.Query(ctx, randomQuestionIDsByVariantRange, arg.LimitCount, arg.FromNumber, arg.ToNumber)
 	if err != nil {
 		return nil, err
 	}

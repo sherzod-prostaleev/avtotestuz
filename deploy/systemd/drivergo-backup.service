@@ -1,0 +1,22 @@
+[Unit]
+Description=Driver Go encrypted PostgreSQL backup
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/drivergo
+Environment="COMPOSE=docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.env"
+Environment="BACKUP_DIR=/var/backups/drivergo/postgres"
+Environment="REQUIRE_ENCRYPTED_BACKUP=1"
+Environment="REQUIRE_OFFSITE_BACKUP=1"
+EnvironmentFile=/etc/drivergo/backup.env
+ExecStart=/opt/drivergo/scripts/backup/pg_dump.sh
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+
+[Install]
+WantedBy=multi-user.target

@@ -19,7 +19,7 @@ export default function ManualCheckoutPage() {
   const [claimed, setClaimed] = useState(false);
 
   const load = useCallback(async () => {
-    if (!paymentId) return;
+    if (!paymentId) return false;
     try {
       const data = await apiGet<ManualPayInfo>(`me/payments/${paymentId}/manual`);
       setInfo(data);
@@ -27,15 +27,46 @@ export default function ManualCheckoutPage() {
       if (data.payment_status === "paid" || data.manual_state === "consumed") {
         router.replace(`/${locale}/checkout/success`);
       }
+      return true;
     } catch {
       setError(t("loadError"));
+      return false;
     }
   }, [paymentId, locale, router, t]);
 
   useEffect(() => {
-    void load();
-    const id = window.setInterval(() => void load(), 4000);
-    return () => window.clearInterval(id);
+    let stopped = false;
+    let attempt = 0;
+    let timer: number | undefined;
+    const poll = async () => {
+      if (stopped) return;
+      if (document.visibilityState !== "hidden" && navigator.onLine) {
+        const ok = await load();
+        if (ok) {
+          attempt = 0;
+        } else {
+          attempt++;
+        }
+      }
+      if (!stopped) {
+        timer = window.setTimeout(() => void poll(), Math.min(4_000 * 2 ** attempt, 30_000));
+      }
+    };
+    const wake = () => {
+      if (document.visibilityState === "hidden" || !navigator.onLine) return;
+      if (timer) window.clearTimeout(timer);
+      attempt = 0;
+      void poll();
+    };
+    void poll();
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
   }, [load]);
 
   async function claim() {

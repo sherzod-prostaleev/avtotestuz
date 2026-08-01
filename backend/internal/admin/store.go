@@ -163,11 +163,14 @@ func (s Store) FindSessionByRefreshHash(ctx context.Context, hash string) (Sessi
 	return row, err
 }
 
-func (s Store) RotateSession(ctx context.Context, sessionID uuid.UUID, newHash string, expires time.Time) error {
-	_, err := s.Pool.Exec(ctx, `
+func (s Store) RotateSession(ctx context.Context, sessionID uuid.UUID, oldHash, newHash string, expires time.Time) (bool, error) {
+	tag, err := s.Pool.Exec(ctx, `
 		UPDATE admin_session SET refresh_hash = $2, expires_at = $3
-		WHERE id = $1 AND revoked_at IS NULL`, sessionID, newHash, expires)
-	return err
+		WHERE id = $1 AND refresh_hash = $4 AND revoked_at IS NULL`, sessionID, newHash, expires, oldHash)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 func (s Store) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {

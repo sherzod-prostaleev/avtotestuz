@@ -145,18 +145,50 @@ ORDER BY correct_count DESC,
 -- name: RandomPollableQuestionIDs :many
 -- Telegram poll varianti 100 belgidan oshmasligi kerak: uzun javobli
 -- savollar tanlanmaydi (kesish o'rniga chetlab o'tiladi).
-SELECT q.id FROM question q
-WHERE q.validation_status = 'valid'
-  AND (q.image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
-  AND (SELECT COUNT(*) FROM answer a WHERE a.question_id = q.id) BETWEEN 2 AND 10
-  AND NOT EXISTS (
-    SELECT 1 FROM answer a
-    JOIN answer_translation at
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q
+  CROSS JOIN pivot p
+  CROSS JOIN LATERAL (
+    SELECT COUNT(*)::int AS answer_count,
+           COALESCE(BOOL_OR(char_length(at.text) > sqlc.arg(max_answer_len)::int), false) AS has_long_answer
+    FROM answer a
+    LEFT JOIN answer_translation at
       ON at.answer_id = a.id AND at.locale = 'uz-Latn' AND at.status = 'verified'
     WHERE a.question_id = q.id
-      AND char_length(at.text) > sqlc.arg(max_answer_len)::int
-  )
-ORDER BY random()
+  ) eligibility
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+    AND q.id >= p.id
+    AND eligibility.answer_count BETWEEN 2 AND 10
+    AND NOT eligibility.has_long_answer
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+), wrapped AS (
+  SELECT q.id
+  FROM question q
+  CROSS JOIN pivot p
+  CROSS JOIN LATERAL (
+    SELECT COUNT(*)::int AS answer_count,
+           COALESCE(BOOL_OR(char_length(at.text) > sqlc.arg(max_answer_len)::int), false) AS has_long_answer
+    FROM answer a
+    LEFT JOIN answer_translation at
+      ON at.answer_id = a.id AND at.locale = 'uz-Latn' AND at.status = 'verified'
+    WHERE a.question_id = q.id
+  ) eligibility
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+    AND q.id < p.id
+    AND eligibility.answer_count BETWEEN 2 AND 10
+    AND NOT eligibility.has_long_answer
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT sqlc.arg(limit_count);
 
 -- name: GetLimitConfigValue :one

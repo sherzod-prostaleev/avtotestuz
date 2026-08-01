@@ -60,10 +60,10 @@ func looksSVG(data []byte) bool {
 }
 
 type StoreOptions struct {
-	MarkVerified      bool        // licensed/trusted import → translations verified
-	Images            ImageSource // resolves relative image paths
-	Source            string      // provenance label stored on rows
-	ExplanationsOnly  bool        // skip questions/variants; refresh explanation rows only
+	MarkVerified     bool        // licensed/trusted import → translations verified
+	Images           ImageSource // resolves relative image paths
+	Source           string      // provenance label stored on rows
+	ExplanationsOnly bool        // skip questions/variants; refresh explanation rows only
 }
 
 // Store validates and persists the dataset in one transaction.

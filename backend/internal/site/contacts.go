@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -146,6 +147,27 @@ func validateContacts(c Contacts) error {
 		if utf8.RuneCountInString(f.value) > maxFieldLen {
 			return fmt.Errorf("field %s too long", f.name)
 		}
+	}
+	if err := validateSocialURL("telegramUrl", c.TelegramURL, map[string]bool{
+		"t.me": true, "telegram.me": true,
+	}); err != nil {
+		return err
+	}
+	if err := validateSocialURL("instagramUrl", c.InstagramURL, map[string]bool{
+		"instagram.com": true, "www.instagram.com": true,
+	}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func validateSocialURL(field, value string, allowedHosts map[string]bool) error {
+	if value == "" {
+		return nil
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || !allowedHosts[strings.ToLower(u.Hostname())] || u.User != nil {
+		return fmt.Errorf("field %s must be an allowed https URL", field)
 	}
 	return nil
 }

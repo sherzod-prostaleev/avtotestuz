@@ -26,14 +26,14 @@ func TestContactsGetPut(t *testing.T) {
 	}
 
 	saved, err := store.PutContacts(t.Context(), Contacts{
-		Phone:       " +998 90 123 45 67 ",
-		PhoneTel:    "+998901234567",
-		Email:       "hello@example.uz",
-		Address:     "Toshkent",
-		Hours:       "Du–Sha 09:00–20:00",
-		Telegram:    "@DriverGo",
-		TelegramURL: "https://t.me/DriverGo",
-		Instagram:   "@drivergo.uz",
+		Phone:        " +998 90 123 45 67 ",
+		PhoneTel:     "+998901234567",
+		Email:        "hello@example.uz",
+		Address:      "Toshkent",
+		Hours:        "Du–Sha 09:00–20:00",
+		Telegram:     "@DriverGo",
+		TelegramURL:  "https://t.me/DriverGo",
+		Instagram:    "@drivergo.uz",
 		InstagramURL: "https://instagram.com/drivergo.uz",
 	}, "ops-test")
 	if err != nil {
@@ -56,6 +56,16 @@ func TestContactsGetPut(t *testing.T) {
 	}, "ops-test")
 	if err == nil || !strings.Contains(err.Error(), "too long") {
 		t.Fatalf("want field-too-long error, got %v", err)
+	}
+
+	for _, bad := range []Contacts{
+		{TelegramURL: "javascript:alert(1)"},
+		{TelegramURL: "https://evil.example/tg"},
+		{InstagramURL: "http://instagram.com/drivergo"},
+	} {
+		if _, err := store.PutContacts(t.Context(), bad, "ops-test"); err == nil || !strings.Contains(err.Error(), "allowed https URL") {
+			t.Fatalf("want social URL rejection for %+v, got %v", bad, err)
+		}
 	}
 }
 

@@ -17,7 +17,6 @@ var (
 	ErrInvalidCreds   = errors.New("invalid phone or password")
 	ErrPhoneTaken     = errors.New("phone already registered")
 	ErrPasswordNotSet = errors.New("password not set")
-	ErrPasswordSet    = errors.New("password already set")
 )
 
 // HashPassword returns a bcrypt hash of password (cost 12). Never log the input.

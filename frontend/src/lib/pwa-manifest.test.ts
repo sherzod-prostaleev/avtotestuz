@@ -23,5 +23,8 @@ describe("PWA manifest", () => {
     expect(existsSync(join(process.cwd(), "public/logo-512.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/apple-touch-icon.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/logo.svg"))).toBe(true);
+    for (const icon of manifest.icons) {
+      expect(existsSync(join(process.cwd(), "public", icon.src.replace(/^\//, "")))).toBe(true);
+    }
   });
 });

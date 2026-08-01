@@ -3,12 +3,19 @@ package admin
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+)
+
+var (
+	ErrPaymentCannotVoid = errors.New("settled or in-flight payment cannot be voided")
+	ErrPaymentVoidReason = errors.New("void reason must be 10-500 characters")
 )
 
 // PaymentDirectoryRow is a list row for GET /admin/v1/payments/transactions.
@@ -45,11 +52,11 @@ type PaymentListFilter struct {
 
 // PaymentEntitlementLink summarizes VIP grant tied to a payment.
 type PaymentEntitlementLink struct {
-	ID        uuid.UUID `json:"id"`
-	StartsAt  time.Time `json:"starts_at"`
-	EndsAt    time.Time `json:"ends_at"`
-	Active    bool      `json:"active"`
-	Note      string    `json:"note,omitempty"`
+	ID       uuid.UUID `json:"id"`
+	StartsAt time.Time `json:"starts_at"`
+	EndsAt   time.Time `json:"ends_at"`
+	Active   bool      `json:"active"`
+	Note     string    `json:"note,omitempty"`
 }
 
 // PaymeTxnSummary is a redacted Payme merchant txn row.
@@ -82,26 +89,26 @@ type RefundCapability struct {
 
 // PaymentDetail is GET /admin/v1/payments/transactions/{id}.
 type PaymentDetail struct {
-	ID                   uuid.UUID                `json:"id"`
-	ProfileID            uuid.UUID                `json:"profile_id"`
-	PhoneMasked          string                   `json:"phone_masked"`
-	TariffID             uuid.UUID                `json:"tariff_id"`
-	TariffCode           string                   `json:"tariff_code"`
-	TariffDaysSnapshot   int32                    `json:"tariff_days_snapshot"`
-	TariffPriceSnapshot  int64                    `json:"tariff_price_uzs_snapshot"`
-	AmountUzs            int64                    `json:"amount_uzs"`
-	Provider             string                   `json:"provider"`
-	Status               string                   `json:"status"`
-	ProviderTxnID        string                   `json:"provider_txn_id,omitempty"`
-	IdempotencyKey       string                   `json:"idempotency_key"`
-	PromoCodeID          *uuid.UUID               `json:"promo_code_id,omitempty"`
-	Meta                 map[string]any           `json:"meta"`
-	CreatedAt            time.Time                `json:"created_at"`
-	PaidAt               *time.Time               `json:"paid_at,omitempty"`
-	Entitlement          *PaymentEntitlementLink  `json:"entitlement,omitempty"`
-	Payme                *PaymeTxnSummary         `json:"payme,omitempty"`
-	Click                *ClickTxnSummary         `json:"click,omitempty"`
-	Refund               RefundCapability         `json:"refund"`
+	ID                  uuid.UUID               `json:"id"`
+	ProfileID           uuid.UUID               `json:"profile_id"`
+	PhoneMasked         string                  `json:"phone_masked"`
+	TariffID            uuid.UUID               `json:"tariff_id"`
+	TariffCode          string                  `json:"tariff_code"`
+	TariffDaysSnapshot  int32                   `json:"tariff_days_snapshot"`
+	TariffPriceSnapshot int64                   `json:"tariff_price_uzs_snapshot"`
+	AmountUzs           int64                   `json:"amount_uzs"`
+	Provider            string                  `json:"provider"`
+	Status              string                  `json:"status"`
+	ProviderTxnID       string                  `json:"provider_txn_id,omitempty"`
+	IdempotencyKey      string                  `json:"idempotency_key"`
+	PromoCodeID         *uuid.UUID              `json:"promo_code_id,omitempty"`
+	Meta                map[string]any          `json:"meta"`
+	CreatedAt           time.Time               `json:"created_at"`
+	PaidAt              *time.Time              `json:"paid_at,omitempty"`
+	Entitlement         *PaymentEntitlementLink `json:"entitlement,omitempty"`
+	Payme               *PaymeTxnSummary        `json:"payme,omitempty"`
+	Click               *ClickTxnSummary        `json:"click,omitempty"`
+	Refund              RefundCapability        `json:"refund"`
 }
 
 // ListPayments returns payments newest-first with status/provider/date filters.
@@ -335,39 +342,82 @@ func (s Store) loadClickTxn(ctx context.Context, paymentID uuid.UUID) (*ClickTxn
 	return &row, nil
 }
 
-// HardDeletePayment removes a payment and all billing rows tied to it.
-// Order respects FKs (no ON DELETE CASCADE on payment children).
-// Entitlements granted by this payment are deleted (VIP revoked), not soft-clamped.
-// Referral ledger rows for this payment are removed so balance reflects the undo.
-func (s Store) HardDeletePayment(ctx context.Context, id uuid.UUID) error {
+// VoidPayment creates an immutable tombstone for a non-settled payment. No
+// payment, entitlement, ledger, provider transaction or assignment row is
+// deleted. The audit row is committed in the same transaction.
+func (s Store) VoidPayment(
+	ctx context.Context,
+	id, adminID uuid.UUID,
+	reason string,
+	ip *net.IP,
+	ua, requestID string,
+) error {
+	reason = strings.TrimSpace(reason)
+	if len([]rune(reason)) < 10 || len([]rune(reason)) > 500 {
+		return ErrPaymentVoidReason
+	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var found uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM payment WHERE id = $1 FOR UPDATE`, id).Scan(&found); err != nil {
+	var status, provider string
+	var profileID uuid.UUID
+	var amountUzs int64
+	if err := tx.QueryRow(ctx, `
+		SELECT status, provider, profile_id, amount_uzs
+		FROM payment WHERE id = $1 FOR UPDATE`, id,
+	).Scan(&status, &provider, &profileID, &amountUzs); err != nil {
 		return err
 	}
-
-	stmts := []string{
-		`DELETE FROM referral_ledger WHERE payment_id = $1`,
-		`DELETE FROM promo_redemption WHERE payment_id = $1`,
-		`DELETE FROM entitlement WHERE payment_id = $1`,
-		`UPDATE manual_pay_event
-		 SET matched_payment_id = NULL,
-		     status = CASE WHEN status = 'matched' THEN 'unmatched' ELSE status END
-		 WHERE matched_payment_id = $1`,
-		`DELETE FROM manual_pay_assignment WHERE payment_id = $1`,
-		`DELETE FROM payme_transaction WHERE payment_id = $1`,
-		`DELETE FROM click_transaction WHERE payment_id = $1`,
-		`DELETE FROM payment WHERE id = $1`,
+	voidable := status == "failed" || status == "canceled" ||
+		(provider == "manual" && (status == "created" || status == "pending"))
+	if !voidable && status != "voided" {
+		return ErrPaymentCannotVoid
 	}
-	for _, q := range stmts {
-		if _, err := tx.Exec(ctx, q, id); err != nil {
+	if status == "voided" {
+		return tx.Commit(ctx)
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO payment_void (payment_id, previous_status, reason, requested_by)
+		VALUES ($1,$2,$3,$4)`, id, status, reason, adminID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE payment SET status='voided' WHERE id=$1`, id); err != nil {
+		return err
+	}
+	if provider == "manual" {
+		if _, err := tx.Exec(ctx, `
+			UPDATE manual_pay_assignment
+			SET manual_state='rejected', released_at=COALESCE(released_at, now()),
+				confirmed_by='admin', confirmed_at=now(), admin_note=$2
+			WHERE payment_id=$1 AND manual_state <> 'consumed'`, id, reason); err != nil {
 			return err
 		}
+		if _, err := tx.Exec(ctx, `
+			UPDATE manual_pay_event
+			SET matched_payment_id=NULL,
+				status=CASE WHEN status='matched' THEN 'unmatched' ELSE status END
+			WHERE matched_payment_id=$1`, id); err != nil {
+			return err
+		}
+	}
+	var ipArg any
+	if ip != nil {
+		ipArg = *ip
+	}
+	before := map[string]any{
+		"status": status, "provider": provider, "profile_id": profileID.String(), "amount_uzs": amountUzs,
+	}
+	after := map[string]any{"status": "voided", "reason": reason}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO admin_audit_log
+		  (admin_user_id, action, entity_type, entity_id, before_json, after_json, ip, ua, request_id)
+		VALUES ($1, 'payments.transactions.void', 'payment', $2, $3, $4, $5, $6, $7)`,
+		adminID, id.String(), before, after, ipArg, ua, requestID,
+	); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }

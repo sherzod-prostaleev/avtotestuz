@@ -11,12 +11,12 @@ import (
 )
 
 const (
-	writeBufCap   = 16
-	readLimit     = 4096
-	pingInterval  = 20 * time.Second
-	floodWindow   = 10 * time.Second
-	floodMaxMsgs  = 20
-	connKeyTTL    = 30 * time.Second
+	writeBufCap  = 16
+	readLimit    = 4096
+	pingInterval = 20 * time.Second
+	floodWindow  = 10 * time.Second
+	floodMaxMsgs = 20
+	connKeyTTL   = 30 * time.Second
 )
 
 // Conn wraps one WebSocket with bounded write queue and flood guard.

@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/billing"
@@ -45,11 +46,20 @@ func main() {
 	if err := db.Migrate(cfg.DatabaseURL); err != nil {
 		logger.Fatal("migrate", zap.Error(err))
 	}
-	pool, err := db.NewPool(context.Background(), cfg.DatabaseURL)
+	pool, err := db.NewPoolConfigured(context.Background(), cfg.DatabaseURL, db.PoolConfig{
+		MaxConns: cfg.DBPoolMaxConns, MinConns: cfg.DBPoolMinConns,
+		MaxConnLifetime: cfg.DBPoolMaxLifetime, MaxConnIdleTime: cfg.DBPoolMaxIdleTime,
+		HealthCheckPeriod: cfg.DBPoolHealthCheck,
+	})
 	if err != nil {
 		logger.Fatal("db", zap.Error(err))
 	}
 	defer pool.Close()
+	if created, err := db.MaintainEventPartitions(context.Background(), pool, 18); err != nil {
+		logger.Error("event partition maintenance", zap.Error(err))
+	} else if created > 0 {
+		logger.Info("event partitions prepared", zap.Int("created", created))
+	}
 
 	redisClient, err := redisx.New(cfg.RedisURL)
 	if err != nil {
@@ -67,10 +77,15 @@ func main() {
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
 		Handler:           h,
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    32 << 10,
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	go maintainEventPartitions(ctx, pool, logger)
 
 	// Long-poll is the dev-only alternative to the webhook route server.New
 	// registers — see docs/superpowers/specs/2026-07-25-m4-06-telegram-bot-design.md
@@ -119,4 +134,22 @@ func main() {
 	}
 	_ = srv.Shutdown(shutdownCtx)
 	logger.Info("stopped")
+}
+
+func maintainEventPartitions(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger) {
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			created, err := db.MaintainEventPartitions(ctx, pool, 18)
+			if err != nil {
+				logger.Error("event partition maintenance", zap.Error(err))
+			} else if created > 0 {
+				logger.Info("event partitions prepared", zap.Int("created", created))
+			}
+		}
+	}
 }

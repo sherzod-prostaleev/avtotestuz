@@ -59,5 +59,5 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 }
 
 // NewRefreshToken / HashToken reuse learner crypto helpers.
-func NewRefreshToken() string { return auth.NewRefreshToken() }
-func HashToken(raw string) string { return auth.HashToken(raw) }
+func NewRefreshToken() (string, error) { return auth.NewRefreshToken() }
+func HashToken(raw string) string      { return auth.HashToken(raw) }

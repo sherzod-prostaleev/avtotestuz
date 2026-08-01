@@ -2,13 +2,15 @@ import { adminProxy } from "@/lib/admin-proxy";
 
 export const runtime = "nodejs";
 
-type Ctx = { params: { id: string } };
+type Ctx = { params: Promise<{ id: string }> };
 
-export async function GET(request: Request, { params }: Ctx) {
+export async function GET(request: Request, ctx: Ctx) {
+  const params = await ctx.params;
   return adminProxy(request, `/content/questions/${params.id}`, { method: "GET" });
 }
 
-export async function PATCH(request: Request, { params }: Ctx) {
+export async function PATCH(request: Request, ctx: Ctx) {
+  const params = await ctx.params;
   const body = await request.text();
   return adminProxy(request, `/content/questions/${params.id}`, {
     method: "PATCH",

@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/support"
 	"avtotest.uz/backend/internal/testdb"
 )
@@ -124,4 +125,57 @@ func TestSupportTicketCreateAndList(t *testing.T) {
 			t.Fatalf("authed ticket=%+v", env.Data)
 		}
 	})
+}
+
+func TestPublicSupportAbuseControls(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	redisClient := redisx.NewTest(t)
+	h := &support.Handler{
+		Pool:      pool,
+		Lim:       auth.Limiter{R: redisClient},
+		ClientIPs: auth.NewClientIPResolver(nil),
+	}
+	router := chi.NewRouter()
+	h.PublicRoutes(router)
+
+	request := func(payload string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest(http.MethodPost, "/support/tickets", bytes.NewBufferString(payload))
+		req.Header.Set("Content-Type", "application/json")
+		req.RemoteAddr = "203.0.113.50:12345"
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		return w
+	}
+
+	honeypot := request(`{"contact_email":"bot@example.test","subject":"Spam","body":"Spam","website":"https://spam.test"}`)
+	if honeypot.Code != http.StatusCreated {
+		t.Fatalf("honeypot status=%d body=%s", honeypot.Code, honeypot.Body.String())
+	}
+	var count int
+	if err := pool.QueryRow(context.Background(), `SELECT count(*) FROM support_ticket`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("honeypot submission persisted %d tickets", count)
+	}
+
+	payload := `{"contact_email":"real@example.test","subject":"Help","body":"Please help"}`
+	// Honeypot already consumed one IP-window attempt, so four real submissions
+	// remain before the fifth real attempt is refused.
+	for i := 0; i < 4; i++ {
+		if w := request(payload); w.Code != http.StatusCreated {
+			t.Fatalf("allowed request %d status=%d body=%s", i+1, w.Code, w.Body.String())
+		}
+	}
+	if w := request(payload); w.Code != http.StatusTooManyRequests {
+		t.Fatalf("limited status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	if err := redisClient.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if w := request(payload); w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("redis failure must fail closed: status=%d body=%s", w.Code, w.Body.String())
+	}
 }

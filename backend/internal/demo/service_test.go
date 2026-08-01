@@ -102,6 +102,38 @@ func TestGetQuestionEmptyDBNotFound(t *testing.T) {
 	}
 }
 
+func TestGetDiagnosticReturnsTenOrderedQuestionsWithoutCorrectness(t *testing.T) {
+	pool := testdb.New(t)
+	seedFixture(t, pool)
+	svc, q := newService(t, pool)
+	ctx := context.Background()
+
+	v, err := q.GetVariantByNumber(ctx, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ordered, err := q.ListVariantQuestionIDsOrdered(ctx, v.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := demo.DiagnosticWhitelist(ordered)
+	got, _, err := svc.GetDiagnostic(ctx, "7.7.7.7", "uz-Latn")
+	if err != nil {
+		t.Fatalf("GetDiagnostic: %v", err)
+	}
+	if len(got) != len(want) || len(got) != 10 {
+		t.Fatalf("questions=%d want=%d", len(got), len(want))
+	}
+	for i, question := range got {
+		if question.ID != want[i].String() {
+			t.Fatalf("question[%d]=%s want=%s", i, question.ID, want[i])
+		}
+		if question.Explanation != nil {
+			t.Fatalf("question[%d] leaked explanation", i)
+		}
+	}
+}
+
 func TestSubmitAnswerCorrectAndWrong(t *testing.T) {
 	pool := testdb.New(t)
 	seedFixture(t, pool)
@@ -162,10 +194,10 @@ func TestSubmitAnswerNotWhitelistedQuestion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(ids) <= 5 {
-		t.Fatal("fixture must have more than 5 questions in variant 1 for this test")
+	if len(ids) <= 10 {
+		t.Fatal("fixture must have more than 10 questions in variant 1 for this test")
 	}
-	outsideID := ids[5] // 6th question, position-wise — real, but not whitelisted
+	outsideID := ids[10] // 11th question — real, but outside diagnostic grading scope
 
 	correctID, err := q.GetCorrectAnswerID(ctx, outsideID)
 	if err != nil {

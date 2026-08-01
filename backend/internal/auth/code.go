@@ -11,18 +11,23 @@ import (
 )
 
 // GenerateCode returns a 6-digit OTP code from crypto/rand.
-func GenerateCode() string {
-	n, _ := rand.Int(rand.Reader, big.NewInt(1000000))
-	return fmt.Sprintf("%06d", n.Int64())
+func GenerateCode() (string, error) {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "", fmt.Errorf("generate OTP: %w", err)
+	}
+	return fmt.Sprintf("%06d", n.Int64()), nil
 }
 
 // HashCode stores as "salthex$sha256hex(salt||code)" — salted so identical
 // codes never share a digest.
-func HashCode(code string) string {
+func HashCode(code string) (string, error) {
 	salt := make([]byte, 16)
-	_, _ = rand.Read(salt)
+	if _, err := rand.Read(salt); err != nil {
+		return "", fmt.Errorf("generate OTP salt: %w", err)
+	}
 	sum := sha256.Sum256(append(salt, []byte(code)...))
-	return hex.EncodeToString(salt) + "$" + hex.EncodeToString(sum[:])
+	return hex.EncodeToString(salt) + "$" + hex.EncodeToString(sum[:]), nil
 }
 
 // VerifyCode compares in constant time.
@@ -44,12 +49,14 @@ const crockford = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 
 // NewReferralCode returns an 8-char human-friendly unique-ish code;
 // callers must retry on DB unique violation.
-func NewReferralCode() string {
+func NewReferralCode() (string, error) {
 	b := make([]byte, 8)
-	_, _ = rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate referral code: %w", err)
+	}
 	out := make([]byte, 8)
 	for i, v := range b {
 		out[i] = crockford[int(v)%len(crockford)]
 	}
-	return string(out)
+	return string(out), nil
 }

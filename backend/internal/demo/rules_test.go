@@ -27,6 +27,22 @@ func TestWhitelistShorterThanCount(t *testing.T) {
 	}
 }
 
+func TestDiagnosticWhitelistTakesTenOrderedQuestions(t *testing.T) {
+	ids := make([]uuid.UUID, 12)
+	for i := range ids {
+		ids[i] = uuid.New()
+	}
+	got := DiagnosticWhitelist(ids)
+	if len(got) != diagnosticQuestionCount {
+		t.Fatalf("len=%d want %d", len(got), diagnosticQuestionCount)
+	}
+	for i, id := range got {
+		if id != ids[i] {
+			t.Fatalf("diagnostic[%d]=%s want %s", i, id, ids[i])
+		}
+	}
+}
+
 func TestWhitelistEmpty(t *testing.T) {
 	got := Whitelist(nil)
 	if len(got) != 0 {

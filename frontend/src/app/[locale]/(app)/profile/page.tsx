@@ -103,6 +103,10 @@ export default function ProfilePage() {
     try {
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.getRegistration("/");
+        registration?.active?.postMessage({ type: "CLEAR_PRIVATE_CACHES" });
+      }
       router.push(`/${currentLocale}/login`);
     }
   };

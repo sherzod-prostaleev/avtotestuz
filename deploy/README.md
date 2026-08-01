@@ -27,7 +27,8 @@ docker build -t avtotest-api:local -f backend/Dockerfile backend/
 docker build -t avtotest-web:local -f frontend/Dockerfile frontend/
 ```
 
-- API is a static binary (distroless); migrates on boot via embedded SQL.
+- API is a static binary (distroless); migrates on boot via embedded SQL and
+  includes `/healthcheck` plus the one-shot, data-preserving `/encryptpan` tool.
 - Frontend uses Next.js `output: "standalone"`.
 - **No secrets are baked into either image** — inject via env / `deploy/app.env`.
 
@@ -70,7 +71,8 @@ want fixture data).
 
 - `restart: unless-stopped` on `api` and `web`.
 - Log rotation (`json-file`, 10m × 3) on both app services.
-- `web` has an HTTP healthcheck; `api` relies on `smoke.sh` (distroless).
+- `api` and `web` both have HTTP healthchecks; `smoke.sh` remains the external
+  end-to-end check.
 - Optional CPU/memory limits are commented in the overlay — enable after VPS sizing.
 - Secrets only via `app.env` / shell — never in YAML or images.
 

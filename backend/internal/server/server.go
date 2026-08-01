@@ -54,11 +54,12 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
 	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
 	r.Use(middleware.RequestID, middleware.Recoverer)
+	r.Use(limitRequestBody(defaultMaxRequestBodyBytes))
 	if cfg.Env == "dev" {
 		r.Use(middleware.Logger)
 	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins: []string{"*"},
+		AllowedOrigins: cfg.CORSOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
 	}))
@@ -126,7 +127,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)
 
-			sup := &support.Handler{Pool: deps.Pool}
+			sup := &support.Handler{
+				Pool:      deps.Pool,
+				Lim:       auth.Limiter{R: deps.Redis},
+				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+			}
 			sup.PublicRoutes(api)
 
 			fh := &flags.Handler{Pool: deps.Pool}
@@ -183,7 +188,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				progressSvc.Learning = learningSvc
 				progressSvc.Billing = billing.Service{Q: deps.Queries}
 				lbSvc := leaderboard.NewService(deps.Redis, deps.Queries, billing.Service{Q: deps.Queries})
-				sessSvc := session.NewService(deps.Queries, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)
+				sessSvc := session.NewService(deps.Queries, deps.Pool, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)
 				sessSvc.Leaderboard = lbSvc
 				sess := &session.Handler{
 					Svc:     sessSvc,
@@ -204,7 +209,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				ph := &progress.Handler{Svc: progressSvc}
 				ph.Routes(learnerAuth)
 
-				evh := &events.Handler{Svc: events.NewService(deps.Queries)}
+				evh := &events.Handler{Svc: events.NewService(deps.Queries, deps.Pool)}
 				evh.Routes(learnerAuth)
 
 				arenaSvc = arena.NewService(deps.Queries, deps.Pool, deps.Redis,

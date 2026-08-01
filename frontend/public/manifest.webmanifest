@@ -13,7 +13,7 @@
   "categories": ["education"],
   "icons": [
     {
-      "src": "/icon.svg",
+      "src": "/logo.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

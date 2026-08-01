@@ -16,6 +16,7 @@ export default function PublicSupportPage() {
   const [phone, setPhone] = useState("");
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [website, setWebsite] = useState("");
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState(false);
@@ -35,6 +36,7 @@ export default function PublicSupportPage() {
           subject,
           body,
           locale,
+          website,
         }),
       });
       const json = await res.json();
@@ -47,6 +49,7 @@ export default function PublicSupportPage() {
       setPhone("");
       setSubject("");
       setBody("");
+      setWebsite("");
       setDone(true);
     } catch {
       setError(true);
@@ -65,6 +68,16 @@ export default function PublicSupportPage() {
     >
       <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
       <form onSubmit={(e) => void submit(e)} className="mt-4 space-y-3">
+        <label className="absolute -left-[10000px] top-auto h-px w-px overflow-hidden" aria-hidden="true">
+          Website
+          <input
+            name="website"
+            value={website}
+            onChange={(e) => setWebsite(e.target.value)}
+            tabIndex={-1}
+            autoComplete="off"
+          />
+        </label>
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}

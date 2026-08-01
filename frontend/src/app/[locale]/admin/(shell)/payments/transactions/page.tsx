@@ -5,7 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
-import { RefreshCw, Trash2 } from "lucide-react";
+import { CircleSlash2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
@@ -36,7 +36,7 @@ type ListPayload = {
   total: number;
 };
 
-const STATUSES = ["", "created", "pending", "paid", "failed", "canceled", "refunded"];
+const STATUSES = ["", "created", "pending", "paid", "failed", "canceled", "refunded", "voided"];
 const PROVIDERS = ["", "payme", "click", "manual"];
 
 export default function AdminPaymentsTransactionsPage() {
@@ -44,7 +44,7 @@ export default function AdminPaymentsTransactionsPage() {
   const tNav = useTranslations("AdminNav");
   const locale = useLocale();
   const me = useAdminMeOptional();
-  const canDelete = hasPermission(me?.permissions, "payments.delete");
+  const canVoid = hasPermission(me?.permissions, "payments.void");
   const searchParams = useSearchParams();
   const [status, setStatus] = useState(() => searchParams.get("status") ?? "");
   const [provider, setProvider] = useState(() => searchParams.get("provider") ?? "");
@@ -54,7 +54,7 @@ export default function AdminPaymentsTransactionsPage() {
   const [data, setData] = useState<ListPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [voidingId, setVoidingId] = useState<string | null>(null);
 
   const load = useCallback(
     async (pageNum: number) => {
@@ -91,32 +91,43 @@ export default function AdminPaymentsTransactionsPage() {
     void load(page);
   }, [page, load]);
 
-  const removePayment = useCallback(
+  const voidPayment = useCallback(
     async (row: PaymentRow) => {
-      if (!window.confirm(t("confirmDelete", { phone: row.phone_masked, status: row.status }))) {
+      const reason = window.prompt(t("voidReasonPrompt", { phone: row.phone_masked, status: row.status }));
+      if (reason === null) {
         return;
       }
-      setDeletingId(row.id);
+      if (reason.trim().length < 10 || reason.trim().length > 500) {
+        setError(t("voidReasonRequired"));
+        return;
+      }
+      setVoidingId(row.id);
       setError(null);
       try {
-        const res = await fetch(`/api/admin/payments/transactions/${row.id}`, { method: "DELETE" });
+        const res = await fetch(`/api/admin/payments/transactions/${row.id}/void`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: reason.trim() }),
+        });
         const json = await res.json().catch(() => ({}));
         if (!res.ok) {
           const code = json?.error?.code as string | undefined;
           setError(
             code === "forbidden"
-              ? t("errorForbiddenDelete")
+              ? t("errorForbiddenVoid")
               : code === "not_found"
                 ? t("errorNotFound")
-                : t("errorDelete"),
+                : code === "payment_settled"
+                  ? t("errorSettled")
+                  : t("errorVoid"),
           );
           return;
         }
         await load(page);
       } catch {
-        setError(t("errorDelete"));
+        setError(t("errorVoid"));
       } finally {
-        setDeletingId(null);
+        setVoidingId(null);
       }
     },
     [load, page, t],
@@ -173,29 +184,32 @@ export default function AdminPaymentsTransactionsPage() {
           </span>
         ),
       },
-      ...(canDelete
+      ...(canVoid
         ? ([
             {
               id: "actions",
               header: t("colActions"),
-              cell: ({ row }) => (
+              cell: ({ row }) => row.original.status === "failed" ||
+                row.original.status === "canceled" ||
+                (row.original.provider === "manual" &&
+                  (row.original.status === "created" || row.original.status === "pending")) ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={deletingId === row.original.id || loading}
-                  onClick={() => void removePayment(row.original)}
-                  aria-label={t("delete")}
+                  disabled={voidingId === row.original.id || loading}
+                  onClick={() => void voidPayment(row.original)}
+                  aria-label={t("void")}
                 >
-                  <Trash2 aria-hidden className="mr-1 h-3.5 w-3.5" />
-                  {deletingId === row.original.id ? t("deleting") : t("delete")}
+                  <CircleSlash2 aria-hidden className="mr-1 h-3.5 w-3.5" />
+                  {voidingId === row.original.id ? t("voiding") : t("void")}
                 </Button>
-              ),
+              ) : null,
             },
           ] as ColumnDef<PaymentRow>[])
         : []),
     ],
-    [t, locale, canDelete, deletingId, loading, removePayment],
+    [t, locale, canVoid, voidingId, loading, voidPayment],
   );
 
   return (

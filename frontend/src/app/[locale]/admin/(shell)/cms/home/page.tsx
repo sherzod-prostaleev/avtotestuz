@@ -23,7 +23,6 @@ const FIELDS: FieldDef[] = [
   { key: "headline", labelKey: "fieldHeadline" },
   { key: "subtitle", labelKey: "fieldSubtitle" },
   { key: "ctaLabel", labelKey: "fieldCtaLabel" },
-  { key: "ctaHref", labelKey: "fieldCtaHref", hintKey: "hintCtaHref", tooltipPrefix: "tipCtaHref" },
 ];
 
 export default function AdminCMSHomePage() {

@@ -3,13 +3,15 @@ package push
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/google/uuid"
 )
 
 const (
-	KindBroadcast      = "support_broadcast"
+	KindBroadcast       = "support_broadcast"
 	defaultBroadcastCap = 500
+	broadcastWorkers    = 8
 )
 
 // BroadcastOpts controls an admin support web-push broadcast.
@@ -80,17 +82,52 @@ func (s *Service) BroadcastSupport(ctx context.Context, opts BroadcastOpts) (Bro
 		URL:   opts.URL,
 		Data:  map[string]any{"kind": KindBroadcast},
 	}
-	for _, id := range ids {
-		sent, err := s.Notify(ctx, id, KindBroadcast, payload)
-		if err != nil {
-			if err == ErrNoSubs {
-				continue
+	type notifyResult struct {
+		sent int
+		err  error
+	}
+	workers := broadcastWorkers
+	if len(ids) < workers {
+		workers = len(ids)
+	}
+	jobs := make(chan uuid.UUID)
+	results := make(chan notifyResult, len(ids))
+	var wg sync.WaitGroup
+	for range workers {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for id := range jobs {
+				sent, notifyErr := s.Notify(ctx, id, KindBroadcast, payload)
+				results <- notifyResult{sent: sent, err: notifyErr}
 			}
-			res.Errors++
+		}()
+	}
+
+sendLoop:
+	for _, id := range ids {
+		select {
+		case jobs <- id:
+		case <-ctx.Done():
+			break sendLoop
+		}
+	}
+	close(jobs)
+	wg.Wait()
+	close(results)
+
+	for result := range results {
+		if result.err != nil {
+			if result.err != ErrNoSubs {
+				res.Errors++
+			}
 			continue
 		}
 		res.Notified++
-		res.Deliveries += sent
+		res.Deliveries += result.sent
+	}
+	if err := ctx.Err(); err != nil {
+		return res, err
 	}
 	return res, nil
 }

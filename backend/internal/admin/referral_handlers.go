@@ -9,7 +9,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/httpx"
 )
 
@@ -33,6 +35,41 @@ func (h *Handler) listReferralPayouts(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) revealReferralPayoutCard(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing admin")
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid payout id")
+		return
+	}
+	var stored, status string
+	if err := h.Pool.QueryRow(r.Context(), `SELECT card_number, status FROM referral_payout WHERE id=$1`, id).Scan(&stored, &status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "payout not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "payout query failed")
+		return
+	}
+	pan, err := h.Billing.DecryptPAN(stored)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "card decrypt failed")
+		return
+	}
+	if err := h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "referral.payout.card.reveal", "referral_payout", id.String(),
+		nil, map[string]any{"status": status, "card_masked": billing.MaskStoredPAN(stored)},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context())); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "audit write failed")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, map[string]string{"card_number": pan})
 }
 
 type payoutActionBody struct {

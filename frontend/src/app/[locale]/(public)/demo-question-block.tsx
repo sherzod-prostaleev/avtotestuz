@@ -196,7 +196,7 @@ export function DemoQuestionBlock() {
             {/* Accent (not gold): gold is reserved for VIP surfaces. Styled link
                 instead of a nested <Link><Button> interactive-in-interactive. */}
             <Link
-              href={`/${locale}/login`}
+              href={`/${locale}/register`}
               className="inline-flex h-11 min-h-11 flex-1 items-center justify-center gap-1.5 rounded-xl border-b-4 border-accent-shadow bg-accent px-4 text-xs font-bold tracking-wide text-accent-foreground shadow-3d transition-all duration-150 hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:shadow-none"
             >
               {t("demoRegisterCta")} <ArrowRight className="h-4 w-4" />

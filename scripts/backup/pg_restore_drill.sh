@@ -8,6 +8,7 @@
 #   ./scripts/backup/pg_restore_drill.sh [.run/backups/avtotest-latest.dump]
 #   DRILL_DB=avtotest_restore_drill ./scripts/backup/pg_restore_drill.sh path/to.dump
 set -euo pipefail
+umask 077
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
@@ -40,10 +41,21 @@ DROP DATABASE IF EXISTS ${DRILL_DB};
 CREATE DATABASE ${DRILL_DB} OWNER ${PGUSER};
 SQL
 
-# Feed dump on stdin to pg_restore inside the container.
-$COMPOSE exec -T "$COMPOSE_SERVICE" \
-  pg_restore -U "$PGUSER" -d "$DRILL_DB" --no-owner --no-acl --exit-on-error \
-  <"$DUMP"
+# Feed dump on stdin to pg_restore inside the container. Encrypted backups are
+# decrypted only as a stream; no plaintext dump is written to disk.
+if [[ "$DUMP" == *.age ]]; then
+  if [[ -z "${AGE_IDENTITY_FILE:-}" || ! -f "${AGE_IDENTITY_FILE}" ]]; then
+    echo "AGE_IDENTITY_FILE is required to restore an encrypted backup" >&2
+    exit 1
+  fi
+  age --decrypt --identity "$AGE_IDENTITY_FILE" "$DUMP" | \
+    $COMPOSE exec -T "$COMPOSE_SERVICE" \
+      pg_restore -U "$PGUSER" -d "$DRILL_DB" --no-owner --no-acl --exit-on-error
+else
+  $COMPOSE exec -T "$COMPOSE_SERVICE" \
+    pg_restore -U "$PGUSER" -d "$DRILL_DB" --no-owner --no-acl --exit-on-error \
+    <"$DUMP"
+fi
 
 # Sanity: migrations table or a core relation exists.
 TABLES="$($COMPOSE exec -T "$COMPOSE_SERVICE" \

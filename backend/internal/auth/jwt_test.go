@@ -34,7 +34,10 @@ func TestJWTRoundtrip(t *testing.T) {
 }
 
 func TestRefreshToken(t *testing.T) {
-	raw := NewRefreshToken()
+	raw, err := NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
 	if len(raw) < 43 {
 		t.Fatalf("raw too short: %d", len(raw))
 	}
@@ -42,7 +45,11 @@ func TestRefreshToken(t *testing.T) {
 	if len(h) != 64 || h != HashToken(raw) {
 		t.Fatalf("hash not deterministic 64-hex: %q", h)
 	}
-	if NewRefreshToken() == raw {
+	second, err := NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second == raw {
 		t.Fatal("tokens must be unique")
 	}
 }

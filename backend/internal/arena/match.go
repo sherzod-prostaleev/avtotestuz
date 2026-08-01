@@ -29,12 +29,13 @@ type Match struct {
 	discSince   map[uuid.UUID]time.Time
 	quitter     uuid.UUID
 
-	inbox     chan matchEvent
-	retimer   chan struct{}
-	countdown time.Duration
-	qTime     time.Duration
-	revealFor time.Duration
-	grace     time.Duration
+	inbox      chan matchEvent
+	retimer    chan struct{}
+	done       chan struct{}
+	countdown  time.Duration
+	qTime      time.Duration
+	revealFor  time.Duration
+	grace      time.Duration
 	reconGrace time.Duration
 }
 
@@ -82,6 +83,7 @@ func NewMatch(
 		discSince:  map[uuid.UUID]time.Time{},
 		inbox:      make(chan matchEvent, 64),
 		retimer:    make(chan struct{}, 1),
+		done:       make(chan struct{}),
 		countdown:  3 * time.Second,
 		qTime:      time.Duration(QuestionTimeSec) * time.Second,
 		revealFor:  2500 * time.Millisecond,
@@ -104,42 +106,54 @@ func (m *Match) kickTimer() {
 	}
 }
 
-func (m *Match) SubmitAnswer(profileID uuid.UUID, index int, answerID uuid.UUID) {
+func (m *Match) enqueue(ev matchEvent, wait time.Duration) bool {
+	timer := time.NewTimer(wait)
+	defer timer.Stop()
 	select {
-	case m.inbox <- matchEvent{kind: "answer", profileID: profileID, index: index, answerID: answerID}:
-	default:
+	case m.inbox <- ev:
+		return true
+	case <-m.done:
+		return false
+	case <-timer.C:
+		if m.svc != nil && m.svc.Log != nil {
+			m.svc.Log.Error("arena match inbox saturated",
+				zap.String("match_id", m.id.String()),
+				zap.String("event", ev.kind),
+			)
+		}
+		return false
 	}
 }
 
-func (m *Match) NotifyDisconnect(profileID uuid.UUID) {
-	select {
-	case m.inbox <- matchEvent{kind: "disconnect", profileID: profileID}:
-	default:
-	}
+func (m *Match) SubmitAnswer(profileID uuid.UUID, index int, answerID uuid.UUID) bool {
+	return m.enqueue(matchEvent{kind: "answer", profileID: profileID, index: index, answerID: answerID}, time.Second)
 }
 
-func (m *Match) Rejoin(profileID uuid.UUID) {
-	select {
-	case m.inbox <- matchEvent{kind: "reconnect", profileID: profileID}:
-	default:
-	}
+func (m *Match) NotifyDisconnect(profileID uuid.UUID) bool {
+	return m.enqueue(matchEvent{kind: "disconnect", profileID: profileID}, time.Second)
 }
 
-func (m *Match) Leave(profileID uuid.UUID) {
-	select {
-	case m.inbox <- matchEvent{kind: "leave", profileID: profileID}:
-	default:
-	}
+func (m *Match) Rejoin(profileID uuid.UUID) bool {
+	return m.enqueue(matchEvent{kind: "reconnect", profileID: profileID}, time.Second)
 }
 
-func (m *Match) AbortShutdown() {
+func (m *Match) Leave(profileID uuid.UUID) bool {
+	return m.enqueue(matchEvent{kind: "leave", profileID: profileID}, time.Second)
+}
+
+func (m *Match) AbortShutdown(ctx context.Context) error {
 	select {
 	case m.inbox <- matchEvent{kind: "abort"}:
-	default:
+		return nil
+	case <-m.done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
 func (m *Match) Run() {
+	defer close(m.done)
 	ctx := context.Background()
 	next := time.NewTimer(m.countdown)
 	defer next.Stop()
@@ -218,10 +232,7 @@ func (m *Match) handle(ctx context.Context, ev matchEvent) {
 		pid := ev.profileID
 		go func() {
 			time.Sleep(m.reconGrace)
-			select {
-			case m.inbox <- matchEvent{kind: "forfeit_check", profileID: pid}:
-			default:
-			}
+			m.enqueue(matchEvent{kind: "forfeit_check", profileID: pid}, time.Second)
 		}()
 	case "forfeit_check":
 		if _, still := m.discSince[ev.profileID]; still && m.phase != "finished" {
@@ -396,20 +407,42 @@ func (m *Match) finish(ctx context.Context, reason string) {
 	}
 	da, db := 0, 0
 	ra, rb := 1000, 1000
-	if reason != "both_disconnected" && reason != "server_shutdown" && m.svc.Rating != nil {
-		// Forfeit: quitter scores as loss for ELO (score 0 vs opponent+1).
-		scoreA, scoreB := m.score[m.a], m.score[m.b]
-		if reason == "forfeit" {
-			switch m.quitter {
-			case m.a:
-				scoreA, scoreB = 0, 1
-			case m.b:
-				scoreA, scoreB = 1, 0
+	backoff := 100 * time.Millisecond
+	for {
+		var persistErr error
+		if reason != "both_disconnected" && reason != "server_shutdown" && m.svc.Rating != nil {
+			// Forfeit: quitter scores as loss for ELO (score 0 vs opponent+1).
+			scoreA, scoreB := m.score[m.a], m.score[m.b]
+			if reason == "forfeit" {
+				switch m.quitter {
+				case m.a:
+					scoreA, scoreB = 0, 1
+				case m.b:
+					scoreA, scoreB = 1, 0
+				}
+			}
+			da, db, persistErr = m.svc.Rating.ApplyResult(ctx, m.id, m.a, m.b, scoreA, scoreB)
+			if persistErr == nil {
+				ra, persistErr = m.svc.Rating.Rating(ctx, m.a)
+			}
+			if persistErr == nil {
+				rb, persistErr = m.svc.Rating.Rating(ctx, m.b)
 			}
 		}
-		da, db, _ = m.svc.Rating.ApplyResult(ctx, m.id, m.a, m.b, scoreA, scoreB)
-		ra, _ = m.svc.Rating.Rating(ctx, m.a)
-		rb, _ = m.svc.Rating.Rating(ctx, m.b)
+		if persistErr == nil {
+			persistErr = m.svc.FinishPersist(ctx, m, da, db)
+		}
+		if persistErr == nil {
+			break
+		}
+		m.svc.Log.Error("arena finish persistence failed; retrying",
+			zap.String("match_id", m.id.String()),
+			zap.Error(persistErr),
+		)
+		time.Sleep(backoff)
+		if backoff < 5*time.Second {
+			backoff *= 2
+		}
 	}
 	_ = m.svc.sendJSON(m.a, "match.end", MatchEndData{
 		MatchID: m.id, Outcome: outA, Reason: reason, RatingDelta: da,
@@ -435,7 +468,6 @@ func (m *Match) finish(ctx context.Context, reason string) {
 			Opponent int `json:"opponent"`
 		}{m.correctN[m.b], m.correctN[m.a]},
 	})
-	_ = m.svc.FinishPersist(ctx, m, da, db)
 }
 
 func (m *Match) opponentOf(id uuid.UUID) uuid.UUID {

@@ -16,13 +16,35 @@ import (
 	"avtotest.uz/backend/internal/httpx"
 )
 
+type manualPayCardAdminRow struct {
+	ID         uuid.UUID `json:"id"`
+	Network    string    `json:"network"`
+	PanMasked  string    `json:"pan_masked"`
+	PanLast4   string    `json:"pan_last4"`
+	HolderName string    `json:"holder_name"`
+	SortOrder  int32     `json:"sort_order"`
+	Enabled    bool      `json:"enabled"`
+}
+
+func manualPayCardAdminDTO(row sqlc.ManualPayCard) manualPayCardAdminRow {
+	return manualPayCardAdminRow{
+		ID: row.ID, Network: row.Network,
+		PanMasked: billing.MaskCardNumber(row.PanLast4), PanLast4: row.PanLast4,
+		HolderName: row.HolderName, SortOrder: row.SortOrder, Enabled: row.Enabled,
+	}
+}
+
 func (h *Handler) listManualPayCards(w http.ResponseWriter, r *http.Request) {
 	rows, err := h.Billing.Q.ListManualPayCards(r.Context())
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "list cards failed")
 		return
 	}
-	httpx.Data(w, http.StatusOK, rows)
+	out := make([]manualPayCardAdminRow, 0, len(rows))
+	for _, row := range rows {
+		out = append(out, manualPayCardAdminDTO(row))
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 type manualCardBody struct {
@@ -38,7 +60,7 @@ func (h *Handler) createManualPayCard(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "JSON expected")
 		return
 	}
-	full, last4, err := billing.NormalizeCardPAN(body.PanFull)
+	full, last4, err := h.Billing.EncryptPAN(body.PanFull)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_card", "card number must be 16–19 digits")
 		return
@@ -70,7 +92,7 @@ func (h *Handler) createManualPayCard(w http.ResponseWriter, r *http.Request) {
 	claims, _ := FromContext(r.Context())
 	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "manual_pay.card.create", "manual_pay_card", row.ID.String(),
 		nil, nil, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
-	httpx.Data(w, http.StatusCreated, row)
+	httpx.Data(w, http.StatusCreated, manualPayCardAdminDTO(row))
 }
 
 func (h *Handler) updateManualPayCard(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +113,7 @@ func (h *Handler) updateManualPayCard(w http.ResponseWriter, r *http.Request) {
 	}
 	full, last4 := existing.PanFull, existing.PanLast4
 	if strings.TrimSpace(body.PanFull) != "" {
-		full, last4, err = billing.NormalizeCardPAN(body.PanFull)
+		full, last4, err = h.Billing.EncryptPAN(body.PanFull)
 		if err != nil {
 			httpx.Error(w, http.StatusBadRequest, "invalid_card", "card number must be 16–19 digits")
 			return
@@ -124,23 +146,68 @@ func (h *Handler) updateManualPayCard(w http.ResponseWriter, r *http.Request) {
 	claims, _ := FromContext(r.Context())
 	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "manual_pay.card.update", "manual_pay_card", id.String(),
 		nil, nil, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
-	httpx.Data(w, http.StatusOK, row)
+	httpx.Data(w, http.StatusOK, manualPayCardAdminDTO(row))
 }
 
-func (h *Handler) deleteManualPayCard(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) revealManualPayCard(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_id", "card id required")
 		return
 	}
-	if err := h.Billing.Q.DeleteManualPayCard(r.Context(), id); err != nil {
-		httpx.Error(w, http.StatusInternalServerError, "internal", "delete failed")
+	row, err := h.Billing.Q.GetManualPayCard(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "not_found", "card not found")
+		return
+	}
+	pan, err := h.Billing.DecryptPAN(row.PanFull)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "card decrypt failed")
 		return
 	}
 	claims, _ := FromContext(r.Context())
-	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "manual_pay.card.delete", "manual_pay_card", id.String(),
-		nil, nil, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
-	httpx.Data(w, http.StatusOK, map[string]bool{"ok": true})
+	if err := h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "manual_pay.card.reveal", "manual_pay_card", id.String(),
+		nil, map[string]any{"pan_last4": row.PanLast4}, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context())); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "audit write failed")
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.Data(w, http.StatusOK, map[string]string{"pan_full": pan})
+}
+
+// retireManualPayCard preserves the card and every historical assignment. A
+// retired card is excluded from new checkout allocation by enabled=false.
+func (h *Handler) retireManualPayCard(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "card id required")
+		return
+	}
+	row, err := h.Billing.Q.GetManualPayCard(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusNotFound, "not_found", "card not found")
+		return
+	}
+	row, err = h.Billing.Q.UpdateManualPayCard(r.Context(), sqlc.UpdateManualPayCardParams{
+		ID:         row.ID,
+		PanFull:    row.PanFull,
+		PanLast4:   row.PanLast4,
+		HolderName: row.HolderName,
+		SortOrder:  row.SortOrder,
+		Enabled:    false,
+	})
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "retire failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	if err := h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "manual_pay.card.retire", "manual_pay_card", id.String(),
+		map[string]any{"enabled": true}, map[string]any{"enabled": false},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context())); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "audit write failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, manualPayCardAdminDTO(row))
 }
 
 func (h *Handler) listManualPayQueue(w http.ResponseWriter, r *http.Request) {

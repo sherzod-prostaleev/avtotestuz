@@ -2,6 +2,7 @@
 # Keep product runtime only — no agent junk, docs dumps, or local caches.
 
 .git/
+.deployed-commit
 .github/
 .claude/
 .mimocode/
@@ -10,6 +11,7 @@
 .cursor/
 .run/
 scratch/
+backups/
 node_modules/
 **/node_modules/
 frontend/node_modules/

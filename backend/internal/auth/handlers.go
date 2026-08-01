@@ -18,7 +18,6 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/register", h.register)
 	r.Post("/auth/login", h.login)
-	r.Post("/auth/set-password", h.setPassword)
 	// OTP kept for sandbox/admin tooling; learner UI uses password auth.
 	r.Post("/auth/otp/request", h.requestOTP)
 	r.Post("/auth/otp/verify", h.verifyOTP)
@@ -38,14 +37,10 @@ type registerBody struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
+	Code     string `json:"code"`
 }
 
 type loginBody struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
-}
-
-type setPasswordBody struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
 }
@@ -78,6 +73,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Phone:    body.Phone,
 		Password: body.Password,
 		Name:     body.Name,
+		Code:     body.Code,
 		IP:       h.ClientIPs.Resolve(r),
 	})
 	if err != nil {
@@ -93,23 +89,6 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res, err := h.Svc.Login(r.Context(), LoginInput{
-		Phone:    body.Phone,
-		Password: body.Password,
-		IP:       h.ClientIPs.Resolve(r),
-	})
-	if err != nil {
-		writeAuthError(w, err)
-		return
-	}
-	httpx.Data(w, http.StatusOK, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
-}
-
-func (h *Handler) setPassword(w http.ResponseWriter, r *http.Request) {
-	var body setPasswordBody
-	if !decodeBody(w, r, &body) {
-		return
-	}
-	res, err := h.Svc.SetPassword(r.Context(), SetPasswordInput{
 		Phone:    body.Phone,
 		Password: body.Password,
 		IP:       h.ClientIPs.Resolve(r),
@@ -193,8 +172,6 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusConflict, "phone_taken", "phone number is already registered")
 	case errors.Is(err, ErrPasswordNotSet):
 		httpx.Error(w, http.StatusConflict, "password_not_set", "account has no password; set one to continue")
-	case errors.Is(err, ErrPasswordSet):
-		httpx.Error(w, http.StatusConflict, "password_already_set", "password is already set; use login")
 	case errors.Is(err, ErrInvalidCreds):
 		httpx.Error(w, http.StatusUnauthorized, "invalid_credentials", "invalid phone or password")
 	case errors.Is(err, ErrAccountBlocked):

@@ -15,13 +15,13 @@ import (
 
 // PaymentRow is a billing ops list row (M3 precursor).
 type PaymentRow struct {
-	ID         uuid.UUID  `json:"id"`
-	ProfileID  uuid.UUID  `json:"profile_id"`
-	Provider   string     `json:"provider"`
-	Status     string     `json:"status"`
-	AmountUzs  int64      `json:"amount_uzs"`
-	CreatedAt  time.Time  `json:"created_at"`
-	PaidAt     *time.Time `json:"paid_at,omitempty"`
+	ID        uuid.UUID  `json:"id"`
+	ProfileID uuid.UUID  `json:"profile_id"`
+	Provider  string     `json:"provider"`
+	Status    string     `json:"status"`
+	AmountUzs int64      `json:"amount_uzs"`
+	CreatedAt time.Time  `json:"created_at"`
+	PaidAt    *time.Time `json:"paid_at,omitempty"`
 }
 
 // ListPayments returns recent payments newest-first.
@@ -46,8 +46,8 @@ func (h *Handler) ListPayments(ctx context.Context, status string, limit int) ([
 	var out []PaymentRow
 	for rows.Next() {
 		var (
-			p       PaymentRow
-			paidAt  *time.Time
+			p      PaymentRow
+			paidAt *time.Time
 		)
 		if err := rows.Scan(&p.ID, &p.ProfileID, &p.Provider, &p.Status, &p.AmountUzs, &p.CreatedAt, &paidAt); err != nil {
 			return nil, err

@@ -3,9 +3,11 @@ package config
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 const (
@@ -15,11 +17,16 @@ const (
 )
 
 type Config struct {
-	Env          string // dev | staging | prod
-	Port         int
-	DatabaseURL  string
-	RedisURL     string
-	MediaBaseURL string // public base for image storage keys
+	Env               string // dev | staging | prod
+	Port              int
+	DatabaseURL       string
+	RedisURL          string
+	DBPoolMaxConns    int32
+	DBPoolMinConns    int32
+	DBPoolMaxLifetime time.Duration
+	DBPoolMaxIdleTime time.Duration
+	DBPoolHealthCheck time.Duration
+	MediaBaseURL      string // public base for image storage keys
 
 	// PublicBaseURL is the origin users actually browse — the frontend, not
 	// this API. Used to build shareable links (referral invite URLs). Without
@@ -27,6 +34,7 @@ type Config struct {
 	// generated in dev or staging pointed at a host that wasn't being served,
 	// making the referral flow impossible to test end-to-end.
 	PublicBaseURL string
+	CORSOrigins   []string
 
 	JWTSecret  string
 	OTPChannel string // off | sandbox | telegram
@@ -104,13 +112,40 @@ func Load() (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("invalid PORT %q: %w", portStr, err)
 	}
+	poolMax, err := parseInt32Env("DB_POOL_MAX_CONNS", 20)
+	if err != nil {
+		return Config{}, err
+	}
+	poolMin, err := parseInt32Env("DB_POOL_MIN_CONNS", 2)
+	if err != nil {
+		return Config{}, err
+	}
+	poolLifetime, err := parseDurationEnv("DB_POOL_MAX_LIFETIME", 30*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	poolIdle, err := parseDurationEnv("DB_POOL_MAX_IDLE_TIME", 5*time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	poolHealth, err := parseDurationEnv("DB_POOL_HEALTH_CHECK_PERIOD", time.Minute)
+	if err != nil {
+		return Config{}, err
+	}
+	publicBaseURL := strings.TrimRight(getenv("PUBLIC_BASE_URL", "http://localhost:3000"), "/")
 	cfg := Config{
-		Env:           getenv("ENV", "dev"),
-		Port:          port,
-		DatabaseURL:   getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
-		RedisURL:      getenv("REDIS_URL", "redis://localhost:6379/0"),
-		MediaBaseURL:  getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
-		PublicBaseURL: strings.TrimRight(getenv("PUBLIC_BASE_URL", "http://localhost:3000"), "/"),
+		Env:               getenv("ENV", "dev"),
+		Port:              port,
+		DatabaseURL:       getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
+		RedisURL:          getenv("REDIS_URL", "redis://localhost:6379/0"),
+		DBPoolMaxConns:    poolMax,
+		DBPoolMinConns:    poolMin,
+		DBPoolMaxLifetime: poolLifetime,
+		DBPoolMaxIdleTime: poolIdle,
+		DBPoolHealthCheck: poolHealth,
+		MediaBaseURL:      getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
+		PublicBaseURL:     publicBaseURL,
+		CORSOrigins:       splitCSV(getenv("CORS_ALLOWED_ORIGINS", publicBaseURL)),
 
 		JWTSecret:               getenv("JWT_SECRET", defaultJWTSecret),
 		OTPChannel:              getenv("OTP_CHANNEL", "sandbox"),
@@ -173,6 +208,9 @@ func (c Config) validate() error {
 	}
 
 	if c.Env == "staging" || c.Env == "prod" {
+		if strings.TrimSpace(c.OpsAdminToken) != "" {
+			return fmt.Errorf("OPS_ADMIN_TOKEN is disabled when ENV=%s; use admin RBAC", c.Env)
+		}
 		if c.OTPChannel == "sandbox" {
 			return fmt.Errorf("OTP_CHANNEL sandbox is not allowed when ENV=%s", c.Env)
 		}
@@ -193,6 +231,27 @@ func (c Config) validate() error {
 		// Payme/Click redirect here after payment; localhost would strand payers.
 		if strings.TrimSpace(c.PublicBaseURL) == "" || strings.HasPrefix(c.PublicBaseURL, "http://localhost") {
 			return fmt.Errorf("PUBLIC_BASE_URL must be a real public origin when ENV=%s", c.Env)
+		}
+	}
+	if len(c.CORSOrigins) == 0 {
+		return fmt.Errorf("CORS_ALLOWED_ORIGINS must contain at least one origin")
+	}
+	if c.DBPoolMaxConns < 2 || c.DBPoolMinConns < 0 || c.DBPoolMinConns > c.DBPoolMaxConns {
+		return fmt.Errorf("invalid DB pool bounds: min=%d max=%d", c.DBPoolMinConns, c.DBPoolMaxConns)
+	}
+	if c.DBPoolMaxLifetime <= 0 || c.DBPoolMaxIdleTime <= 0 || c.DBPoolHealthCheck <= 0 {
+		return fmt.Errorf("DB pool durations must be positive")
+	}
+	for _, origin := range c.CORSOrigins {
+		if origin == "*" {
+			return fmt.Errorf("CORS_ALLOWED_ORIGINS must not contain wildcard origins")
+		}
+		u, err := url.Parse(origin)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+			return fmt.Errorf("invalid CORS origin %q", origin)
+		}
+		if (c.Env == "staging" || c.Env == "prod") && u.Scheme != "https" {
+			return fmt.Errorf("CORS origin %q must use https when ENV=%s", origin, c.Env)
 		}
 	}
 	if secret := strings.TrimSpace(c.ClientIPAssertionSecret); secret != "" && len([]byte(secret)) < minClientIPAssertionSecretLen {
@@ -244,6 +303,41 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func splitCSV(raw string) []string {
+	parts := strings.Split(raw, ",")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if value := strings.TrimSpace(part); value != "" {
+			out = append(out, strings.TrimRight(value, "/"))
+		}
+	}
+	return out
+}
+
+func parseInt32Env(key string, def int32) (int32, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return def, nil
+	}
+	value, err := strconv.ParseInt(raw, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", key, raw, err)
+	}
+	return int32(value), nil
+}
+
+func parseDurationEnv(key string, def time.Duration) (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return def, nil
+	}
+	value, err := time.ParseDuration(raw)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s %q: %w", key, raw, err)
+	}
+	return value, nil
 }
 
 // getenvBool reads a boolean env var, accepting the same spellings as the

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 
 type CardRow = {
   id: string;
-  pan_full: string;
+  pan_masked: string;
   pan_last4: string;
   holder_name: string;
   sort_order: number;
@@ -85,6 +85,8 @@ export default function AdminManualPayPage() {
   const [session, setSession] = useState("");
   const [botUser, setBotUser] = useState("HUMOcardbot");
   const [busy, setBusy] = useState(false);
+  const [revealedCards, setRevealedCards] = useState<Record<string, string>>({});
+  const [revealingId, setRevealingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -100,6 +102,7 @@ export default function AdminManualPayPage() {
         return;
       }
       setCards(((await c.json()).data ?? []) as CardRow[]);
+      setRevealedCards({});
       setQueue(((await q.json()).data ?? []) as QueueRow[]);
       setEvents(((await e.json()).data ?? []) as EventRow[]);
       const tgData = (await g.json()).data as TgSettings;
@@ -154,6 +157,37 @@ export default function AdminManualPayPage() {
       await load();
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function revealCard(id: string) {
+    if (revealedCards[id]) {
+      setRevealedCards((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    setRevealingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/payments/manual/cards/${id}/pan`, { cache: "no-store" });
+      if (!res.ok) {
+        setError(await readErr(res, t("errorReveal")));
+        return;
+      }
+      const json = await res.json();
+      const full = json?.data?.pan_full as string | undefined;
+      if (!full) {
+        setError(t("errorReveal"));
+        return;
+      }
+      setRevealedCards((current) => ({ ...current, [id]: full }));
+    } catch {
+      setError(t("errorReveal"));
+    } finally {
+      setRevealingId(null);
     }
   }
 
@@ -247,7 +281,7 @@ export default function AdminManualPayPage() {
   }
 
   return (
-    <PermissionGate permission="payments.read">
+    <PermissionGate permission="payments.manual.manage">
       <main className="mx-auto max-w-3xl space-y-8">
         <AdminPageHeader
           badge={tNav("groupPayments")}
@@ -308,18 +342,34 @@ export default function AdminManualPayPage() {
                     <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       #{i + 1}
                     </p>
-                    <p className="font-mono font-semibold">{formatPan(c.pan_full)}</p>
+                    <p className="font-mono font-semibold">
+                      {revealedCards[c.id] ? formatPan(revealedCards[c.id]) : c.pan_masked}
+                    </p>
                     <p className="text-xs text-muted-foreground">{c.holder_name}</p>
+                    {!c.enabled ? <p className="text-xs text-muted-foreground">{t("retired")}</p> : null}
                   </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => void removeCard(c.id)}
-                  >
-                    {t("delete")}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={revealingId === c.id}
+                      onClick={() => void revealCard(c.id)}
+                    >
+                      {revealedCards[c.id] ? t("hide") : revealingId === c.id ? t("revealing") : t("reveal")}
+                    </Button>
+                    {c.enabled ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void removeCard(c.id)}
+                      >
+                        {t("retire")}
+                      </Button>
+                    ) : null}
+                  </div>
                 </li>
               ))
             )}

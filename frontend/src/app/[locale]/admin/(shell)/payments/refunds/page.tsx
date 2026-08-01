@@ -1,15 +1,15 @@
-"use client";
-
-import { useLocale, useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { PermissionGate } from "@/components/admin/permission-gate";
 
 /** Refunds UI: money path is Payme inbound CancelTransaction (U-04); no admin initiate. */
-export default function AdminPaymentsRefundsPage() {
-  const t = useTranslations("AdminPayments");
-  const tNav = useTranslations("AdminNav");
-  const locale = useLocale();
+export default async function AdminPaymentsRefundsPage() {
+  const [t, tNav, locale] = await Promise.all([
+    getTranslations("AdminPayments"),
+    getTranslations("AdminNav"),
+    getLocale(),
+  ]);
 
   return (
     <PermissionGate permission="payments.read">

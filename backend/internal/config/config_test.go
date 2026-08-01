@@ -10,8 +10,14 @@ var configEnvKeys = []string{
 	"PORT",
 	"DATABASE_URL",
 	"REDIS_URL",
+	"DB_POOL_MAX_CONNS",
+	"DB_POOL_MIN_CONNS",
+	"DB_POOL_MAX_LIFETIME",
+	"DB_POOL_MAX_IDLE_TIME",
+	"DB_POOL_HEALTH_CHECK_PERIOD",
 	"MEDIA_BASE_URL",
 	"PUBLIC_BASE_URL",
+	"CORS_ALLOWED_ORIGINS",
 	"JWT_SECRET",
 	"OTP_CHANNEL",
 	"TELEGRAM_GATEWAY_TOKEN",
@@ -23,6 +29,7 @@ var configEnvKeys = []string{
 	"TELEGRAM_BOT_MODE",
 	"TELEGRAM_WEBHOOK_SECRET",
 	"TELEGRAM_QUIZ_WINNER_STICKER",
+	"OPS_ADMIN_TOKEN",
 }
 
 func isolateConfigEnv(t *testing.T) {
@@ -43,6 +50,12 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.DatabaseURL == "" || cfg.MediaBaseURL == "" || cfg.Env != "dev" {
 		t.Errorf("unexpected defaults: %+v", cfg)
+	}
+	if cfg.DBPoolMaxConns != 20 || cfg.DBPoolMinConns != 2 {
+		t.Errorf("unexpected DB pool defaults: min=%d max=%d", cfg.DBPoolMinConns, cfg.DBPoolMaxConns)
+	}
+	if len(cfg.CORSOrigins) != 1 || cfg.CORSOrigins[0] != "http://localhost:3000" {
+		t.Errorf("unexpected CORS defaults: %v", cfg.CORSOrigins)
 	}
 	if cfg.JWTSecret != "dev-secret-change-me" || cfg.OTPChannel != "sandbox" {
 		t.Errorf("unexpected auth defaults: %+v", cfg)
@@ -123,6 +136,14 @@ func TestLoadValidation(t *testing.T) {
 			env: map[string]string{
 				"JWT_SECRET": "local-only",
 			},
+		},
+		{
+			name: "production rejects legacy shared ops token",
+			env: map[string]string{
+				"ENV":             "prod",
+				"OPS_ADMIN_TOKEN": "legacy-shared-secret",
+			},
+			wantErr: "OPS_ADMIN_TOKEN is disabled when ENV=prod",
 		},
 		{
 			name: "invalid environment",

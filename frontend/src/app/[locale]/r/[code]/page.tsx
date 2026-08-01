@@ -6,10 +6,11 @@ import { redirect } from "next/navigation";
 // The code is handed to /login as ?ref=CODE; from there lib/referral-storage.ts
 // stashes it and either login/verify (new user) or ReferralCapture (already
 // signed in, bounced off /login by the middleware) redeems it.
-export default function ReferralInvitePage({
+export default async function ReferralInvitePage({
   params,
 }: {
-  params: { locale: string; code: string };
+  params: Promise<{ locale: string; code: string }>;
 }) {
-  redirect(`/${params.locale}/login?ref=${encodeURIComponent(params.code)}`);
+  const { locale, code } = await params;
+  redirect(`/${locale}/login?ref=${encodeURIComponent(code)}`);
 }

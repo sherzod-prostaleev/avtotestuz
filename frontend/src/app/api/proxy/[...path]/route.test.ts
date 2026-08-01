@@ -17,12 +17,16 @@ function requestWithCookies(cookieHeader: string, init: RequestInit = {}): Reque
   return new Request("http://localhost/api/proxy/x", { ...init, headers });
 }
 
+function routeContext(path: string[]) {
+  return { params: Promise.resolve({ path }) };
+}
+
 describe("proxy route", () => {
   it("returns 401 with no backend call when there is no access token cookie", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies(""), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies(""), routeContext(["me"]));
 
     expect(response.status).toBe(401);
     expect((await response.json()).error.code).toBe("unauthorized");
@@ -35,7 +39,7 @@ describe("proxy route", () => {
       .mockResolvedValue(new Response(JSON.stringify({ data: { id: "profile-1" } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=good-token"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=good-token"), routeContext(["me"]));
     const json = await response.json();
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -60,7 +64,7 @@ describe("proxy route", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "profile-1" } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), routeContext(["me"]));
     const json = await response.json();
 
     expect(fetchMock).toHaveBeenCalledTimes(3);
@@ -81,7 +85,7 @@ describe("proxy route", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "refresh_reused" } }), { status: 401 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=expired-token; rt=stolen-rt"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=expired-token; rt=stolen-rt"), routeContext(["me"]));
     const json = await response.json();
 
     expect(response.status).toBe(401);
@@ -106,7 +110,7 @@ describe("proxy route", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), routeContext(["me"]));
 
     expect(response.status).toBe(401);
     expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("fresh-at");
@@ -120,7 +124,7 @@ describe("proxy route", () => {
       .mockResolvedValueOnce(new Response("upstream down", { status: 503 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=expired-token; rt=valid-rt"), routeContext(["me"]));
 
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe("network_error");
@@ -141,9 +145,10 @@ describe("proxy route", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const body = JSON.stringify({ question_id: "q1", answer_id: "a1" });
-    await POST(requestWithCookies("at=expired-token; rt=valid-rt", { method: "POST", body }), {
-      params: { path: ["sessions", "abc", "answers"] },
-    });
+    await POST(
+      requestWithCookies("at=expired-token; rt=valid-rt", { method: "POST", body }),
+      routeContext(["sessions", "abc", "answers"]),
+    );
 
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
@@ -167,7 +172,7 @@ describe("proxy route", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=live-token; rt=live-rt"), { params: { path: ["me"] } });
+    const response = await GET(requestWithCookies("at=live-token; rt=live-rt"), routeContext(["me"]));
     const json = await response.json();
 
     expect(response.status).toBe(403);
@@ -179,9 +184,10 @@ describe("proxy route", () => {
   it("returns a stable 502 and preserves auth cookies when the backend is unavailable", async () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new Error("network down")));
 
-    const response = await GET(requestWithCookies("at=good-token; rt=good-refresh"), {
-      params: { path: ["me"] },
-    });
+    const response = await GET(
+      requestWithCookies("at=good-token; rt=good-refresh"),
+      routeContext(["me"]),
+    );
 
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe("network_error");
@@ -201,9 +207,10 @@ describe("proxy route", () => {
       .mockRejectedValueOnce(new Error("backend disappeared"));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=expired; rt=old-rt"), {
-      params: { path: ["me"] },
-    });
+    const response = await GET(
+      requestWithCookies("at=expired; rt=old-rt"),
+      routeContext(["me"]),
+    );
 
     expect(response.status).toBe(502);
     expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("fresh-at");
@@ -214,9 +221,10 @@ describe("proxy route", () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(requestWithCookies("at=good-token"), {
-      params: { path: ["..", "auth", "logout"] },
-    });
+    const response = await GET(
+      requestWithCookies("at=good-token"),
+      routeContext(["..", "auth", "logout"]),
+    );
 
     expect(response.status).toBe(400);
     expect((await response.json()).error.code).toBe("invalid_path");
@@ -226,9 +234,7 @@ describe("proxy route", () => {
   it("returns 502 for a malformed successful backend response", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("not-json", { status: 200 })));
 
-    const response = await GET(requestWithCookies("at=good-token"), {
-      params: { path: ["me"] },
-    });
+    const response = await GET(requestWithCookies("at=good-token"), routeContext(["me"]));
 
     expect(response.status).toBe(502);
     expect((await response.json()).error.code).toBe("network_error");
@@ -240,9 +246,10 @@ describe("proxy route", () => {
       .mockResolvedValue(new Response(JSON.stringify({ data: { number: 1, questions: [] } }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    const response = await GET(new Request("http://localhost/api/proxy/variants/1?locale=uz-Latn"), {
-      params: { path: ["variants", "1"] },
-    });
+    const response = await GET(
+      new Request("http://localhost/api/proxy/variants/1?locale=uz-Latn"),
+      routeContext(["variants", "1"]),
+    );
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledWith(

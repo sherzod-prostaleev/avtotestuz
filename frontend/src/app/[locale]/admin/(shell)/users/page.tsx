@@ -34,6 +34,14 @@ type ListPayload = {
   total: number;
 };
 
+function csvCell(value: string | number): string {
+  let text = String(value);
+  if (/^[=+\-@\t\r]/.test(text)) {
+    text = `'${text}`;
+  }
+  return JSON.stringify(text);
+}
+
 export default function AdminUsersPage() {
   const t = useTranslations("AdminUsers");
   const locale = useLocale();
@@ -189,13 +197,13 @@ export default function AdminUsersPage() {
                     [
                       r.id,
                       r.phone,
-                      JSON.stringify(r.name || ""),
+                      r.name || "",
                       r.status,
                       r.vip_active ? "1" : "0",
                       r.has_password ? "1" : "0",
                       r.streak,
                       r.created_at,
-                    ].join(","),
+                    ].map(csvCell).join(","),
                   );
                   const blob = new Blob([[header.join(","), ...lines].join("\n")], {
                     type: "text/csv;charset=utf-8",

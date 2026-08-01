@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -34,7 +35,7 @@ func setupHandlerServer(t *testing.T) (*httptest.Server, string) {
 	}
 
 	r := chi.NewRouter()
-	h := &events.Handler{Svc: events.NewService(q)}
+	h := &events.Handler{Svc: events.NewService(q, pool)}
 	h.Routes(r.With(auth.Required([]byte(handlerSecret))))
 
 	ts := httptest.NewServer(r)
@@ -68,6 +69,7 @@ func TestLogBatchOverHTTP(t *testing.T) {
 	ts, tok := setupHandlerServer(t)
 
 	body, _ := json.Marshal(map[string]any{
+		"idempotency_key": "9f444244-f00a-4a4e-a311-40ca820995a4",
 		"events": []map[string]any{
 			{"name": "view_question", "props": map[string]string{"question_id": "x"}},
 			{"name": "session_finish"},
@@ -95,7 +97,7 @@ func TestLogBatchOverHTTP(t *testing.T) {
 func TestLogBatchRejectsEmptyOverHTTP(t *testing.T) {
 	ts, tok := setupHandlerServer(t)
 
-	body, _ := json.Marshal(map[string]any{"events": []map[string]any{}})
+	body, _ := json.Marshal(map[string]any{"idempotency_key": uuid.NewString(), "events": []map[string]any{}})
 	status, respBody := doReq(t, ts, http.MethodPost, "/events", tok, body)
 	if status != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", status, respBody)
@@ -120,7 +122,7 @@ func TestLogBatchRejectsOversizedOverHTTP(t *testing.T) {
 	for i := range evs {
 		evs[i] = map[string]any{"name": "x"}
 	}
-	body, _ := json.Marshal(map[string]any{"events": evs})
+	body, _ := json.Marshal(map[string]any{"idempotency_key": uuid.NewString(), "events": evs})
 	status, respBody := doReq(t, ts, http.MethodPost, "/events", tok, body)
 	if status != http.StatusBadRequest {
 		t.Fatalf("status=%d body=%s", status, respBody)
@@ -141,7 +143,7 @@ func TestLogBatchRejectsOversizedOverHTTP(t *testing.T) {
 func TestLogBatchRequiresAuth(t *testing.T) {
 	ts, _ := setupHandlerServer(t)
 
-	body, _ := json.Marshal(map[string]any{"events": []map[string]any{{"name": "x"}}})
+	body, _ := json.Marshal(map[string]any{"idempotency_key": uuid.NewString(), "events": []map[string]any{{"name": "x"}}})
 	resp, err := ts.Client().Post(ts.URL+"/events", "application/json", bytes.NewReader(body))
 	if err != nil {
 		t.Fatal(err)

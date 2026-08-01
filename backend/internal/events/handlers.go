@@ -35,7 +35,8 @@ type eventDTO struct {
 }
 
 type logBatchBody struct {
-	Events []eventDTO `json:"events"`
+	IdempotencyKey string     `json:"idempotency_key"`
+	Events         []eventDTO `json:"events"`
 }
 
 func (h *Handler) logBatch(w http.ResponseWriter, r *http.Request) {
@@ -54,7 +55,7 @@ func (h *Handler) logBatch(w http.ResponseWriter, r *http.Request) {
 		evs[i] = Event(e)
 	}
 
-	if err := h.Svc.LogBatch(r.Context(), claims.ProfileID, evs); err != nil {
+	if err := h.Svc.LogBatch(r.Context(), claims.ProfileID, body.IdempotencyKey, evs); err != nil {
 		writeEventsError(w, err)
 		return
 	}
@@ -64,7 +65,7 @@ func (h *Handler) logBatch(w http.ResponseWriter, r *http.Request) {
 func writeEventsError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrInvalidRequest):
-		httpx.Error(w, http.StatusBadRequest, "invalid_request", "events batch must have 1-100 events")
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", "invalid event batch, fields, or idempotency key")
 	default:
 		httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
 	}

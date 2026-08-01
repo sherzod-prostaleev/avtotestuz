@@ -6,6 +6,7 @@ import { type ColumnDef } from "@tanstack/react-table";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
 import { AdminSkeleton } from "@/components/admin/admin-skeleton";
+import { PermissionGate } from "@/components/admin/permission-gate";
 import { Button } from "@/components/ui/button";
 import { useAdminMeOptional } from "@/components/admin/admin-me-context";
 import { hasPermission } from "@/lib/admin-permissions";
@@ -20,7 +21,6 @@ type PayoutRow = {
   profile_phone: string;
   profile_name: string;
   amount_uzs: number;
-  card_number: string;
   card_masked: string;
   card_network: string;
   status: string;
@@ -39,6 +39,8 @@ export default function AdminReferralPayoutsPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [revealedCards, setRevealedCards] = useState<Record<string, string>>({});
+  const [revealingId, setRevealingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +55,7 @@ export default function AdminReferralPayoutsPage() {
         return;
       }
       setItems((json.data?.items ?? []) as PayoutRow[]);
+      setRevealedCards({});
     } catch {
       setError(t("errorLoad"));
     } finally {
@@ -90,6 +93,33 @@ export default function AdminReferralPayoutsPage() {
   const me = useAdminMeOptional();
   const canManage = hasPermission(me?.permissions, "referral.payouts.manage");
 
+  const revealCard = useCallback(async (id: string) => {
+    if (revealedCards[id]) {
+      setRevealedCards((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      return;
+    }
+    setRevealingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/referral/payouts/${id}/card`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      const full = json?.data?.card_number as string | undefined;
+      if (!res.ok || !full) {
+        setError(t("errorReveal"));
+        return;
+      }
+      setRevealedCards((current) => ({ ...current, [id]: full }));
+    } catch {
+      setError(t("errorReveal"));
+    } finally {
+      setRevealingId(null);
+    }
+  }, [revealedCards, t]);
+
   const columns = useMemo<ColumnDef<PayoutRow>[]>(
     () => [
       {
@@ -110,21 +140,30 @@ export default function AdminReferralPayoutsPage() {
         cell: ({ row }) => <span className="font-mono">{formatSom(row.original.amount_uzs)}</span>,
       },
       {
-        accessorKey: "card_number",
+        accessorKey: "card_masked",
         header: t("colCard"),
-        // The full PAN, deliberately — `card_masked` exists on the row and is
-        // NOT used here. This screen is where an operator actually sends the
-        // referral money from a bank app, and you cannot transfer to a masked
-        // number. The only control on the exposure is the `referral.read`
-        // permission on GET /admin/v1/referral/payouts; reads are not audited
-        // (audit rows are written per mutation), so grant that permission
-        // narrowly.
         cell: ({ row }) => (
           <div>
-            <div className="font-mono text-xs">{row.original.card_number}</div>
+            <div className="font-mono text-xs">
+              {revealedCards[row.original.id] ?? row.original.card_masked}
+            </div>
             <div className="text-[11px] uppercase text-muted-foreground">
               {row.original.card_network}
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="mt-1"
+              disabled={revealingId === row.original.id}
+              onClick={() => void revealCard(row.original.id)}
+            >
+              {revealedCards[row.original.id]
+                ? t("hideCard")
+                : revealingId === row.original.id
+                  ? t("revealingCard")
+                  : t("revealCard")}
+            </Button>
           </div>
         ),
       },
@@ -175,11 +214,12 @@ export default function AdminReferralPayoutsPage() {
       }] as ColumnDef<PayoutRow>[])
         : []),
     ],
-    [t, busyId, act, canManage],
+    [t, busyId, act, canManage, revealedCards, revealingId, revealCard],
   );
 
   return (
-    <main className="space-y-6">
+    <PermissionGate permission="referral.payouts.manage">
+      <main className="space-y-6">
       <AdminPageHeader title={t("title")} description={t("subtitle")} />
 
       <div className="flex flex-wrap gap-2">
@@ -207,6 +247,7 @@ export default function AdminReferralPayoutsPage() {
           getRowId={(row) => row.id}
         />
       )}
-    </main>
+      </main>
+    </PermissionGate>
   );
 }

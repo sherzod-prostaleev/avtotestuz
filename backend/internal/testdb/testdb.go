@@ -204,13 +204,13 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 	for attempts := 0; attempts < 10; attempts++ {
 		_, err = pool.Exec(context.Background(), `
 			TRUNCATE TABLE
-				notification, event, audit_log, push_subscription, grand_mock_certificate,
+				notification, event_batch, event, audit_log, push_subscription, grand_mock_certificate,
 				streak, saved_question, category_mastery, question_memory,
 				variant_progress, session_answer, exam_session,
 				referral, user_referral_code,
 				referral_ledger, referral_payout,
 				manual_pay_assignment, manual_pay_event, manual_pay_card,
-				promo_redemption, entitlement, payment,
+				payment_void, promo_redemption, entitlement, payment,
 				promo_code, tariff_translation, tariff,
 				explanation_feedback, refresh_token, device, telegram_account, telegram_link_token,
 				otp_challenge, profile,

@@ -1,13 +1,13 @@
-"use client";
-
 import Link from "next/link";
-import { useLocale, useTranslations } from "next-intl";
+import { getLocale, getTranslations } from "next-intl/server";
 import { LegalDocShell, LegalSection } from "@/components/legal/legal-doc-shell";
 
-export default function JarimalarPage() {
-  const t = useTranslations("Jarimalar");
-  const tLanding = useTranslations("Landing");
-  const locale = useLocale();
+export default async function JarimalarPage() {
+  const [t, tLanding, locale] = await Promise.all([
+    getTranslations("Jarimalar"),
+    getTranslations("Landing"),
+    getLocale(),
+  ]);
   const home = `/${locale}`;
 
   return (

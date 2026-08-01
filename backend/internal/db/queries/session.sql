@@ -6,46 +6,143 @@ WHERE vq.variant_id = $1
 ORDER BY vq.position;
 
 -- name: RandomQuestionIDs :many
-SELECT id FROM question
-WHERE validation_status = 'valid'
-ORDER BY random()
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid' AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid' AND q.id < p.id
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT $1;
 
 -- name: RandomQuestionIDsByCategory :many
-SELECT id FROM question
-WHERE validation_status = 'valid' AND category_id = sqlc.arg(category_id)
-ORDER BY random()
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.category_id = sqlc.arg(category_id)
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.category_id = sqlc.arg(category_id)
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT sqlc.arg(limit_count);
 
 -- name: RandomQuestionIDsBySign :many
-SELECT q.id FROM question q
-JOIN question_sign qs ON qs.question_id = q.id
-WHERE q.validation_status = 'valid' AND qs.sign_id = sqlc.arg(sign_id)
-ORDER BY random()
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question_sign qs
+  JOIN question q ON q.id = qs.question_id
+  CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND qs.sign_id = sqlc.arg(sign_id)
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+), wrapped AS (
+  SELECT q.id
+  FROM question_sign qs
+  JOIN question q ON q.id = qs.question_id
+  CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND qs.sign_id = sqlc.arg(sign_id)
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT sqlc.arg(limit_count);
 
 -- name: RandomQuestionIDsByVariantRange :many
 -- Draws across a contiguous span of bilets so a learner can mix-review the
 -- range they have already worked through, which one-bilet-at-a-time cannot do.
--- DISTINCT is applied in a subquery because Postgres rejects SELECT DISTINCT
--- ordered by an expression that is not in the select list, and random() is.
-SELECT id FROM (
-  SELECT DISTINCT q.id
-  FROM question q
-  JOIN variant_question vq ON vq.question_id = q.id
-  JOIN variant v ON v.id = vq.variant_id
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
   WHERE q.validation_status = 'valid'
-    AND v.number BETWEEN sqlc.arg(from_number) AND sqlc.arg(to_number)
-) candidates
-ORDER BY random()
+    AND q.id >= p.id
+    AND EXISTS (
+      SELECT 1
+      FROM variant_question vq
+      JOIN variant v ON v.id = vq.variant_id
+      WHERE vq.question_id = q.id
+        AND v.number BETWEEN sqlc.arg(from_number) AND sqlc.arg(to_number)
+    )
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND q.id < p.id
+    AND EXISTS (
+      SELECT 1
+      FROM variant_question vq
+      JOIN variant v ON v.id = vq.variant_id
+      WHERE vq.question_id = q.id
+        AND v.number BETWEEN sqlc.arg(from_number) AND sqlc.arg(to_number)
+    )
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT sqlc.arg(limit_count);
 
 -- name: RandomQuestionIDsByImagePresence :many
 -- has_image=true selects illustrated questions, false selects text-only ones.
-SELECT id FROM question
-WHERE validation_status = 'valid'
-  AND (image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
-ORDER BY random()
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+    AND q.id >= p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+), wrapped AS (
+  SELECT q.id
+  FROM question q CROSS JOIN pivot p
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = sqlc.arg(has_image)::boolean
+    AND q.id < p.id
+  ORDER BY q.id
+  LIMIT sqlc.arg(limit_count)
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
 LIMIT sqlc.arg(limit_count);
 
 -- name: ListMistakeBankQuestionIDs :many

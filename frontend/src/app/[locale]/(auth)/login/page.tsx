@@ -33,7 +33,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [setPasswordMode, setSetPasswordMode] = useState(false);
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
@@ -59,10 +58,9 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const endpoint = setPasswordMode ? "/api/auth/set-password" : "/api/auth/login";
       let res: Response;
       try {
-        res = await fetch(endpoint, {
+        res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ phone: normalizePhone(phone), password }),
@@ -84,9 +82,6 @@ export default function LoginPage() {
       }
 
       if (!res.ok) {
-        if (code === "password_not_set") {
-          setSetPasswordMode(true);
-        }
         setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
         return;
       }
@@ -128,10 +123,10 @@ export default function LoginPage() {
 
           <div className="space-y-2">
             <h1 className="font-display text-2xl font-extrabold tracking-tight">
-              {setPasswordMode ? t("setPasswordTitle") : t("title")}
+              {t("title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {setPasswordMode ? t("setPasswordSubtitle") : t("subtitle")}
+              {t("subtitle")}
             </p>
           </div>
 
@@ -172,7 +167,7 @@ export default function LoginPage() {
                 <input
                   id="login-password"
                   type="password"
-                  autoComplete={setPasswordMode ? "new-password" : "current-password"}
+                  autoComplete="current-password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t("passwordPlaceholder")}
@@ -198,25 +193,19 @@ export default function LoginPage() {
               className="w-full py-3 text-sm font-extrabold"
               disabled={!canSubmit}
             >
-              {submitting
-                ? t("submitting")
-                : setPasswordMode
-                  ? t("setPasswordSubmit")
-                  : t("submit")}
+              {submitting ? t("submitting") : t("submit")}
             </Button>
           </form>
 
-          {!setPasswordMode && (
-            <p className="text-center text-xs text-muted-foreground">
-              {t("noAccount")}{" "}
-              <Link
-                href={`/${locale}/register`}
-                className="font-bold text-foreground underline-offset-2 hover:underline"
-              >
-                {t("registerLink")}
-              </Link>
-            </p>
-          )}
+          <p className="text-center text-xs text-muted-foreground">
+            {t("noAccount")}{" "}
+            <Link
+              href={`/${locale}/register`}
+              className="font-bold text-foreground underline-offset-2 hover:underline"
+            >
+              {t("registerLink")}
+            </Link>
+          </p>
 
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-success" />

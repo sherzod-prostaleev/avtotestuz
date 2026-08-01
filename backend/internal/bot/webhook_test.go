@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -97,5 +98,21 @@ func TestWebhook_MalformedBodyStillReturns200(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (must not trigger Telegram retries)", rr.Code)
+	}
+}
+
+func TestWebhook_TransientDispatchFailureReturns503ForRetry(t *testing.T) {
+	h, _ := newTestWebhookHandler(t)
+	body := `{"update_id":2,"message":{"message_id":2,"text":"/start","chat":{"id":51},"from":{"id":51,"username":"h"}}}`
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := httptest.NewRequest(http.MethodPost, "/telegram/webhook", strings.NewReader(body)).WithContext(ctx)
+	req.Header.Set("X-Telegram-Bot-Api-Secret-Token", "top-secret")
+	rr := httptest.NewRecorder()
+
+	h.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503 so Telegram retries", rr.Code)
 	}
 }

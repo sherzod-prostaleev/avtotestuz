@@ -139,4 +139,47 @@ describe("LandingPage i18n and accessibility", () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     );
   });
+
+  it("opens the public diagnostic instead of redirecting the primary CTA to login", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockImplementation((input: string) => {
+        if (input.includes("/site/home")) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                data: {
+                  headline: "",
+                  subtitle: "",
+                  ctaLabel: "CMS diagnostika",
+                  ctaHref: "/uz-Latn/login",
+                },
+              }),
+              { status: 200, headers: { "Content-Type": "application/json" } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              data: {
+                id: "question-1",
+                text: localeCases[0].question,
+                image_url: null,
+                answers: [
+                  { id: "answer-1", position: 1, text: "A", image_url: null },
+                  { id: "answer-2", position: 2, text: "B", image_url: null },
+                ],
+              },
+            }),
+            { status: 200, headers: { "Content-Type": "application/json" } },
+          ),
+        );
+      }),
+    );
+    renderWithIntl(localeCases[0]);
+    const link = await screen.findByRole("link", { name: "CMS diagnostika" });
+
+    expect(link).toHaveAttribute("href", "/uz-Latn/diagnostic");
+  });
 });

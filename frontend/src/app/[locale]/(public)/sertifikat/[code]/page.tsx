@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Award, ArrowLeft, Printer, Share2 } from "lucide-react";
 import { apiGet, ApiError } from "@/lib/api-client";
@@ -16,14 +17,10 @@ type PublicCert = {
   issued_at: string;
 };
 
-export default function PublicCertificatePage({
-  params,
-}: {
-  params: { code: string };
-}) {
+export default function PublicCertificatePage() {
   const t = useTranslations("GrandMock");
   const locale = useLocale();
-  const code = params.code;
+  const { code } = useParams<{ code: string }>();
   const [cert, setCert] = useState<PublicCert | null>(null);
   const [missing, setMissing] = useState(false);
   const [loading, setLoading] = useState(true);

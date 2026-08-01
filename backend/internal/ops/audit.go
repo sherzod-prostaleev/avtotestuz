@@ -42,8 +42,8 @@ func (h *Handler) ListAudit(ctx context.Context, limit int) ([]AuditRow, error) 
 	var out []AuditRow
 	for rows.Next() {
 		var (
-			r       AuditRow
-			actorID *uuid.UUID
+			r        AuditRow
+			actorID  *uuid.UUID
 			entityID *uuid.UUID
 		)
 		if err := rows.Scan(&r.ID, &actorID, &r.Action, &r.Entity, &entityID, &r.CreatedAt); err != nil {

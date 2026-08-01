@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { ArrowLeft, Lock, Phone, User } from "lucide-react";
+import { ArrowLeft, KeyRound, Lock, Phone, User } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 
@@ -17,6 +17,10 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
   weak_password: "errorWeakPassword",
   password_mismatch: "errorPasswordMismatch",
   rate_limited: "errorRateLimited",
+  invalid_code: "errorInvalidCode",
+  expired_code: "errorExpiredCode",
+  too_many_attempts: "errorTooManyAttempts",
+  not_found: "errorVerificationUnavailable",
   network_error: "errorNetwork",
 };
 
@@ -33,12 +37,48 @@ export default function RegisterPage() {
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [codeRequested, setCodeRequested] = useState(false);
+  const [requestingCode, setRequestingCode] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
   }, []);
+
+  async function requestCode() {
+    if (phone.length !== 9 || requestingCode) return;
+    setError(null);
+    setRequestingCode(true);
+    try {
+      let res: Response;
+      try {
+        res = await fetch("/api/auth/otp/request", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone: normalizePhone(phone) }),
+        });
+      } catch {
+        setError("network_error");
+        return;
+      }
+      if (!res.ok) {
+        let errorCode = "unknown";
+        try {
+          const json = (await res.json()) as { error?: { code?: string } };
+          errorCode = json.error?.code ?? "unknown";
+        } catch {
+          // The status-based fallback below remains authoritative.
+        }
+        setError(errorCode === "unknown" && res.status >= 500 ? "network_error" : errorCode);
+        return;
+      }
+      setCodeRequested(true);
+    } finally {
+      setRequestingCode(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,6 +102,7 @@ export default function RegisterPage() {
             phone: normalizePhone(phone),
             password,
             name: name.trim() || undefined,
+            code,
           }),
         });
       } catch {
@@ -69,10 +110,10 @@ export default function RegisterPage() {
         return;
       }
 
-      let code = "unknown";
+      let responseCode = "unknown";
       try {
         const json = (await res.json()) as { error?: { code?: string } };
-        code = json.error?.code ?? "unknown";
+        responseCode = json.error?.code ?? "unknown";
       } catch {
         if (!res.ok) {
           setError("network_error");
@@ -81,7 +122,9 @@ export default function RegisterPage() {
       }
 
       if (!res.ok) {
-        setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
+        setError(
+          responseCode === "unknown" && res.status >= 500 ? "network_error" : responseCode,
+        );
         return;
       }
 
@@ -102,7 +145,12 @@ export default function RegisterPage() {
   }
 
   const canSubmit =
-    phone.length === 9 && password.length >= 8 && confirmPassword.length >= 8 && !submitting;
+    codeRequested &&
+    code.length === 6 &&
+    phone.length === 9 &&
+    password.length >= 8 &&
+    confirmPassword.length >= 8 &&
+    !submitting;
 
   return (
     <div
@@ -154,13 +202,63 @@ export default function RegisterPage() {
                   inputMode="numeric"
                   autoComplete="tel-national"
                   value={phone}
-                  onChange={(e) => setPhone(normalizePhone(e.target.value).slice(0, 9))}
+                  onChange={(e) => {
+                    setPhone(normalizePhone(e.target.value).slice(0, 9));
+                    setCodeRequested(false);
+                    setCode("");
+                  }}
                   placeholder="90 123 45 67"
                   className="w-full bg-transparent font-bold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"
                   aria-label={t("phoneLabel")}
                 />
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={phone.length !== 9 || requestingCode || submitting}
+                onClick={() => void requestCode()}
+              >
+                {requestingCode
+                  ? t("requestingCode")
+                  : codeRequested
+                    ? t("resendCode")
+                    : t("requestCode")}
+              </Button>
+              {codeRequested && (
+                <p role="status" className="text-xs font-semibold text-success">
+                  {t("codeSent")}
+                </p>
+              )}
+            </div>
+
+            {codeRequested && (
+              <div className="space-y-1.5">
+                <label
+                  htmlFor="register-code"
+                  className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground"
+                >
+                  {t("codeLabel")}
+                </label>
+                <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-4 py-3 text-sm transition-colors focus-within:border-accent focus-within:ring-2 focus-within:ring-ring">
+                  <KeyRound aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  <input
+                    id="register-code"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={code}
+                    onChange={(e) => setCode(normalizePhone(e.target.value).slice(0, 6))}
+                    placeholder="000000"
+                    className="w-full bg-transparent font-bold tracking-[0.3em] outline-none placeholder:font-normal placeholder:text-muted-foreground"
+                    aria-label={t("codeLabel")}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="space-y-1.5">
               <label

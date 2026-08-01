@@ -13,15 +13,15 @@ import (
 
 // QuestionDirectoryRow is a list row for GET /admin/v1/content/questions.
 type QuestionDirectoryRow struct {
-	ID                 uuid.UUID `json:"id"`
-	SourceExtID        string    `json:"source_ext_id"`
-	CategoryCode       string    `json:"category_code"`
-	CategoryName       string    `json:"category_name"`
-	ValidationStatus   string    `json:"validation_status"`
-	TextPreview        string    `json:"text_preview"`
-	VariantNumbers     []int     `json:"variant_numbers"`
-	ExplanationStatus  string    `json:"explanation_status"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                uuid.UUID `json:"id"`
+	SourceExtID       string    `json:"source_ext_id"`
+	CategoryCode      string    `json:"category_code"`
+	CategoryName      string    `json:"category_name"`
+	ValidationStatus  string    `json:"validation_status"`
+	TextPreview       string    `json:"text_preview"`
+	VariantNumbers    []int     `json:"variant_numbers"`
+	ExplanationStatus string    `json:"explanation_status"`
+	UpdatedAt         time.Time `json:"updated_at"`
 }
 
 // ListQuestionsResult is a paginated questions page.
@@ -41,10 +41,10 @@ type TranslationSummary struct {
 
 // AnswerSummary is one answer option with translations.
 type AnswerSummary struct {
-	ID           uuid.UUID             `json:"id"`
-	Position     int                   `json:"position"`
-	IsCorrect    bool                  `json:"is_correct"`
-	Translations []TranslationSummary  `json:"translations"`
+	ID           uuid.UUID            `json:"id"`
+	Position     int                  `json:"position"`
+	IsCorrect    bool                 `json:"is_correct"`
+	Translations []TranslationSummary `json:"translations"`
 }
 
 // VariantRef links a question into a numbered bilet.
@@ -81,15 +81,15 @@ type QuestionDetail struct {
 
 // ExplanationQueueRow is GET /admin/v1/content/explanations.
 type ExplanationQueueRow struct {
-	QuestionID       uuid.UUID  `json:"question_id"`
-	SourceExtID      string     `json:"source_ext_id"`
-	TextPreview      string     `json:"text_preview"`
-	Locale           string     `json:"locale"`
-	Status           string     `json:"status"`
-	Source           string     `json:"source"`
-	VerifiedAt       *time.Time `json:"verified_at,omitempty"`
-	CategoryCode     string     `json:"category_code"`
-	ExplanationID    uuid.UUID  `json:"explanation_id"`
+	QuestionID    uuid.UUID  `json:"question_id"`
+	SourceExtID   string     `json:"source_ext_id"`
+	TextPreview   string     `json:"text_preview"`
+	Locale        string     `json:"locale"`
+	Status        string     `json:"status"`
+	Source        string     `json:"source"`
+	VerifiedAt    *time.Time `json:"verified_at,omitempty"`
+	CategoryCode  string     `json:"category_code"`
+	ExplanationID uuid.UUID  `json:"explanation_id"`
 }
 
 // ListExplanationsResult is a paginated explanations queue.

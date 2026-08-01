@@ -10,7 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
 import { apiGet } from "@/lib/api-client";
 import { contactOrFallback, resolvePhonePair, type SiteContacts } from "@/lib/site-contacts";
-import { homeOrFallback, localizeCmsHref, type SiteHomeHero } from "@/lib/site-home";
+import { homeOrFallback, type SiteHomeHero } from "@/lib/site-home";
 import {
   Award,
   BrainCircuit,
@@ -165,10 +165,9 @@ export default function LandingPage() {
   const heroHeadline = homeOrFallback(home?.headline, i18nHeadline);
   const heroSubtitle = homeOrFallback(home?.subtitle, t("heroSubtitle"));
   const heroCtaLabel = homeOrFallback(home?.ctaLabel, t("ctaStart"));
-  const heroCtaHref = localizeCmsHref(
-    homeOrFallback(home?.ctaHref, `/${locale}/login`),
-    locale,
-  );
+  // Product invariant: the hero promises a free diagnostic, so its target
+  // must never be redirected to login by stale CMS data.
+  const heroCtaHref = `/${locale}/diagnostic`;
   const useCmsHeadline = Boolean(home?.headline?.trim());
 
   const features = [

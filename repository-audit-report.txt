@@ -1,0 +1,1273 @@
+DRIVER GO / AVTOTEST REPOSITORY AUDIT HISOBOTI
+============================================================
+
+REMEDIATION ADDENDUM -- JORIY SOURCE OF TRUTH
+------------------------------------------------------------
+
+Remediation va production verifikatsiya sanasi: 2026-08-01
+Audit bazasi: 2eb2af04ce00c810ffc71d80351c32bbc951d5a4
+Production host: /opt/drivergo (VPS)
+
+Ushbu addendum pastdagi dastlabki NO-GO audit snapshotini supersede qiladi.
+Pastdagi original topilmalar izchillik va audit trail uchun o'zgartirilmasdan
+saqlandi. Joriy statuslar faqat quyidagi dalillarga tayangan:
+
+- repositorydagi real code/config/migration/testlar;
+- local build, unit/integration/E2E va dependency audit natijalari;
+- VPSdagi container, PostgreSQL, Redis, MinIO va HTTP smoke tekshiruvlari;
+- pre-deploy hamda post-deploy dump restore drilllari.
+
+JORIY RELEASE HOLATI
+------------------------------------------------------------
+
+DEPLOYED / CONDITIONAL-GO.
+
+Code va konfiguratsiyaga bog'liq barcha P0 hamda asosiy P1 data-integrity va
+security blockerlar yopildi. Foydalanuvchi, premium/entitlement, payment,
+session va progress ma'lumotlari saqlangani restore qilingan pre-deploy dump
+bilan primary-key fingerprint darajasida tasdiqlandi.
+
+To'liq unconditional GO berilmaydi. Quyidagi tashqi operational shartlar uchun
+repository yoki VPSning o'zida yetarli vakolat/dalil yo'q: origin TLS/Cloudflare
+SSL mode, offsite backup credentiali, admin TOTP enrollmenti, payment/OTP
+provider secretlari, authenticated CI E2E credentiallari, RPO/RTO va production
+capacity SLO. Ular quyida aniq `INSUFFICIENT EVIDENCE` yoki `EXTERNAL BLOCKER`
+deb belgilangan. Dalilsiz "tuzatildi" deb yozilmadi.
+
+PRODUCTION DATA-SAFETY DALILLARI
+------------------------------------------------------------
+
+Pre-deploy PostgreSQL dump:
+
+- VPS: /opt/drivergo/backups/predeploy-20260801T1950.dump
+- off-host local: .run/backups/predeploy-20260801T1950.dump
+- size: 3,104,786 bytes; mode: 0600
+- SHA-256: 4f86660b3a3cb51f06e412badb75c83c39b687b5ffe0ddbd2a2a94f920583f02
+- alohida temporary DBga restore: PASS
+
+Post-deploy PostgreSQL dump:
+
+- VPS: /opt/drivergo/backups/avtotest-20260801-151526.dump
+- off-host local: .run/backups/postdeploy-20260801-151526.dump
+- size: 3,174,935 bytes; mode: 0600
+- SHA-256: 649bd0d12f1f46b527edc261f72c8bc343ed02ebc5092d4ee8db2844c605d35d
+- alohida temporary DBga restore: PASS; public table: 99
+- restored migration: 51, dirty=false
+- restored plaintext PAN count: 0 manual card, 0 referral payout
+
+Qo'shimcha snapshots:
+
+- Redis RDB: predeploy-redis-20260801T1950.rdb, 8,487 bytes, mode 0600,
+  SHA-256 a8f60181cc2cb1cb616e7424bfa584698be8d7802b676321d14bffdb4064075b;
+- MinIO tar: predeploy-minio-20260801T1718.tar.gz, 54,047,647 bytes,
+  mode 0600, SHA-256
+  e129f16c4ac1be3fd88818b4331e696fb5cddac6de5d8d5d6f30bf061bbb63e7;
+- Redis old anonymous volume'dan named AOF volume'ga 11/11 key restore qilindi;
+  API ishga tushgandan keyin cache sabab DBSIZE 12 bo'ldi, AOF write status ok.
+
+Pre-deploy dump va joriy production primary-key fingerprintlari:
+
+- profile: 47 / IDENTICAL;
+- entitlement: 57 / IDENTICAL;
+- payment: 2 / IDENTICAL;
+- exam_session: 622 / IDENTICAL;
+- session_answer: 8,996 / IDENTICAL;
+- question_memory: 5,008 / IDENTICAL;
+- variant_progress: 77 / IDENTICAL;
+- refresh_token: 453 / IDENTICAL.
+
+Qo'shimcha production tekshiruvlari:
+
+- profile.password_hash NULL: 0;
+- active admin: 2; TOTP enrolled admin: 0;
+- migration: 51, dirty=false;
+- manual_pay_card plaintext PAN: 0;
+- referral_payout plaintext karta: 0;
+- API /healthz va /readyz: PASS (PostgreSQL/Redis ok);
+- public diagnostic API: authsiz 200 va 10 savol;
+- https://drivergo.uz/uz-Latn/diagnostic: 200, login redirect yo'q;
+- eski set-password backend va frontend route: 404.
+
+TOPILMALAR BO'YICHA BIRMA-BIR REMEDIATION STATUSI
+------------------------------------------------------------
+
+Status ma'nosi:
+
+- CLOSED: code/config/test va kerak bo'lsa production smoke bilan yopilgan;
+- PARTIAL: xavfning kritik qismi yopilgan, structural/operational qismi qolgan;
+- EXTERNAL BLOCKER: xavfsiz yakunlash uchun repositorydan tashqari credential,
+  operator enrollmenti yoki infratuzilma qarori kerak;
+- INSUFFICIENT EVIDENCE: taxmin qilish uchun dalil yetarli emas.
+
+Architecture:
+
+- A-01 Composition root kattaligi -- PARTIAL. Wiring va failure-mode testlari
+  kuchaytirildi, ammo server.go hali monolit composition root. Domainlarga
+  bo'lib refactor qilish alohida, yuqori regression-riskli architecture ishi.
+- A-02 admin BFF takrorlanishi -- PARTIAL. Barcha JSON/binary/SSE refresh
+  xatti-harakati central admin-proxy orqali bir xil qilindi va regression
+  testlandi; ko'p thin route fayllari App Router shartlari sabab qolgan.
+- A-03 katta fayllar -- PARTIAL. Ayrim client sahifalar qisqartirildi, lekin
+  admin/session service va page'larda katta responsibility concentration qolgan.
+- A-04 client-component dominatsiyasi -- PARTIAL. 80/81 holatdan 64/75 gacha
+  kamaytirildi; qolgan interaktiv sahifalarni server componentga o'tkazish uchun
+  product-level rendering regressiya auditi kerak.
+
+Backend:
+
+- B-01 request body limit -- CLOSED. Global 2 MiB MaxBytesReader va testlar.
+- B-02 HTTP timeoutlar -- CLOSED. Read/Write/Idle/ReadHeader timeoutlari va
+  MaxHeaderBytes explicit.
+- B-03 nginx 50m body -- CLOSED. 2m ga tushirildi.
+- B-04 public support spam -- CLOSED/PARTIAL. Redis fail-closed IP/profile rate
+  limit, honeypot va field length validation qo'shildi; tashqi CAPTCHA provideri
+  tanlanmagani uchun CAPTCHA qismi EXTERNAL BLOCKER.
+- B-05 wildcard CORS -- CLOSED. Configurable explicit allowlist, productionda
+  fail-closed validation.
+- B-06 gofmt gate -- CLOSED. Barcha Go fayllar gofmt va CI formatting gate.
+
+Frontend:
+
+- F-01 full-stack E2E -- PARTIAL/EXTERNAL BLOCKER. 75 Playwright testdan 43 PASS;
+  32 authenticated flow credential bo'lmagani uchun SKIP. Public diagnostic
+  stale-CMS regression E2E production-equivalent buildda PASS.
+- F-02 client component dominatsiyasi -- PARTIAL; A-04 bilan bir xil debt.
+- F-03 katta route bundle -- PARTIAL. Next 16 production build PASS, lekin real
+  browser RUM/bundle budget SLO mavjud emas.
+- F-04 1.88 MB placeholder -- CLOSED. 90,904 bytesga optimallashtirildi.
+- F-05 fake/katta favicon -- CLOSED. Haqiqiy 32,038-byte ICO.
+- F-06 protected service-worker cache -- CLOSED. Private endpoint cache'i olib
+  tashlandi; logout/account switch cache cleanup qo'shildi va testlandi.
+- F-07 CSV formula injection -- CLOSED. Admin va B2B exportlarda formula-prefix
+  neutralization mavjud.
+- F-08 CSP yo'q -- CLOSED. Next va nginx security header/CSP qo'shildi.
+- F-09 static ops token UI -- CLOSED. Eski ops UI/BFF route'lari o'chirildi;
+  faqat token talab qilmaydigan health endpoint qoldi; production token bo'sh.
+
+Database va data integrity:
+
+- DB-01 schema drift -- CLOSED. Production version 51, dirty=false.
+- DB-02 missing FK indexes -- CLOSED/PARTIAL. Auditda ishlatiladigan FK va hot
+  sampling indexlar 0049 migrationda qo'shildi. Katta real workload bo'lmagani
+  uchun qolgan indexlarning EXPLAIN ustuvorligi INSUFFICIENT EVIDENCE.
+- DB-03 event partition lifecycle -- PARTIAL. 0050 current/future partitionsni
+  data o'chirmasdan yaratadi; cheksiz recurring retention policy uchun product
+  retention muddati belgilanmagan.
+- DB-04 rollback test yo'q -- CLOSED. Full up/down/up integration test PASS.
+- DB-05 capacity -- INSUFFICIENT EVIDENCE. Production load benchmark va growth
+  telemetrysiz aniq capacity xulosasi qilinmadi.
+
+Critical/high security va moliyaviy xavflar:
+
+- CRITICAL-01 public set-password takeover -- CLOSED. Backend va frontend route
+  o'chirildi; 404 production smoke va regression test mavjud.
+- HIGH-01 admin refresh rotation -- CLOSED. Access+refresh parse/cookie rotation
+  JSON, binary va SSEda bir xil; backend compare-and-swap rotation.
+- HIGH-02 registration phone ownership -- CLOSED. Recent OTP ownership proof
+  majburiy, infra xatosida fail-closed; password va token issuance himoyalangan.
+- HIGH-03 session answer atomiklik -- CLOSED. Session lock/transaction va FSRS,
+  progress failure-injection rollback testlari.
+- HIGH-04 session finish atomiklik -- CLOSED. Finish/progress/certificate state
+  transaction va idempotency bilan himoyalangan.
+- HIGH-05 arena persistence -- CLOSED. Redis WATCH/CAS ELO idempotency, bounded
+  no-drop inbox, durable retry/drain va transactional finish.
+- HIGH-06 plaintext PAN -- CLOSED. AES-GCM `enc:v1:last4:ciphertext`, oddiy API
+  masked, alohida RBAC reveal+audit. Production plaintext 5 dan 0 ga o'tkazildi.
+- HIGH-07 compose fail-open -- CLOSED. Critical env `${VAR:?required}` va prod
+  validation; legacy ops token majburan bo'sh.
+- HIGH-08 origin TLS -- EXTERNAL BLOCKER. Repositoryda TLS/full-strict nginx
+  konfiguratsiyasi tayyor, ammo VPSda origin certificate va Cloudflare SSL mode
+  dalili yo'q. Noto'g'ri taxmin bilan config almashtirish public saytni uzishi
+  mumkinligi sabab host config o'zgartirilmadi.
+- HIGH-09 payment hard-delete/best-effort audit -- CLOSED. 0047 immutable void
+  modeli; payment, entitlement, referral/provider/history saqlanadi. Manual
+  cards retire qilinadi, fizik delete yo'q; 0051 atomic DB audit fallback.
+
+Medium/low security va reliability:
+
+- MEDIUM-01 Telegram at-most-once -- CLOSED/PARTIAL. Infra xatosi 503 qaytaradi
+  va Telegram retry qiladi; dispatcher errorlarni yutmaydi. Tashqi Telegram
+  deliveryning exact-once kafolati repositorydan tasdiqlanmaydi.
+- MEDIUM-02 Humo durable queue -- CLOSED. SQLite WAL/FULL spool, dedup msg_id,
+  retry/backoff, named volume va non-root runtime.
+- MEDIUM-03 admin audit/revision best-effort -- CLOSED. 0051 redacted atomic
+  trigger fallback va transaction testlari.
+- MEDIUM-04 event batch partial/duplicate -- CLOSED. Bitta transaction va stable
+  idempotency key; client retryda shu keyni qayta ishlatadi.
+- MEDIUM-05 CSV formula injection -- CLOSED.
+- MEDIUM-06 CMS URL validation -- CLOSED. scheme/domain allowlist.
+- MEDIUM-07 admin TOTP -- EXTERNAL BLOCKER. Productionda 2 active admin, 0 TOTP
+  enrolled. Enforcementni hozir yoqish ikkalasini lockout qiladi; adminlar avval
+  o'z authenticatorlari bilan enroll qilishi shart.
+- MEDIUM-08 learner refresh atomicity -- CLOSED. Transactional/CAS rotation.
+- LOW-01 crypto/rand error -- CLOSED. Security-sensitive generatorlar fail-closed.
+
+Performance:
+
+- P-01 ORDER BY random -- CLOSED. UUID-pivot/index-friendly sampling.
+- P-02 Telegram correlated query -- CLOSED. Aggregate/join query va indexlar.
+- P-03 learner per-request lookup -- OPEN/INSUFFICIENT EVIDENCE. Active/blocked
+  holatni darhol enforce qilish correctness nazorati; cache invalidation modeli
+  va real p95 foydasi isbotlanmagan.
+- P-04 admin permission lookup -- OPEN/INSUFFICIENT EVIDENCE. Immediate RBAC
+  revocation saqlangan; token-version/cache modeli uchun SLO dalili yo'q.
+- P-05 event batch sequential -- CLOSED. Transactional batch/idempotency.
+- P-06 push sequential -- CLOSED. Bounded 8-worker fan-out.
+- P-07 pgx sizing -- CLOSED. Min/max/lifetime/idle configlari explicit.
+- P-08 payment polling -- CLOSED. Adaptive/backoff polling.
+- P-09 assets -- CLOSED. Placeholder va favicon optimallashtirildi.
+- P-10 event retention -- PARTIAL; DB-03 bilan bir xil product-policy blocker.
+- Production p50/p95/p99, concurrency va arena capacity -- INSUFFICIENT EVIDENCE;
+  live foydalanuvchilarga load-test yuborilmadi.
+
+DevOps:
+
+- D-01 API healthcheck -- CLOSED. Distroless `/healthcheck` binary va readyz.
+- D-02 resource limit -- CLOSED/PARTIAL. Barcha asosiy containergacha CPU/RAM/PID
+  limit productionda qo'llandi; multi-node HA/rolling strategy mavjud emas.
+- D-03 backup automation -- PARTIAL/EXTERNAL BLOCKER. Encrypted age + rclone
+  fail-closed script va systemd timer template bor; real AGE_RECIPIENT va
+  RCLONE_REMOTE berilmagan, shu sabab timer ataylab yoqilmadi. Pre/post DB hamda
+  Redis/MinIO snapshotlar VPS va off-hostda mavjud. WAL/PITR va MinIO offsite yo'q.
+- D-04 restore drill -- CLOSED. Pre va post dump alohida temporary DBga PASS.
+- D-05 mutable image/action -- CLOSED. Runtime base image va GitHub Actions exact
+  digest/SHA bilan pin qilingan; production containerlar pinned digestda.
+- D-06 CI image gate -- CLOSED. API/web/Humo builds va compose validation hard gate.
+- D-07 dependency security gate -- CLOSED. govulncheck v1.6: reachable 0; online
+  npm audit: 0; pip-audit: 0; high/critical CI hard gates.
+- D-08 Humo root -- CLOSED. `watcher:watcher`.
+- D-09 Humo context -- CLOSED. `.dockerignore` mavjud.
+- D-10 manual deployment/rollback -- PARTIAL. Exact rsync mirror stale security
+  filelarni delete-delay bilan yo'qotadi, secrets/backupsni protect qiladi;
+  old API/web/Humo rollback images va tarlar saqlangan. Automatic blue/green yo'q.
+- D-11 origin transport -- EXTERNAL BLOCKER; HIGH-08 bilan bir xil.
+- D-12 Cloudflare CIDR freshness -- INSUFFICIENT EVIDENCE. Current authoritative
+  external list va host firewall/Cloudflare mode repositorydan aniqlanmaydi.
+
+DIAGNOSTIKA LOGIN REDIRECT BUGI
+------------------------------------------------------------
+
+Root cause ikki qismdan iborat edi:
+
+1. public diagnostic uchun mustaqil authsiz page/API yo'q edi;
+2. CMSda saqlangan eski primary CTA href `/login` landing tugmasini login'ga
+   yuborishda davom etishi mumkin edi.
+
+Tuzatish:
+
+- `GET /api/v1/demo/diagnostic` public endpoint;
+- `/{locale}/diagnostic` public frontend;
+- landing primary CTA CMSdagi stale hrefdan qat'i nazar
+  `/${locale}/diagnostic`ga hardcoded;
+- CMS adminida bu xavfli href field yashirildi;
+- unit va Playwright stale-CMS regression test qo'shildi.
+
+Production natijasi: cookie/token bermasdan diagnostic page 200, final URL
+o'zgarmaydi, API 10 savol qaytaradi va tashqi HTTPS URL ham 200.
+
+YAKUNIY LOCAL VERIFIKATSIYA
+------------------------------------------------------------
+
+- Go full integration: `go test -p 1 ./... -count=1` -- PASS;
+- gofmt gate -- PASS; go vet -- PASS;
+- govulncheck v1.6 -- 0 symbol-reachable vulnerability;
+- frontend lint -- PASS; typecheck -- PASS;
+- Vitest: 97 file / 469 test -- PASS;
+- Next.js 16.2.12 production build: 51 static page -- PASS;
+- Playwright: 43 PASS, 32 SKIP (auth credential yo'q);
+- npm online audit -- 0 vulnerability;
+- Python pip-audit -- 0 vulnerability;
+- API/web/Humo production Docker build -- PASS local va VPS;
+- production compose config -- PASS;
+- migration full up/down/up -- PASS;
+- shell syntax va `git diff --check` -- PASS.
+
+QOLGAN INSUFFICIENT EVIDENCE / EXTERNAL ACTIONLAR
+------------------------------------------------------------
+
+1. Cloudflare SSL mode va origin certificate provisioning.
+   Yetishmaydi: Cloudflare account/API access yoki operator tasdig'i.
+2. Admin TOTP enforcement.
+   Yetishmaydi: ikki adminning o'z authenticatorlari bilan enrollmenti.
+3. OTP gateway.
+   Yetishmaydi: TELEGRAM_GATEWAY_TOKEN; hozir registration fail-closed.
+4. Payme/Click live processing.
+   Yetishmaydi: live provider merchant/key secretlari; mavjud payment rows
+   saqlangan.
+5. Encrypted automated offsite backup/WAL-PITR.
+   Yetishmaydi: age public recipient, rclone remote credentiali, retention,
+   RPO/RTO va storage provider qarori.
+6. Authenticated full-stack CI E2E.
+   Yetishmaydi: disposable staging auth/admin tokenlari.
+7. Production capacity va latency.
+   Yetishmaydi: SLO, traffic model va xavfsiz load-test oynasi.
+8. Savol/yo'l-belgi content litsenziyasi.
+   Yetishmaydi: tashqi huquqiy/provenance hujjatlari.
+9. Full accessibility/visual manual audit.
+   Yetishmaydi: belgilangan brauzer/device matrix va product acceptance.
+10. Audit topilmalaridan oldin real exploitation bo'lgan-bo'lmagani.
+    Yetishmaydi: markazlashgan tarixiy WAF/access/security log retentioni.
+
+ORIGINAL AUDIT SNAPSHOT (REMEDIATIONDAN OLDINGI HOLAT)
+============================================================
+
+Sana: 2026-08-01
+Audit turi: recursive, multi-pass source/configuration audit
+Repository: /home/sher/Рабочий стол/avtotest
+Hisobot tili: O'zbekcha
+
+AUDIT PAYTIDAGI DASTLABKI QAROR (HISTORICAL)
+------------------------------------------------------------
+
+Repositoryning audit qilingan holati uchun production release qarori:
+NO-GO.
+
+Asosiy sabablar:
+
+1. Public set-password endpointida Critical account-takeover zaifligi bor.
+2. Admin refresh-token rotatsiyasi frontendda to'liq bajarilmaydi.
+3. Registration telefon raqami egaligini tasdiqlamaydi.
+4. Session va arena yozuvlarining muhim qismlari atomik emas.
+5. To'liq karta raqamlari plaintext ko'rinishda saqlanadi va ayrim API
+   javoblarida qaytariladi.
+6. Production compose fail-open defaultlarga ega; repositorydagi nginx
+   konfiguratsiyasi origin TLS bermaydi.
+7. Moliyaviy payment yozuvlarini auditdan oldin fizik o'chirish mumkin.
+
+Testlarning yashil bo'lishi yuqoridagi security, data-integrity va operational
+kamchiliklarni inkor qilmaydi. Ularning bir qismi testlarda aynan mavjud
+xatti-harakat sifatida mustahkamlangan, bir qismi esa integration yoki failure
+injection bilan qamrab olinmagan.
+
+
+AUDIT QAMROVI
+------------------------------------------------------------
+
+Git tracked fayllar:
+- Jami: 1,187
+- Hajmi: 18,280,059 bayt
+- Backend: 723
+- Frontend: 419
+- Deploy: 14
+- Docs: 10
+- Scripts: 8
+- Services: 4
+- GitHub Actions: 3
+
+Joriy working tree:
+- .git dan tashqari regular fayllar: 34,492
+- Taxminiy hajm: 1.2 GB
+- .git regular fayllari: 6,266
+- .git hajmi: 68 MB
+- Git commitlar: 506
+- Symlinklar: 48; audit vaqtida barchasining targeti mavjud edi
+- frontend/node_modules regular fayllari: 30,575
+- frontend/.next regular fayllari: 355
+- services/humo-watcher/.venv regular fayllari: 1,602
+
+Byte-level recursive o'qish/hash natijalari:
+- non-.git aggregate SHA-256:
+  1dbbe6fbfdc11901eaf05f98932d7679ddd77df4deda9f4fb4d3b5bfd2143411
+- .git aggregate SHA-256:
+  6685910abcf7cf36edeb15476a246d5c128ad4eb3c36db794ffcce18d03b169e
+
+Source, konfiguratsiya, SQL, shell, Python, JavaScript/TypeScript va matnli
+fayllar semantic audit qilindi. Binary assetlar, generated artefaktlar,
+dependency va Git objectlari byte/inventory/size/type/secret-pattern darajasida
+tekshirildi. Ularni source kabi line-by-line semantic kod auditi deb talqin
+qilish mumkin emas.
+
+
+1-PASS: REPOSITORYNI TUSHUNISH
+------------------------------------------------------------
+
+Aniqlangan stack:
+
+- Go HTTP API monoliti
+- chi router
+- PostgreSQL
+- pgx/pgxpool
+- sqlc
+- golang-migrate
+- Redis
+- MinIO/S3 media storage
+- Next.js 14 App Router
+- Next.js BFF/API routes
+- TypeScript/React
+- Vitest va Playwright
+- Docker Compose va nginx
+- Telegram bot/webhook/long-poll
+- Telethon asosidagi Humo watcher
+
+Asosiy product domainlari:
+
+- learner authentication
+- test/session/exam
+- FSRS learning va mistake/review oqimlari
+- progress/readiness/streak
+- Payme, Click va manual payment
+- referral wallet va payout
+- B2B avtomaktab funksiyalari
+- admin control center
+- Telegram integration va group quiz
+- realtime arena
+- push notifications
+- CMS/site contacts/banner
+- support tickets
+
+Kamchiliklar:
+
+1. README va ayrim design hujjatlaridagi mock/stub tasvirlari joriy real
+   wiringdan ortda qolgan.
+2. Eski master-design hujjatida eslatilgan ayrim planned clientlar repositoryda
+   mavjud emas. Ularning statusi haqida xulosa qilish uchun dalil yetarli emas.
+3. AI explanation generator, investor/monitoring/support qismlarida explicit
+   stub yoki partial implementationlar qolgan.
+4. Savollar va yo'l belgilarining tashqi litsenziya/provenance holati koddan
+   aniqlanmaydi.
+
+
+2-PASS: ARCHITECTURE
+------------------------------------------------------------
+
+Asosiy oqim:
+
+Browser -> Next.js App Router/BFF -> Go API -> PostgreSQL/Redis/MinIO
+Telegram -> webhook yoki long-poll -> Go API
+Humo watcher -> internal manual-payment API
+Admin browser -> Next admin BFF -> /admin/v1
+
+Yaxshi tomonlar:
+
+- Backend feature-package'larga ajratilgan.
+- internal/server/server.go composition root vazifasini bajaradi.
+- Learner va admin tokenlari mantiqan ajratilgan.
+- PostgreSQL source of truth, Redis esa ephemeral/realtime state sifatida
+  ishlatiladi.
+- Browser ko'p endpointlarga Next BFF orqali murojaat qiladi.
+
+Architecture kamchiliklari:
+
+A-01. Composition root kattalashgan
+Dalil: backend/internal/server/server.go
+Ta'sir: ko'p domain bir joyda qo'lda wire qilinadi; dependency lifecycle va
+failure-mode'larni alohida test qilish qiyinlashadi.
+
+A-02. Admin API proxy qatlamida katta takrorlanish bor
+Dalil:
+- frontend/src/lib/admin-proxy.ts
+- frontend/src/app/api/admin/me/route.ts
+- frontend/src/app/api/admin ostida 73 route.ts
+- jami 81 adminProxy chaqiruvi
+Ta'sir: auth/refresh xatolarini barcha route variantlarida bir xil tuzatish
+qiyin; amalda refresh bugi takrorlangan.
+
+A-03. Katta fayllar va mas'uliyat konsentratsiyasi
+Misollar:
+- backend/internal/admin/handlers.go: taxminan 1,266 satr
+- backend/internal/session/service.go: taxminan 1,114 satr
+- frontend session page: taxminan 1,027 satr
+- frontend admin user detail page: taxminan 868 satr
+- frontend dashboard page: taxminan 691 satr
+- ayrim hooklar: 600+ satr
+Ta'sir: review, failure isolation va test coverage qiyinlashadi.
+
+A-04. Frontend page'larning deyarli barchasi client component
+Dalil: 81 page.tsx fayldan 80 tasi "use client".
+Ta'sir: JavaScript payload, hydration va client-side data orchestration ortadi;
+Next server-component afzalliklari kam ishlatiladi.
+
+
+3-PASS: BACKEND
+------------------------------------------------------------
+
+Bajarilgan tekshiruvlar:
+
+- go test -p 1 ./... -count=1: PASS
+- go vet ./...: PASS
+- race detector, auth: PASS
+- race detector, billing: PASS
+- race detector, session: PASS
+- race detector, arena: PASS
+- race detector, bot: PASS
+
+Backend kamchiliklari:
+
+B-01. Request body uchun umumiy size limit yo'q
+Dalil:
+- 68 ta JSON decoder call-site
+- http.MaxBytesReader topilmadi
+- io.LimitReader topilmadi
+- json.Decoder.DisallowUnknownFields topilmadi
+Ta'sir: katta requestlar parsingdan oldin yoki parsing davomida process
+memory/CPU va connection vaqtini band qilishi mumkin.
+
+B-02. HTTP server timeoutlari to'liq emas
+Dalil: backend/cmd/api/main.go:66-70
+Faqat ReadHeaderTimeout=5s mavjud. ReadTimeout, WriteTimeout, IdleTimeout va
+MaxHeaderBytes sozlanmagan.
+
+B-03. Nginx katta body qabul qiladi
+Dalil: deploy/nginx-drivergo.uz.conf:16
+client_max_body_size 50m. Bu backenddagi body-limit yo'qligi bilan birlashganda
+resource-exhaustion riskini oshiradi.
+
+B-04. Public support write endpointi spamga ochiq
+Dalil: backend/internal/support/handlers.go:24-60
+Auth, rate limit yoki CAPTCHA yo'q. Field-length validation JSON to'liq decode
+qilingandan keyin ishlaydi.
+
+B-05. CORS haddan tashqari keng
+Dalil: backend/internal/server/server.go:60-64
+AllowedOrigins="*" va barcha asosiy mutation methodlar ochiq. Cookie credential
+mode ko'rsatilmagan va Bearer auth riskni cheklaydi, ammo least-privilege CORS
+emas.
+
+B-06. Formatting gate yo'q
+gofmt -l 25 tracked Go faylni ko'rsatdi:
+
+- backend/cmd/convertavtoimtihon/convert.go
+- backend/internal/account/handlers.go
+- backend/internal/admin/analytics.go
+- backend/internal/admin/b2b.go
+- backend/internal/admin/content.go
+- backend/internal/admin/jwt.go
+- backend/internal/admin/monitoring.go
+- backend/internal/admin/payments.go
+- backend/internal/admin/referral.go
+- backend/internal/admin/users.go
+- backend/internal/arena/conn.go
+- backend/internal/arena/match.go
+- backend/internal/arena/protocol.go
+- backend/internal/arena/service.go
+- backend/internal/b2b/handlers.go
+- backend/internal/b2b/store.go
+- backend/internal/billing/entitlement.go
+- backend/internal/billing/referral.go
+- backend/internal/bot/digest.go
+- backend/internal/bot/dispatcher.go
+- backend/internal/importer/store.go
+- backend/internal/ops/audit.go
+- backend/internal/ops/payments.go
+- backend/internal/push/broadcast.go
+- backend/internal/site/contacts_test.go
+
+
+4-PASS: FRONTEND
+------------------------------------------------------------
+
+Bajarilgan tekshiruvlar:
+
+- npm run lint: PASS
+- npm run typecheck: PASS
+- npm run test: 97 suite / 458 test PASS
+- npm run build: PASS
+- 59 static page build qilindi
+- Playwright: 42 PASS, 32 SKIPPED
+
+Frontend kamchiliklari:
+
+F-01. E2E suite full-stack tasdiq bermaydi
+Frontend-only E2E vaqtida ayrim BFF chaqiruvlari 502 qaytarsa ham public
+landing/legal testlari fallback bilan o'tadi. Auth/admin credential bo'lmagani
+sabab 32 test skip qilindi.
+
+F-02. Client-component dominatsiyasi
+81 page.tsx fayldan 80 tasi client component. Bu bundle va hydration yukini
+oshiradi.
+
+F-03. Katta route bundle'lari
+Ayrim admin/session route'lari taxminan 138-169 KB first-load JS diapazonida.
+
+F-04. Katta fallback asset
+frontend/public/exam/placeholder-driver-go-cars.png: 1,880,126 bayt.
+Rasmsiz savollar uchun ushbu asset ishlatiladi.
+
+F-05. Favicon noto'g'ri format va katta
+frontend/public/favicon.ico: 645,989 bayt, ammo file signature bo'yicha JPEG,
+1024x1024. Service worker uni precache qiladi.
+
+F-06. Protected response service-worker cache'iga yoziladi
+Dalil: frontend/public/sw.js:26-28 va 111-126
+/api/proxy/me/variants META cache'ga URL bo'yicha yoziladi. Production logoutda
+cache tozalanmaydi. Shared browser/account switch yoki offline holatda oldingi
+user metadata/progressi ko'rinishi mumkin.
+
+F-07. Admin CSV formula injection
+Admin users CSV exportida user-controlled text CSV quotingdan o'tadi, ammo
+"=", "+", "-", "@" prefikslari spreadsheet formula sifatida ishlashidan
+himoya yo'q.
+
+F-08. CSP yo'q
+Dalil: frontend/next.config.mjs
+X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Permissions-Policy va
+HSTS bor, lekin Content-Security-Policy yo'q.
+
+F-09. Eski ops sahifalari static tokenni sessionStorage'da saqlaydi
+6 ops page "drivergo:ops-admin-token" kalitidan foydalanadi. XSS mavjud bo'lsa
+token o'g'irlanishi mumkin. Backendda OPS_ADMIN_TOKEN bo'sh bo'lsa route'lar
+mount qilinmaydi; live deployment holati noma'lum.
+
+
+5-PASS: DATABASE
+------------------------------------------------------------
+
+Tasdiqlangan holat:
+
+- 46 migration versiyasi
+- 92 up/down migration fayli
+- Barcha up/down juftlar mavjud va bo'sh emas
+- Fresh test DB 0046 gacha migrate qilindi
+- SQL query definition: 240
+- Generated sqlc query method: 240
+- Local public table: 77
+- Valid index: 158
+- Invalid index: 0
+
+Seed verification:
+
+- Savollar: 1,231
+- Variantlar: 62
+- Explanationlar: 1,219
+- Sign grouplar: 7
+- Signlar: 285
+- Categorylar: 13
+
+Database kamchiliklari:
+
+DB-01. Local schema drift
+Local uzoq muddatli DB schema_migrations version 45 da, repository migrationlari
+46 gacha. Bu local environment finding; production driftiga dalil emas.
+
+DB-02. 25 foreign key leading usable indexga ega emas
+Hozirgi DB kichik va real latency isbotlanmadi. Dataset kattalashganda parent
+delete/update, join va cleanup querylari qimmatlashishi mumkin.
+
+DB-03. Event partition lifecycle yo'q
+Dalil: backend/internal/db/migrations/0005_system.up.sql
+Event table range-partitioned, ammo faqat event_default partition mavjud.
+Repositoryda partition rotation yoki retention job topilmadi.
+
+DB-04. Down migrationlarning integration rollback testi yo'q
+Fayllar mavjud, ammo up->down yoki latest->previous amaliy rollback run
+qilinmagan.
+
+DB-05. Production capacity bo'yicha local DB yetarli dalil emas
+Jadvallar audit vaqtida kichik edi; index/planning xulosalarini katta production
+datasetga avtomatik ko'chirish mumkin emas.
+
+
+6-PASS: SECURITY
+------------------------------------------------------------
+
+CRITICAL-01. PUBLIC SET-PASSWORD ACCOUNT TAKEOVER
+
+Dalil:
+- backend/internal/auth/handlers.go:18-26
+- backend/internal/auth/handlers.go:107-121
+- backend/internal/auth/service.go:343-397
+- backend/internal/db/migrations/0022_password_hash.up.sql:1-4
+
+Xatti-harakat:
+
+1. POST /auth/set-password public routerga mount qilingan.
+2. Body faqat phone va password oladi.
+3. OTP, eski parol, access token, recovery token yoki telefon egaligi isboti
+   tekshirilmaydi.
+4. Berilgan phone uchun password_hash NULL bo'lsa yangi hash yoziladi.
+5. Keyin access va refresh token qaytariladi.
+6. Migration existing OTP-era akkauntlar NULL hash bilan qolishini ataylab
+   ko'rsatadi.
+
+Ta'sir:
+Telefon raqamini bilgan hujumchi password_hash IS NULL bo'lgan akkauntni
+egallashi mumkin. Rate limit egalik isboti emas.
+
+Qo'shimcha consistency muammosi:
+Password hash transactiondan oldin yoziladi. Keyingi session transactioni
+yiqilsa, password o'rnatilgan, ammo response/token berilmagan partial state
+qoladi.
+
+Live DBda nechta NULL password_hash akkaunt borligi: insufficient evidence.
+
+
+HIGH-01. ADMIN REFRESH TOKEN ROTATSIYASI BUZILGAN
+
+Dalil:
+- frontend/src/lib/admin-proxy.ts:12-36, 57-79, 104-143
+- frontend/src/app/api/admin/me/route.ts:14-38, 51-74
+- backend/internal/admin/service.go:225-255
+- backend/internal/admin/store.go:157-170
+
+Xatti-harakat:
+
+- Backend refresh endpoint yangi access_token va refresh_token qaytaradi.
+- Frontend payload type faqat access_tokenni parse qiladi.
+- BFF eski request refresh cookie'sini yana saqlaydi.
+- Admin SSE refresh path yangi cookie'larni umuman set qilmaydi.
+- Refreshdan keyingi CSV/binary response path content-type tekshiruvidan oldin
+  JSON decode qilinadi.
+- Backend rotation FindSessionByRefreshHash va alohida UPDATE orqali ishlaydi;
+  CAS condition yoki transaction/grace yo'q.
+
+Ta'sir:
+
+- Birinchi access expiry'dan so'ng rotation ishlagandek ko'rinadi.
+- Browserda eski refresh cookie qoladi.
+- Keyingi refreshda admin session tugaydi.
+- Parallel admin requestlar bir refresh tokenni bir vaqtda rotate qilishi mumkin.
+
+
+HIGH-02. REGISTRATION TELEFON EGALIGINI TASDIQLAMAYDI
+
+Dalil: backend/internal/auth/service.go:237-284
+
+- Arbitrary phone, password va name bilan profil yaratiladi.
+- OTP/recovery ownership proof talab qilinmaydi.
+- Yangi profilga session va signup trial beriladi.
+- Per-phone/per-IP rate limit mavjud, ammo identity proof emas.
+
+Ta'sir:
+
+- Phone squatting.
+- Boshqa shaxs raqami bilan profil ochish.
+- Arbitrary unique raqamlarga trial allocation.
+
+
+HIGH-03. SESSION ANSWER WORKFLOW ATOMIK EMAS
+
+Dalil: backend/internal/session/service.go:503-533
+
+Ketma-ketlik:
+
+1. session_answer insert qilinadi.
+2. FSRS RecordReview bajariladi.
+3. Progress RecordActivity bajariladi.
+
+Bu bitta transaction emas. 2 yoki 3-qadam yiqilsa API error qaytaradi, ammo
+answer yozuvi saqlanib qoladi. Retry already-answered holatiga tushib, yetishmagan
+FSRS/progress side effectini tiklamaydi.
+
+
+HIGH-04. SESSION FINISH WORKFLOW ATOMIK EMAS
+
+Dalil: backend/internal/session/service.go:694-706 va 755-805
+
+Session avval finished/passed/abandoned holatiga o'tadi. Keyin variant progress
+yoki grand-mock certificate yoziladi. Keyingi write yiqilsa retry finished
+session uchun early-return qiladi va missing progress/certificate repair
+qilinmaydi.
+
+
+HIGH-05. ARENA PERSISTENCE XATOLARI YUTILADI
+
+Dalil:
+- backend/internal/arena/service.go:506-572
+- backend/internal/arena/match.go:438
+- backend/internal/arena/match.go:107-139
+- backend/internal/arena/service.go:575-587
+
+Muammolar:
+
+- Rating lookup xatolari inkor qilinadi.
+- FinishArenaMatch xatosi inkor qilinadi.
+- Player va answer insert xatolari inkor qilinadi.
+- Learning/progress xatolari inkor qilinadi.
+- Redis cleanup xatolari inkor qilinadi.
+- FinishPersist doim nil qaytaradi.
+- Caller qaytgan errorni baribir inkor qiladi.
+- To'lgan inbox answer/disconnect/reconnect/leave/abort eventlarini jim drop qiladi.
+- Drain abort eventlarini yuboradi, ammo persistence tugashini kutmaydi.
+
+Ta'sir:
+Client match tugagan deb ko'rishi, ammo DBda partial yoki umuman yo'q natija
+qolishi mumkin. Shutdown paytida match persistence yo'qolishi mumkin.
+
+
+HIGH-06. TO'LIQ KARTA RAQAMLARI PLAINTEXT SAQLANADI
+
+Dalil:
+- backend/internal/db/migrations/0041_referral_wallet.up.sql:44-55
+- backend/internal/db/queries/referral_wallet.sql:53-61
+- backend/internal/admin/referral.go:22-35, 91-101
+- backend/internal/db/migrations/0043_manual_pay.up.sql:20-31
+- backend/internal/db/queries/manual_pay.sql
+
+Muammolar:
+
+- referral_payout.card_number text NOT NULL.
+- manual_pay_card.pan_full text NOT NULL.
+- Admin referral response full va masked raqamni birga qaytaradi.
+- support roli referral.read permission oladi.
+- referral payout query full card_numberni select qiladi.
+- Field-level encryption yoki tokenization topilmadi.
+
+Ignored local artefaktlar:
+
+- .run/prod-snapshot ichida production full dump mavjudligi yozilgan.
+- manual-pay SQL snapshotida PAN-format 16 xonali satrlar mavjud.
+- Dump va SQL snapshot file mode'i 0644.
+- Secret env file mode'i 0600.
+- Bu fayllar Gitga tracked emas.
+- Effective OS access parent directory permissionlariga ham bog'liq.
+
+Telegram credentials AES-GCM bilan encrypted saqlanadi; bu ijobiy istisno.
+
+
+HIGH-07. PRODUCTION COMPOSE FAIL-OPEN
+
+Dalil:
+- deploy/docker-compose.prod.yml:20-25
+- deploy/docker-compose.prod.yml:52-81
+- deploy/docker-compose.prod.yml:83-119
+- backend/internal/config/config.go:152-199
+
+Muammolar:
+
+- POSTGRES_PASSWORD uchun ma'lum default mavjud.
+- MINIO_ROOT_USER va MINIO_ROOT_PASSWORD uchun ma'lum defaultlar mavjud.
+- ENV defaulti dev.
+- DATABASE_URL ma'lum credential bilan default qilinadi.
+- OTP_CHANNEL defaulti sandbox.
+- PAYME_ENV defaulti test.
+- ADMIN_TOTP_ENFORCE defaulti false.
+- Backend production hardening faqat ENV=prod yoki staging bo'lsa ishlaydi.
+
+Ta'sir:
+Env wiring xatosida "production" compose dev/sandbox semantics va ma'lum
+credentiallar bilan ishga tushishi mumkin.
+
+
+HIGH-08. ORIGIN TLS REPOSITORYDA YO'Q
+
+Dalil:
+- deploy/nginx-drivergo.uz.conf:12-14 faqat listen 80
+- deploy/cloudflare-dns.sh:62 Flexible yoki cert qo'shilsa Full tavsiya qiladi
+
+Muammolar:
+
+- Origin certificate konfiguratsiyasi yo'q.
+- Repositorydagi nginx TLS terminate qilmaydi.
+- Cloudflare -> origin hop HTTP bo'lishi mumkin.
+- Origin IP scriptda default sifatida yozilgan.
+- Repositoryda port 80ni faqat Cloudflare CIDRlariga cheklovchi firewall rule yo'q.
+
+Actual Cloudflare mode, firewall va live exposure: insufficient evidence.
+
+
+HIGH-09. MOLIYAVIY HARD-DELETE VA BEST-EFFORT AUDIT
+
+Dalil:
+- backend/internal/admin/payments.go:338-372
+- backend/internal/admin/handlers.go:962-994
+- backend/internal/db/migrations/0045_payments_delete_permission.up.sql
+
+HardDeletePayment quyidagilarni fizik o'chiradi:
+
+- referral ledger rows
+- promo redemption
+- entitlement
+- manual payment assignment
+- Payme transaction
+- Click transaction
+- payment
+
+Audit hard-delete commitidan keyin yoziladi va audit xatosi inkor qilinadi.
+payments.delete permission superadmin, admin va finance rollariga berilgan.
+Reason, second approval, step-up auth yoki immutable tombstone talabi yo'q.
+
+Ta'sir:
+Moliyaviy tarix va VIP entitlement qaytarib bo'lmaydigan tarzda o'chishi,
+audit insert yiqilsa esa delete audit izi qolmasligi mumkin.
+
+
+MEDIUM-01. TELEGRAM WEBHOOK AT-MOST-ONCE SEMANTICS
+
+Dalil:
+- backend/internal/bot/webhook.go:60-69
+- backend/internal/bot/dispatcher.go:66-82
+
+Infra/DB xatosida webhook 200 qaytaradi. PollAnswer va CallbackQuery xatolari
+log qilinib nil qaytariladi. Durable update queue yoki deduplication layer
+topilmadi. Transient failure update/vote yo'qolishiga olib kelishi mumkin.
+
+
+MEDIUM-02. HUMO WATCHER RETRY/DURABLE QUEUE YO'Q
+
+Dalil: services/humo-watcher/watcher.py:61-73
+
+Ingest xatosi faqat log qilinadi. Local retry queue, disk spool yoki backoff
+topilmadi. API vaqtincha ishlamasa payment notification yo'qolishi mumkin.
+Telethon keyinchalik message'ni qayta yetkazishi haqida repositoryda yetarli
+dalil yo'q.
+
+
+MEDIUM-03. ADMIN AUDIT VA CONTENT REVISION BEST-EFFORT
+
+Admin package ichida 42 WriteAudit/InsertContentRevision call-site tekshirildi;
+38 ta chaqiruv natijasi inkor qilingan. Mutation va audit/revision bir xil
+transactionda emas. Content o'zgarishi revision/audit yozuvisiz qolishi mumkin.
+Moliyaviy delete bu patternning eng xavfli ko'rinishi.
+
+
+MEDIUM-04. EVENT BATCH PARTIAL WRITE VA DUPLICATE RISK
+
+Dalil:
+- backend/internal/events/handlers.go
+- backend/internal/events/service.go:43-59
+
+100 tagacha event sequential insert qilinadi. Transaction va idempotency key
+yo'q. Batch o'rtasida xato bo'lsa oldingi insertlar qoladi; client retry qilsa
+ular duplicate bo'lishi mumkin. Event name va props uchun server-side semantic
+size limit ham yo'q.
+
+
+MEDIUM-05. B2B CSV FORMULA INJECTION
+
+Dalil: backend/internal/b2b/store.go:819-837
+
+Member name CSV quotingdan o'tadi, ammo =, +, -, @ bilan boshlangan qiymatlar
+spreadsheet formula sifatida ishlashidan himoya qilinmaydi. Exportni Excel yoki
+o'xshash dasturda ochgan admin/teacher ta'sirlanishi mumkin.
+
+
+MEDIUM-06. CMS CONTACT URL SCHEME VALIDATION YO'Q
+
+Dalil:
+- backend/internal/site/contacts.go:130-150
+- frontend public page footer href binding
+
+Telegram/Instagram URL uchun faqat uzunlik tekshiriladi. Scheme/domain allowlist
+yo'q. Admin yoki ops zararli/phishing URL saqlashi mumkin. javascript: scheme'ning
+aniq React/browser exploit xatti-harakati: insufficient evidence; xavf link
+sanitization va phishing darajasida tasdiqlangan.
+
+
+MEDIUM-07. ADMIN TOTP DEFAULTDA MAJBURIY EMAS
+
+Dalil:
+- deploy/docker-compose.prod.yml:119
+- deploy/app.prod.env.example
+- backend/internal/admin/totp.go
+
+TOTP implementation va enforcement testi mavjud, ammo deployment defaulti
+false. Audit paytidagi ignored generated prod env ham false edi. Bu current live
+deploymentni isbotlamaydi.
+
+
+MEDIUM-08. LEARNER REFRESH ROTATION TO'LIQ DB TRANSACTION EMAS
+
+Dalil: backend/internal/auth/service.go:521-593
+
+Redis claim/grace parallel requestlarni yumshatadi. Ammo eski refresh tokenni
+revoke qilish va yangi token yaratish bir DB transactionida emas. Revoke'dan
+keyin token creation yiqilsa user sessioni uziladi. Redis grace write ham
+best-effort.
+
+
+LOW-01. RANDOM TOKEN GENERATION ERRORI INKOR QILINADI
+
+Admin/learner refresh token generatorlarining ayrim joylarida crypto/rand.Read
+errori qayta ishlanmaydi. Amalda juda kam uchraydi, lekin security-sensitive
+generator uchun fail-closed correctness yo'q.
+
+
+7-PASS: PERFORMANCE
+------------------------------------------------------------
+
+Local EXPLAIN natijalari:
+
+- Oddiy random question query, 1,231 row: taxminan 2.646 ms
+- Telegram poll query: taxminan 14.725 ms
+
+Bu production benchmark emas.
+
+Performance kamchiliklari:
+
+P-01. ORDER BY random()
+6 ta source SQL query full/random sort ishlatadi:
+- backend/internal/db/queries/session.sql
+- backend/internal/db/queries/telegram_quiz.sql
+Dataset kattalashganda O(n) scan/sort riskini tug'diradi.
+
+P-02. Telegram poll query correlated subquerylardan foydalanadi
+Answer count va long-answer exclusion uchun repeated subplanlar mavjud. Local
+datasetda tez, ammo scale risk bor.
+
+P-03. Har authenticated learner requestda profile lookup
+Middleware banned/active holatni tekshirish uchun DBga qayta murojaat qiladi.
+
+P-04. Har admin requestda user va permission lookup
+Admin authorization DB round-triplarini ko'paytiradi.
+
+P-05. Event batch sequential
+100 tagacha alohida insert; CopyFrom/batched SQL/transaction ishlatilmagan.
+
+P-06. Push broadcast sequential
+500 tagacha subscriptionga ketma-ket send qilinadi.
+
+P-07. pgx pool explicit sizing yo'q
+MaxConns, MinConns, MaxConnLifetime kabi capacity settinglar repositoryda
+explicit sozlanmagan.
+
+P-08. Payment polling
+Ayrim frontend payment oqimlari har 3-4 soniyada poll qiladi.
+
+P-09. Katta assetlar
+- question placeholder: 1.88 MB
+- logo.jpg: taxminan 646 KB
+- favicon.ico: taxminan 646 KB va aslida JPEG
+
+P-10. Event retention/partition rotation yo'q
+Event table vaqt o'tishi bilan default partitionda cheksiz o'sishi mumkin.
+
+Production throughput, p95/p99, concurrency va capacity: insufficient evidence.
+
+
+8-PASS: DEVOPS
+------------------------------------------------------------
+
+Bajarilgan tekshiruvlar:
+
+- Shell syntax: PASS
+- Python AST parse, 6 file: PASS
+- JavaScript syntax: PASS
+- Uch Docker Compose config render/validation: PASS
+- Seed verification: PASS
+- Frontend/backend build va testlar: PASS
+
+DevOps kamchiliklari:
+
+D-01. API container healthcheck yo'q
+Web containerda healthcheck bor, APIda yo'q. Compose dependency API readiness'ni
+to'liq kutmaydi.
+
+D-02. Resource limit va HA yo'q
+CPU/memory limit, replica, rolling deployment yoki multi-instance strategy
+repositoryda yo'q.
+
+D-03. Backup automation yetarli emas
+Repositoryda local/manual backup va restore scriptlari bor, ammo:
+
+- schedule yo'q
+- offsite nusxa yo'q
+- backup encryption yo'q
+- WAL archive/PITR yo'q
+- retention policy yo'q
+- RPO/RTO TBD
+- MinIO DR yo'q
+- Redis DR yo'q
+
+D-04. Restore drill tasdiqlanmagan
+Audit production dumpni alohida temp DBga destructive restore qilib
+tekshirmadi. Current backupning recoverability holati: insufficient evidence.
+
+D-05. Mutable image taglar
+Ko'p base image/actionlar tag bilan pin qilingan, digest bilan emas.
+minio/minio:latest va minio/mc:latest ishlatiladi.
+
+D-06. CI image build/deployni tekshirmaydi
+Backend/frontend code gate'lari mavjud, lekin Docker image build va production
+compose deployment CI hard gate emas.
+
+D-07. Dependency security gate bir xil qat'iy emas
+- npm audit warning-only
+- npm audit offline audit vaqtida 0 vulnerability ko'rsatdi
+- Go vulnerability gate toolni @latest bilan o'rnatadi
+- local govulncheck mavjud emas edi
+- Python dependency audit bajarilmadi
+
+D-08. Humo watcher root bo'lib ishlaydi
+services/humo-watcher/Dockerfile USER o'rnatmaydi.
+
+D-09. Humo watcher build context katta
+services/humo-watcher uchun .dockerignore yo'q. Local .venv taxminan 35 MB va
+1,602 regular file bilan build contextga kirishi mumkin.
+
+D-10. Manual deployment
+Rsync + host compose build modeli. Rollback uchun oldingi image tavsiyasi bor,
+ammo DB rollback fix-forward/manual restorega bog'liq.
+
+D-11. Origin transport
+Nginx faqat HTTP origin beradi. Bu HIGH-08da batafsil yozilgan.
+
+D-12. Cloudflare CIDR freshness
+Nginx configda CIDR ro'yxati hardcoded. Uning 2026-08-01 dagi tashqi Cloudflare
+ro'yxati bilan mosligini repositoryning o'zi tasdiqlamaydi: insufficient evidence.
+
+
+9-PASS: BUG HUNT CROSS-CHECK
+------------------------------------------------------------
+
+Cross-pass natijalari:
+
+1. Unit/integration testlar Critical set-password designini aniqlamagan.
+2. Admin refresh bugi BFF type definition, cookie write, SSE va binary response
+   oqimlarining birgalikdagi xatosi.
+3. Session answer/finish muammosi happy-path testlarda ko'rinmaydi; DB write
+   failure injection kerak.
+4. Arena race testdan o'tdi, ammo ignored error va bounded-inbox drop data race
+   emas; shuning uchun race detector uni ushlamaydi.
+5. Playwright frontend fallbacklar sabab backend 502 holatida ham qisman yashil.
+6. Fresh migration test o'tadi, ammo local long-lived DB 45-versiyada qolgan.
+7. Secret scan tracked tarixda high-confidence leak topmadi, ammo ignored local
+   production snapshotlar sensitive ma'lumot saqlaydi.
+8. Hozirgi kichik DB querylarni tez bajaradi, ammo ORDER BY random va event
+   default partition scale xavfi saqlanib qoladi.
+
+
+10-PASS: USTUVOR TUZATISH REJASI
+------------------------------------------------------------
+
+P0 / DARHOL
+
+1. POST /auth/set-password public routeni vaqtincha o'chirish.
+2. Set-passwordni recent OTP, authenticated session yoki signed single-use
+   recovery token bilan himoyalash.
+3. Password update va session issuance'ni bitta transactionga kiritish.
+4. Live DBda NULL password_hash akkauntlar sonini aniqlash.
+5. Zarur bo'lsa existing refresh sessionlarni revoke qilish va affected
+   akkauntlar uchun verified recovery o'tkazish.
+6. Account-takeover regression test qo'shish.
+
+P1 / RELEASE BLOCKERLAR
+
+7. Registrationni OTP/phone-ownership proof bilan bog'lash.
+8. Admin refresh payloadida access va refresh tokenni birga parse qilish.
+9. JSON, CSV/binary va SSE refresh pathlarning barchasida rotated cookie'larni
+   yangilash.
+10. Admin refresh rotationni transaction/CAS yoki tested grace mexanizmi bilan
+    concurrency-safe qilish.
+11. Session answer yozuvi, FSRS va progressni transaction/outbox/idempotent
+    repair modeliga o'tkazish.
+12. Session finish, variant progress va certificate yaratishni atomik yoki
+    idempotent repairable qilish.
+13. Arena persistence xatolarini qaytarish, retry/outbox qo'shish va shutdown
+    drain tugashini kutish.
+14. Arena inbox full bo'lganda eventni jim drop qilmaslik.
+15. Full PANni oddiy read APIlardan olib tashlash va support permissionini
+    toraytirish.
+16. Sensitive karta fieldlari uchun field-level encryption/tokenization yoki
+    tashqi vault modelini qo'llash.
+17. Dump va snapshotlarni encrypt qilish; minimal 0600 permission va restricted
+    directory ishlatish.
+18. Payment hard-delete o'rniga immutable reversal/void/tombstone modeliga o'tish.
+19. Moliyaviy mutation va audit yozuvini bitta transactionga kiritish.
+20. Production compose'dagi credential va ENV defaultlarni olib tashlash;
+    ${VAR:?required} bilan fail-closed qilish.
+21. Origin certificate, HTTPS listener va faqat Cloudflare'dan origin access
+    firewallini qo'shish.
+
+P2 / HARDENING VA RELIABILITY
+
+22. Barcha request bodylar uchun endpointga mos size limit o'rnatish.
+23. ReadTimeout, WriteTimeout, IdleTimeout va MaxHeaderBytes qo'shish.
+24. Public support endpointiga rate limit, abuse protection va CAPTCHA qo'shish.
+25. CORS allowlistga o'tish.
+26. Telegram va Humo eventlari uchun durable queue/retry/deduplication qo'shish.
+27. Admin audit/revision yozuvlarini mutation bilan transactionga kiritish.
+28. Event batchni transaction/bulk insert/idempotency bilan ishlashga o'tkazish.
+29. CSV formula-prefikslarini xavfsizlashtirish.
+30. CMS URL scheme/domain allowlist qo'shish.
+31. CSP qo'shish.
+32. Logout/account-switchda protected service-worker cache'larini o'chirish yoki
+    user-scoped cache key ishlatish.
+33. Productionda admin TOTPni majburiy qilish.
+34. Static ops-token sahifalarini olib tashlash yoki normal admin authga ko'chirish.
+
+P3 / PERFORMANCE VA OPERATIONS
+
+35. ORDER BY random() o'rniga scalable sampling strategy tanlash.
+36. Telegram poll queryni aggregate/join yoki precomputed eligibility orqali
+    optimallashtirish.
+37. Auth/admin repeated DB lookup uchun xavfsiz cache yoki token-version modelini
+    ko'rib chiqish.
+38. pgx pool capacity settinglarini workload asosida explicit o'rnatish.
+39. Event partition rotation va retention job qo'shish.
+40. 25 missing FK indexni real query workload va EXPLAIN bilan prioritetlash.
+41. Katta frontend assetlarni optimallashtirish va haqiqiy ICO yaratish.
+42. Server/client component chegaralarini qayta ko'rib chiqish.
+43. Authenticated full-stack E2E credentials va environmentni CIga qo'shish.
+44. Docker image build/scan va production compose validationni CI hard gate qilish.
+45. Automated encrypted offsite backup, WAL/PITR va restore drill o'rnatish.
+46. RPO/RTOni belgilash.
+47. Humo watcher uchun non-root USER va .dockerignore qo'shish.
+48. gofmt checkni CIga qo'shish va 25 faylni formatlash.
+
+
+IJOBIY NAZORATLAR
+------------------------------------------------------------
+
+Quyidagi nazoratlar repositoryda mavjud va auditda tasdiqlandi:
+
+- JWT verification algoritmni explicit tekshiradi.
+- Admin typ learner auth tomonidan rad etiladi.
+- Learner/admin auth mantiqan ajratilgan.
+- Refresh tokenlar hash ko'rinishda saqlanadi.
+- Password hashing bcrypt cost 12 bilan.
+- Payment/internal token compare constant-time.
+- Auth cookie'lari HttpOnly, SameSite=Lax, productionda Secure.
+- ENV=prod/staging bo'lsa dev JWT secret va sandbox OTP rad etiladi.
+- Payme/Click muhim transaction race'lari transaction bilan himoyalangan va
+  testlari mavjud.
+- PostgreSQL migrationlari fresh DBda o'tadi.
+- sqlc source/generated parity 240/240.
+- Invalid PostgreSQL index topilmadi.
+- API va frontend Docker runtime non-root.
+- DB/Redis readiness endpointi mavjud.
+- Container log rotation mavjud.
+- Seed parity verification o'tadi.
+- Current tracked tree va 506 commit tarixida high-confidence private key/token
+  pattern topilmadi.
+- npm audit --offline --omit=dev 0 vulnerability ko'rsatdi.
+
+
+INSUFFICIENT EVIDENCE
+------------------------------------------------------------
+
+Quyidagi savollarga repositoryning o'zi yetarli dalil bermaydi:
+
+1. Hozir live productionda qaysi commit deploy qilingan?
+2. Live DBda nechta NULL password_hash akkaunt mavjud?
+3. Audit topilmalari asosida real exploitation sodir bo'lganmi?
+4. Current Cloudflare SSL mode Flexible, Full yoki Full Strictmi?
+5. Host firewall origin portini faqat Cloudflare CIDRlariga cheklaydimi?
+6. WAF, tashqi rate limiting yoki DDoS protection qay darajada ishlaydi?
+7. Ignored local snapshot hozirgi production bilan qanchalik mos?
+8. Backup avtomatik olinadimi va offsite saqlanadimi?
+9. Current backup haqiqatan restore qilinadimi?
+10. Production RPO va RTO qanday?
+11. Production p50/p95/p99 latency qanday?
+12. Concurrent user va arena capacity qancha?
+13. DB/Redis/MinIO real growth va saturation darajasi qanday?
+14. Go dependencylarining joriy CVE holati qanday? Local govulncheck yo'q edi.
+15. Python dependencylarining joriy CVE holati qanday?
+16. npm offline audit tashqi advisory bazasining eng yangi holatini qamradimi?
+17. Savol va yo'l belgilarining litsenziya/provenance holati qanday?
+18. 32 skipped E2E flow real backend bilan ishlaydimi?
+19. Productionda ADMIN_TOTP_ENFORCE real qiymati qanday?
+20. Down migrationlar real data bilan xavfsiz rollback qilinadimi?
+21. Cloudflare CIDR hardcoded ro'yxati tashqi current ro'yxat bilan mosmi?
+22. CMS javascript: URLining aniq exploitability holati React/browser versiyasida
+    qanday? Scheme sanitization yo'qligi tasdiqlangan, aniq browser executioni
+    tasdiqlanmagan.
+23. Accessibility va visual correctness to'liq screenshot/manual auditdan o'tganmi?
+
+
+YAKUNIY RELEASE SHARTLARI
+------------------------------------------------------------
+
+Production release kamida quyidagi shartlargacha bloklanishi kerak:
+
+- CRITICAL-01 yopilgan va regression test mavjud.
+- Admin refresh rotation barcha response turlarida tuzatilgan.
+- Registration identity proofga bog'langan.
+- Session va arena critical writes atomik yoki repairable.
+- PAN exposure va local dump permission/encryption muammosi boshqarilgan.
+- Production compose fail-closed.
+- Cloudflare-origin transport TLS bilan himoyalangan.
+- Moliyaviy deletion audit bilan atomik yoki immutable reversalga almashtirilgan.
+- Authenticated full-stack smoke/E2E yashil.
+- Backup restore drill muvaffaqiyatli bajarilgan.
+
+Hisobot yakuni.

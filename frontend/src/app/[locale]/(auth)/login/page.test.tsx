@@ -84,7 +84,7 @@ describe("LoginPage", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("offers set-password when backend returns password_not_set", async () => {
+  it("does not expose the removed set-password flow", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -96,6 +96,10 @@ describe("LoginPage", () => {
     fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: "Kirish" }));
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: "Parol o'rnatish" })).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByText("Parol tiklash uchun support bilan bog'laning.")).toBeInTheDocument()
+    );
+    expect(screen.getByRole("heading", { name: "Kirish" })).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });

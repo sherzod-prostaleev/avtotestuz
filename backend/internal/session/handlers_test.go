@@ -46,7 +46,7 @@ func setupServer(t *testing.T) (*httptest.Server, string, *sqlc.Queries) {
 		t.Fatal(err)
 	}
 
-	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
+	svc := session.NewService(q, pool, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
 	r := chi.NewRouter()
 	h := &session.Handler{Svc: svc, Content: &content.Handler{Q: q, MediaBase: "http://media.test"}}
 	h.Routes(r.With(auth.Required([]byte(handlerSecret))))

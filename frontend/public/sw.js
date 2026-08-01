@@ -3,16 +3,15 @@
  * Plus network-first cache for recently opened ticket (variant) question payloads.
  * No full offline exam / session create / answer grading — that gap remains large (U-39).
  */
-const SHELL_CACHE = "dg-shell-v3";
-const RUNTIME_CACHE = "dg-runtime-v3";
-const META_CACHE = "dg-meta-v3";
+const SHELL_CACHE = "dg-shell-v4";
+const RUNTIME_CACHE = "dg-runtime-v4";
+const META_CACHE = "dg-meta-v4";
 const VARIANT_CACHE = "dg-variant-v2";
 const VARIANT_CACHE_MAX = 20;
 const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/manifest.webmanifest",
-  "/icon.svg",
   "/logo.svg",
   "/logo-512.png",
   "/apple-touch-icon.png",
@@ -25,7 +24,7 @@ const SHELL_PATH_RE =
 
 /** Metadata / public CMS list endpoints safe to cache (not question bodies / exam payloads). */
 const META_LIST_RE =
-  /^\/api\/proxy\/(?:variants|me\/variants|categories|signs|site\/(?:contacts|banner|home))(?:\?|$)/;
+  /^\/api\/proxy\/(?:variants|categories|signs|site\/(?:contacts|banner|home))(?:\?|$)/;
 
 /** Ticket/bilet detail: GET /api/proxy/variants/{n}?locale=… — grading-neutral question text. */
 const VARIANT_DETAIL_RE = /^\/api\/proxy\/variants\/\d+(?:\?|$)/;
@@ -49,6 +48,11 @@ self.addEventListener("activate", (event) => {
       )
       .then(() => self.clients.claim())
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data?.type !== "CLEAR_PRIVATE_CACHES") return;
+  event.waitUntil(Promise.all([META_CACHE, VARIANT_CACHE].map((key) => caches.delete(key))));
 });
 
 self.addEventListener("fetch", (event) => {
@@ -204,8 +208,8 @@ self.addEventListener("push", (event) => {
   const options = {
     body: data.body || "",
     data: { url: data.url || "/dashboard", ...(data.data || {}) },
-    icon: "/icon.svg",
-    badge: "/icon.svg",
+    icon: "/logo-512.png",
+    badge: "/logo-512.png",
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });

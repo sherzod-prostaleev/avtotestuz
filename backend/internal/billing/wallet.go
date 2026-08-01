@@ -185,7 +185,7 @@ func (s Service) GetReferralActivity(ctx context.Context, profileID uuid.UUID) (
 		item := UserPayoutRow{
 			ID:          row.ID,
 			AmountUzs:   row.AmountUzs,
-			CardMasked:  MaskCardNumber(row.CardNumber),
+			CardMasked:  MaskStoredPAN(row.CardNumber),
 			CardNetwork: row.CardNetwork,
 			Status:      row.Status,
 			AdminNote:   row.AdminNote,
@@ -280,6 +280,10 @@ func (s Service) RequestReferralPayout(ctx context.Context, profileID uuid.UUID,
 	if s.Pool == nil {
 		return nil, fmt.Errorf("billing: RequestReferralPayout requires Service.Pool")
 	}
+	cardCiphertext, _, err := s.EncryptPAN(digits)
+	if err != nil {
+		return nil, err
+	}
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -301,7 +305,7 @@ func (s Service) RequestReferralPayout(ctx context.Context, profileID uuid.UUID,
 	payout, err := q.CreateReferralPayout(ctx, sqlc.CreateReferralPayoutParams{
 		ProfileID:   profileID,
 		AmountUzs:   amountUzs,
-		CardNumber:  digits,
+		CardNumber:  cardCiphertext,
 		CardNetwork: net,
 	})
 	if err != nil {

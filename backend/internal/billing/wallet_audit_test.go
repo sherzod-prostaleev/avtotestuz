@@ -32,7 +32,7 @@ func setupReferrerPair(t *testing.T, pool *pgxpool.Pool, referrerPhone, refereeP
 	`); err != nil {
 		t.Fatal(err)
 	}
-	svc = Service{Q: sqlc.New(pool), Pool: pool}
+	svc = Service{Q: sqlc.New(pool), Pool: pool, Secret: []byte("test-wallet-audit-pan-secret-32-bytes")}
 	code, err := svc.GetOrCreateReferralCode(ctx, referrer)
 	if err != nil {
 		t.Fatal(err)

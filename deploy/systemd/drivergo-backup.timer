@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Driver Go encrypted backup every day
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+RandomizedDelaySec=15m
+Persistent=true
+Unit=drivergo-backup.service
+
+[Install]
+WantedBy=timers.target

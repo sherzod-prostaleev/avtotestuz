@@ -76,8 +76,8 @@ async function forward(
   return backendFetch(targetPath, init);
 }
 
-async function handle(request: Request, context: { params: { path: string[] } }) {
-  const { path } = context.params;
+async function handle(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  const { path } = await context.params;
   if (!safePath(path)) {
     return NextResponse.json(
       { error: { code: "invalid_path", message: "invalid proxy path" } },

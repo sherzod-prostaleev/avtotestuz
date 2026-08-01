@@ -24,11 +24,27 @@ export default function CheckoutPendingPage() {
   const router = useRouter();
 
   useEffect(() => {
-    let timer: ReturnType<typeof setInterval>;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let stopped = false;
+    let attempt = 0;
+    const schedule = () => {
+      if (stopped) return;
+      const delay = document.visibilityState === "hidden" || !navigator.onLine
+        ? 30_000
+        : Math.min(3_000 * 2 ** attempt, 30_000);
+      timer = setTimeout(() => void checkStatus(), delay);
+    };
     const checkStatus = async () => {
+      if (stopped) return;
+      if (document.visibilityState === "hidden" || !navigator.onLine) {
+        schedule();
+        return;
+      }
       try {
         const ent = await apiGet<EntitlementDTO>("me/entitlement");
+        attempt = 0;
         if (ent.active) {
+          stopped = true;
           const params = new URLSearchParams();
           if (ent.proration?.applied) {
             params.set("prorated", "1");
@@ -37,18 +53,31 @@ export default function CheckoutPendingPage() {
           }
           const qs = params.toString();
           router.push(`/${locale}/checkout/success${qs ? `?${qs}` : ""}`);
+          return;
         }
       } catch {
-        // continue polling
+        attempt++;
       }
+      schedule();
+    };
+
+    const wake = () => {
+      if (document.visibilityState === "hidden" || !navigator.onLine) return;
+      if (timer) clearTimeout(timer);
+      attempt = 0;
+      void checkStatus();
     };
 
     void checkStatus();
-    timer = setInterval(() => {
-      void checkStatus();
-    }, 3000);
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
 
-    return () => clearInterval(timer);
+    return () => {
+      stopped = true;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
   }, [locale, router]);
 
   return (

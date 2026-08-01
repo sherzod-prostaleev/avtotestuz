@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -31,12 +32,12 @@ import (
 var arenaJoinLua string
 
 var (
-	ErrRequiresVIP      = errors.New("vip_required")
-	ErrAlreadyQueued    = errors.New("already_queued")
-	ErrAlreadyInMatch   = errors.New("already_in_match")
-	ErrTicketInvalid    = errors.New("ticket_invalid")
-	ErrInviteInvalid    = errors.New("invite_invalid")
-	ErrFeatureDisabled  = errors.New("feature_disabled")
+	ErrRequiresVIP     = errors.New("vip_required")
+	ErrAlreadyQueued   = errors.New("already_queued")
+	ErrAlreadyInMatch  = errors.New("already_in_match")
+	ErrTicketInvalid   = errors.New("ticket_invalid")
+	ErrInviteInvalid   = errors.New("invite_invalid")
+	ErrFeatureDisabled = errors.New("feature_disabled")
 )
 
 // RatingProvider supplies ratings for matchmaking (M4-04 fills real ELO).
@@ -74,37 +75,81 @@ func (e EloStore) Rating(ctx context.Context, profileID uuid.UUID) (int, error) 
 	return v, err
 }
 
-func (e EloStore) ApplyResult(ctx context.Context, _ uuid.UUID, a, b uuid.UUID, scoreA, scoreB int) (int, int, error) {
-	ra, err := e.Rating(ctx, a)
-	if err != nil {
-		return 0, 0, err
+func (e EloStore) ApplyResult(ctx context.Context, matchID uuid.UUID, a, b uuid.UUID, scoreA, scoreB int) (int, int, error) {
+	return e.applyResult(ctx, matchID, a, b, scoreA, scoreB)
+}
+
+type eloAppliedResult struct {
+	DeltaA int `json:"delta_a"`
+	DeltaB int `json:"delta_b"`
+}
+
+// applyResult updates both ratings in one optimistic Redis transaction. A
+// match-scoped result key makes retries idempotent, including the ambiguous
+// case where EXEC succeeded but the network response was lost.
+func (e EloStore) applyResult(ctx context.Context, matchID, a, b uuid.UUID, scoreA, scoreB int) (int, int, error) {
+	resultKey := "arena:rating:match:" + matchID.String()
+	var applied eloAppliedResult
+	for attempts := 0; attempts < 8; attempts++ {
+		err := e.R.Watch(ctx, func(tx *redis.Tx) error {
+			if raw, err := tx.Get(ctx, resultKey).Bytes(); err == nil {
+				return json.Unmarshal(raw, &applied)
+			} else if err != redis.Nil {
+				return err
+			}
+			ra, err := redisRating(ctx, tx, e.key(a))
+			if err != nil {
+				return err
+			}
+			rb, err := redisRating(ctx, tx, e.key(b))
+			if err != nil {
+				return err
+			}
+			var sa, sb float64
+			switch {
+			case scoreA > scoreB:
+				sa, sb = 1, 0
+			case scoreA < scoreB:
+				sa, sb = 0, 1
+			default:
+				sa, sb = 0.5, 0.5
+			}
+			k := e.K
+			if k <= 0 {
+				k = 32
+			}
+			applied = eloAppliedResult{
+				DeltaA: EloDelta(ra, rb, sa, k),
+				DeltaB: EloDelta(rb, ra, sb, k),
+			}
+			payload, err := json.Marshal(applied)
+			if err != nil {
+				return err
+			}
+			_, err = tx.TxPipelined(ctx, func(pipe redis.Pipeliner) error {
+				pipe.Set(ctx, e.key(a), ra+applied.DeltaA, 0)
+				pipe.Set(ctx, e.key(b), rb+applied.DeltaB, 0)
+				pipe.Set(ctx, resultKey, payload, 90*24*time.Hour)
+				return nil
+			})
+			return err
+		}, resultKey, e.key(a), e.key(b))
+		if err == nil {
+			return applied.DeltaA, applied.DeltaB, nil
+		}
+		if !errors.Is(err, redis.TxFailedErr) {
+			return 0, 0, err
+		}
 	}
-	rb, err := e.Rating(ctx, b)
-	if err != nil {
-		return 0, 0, err
+	return 0, 0, redis.TxFailedErr
+}
+
+func redisRating(ctx context.Context, tx *redis.Tx, key string) (int, error) {
+	v, err := tx.Get(ctx, key).Int()
+	if err == redis.Nil {
+		return 1000, nil
 	}
-	var sa, sb float64
-	switch {
-	case scoreA > scoreB:
-		sa, sb = 1, 0
-	case scoreA < scoreB:
-		sa, sb = 0, 1
-	default:
-		sa, sb = 0.5, 0.5
-	}
-	k := e.K
-	if k <= 0 {
-		k = 32
-	}
-	da := EloDelta(ra, rb, sa, k)
-	db := EloDelta(rb, ra, sb, k)
-	if err := e.R.Set(ctx, e.key(a), ra+da, 0).Err(); err != nil {
-		return 0, 0, err
-	}
-	if err := e.R.Set(ctx, e.key(b), rb+db, 0).Err(); err != nil {
-		return 0, 0, err
-	}
-	return da, db, nil
+	return v, err
 }
 
 // QuestionLoader loads public question payloads for live duels.
@@ -183,7 +228,10 @@ func (s *Service) MintTicket(ctx context.Context, profileID uuid.UUID) (string, 
 	if !ok {
 		return "", 0, fmt.Errorf("rate_limited")
 	}
-	tok := auth.NewRefreshToken()
+	tok, err := auth.NewRefreshToken()
+	if err != nil {
+		return "", 0, err
+	}
 	if err := s.R.Set(ctx, s.ticketKey(tok), profileID.String(), TicketTTL).Err(); err != nil {
 		return "", 0, err
 	}
@@ -308,7 +356,11 @@ func (s *Service) CreateInvite(ctx context.Context, profileID uuid.UUID) error {
 		_ = s.sendJSON(profileID, "error", ErrorData{Code: "vip_required", Message: "VIP required"})
 		return err
 	}
-	code := strings.ToUpper(auth.NewRefreshToken()[:8])
+	rawCode, err := auth.NewRefreshToken()
+	if err != nil {
+		return err
+	}
+	code := strings.ToUpper(rawCode[:8])
 	if err := s.R.Set(ctx, "arena:invite:"+code, profileID.String(), 10*time.Minute).Err(); err != nil {
 		return err
 	}
@@ -457,7 +509,9 @@ func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
 		m := s.matches[d.MatchID]
 		s.mu.Unlock()
 		if m != nil {
-			m.SubmitAnswer(profileID, d.Index, d.AnswerID)
+			if !m.SubmitAnswer(profileID, d.Index, d.AnswerID) {
+				_ = s.sendJSON(profileID, "error", ErrorData{Code: "server_busy", Message: "answer queue is busy; retry"})
+			}
 		}
 	case "match.rejoin":
 		var d MatchRejoinData
@@ -468,7 +522,9 @@ func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
 		m := s.matches[d.MatchID]
 		s.mu.Unlock()
 		if m != nil {
-			m.Rejoin(profileID)
+			if !m.Rejoin(profileID) {
+				_ = s.sendJSON(profileID, "error", ErrorData{Code: "server_busy", Message: "rejoin queue is busy; retry"})
+			}
 		}
 	case "match.leave":
 		if mid, ok := s.Hub.MatchOf(profileID); ok {
@@ -476,7 +532,9 @@ func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
 			m := s.matches[mid]
 			s.mu.Unlock()
 			if m != nil {
-				m.Leave(profileID)
+				if !m.Leave(profileID) {
+					s.Log.Error("arena leave event could not be queued", zap.String("match_id", mid.String()), zap.String("profile_id", profileID.String()))
+				}
 			}
 		}
 	}
@@ -490,7 +548,9 @@ func (s *Service) OnDisconnect(profileID uuid.UUID) {
 		m := s.matches[mid]
 		s.mu.Unlock()
 		if m != nil {
-			m.NotifyDisconnect(profileID)
+			if !m.NotifyDisconnect(profileID) {
+				s.Log.Error("arena disconnect event could not be queued", zap.String("match_id", mid.String()), zap.String("profile_id", profileID.String()))
+			}
 		}
 	}
 }
@@ -516,29 +576,72 @@ func (s *Service) FinishPersist(ctx context.Context, m *Match, da, db int) error
 			outA, outB = "won", "lost"
 		}
 	}
-	ra, _ := s.Rating.Rating(ctx, m.a)
-	rb, _ := s.Rating.Rating(ctx, m.b)
-	beforeA, beforeB := ra-da, rb-db
+	if s.Pool == nil {
+		return errors.New("arena transaction pool is not configured")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 
-	_ = s.Q.FinishArenaMatch(ctx, sqlc.FinishArenaMatchParams{
+	var status string
+	if err := tx.QueryRow(ctx, `SELECT status FROM arena_match WHERE id = $1 FOR UPDATE`, m.id).Scan(&status); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return fmt.Errorf("arena match %s disappeared before persistence", m.id)
+		}
+		return err
+	}
+	if status == "finished" {
+		if err := tx.Commit(ctx); err != nil {
+			return err
+		}
+		return s.cleanupFinishedMatch(ctx, m)
+	}
+
+	ra, rb := 1000, 1000
+	if s.Rating != nil {
+		ra, err = s.Rating.Rating(ctx, m.a)
+		if err != nil {
+			return err
+		}
+		rb, err = s.Rating.Rating(ctx, m.b)
+		if err != nil {
+			return err
+		}
+	}
+	beforeA, beforeB := ra-da, rb-db
+	q := sqlc.New(tx)
+	if err := q.FinishArenaMatch(ctx, sqlc.FinishArenaMatchParams{
 		ID: m.id, EndReason: pgtype.Text{String: m.endReason, Valid: true},
-	})
-	_ = s.Q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
+	}); err != nil {
+		return err
+	}
+	if err := q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
 		MatchID: m.id, ProfileID: m.a, Slot: 1, Locale: m.localeA,
 		Score: int32(m.score[m.a]), CorrectCount: int16(m.correctN[m.a]), TotalResponseMs: int32(m.responseSum[m.a]),
 		Outcome:      pgtype.Text{String: outA, Valid: true},
 		RatingBefore: pgtype.Int4{Int32: int32(beforeA), Valid: true},
 		RatingAfter:  pgtype.Int4{Int32: int32(ra), Valid: true},
 		RatingDelta:  pgtype.Int4{Int32: int32(da), Valid: true},
-	})
-	_ = s.Q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
+	}); err != nil {
+		return err
+	}
+	if err := q.InsertArenaMatchPlayer(ctx, sqlc.InsertArenaMatchPlayerParams{
 		MatchID: m.id, ProfileID: m.b, Slot: 2, Locale: m.localeB,
 		Score: int32(m.score[m.b]), CorrectCount: int16(m.correctN[m.b]), TotalResponseMs: int32(m.responseSum[m.b]),
 		Outcome:      pgtype.Text{String: outB, Valid: true},
 		RatingBefore: pgtype.Int4{Int32: int32(beforeB), Valid: true},
 		RatingAfter:  pgtype.Int4{Int32: int32(rb), Valid: true},
 		RatingDelta:  pgtype.Int4{Int32: int32(db), Valid: true},
-	})
+	}); err != nil {
+		return err
+	}
+
+	var learningSvc *learning.Service
+	if s.Learning != nil {
+		learningSvc = learning.NewService(q)
+	}
 	for i, qid := range m.questions {
 		for _, pid := range []uuid.UUID{m.a, m.b} {
 			ans := m.answers[pid][i]
@@ -550,20 +653,45 @@ func (s *Service) FinishPersist(ctx context.Context, m *Match, da, db int) error
 				resp = pgtype.Int4{Int32: int32(ans.responseMs), Valid: true}
 				answeredAt = pgtype.Timestamptz{Time: ans.at, Valid: true}
 			}
-			_ = s.Q.InsertArenaAnswer(ctx, sqlc.InsertArenaAnswerParams{
+			if err := q.InsertArenaAnswer(ctx, sqlc.InsertArenaAnswerParams{
 				MatchID: m.id, ProfileID: pid, QuestionID: qid, Position: int16(i + 1),
 				AnswerID: answerID, IsCorrect: ans.correct, ResponseMs: resp, Points: int16(ans.points), AnsweredAt: answeredAt,
-			})
-			if ans.answered && !ans.correct && s.Learning != nil {
-				_, _ = s.Learning.RecordReview(ctx, pid, qid, learning.Again)
+			}); err != nil {
+				return err
+			}
+			if ans.answered && !ans.correct && learningSvc != nil {
+				if _, err := learningSvc.RecordReview(ctx, pid, qid, learning.Again); err != nil {
+					return err
+				}
 			}
 		}
 	}
 	if s.Progress != nil {
-		_, _ = s.Progress.RecordActivity(ctx, m.a)
-		_, _ = s.Progress.RecordActivity(ctx, m.b)
+		progressSvc := progress.NewService(q)
+		progressSvc.Learning = learningSvc
+		if s.Progress.Billing.Q != nil {
+			progressSvc.Billing = s.Progress.Billing
+			progressSvc.Billing.Q = q
+		}
+		if _, err := progressSvc.RecordActivity(ctx, m.a); err != nil {
+			return err
+		}
+		if _, err := progressSvc.RecordActivity(ctx, m.b); err != nil {
+			return err
+		}
 	}
-	_ = s.R.Del(ctx, "arena:match:"+m.a.String(), "arena:match:"+m.b.String()).Err()
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	return s.cleanupFinishedMatch(ctx, m)
+}
+
+func (s *Service) cleanupFinishedMatch(ctx context.Context, m *Match) error {
+	if s.R != nil {
+		if err := s.R.Del(ctx, "arena:match:"+m.a.String(), "arena:match:"+m.b.String()).Err(); err != nil {
+			return err
+		}
+	}
 	s.Hub.ClearMatch(m.a)
 	s.Hub.ClearMatch(m.b)
 	s.mu.Lock()
@@ -580,10 +708,19 @@ func (s *Service) Drain(ctx context.Context) {
 	}
 	s.mu.Unlock()
 	for _, m := range list {
-		m.AbortShutdown()
+		if err := m.AbortShutdown(ctx); err != nil {
+			s.Log.Error("arena shutdown abort could not be queued", zap.String("match_id", m.id.String()), zap.Error(err))
+		}
+	}
+	for _, m := range list {
+		select {
+		case <-m.done:
+		case <-ctx.Done():
+			s.Log.Error("arena shutdown timed out waiting for persistence", zap.String("match_id", m.id.String()), zap.Error(ctx.Err()))
+			return
+		}
 	}
 	s.Hub.CloseAll(CloseShutdown)
-	_ = ctx
 }
 
 func (s *Service) ListHistory(ctx context.Context, profileID uuid.UUID, limit int32) ([]sqlc.ListArenaMatchesForProfileRow, error) {

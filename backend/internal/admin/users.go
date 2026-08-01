@@ -29,35 +29,35 @@ type LearnerDirectoryRow struct {
 
 // LearnerDetail is GET /admin/v1/users/{id} (never includes password plaintext/hash).
 type LearnerDetail struct {
-	ID            uuid.UUID              `json:"id"`
-	Phone         string                 `json:"phone"`
-	PhoneMasked   string                 `json:"phone_masked"`
-	Name          string                 `json:"name"`
-	Region        string                 `json:"region"`
-	District      string                 `json:"district"`
-	LocalePref    string                 `json:"locale_pref"`
-	ThemePref     string                 `json:"theme_pref"`
-	Role          string                 `json:"role"`
-	Status        string                 `json:"status"`
-	ReferralCode  string                 `json:"referral_code,omitempty"`
-	ReferredBy    *uuid.UUID             `json:"referred_by,omitempty"`
-	VIPActive     bool                   `json:"vip_active"`
-	VIPEndsAt     *time.Time             `json:"vip_ends_at,omitempty"`
-	HasPassword   bool                   `json:"has_password"`
-	Streak        int                    `json:"streak"`
-	CreatedAt     time.Time              `json:"created_at"`
-	LastSeenAt    *time.Time             `json:"last_seen_at,omitempty"`
-	Entitlements  []LearnerEntitlement   `json:"entitlements"`
+	ID           uuid.UUID            `json:"id"`
+	Phone        string               `json:"phone"`
+	PhoneMasked  string               `json:"phone_masked"`
+	Name         string               `json:"name"`
+	Region       string               `json:"region"`
+	District     string               `json:"district"`
+	LocalePref   string               `json:"locale_pref"`
+	ThemePref    string               `json:"theme_pref"`
+	Role         string               `json:"role"`
+	Status       string               `json:"status"`
+	ReferralCode string               `json:"referral_code,omitempty"`
+	ReferredBy   *uuid.UUID           `json:"referred_by,omitempty"`
+	VIPActive    bool                 `json:"vip_active"`
+	VIPEndsAt    *time.Time           `json:"vip_ends_at,omitempty"`
+	HasPassword  bool                 `json:"has_password"`
+	Streak       int                  `json:"streak"`
+	CreatedAt    time.Time            `json:"created_at"`
+	LastSeenAt   *time.Time           `json:"last_seen_at,omitempty"`
+	Entitlements []LearnerEntitlement `json:"entitlements"`
 }
 
 // LearnerEntitlement is a billing entitlement row for the admin user detail.
 type LearnerEntitlement struct {
-	ID        uuid.UUID `json:"id"`
-	Source    string    `json:"source"`
-	StartsAt  time.Time `json:"starts_at"`
-	EndsAt    time.Time `json:"ends_at"`
-	Active    bool      `json:"active"`
-	Note      string    `json:"note,omitempty"`
+	ID       uuid.UUID `json:"id"`
+	Source   string    `json:"source"`
+	StartsAt time.Time `json:"starts_at"`
+	EndsAt   time.Time `json:"ends_at"`
+	Active   bool      `json:"active"`
+	Note     string    `json:"note,omitempty"`
 }
 
 // ListLearnersFilter scopes the directory query.

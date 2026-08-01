@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -14,7 +15,9 @@ import (
 
 // Handler exposes public + authenticated ticket create endpoints.
 type Handler struct {
-	Pool *pgxpool.Pool
+	Pool      *pgxpool.Pool
+	Lim       auth.Limiter
+	ClientIPs auth.ClientIPResolver
 }
 
 func (h *Handler) store() Store {
@@ -37,12 +40,31 @@ type createBody struct {
 	Subject      string `json:"subject"`
 	Body         string `json:"body"`
 	Locale       string `json:"locale"`
+	Website      string `json:"website"` // honeypot; real clients leave empty
 }
 
 func (h *Handler) createPublic(w http.ResponseWriter, r *http.Request) {
+	if h.Lim.R != nil {
+		ip := h.ClientIPs.Resolve(r)
+		allowed, err := h.Lim.Allow(r.Context(), "support:public:ip:"+ip, 5, time.Hour)
+		if err != nil {
+			httpx.Error(w, http.StatusServiceUnavailable, "temporarily_unavailable", "support is temporarily unavailable")
+			return
+		}
+		if !allowed {
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many support requests")
+			return
+		}
+	}
 	var body createBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if strings.TrimSpace(body.Website) != "" {
+		// Deliberately return a generic accepted response without persisting
+		// obvious form-bot submissions.
+		httpx.Data(w, http.StatusCreated, map[string]bool{"ok": true})
 		return
 	}
 	t, err := h.store().Create(r.Context(), CreateInput{
@@ -65,6 +87,17 @@ func (h *Handler) createAuthed(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
 		return
+	}
+	if h.Lim.R != nil {
+		allowed, err := h.Lim.Allow(r.Context(), "support:profile:"+claims.ProfileID.String(), 10, time.Hour)
+		if err != nil {
+			httpx.Error(w, http.StatusServiceUnavailable, "temporarily_unavailable", "support is temporarily unavailable")
+			return
+		}
+		if !allowed {
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many support requests")
+			return
+		}
 	}
 	var body createBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {

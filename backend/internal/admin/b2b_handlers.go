@@ -154,8 +154,8 @@ func (h *Handler) createB2BLicense(w http.ResponseWriter, r *http.Request) {
 }
 
 type grantB2BBody struct {
-	Days   int    `json:"days"`
-	Note   string `json:"note"`
+	Days int    `json:"days"`
+	Note string `json:"note"`
 }
 
 func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
@@ -243,10 +243,10 @@ func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
 	adminID := claims.AdminUserID
 	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.entitlements.grant", "entitlement", profileID.String(),
 		nil, map[string]any{
-			"org_id":     orgID.String(),
-			"days":       body.Days,
-			"until":      until.UTC().Format(time.RFC3339),
-			"source":     "b2b",
+			"org_id": orgID.String(),
+			"days":   body.Days,
+			"until":  until.UTC().Format(time.RFC3339),
+			"source": "b2b",
 		},
 		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
 	)

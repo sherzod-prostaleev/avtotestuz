@@ -31,11 +31,10 @@ const manrope = Manrope({
   display: "swap",
 });
 
-export async function generateMetadata({
-  params: { locale },
-}: {
-  params: { locale: string };
+export async function generateMetadata({ params }: {
+  params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
+  const { locale } = await params;
   if (!locales.includes(locale as Locale)) return {};
   const t = await getTranslations({ locale, namespace: "Metadata" });
   return {
@@ -57,11 +56,12 @@ export async function generateMetadata({
 
 export default async function LocaleLayout({
   children,
-  params: { locale },
+  params,
 }: {
   children: React.ReactNode;
-  params: { locale: string };
+  params: Promise<{ locale: string }>;
 }) {
+  const { locale } = await params;
   if (!locales.includes(locale as Locale)) notFound();
   const messages = await getMessages();
 

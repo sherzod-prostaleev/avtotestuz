@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminErrorState } from "@/components/admin/admin-error-state";
@@ -51,11 +52,11 @@ type PaymentDetail = {
   };
 };
 
-export default function AdminPaymentDetailPage({ params }: { params: { id: string } }) {
+export default function AdminPaymentDetailPage() {
   const t = useTranslations("AdminPayments");
   const tNav = useTranslations("AdminNav");
   const locale = useLocale();
-  const { id } = params;
+  const { id } = useParams<{ id: string }>();
   const [data, setData] = useState<PaymentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

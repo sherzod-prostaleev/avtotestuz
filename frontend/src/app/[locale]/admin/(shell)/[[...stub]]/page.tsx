@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { ComingSoon } from "@/components/admin/coming-soon";
@@ -31,15 +32,11 @@ function fmtUzs(n: number): string {
   return new Intl.NumberFormat("uz-UZ").format(n) + " UZS";
 }
 
-export default function AdminStubOrOverviewPage({
-  params,
-}: {
-  params: { stub?: string[] };
-}) {
+export default function AdminStubOrOverviewPage() {
   const t = useTranslations("AdminOverview");
   const ta = useTranslations("AdminAnalytics");
   const locale = useLocale();
-  const parts = params.stub ?? [];
+  const parts = useParams<{ stub?: string[] }>().stub ?? [];
   const [data, setData] = useState<Overview | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);

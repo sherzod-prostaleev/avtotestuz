@@ -58,10 +58,12 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 }
 
 // NewRefreshToken returns an opaque 256-bit token (base64url, no padding).
-func NewRefreshToken() string {
+func NewRefreshToken() (string, error) {
 	b := make([]byte, 32)
-	_, _ = rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate refresh token: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
 // HashToken is how refresh tokens are stored (sha256 hex) — never raw.

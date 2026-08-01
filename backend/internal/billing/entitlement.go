@@ -350,8 +350,8 @@ func (s Service) RevokeEntitlementForPayment(ctx context.Context, paymentID uuid
 		clampTo = ent.StartsAt.Time.Add(time.Second)
 	}
 	if err := s.Q.ClampAllEntitlementsForPayment(ctx, sqlc.ClampAllEntitlementsForPaymentParams{
-		PaymentID: uuid.NullUUID{UUID: paymentID, Valid: true},
-		ClampTo:   pgtype.Timestamptz{Time: clampTo, Valid: true},
+		PaymentID:  uuid.NullUUID{UUID: paymentID, Valid: true},
+		ClampTo:    pgtype.Timestamptz{Time: clampTo, Valid: true},
 		NoteSuffix: " | refunded",
 	}); err != nil {
 		return fmt.Errorf("clamp entitlements for payment %s: %w", paymentID, err)

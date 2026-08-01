@@ -2,6 +2,7 @@ package admin
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"strconv"
@@ -95,7 +96,6 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Get("/payments/transactions/{id}", h.getPayment)
 			prr.Get("/payments/providers", h.listPaymentProviders)
 			prr.Get("/payments/recon", h.runPaymentRecon)
-			prr.Get("/payments/manual/cards", h.listManualPayCards)
 			prr.Get("/payments/manual/queue", h.listManualPayQueue)
 			prr.Get("/payments/manual/events", h.listUnmatchedManualEvents)
 			prr.Get("/payments/manual/telegram", h.getManualTgSettings)
@@ -105,14 +105,16 @@ func (h *Handler) Routes(r chi.Router) {
 			prr.Patch("/payments/providers/{provider}", h.patchPaymentProvider)
 		})
 		pr.Group(func(prr chi.Router) {
-			prr.Use(RequirePermission("payments.delete"))
-			prr.Delete("/payments/transactions/{id}", h.deletePayment)
+			prr.Use(RequirePermission("payments.void"))
+			prr.Post("/payments/transactions/{id}/void", h.voidPayment)
 		})
 		pr.Group(func(prr chi.Router) {
 			prr.Use(RequirePermission("payments.manual.manage"))
+			prr.Get("/payments/manual/cards", h.listManualPayCards)
+			prr.Get("/payments/manual/cards/{id}/pan", h.revealManualPayCard)
 			prr.Post("/payments/manual/cards", h.createManualPayCard)
 			prr.Patch("/payments/manual/cards/{id}", h.updateManualPayCard)
-			prr.Delete("/payments/manual/cards/{id}", h.deleteManualPayCard)
+			prr.Delete("/payments/manual/cards/{id}", h.retireManualPayCard)
 			prr.Post("/payments/manual/queue/{id}/confirm", h.confirmManualPay)
 			prr.Post("/payments/manual/queue/{id}/reject", h.rejectManualPay)
 			prr.Post("/payments/manual/events/{id}/ignore", h.ignoreManualEvent)
@@ -121,11 +123,12 @@ func (h *Handler) Routes(r chi.Router) {
 		})
 		pr.Group(func(rr chi.Router) {
 			rr.Use(RequirePermission("referral.read"))
-			rr.Get("/referral/payouts", h.listReferralPayouts)
 			rr.Get("/users/{id}/referral", h.getUserReferral)
 		})
 		pr.Group(func(rr chi.Router) {
 			rr.Use(RequirePermission("referral.payouts.manage"))
+			rr.Get("/referral/payouts", h.listReferralPayouts)
+			rr.Get("/referral/payouts/{id}/card", h.revealReferralPayoutCard)
 			rr.Post("/referral/payouts/{id}/paid", h.markReferralPayoutPaid)
 			rr.Post("/referral/payouts/{id}/reject", h.rejectReferralPayout)
 		})
@@ -959,38 +962,45 @@ func (h *Handler) getPayment(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, out)
 }
 
-func (h *Handler) deletePayment(w http.ResponseWriter, r *http.Request) {
+type voidPaymentBody struct {
+	Reason string `json:"reason"`
+}
+
+func (h *Handler) voidPayment(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
-	before, err := h.Svc.Store.GetPayment(r.Context(), id)
+	var body voidPaymentBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "JSON payload expected")
+		return
+	}
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing admin")
+		return
+	}
+	err := h.Svc.Store.VoidPayment(
+		r.Context(), id, claims.AdminUserID, body.Reason,
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
 	if err != nil {
 		if IsNoRows(err) {
 			httpx.Error(w, http.StatusNotFound, "not_found", "payment not found")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "payment query failed")
-		return
-	}
-	if err := h.Svc.Store.HardDeletePayment(r.Context(), id); err != nil {
-		if IsNoRows(err) {
-			httpx.Error(w, http.StatusNotFound, "not_found", "payment not found")
+		if errors.Is(err, ErrPaymentCannotVoid) {
+			httpx.Error(w, http.StatusConflict, "payment_settled", "settled or in-flight provider payment cannot be voided")
 			return
 		}
-		httpx.Error(w, http.StatusInternalServerError, "internal", "delete failed")
+		if errors.Is(err, ErrPaymentVoidReason) {
+			httpx.Error(w, http.StatusBadRequest, "invalid_reason", err.Error())
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "void failed")
 		return
 	}
-	claims, _ := FromContext(r.Context())
-	_ = h.Svc.Store.WriteAudit(r.Context(), &claims.AdminUserID, "payments.transactions.delete", "payment", id.String(),
-		map[string]any{
-			"provider":    before.Provider,
-			"status":      before.Status,
-			"amount_uzs":  before.AmountUzs,
-			"profile_id":  before.ProfileID.String(),
-			"tariff_code": before.TariffCode,
-		},
-		nil, clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
 	httpx.Data(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

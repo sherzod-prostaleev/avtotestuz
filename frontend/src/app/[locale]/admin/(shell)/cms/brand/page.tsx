@@ -1,15 +1,15 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
 
 /** Brand & theme CMS — no admin API yet (PRD M3-4). */
-export default function AdminCMSBrandPage() {
-  const t = useTranslations("AdminCMSBrand");
-  const tNav = useTranslations("AdminNav");
-  const tShell = useTranslations("AdminShell");
+export default async function AdminCMSBrandPage() {
+  const [t, tNav, tShell] = await Promise.all([
+    getTranslations("AdminCMSBrand"),
+    getTranslations("AdminNav"),
+    getTranslations("AdminShell"),
+  ]);
 
   return (
     <PermissionGate permission="cms.read">

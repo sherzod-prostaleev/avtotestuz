@@ -60,7 +60,7 @@ func TestPayoutHoldAndReject(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	svc := Service{Q: sqlc.New(pool), Pool: pool}
+	svc := Service{Q: sqlc.New(pool), Pool: pool, Secret: []byte("test-wallet-pan-secret-at-least-32-bytes")}
 	code, err := svc.GetOrCreateReferralCode(ctx, referrer)
 	if err != nil {
 		t.Fatal(err)

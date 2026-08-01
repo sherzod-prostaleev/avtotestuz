@@ -32,7 +32,7 @@ func seed(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
 		t.Fatalf("seed: %v", err)
 	}
 	q := sqlc.New(pool)
-	svc := session.NewService(q, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
+	svc := session.NewService(q, pool, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
 	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{
 		Phone: "+998901234567",
 	})
@@ -327,6 +327,46 @@ func TestSubmitAnswerVariantModeImmediateFeedback(t *testing.T) {
 	}
 }
 
+func TestSubmitAnswerRollsBackAnswerAndFSRSWhenLaterWriteFails(t *testing.T) {
+	q, svc, profileID := seed(t)
+	ctx := context.Background()
+	view := startVariantSession(t, q, svc, profileID)
+	qid := view.QuestionIDs[0]
+	correctID := correctAnswerID(t, q, qid)
+
+	_, err := svc.Pool.Exec(ctx, `
+		CREATE OR REPLACE FUNCTION session_test_fail_mastery() RETURNS trigger
+		LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected mastery failure'; END $$;
+		CREATE TRIGGER session_test_fail_mastery_trigger
+		BEFORE INSERT OR UPDATE ON category_mastery
+		FOR EACH ROW EXECUTE FUNCTION session_test_fail_mastery()`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = svc.Pool.Exec(context.Background(), `
+			DROP TRIGGER IF EXISTS session_test_fail_mastery_trigger ON category_mastery;
+			DROP FUNCTION IF EXISTS session_test_fail_mastery()`)
+	})
+
+	if _, err := svc.SubmitAnswer(ctx, profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err == nil {
+		t.Fatal("SubmitAnswer succeeded despite injected FSRS failure")
+	}
+	if _, err := q.GetSessionAnswer(ctx, sqlc.GetSessionAnswerParams{
+		SessionID: view.ID, QuestionID: qid,
+	}); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("session_answer survived rolled-back transaction: %v", err)
+	}
+	if _, err := q.GetQuestionMemory(ctx, sqlc.GetQuestionMemoryParams{
+		ProfileID: profileID, QuestionID: qid,
+	}); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("question_memory survived rolled-back transaction: %v", err)
+	}
+	if _, err := q.GetStreak(ctx, profileID); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("streak survived rolled-back transaction: %v", err)
+	}
+}
+
 func TestSubmitAnswerSkipFSRSDoesNotRecordReview(t *testing.T) {
 	q, svc, profileID := seed(t)
 	view := startVariantSession(t, q, svc, profileID)
@@ -601,6 +641,38 @@ func TestFinishSessionVariantModeUnlocksNextBilet(t *testing.T) {
 	}
 	if progress.BestCorrect != 20 || !progress.CompletedAt.Valid {
 		t.Fatalf("expected best_correct=20 and completed_at set, got %+v", progress)
+	}
+}
+
+func TestFinishSessionRollsBackStatusWhenVariantProgressFails(t *testing.T) {
+	q, svc, profileID := seed(t)
+	ctx := context.Background()
+	view := startVariantSession(t, q, svc, profileID)
+
+	_, err := svc.Pool.Exec(ctx, `
+		CREATE OR REPLACE FUNCTION session_test_fail_variant_progress() RETURNS trigger
+		LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected variant progress failure'; END $$;
+		CREATE TRIGGER session_test_fail_variant_progress_trigger
+		BEFORE INSERT OR UPDATE ON variant_progress
+		FOR EACH ROW EXECUTE FUNCTION session_test_fail_variant_progress()`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = svc.Pool.Exec(context.Background(), `
+			DROP TRIGGER IF EXISTS session_test_fail_variant_progress_trigger ON variant_progress;
+			DROP FUNCTION IF EXISTS session_test_fail_variant_progress()`)
+	})
+
+	if _, err := svc.FinishSession(ctx, profileID, view.ID); err == nil {
+		t.Fatal("FinishSession succeeded despite injected variant_progress failure")
+	}
+	row, err := q.GetExamSession(ctx, view.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row.Status != "in_progress" || row.FinishedAt.Valid {
+		t.Fatalf("finish state survived rolled-back transaction: status=%s finished=%v", row.Status, row.FinishedAt.Valid)
 	}
 }
 

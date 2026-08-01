@@ -84,9 +84,9 @@ func (s *DigestService) RunDueDigest(ctx context.Context, opts DigestOpts) (Dige
 	}
 
 	rows, err := s.Q.ListTelegramDigestCandidates(ctx, sqlc.ListTelegramDigestCandidatesParams{
-		Kind:        KindTelegramDueDigest,
-		Cooldown:    fmt.Sprintf("%f seconds", DigestCooldown.Seconds()),
-		LimitCount:  int32(limit),
+		Kind:       KindTelegramDueDigest,
+		Cooldown:   fmt.Sprintf("%f seconds", DigestCooldown.Seconds()),
+		LimitCount: int32(limit),
 	})
 	if err != nil {
 		return DigestResult{}, err

@@ -4,6 +4,9 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   backend:
     runs-on: ubuntu-latest
@@ -35,18 +38,22 @@ jobs:
       run:
         working-directory: backend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: backend/go.sum
       - name: Lint
-        uses: golangci/golangci-lint-action@v8
+        uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
         with:
           working-directory: backend
           # go.mod is 1.26.5; action default v1.x binaries are built with older Go
           # and refuse to load. Pin a v2 release built with go1.26+.
           version: v2.12.2
+      - name: Formatting gate
+        run: |
+          unformatted="$(gofmt -l .)"
+          test -z "$unformatted" || { echo "$unformatted"; exit 1; }
       - name: Test
         env:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
@@ -59,8 +66,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -87,8 +94,8 @@ jobs:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -109,25 +116,24 @@ jobs:
 
   # Standing dependency vulnerability scan (inventory U-43).
   # Go: govulncheck is a hard gate (symbol-reachable vulns fail the job).
-  # npm: audit always runs and uploads JSON; critical/high currently include
-  # transitive Next 14 / next-intl 3 issues that need major upgrades — report
-  # as warnings so the scan stays standing without blocking on deferred majors.
+  # npm: high/critical advisories are a hard gate and the JSON is retained as
+  # an artifact for review.
   dependency-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: stable
           cache-dependency-path: backend/go.sum
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
       - name: govulncheck
         working-directory: backend
         run: govulncheck ./...
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
           cache: npm
@@ -135,21 +141,33 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
-      - name: npm audit report
+      - name: npm audit (high/critical hard gate)
         working-directory: frontend
         run: |
-          set +e
-          npm audit --json > "${GITHUB_WORKSPACE}/npm-audit.json"
-          npm audit --audit-level=high
-          status=$?
-          if [ "$status" -ne 0 ]; then
-            echo "::warning::npm audit found high/critical issues (see npm-audit.json). FE majors for Next/next-intl deferred — inventory U-43."
-          fi
-          exit 0
+          set -o pipefail
+          npm audit --audit-level=high --json | tee "${GITHUB_WORKSPACE}/npm-audit.json"
+
+      - name: Python dependency audit
+        run: |
+          python3 -m pip install --disable-pip-version-check pip-audit==2.10.1
+          python3 -m pip_audit -r services/humo-watcher/requirements.txt --strict
       - name: Upload npm audit JSON
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: npm-audit
           path: npm-audit.json
           if-no-files-found: ignore
+
+  container-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Validate production Compose
+        run: docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.prod.env.example config >/dev/null
+      - name: Build API image
+        run: docker build --pull=false -t drivergo-api:ci -f backend/Dockerfile backend
+      - name: Build web image
+        run: docker build --pull=false -t drivergo-web:ci -f frontend/Dockerfile frontend
+      - name: Build Humo watcher image
+        run: docker build --pull=false -t drivergo-humo-watcher:ci -f services/humo-watcher/Dockerfile services/humo-watcher

@@ -395,31 +395,63 @@ func (q *Queries) MarkQuizSessionAnswered(ctx context.Context, arg MarkQuizSessi
 }
 
 const randomPollableQuestionIDs = `-- name: RandomPollableQuestionIDs :many
-SELECT q.id FROM question q
-WHERE q.validation_status = 'valid'
-  AND (q.image_id IS NOT NULL) = $1::boolean
-  AND (SELECT COUNT(*) FROM answer a WHERE a.question_id = q.id) BETWEEN 2 AND 10
-  AND NOT EXISTS (
-    SELECT 1 FROM answer a
-    JOIN answer_translation at
+WITH pivot AS MATERIALIZED (
+  SELECT gen_random_uuid() AS id
+), forward AS (
+  SELECT q.id
+  FROM question q
+  CROSS JOIN pivot p
+  CROSS JOIN LATERAL (
+    SELECT COUNT(*)::int AS answer_count,
+           COALESCE(BOOL_OR(char_length(at.text) > $2::int), false) AS has_long_answer
+    FROM answer a
+    LEFT JOIN answer_translation at
       ON at.answer_id = a.id AND at.locale = 'uz-Latn' AND at.status = 'verified'
     WHERE a.question_id = q.id
-      AND char_length(at.text) > $2::int
-  )
-ORDER BY random()
-LIMIT $3
+  ) eligibility
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = $3::boolean
+    AND q.id >= p.id
+    AND eligibility.answer_count BETWEEN 2 AND 10
+    AND NOT eligibility.has_long_answer
+  ORDER BY q.id
+  LIMIT $1
+), wrapped AS (
+  SELECT q.id
+  FROM question q
+  CROSS JOIN pivot p
+  CROSS JOIN LATERAL (
+    SELECT COUNT(*)::int AS answer_count,
+           COALESCE(BOOL_OR(char_length(at.text) > $2::int), false) AS has_long_answer
+    FROM answer a
+    LEFT JOIN answer_translation at
+      ON at.answer_id = a.id AND at.locale = 'uz-Latn' AND at.status = 'verified'
+    WHERE a.question_id = q.id
+  ) eligibility
+  WHERE q.validation_status = 'valid'
+    AND (q.image_id IS NOT NULL) = $3::boolean
+    AND q.id < p.id
+    AND eligibility.answer_count BETWEEN 2 AND 10
+    AND NOT eligibility.has_long_answer
+  ORDER BY q.id
+  LIMIT $1
+)
+SELECT id FROM forward
+UNION ALL
+SELECT id FROM wrapped
+LIMIT $1
 `
 
 type RandomPollableQuestionIDsParams struct {
-	HasImage     bool  `json:"has_image"`
-	MaxAnswerLen int32 `json:"max_answer_len"`
 	LimitCount   int32 `json:"limit_count"`
+	MaxAnswerLen int32 `json:"max_answer_len"`
+	HasImage     bool  `json:"has_image"`
 }
 
 // Telegram poll varianti 100 belgidan oshmasligi kerak: uzun javobli
 // savollar tanlanmaydi (kesish o'rniga chetlab o'tiladi).
 func (q *Queries) RandomPollableQuestionIDs(ctx context.Context, arg RandomPollableQuestionIDsParams) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, randomPollableQuestionIDs, arg.HasImage, arg.MaxAnswerLen, arg.LimitCount)
+	rows, err := q.db.Query(ctx, randomPollableQuestionIDs, arg.LimitCount, arg.MaxAnswerLen, arg.HasImage)
 	if err != nil {
 		return nil, err
 	}

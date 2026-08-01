@@ -44,6 +44,7 @@ export interface ClientAnalyticsEvent {
 }
 
 export interface AnalyticsBatchPayload {
+  idempotency_key: string;
   events: ClientAnalyticsEvent[];
 }
 
@@ -141,6 +142,7 @@ class InMemoryAnalyticsEventQueue implements AnalyticsEventQueue {
   private activeSend: Promise<void> | null = null;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private nextRetryMs: number;
+  private retryIdempotencyKey: string | null = null;
   private disposed = false;
   private lifecycleDocument: Document | null = null;
   private lifecycleWindow: Window | null = null;
@@ -259,19 +261,21 @@ class InMemoryAnalyticsEventQueue implements AnalyticsEventQueue {
 
     const batch = this.pending.splice(0, MAX_BATCH_SIZE);
     this.inFlight = batch;
-    const operation = this.performSend(batch);
+    const idempotencyKey = this.retryIdempotencyKey ?? globalThis.crypto.randomUUID();
+    this.retryIdempotencyKey = null;
+    const operation = this.performSend(batch, idempotencyKey);
     this.activeSend = operation;
     return operation;
   }
 
-  private async performSend(batch: ClientAnalyticsEvent[]): Promise<void> {
+  private async performSend(batch: ClientAnalyticsEvent[], idempotencyKey: string): Promise<void> {
     let succeeded = false;
 
     try {
       // Keep tracking synchronous and cheap even if a custom sender does work
       // before returning its promise.
       await Promise.resolve();
-      await this.send({ events: batch });
+      await this.send({ idempotency_key: idempotencyKey, events: batch });
       succeeded = true;
     } catch {
       // Analytics is best-effort. Failed events are restored and retried later.
@@ -285,6 +289,7 @@ class InMemoryAnalyticsEventQueue implements AnalyticsEventQueue {
     }
 
     if (!succeeded) {
+      this.retryIdempotencyKey = idempotencyKey;
       this.pending = batch.concat(this.pending).slice(0, this.maxQueueSize);
       const retryAfterMs = this.nextRetryMs;
       this.nextRetryMs = Math.min(this.nextRetryMs * 2, this.retryMaxMs);

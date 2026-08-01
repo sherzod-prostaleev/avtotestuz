@@ -1,15 +1,15 @@
-"use client";
-
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { AdminEmptyState } from "@/components/admin/admin-empty-state";
 import { PermissionGate } from "@/components/admin/permission-gate";
 
 /** Client events lack visit→OTP→paywall→paid chain — no fake funnel. */
-export default function AdminAnalyticsFunnelsPage() {
-  const t = useTranslations("AdminAnalyticsFunnels");
-  const tNav = useTranslations("AdminNav");
-  const tShell = useTranslations("AdminShell");
+export default async function AdminAnalyticsFunnelsPage() {
+  const [t, tNav, tShell] = await Promise.all([
+    getTranslations("AdminAnalyticsFunnels"),
+    getTranslations("AdminNav"),
+    getTranslations("AdminShell"),
+  ]);
 
   return (
     <PermissionGate permission="analytics.read">
