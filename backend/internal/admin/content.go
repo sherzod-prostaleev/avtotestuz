@@ -398,24 +398,36 @@ func (s Store) GetQuestion(ctx context.Context, id uuid.UUID) (QuestionDetail, e
 	if err := aRows.Err(); err != nil {
 		return QuestionDetail{}, err
 	}
+	answerIdx := make(map[uuid.UUID]int, len(d.Answers))
+	answerIDs := make([]uuid.UUID, len(d.Answers))
 	for i := range d.Answers {
-		tr, err := s.Pool.Query(ctx, `
-			SELECT locale::text, text, status
-			FROM answer_translation WHERE answer_id = $1 ORDER BY locale`, d.Answers[i].ID)
+		d.Answers[i].Translations = make([]TranslationSummary, 0)
+		answerIdx[d.Answers[i].ID] = i
+		answerIDs[i] = d.Answers[i].ID
+	}
+	if len(answerIDs) > 0 {
+		// One query for all answers instead of one per answer (N+1):
+		// ORDER BY answer_id, locale groups rows per answer while
+		// preserving the same within-answer locale ordering as before.
+		trRows, err := s.Pool.Query(ctx, `
+			SELECT answer_id, locale::text, text, status
+			FROM answer_translation WHERE answer_id = ANY($1::uuid[]) ORDER BY answer_id, locale`, answerIDs)
 		if err != nil {
 			return QuestionDetail{}, err
 		}
-		d.Answers[i].Translations = make([]TranslationSummary, 0)
-		for tr.Next() {
+		for trRows.Next() {
+			var answerID uuid.UUID
 			var t TranslationSummary
-			if err := tr.Scan(&t.Locale, &t.Text, &t.Status); err != nil {
-				tr.Close()
+			if err := trRows.Scan(&answerID, &t.Locale, &t.Text, &t.Status); err != nil {
+				trRows.Close()
 				return QuestionDetail{}, err
 			}
-			d.Answers[i].Translations = append(d.Answers[i].Translations, t)
+			if i, ok := answerIdx[answerID]; ok {
+				d.Answers[i].Translations = append(d.Answers[i].Translations, t)
+			}
 		}
-		tr.Close()
-		if err := tr.Err(); err != nil {
+		trRows.Close()
+		if err := trRows.Err(); err != nil {
 			return QuestionDetail{}, err
 		}
 	}

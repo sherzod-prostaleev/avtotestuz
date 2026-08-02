@@ -15,6 +15,107 @@ import (
 	"avtotest.uz/backend/internal/testdb"
 )
 
+// TestGetQuestionAnswerTranslationsMultipleAnswersMultipleLocales exercises
+// the PERF-1 fix (one batched answer_translation query instead of one per
+// answer). It checks that with several answers, each carrying several
+// locale translations inserted out of order, GetQuestion still returns
+// answers ordered by position, translations within an answer ordered by
+// locale, and that an answer with zero translations gets an empty
+// (non-nil) slice rather than nil.
+func TestGetQuestionAnswerTranslationsMultipleAnswersMultipleLocales(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := Store{Pool: pool}
+	ctx := context.Background()
+
+	var catID, qID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO category (code, sort_order) VALUES ('signs', 1) RETURNING id`).Scan(&catID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO question (source_ext_id, category_id, content_hash, source)
+		 VALUES ('ext-q-multi',$1,'h1','avtoimtihon') RETURNING id`, catID).Scan(&qID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Insert answers out of position order to make sure GetQuestion's own
+	// ORDER BY a.position still governs the returned order.
+	var ans2, ans1, ans3 uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO answer (question_id, position, is_correct) VALUES ($1,2,false) RETURNING id`, qID).Scan(&ans2); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO answer (question_id, position, is_correct) VALUES ($1,1,true) RETURNING id`, qID).Scan(&ans1); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO answer (question_id, position, is_correct) VALUES ($1,3,false) RETURNING id`, qID).Scan(&ans3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE question SET correct_answer_id=$2 WHERE id=$1`, qID, ans1); err != nil {
+		t.Fatal(err)
+	}
+
+	// Answer 1 (position 1): three locales, inserted out of alphabetical
+	// order, to prove the batched query still sorts by locale per-answer.
+	for _, tr := range []struct{ locale, text string }{
+		{"uz-Latn", "To'g'ri (uz-Latn)"},
+		{"kaa", "To'g'ri (kaa)"},
+		{"ru", "Верно (ru)"},
+	} {
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO answer_translation VALUES ($1,$2,$3,'verified')`, ans1, tr.locale, tr.text); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Answer 2 (position 2): one locale.
+	if _, err := pool.Exec(ctx,
+		`INSERT INTO answer_translation VALUES ($1,'ru','Неверно','pending')`, ans2); err != nil {
+		t.Fatal(err)
+	}
+	// Answer 3 (position 3): no translations at all.
+
+	detail, err := store.GetQuestion(ctx, qID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(detail.Answers) != 3 {
+		t.Fatalf("answers=%d want 3: %+v", len(detail.Answers), detail.Answers)
+	}
+
+	a1, a2, a3 := detail.Answers[0], detail.Answers[1], detail.Answers[2]
+	if a1.ID != ans1 || a2.ID != ans2 || a3.ID != ans3 {
+		t.Fatalf("answers not ordered by position: got ids %v,%v,%v want %v,%v,%v",
+			a1.ID, a2.ID, a3.ID, ans1, ans2, ans3)
+	}
+
+	if len(a1.Translations) != 3 {
+		t.Fatalf("answer1 translations=%d want 3: %+v", len(a1.Translations), a1.Translations)
+	}
+	wantLocales := []string{"kaa", "ru", "uz-Latn"} // alphabetical, per ORDER BY locale
+	for i, loc := range wantLocales {
+		if a1.Translations[i].Locale != loc {
+			t.Fatalf("answer1 translations[%d].Locale=%q want %q (full=%+v)", i, a1.Translations[i].Locale, loc, a1.Translations)
+		}
+	}
+	if a1.Translations[1].Text != "Верно (ru)" || a1.Translations[1].Status != "verified" {
+		t.Fatalf("answer1 ru translation=%+v", a1.Translations[1])
+	}
+
+	if len(a2.Translations) != 1 || a2.Translations[0].Locale != "ru" || a2.Translations[0].Text != "Неверно" || a2.Translations[0].Status != "pending" {
+		t.Fatalf("answer2 translations=%+v", a2.Translations)
+	}
+
+	if a3.Translations == nil {
+		t.Fatal("answer3 Translations is nil, want empty non-nil slice")
+	}
+	if len(a3.Translations) != 0 {
+		t.Fatalf("answer3 translations=%d want 0: %+v", len(a3.Translations), a3.Translations)
+	}
+}
+
 func TestAdminContentQuestionsAndExplanations(t *testing.T) {
 	pool := testdb.New(t)
 	testdb.Truncate(t, pool)
