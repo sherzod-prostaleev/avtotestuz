@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -130,14 +131,37 @@ func Run(ctx context.Context, pool *pgxpool.Pool, opts Options) (Result, error) 
 		}
 	}
 
+	// statusByPayment starts from the window's payments (already loaded
+	// above by listPayments) so most payme txns resolve their payment's
+	// status for free. Only ids that fall outside that set (payment
+	// created_at outside the window, or genuinely missing) need a lookup,
+	// and that lookup is now one batched query instead of one per txn.
+	statusByPayment := make(map[uuid.UUID]string, len(payments))
+	for _, p := range payments {
+		statusByPayment[p.ID] = p.Status
+	}
+	missing := missingPaymePaymentIDs(paymeByPayment, statusByPayment)
+	var lookupErr error
+	if len(missing) > 0 {
+		lookupErr = fillPaymentStatuses(ctx, pool, missing, statusByPayment)
+	}
+
 	for paymentID, txns := range paymeByPayment {
 		for _, t := range txns {
 			if t.State != 2 {
 				continue
 			}
-			var status string
-			err := pool.QueryRow(ctx, `SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&status)
-			if err != nil {
+			status, ok := statusByPayment[paymentID]
+			if !ok {
+				// Same failure surface as the old per-row
+				// QueryRow(...).Scan(&status): either the batched lookup
+				// itself errored (lookupErr), or it ran fine but simply
+				// found no such payment (pgx.ErrNoRows, matching what
+				// QueryRow returned for a missing id).
+				err := lookupErr
+				if err == nil {
+					err = pgx.ErrNoRows
+				}
 				res.Findings = append(res.Findings, Finding{
 					Severity: SeverityError, Code: "orphaned_payme_txn",
 					PaymentID: paymentID, Provider: "payme",
@@ -156,6 +180,48 @@ func Run(ctx context.Context, pool *pgxpool.Pool, opts Options) (Result, error) 
 	}
 
 	return res, nil
+}
+
+// missingPaymePaymentIDs returns the distinct payment ids referenced by a
+// state=2 payme transaction that aren't already covered by known (i.e. not
+// already loaded by listPayments), so the caller can look them up in one
+// batched query instead of one per transaction.
+func missingPaymePaymentIDs(paymeByPayment map[uuid.UUID][]paymeRow, known map[uuid.UUID]string) []uuid.UUID {
+	var out []uuid.UUID
+	for paymentID, txns := range paymeByPayment {
+		if _, ok := known[paymentID]; ok {
+			continue
+		}
+		for _, t := range txns {
+			if t.State == 2 {
+				out = append(out, paymentID)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// fillPaymentStatuses looks up payment ids not already known (e.g. the
+// payment's created_at fell outside the recon window) in a single batched
+// query and adds any found rows to out. The returned error (if any) is
+// meant to be folded into a per-row finding by the caller, exactly like the
+// old per-row QueryRow failure was — not propagated as a hard Run error.
+func fillPaymentStatuses(ctx context.Context, pool *pgxpool.Pool, ids []uuid.UUID, out map[uuid.UUID]string) error {
+	rows, err := pool.Query(ctx, `SELECT id, status FROM payment WHERE id = ANY($1::uuid[])`, ids)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id uuid.UUID
+		var status string
+		if err := rows.Scan(&id, &status); err != nil {
+			return err
+		}
+		out[id] = status
+	}
+	return rows.Err()
 }
 
 func listPayments(ctx context.Context, pool *pgxpool.Pool, from, to time.Time) ([]payRow, error) {
