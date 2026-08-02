@@ -111,7 +111,8 @@ export default function AdminB2BOrgsPage() {
                 <div>
                   <p className="font-bold">{row.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {row.status} · {t("membersSeats", { members: row.members ?? 0, seats: row.active_seats ?? 0 })}
+                    {row.status === "active" ? t("statusActive") : t("statusSuspended")} ·{" "}
+                    {t("membersSeats", { members: row.members ?? 0, seats: row.active_seats ?? 0 })}
                   </p>
                 </div>
                 <span className="text-xs font-semibold text-accent-ink">{t("open")}</span>

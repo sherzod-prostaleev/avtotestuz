@@ -23,6 +23,30 @@ describe("DangerConfirm", () => {
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "O'CHIRISH" } });
     expect(btn).toBeEnabled();
     fireEvent.click(btn);
-    expect(onConfirm).toHaveBeenCalled();
+    expect(onConfirm).toHaveBeenCalledWith("O'CHIRISH");
+  });
+
+  it("accepts an explicitly configured alternative phrase", () => {
+    const onConfirm = vi.fn();
+    render(
+      <DangerConfirm
+        open
+        onOpenChange={() => {}}
+        title="Xavfli amal"
+        warnings={["Qaytarib bo‘lmaydi."]}
+        confirmPhrase="+998901112233"
+        confirmAlternatives={["DELETE"]}
+        confirmPhraseLabel="Telefon yoki DELETE:"
+        confirmLabel="O‘chirish"
+        cancelLabel="Bekor qilish"
+        onConfirm={onConfirm}
+      />,
+    );
+    const btn = screen.getByRole("button", { name: "O‘chirish" });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "DELETE" } });
+    expect(btn).toBeEnabled();
+    fireEvent.click(btn);
+    expect(onConfirm).toHaveBeenCalledOnce();
+    expect(onConfirm).toHaveBeenCalledWith("DELETE");
   });
 });

@@ -134,6 +134,54 @@ func TestVerifyOTPSecondSignInNotCreated(t *testing.T) {
 	}
 }
 
+// A new login creates another independent refresh session; it does not evict
+// the first device. This is the session contract used by B2B classrooms. The
+// revoke-all branch is reserved for reuse of an already-rotated token, not an
+// ordinary login from a second PC.
+func TestPasswordLoginAllowsParallelDeviceSessions(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	ctx := context.Background()
+	const phone = "+998901234599"
+	const password = "parallel-password-123"
+
+	first, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: password, Name: "Parallel Learner"})
+	if err != nil {
+		t.Fatalf("register first device: %v", err)
+	}
+	second, err := svc.Login(ctx, LoginInput{Phone: phone, Password: password})
+	if err != nil {
+		t.Fatalf("login second device: %v", err)
+	}
+	if first.Refresh == second.Refresh {
+		t.Fatal("parallel devices must receive independent refresh tokens")
+	}
+	var active int
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int FROM refresh_token
+		WHERE profile_id=$1 AND revoked_at IS NULL AND expires_at > now()`, first.Profile.ID).Scan(&active); err != nil {
+		t.Fatal(err)
+	}
+	if active != 2 {
+		t.Fatalf("active sessions after second login=%d want 2", active)
+	}
+
+	if _, err := svc.Refresh(ctx, first.Refresh); err != nil {
+		t.Fatalf("refresh first device: %v", err)
+	}
+	if _, err := svc.Refresh(ctx, second.Refresh); err != nil {
+		t.Fatalf("refresh second device after first rotated: %v", err)
+	}
+	if err := pool.QueryRow(ctx, `
+		SELECT COUNT(*)::int FROM refresh_token
+		WHERE profile_id=$1 AND revoked_at IS NULL AND expires_at > now()`, first.Profile.ID).Scan(&active); err != nil {
+		t.Fatal(err)
+	}
+	if active != 2 {
+		t.Fatalf("active sessions after independent rotations=%d want 2", active)
+	}
+}
+
 func TestVerifyOTPTooManyAttempts(t *testing.T) {
 	pool := testdb.New(t)
 	svc, sender := newTestService(t, pool)

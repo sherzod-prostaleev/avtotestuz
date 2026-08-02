@@ -69,6 +69,41 @@ func (h *Handler) getB2BOrg(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, out)
 }
 
+func (h *Handler) hardDeleteB2BOrg(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body hardDeleteBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
+		return
+	}
+	err := h.Svc.Store.HardDeleteB2BOrg(r.Context(), orgID, body.Confirm, MutationAudit{
+		AdminUserID: claims.AdminUserID,
+		IP:          clientIP(r),
+		UA:          r.UserAgent(),
+		RequestID:   middleware.GetReqID(r.Context()),
+	})
+	if err != nil {
+		switch {
+		case IsNoRows(err):
+			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+		case errors.Is(err, ErrDeleteConfirmation):
+			httpx.Error(w, http.StatusBadRequest, "confirmation_mismatch", "confirmation must match organization name")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "organization hard delete failed")
+		}
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"id": orgID, "deleted": true})
+}
+
 type addB2BMemberBody struct {
 	ProfileID string `json:"profile_id"`
 	Role      string `json:"role"`

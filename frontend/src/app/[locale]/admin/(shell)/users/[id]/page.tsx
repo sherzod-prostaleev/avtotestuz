@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { type ColumnDef } from "@tanstack/react-table";
 import { ArrowLeft, Copy, KeyRound, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -91,6 +91,7 @@ export default function AdminUserDetailPage() {
   const tr = useTranslations("AdminReferral");
   const locale = useLocale();
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const [user, setUser] = useState<UserDetail | null>(null);
   const [sessions, setSessions] = useState<SessionRow[] | null>(null);
   const [referral, setReferral] = useState<ReferralAdmin | null>(null);
@@ -106,6 +107,7 @@ export default function AdminUserDetailPage() {
   const [grantNote, setGrantNote] = useState("");
   const [tab, setTab] = useState<Tab>("profile");
   const [blockOpen, setBlockOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -279,6 +281,30 @@ export default function AdminUserDetailPage() {
       await load();
     } catch {
       setError(t("errorAction"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function hardDeleteUser(confirmation: string) {
+    if (!user) return;
+    setBusy(true);
+    setError(null);
+    setOkMsg(null);
+    try {
+      const res = await fetch(`/api/admin/users/${id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: confirmation }),
+      });
+      if (!res.ok) {
+        setError(t("deleteError"));
+        return;
+      }
+      setDeleteOpen(false);
+      router.replace(`/${locale}/admin/users`);
+    } catch {
+      setError(t("deleteError"));
     } finally {
       setBusy(false);
     }
@@ -898,6 +924,24 @@ export default function AdminUserDetailPage() {
                 </Button>
               </div>
             </section>
+            <PermissionGate permission="users.hard_delete" mode="hide">
+              <section className="space-y-3 rounded-2xl border border-destructive/45 bg-destructive/5 p-4">
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-danger-ink">
+                  {t("deleteZoneTitle")}
+                </h2>
+                <p className="text-sm font-semibold">{t("deleteTitle")}</p>
+                <p className="text-xs text-muted-foreground">{t("deleteHint")}</p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="destructive"
+                  disabled={busy}
+                  onClick={() => setDeleteOpen(true)}
+                >
+                  {t("deleteButton")}
+                </Button>
+              </section>
+            </PermissionGate>
           </div>
         ) : null}
 
@@ -912,6 +956,19 @@ export default function AdminUserDetailPage() {
           cancelLabel={t("cancel")}
           busy={busy}
           onConfirm={() => void blockOrUnblock(true)}
+        />
+        <DangerConfirm
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          title={t("deleteConfirmTitle")}
+          warnings={[t("deleteWarnProfile"), t("deleteWarnRelated"), t("deleteWarnPermanent")]}
+          confirmPhrase={user.phone}
+          confirmAlternatives={["DELETE"]}
+          confirmPhraseLabel={t("deletePhrase")}
+          confirmLabel={t("deleteButton")}
+          cancelLabel={t("cancel")}
+          busy={busy}
+          onConfirm={(confirmation) => void hardDeleteUser(confirmation)}
         />
       </main>
     </PermissionGate>

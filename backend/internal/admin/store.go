@@ -240,6 +240,31 @@ func (s Store) WriteAudit(ctx context.Context, adminUserID *uuid.UUID, action, e
 	return err
 }
 
+// MutationAudit identifies the operator/request for a destructive transaction.
+// Keeping this data with the transaction guarantees that the attributed audit
+// row exists before the protected row is deleted, or neither change commits.
+type MutationAudit struct {
+	AdminUserID uuid.UUID
+	IP          *net.IP
+	UA          string
+	RequestID   string
+}
+
+func writeAuditTx(ctx context.Context, tx pgx.Tx, audit MutationAudit, action, entityType, entityID string, before, after any) error {
+	var ipArg any
+	if audit.IP != nil {
+		ipArg = *audit.IP
+	}
+	_, err := tx.Exec(ctx, `
+		INSERT INTO admin_audit_log
+		  (admin_user_id, action, entity_type, entity_id, before_json, after_json, ip, ua, request_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+		audit.AdminUserID, action, entityType, nullIfEmpty(entityID), before, after,
+		ipArg, audit.UA, audit.RequestID,
+	)
+	return err
+}
+
 func nullIfEmpty(s string) any {
 	if s == "" {
 		return nil

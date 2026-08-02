@@ -283,3 +283,76 @@ func (s Store) HasActiveB2BGrant(ctx context.Context, orgID, profileID uuid.UUID
 	).Scan(&ok)
 	return ok, err
 }
+
+// HardDeleteB2BOrg permanently removes an organization and every B2B grant,
+// partner promotion, station/code, member, invite and license tied to it.
+// Profiles and non-B2B entitlements are deliberately preserved.
+func (s Store) HardDeleteB2BOrg(ctx context.Context, orgID uuid.UUID, confirm string, audit MutationAudit) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var name, status string
+	if err := tx.QueryRow(ctx, `
+		SELECT name, status FROM b2b_org WHERE id = $1 FOR UPDATE`, orgID,
+	).Scan(&name, &status); err != nil {
+		return err
+	}
+	if strings.TrimSpace(confirm) != name {
+		return ErrDeleteConfirmation
+	}
+	var members, stations, invites, licenses int64
+	if err := tx.QueryRow(ctx, `
+		SELECT
+		  (SELECT COUNT(*) FROM b2b_org_member WHERE org_id = $1),
+		  (SELECT COUNT(*) FROM b2b_station WHERE org_id = $1),
+		  (SELECT COUNT(*) FROM b2b_invite WHERE org_id = $1),
+		  (SELECT COUNT(*) FROM b2b_org_license WHERE org_id = $1)`, orgID,
+	).Scan(&members, &stations, &invites, &licenses); err != nil {
+		return err
+	}
+	if err := writeAuditTx(ctx, tx, audit, "b2b.orgs.hard_delete", "b2b_org", orgID.String(),
+		map[string]any{
+			"id": orgID.String(), "name": name, "status": status,
+			"members": members, "stations": stations, "invites": invites, "licenses": licenses,
+		},
+		map[string]any{"deleted": true},
+	); err != nil {
+		return fmt.Errorf("write org hard-delete audit: %w", err)
+	}
+
+	// Home-seat grants are profile entitlements and therefore do not cascade
+	// from b2b_org. Revoke only grants carrying this org's structured note.
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM entitlement
+		WHERE source = 'b2b' AND note LIKE $1`, "b2b_org="+orgID.String()+";%"); err != nil {
+		return err
+	}
+	// Partner promo usage/payments are retained, but the org-owned promo itself
+	// and its redemption rows are removed. Detaching payment.promo_code_id keeps
+	// immutable customer payment history intact.
+	if _, err := tx.Exec(ctx, `
+		UPDATE payment SET promo_code_id = NULL
+		WHERE promo_code_id IN (SELECT id FROM promo_code WHERE partner_org_id = $1)`, orgID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM promo_redemption
+		WHERE promo_code_id IN (SELECT id FROM promo_code WHERE partner_org_id = $1)`, orgID); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM promo_code WHERE partner_org_id = $1`, orgID); err != nil {
+		return err
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM b2b_org WHERE id = $1`, orgID)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return pgx.ErrNoRows
+	}
+	return tx.Commit(ctx)
+}

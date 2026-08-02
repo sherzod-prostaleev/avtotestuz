@@ -13,11 +13,13 @@ type DangerConfirmProps = {
   warnings: string[];
   /** Phrase the operator must type to confirm */
   confirmPhrase: string;
+  /** Optional equally valid phrases (for example DELETE). */
+  confirmAlternatives?: string[];
   confirmPhraseLabel: string;
   confirmLabel: string;
   cancelLabel: string;
   busy?: boolean;
-  onConfirm: () => void | Promise<void>;
+  onConfirm: (confirmation: string) => void | Promise<void>;
 };
 
 export function DangerConfirm({
@@ -26,6 +28,7 @@ export function DangerConfirm({
   title,
   warnings,
   confirmPhrase,
+  confirmAlternatives = [],
   confirmPhraseLabel,
   confirmLabel,
   cancelLabel,
@@ -33,7 +36,8 @@ export function DangerConfirm({
   onConfirm,
 }: DangerConfirmProps) {
   const [typed, setTyped] = useState("");
-  const match = typed.trim() === confirmPhrase;
+  const normalized = typed.trim();
+  const match = normalized === confirmPhrase || confirmAlternatives.includes(normalized);
 
   return (
     <Dialog.Root
@@ -98,7 +102,7 @@ export function DangerConfirm({
               size="sm"
               variant="destructive"
               disabled={!match || busy}
-              onClick={() => void onConfirm()}
+              onClick={() => void onConfirm(normalized)}
             >
               {confirmLabel}
             </Button>

@@ -74,6 +74,10 @@ func (h *Handler) Routes(r chi.Router) {
 			ur.Post("/users/{id}/bypass-variant-progress", h.setUserBypassVariantProgress)
 		})
 		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.hard_delete"))
+			ur.Delete("/users/{id}", h.hardDeleteUser)
+		})
+		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.entitlements.grant"))
 			ur.Post("/users/{id}/grant", h.grantUserVIP)
 		})
@@ -245,6 +249,10 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Post("/b2b/orgs/{id}/members/{profileID}/grant", h.grantB2BMember)
 			br.Delete("/b2b/orgs/{id}/members/{profileID}", h.removeB2BMember)
 			br.Patch("/b2b/orgs/{id}/members/{profileID}", h.changeB2BMemberRole)
+		})
+		pr.Group(func(br chi.Router) {
+			br.Use(RequirePermission("b2b.orgs.hard_delete"))
+			br.Delete("/b2b/orgs/{id}", h.hardDeleteB2BOrg)
 		})
 	})
 }
@@ -599,6 +607,49 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+type hardDeleteBody struct {
+	Confirm string `json:"confirm"`
+}
+
+func (h *Handler) hardDeleteUser(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body hardDeleteBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
+		return
+	}
+	err := h.Svc.Store.HardDeleteLearner(r.Context(), id, body.Confirm, MutationAudit{
+		AdminUserID: claims.AdminUserID,
+		IP:          clientIP(r),
+		UA:          r.UserAgent(),
+		RequestID:   middleware.GetReqID(r.Context()),
+	})
+	if err != nil {
+		switch {
+		case IsNoRows(err):
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+		case errors.Is(err, ErrDeleteConfirmation):
+			httpx.Error(w, http.StatusBadRequest, "confirmation_mismatch", "confirmation must match phone or DELETE")
+		case errors.Is(err, ErrDeleteSelf):
+			httpx.Error(w, http.StatusConflict, "self_delete_forbidden", "current admin cannot delete own profile")
+		case errors.Is(err, ErrProtectedProfile):
+			httpx.Error(w, http.StatusConflict, "protected_profile", "admin-shaped profiles cannot be deleted here")
+		default:
+			httpx.Error(w, http.StatusInternalServerError, "internal", "user hard delete failed")
+		}
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"id": id, "deleted": true})
 }
 
 func (h *Handler) listUserSessions(w http.ResponseWriter, r *http.Request) {

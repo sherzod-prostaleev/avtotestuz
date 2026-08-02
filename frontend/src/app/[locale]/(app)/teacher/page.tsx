@@ -248,6 +248,12 @@ export default function TeacherPage() {
 
   const isOwner = selected?.org.my_role === "owner";
 
+  function roleLabel(value: string) {
+    if (value === "owner") return t("roleOwner");
+    if (value === "teacher") return t("roleTeacher");
+    return t("roleStudent");
+  }
+
   return (
     <main className="mx-auto max-w-2xl space-y-4 px-4 py-8">
       <Link
@@ -261,6 +267,11 @@ export default function TeacherPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         <p className="mt-2 text-xs text-muted-foreground">{t("note")}</p>
       </header>
+
+      <section className="space-y-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
+        <h2 className="text-sm font-bold">{t("multiPcTitle")}</h2>
+        <p className="text-xs text-muted-foreground">{t("multiPcHint")}</p>
+      </section>
 
       <section className="space-y-2 rounded-xl border border-border bg-card p-4">
         <h2 className="text-sm font-bold">{t("activateThisPcTitle")}</h2>
@@ -299,7 +310,7 @@ export default function TeacherPage() {
               >
                 <p className="font-semibold">{o.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {o.my_role} · {t("membersSeats", { members: o.member_count, seats: o.active_seats })}
+                  {roleLabel(o.my_role)} · {t("membersSeats", { members: o.member_count, seats: o.active_seats })}
                 </p>
               </button>
             </li>
@@ -347,6 +358,7 @@ export default function TeacherPage() {
             <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
               {t("stationsTitle")}
             </h3>
+            <p className="text-xs text-muted-foreground">{t("stationsHint")}</p>
             <div className="flex flex-wrap gap-2">
               <input
                 value={stationLabel}
@@ -368,7 +380,7 @@ export default function TeacherPage() {
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <div>
                     <p className="font-semibold">
-                      {s.label} · {s.status}
+                      {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
                     </p>
                     {s.fingerprint ? (
                       <p className="font-mono text-xs text-muted-foreground">{s.fingerprint}</p>
@@ -413,9 +425,9 @@ export default function TeacherPage() {
               onChange={(e) => setRole(e.target.value)}
               className="h-10 rounded-xl border border-border bg-background px-2 text-sm"
             >
-              <option value="student">student</option>
-              <option value="teacher">teacher</option>
-              {isOwner ? <option value="owner">owner</option> : null}
+              <option value="student">{t("roleStudent")}</option>
+              <option value="teacher">{t("roleTeacher")}</option>
+              {isOwner ? <option value="owner">{t("roleOwner")}</option> : null}
             </select>
             <Button type="button" size="sm" disabled={busy} onClick={() => void invite()}>
               {t("invite")}
@@ -428,9 +440,9 @@ export default function TeacherPage() {
                 <div>
                   <p className="font-semibold">{m.name || m.phone_masked}</p>
                   <p className="font-mono text-xs text-muted-foreground">
-                    {m.phone_masked} · {m.role}
+                    {m.phone_masked} · {roleLabel(m.role)}
                     {typeof m.readiness_pct === "number" ? ` · ${m.readiness_pct}%` : ""}
-                    {m.has_b2b_vip ? " · VIP" : ""}
+                    {m.has_b2b_vip ? ` · ${t("vipLabel")}` : ""}
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -441,9 +453,9 @@ export default function TeacherPage() {
                       onChange={(e) => void changeRole(m.profile_id, e.target.value)}
                       className="h-8 rounded-lg border border-border bg-background px-1 text-xs"
                     >
-                      <option value="student">student</option>
-                      <option value="teacher">teacher</option>
-                      <option value="owner">owner</option>
+                      <option value="student">{t("roleStudent")}</option>
+                      <option value="teacher">{t("roleTeacher")}</option>
+                      <option value="owner">{t("roleOwner")}</option>
                     </select>
                   ) : null}
                   {(isOwner || m.role === "student") &&
@@ -471,7 +483,7 @@ export default function TeacherPage() {
               <ul className="space-y-1 text-xs font-mono text-muted-foreground">
                 {invites.map((i) => (
                   <li key={i.id}>
-                    {i.phone_masked} · {i.role} · {new Date(i.expires_at).toLocaleDateString(locale)}
+                    {i.phone_masked} · {roleLabel(i.role)} · {new Date(i.expires_at).toLocaleDateString(locale)}
                   </li>
                 ))}
               </ul>
@@ -488,8 +500,11 @@ export default function TeacherPage() {
               <ul className="space-y-1 text-xs font-mono text-muted-foreground">
                 {selected.licenses.map((l) => (
                   <li key={l.id}>
-                    {l.seats} seats · {l.active ? "active" : "ended"} ·{" "}
-                    {new Date(l.ends_at).toLocaleDateString(locale)}
+                    {t("licenseSummary", {
+                      pcs: l.seats,
+                      status: l.active ? t("licenseActive") : t("licenseEnded"),
+                      date: new Date(l.ends_at).toLocaleDateString(locale),
+                    })}
                   </li>
                 ))}
               </ul>

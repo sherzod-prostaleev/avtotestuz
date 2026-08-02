@@ -8,3 +8,11 @@ export async function GET(request: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   return adminProxy(request, `/b2b/orgs/${id}`, { method: "GET" });
 }
+
+export async function DELETE(request: Request, ctx: Ctx) {
+  const { id } = await ctx.params;
+  return adminProxy(request, `/b2b/orgs/${id}`, {
+    method: "DELETE",
+    body: await request.text(),
+  });
+}

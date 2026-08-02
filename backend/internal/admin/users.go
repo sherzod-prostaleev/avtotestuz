@@ -2,12 +2,19 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+)
+
+var (
+	ErrDeleteConfirmation = errors.New("delete confirmation does not match")
+	ErrDeleteSelf         = errors.New("cannot delete current admin profile")
+	ErrProtectedProfile   = errors.New("protected profile role")
 )
 
 // LearnerDirectoryRow is a staff directory row for GET /admin/v1/users.
@@ -380,6 +387,131 @@ func (s Store) LearnerExists(ctx context.Context, id uuid.UUID) (bool, error) {
 	var ok bool
 	err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM profile WHERE id = $1)`, id).Scan(&ok)
 	return ok, err
+}
+
+// HardDeleteLearner permanently removes a learner and directly related data.
+// Financial rows owned by the learner are removed with their provider/manual
+// dependants. References from other learners are detached instead of deleting
+// their entitlements or wallet entries, so an unrelated user's VIP/balance is
+// never collateral damage. The attributed admin audit is written first in the
+// same transaction and therefore survives the profile deletion atomically.
+func (s Store) HardDeleteLearner(ctx context.Context, id uuid.UUID, confirm string, audit MutationAudit) error {
+	if id == audit.AdminUserID {
+		return ErrDeleteSelf
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var phone, name, role string
+	if err := tx.QueryRow(ctx, `
+		SELECT phone, name, role FROM profile WHERE id = $1 FOR UPDATE`, id,
+	).Scan(&phone, &name, &role); err != nil {
+		return err
+	}
+	confirm = strings.TrimSpace(confirm)
+	if confirm != phone && confirm != "DELETE" {
+		return ErrDeleteConfirmation
+	}
+	// Learner profiles and staff identities are separate. Legacy admin-shaped
+	// profile roles are nevertheless protected: staff removal belongs to the
+	// RBAC account lifecycle, not this learner endpoint.
+	if role == "admin" || role == "superadmin" {
+		return ErrProtectedProfile
+	}
+
+	if err := writeAuditTx(ctx, tx, audit, "users.hard_delete", "profile", id.String(),
+		map[string]any{"id": id.String(), "phone": phone, "name": name, "role": role},
+		map[string]any{"deleted": true},
+	); err != nil {
+		return fmt.Errorf("write hard-delete audit: %w", err)
+	}
+
+	// Remove phone-bound authentication material that has no profile FK.
+	if _, err := tx.Exec(ctx, `DELETE FROM otp_challenge WHERE phone = $1`, phone); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM b2b_invite WHERE phone = $1`, phone); err != nil {
+		return err
+	}
+	// Telegram quiz tables intentionally use Telegram ids rather than a profile
+	// FK. Remove sessions started by this account and its participation elsewhere
+	// before telegram_account itself cascades with profile.
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM telegram_quiz_participant
+		WHERE tg_user_id IN (SELECT tg_user_id FROM telegram_account WHERE profile_id = $1)`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM telegram_quiz_session
+		WHERE started_by_tg_user_id IN (SELECT tg_user_id FROM telegram_account WHERE profile_id = $1)`, id); err != nil {
+		return err
+	}
+
+	// Event is partitioned and deliberately has no profile FK; event_batch does
+	// cascade, but deleting it explicitly keeps the policy obvious.
+	if _, err := tx.Exec(ctx, `DELETE FROM event WHERE profile_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM event_batch WHERE profile_id = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM support_ticket WHERE profile_id = $1 OR contact_phone = $2`, id, phone); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `DELETE FROM audit_log WHERE actor_id = $1 OR (entity = 'profile' AND entity_id = $1)`, id); err != nil {
+		return err
+	}
+
+	// Preserve other learners' live access and referral wallet totals while
+	// severing their attribution to the profile/payment being erased.
+	if _, err := tx.Exec(ctx, `UPDATE profile SET referred_by = NULL WHERE referred_by = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `UPDATE promo_code SET created_by = NULL WHERE created_by = $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE entitlement SET created_by = NULL
+		WHERE created_by = $1 AND profile_id <> $1`, id); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE referral_ledger SET payment_id = NULL
+		WHERE profile_id <> $1
+		  AND payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`, id); err != nil {
+		return err
+	}
+
+	// Delete the learner's financial graph from leaves to root. These FKs are
+	// intentionally non-cascading in the normal payment lifecycle, where rows
+	// are immutable; this superadmin-only privacy deletion is the explicit
+	// exception and remains scoped to payment.profile_id = target.
+	for _, query := range []string{
+		`DELETE FROM manual_pay_event WHERE matched_payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM payment_void WHERE payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM manual_pay_assignment WHERE payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM payme_transaction WHERE payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM click_transaction WHERE payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM promo_redemption WHERE profile_id = $1 OR payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM entitlement WHERE profile_id = $1 OR payment_id IN (SELECT id FROM payment WHERE profile_id = $1)`,
+		`DELETE FROM payment WHERE profile_id = $1`,
+	} {
+		if _, err := tx.Exec(ctx, query, id); err != nil {
+			return err
+		}
+	}
+
+	tag, err := tx.Exec(ctx, `DELETE FROM profile WHERE id = $1`, id)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != 1 {
+		return pgx.ErrNoRows
+	}
+	return tx.Commit(ctx)
 }
 
 func mapLearnerStatus(dbStatus string) string {

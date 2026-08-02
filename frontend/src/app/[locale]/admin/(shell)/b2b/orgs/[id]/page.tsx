@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { DangerConfirm } from "@/components/admin/danger-confirm";
+import { PermissionGate } from "@/components/admin/permission-gate";
 
 type Station = {
   id: string;
@@ -49,6 +51,7 @@ export default function AdminB2BOrgDetailPage() {
   const t = useTranslations("AdminB2B");
   const locale = useLocale();
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const [data, setData] = useState<Detail | null>(null);
   const [stats, setStats] = useState<OrgStats | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +65,8 @@ export default function AdminB2BOrgDetailPage() {
   const [lastCode, setLastCode] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoValue, setPromoValue] = useState("20");
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -98,9 +103,8 @@ export default function AdminB2BOrgDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ profile_id: profileID, role: "student" }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorCreate"));
+      setError(t("errorCreate"));
       return;
     }
     setProfileID("");
@@ -114,9 +118,8 @@ export default function AdminB2BOrgDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ phone: invitePhone, role: "student" }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorCreate"));
+      setError(t("errorCreate"));
       return;
     }
     setInvitePhone("");
@@ -132,12 +135,11 @@ export default function AdminB2BOrgDetailPage() {
         seats: Number(seats),
         home_seats: Number(homeSeats) || 0,
         days: Number(days),
-        note: "admin classroom",
+        note: t("licenseAuditNote"),
       }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorCreate"));
+      setError(t("errorCreate"));
       return;
     }
     await load();
@@ -153,7 +155,7 @@ export default function AdminB2BOrgDetailPage() {
     });
     const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorStationCode"));
+      setError(t("errorStationCode"));
       return;
     }
     setLastCode(json.data?.code ?? null);
@@ -166,9 +168,8 @@ export default function AdminB2BOrgDetailPage() {
     const res = await fetch(`/api/admin/b2b/orgs/${params.id}/stations/${stationId}`, {
       method: "DELETE",
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorRevokeStation"));
+      setError(t("errorRevokeStation"));
       return;
     }
     await load();
@@ -181,9 +182,8 @@ export default function AdminB2BOrgDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorStatus"));
+      setError(t("errorStatus"));
       return;
     }
     await load();
@@ -201,9 +201,8 @@ export default function AdminB2BOrgDetailPage() {
         valid_days: 90,
       }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorPartnerPromo"));
+      setError(t("errorPartnerPromo"));
       return;
     }
     setPromoCode("");
@@ -215,11 +214,10 @@ export default function AdminB2BOrgDetailPage() {
     const res = await fetch(`/api/admin/b2b/orgs/${params.id}/members/${profileId}/grant`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ days: Number(grantDays), note: "home seat" }),
+      body: JSON.stringify({ days: Number(grantDays), note: t("homeGrantAuditNote") }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorGrant"));
+      setError(t("errorGrant"));
       return;
     }
     await load();
@@ -230,9 +228,8 @@ export default function AdminB2BOrgDetailPage() {
     const res = await fetch(`/api/admin/b2b/orgs/${params.id}/members/${profileId}`, {
       method: "DELETE",
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorRemove"));
+      setError(t("errorRemove"));
       return;
     }
     await load();
@@ -245,9 +242,8 @@ export default function AdminB2BOrgDetailPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ role }),
     });
-    const json = await res.json();
     if (!res.ok) {
-      setError(json?.error?.message ?? t("errorRole"));
+      setError(t("errorRole"));
       return;
     }
     await load();
@@ -269,6 +265,35 @@ export default function AdminB2BOrgDetailPage() {
     URL.revokeObjectURL(url);
   }
 
+  async function hardDeleteOrg(confirmation: string) {
+    if (!data) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/b2b/orgs/${params.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirm: confirmation }),
+      });
+      if (!res.ok) {
+        setError(t("deleteError"));
+        return;
+      }
+      setDeleteOpen(false);
+      router.replace(`/${locale}/admin/b2b/orgs`);
+    } catch {
+      setError(t("deleteError"));
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  function roleLabel(role: string) {
+    if (role === "owner") return t("roleOwner");
+    if (role === "teacher") return t("roleTeacher");
+    return t("roleStudent");
+  }
+
   const stations = data?.stations ?? [];
   const activeStations = stations.filter((s) => s.status === "active");
 
@@ -278,13 +303,17 @@ export default function AdminB2BOrgDetailPage() {
         ← {t("back")}
       </Link>
       {!data ? (
-        <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        error ? (
+          <p className="text-sm text-destructive">{error}</p>
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("loading")}</p>
+        )
       ) : (
         <>
           <header>
             <h1 className="font-display text-2xl font-extrabold">{data.org.name}</h1>
             <p className="text-sm text-muted-foreground">
-              {data.org.status} ·{" "}
+              {data.org.status === "active" ? t("statusActive") : t("statusSuspended")} ·{" "}
               {t("membersSeats", {
                 members: data.members.length,
                 seats: data.org.active_seats ?? 0,
@@ -307,6 +336,17 @@ export default function AdminB2BOrgDetailPage() {
           </header>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
+
+          <section className="space-y-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
+            <h2 className="text-sm font-bold">{t("multiPcTitle")}</h2>
+            <p className="text-xs text-muted-foreground">{t("multiPcHint")}</p>
+            <ol className="list-decimal space-y-1 pl-5 text-xs text-muted-foreground">
+              <li>{t("multiPcStepLicense")}</li>
+              <li>{t("multiPcStepCode")}</li>
+              <li>{t("multiPcStepLearner")}</li>
+              <li>{t("multiPcStepSession")}</li>
+            </ol>
+          </section>
 
           {stats ? (
             <section className="grid grid-cols-2 gap-2 rounded-xl border border-border bg-card p-4 text-xs sm:grid-cols-3">
@@ -346,25 +386,39 @@ export default function AdminB2BOrgDetailPage() {
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("licenseTitle")}</h2>
             <p className="text-xs text-muted-foreground">{t("licenseHint")}</p>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={seats}
-                onChange={(e) => setSeats(e.target.value)}
-                className="h-10 w-24 rounded-xl border border-border bg-background px-3 text-sm"
-                placeholder={t("seatsPlaceholder")}
-              />
-              <input
-                value={homeSeats}
-                onChange={(e) => setHomeSeats(e.target.value)}
-                className="h-10 w-28 rounded-xl border border-border bg-background px-3 text-sm"
-                placeholder={t("homeSeatsPlaceholder")}
-              />
-              <input
-                value={days}
-                onChange={(e) => setDays(e.target.value)}
-                className="h-10 w-24 rounded-xl border border-border bg-background px-3 text-sm"
-                placeholder={t("daysPlaceholder")}
-              />
+            <div className="grid gap-2 sm:grid-cols-3">
+              <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                <span>{t("licensePcLimit")}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={seats}
+                  onChange={(e) => setSeats(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                <span>{t("licenseHomeLimit")}</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={homeSeats}
+                  onChange={(e) => setHomeSeats(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                />
+              </label>
+              <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                <span>{t("licenseDays")}</span>
+                <input
+                  type="number"
+                  min={1}
+                  value={days}
+                  onChange={(e) => setDays(e.target.value)}
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                />
+              </label>
+            </div>
+            <div>
               <Button type="button" size="sm" onClick={() => void addLicense()}>
                 {t("addLicense")}
               </Button>
@@ -372,8 +426,12 @@ export default function AdminB2BOrgDetailPage() {
             <ul className="space-y-1 text-xs">
               {data.licenses.map((l) => (
                 <li key={l.id} className="font-mono">
-                  {l.seats} stations · {l.home_seats} home · {l.active ? "active" : "ended"} ·{" "}
-                  {new Date(l.ends_at).toLocaleDateString()}
+                  {t("licenseSummary", {
+                    pcs: l.seats,
+                    homes: l.home_seats,
+                    status: l.active ? t("licenseActive") : t("licenseEnded"),
+                    date: new Date(l.ends_at).toLocaleDateString(locale),
+                  })}
                 </li>
               ))}
             </ul>
@@ -406,7 +464,7 @@ export default function AdminB2BOrgDetailPage() {
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                   <div>
                     <p className="font-semibold">
-                      {s.label} · {s.status}
+                      {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
                     </p>
                     <p className="font-mono text-xs text-muted-foreground">{s.fingerprint}</p>
                   </div>
@@ -430,12 +488,17 @@ export default function AdminB2BOrgDetailPage() {
                 placeholder={t("partnerPromoCode")}
                 className="h-10 flex-1 rounded-xl border border-border bg-background px-3 font-mono text-sm"
               />
-              <input
-                value={promoValue}
-                onChange={(e) => setPromoValue(e.target.value)}
-                className="h-10 w-20 rounded-xl border border-border bg-background px-3 text-sm"
-                placeholder="%"
-              />
+              <label className="space-y-1 text-xs font-semibold text-muted-foreground">
+                <span>{t("promoPercent")}</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={promoValue}
+                  onChange={(e) => setPromoValue(e.target.value)}
+                  className="h-10 w-24 rounded-xl border border-border bg-background px-3 text-sm"
+                />
+              </label>
               <Button type="button" size="sm" onClick={() => void createPartnerPromo()}>
                 {t("createPartnerPromo")}
               </Button>
@@ -444,7 +507,7 @@ export default function AdminB2BOrgDetailPage() {
 
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("membersTitle")}</h2>
-            <p className="text-xs text-muted-foreground">{t("homeGrantHint")}</p>
+            <p className="text-xs text-muted-foreground">{t("membersHint")}</p>
             <div className="flex flex-wrap gap-2">
               <input
                 value={profileID}
@@ -481,7 +544,7 @@ export default function AdminB2BOrgDetailPage() {
                   <div>
                     <p className="font-semibold">{m.name || m.phone_masked}</p>
                     <p className="font-mono text-xs text-muted-foreground">
-                      {m.phone_masked} · {m.role}
+                      {m.phone_masked} · {roleLabel(m.role)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1">
@@ -490,9 +553,9 @@ export default function AdminB2BOrgDetailPage() {
                       onChange={(e) => void changeRole(m.profile_id, e.target.value)}
                       className="h-8 rounded-lg border border-border bg-background px-1 text-xs"
                     >
-                      <option value="student">student</option>
-                      <option value="teacher">teacher</option>
-                      <option value="owner">owner</option>
+                      <option value="student">{t("roleStudent")}</option>
+                      <option value="teacher">{t("roleTeacher")}</option>
+                      <option value="owner">{t("roleOwner")}</option>
                     </select>
                     <Button type="button" size="sm" variant="outline" onClick={() => void grantHome(m.profile_id)}>
                       {t("grantHome")}
@@ -504,7 +567,38 @@ export default function AdminB2BOrgDetailPage() {
                 </li>
               ))}
             </ul>
+            <p className="text-xs text-muted-foreground">{t("homeGrantHint")}</p>
           </section>
+
+          <PermissionGate permission="b2b.orgs.hard_delete" mode="hide">
+            <section className="space-y-3 rounded-xl border border-destructive/45 bg-destructive/5 p-4">
+              <h2 className="text-xs font-extrabold uppercase tracking-wider text-danger-ink">
+                {t("deleteZoneTitle")}
+              </h2>
+              <p className="text-sm font-semibold">{t("deleteTitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("deleteHint")}</p>
+              <Button type="button" size="sm" variant="destructive" onClick={() => setDeleteOpen(true)}>
+                {t("deleteButton")}
+              </Button>
+            </section>
+          </PermissionGate>
+
+          <DangerConfirm
+            open={deleteOpen}
+            onOpenChange={setDeleteOpen}
+            title={t("deleteConfirmTitle")}
+            warnings={[
+              t("deleteWarnStations", { count: stations.length }),
+              t("deleteWarnMembers", { count: data.members.length }),
+              t("deleteWarnRelated"),
+            ]}
+            confirmPhrase={data.org.name}
+            confirmPhraseLabel={t("deletePhrase")}
+            confirmLabel={t("deleteButton")}
+            cancelLabel={t("cancel")}
+            busy={deleting}
+            onConfirm={(confirmation) => void hardDeleteOrg(confirmation)}
+          />
         </>
       )}
     </main>
