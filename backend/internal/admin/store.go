@@ -3,6 +3,7 @@ package admin
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -246,7 +247,9 @@ func nullIfEmpty(s string) any {
 	return s
 }
 
-// IsNoRows reports pgx.ErrNoRows.
+// IsNoRows reports pgx.ErrNoRows, including when it arrives wrapped — a ==
+// comparison silently answered false for any caller that added context with
+// %w, turning "not found" into a 500.
 func IsNoRows(err error) bool {
-	return err == pgx.ErrNoRows
+	return errors.Is(err, pgx.ErrNoRows)
 }

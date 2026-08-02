@@ -19,6 +19,7 @@ var configEnvKeys = []string{
 	"PUBLIC_BASE_URL",
 	"CORS_ALLOWED_ORIGINS",
 	"JWT_SECRET",
+	"DATA_ENCRYPTION_KEY",
 	"OTP_CHANNEL",
 	"TELEGRAM_GATEWAY_TOKEN",
 	"TELEGRAM_GATEWAY_URL",
@@ -107,6 +108,45 @@ func TestLoadAuthOverrides(t *testing.T) {
 	}
 }
 
+// TestDataKeyFallsBackToJWTSecret pins the compatibility contract that lets
+// DATA_ENCRYPTION_KEY ship without a migration: unset, it must resolve to
+// exactly JWT_SECRET, because that is what sealed every admin TOTP secret,
+// stored PAN and Telegram credential already in the database.
+func TestDataKeyFallsBackToJWTSecret(t *testing.T) {
+	isolateConfigEnv(t)
+	t.Setenv("JWT_SECRET", "jwt-signing-secret-at-least-32-bytes")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DataEncryptionKey != "" {
+		t.Errorf("DataEncryptionKey = %q, want empty by default", cfg.DataEncryptionKey)
+	}
+	if cfg.DataKey() != cfg.JWTSecret {
+		t.Errorf("DataKey() = %q, want the JWT secret %q", cfg.DataKey(), cfg.JWTSecret)
+	}
+
+	// Set, it takes over — and JWT_SECRET is then free to rotate without
+	// touching anything encrypted at rest.
+	t.Setenv("DATA_ENCRYPTION_KEY", "dedicated-data-encryption-key-32-bytes")
+	cfg, err = Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DataKey() != "dedicated-data-encryption-key-32-bytes" {
+		t.Errorf("DataKey() = %q, want the dedicated key", cfg.DataKey())
+	}
+	if cfg.DataKey() == cfg.JWTSecret {
+		t.Error("DataKey() must not follow JWT_SECRET once a dedicated key is set")
+	}
+
+	// Whitespace is not a key: it must not silently displace the fallback and
+	// re-key everything to a blank-ish value.
+	if got := ResolveDataKey("   ", "jwt-secret"); got != "jwt-secret" {
+		t.Errorf("ResolveDataKey(blank) = %q, want the JWT secret", got)
+	}
+}
+
 func TestLoadOverridesAndInvalidPort(t *testing.T) {
 	isolateConfigEnv(t)
 	t.Setenv("PORT", "9999")
@@ -187,6 +227,34 @@ func TestLoadValidation(t *testing.T) {
 				"OTP_CHANNEL":            "telegram",
 				"TELEGRAM_GATEWAY_TOKEN": "token",
 			},
+		},
+		{
+			// Rejected at every ENV: a weak at-rest key cannot be strengthened
+			// later without losing every TOTP secret and stored PAN it sealed.
+			name: "a short data encryption key is rejected in development",
+			env: map[string]string{
+				"DATA_ENCRYPTION_KEY": "too-short",
+			},
+			wantErr: "DATA_ENCRYPTION_KEY must be at least 32 bytes",
+		},
+		{
+			name: "a strong data encryption key is accepted",
+			env: map[string]string{
+				"DATA_ENCRYPTION_KEY": validSecret,
+			},
+		},
+		{
+			name: "production rejects a short data encryption key",
+			env: map[string]string{
+				"ENV":                        "prod",
+				"JWT_SECRET":                 validSecret,
+				"DATA_ENCRYPTION_KEY":        "too-short",
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://avtotest.uz",
+			},
+			wantErr: "DATA_ENCRYPTION_KEY must be at least 32 bytes",
 		},
 		{
 			name: "development rejects a short client IP assertion secret",
