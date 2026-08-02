@@ -15,13 +15,26 @@ import (
 )
 
 // prepare implements Click's Prepare (action=0): the merchant_trans_id must
-// resolve to a payment that isn't already paid, and amount (so'm, unlike
-// Payme's tiyin) must match payment.amount_uzs. A click_trans_id already
-// seen is an idempotent replay — return the existing merchant_prepare_id
-// without touching state. Click itself signals a cancellation by sending a
-// negative error code, which must be honored without creating a
-// click_transaction row. Otherwise this inserts a new click_transaction
-// (state=0, waiting) and moves the payment to 'pending'.
+// resolve to a payment in a payable status, and amount (so'm, unlike
+// Payme's tiyin) must match payment.amount_uzs. Payable is a whitelist, not
+// a blacklist of 'paid' — B3-2: blacklisting only 'paid' let any other
+// terminal status ('failed', 'canceled', 'refunded', or migration 0047's
+// admin-'voided') be silently re-prepared, flipped back to 'pending' and
+// completed, resurrecting a dead or admin-voided order. The whitelist is
+// 'created' (fresh) or 'pending' — 'pending' must stay payable because a
+// prior Prepare already parked the order there, which is exactly the state
+// the idempotent click_trans_id replay below (and a legitimate second
+// Prepare racing a first) needs to observe; mirrors Payme's
+// validateAccountAmount(allowPending=true). An already-'paid' payment keeps
+// reporting -4 ("Already paid") rather than -5: that's Click's own
+// reference behavior for re-preparing a completed order, distinct from a
+// dead one. Every other non-payable status reports -5 (account not found),
+// the same code Payme uses for any non-payable account. A click_trans_id
+// already seen is an idempotent replay — return the existing
+// merchant_prepare_id without touching state. Click itself signals a
+// cancellation by sending a negative error code, which must be honored
+// without creating a click_transaction row. Otherwise this inserts a new
+// click_transaction (state=0, waiting) and moves the payment to 'pending'.
 func (h *Handler) prepare(ctx context.Context, req clickRequest) clickResponse {
 	paymentID, err := uuid.Parse(req.MerchantTransID)
 	if err != nil {
@@ -33,6 +46,9 @@ func (h *Handler) prepare(ctx context.Context, req clickRequest) clickResponse {
 	}
 	if payment.Status == "paid" {
 		return errorResponse(req, errAlreadyPaid)
+	}
+	if payment.Status != "created" && payment.Status != "pending" {
+		return errorResponse(req, errAccountNotFound)
 	}
 
 	amount, perr := strconv.ParseFloat(req.Amount, 64)
@@ -94,15 +110,25 @@ func (h *Handler) prepare(ctx context.Context, req clickRequest) clickResponse {
 // idempotent replay of a retried Complete — Click's own reference behavior
 // for this case is -4 ("Already paid"), not a distinct success shape, and
 // crucially this branch never re-runs GrantDays. A transaction already in
-// state==-1 was already rejected and can't be completed again. The amount
-// (so'm, unlike Payme's tiyin) is checked against the transaction's own
-// amount_uzs (not payment.amount_uzs — the transaction is the authoritative
-// record of what was actually prepared). Click's own error<0 on the
-// Complete call means it is declining what it previously prepared: reject
-// the transaction (transactionally) and report -9. Otherwise this is the
-// real success path, delegated to confirmAndGrant for the atomic,
-// row-locked confirm+grant sequence — see its doc comment for why that
-// matters.
+// state==-1 was already rejected and can't be completed again — checked
+// before the payment-status whitelist below so a retried decline still
+// reports -9 even if the payment has since moved on to 'voided' (rejected
+// payments are voidable; see admin.Store.VoidPayment), not -5. Otherwise
+// payment.status is whitelisted to 'pending' (B3-2, mirroring prepare's own
+// whitelist fix): a click_transaction can only be legitimately completed
+// while its payment is still the 'pending' one Prepare parked it in: any
+// other status — including a payment that reached 'failed'/'canceled'/
+// 'refunded'/admin-'voided' through some path other than this same
+// transaction's own rejectTransaction — must not be confirmed, or a dead
+// order could be granted entitlement out from under an admin's decision.
+// That non-payable case reports -5, same as prepare's; the amount (so'm,
+// unlike Payme's tiyin) is checked against the transaction's own amount_uzs
+// (not payment.amount_uzs — the transaction is the authoritative record of
+// what was actually prepared). Click's own error<0 on the Complete call
+// means it is declining what it previously prepared: reject the
+// transaction (transactionally) and report -9. Otherwise this is the real
+// success path, delegated to confirmAndGrant for the atomic, row-locked
+// confirm+grant sequence — see its doc comment for why that matters.
 func (h *Handler) complete(ctx context.Context, req clickRequest) clickResponse {
 	transactionID, err := uuid.Parse(req.MerchantPrepareID)
 	if err != nil {
@@ -125,6 +151,9 @@ func (h *Handler) complete(ctx context.Context, req clickRequest) clickResponse 
 	}
 	if tx.State == -1 {
 		return errorResponse(req, errCancelled)
+	}
+	if payment.Status != "pending" {
+		return errorResponse(req, errAccountNotFound)
 	}
 	amount, perr := strconv.ParseFloat(req.Amount, 64)
 	if perr != nil || math.Abs(amount-float64(tx.AmountUzs)) > 0.01 {

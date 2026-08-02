@@ -301,6 +301,48 @@ func TestPrepare_AlreadyPaid(t *testing.T) {
 	}
 }
 
+// TestPrepare_NonPayableStatus proves B3-2's fix: Prepare must refuse every
+// dead terminal status — 'failed', 'canceled', 'refunded', and migration
+// 0047's admin-'voided' — not just 'paid'. Before the fix, prepare() only
+// blacklisted 'paid', so a click_trans_id could still resurrect a dead order
+// by re-preparing it, flipping it back to 'pending'. Each dead status must
+// report -5 (account not found, matching Payme's validateAccountAmount
+// convention for any non-payable account) and must not insert a
+// click_transaction row or otherwise touch payment.status.
+func TestPrepare_NonPayableStatus(t *testing.T) {
+	for _, status := range []string{"failed", "canceled", "refunded", "voided"} {
+		t.Run(status, func(t *testing.T) {
+			pool := testdb.New(t)
+			h := newClickHandler(pool)
+			paymentID := seedClickPayment(t, pool, status)
+
+			resp := clickCall(t, h, prepareRequest("click-dead-"+status, paymentID.String(), "59900"))
+
+			if resp.Error != errAccountNotFound {
+				t.Errorf("error = %d, want %d (note=%q)", resp.Error, errAccountNotFound, resp.ErrorNote)
+			}
+
+			var count int
+			if err := pool.QueryRow(context.Background(),
+				`SELECT count(*) FROM click_transaction WHERE payment_id = $1`, paymentID).Scan(&count); err != nil {
+				t.Fatal(err)
+			}
+			if count != 0 {
+				t.Errorf("click_transaction row count = %d, want 0 (dead payment must not be re-prepared)", count)
+			}
+
+			var gotStatus string
+			if err := pool.QueryRow(context.Background(),
+				`SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&gotStatus); err != nil {
+				t.Fatal(err)
+			}
+			if gotStatus != status {
+				t.Errorf("payment.status = %q, want unchanged %q (must not be resurrected)", gotStatus, status)
+			}
+		})
+	}
+}
+
 func TestPrepare_ClickSentError(t *testing.T) {
 	pool := testdb.New(t)
 	h := newClickHandler(pool)
@@ -605,5 +647,57 @@ func TestComplete_GrantDaysFailureRollsBack(t *testing.T) {
 	}
 	if status != "pending" {
 		t.Errorf("payment.status = %q, want pending", status)
+	}
+}
+
+// TestComplete_NonPayableStatus is complete()'s half of B3-2's fix, defense
+// in depth for a click_transaction that (however it got there — the fixed
+// Prepare no longer creates one this way) still points at a payment sitting
+// in a dead terminal status rather than 'pending'. Complete must refuse with
+// -5 rather than confirming the transaction and calling GrantDays: the
+// transaction must stay state=0, payment.status must stay untouched, and no
+// entitlement may be granted.
+func TestComplete_NonPayableStatus(t *testing.T) {
+	for _, status := range []string{"failed", "canceled", "refunded", "voided"} {
+		t.Run(status, func(t *testing.T) {
+			pool := testdb.New(t)
+			h := newClickHandler(pool)
+			paymentID := seedClickPayment(t, pool, status)
+			txID := seedClickTransaction(t, pool, "click-complete-dead-"+status, paymentID, 59900)
+
+			resp := clickCall(t, h, completeRequest("click-complete-dead-"+status, txID, paymentID, "59900"))
+
+			if resp.Error != errAccountNotFound {
+				t.Errorf("error = %d, want %d (note=%q)", resp.Error, errAccountNotFound, resp.ErrorNote)
+			}
+
+			ctx := context.Background()
+			var state int32
+			if err := pool.QueryRow(ctx,
+				`SELECT state FROM click_transaction WHERE id = $1`, txID).Scan(&state); err != nil {
+				t.Fatal(err)
+			}
+			if state != 0 {
+				t.Errorf("click_transaction.state = %d, want 0 (must not be confirmed)", state)
+			}
+
+			var gotStatus string
+			if err := pool.QueryRow(ctx,
+				`SELECT status FROM payment WHERE id = $1`, paymentID).Scan(&gotStatus); err != nil {
+				t.Fatal(err)
+			}
+			if gotStatus != status {
+				t.Errorf("payment.status = %q, want unchanged %q (must not be resurrected)", gotStatus, status)
+			}
+
+			profileID := profileOf(t, pool, paymentID)
+			active, _, err := h.Svc.Status(ctx, profileID)
+			if err != nil {
+				t.Fatalf("Status: %v", err)
+			}
+			if active {
+				t.Errorf("entitlement active = true, want false (GrantDays must not have run)")
+			}
+		})
 	}
 }
