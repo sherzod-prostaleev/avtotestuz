@@ -158,12 +158,16 @@ func cpuUtilizationPct(prev, cur cpuTimes) float64 {
 	return (busy / totalDelta) * 100
 }
 
-func readCPUTimes() (cpuTimes, error) {
+func readCPUTimes() (out cpuTimes, err error) {
 	f, err := os.Open("/proc/stat")
 	if err != nil {
 		return cpuTimes{}, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	sc := bufio.NewScanner(f)
 	if !sc.Scan() {
@@ -198,12 +202,16 @@ func readCPUTimes() (cpuTimes, error) {
 	return cpuTimes{total: total, idle: idle}, nil
 }
 
-func readRAMUsedPct() (float64, error) {
+func readRAMUsedPct() (out float64, err error) {
 	f, err := os.Open("/proc/meminfo")
 	if err != nil {
 		return 0, err
 	}
-	defer f.Close()
+	defer func() {
+		if closeErr := f.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+	}()
 
 	var memTotal, memAvailable uint64
 	var haveTotal, haveAvail bool
