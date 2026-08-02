@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -44,6 +45,86 @@ func TestLogBatchInsertsEvents(t *testing.T) {
 	}
 	if eventCount != 2 || batchCount != 1 {
 		t.Fatalf("events=%d batches=%d want 2/1", eventCount, batchCount)
+	}
+}
+
+// TestLogBatchMultiRowInsertPreservesPerEventData exercises the batch-insert
+// path (PERF-2: one COPY instead of one INSERT per event) with more than one
+// event and asserts every row's name, props (including the nil->'{}'
+// default) and explicit ts survive the round trip intact and attributed to
+// the right profile.
+func TestLogBatchMultiRowInsertPreservesPerEventData(t *testing.T) {
+	pool := testdb.New(t)
+	q := sqlc.New(pool)
+	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998901234569"})
+	if err != nil {
+		t.Fatalf("create profile: %v", err)
+	}
+	svc := events.NewService(q, pool)
+
+	explicitTS := time.Now().UTC().Add(-2 * time.Hour).Truncate(time.Millisecond)
+	batch := []events.Event{
+		{Name: "view_question", Props: json.RawMessage(`{"question_id":"a"}`)},
+		{Name: "answer_submit", Props: json.RawMessage(`{"correct":true}`)},
+		{Name: "session_finish"}, // nil props -> defaults to '{}'
+		{Name: "session_start", Props: json.RawMessage(`{}`), TS: &explicitTS},
+		{Name: "app_open"},
+	}
+	if err := svc.LogBatch(context.Background(), profile.ID, uuid.NewString(), batch); err != nil {
+		t.Fatalf("LogBatch: %v", err)
+	}
+
+	rows, err := pool.Query(context.Background(),
+		`SELECT name, props::text, ts FROM event WHERE profile_id=$1 ORDER BY name`, profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	type got struct {
+		name  string
+		props string
+		ts    time.Time
+	}
+	var results []got
+	for rows.Next() {
+		var g got
+		if err := rows.Scan(&g.name, &g.props, &g.ts); err != nil {
+			t.Fatal(err)
+		}
+		results = append(results, g)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if len(results) != len(batch) {
+		t.Fatalf("got %d rows, want %d: %+v", len(results), len(batch), results)
+	}
+
+	byName := make(map[string]got, len(results))
+	for _, g := range results {
+		byName[g.name] = g
+	}
+	want := map[string]string{
+		"view_question":  `{"question_id": "a"}`,
+		"answer_submit":  `{"correct": true}`,
+		"session_finish": "{}",
+		"session_start":  "{}",
+		"app_open":       "{}",
+	}
+	for name, wantProps := range want {
+		g, ok := byName[name]
+		if !ok {
+			t.Fatalf("missing event %q in %+v", name, byName)
+		}
+		if g.props != wantProps {
+			t.Fatalf("event %q props=%q want %q", name, g.props, wantProps)
+		}
+	}
+	if !byName["session_start"].ts.Equal(explicitTS) {
+		t.Fatalf("session_start ts=%v want %v", byName["session_start"].ts, explicitTS)
+	}
+	if byName["app_open"].ts.Before(time.Now().Add(-time.Minute)) {
+		t.Fatalf("app_open ts=%v want ~now (defaulted)", byName["app_open"].ts)
 	}
 }
 
