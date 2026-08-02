@@ -4,7 +4,9 @@ import { extractTokenPair, readBackendJson } from "@/lib/backend-response";
 import {
   ADMIN_AUTH_COOKIE,
   ADMIN_REFRESH_COOKIE,
+  ADMIN_TOTP_ENROLL_COOKIE,
   clearAdminAuthCookies,
+  clearAdminEnrollCookie,
   setAdminAuthCookies,
 } from "@/lib/admin-auth-cookies";
 import { readCookie } from "@/lib/auth-cookies";
@@ -62,23 +64,75 @@ async function forwardResponse(
 }
 
 /**
+ * The only two upstream paths the scoped enrollment token authorizes — the
+ * same pair the backend puts behind `TOTPEnrollAuth`. Checking it here, rather
+ * than trusting the caller's flag alone, means no future route can opt itself
+ * into a credential that bypasses the admin session boundary.
+ */
+const ENROLLMENT_PATHS = new Set(["/security/totp/enroll", "/security/totp/confirm"]);
+
+export type AdminProxyOptions = {
+  /**
+   * Lets the request fall back to the scoped TOTP-enrollment cookie when the
+   * caller has no admin session at all. Only honoured for ENROLLMENT_PATHS.
+   */
+  allowEnrollmentToken?: boolean;
+};
+
+/**
+ * Picks the enrollment token, but only when there is nothing else to use.
+ *
+ * The `art` check is the load-bearing one: `aat` expires after 15 minutes
+ * while `art` lives for 30 days, so "no `aat`" on its own does not mean "no
+ * session" — it usually means "refresh me". Preferring the enrollment token
+ * there would push a perfectly healthy session down the branch below, whose
+ * 401 handling would then be wrong for it.
+ */
+function enrollmentToken(request: Request, path: string, options?: AdminProxyOptions): string {
+  if (!options?.allowEnrollmentToken || !ENROLLMENT_PATHS.has(path)) return "";
+  if (readCookie(request, ADMIN_AUTH_COOKIE) || readCookie(request, ADMIN_REFRESH_COOKIE)) return "";
+  return readCookie(request, ADMIN_TOTP_ENROLL_COOKIE) ?? "";
+}
+
+/**
  * Proxies a request to `/admin/v1` using admin httpOnly cookies,
  * refreshing access once on 401. Rotated access and refresh cookies are
  * preserved for JSON, empty, CSV and binary responses alike.
+ *
+ * With `allowEnrollmentToken`, an admin who has no session at all — which is
+ * precisely the state ADMIN_TOTP_ENFORCE leaves an un-enrolled admin in — can
+ * still reach the two TOTP enrollment endpoints using the scoped token login
+ * handed them. That branch never refreshes and never touches `aat`/`art`, so a
+ * failed enrollment can neither mint nor destroy an admin session.
  */
 export async function adminProxy(
   request: Request,
   path: string,
   init?: RequestInit,
+  options?: AdminProxyOptions,
 ): Promise<NextResponse> {
   let access = readCookie(request, ADMIN_AUTH_COOKIE) ?? "";
   const method = init?.method ?? request.method;
+  const enrollment = enrollmentToken(request, path, options);
   const headers: HeadersInit = {
-    Authorization: access ? `Bearer ${access}` : "",
+    Authorization: enrollment ? `Bearer ${enrollment}` : access ? `Bearer ${access}` : "",
     "Content-Type": "application/json",
     ...(init?.headers ?? {}),
   };
   let rotated: RefreshedTokens | null = null;
+
+  if (enrollment) {
+    try {
+      const backendRes = await backendAdminFetch(path, { ...init, method, headers });
+      const response = await forwardResponse(backendRes);
+      // A rejected enrollment token is spent: drop it so the login page
+      // restarts the flow instead of retrying a dead credential forever.
+      if (backendRes.status === 401) clearAdminEnrollCookie(response);
+      return response;
+    } catch {
+      return unavailable();
+    }
+  }
 
   try {
     let backendRes = await backendAdminFetch(path, { ...init, method, headers });

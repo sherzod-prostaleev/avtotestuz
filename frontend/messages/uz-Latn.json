@@ -1341,7 +1341,19 @@
     "totpHint": "Ilovadagi 6 xonali kodni kiriting.",
     "totpSubmit": "Tasdiqlash",
     "backToPassword": "Parolga qaytish",
-    "errorTotp": "Kod noto‘g‘ri yoki muddati o‘tgan."
+    "errorTotp": "Kod noto‘g‘ri yoki muddati o‘tgan.",
+    "enrollTitle": "Ikki bosqichli himoyani ulash",
+    "enrollIntro": "Bu akkaunt uchun authenticator majburiy. Kirishdan oldin uni shu yerda ulang.",
+    "enrollPreparing": "Maxfiy kalit tayyorlanmoqda...",
+    "enrollSecretOnce": "Maxfiy kalit faqat shu safar ko‘rsatiladi. Uni authenticator ilovasiga kiriting.",
+    "enrollOtpauthLabel": "otpauth havolasi",
+    "enrollCodeHint": "Ilova ko‘rsatgan 6 xonali kodni kiriting.",
+    "enrollSubmit": "Ulash",
+    "enrollRetry": "Yangi kalit olish",
+    "enrollDone": "Authenticator ulandi. Endi parol va kod bilan kiring.",
+    "enrollExpired": "Ulash muddati tugadi. Parolni qaytadan kiriting.",
+    "errorEnroll": "Ulashni boshlab bo‘lmadi.",
+    "errorEnrollCode": "Kod noto‘g‘ri. Ilovadagi joriy kodni kiriting."
   },
   "AdminUsers": {
     "controlBadge": "Users · full control",
