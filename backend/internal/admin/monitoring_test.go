@@ -90,8 +90,17 @@ func TestAdminMonitoring(t *testing.T) {
 			t.Fatalf("data=%v calls=%d", env.Data, snapCalls)
 		}
 		host, ok := env.Data["host"].(map[string]any)
-		if !ok || host["available"].(bool) {
-			t.Fatalf("host should be unavailable: %+v", env.Data["host"])
+		if !ok {
+			t.Fatalf("host missing: %+v", env.Data)
+		}
+		if available, _ := host["available"].(bool); !available {
+			t.Fatalf("host should be available on Linux: %+v", host)
+		}
+		for _, key := range []string{"cpu_pct", "ram_pct", "disk_pct"} {
+			v, ok := host[key].(float64)
+			if !ok || v < 0 || v > 100 {
+				t.Fatalf("%s out of range: %+v", key, host[key])
+			}
 		}
 	})
 

@@ -26,6 +26,11 @@ type MetricsData = {
   note?: string;
 };
 
+function formatHostPct(value: number | null | undefined): string {
+  if (typeof value !== "number" || Number.isNaN(value)) return "—";
+  return value.toFixed(2);
+}
+
 export default function AdminMonitoringPerfPage() {
   const t = useTranslations("AdminMonitoring");
   const [data, setData] = useState<MetricsData | null>(null);
@@ -102,15 +107,15 @@ export default function AdminMonitoringPerfPage() {
                 <dl className="mt-3 grid grid-cols-3 gap-2 text-xs">
                   <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
                     <dt className="font-semibold text-muted-foreground">{t("hostMetricsCpu")}</dt>
-                    <dd className="mt-0.5 font-mono font-bold">{host?.cpu_pct ?? "—"}%</dd>
+                    <dd className="mt-0.5 font-mono font-bold">{formatHostPct(host?.cpu_pct)}%</dd>
                   </div>
                   <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
                     <dt className="font-semibold text-muted-foreground">{t("hostMetricsRam")}</dt>
-                    <dd className="mt-0.5 font-mono font-bold">{host?.ram_pct ?? "—"}%</dd>
+                    <dd className="mt-0.5 font-mono font-bold">{formatHostPct(host?.ram_pct)}%</dd>
                   </div>
                   <div className="rounded-lg border border-border/70 bg-background px-3 py-2">
                     <dt className="font-semibold text-muted-foreground">{t("hostMetricsDisk")}</dt>
-                    <dd className="mt-0.5 font-mono font-bold">{host?.disk_pct ?? "—"}%</dd>
+                    <dd className="mt-0.5 font-mono font-bold">{formatHostPct(host?.disk_pct)}%</dd>
                   </div>
                 </dl>
               )}

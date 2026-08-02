@@ -92,14 +92,3 @@ func buildMonitoringHealthSnapshot(h *Handler, ctx context.Context) (map[string]
 		"alerts":     alertSummaries(h, ctx),
 	}, code
 }
-
-func hostMetricsSnapshot() map[string]any {
-	return map[string]any{
-		"available": false,
-		"status":    "unavailable",
-		"cpu_pct":   nil,
-		"ram_pct":   nil,
-		"disk_pct":  nil,
-		"note":      "no host metrics agent wired — CPU/RAM/disk not reported",
-	}
-}
