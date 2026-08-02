@@ -75,7 +75,7 @@ func TestEveryMigrationDownAndUp(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&version, &dirty); err != nil {
 		t.Fatal(err)
 	}
-	if version != 51 || dirty {
-		t.Fatalf("schema version=%d dirty=%v, want 51/false", version, dirty)
+	if version != 53 || dirty {
+		t.Fatalf("schema version=%d dirty=%v, want 53/false", version, dirty)
 	}
 }
