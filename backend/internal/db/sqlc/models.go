@@ -511,6 +511,7 @@ type Profile struct {
 	CreatedAt                 pgtype.Timestamptz `json:"created_at"`
 	PasswordHash              pgtype.Text        `json:"password_hash"`
 	ReferralCommissionPercent int32              `json:"referral_commission_percent"`
+	BypassVariantProgress     bool               `json:"bypass_variant_progress"`
 }
 
 type PromoCode struct {

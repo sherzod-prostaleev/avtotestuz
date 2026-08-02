@@ -936,6 +936,61 @@ func TestStartSessionVariantVIPRequiresPreviousComplete(t *testing.T) {
 	}
 }
 
+func TestBypassVariantProgressUnlocksAllForVIPOnly(t *testing.T) {
+	q, svc, profileID := seed(t)
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+	if err := q.SetBypassVariantProgress(context.Background(), sqlc.SetBypassVariantProgressParams{
+		ID: profileID, BypassVariantProgress: true,
+	}); err != nil {
+		t.Fatalf("set bypass: %v", err)
+	}
+
+	// Bypass does not grant VIP — free profiles stay on #1.
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != session.ErrRequiresVIP {
+		t.Fatalf("err=%v want ErrRequiresVIP without entitlement", err)
+	}
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonVIPRequired {
+		t.Fatalf("free+bypass must stay vip_required: %+v", statuses[1])
+	}
+
+	grantVIP(t, q, profileID)
+	statuses, err = svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if !statuses[1].Unlocked || statuses[1].LockReason != "" {
+		t.Fatalf("VIP+bypass must unlock without previous: %+v", statuses[1])
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != nil {
+		t.Fatalf("VIP+bypass must start variant 2: %v", err)
+	}
+
+	// Control: a normal VIP without bypass still needs previous completion.
+	other, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998909998877"})
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	grantVIP(t, q, other.ID)
+	statuses, err = svc.ListVariantStatuses(context.Background(), other.ID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses other: %v", err)
+	}
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonPrevRequired {
+		t.Fatalf("normal VIP must keep progressive unlock: %+v", statuses[1])
+	}
+}
+
 func TestStartSessionVariantOneNeverRequiresVIP(t *testing.T) {
 	q, svc, profileID := seed(t)
 	v1, err := q.GetVariantByNumber(context.Background(), 1)

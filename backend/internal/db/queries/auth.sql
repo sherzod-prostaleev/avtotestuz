@@ -19,6 +19,9 @@ SELECT * FROM profile WHERE phone = $1;
 -- name: GetProfileByID :one
 SELECT * FROM profile WHERE id = $1;
 
+-- name: SetBypassVariantProgress :exec
+UPDATE profile SET bypass_variant_progress = $2 WHERE id = $1;
+
 -- name: CreateProfile :one
 INSERT INTO profile (phone, referral_code, password_hash, name)
 VALUES ($1, $2, $3, $4) RETURNING *;

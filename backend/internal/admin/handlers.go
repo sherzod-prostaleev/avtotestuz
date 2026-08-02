@@ -70,6 +70,10 @@ func (h *Handler) Routes(r chi.Router) {
 			ur.Post("/users/{id}/unblock", h.unblockUser)
 		})
 		pr.Group(func(ur chi.Router) {
+			ur.Use(RequirePermission("users.write"))
+			ur.Post("/users/{id}/bypass-variant-progress", h.setUserBypassVariantProgress)
+		})
+		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.entitlements.grant"))
 			ur.Post("/users/{id}/grant", h.grantUserVIP)
 		})
@@ -619,6 +623,44 @@ func (h *Handler) blockUser(w http.ResponseWriter, r *http.Request) {
 
 func (h *Handler) unblockUser(w http.ResponseWriter, r *http.Request) {
 	h.setUserBlocked(w, r, false)
+}
+
+type bypassVariantProgressBody struct {
+	Enabled bool `json:"enabled"`
+}
+
+func (h *Handler) setUserBypassVariantProgress(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body bypassVariantProgressBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	before, after, err := h.Svc.Store.SetLearnerBypassVariantProgress(r.Context(), id, body.Enabled)
+	if err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "bypass update failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "users.bypass_variant_progress", "profile", id.String(),
+		map[string]any{"bypass_variant_progress": before},
+		map[string]any{"bypass_variant_progress": after},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	detail, err := h.Svc.Store.GetLearner(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{"bypass_variant_progress": after})
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"user": detail})
 }
 
 func (h *Handler) setUserBlocked(w http.ResponseWriter, r *http.Request, block bool) {

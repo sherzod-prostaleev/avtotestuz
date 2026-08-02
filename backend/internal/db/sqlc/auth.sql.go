@@ -100,7 +100,7 @@ func (q *Queries) CreateOTPChallenge(ctx context.Context, arg CreateOTPChallenge
 
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profile (phone, referral_code, password_hash, name)
-VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent
+VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress
 `
 
 type CreateProfileParams struct {
@@ -134,6 +134,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.CreatedAt,
 		&i.PasswordHash,
 		&i.ReferralCommissionPercent,
+		&i.BypassVariantProgress,
 	)
 	return i, err
 }
@@ -213,7 +214,7 @@ func (q *Queries) GetLatestPurchaseEntitlement(ctx context.Context, profileID uu
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent FROM profile WHERE id = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress FROM profile WHERE id = $1
 `
 
 func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error) {
@@ -235,12 +236,13 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.CreatedAt,
 		&i.PasswordHash,
 		&i.ReferralCommissionPercent,
+		&i.BypassVariantProgress,
 	)
 	return i, err
 }
 
 const getProfileByPhone = `-- name: GetProfileByPhone :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent FROM profile WHERE phone = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress FROM profile WHERE phone = $1
 `
 
 func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile, error) {
@@ -262,6 +264,7 @@ func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile,
 		&i.CreatedAt,
 		&i.PasswordHash,
 		&i.ReferralCommissionPercent,
+		&i.BypassVariantProgress,
 	)
 	return i, err
 }
@@ -363,6 +366,20 @@ func (q *Queries) RevokeRefreshToken(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const setBypassVariantProgress = `-- name: SetBypassVariantProgress :exec
+UPDATE profile SET bypass_variant_progress = $2 WHERE id = $1
+`
+
+type SetBypassVariantProgressParams struct {
+	ID                    uuid.UUID `json:"id"`
+	BypassVariantProgress bool      `json:"bypass_variant_progress"`
+}
+
+func (q *Queries) SetBypassVariantProgress(ctx context.Context, arg SetBypassVariantProgressParams) error {
+	_, err := q.db.Exec(ctx, setBypassVariantProgress, arg.ID, arg.BypassVariantProgress)
+	return err
+}
+
 const setPasswordHashIfNull = `-- name: SetPasswordHashIfNull :execrows
 UPDATE profile
 SET password_hash = $2
@@ -386,7 +403,7 @@ const updateProfileMe = `-- name: UpdateProfileMe :one
 UPDATE profile SET
   name = $2, region = $3, district = $4, birth_date = $5,
   locale_pref = $6, theme_pref = $7
-WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent
+WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress
 `
 
 type UpdateProfileMeParams struct {
@@ -426,6 +443,7 @@ func (q *Queries) UpdateProfileMe(ctx context.Context, arg UpdateProfileMeParams
 		&i.CreatedAt,
 		&i.PasswordHash,
 		&i.ReferralCommissionPercent,
+		&i.BypassVariantProgress,
 	)
 	return i, err
 }

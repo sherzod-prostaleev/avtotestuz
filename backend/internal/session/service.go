@@ -179,22 +179,30 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			if !active {
 				return SessionView{}, ErrRequiresVIP
 			}
-			prev, prevErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
-			if prevErr != nil {
-				return SessionView{}, prevErr
+			// QA/ops profiles with bypass_variant_progress skip sequential
+			// unlock; VIP entitlement is still required above.
+			bypass, bypassErr := s.bypassVariantProgress(ctx, profileID)
+			if bypassErr != nil {
+				return SessionView{}, bypassErr
 			}
-			prevProgress, progErr := s.Q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{
-				ProfileID: profileID,
-				VariantID: prev.ID,
-			})
-			if progErr != nil {
-				if errors.Is(progErr, pgx.ErrNoRows) {
+			if !bypass {
+				prev, prevErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
+				if prevErr != nil {
+					return SessionView{}, prevErr
+				}
+				prevProgress, progErr := s.Q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{
+					ProfileID: profileID,
+					VariantID: prev.ID,
+				})
+				if progErr != nil {
+					if errors.Is(progErr, pgx.ErrNoRows) {
+						return SessionView{}, ErrVariantLocked
+					}
+					return SessionView{}, progErr
+				}
+				if !prevProgress.CompletedAt.Valid {
 					return SessionView{}, ErrVariantLocked
 				}
-				return SessionView{}, progErr
-			}
-			if !prevProgress.CompletedAt.Valid {
-				return SessionView{}, ErrVariantLocked
 			}
 		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
@@ -1014,10 +1022,24 @@ func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit
 	return summaries, nil
 }
 
+// bypassVariantProgress reports whether the profile may skip sequential
+// bilet unlock. Missing profile → false (fail closed for the bypass only).
+func (s *Service) bypassVariantProgress(ctx context.Context, profileID uuid.UUID) (bool, error) {
+	p, err := s.Q.GetProfileByID(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return p.BypassVariantProgress, nil
+}
+
 // ListVariantStatuses returns every bilet variant, in number order, with the
 // profile's progress against it and whether it's unlocked. Unlock matches
 // StartSession: #1 for everyone; #N+1 for VIP only after #N has completed_at —
-// via IsVariantUnlocked (rules.go), never reimplemented here.
+// unless profile.bypass_variant_progress (QA/ops) — via IsVariantUnlocked
+// (rules.go), never reimplemented here.
 func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) ([]VariantStatus, error) {
 	variants, err := s.Q.ListVariants(ctx)
 	if err != nil {
@@ -1037,6 +1059,10 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 	if statusErr != nil {
 		return nil, statusErr
 	}
+	bypass, bypassErr := s.bypassVariantProgress(ctx, profileID)
+	if bypassErr != nil {
+		return nil, bypassErr
+	}
 
 	statuses := make([]VariantStatus, 0, len(variants))
 	prevCompleted := true // unused for #1; seeded so the first step is clean
@@ -1046,7 +1072,8 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 			return nil, err
 		}
 
-		unlocked := IsVariantUnlocked(int(v.Number), active, prevCompleted)
+		gatePrev := prevCompleted || bypass
+		unlocked := IsVariantUnlocked(int(v.Number), active, gatePrev)
 		status := VariantStatus{
 			Number:        v.Number,
 			QuestionCount: int(v.QuestionCount),

@@ -45,6 +45,7 @@ type UserDetail = {
   vip_ends_at?: string;
   has_password: boolean;
   streak: number;
+  bypass_variant_progress: boolean;
   created_at: string;
   last_seen_at?: string;
   entitlements: EntitlementRow[];
@@ -251,6 +252,30 @@ export default function AdminUserDetailPage() {
         }),
       );
       setGrantNote("");
+      await load();
+    } catch {
+      setError(t("errorAction"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function setBypassVariantProgress(enabled: boolean) {
+    setBusy(true);
+    setError(null);
+    setOkMsg(null);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/bypass-variant-progress`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ enabled }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(json?.error?.message ?? t("errorAction"));
+        return;
+      }
+      setOkMsg(enabled ? t("bypassOnDone") : t("bypassOffDone"));
       await load();
     } catch {
       setError(t("errorAction"));
@@ -818,37 +843,62 @@ export default function AdminUserDetailPage() {
         ) : null}
 
         {tab === "actions" ? (
-          <section className="space-y-3 rounded-2xl border border-border/80 bg-card/70 p-4">
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold text-muted-foreground">{t("reasonLabel")}</span>
-              <input
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-                placeholder={t("reasonPlaceholder")}
-                className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-              />
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {blocked ? (
-                <Button type="button" size="sm" disabled={busy} onClick={() => void blockOrUnblock(false)}>
-                  {t("unblock")}
-                </Button>
-              ) : (
+          <div className="space-y-4">
+            <PermissionGate permission="users.write" mode="hide">
+              <section className="space-y-3 rounded-2xl border border-border/80 bg-card/70 p-4">
+                <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                  {t("bypassTitle")}
+                </h2>
+                <p className="text-xs text-muted-foreground">{t("bypassHint")}</p>
+                <p className="text-sm">
+                  {t("bypassStatus")}:{" "}
+                  <span className="font-semibold">
+                    {user.bypass_variant_progress ? t("bypassOn") : t("bypassOff")}
+                  </span>
+                </p>
                 <Button
                   type="button"
                   size="sm"
-                  variant="destructive"
+                  variant={user.bypass_variant_progress ? "outline" : "game"}
                   disabled={busy}
-                  onClick={() => setBlockOpen(true)}
+                  onClick={() => void setBypassVariantProgress(!user.bypass_variant_progress)}
                 >
-                  {t("block")}
+                  {user.bypass_variant_progress ? t("bypassDisable") : t("bypassEnable")}
                 </Button>
-              )}
-              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void revokeAll()}>
-                {t("revokeAll")}
-              </Button>
-            </div>
-          </section>
+              </section>
+            </PermissionGate>
+            <section className="space-y-3 rounded-2xl border border-border/80 bg-card/70 p-4">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold text-muted-foreground">{t("reasonLabel")}</span>
+                <input
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder={t("reasonPlaceholder")}
+                  className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
+                />
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {blocked ? (
+                  <Button type="button" size="sm" disabled={busy} onClick={() => void blockOrUnblock(false)}>
+                    {t("unblock")}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="destructive"
+                    disabled={busy}
+                    onClick={() => setBlockOpen(true)}
+                  >
+                    {t("block")}
+                  </Button>
+                )}
+                <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void revokeAll()}>
+                  {t("revokeAll")}
+                </Button>
+              </div>
+            </section>
+          </div>
         ) : null}
 
         <DangerConfirm

@@ -29,25 +29,26 @@ type LearnerDirectoryRow struct {
 
 // LearnerDetail is GET /admin/v1/users/{id} (never includes password plaintext/hash).
 type LearnerDetail struct {
-	ID           uuid.UUID            `json:"id"`
-	Phone        string               `json:"phone"`
-	PhoneMasked  string               `json:"phone_masked"`
-	Name         string               `json:"name"`
-	Region       string               `json:"region"`
-	District     string               `json:"district"`
-	LocalePref   string               `json:"locale_pref"`
-	ThemePref    string               `json:"theme_pref"`
-	Role         string               `json:"role"`
-	Status       string               `json:"status"`
-	ReferralCode string               `json:"referral_code,omitempty"`
-	ReferredBy   *uuid.UUID           `json:"referred_by,omitempty"`
-	VIPActive    bool                 `json:"vip_active"`
-	VIPEndsAt    *time.Time           `json:"vip_ends_at,omitempty"`
-	HasPassword  bool                 `json:"has_password"`
-	Streak       int                  `json:"streak"`
-	CreatedAt    time.Time            `json:"created_at"`
-	LastSeenAt   *time.Time           `json:"last_seen_at,omitempty"`
-	Entitlements []LearnerEntitlement `json:"entitlements"`
+	ID                    uuid.UUID            `json:"id"`
+	Phone                 string               `json:"phone"`
+	PhoneMasked           string               `json:"phone_masked"`
+	Name                  string               `json:"name"`
+	Region                string               `json:"region"`
+	District              string               `json:"district"`
+	LocalePref            string               `json:"locale_pref"`
+	ThemePref             string               `json:"theme_pref"`
+	Role                  string               `json:"role"`
+	Status                string               `json:"status"`
+	ReferralCode          string               `json:"referral_code,omitempty"`
+	ReferredBy            *uuid.UUID           `json:"referred_by,omitempty"`
+	VIPActive             bool                 `json:"vip_active"`
+	VIPEndsAt             *time.Time           `json:"vip_ends_at,omitempty"`
+	HasPassword           bool                 `json:"has_password"`
+	Streak                int                  `json:"streak"`
+	BypassVariantProgress bool                 `json:"bypass_variant_progress"`
+	CreatedAt             time.Time            `json:"created_at"`
+	LastSeenAt            *time.Time           `json:"last_seen_at,omitempty"`
+	Entitlements          []LearnerEntitlement `json:"entitlements"`
 }
 
 // LearnerEntitlement is a billing entitlement row for the admin user detail.
@@ -216,6 +217,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		       ),
 		       (p.password_hash IS NOT NULL AND length(p.password_hash) > 0),
 		       COALESCE(st.current, 0),
+		       p.bypass_variant_progress,
 		       (
 		         SELECT MAX(d.last_seen) FROM device d WHERE d.profile_id = p.id
 		       )
@@ -225,7 +227,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		&d.ID, &phone, &d.Name, &d.Region, &d.District,
 		&d.LocalePref, &d.ThemePref, &d.Role, &status,
 		&ref, &referredBy, &d.CreatedAt,
-		&d.VIPActive, &vipEnds, &d.HasPassword, &d.Streak, &lastSeen,
+		&d.VIPActive, &vipEnds, &d.HasPassword, &d.Streak, &d.BypassVariantProgress, &lastSeen,
 	)
 	if err != nil {
 		return LearnerDetail{}, err
@@ -280,6 +282,23 @@ func (s Store) ListLearnerEntitlements(ctx context.Context, profileID uuid.UUID)
 		out = append(out, e)
 	}
 	return out, rows.Err()
+}
+
+// SetLearnerBypassVariantProgress toggles sequential bilet-unlock bypass.
+// VIP entitlement is still required for tickets #2+; only prev-ticket gates skip.
+func (s Store) SetLearnerBypassVariantProgress(ctx context.Context, id uuid.UUID, enabled bool) (before, after bool, err error) {
+	err = s.Pool.QueryRow(ctx, `SELECT bypass_variant_progress FROM profile WHERE id = $1`, id).Scan(&before)
+	if err != nil {
+		return false, false, err
+	}
+	tag, err := s.Pool.Exec(ctx, `UPDATE profile SET bypass_variant_progress = $2 WHERE id = $1`, id, enabled)
+	if err != nil {
+		return false, false, err
+	}
+	if tag.RowsAffected() == 0 {
+		return false, false, pgx.ErrNoRows
+	}
+	return before, enabled, nil
 }
 
 // SetLearnerStatus sets profile.status to active|banned (block uses banned).
