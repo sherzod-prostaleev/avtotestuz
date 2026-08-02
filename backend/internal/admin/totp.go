@@ -237,7 +237,9 @@ func enrollWindowAt(t time.Time) int64 {
 // enrolled secret instead.
 func (s Service) enrollSecretBytes(adminID uuid.UUID, window int64) []byte {
 	mac := hmac.New(sha256.New, s.dataKEK())
-	fmt.Fprintf(mac, "drivergo:admin-totp-enroll:v1:%s:%d", adminID, window)
+	// hash.Hash writes never fail, hence the discards (same pattern as
+	// billing.humoPushFingerprint).
+	_, _ = fmt.Fprintf(mac, "drivergo:admin-totp-enroll:v1:%s:%d", adminID, window)
 	// 20 bytes: the 160-bit shared secret RFC 4226 recommends, and the size
 	// totp.Generate produces by default.
 	return mac.Sum(nil)[:20]
