@@ -40,5 +40,6 @@ photo_*_2026-*.jpg
 111.png
 AVTOTEST-MASTER-PROMPT.txt
 HANDOFF-*.txt
+repository-audit-report.txt
 docs/
 *.canvas.tsx
