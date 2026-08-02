@@ -36,9 +36,17 @@ type Service struct {
 	// a link to nowhere.
 	PublicBaseURL string
 
-	// Secret derives AES-GCM key for manual Telegram userbot credentials.
-	// Typically JWT_SECRET. Optional for tx-bound Service values.
+	// Secret is the deployment's JWT secret. It is only the FALLBACK data key
+	// now (see DataSecret); nothing in billing signs tokens with it.
 	Secret []byte
+
+	// DataSecret is the dedicated at-rest key (DATA_ENCRYPTION_KEY) from
+	// which the AES-GCM KEKs for stored card PANs and the manual-pay Telegram
+	// userbot credentials are derived. Empty falls back to Secret, which is
+	// what sealed every ciphertext written before the two keys were split —
+	// that fallback, not a migration, is what keeps those rows readable.
+	// Optional for tx-bound Service values that touch neither.
+	DataSecret []byte
 }
 
 // defaultPublicBaseURL matches config's PUBLIC_BASE_URL default so a Service

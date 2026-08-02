@@ -58,9 +58,22 @@ func decryptSecret(kek []byte, enc string) ([]byte, error) {
 	return gcm.Open(nil, nonce, ct, nil)
 }
 
+// dataKey resolves the master secret every at-rest KEK in this package is
+// derived from: DATA_ENCRYPTION_KEY when the deployment sets one, otherwise
+// the JWT secret, which is what sealed the PANs and Telegram credentials
+// already in the database. Rotating JWT_SECRET is only safe once DataSecret
+// is set — until then this fallback is load-bearing for existing rows.
+func (s Service) dataKey() []byte {
+	if len(s.DataSecret) > 0 {
+		return s.DataSecret
+	}
+	return s.Secret
+}
+
 func (s Service) kek() []byte {
-	if len(s.Secret) == 0 {
+	key := s.dataKey()
+	if len(key) == 0 {
 		return nil
 	}
-	return deriveKEK(s.Secret)
+	return deriveKEK(key)
 }

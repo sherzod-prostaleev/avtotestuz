@@ -42,12 +42,20 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/refresh", h.refresh)
 	r.Post("/auth/logout", h.logout)
 
+	// TOTP enrollment is the one thing an admin locked out by
+	// ADMIN_TOTP_ENFORCE must still be able to do, so it accepts the scoped
+	// enrollment token as well as a full session. Disable stays behind
+	// Required below: turning a second factor OFF is not part of getting in.
+	r.Group(func(er chi.Router) {
+		er.Use(TOTPEnrollAuth(h.Secret, store))
+		er.Post("/security/totp/enroll", h.enrollTOTP)
+		er.Post("/security/totp/confirm", h.confirmTOTP)
+	})
+
 	r.Group(func(pr chi.Router) {
 		pr.Use(Required(h.Secret, store))
 		pr.Get("/me", h.me)
 		pr.Get("/ping", h.ping)
-		pr.Post("/security/totp/enroll", h.enrollTOTP)
-		pr.Post("/security/totp/confirm", h.confirmTOTP)
 		pr.Post("/security/totp/disable", h.disableTOTP)
 
 		pr.Group(func(ur chi.Router) {
@@ -266,11 +274,16 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusForbidden, "disabled", "admin account disabled")
 		case ErrLoginThrottled:
 			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many login attempts, try again later")
-		case ErrTOTPSetupRequired:
-			httpx.Error(w, http.StatusForbidden, "totp_setup_required", "two-factor authentication must be enrolled before signing in")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "internal", "login failed")
 		}
+		return
+	}
+	if out.RequiresTOTPSetup {
+		_ = h.Svc.Store.WriteAudit(r.Context(), &out.Me.ID, "admin.login.totp_setup_required", "admin_user",
+			out.Me.ID.String(), nil, map[string]any{"email": out.Me.Email}, ip, r.UserAgent(),
+			middleware.GetReqID(r.Context()))
+		writeTOTPSetupRequired(w, out.EnrollToken)
 		return
 	}
 	if out.RequiresTOTP {
@@ -286,6 +299,28 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]any{
 		"tokens": out.Pair,
 		"admin":  out.Me,
+	})
+}
+
+// writeTOTPSetupRequired answers a login that enforcement refused a session
+// to: still 403 with the machine-readable code the admin UI keys on, but now
+// carrying the scoped enrollment token, which is the only in-product way out
+// of that state. httpx has no helper that writes data and error together, and
+// a token has no business being smuggled inside an error message.
+func writeTOTPSetupRequired(w http.ResponseWriter, enrollToken string) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(http.StatusForbidden)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"data": map[string]any{
+			"totp_setup_required": true,
+			"enrollment_token":    enrollToken,
+			"expires_in":          int(totpEnrollTTL.Seconds()),
+			"enroll_url":          "/admin/v1/security/totp/enroll",
+		},
+		"error": httpx.ErrorBody{
+			Code:    "totp_setup_required",
+			Message: "two-factor authentication must be enrolled before signing in",
+		},
 	})
 }
 
@@ -321,11 +356,9 @@ func (h *Handler) verifyTOTPLogin(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type totpConfirmBody struct {
-	Secret string `json:"secret"`
-	Code   string `json:"code"`
-}
-
+// totpCodeBody is the body of enroll-confirm and disable. Confirm takes no
+// secret: the server re-derives the pending one, so a secret in the request is
+// ignored (older admin UIs still send it — encoding/json drops it).
 type totpCodeBody struct {
 	Code string `json:"code"`
 }
@@ -344,7 +377,7 @@ func (h *Handler) enrollTOTP(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]any{
 		"secret":      secret,
 		"otpauth_url": url,
-		"note":        "Confirm with POST /security/totp/confirm before the secret is stored. Secret shown once.",
+		"note":        "Confirm with POST /security/totp/confirm (code only) before the secret is stored. Valid for a short window; call this endpoint again if confirmation fails.",
 	})
 }
 
@@ -354,12 +387,12 @@ func (h *Handler) confirmTOTP(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
 		return
 	}
-	var body totpConfirmBody
+	var body totpCodeBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
 		return
 	}
-	if err := h.Svc.ConfirmTOTPEnroll(r.Context(), claims.AdminUserID, body.Secret, body.Code); err != nil {
+	if err := h.Svc.ConfirmTOTPEnroll(r.Context(), claims.AdminUserID, body.Code); err != nil {
 		if err == ErrTOTPInvalid {
 			httpx.Error(w, http.StatusBadRequest, "invalid_totp", "invalid TOTP code")
 			return

@@ -9,13 +9,14 @@ import (
 const panCipherPrefix = "enc:v1:"
 
 func (s Service) panKEK() ([]byte, error) {
-	if len(s.Secret) == 0 {
+	key := s.dataKey()
+	if len(key) == 0 {
 		return nil, fmt.Errorf("PAN encryption key is not configured")
 	}
 	// Domain separation prevents ciphertext from sharing a key stream domain
 	// with Telegram credentials even though both derive from the deployment
-	// master secret.
-	sum := sha256.Sum256(append([]byte("drivergo:pan:v1:"), s.Secret...))
+	// data-encryption key.
+	sum := sha256.Sum256(append([]byte("drivergo:pan:v1:"), key...))
 	return sum[:], nil
 }
 

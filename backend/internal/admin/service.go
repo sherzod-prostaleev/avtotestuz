@@ -19,16 +19,18 @@ var (
 	// its attempt budget. Deliberately distinct from ErrInvalidCreds so the
 	// handler can answer 429 instead of feeding a guesser a clean signal.
 	ErrLoginThrottled = errors.New("too many login attempts")
-	// ErrTOTPSetupRequired is returned when ADMIN_TOTP_ENFORCE is on and the
-	// account has no authenticator enrolled. Enforcement used to be a
-	// cosmetic flag on /me while login still handed out a full token pair.
-	ErrTOTPSetupRequired = errors.New("totp enrollment required")
 )
 
 // Service handles staff login/session lifecycle.
 type Service struct {
-	Store  Store
+	Store Store
+	// Secret signs admin JWTs — access tokens, TOTP challenges and TOTP
+	// enrollment tokens. Signing only: rotating it must not cost data.
 	Secret []byte
+	// DataKey derives the AES-GCM key that seals admin TOTP secrets at rest
+	// (DATA_ENCRYPTION_KEY). Empty falls back to Secret, which is how every
+	// already-stored secret was sealed — see dataKEK.
+	DataKey []byte
 	// Lim throttles password guessing. Nil disables throttling, which is
 	// only appropriate in tests that are not exercising it.
 	Lim auth.Limiter
@@ -67,12 +69,19 @@ type MeResponse struct {
 	TOTPSetupRequired bool      `json:"totp_setup_required"`
 }
 
-// LoginResult is returned by Login — either tokens or a TOTP challenge.
+// LoginResult is returned by Login — tokens, a TOTP challenge, or (when
+// enforcement is on and this account has no authenticator) an enrollment
+// token and no session at all.
 type LoginResult struct {
 	RequiresTOTP   bool
 	ChallengeToken string
-	Pair           TokenPair
-	Me             MeResponse
+	// RequiresTOTPSetup means ADMIN_TOTP_ENFORCE denied a session because the
+	// account has no authenticator. Pair is deliberately zero; EnrollToken is
+	// the only thing issued, and it opens nothing but TOTP enrollment.
+	RequiresTOTPSetup bool
+	EnrollToken       string
+	Pair              TokenPair
+	Me                MeResponse
 }
 
 func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.IP) (LoginResult, error) {
@@ -128,8 +137,22 @@ func (s Service) Login(ctx context.Context, email, password, ua string, ip *net.
 	}
 	// Enforcement must block the token pair, not just decorate /me: an
 	// account without a second factor is exactly the one worth protecting.
+	//
+	// It must not brick the account either. The enrollment endpoints sit
+	// behind an admin session, so refusing outright left every admin created
+	// after ADMIN_TOTP_ENFORCE=true (and every non-superadmin, whose /me never
+	// even reported the requirement) permanently locked out with no in-product
+	// recovery. Issue a token that authorizes enrollment and nothing else.
 	if TOTPEnforce() && !u.TOTPEnabled() {
-		return LoginResult{}, ErrTOTPSetupRequired
+		enroll, err := IssueTOTPEnroll(s.Secret, u.ID, u.Email)
+		if err != nil {
+			return LoginResult{}, err
+		}
+		me, err := s.meFromUser(ctx, u)
+		if err != nil {
+			return LoginResult{}, err
+		}
+		return LoginResult{RequiresTOTPSetup: true, EnrollToken: enroll, Me: me}, nil
 	}
 	if u.TOTPEnabled() {
 		ch, err := IssueTOTPChallenge(s.Secret, u.ID, u.Email)
@@ -162,7 +185,7 @@ func (s Service) VerifyTOTPLogin(ctx context.Context, challengeToken, code, ua s
 	if !u.TOTPEnabled() {
 		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
 	}
-	plain, err := decryptSecret(deriveKEK(s.Secret), u.TotpSecretEnc)
+	plain, err := decryptSecret(s.dataKEK(), u.TotpSecretEnc)
 	if err != nil {
 		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
 	}
@@ -177,26 +200,39 @@ func (s Service) VerifyTOTPLogin(ctx context.Context, challengeToken, code, ua s
 	return pair, me, err
 }
 
-// BeginTOTPEnroll returns a one-time plaintext secret + otpauth URL (not yet persisted).
+// BeginTOTPEnroll returns the secret this server derives for adminID in the
+// current enrollment window, plus its otpauth URL. Nothing is persisted yet —
+// ConfirmTOTPEnroll re-derives the same value rather than taking the client's
+// word for it, so the secret needs no server-side storage between the calls.
 func (s Service) BeginTOTPEnroll(ctx context.Context, adminID uuid.UUID) (secret, otpauth string, err error) {
 	u, err := s.Store.GetUserByID(ctx, adminID)
 	if err != nil {
 		return "", "", err
 	}
-	key, err := generateTOTPKey(u.Email)
+	key, err := generateTOTPKey(u.Email, s.enrollSecretBytes(u.ID, enrollWindowAt(time.Now())))
 	if err != nil {
 		return "", "", err
 	}
 	return key.Secret(), key.URL(), nil
 }
 
-// ConfirmTOTPEnroll verifies code against secret and stores encrypted secret.
-func (s Service) ConfirmTOTPEnroll(ctx context.Context, adminID uuid.UUID, secret, code string) error {
-	secret = strings.TrimSpace(secret)
-	if secret == "" || !validateTOTP(secret, code) {
+// ConfirmTOTPEnroll stores the pending secret once the admin proves possession
+// of it with a live code.
+//
+// The secret is re-derived here (see enrollSecret), never read from the
+// request: the endpoint used to persist whatever secret the caller posted, so
+// the enrolled authenticator was not provably the one this server issued —
+// anyone able to reach the endpoint could bind a secret of their own choosing.
+func (s Service) ConfirmTOTPEnroll(ctx context.Context, adminID uuid.UUID, code string) error {
+	u, err := s.Store.GetUserByID(ctx, adminID)
+	if err != nil {
+		return err
+	}
+	secret, ok := s.pendingTOTPSecret(u.ID, code)
+	if !ok {
 		return ErrTOTPInvalid
 	}
-	enc, err := encryptSecret(deriveKEK(s.Secret), []byte(secret))
+	enc, err := encryptSecret(s.dataKEK(), []byte(secret))
 	if err != nil {
 		return err
 	}
@@ -212,7 +248,7 @@ func (s Service) DisableTOTP(ctx context.Context, adminID uuid.UUID, code string
 	if !u.TOTPEnabled() {
 		return nil
 	}
-	plain, err := decryptSecret(deriveKEK(s.Secret), u.TotpSecretEnc)
+	plain, err := decryptSecret(s.dataKEK(), u.TotpSecretEnc)
 	if err != nil {
 		return ErrTOTPInvalid
 	}
@@ -297,15 +333,12 @@ func (s Service) meFromUser(ctx context.Context, u User) (MeResponse, error) {
 	if perms == nil {
 		perms = []string{}
 	}
-	setupRequired := false
-	if TOTPEnforce() && !u.TOTPEnabled() {
-		for _, r := range roles {
-			if r == "superadmin" {
-				setupRequired = true
-				break
-			}
-		}
-	}
+	// Every role, not just superadmin. Login refuses a session to any admin
+	// without an authenticator while enforcement is on, so reporting the
+	// requirement to only one role left the others staring at a sign-in that
+	// failed for no stated reason — and at an admin UI that never surfaced the
+	// enrollment screen.
+	setupRequired := TOTPEnforce() && !u.TOTPEnabled()
 	return MeResponse{
 		ID:                u.ID,
 		Email:             u.Email,

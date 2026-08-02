@@ -14,6 +14,7 @@ const (
 	defaultJWTSecret              = "dev-secret-change-me"
 	minJWTSecretLen               = 32
 	minClientIPAssertionSecretLen = 32
+	minDataEncryptionKeyLen       = 32
 )
 
 type Config struct {
@@ -36,7 +37,26 @@ type Config struct {
 	PublicBaseURL string
 	CORSOrigins   []string
 
-	JWTSecret  string
+	// JWTSecret signs learner and admin JWTs. Rotating it logs everyone out —
+	// and nothing more, as long as DataEncryptionKey is set (see below).
+	JWTSecret string
+
+	// DataEncryptionKey derives the AES-GCM key protecting data at rest:
+	// admin TOTP secrets, stored card PANs (manual_pay_card.pan_full,
+	// referral_payout.card_number) and the manual-pay Telegram userbot
+	// credentials (manual_tg_settings.*_enc).
+	//
+	// Empty falls back to JWTSecret, which is what every deployment used
+	// before the two keys were split — that fallback, not a migration, is what
+	// keeps existing ciphertext readable.
+	//
+	// ROTATING THIS KEY IS DESTRUCTIVE AND IRREVERSIBLE: every value listed
+	// above becomes permanently undecryptable, so admins lose TOTP, PANs
+	// cannot be revealed and the Telegram session must be recreated. Set it
+	// once, to the deployment's CURRENT JWT_SECRET value, and JWT_SECRET is
+	// then free to rotate on its own.
+	DataEncryptionKey string
+
 	OTPChannel string // off | sandbox | telegram
 	// OTPDebugEcho echoes the generated OTP back in the HTTP response of
 	// POST /auth/otp/request. It is a deliberate, explicit opt-in (default
@@ -106,6 +126,24 @@ func (c Config) PaymeCheckoutHost() string {
 	return "https://checkout.paycom.uz"
 }
 
+// ResolveDataKey picks the key that at-rest KEKs are derived from:
+// DATA_ENCRYPTION_KEY when the deployment sets one, otherwise the JWT secret,
+// which is what sealed every ciphertext written before the two were split.
+// cmd/encryptpan resolves it the same way — writing PAN ciphertext under a key
+// the API would not derive is silent, permanent data loss.
+func ResolveDataKey(dataEncryptionKey, jwtSecret string) string {
+	if strings.TrimSpace(dataEncryptionKey) != "" {
+		return dataEncryptionKey
+	}
+	return jwtSecret
+}
+
+// DataKey is the resolved at-rest encryption key. See DataEncryptionKey for
+// why rotating it destroys data and rotating JWTSecret does not.
+func (c Config) DataKey() string {
+	return ResolveDataKey(c.DataEncryptionKey, c.JWTSecret)
+}
+
 func Load() (Config, error) {
 	portStr := getenv("PORT", "8080")
 	port, err := strconv.Atoi(portStr)
@@ -148,6 +186,7 @@ func Load() (Config, error) {
 		CORSOrigins:       splitCSV(getenv("CORS_ALLOWED_ORIGINS", publicBaseURL)),
 
 		JWTSecret:               getenv("JWT_SECRET", defaultJWTSecret),
+		DataEncryptionKey:       getenv("DATA_ENCRYPTION_KEY", ""),
 		OTPChannel:              getenv("OTP_CHANNEL", "sandbox"),
 		OTPDebugEcho:            getenvBool("OTP_DEBUG_ECHO", false),
 		TelegramGatewayToken:    getenv("TELEGRAM_GATEWAY_TOKEN", ""),
@@ -256,6 +295,13 @@ func (c Config) validate() error {
 	}
 	if secret := strings.TrimSpace(c.ClientIPAssertionSecret); secret != "" && len([]byte(secret)) < minClientIPAssertionSecretLen {
 		return fmt.Errorf("CLIENT_IP_ASSERTION_SECRET must be at least %d bytes", minClientIPAssertionSecretLen)
+	}
+	// Checked at every ENV, not just staging/prod: this key is optional, but a
+	// deployment that sets a weak one has silently weakened stored TOTP
+	// secrets and PANs, and it can never be strengthened afterwards without
+	// losing them.
+	if key := strings.TrimSpace(c.DataEncryptionKey); key != "" && len([]byte(key)) < minDataEncryptionKeyLen {
+		return fmt.Errorf("DATA_ENCRYPTION_KEY must be at least %d bytes", minDataEncryptionKeyLen)
 	}
 
 	switch c.TelegramBotMode {
