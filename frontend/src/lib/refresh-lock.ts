@@ -118,10 +118,7 @@ export function refreshOnce(
     inFlight = doRefresh(refreshToken)
       .then((tokens) => {
         if (tokens) {
-          recentByOldToken.set(refreshToken, {
-            tokens,
-            until: Date.now() + ROTATION_GRACE_MS,
-          });
+          rememberRotation(refreshToken, tokens);
         }
         return tokens;
       })
