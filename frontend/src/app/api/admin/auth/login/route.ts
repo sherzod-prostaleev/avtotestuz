@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { backendAdminFetch } from "@/lib/backend";
 import { readBackendJson } from "@/lib/backend-response";
-import { setAdminAuthCookies, clearAdminAuthCookies } from "@/lib/admin-auth-cookies";
+import {
+  clearAdminAuthCookies,
+  clearAdminEnrollCookie,
+  setAdminAuthCookies,
+  setAdminEnrollCookie,
+} from "@/lib/admin-auth-cookies";
 
 export const runtime = "nodejs";
 
@@ -11,7 +16,11 @@ type AdminLoginPayload = {
       access_token?: string;
       refresh_token?: string;
     };
+    totp_setup_required?: boolean;
+    enrollment_token?: string;
+    expires_in?: number;
   };
+  error?: { code?: string };
 };
 
 function unavailable() {
@@ -35,8 +44,30 @@ export async function POST(request: Request) {
       body,
     });
     const data = await readBackendJson<AdminLoginPayload>(backendRes);
+
+    // ADMIN_TOTP_ENFORCE refused a session and handed back a scoped
+    // enrollment token instead. It is a credential, so it goes into an
+    // httpOnly cookie and is stripped from the body: the page only needs to
+    // know it must show the enrollment step, and anything reachable from JS
+    // is reachable from an XSS payload.
+    const setup = data.data;
+    if (
+      backendRes.status === 403 &&
+      data.error?.code === "totp_setup_required" &&
+      typeof setup?.enrollment_token === "string" &&
+      setup.enrollment_token
+    ) {
+      const { enrollment_token: enrollToken, ...safeData } = setup;
+      const res = NextResponse.json({ ...data, data: safeData }, { status: 403 });
+      clearAdminAuthCookies(res);
+      setAdminEnrollCookie(res, enrollToken, setup.expires_in);
+      return res;
+    }
+
     const res = NextResponse.json(data, { status: backendRes.status });
-    const tokens = data.data?.tokens;
+    // Any other outcome ends whatever enrollment attempt was in flight.
+    clearAdminEnrollCookie(res);
+    const tokens = setup?.tokens;
     if (
       backendRes.ok &&
       tokens &&

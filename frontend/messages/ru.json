@@ -1341,7 +1341,19 @@
     "totpHint": "Введите 6-значный код из приложения.",
     "totpSubmit": "Подтвердить",
     "backToPassword": "Назад к паролю",
-    "errorTotp": "Неверный или просроченный код."
+    "errorTotp": "Неверный или просроченный код.",
+    "enrollTitle": "Подключение двухфакторной защиты",
+    "enrollIntro": "Для этой учётной записи authenticator обязателен. Подключите его здесь перед входом.",
+    "enrollPreparing": "Готовим секретный ключ...",
+    "enrollSecretOnce": "Секретный ключ показывается только один раз. Введите его в приложении authenticator.",
+    "enrollOtpauthLabel": "Ссылка otpauth",
+    "enrollCodeHint": "Введите 6-значный код из приложения.",
+    "enrollSubmit": "Подключить",
+    "enrollRetry": "Получить новый ключ",
+    "enrollDone": "Authenticator подключён. Теперь войдите с паролем и кодом.",
+    "enrollExpired": "Время подключения истекло. Введите пароль заново.",
+    "errorEnroll": "Не удалось начать подключение.",
+    "errorEnrollCode": "Неверный код. Введите текущий код из приложения."
   },
   "AdminUsers": {
     "controlBadge": "Users · full control",

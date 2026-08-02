@@ -1341,7 +1341,19 @@
     "totpHint": "Иловадаги 6 хонали кодни киритинг.",
     "totpSubmit": "Тасдиқлаш",
     "backToPassword": "Паролга қайтиш",
-    "errorTotp": "Код нотўғри ёки муддати ўтган."
+    "errorTotp": "Код нотўғри ёки муддати ўтган.",
+    "enrollTitle": "Икки босқичли ҳимояни улаш",
+    "enrollIntro": "Бу аккаунт учун authenticator мажбурий. Киришдан олдин уни шу ерда уланг.",
+    "enrollPreparing": "Махфий калит тайёрланмоқда...",
+    "enrollSecretOnce": "Махфий калит фақат шу сафар кўрсатилади. Уни authenticator иловасига киритинг.",
+    "enrollOtpauthLabel": "otpauth ҳаволаси",
+    "enrollCodeHint": "Илова кўрсатган 6 хонали кодни киритинг.",
+    "enrollSubmit": "Улаш",
+    "enrollRetry": "Янги калит олиш",
+    "enrollDone": "Authenticator уланди. Энди парол ва код билан киринг.",
+    "enrollExpired": "Улаш муддати тугади. Паролни қайтадан киритинг.",
+    "errorEnroll": "Улашни бошлаб бўлмади.",
+    "errorEnrollCode": "Код нотўғри. Иловадаги жорий кодни киритинг."
   },
   "AdminUsers": {
     "controlBadge": "Users · full control",
