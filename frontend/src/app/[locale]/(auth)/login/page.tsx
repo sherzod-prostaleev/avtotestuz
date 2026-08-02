@@ -21,8 +21,13 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
   weak_password: "errorWeakPassword",
 };
 
+/** National 9-digit UZ mobile (strips optional 998 country code). */
 function normalizePhone(input: string): string {
-  return input.replace(/\D/g, "");
+  let digits = input.replace(/\D/g, "");
+  if (digits.startsWith("998") && digits.length >= 12) {
+    digits = digits.slice(3);
+  }
+  return digits.slice(0, 9);
 }
 
 export default function LoginPage() {
@@ -56,6 +61,15 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const localPhone = normalizePhone(phone);
+    if (localPhone.length !== 9) {
+      setError("invalid_phone");
+      return;
+    }
+    if (password.length < 8) {
+      setError("weak_password");
+      return;
+    }
     setSubmitting(true);
     try {
       let res: Response;
@@ -63,7 +77,7 @@ export default function LoginPage() {
         res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: normalizePhone(phone), password }),
+          body: JSON.stringify({ phone: localPhone, password }),
         });
       } catch {
         setError("network_error");
@@ -90,8 +104,6 @@ export default function LoginPage() {
       setSubmitting(false);
     }
   }
-
-  const canSubmit = phone.length === 9 && password.length >= 8 && !submitting;
 
   return (
     <div
@@ -147,7 +159,7 @@ export default function LoginPage() {
                   inputMode="numeric"
                   autoComplete="tel-national"
                   value={phone}
-                  onChange={(e) => setPhone(normalizePhone(e.target.value).slice(0, 9))}
+                  onChange={(e) => setPhone(normalizePhone(e.target.value))}
                   placeholder="90 123 45 67"
                   className="w-full bg-transparent font-bold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"
                   aria-label={t("phoneLabel")}
@@ -191,7 +203,7 @@ export default function LoginPage() {
               variant="game"
               size="lg"
               className="w-full py-3 text-sm font-extrabold"
-              disabled={!canSubmit}
+              disabled={submitting}
             >
               {submitting ? t("submitting") : t("submit")}
             </Button>

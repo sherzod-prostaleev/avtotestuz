@@ -247,17 +247,13 @@ type RegisterInput struct {
 	Phone    string
 	Password string
 	Name     string
-	Code     string
 	IP       string
 }
 
-// Register creates a profile only after proving ownership of the phone with a
-// fresh OTP challenge. Password-only registration would let anyone reserve
-// somebody else's phone number and receive a trial under that identity.
+// Register creates a profile with phone + password and issues a session.
+// SMS OTP is intentionally not required until an OTP provider is wired —
+// learners sign up with phone and password only.
 func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult, error) {
-	if s.Sender.Channel() == "off" {
-		return VerifyResult{}, ErrOTPDisabled
-	}
 	phone, err := NormalizePhone(in.Phone)
 	if err != nil {
 		return VerifyResult{}, ErrInvalidPhone
@@ -268,9 +264,6 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 
 	hash, err := HashPassword(in.Password)
 	if err != nil {
-		return VerifyResult{}, err
-	}
-	if err := s.verifyAndConsumeOTP(ctx, phone, in.Code); err != nil {
 		return VerifyResult{}, err
 	}
 
@@ -307,34 +300,6 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 		return VerifyResult{}, err
 	}
 	return VerifyResult{Tokens: toks, Profile: profile, Created: true}, nil
-}
-
-// verifyAndConsumeOTP is shared by verified registration. Challenge
-// consumption happens before profile creation so a successful code is
-// single-use even if a client retries the registration request. If the later
-// DB transaction fails, the user requests a fresh code; no unverified profile
-// or entitlement can be left behind.
-func (s *Service) verifyAndConsumeOTP(ctx context.Context, phone, code string) error {
-	challenge, err := s.Q.LatestOTPChallenge(ctx, phone)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return ErrInvalidCode
-		}
-		return err
-	}
-	if challenge.Attempts >= maxOTPAttempts {
-		return ErrTooManyAttempts
-	}
-	if time.Now().After(challenge.ExpiresAt.Time) {
-		return ErrExpiredCode
-	}
-	if !VerifyCode(challenge.CodeHash, code) {
-		if err := s.Q.IncrementOTPAttempts(ctx, challenge.ID); err != nil {
-			return err
-		}
-		return ErrInvalidCode
-	}
-	return s.Q.ConsumeOTP(ctx, challenge.ID)
 }
 
 type LoginInput struct {

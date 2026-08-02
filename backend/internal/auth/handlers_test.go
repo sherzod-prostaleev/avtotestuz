@@ -128,7 +128,7 @@ func TestOTPRequestVerifyProbeAndRefreshOverHTTP(t *testing.T) {
 	}
 }
 
-func TestRegisterRequiresOTPAndSetPasswordRouteIsAbsent(t *testing.T) {
+func TestRegisterPasswordOnlyAndSetPasswordRouteIsAbsent(t *testing.T) {
 	ts := setupHandlerServer(t)
 
 	status, env := postJSON(t, ts, "/auth/register", map[string]string{
@@ -136,26 +136,8 @@ func TestRegisterRequiresOTPAndSetPasswordRouteIsAbsent(t *testing.T) {
 		"password": "secret123",
 		"name":     "Test",
 	})
-	if status != http.StatusBadRequest || env.Error == nil || env.Error.Code != "invalid_code" {
-		t.Fatalf("unverified register status=%d env=%+v", status, env)
-	}
-
-	status, env = postJSON(t, ts, "/auth/otp/request", map[string]string{"phone": "901112233"})
-	if status != http.StatusOK {
-		t.Fatalf("otp request status=%d env=%+v", status, env)
-	}
-	var reqOut otpRequestResponse
-	if err := json.Unmarshal(env.Data, &reqOut); err != nil {
-		t.Fatal(err)
-	}
-	status, env = postJSON(t, ts, "/auth/register", map[string]string{
-		"phone":    "901112233",
-		"password": "secret123",
-		"name":     "Test",
-		"code":     reqOut.DebugCode,
-	})
 	if status != http.StatusCreated {
-		t.Fatalf("verified register status=%d env=%+v", status, env)
+		t.Fatalf("register status=%d env=%+v", status, env)
 	}
 	var toks tokensResponse
 	if err := json.Unmarshal(env.Data, &toks); err != nil {

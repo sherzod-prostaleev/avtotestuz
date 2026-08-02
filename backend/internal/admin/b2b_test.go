@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/testdb"
 )
 
@@ -56,7 +57,7 @@ func TestAdminB2B(t *testing.T) {
 		orgID = orgEnv.Data.ID
 
 		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/licenses",
-			bytes.NewBufferString(`{"seats":2,"days":30,"note":"pilot"}`))
+			bytes.NewBufferString(`{"seats":2,"home_seats":2,"days":30,"note":"pilot"}`))
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
@@ -109,8 +110,41 @@ func TestAdminB2B(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &detailEnv); err != nil {
 			t.Fatal(err)
 		}
-		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 || detailEnv.Data.SeatsUsed < 1 {
+		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 || detailEnv.Data.HomeSeatsUsed < 1 {
 			t.Fatalf("detail=%+v", detailEnv.Data)
+		}
+
+		// Classroom station: activate code + bind fingerprint
+		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/station-codes",
+			bytes.NewBufferString(`{"label":"Lab-1"}`))
+		req.Header.Set("Authorization", "Bearer "+access)
+		req.Header.Set("Content-Type", "application/json")
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("station code status=%d body=%s", w.Code, w.Body.String())
+		}
+		var codeEnv struct {
+			Data struct {
+				Code string `json:"code"`
+			} `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &codeEnv); err != nil {
+			t.Fatal(err)
+		}
+		bs := b2b.Store{Pool: pool}
+		if _, err := bs.ActivateStation(context.Background(), codeEnv.Data.Code, "admin-test-fp", "Lab-1", "test"); err != nil {
+			t.Fatalf("activate station: %v", err)
+		}
+		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String(), nil)
+		req.Header.Set("Authorization", "Bearer "+access)
+		w = httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if err := json.Unmarshal(w.Body.Bytes(), &detailEnv); err != nil {
+			t.Fatal(err)
+		}
+		if detailEnv.Data.SeatsUsed < 1 {
+			t.Fatalf("expected station seats_used>=1, got %+v", detailEnv.Data)
 		}
 
 		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/stats", nil)

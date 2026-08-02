@@ -26,6 +26,7 @@ import (
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/demo"
+	"avtotest.uz/backend/internal/devicefp"
 	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/flags"
@@ -61,7 +62,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: cfg.CORSOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token", devicefp.Header},
 	}))
 
 	// U-41: process-local request counters (not Prometheus). Must wrap before
@@ -110,19 +111,28 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	var arenaSvc *arena.Service
 	if deps.Queries != nil {
 		r.Route("/api/v1", func(api chi.Router) {
+			api.Use(devicefp.Middleware)
+
+			var stationVIP billing.StationVIPChecker
+			if deps.Pool != nil {
+				stationVIP = b2b.Store{Pool: deps.Pool}
+			}
+			learnerBilling := billing.Service{
+				Q:             deps.Queries,
+				Pool:          deps.Pool,
+				StationVIP:    stationVIP,
+				PublicBaseURL: cfg.PublicBaseURL,
+				Secret:        []byte(cfg.JWTSecret),
+				DataSecret:    dataKey,
+			}
+
 			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}
 			ch.Routes(api)
 
 			bh := &billing.Handler{
 				// PublicBaseURL only matters on this Service — it serves
 				// GET /me/referral, the one endpoint that builds a shareable link.
-				Svc: billing.Service{
-					Q:             deps.Queries,
-					Pool:          deps.Pool,
-					PublicBaseURL: cfg.PublicBaseURL,
-					Secret:        []byte(cfg.JWTSecret),
-					DataSecret:    dataKey,
-				},
+				Svc:               learnerBilling,
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
 				ClickServiceID:    cfg.ClickServiceID,
@@ -177,7 +187,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 				learnerAuth := api.With(auth.Required([]byte(cfg.JWTSecret)), auth.RejectBanned(deps.Queries))
 
-				acc := &account.Handler{Q: deps.Queries, Billing: billing.Service{Q: deps.Queries}}
+				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)
 
 				tb2b := &b2b.Handler{Pool: deps.Pool}
@@ -194,9 +204,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				learningSvc := learning.NewService(deps.Queries)
 				progressSvc := progress.NewService(deps.Queries)
 				progressSvc.Learning = learningSvc
-				progressSvc.Billing = billing.Service{Q: deps.Queries}
-				lbSvc := leaderboard.NewService(deps.Redis, deps.Queries, billing.Service{Q: deps.Queries})
-				sessSvc := session.NewService(deps.Queries, deps.Pool, billing.Service{Q: deps.Queries}, learningSvc, progressSvc)
+				progressSvc.Billing = learnerBilling
+				lbSvc := leaderboard.NewService(deps.Redis, deps.Queries, learnerBilling)
+				sessSvc := session.NewService(deps.Queries, deps.Pool, learnerBilling, learningSvc, progressSvc)
 				sessSvc.Leaderboard = lbSvc
 				sess := &session.Handler{
 					Svc:     sessSvc,
@@ -221,7 +231,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				evh.Routes(learnerAuth)
 
 				arenaSvc = arena.NewService(deps.Queries, deps.Pool, deps.Redis,
-					billing.Service{Q: deps.Queries}, ch, learningSvc, progressSvc, log)
+					learnerBilling, ch, learningSvc, progressSvc, log)
 				ahArena := &arena.Handler{Svc: arenaSvc, PublicURL: cfg.PublicBaseURL}
 				ahArena.PublicRoutes(api)
 				ahArena.AuthedRoutes(learnerAuth)
@@ -260,7 +270,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 					botSvc := &bot.Bot{
 						Link:          linkSvc,
 						Quiz:          quizSvc,
-						Billing:       billing.Service{Q: deps.Queries},
+						Billing:       learnerBilling,
 						Progress:      progressSvc,
 						TG:            tgClient,
 						PublicBaseURL: cfg.PublicBaseURL,

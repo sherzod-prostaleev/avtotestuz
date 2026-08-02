@@ -66,6 +66,10 @@ async function forward(
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
   }
+  const deviceFp = request.headers.get("x-device-fingerprint");
+  if (deviceFp) {
+    headers["X-Device-Fingerprint"] = deviceFp;
+  }
   const init: RequestInit = {
     method: request.method,
     headers,

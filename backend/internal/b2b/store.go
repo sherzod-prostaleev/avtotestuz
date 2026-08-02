@@ -60,11 +60,12 @@ type MemberRow struct {
 
 // LicenseRow is a seat window summary.
 type LicenseRow struct {
-	ID     uuid.UUID `json:"id"`
-	Seats  int       `json:"seats"`
-	EndsAt time.Time `json:"ends_at"`
-	Active bool      `json:"active"`
-	Note   string    `json:"note"`
+	ID        uuid.UUID `json:"id"`
+	Seats     int       `json:"seats"`
+	HomeSeats int       `json:"home_seats"`
+	EndsAt    time.Time `json:"ends_at"`
+	Active    bool      `json:"active"`
+	Note      string    `json:"note"`
 }
 
 // OrgDetail is teacher dashboard payload.
@@ -94,20 +95,24 @@ type InviteResult struct {
 
 // OrgStats aggregates for the teacher/admin dashboard.
 type OrgStats struct {
-	OrgID               uuid.UUID `json:"org_id"`
-	MembersTotal        int64     `json:"members_total"`
-	Owners              int64     `json:"owners"`
-	Teachers            int64     `json:"teachers"`
-	Students            int64     `json:"students"`
-	ActiveSeats         int64     `json:"active_seats"`
-	SeatsUsed           int64     `json:"seats_used"`
-	SeatsRemaining      int64     `json:"seats_remaining"`
-	ActiveB2BVIP        int64     `json:"active_b2b_vip"`
-	AvgReadinessPct     int       `json:"avg_readiness_pct"`
-	SessionsFinished7d  int64     `json:"sessions_finished_7d"`
-	SessionsFinished30d int64     `json:"sessions_finished_30d"`
-	ActiveMembers7d     int64     `json:"active_members_7d"`
-	PendingInvites      int64     `json:"pending_invites"`
+	OrgID               uuid.UUID  `json:"org_id"`
+	MembersTotal        int64      `json:"members_total"`
+	Owners              int64      `json:"owners"`
+	Teachers            int64      `json:"teachers"`
+	Students            int64      `json:"students"`
+	ActiveSeats         int64      `json:"active_seats"`
+	SeatsUsed           int64      `json:"seats_used"`
+	SeatsRemaining      int64      `json:"seats_remaining"`
+	HomeSeats           int64      `json:"home_seats"`
+	HomeSeatsUsed       int64      `json:"home_seats_used"`
+	ActiveB2BVIP        int64      `json:"active_b2b_vip"`
+	AvgReadinessPct     int        `json:"avg_readiness_pct"`
+	SessionsFinished7d  int64      `json:"sessions_finished_7d"`
+	SessionsFinished30d int64      `json:"sessions_finished_30d"`
+	ActiveMembers7d     int64      `json:"active_members_7d"`
+	PendingInvites      int64      `json:"pending_invites"`
+	LicenseExpiringSoon bool       `json:"license_expiring_soon"`
+	LicenseEndsAt       *time.Time `json:"license_ends_at,omitempty"`
 }
 
 func (s Store) teacherRole(ctx context.Context, profileID, orgID uuid.UUID) (string, error) {
@@ -144,11 +149,8 @@ func (s Store) ListTeacherOrgs(ctx context.Context, profileID uuid.UUID) ([]OrgS
 		       (SELECT COUNT(*) FROM b2b_org_member x WHERE x.org_id = o.id),
 		       (SELECT COALESCE(SUM(l.seats), 0) FROM b2b_org_license l
 		         WHERE l.org_id = o.id AND l.starts_at <= now() AND l.ends_at > now()),
-		       (SELECT COUNT(DISTINCT e.profile_id)
-		          FROM entitlement e
-		          JOIN b2b_org_member bm ON bm.profile_id = e.profile_id AND bm.org_id = o.id
-		         WHERE e.source = 'b2b' AND e.starts_at <= now() AND e.ends_at > now()
-		           AND e.note LIKE 'b2b_org=' || o.id::text || '%')
+		       (SELECT COUNT(*) FROM b2b_station st
+		         WHERE st.org_id = o.id AND st.status = 'active')
 		FROM b2b_org o
 		JOIN b2b_org_member m ON m.org_id = o.id AND m.profile_id = $1
 		WHERE m.role IN ('owner', 'teacher')
@@ -200,7 +202,7 @@ func (s Store) GetTeacherOrgDetail(ctx context.Context, profileID, orgID uuid.UU
 	out.Licenses = licenses
 	out.Org.ActiveSeats = seats
 
-	used, err := s.countActiveB2BGrants(ctx, orgID)
+	used, err := s.CountActiveStations(ctx, orgID)
 	if err != nil {
 		return out, err
 	}
@@ -211,7 +213,7 @@ func (s Store) GetTeacherOrgDetail(ctx context.Context, profileID, orgID uuid.UU
 
 func (s Store) listLicenses(ctx context.Context, orgID uuid.UUID) ([]LicenseRow, int64, error) {
 	lrows, err := s.Pool.Query(ctx, `
-		SELECT id, seats, ends_at, note,
+		SELECT id, seats, home_seats, ends_at, note,
 		       (starts_at <= now() AND ends_at > now()) AS active
 		FROM b2b_org_license
 		WHERE org_id = $1
@@ -224,7 +226,7 @@ func (s Store) listLicenses(ctx context.Context, orgID uuid.UUID) ([]LicenseRow,
 	var seats int64
 	for lrows.Next() {
 		var row LicenseRow
-		if err := lrows.Scan(&row.ID, &row.Seats, &row.EndsAt, &row.Note, &row.Active); err != nil {
+		if err := lrows.Scan(&row.ID, &row.Seats, &row.HomeSeats, &row.EndsAt, &row.Note, &row.Active); err != nil {
 			return nil, 0, err
 		}
 		row.EndsAt = row.EndsAt.UTC()
@@ -770,20 +772,37 @@ func (s Store) OrgStats(ctx context.Context, orgID uuid.UUID) (OrgStats, error) 
 		return out, err
 	}
 	if err := s.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(seats), 0) FROM b2b_org_license
-		WHERE org_id = $1 AND starts_at <= now() AND ends_at > now()`, orgID).Scan(&out.ActiveSeats); err != nil {
+		SELECT COALESCE(SUM(seats), 0), COALESCE(SUM(home_seats), 0) FROM b2b_org_license
+		WHERE org_id = $1 AND starts_at <= now() AND ends_at > now()`, orgID).Scan(&out.ActiveSeats, &out.HomeSeats); err != nil {
 		return out, err
 	}
-	used, err := s.countActiveB2BGrants(ctx, orgID)
+	used, err := s.CountActiveStations(ctx, orgID)
 	if err != nil {
 		return out, err
 	}
 	out.SeatsUsed = used
-	out.ActiveB2BVIP = used
 	out.SeatsRemaining = out.ActiveSeats - used
 	if out.SeatsRemaining < 0 {
 		out.SeatsRemaining = 0
 	}
+	homeUsed, err := s.countActiveB2BGrants(ctx, orgID)
+	if err != nil {
+		return out, err
+	}
+	out.HomeSeatsUsed = homeUsed
+	out.ActiveB2BVIP = homeUsed
+	soon, endsAt, err := s.LicenseExpiringSoon(ctx, orgID, 14)
+	if err != nil {
+		return out, err
+	}
+	out.LicenseExpiringSoon = soon
+	if endsAt == nil {
+		endsAt, err = s.LicenseEndsAt(ctx, orgID)
+		if err != nil {
+			return out, err
+		}
+	}
+	out.LicenseEndsAt = endsAt
 
 	members, err := s.listMembersWithProgress(ctx, orgID)
 	if err != nil {

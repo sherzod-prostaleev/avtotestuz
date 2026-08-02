@@ -1,3 +1,5 @@
+import { DEVICE_FP_HEADER, getDeviceFingerprint } from "@/lib/device-fingerprint";
+
 export class ApiError extends Error {
   code: string;
   status: number;
@@ -8,6 +10,13 @@ export class ApiError extends Error {
     this.code = code;
     this.status = status;
   }
+}
+
+function deviceHeaders(): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  const fp = getDeviceFingerprint();
+  if (fp) headers[DEVICE_FP_HEADER] = fp;
+  return headers;
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -24,7 +33,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "GET",
-    headers: { "Content-Type": "application/json" },
+    headers: deviceHeaders(),
   });
   return handleResponse<T>(res);
 }
@@ -33,7 +42,7 @@ export async function apiPost<T, B = unknown>(path: string, body?: B): Promise<T
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: deviceHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
@@ -43,7 +52,7 @@ export async function apiPatch<T, B = unknown>(path: string, body?: B): Promise<
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: deviceHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);
@@ -53,7 +62,7 @@ export async function apiDelete<T, B = unknown>(path: string, body?: B): Promise
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "DELETE",
-    headers: { "Content-Type": "application/json" },
+    headers: deviceHeaders(),
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   return handleResponse<T>(res);

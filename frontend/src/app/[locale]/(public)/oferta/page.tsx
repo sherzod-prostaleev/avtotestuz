@@ -63,6 +63,9 @@ export default function OfertaPage() {
           <LegalSection title={t("ofertaS6Title")}>
             <p>{t("ofertaS6Body")}</p>
           </LegalSection>
+          <LegalSection title={t("ofertaS7Title")}>
+            <p>{t("ofertaS7Body")}</p>
+          </LegalSection>
         </>
       )}
     </LegalDocShell>

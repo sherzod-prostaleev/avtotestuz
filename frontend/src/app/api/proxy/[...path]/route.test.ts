@@ -257,4 +257,29 @@ describe("proxy route", () => {
       expect.objectContaining({ method: "GET" })
     );
   });
+
+  it("forwards X-Device-Fingerprint to the backend for station VIP", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: { active: true } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      requestWithCookies("at=good-token", {
+        headers: { "X-Device-Fingerprint": "station-fp-abc" },
+      }),
+      routeContext(["me", "entitlement"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8090/api/v1/me/entitlement",
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: "Bearer good-token",
+          "X-Device-Fingerprint": "station-fp-abc",
+        }),
+      }),
+    );
+  });
 });

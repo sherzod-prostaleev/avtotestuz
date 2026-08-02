@@ -8,6 +8,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+
+	"avtotest.uz/backend/internal/b2b"
 )
 
 // B2BOrgRow is a list/detail org.
@@ -34,6 +36,7 @@ type B2BLicenseRow struct {
 	ID        uuid.UUID `json:"id"`
 	OrgID     uuid.UUID `json:"org_id"`
 	Seats     int       `json:"seats"`
+	HomeSeats int       `json:"home_seats"`
 	StartsAt  time.Time `json:"starts_at"`
 	EndsAt    time.Time `json:"ends_at"`
 	Note      string    `json:"note"`
@@ -42,12 +45,15 @@ type B2BLicenseRow struct {
 	Active    bool      `json:"active"`
 }
 
-// B2BOrgDetail bundles org + members + licenses.
+// B2BOrgDetail bundles org + members + licenses + stations.
 type B2BOrgDetail struct {
-	Org       B2BOrgRow       `json:"org"`
-	Members   []B2BMemberRow  `json:"members"`
-	Licenses  []B2BLicenseRow `json:"licenses"`
-	SeatsUsed int64           `json:"seats_used"`
+	Org           B2BOrgRow        `json:"org"`
+	Members       []B2BMemberRow   `json:"members"`
+	Licenses      []B2BLicenseRow  `json:"licenses"`
+	Stations      []b2b.StationRow `json:"stations"`
+	SeatsUsed     int64            `json:"seats_used"`
+	HomeSeats     int64            `json:"home_seats"`
+	HomeSeatsUsed int64            `json:"home_seats_used"`
 }
 
 func (s Store) ListB2BOrgs(ctx context.Context) ([]B2BOrgRow, error) {
@@ -117,7 +123,7 @@ func (s Store) GetB2BOrgDetail(ctx context.Context, orgID uuid.UUID) (B2BOrgDeta
 		return out, err
 	}
 	lrows, err := s.Pool.Query(ctx, `
-		SELECT id, org_id, seats, starts_at, ends_at, note, created_by, created_at,
+		SELECT id, org_id, seats, home_seats, starts_at, ends_at, note, created_by, created_at,
 		       (starts_at <= now() AND ends_at > now()) AS active
 		FROM b2b_org_license WHERE org_id = $1
 		ORDER BY created_at DESC`, orgID)
@@ -128,24 +134,39 @@ func (s Store) GetB2BOrgDetail(ctx context.Context, orgID uuid.UUID) (B2BOrgDeta
 	out.Licenses = make([]B2BLicenseRow, 0)
 	for lrows.Next() {
 		var row B2BLicenseRow
-		if err := lrows.Scan(&row.ID, &row.OrgID, &row.Seats, &row.StartsAt, &row.EndsAt,
+		if err := lrows.Scan(&row.ID, &row.OrgID, &row.Seats, &row.HomeSeats, &row.StartsAt, &row.EndsAt,
 			&row.Note, &row.CreatedBy, &row.CreatedAt, &row.Active); err != nil {
 			return out, err
 		}
 		out.Licenses = append(out.Licenses, row)
 	}
+	if err := lrows.Err(); err != nil {
+		return out, err
+	}
 	out.Org.Members = int64(len(out.Members))
 	for _, l := range out.Licenses {
 		if l.Active {
 			out.Org.Seats += int64(l.Seats)
+			out.HomeSeats += int64(l.HomeSeats)
 		}
 	}
-	used, err := s.CountActiveB2BGrants(ctx, orgID)
+	bs := b2b.Store{Pool: s.Pool}
+	stations, err := bs.ListStations(ctx, orgID, true)
+	if err != nil {
+		return out, err
+	}
+	out.Stations = stations
+	used, err := bs.CountActiveStations(ctx, orgID)
 	if err != nil {
 		return out, err
 	}
 	out.SeatsUsed = used
-	return out, lrows.Err()
+	homeUsed, err := s.CountActiveB2BGrants(ctx, orgID)
+	if err != nil {
+		return out, err
+	}
+	out.HomeSeatsUsed = homeUsed
+	return out, nil
 }
 
 func (s Store) AddB2BMember(ctx context.Context, orgID, profileID uuid.UUID, role string) (B2BMemberRow, error) {
@@ -190,9 +211,12 @@ func (s Store) AddB2BMember(ctx context.Context, orgID, profileID uuid.UUID, rol
 	return row, err
 }
 
-func (s Store) CreateB2BLicense(ctx context.Context, orgID uuid.UUID, seats, days int, note, createdBy string) (B2BLicenseRow, error) {
+func (s Store) CreateB2BLicense(ctx context.Context, orgID uuid.UUID, seats, days, homeSeats int, note, createdBy string) (B2BLicenseRow, error) {
 	if seats <= 0 || days <= 0 {
 		return B2BLicenseRow{}, fmt.Errorf("seats and days must be positive")
+	}
+	if homeSeats < 0 {
+		return B2BLicenseRow{}, fmt.Errorf("home_seats must be non-negative")
 	}
 	var exists bool
 	if err := s.Pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM b2b_org WHERE id=$1)`, orgID).Scan(&exists); err != nil {
@@ -205,11 +229,11 @@ func (s Store) CreateB2BLicense(ctx context.Context, orgID uuid.UUID, seats, day
 	end := start.Add(time.Duration(days) * 24 * time.Hour)
 	var row B2BLicenseRow
 	err := s.Pool.QueryRow(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note, created_by)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING id, org_id, seats, starts_at, ends_at, note, created_by, created_at`,
-		orgID, seats, start, end, note, createdBy,
-	).Scan(&row.ID, &row.OrgID, &row.Seats, &row.StartsAt, &row.EndsAt, &row.Note, &row.CreatedBy, &row.CreatedAt)
+		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note, created_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING id, org_id, seats, home_seats, starts_at, ends_at, note, created_by, created_at`,
+		orgID, seats, homeSeats, start, end, note, createdBy,
+	).Scan(&row.ID, &row.OrgID, &row.Seats, &row.HomeSeats, &row.StartsAt, &row.EndsAt, &row.Note, &row.CreatedBy, &row.CreatedAt)
 	row.Active = true
 	return row, err
 }

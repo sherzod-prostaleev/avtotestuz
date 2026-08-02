@@ -511,17 +511,13 @@ func TestRequestOTPCooldown(t *testing.T) {
 
 func TestRegisterLoginHappyPath(t *testing.T) {
 	pool := testdb.New(t)
-	svc, sender := newTestService(t, pool)
+	svc, _ := newTestService(t, pool)
 	ctx := context.Background()
-	if _, err := svc.RequestOTP(ctx, "901234567", "1.1.1.1"); err != nil {
-		t.Fatalf("RequestOTP: %v", err)
-	}
 
 	reg, err := svc.Register(ctx, RegisterInput{
 		Phone:    "901234567",
 		Password: "secret123",
 		Name:     "Ali",
-		Code:     sender.last,
 		IP:       "1.1.1.1",
 	})
 	if err != nil {
@@ -552,16 +548,12 @@ func TestRegisterLoginHappyPath(t *testing.T) {
 
 func TestLoginAndRefreshRejectBanned(t *testing.T) {
 	pool := testdb.New(t)
-	svc, sender := newTestService(t, pool)
+	svc, _ := newTestService(t, pool)
 	ctx := context.Background()
-	if _, err := svc.RequestOTP(ctx, "901112233", "1.1.1.1"); err != nil {
-		t.Fatalf("RequestOTP: %v", err)
-	}
 
 	reg, err := svc.Register(ctx, RegisterInput{
 		Phone:    "901112233",
 		Password: "secret123",
-		Code:     sender.last,
 		IP:       "1.1.1.1",
 	})
 	if err != nil {
@@ -614,28 +606,20 @@ func TestRegisterWeakPassword(t *testing.T) {
 	}
 }
 
-func TestRegisterRejectsMissingOrWrongOTPWithoutCreatingProfileOrTrial(t *testing.T) {
+func TestRegisterRejectsDuplicatePhone(t *testing.T) {
 	pool := testdb.New(t)
 	svc, _ := newTestService(t, pool)
 	ctx := context.Background()
 
-	for _, code := range []string{"", "000000"} {
-		_, err := svc.Register(ctx, RegisterInput{
-			Phone: "901234567", Password: "secret123", Code: code, IP: "1.1.1.1",
-		})
-		if !errors.Is(err, ErrInvalidCode) {
-			t.Fatalf("code=%q err=%v want ErrInvalidCode", code, err)
-		}
+	if _, err := svc.Register(ctx, RegisterInput{
+		Phone: "901234567", Password: "secret123", IP: "1.1.1.1",
+	}); err != nil {
+		t.Fatalf("first register: %v", err)
 	}
-	var profiles, entitlements int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM profile`).Scan(&profiles); err != nil {
-		t.Fatal(err)
-	}
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM entitlement`).Scan(&entitlements); err != nil {
-		t.Fatal(err)
-	}
-	if profiles != 0 || entitlements != 0 {
-		t.Fatalf("unverified registration wrote profiles=%d entitlements=%d", profiles, entitlements)
+	if _, err := svc.Register(ctx, RegisterInput{
+		Phone: "901234567", Password: "secret123", IP: "1.1.1.1",
+	}); !errors.Is(err, ErrPhoneTaken) {
+		t.Fatalf("err=%v want ErrPhoneTaken", err)
 	}
 }
 

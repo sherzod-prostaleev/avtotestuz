@@ -38,14 +38,19 @@ describe("LoginPage", () => {
     expect(container.textContent).not.toContain("🚗");
   });
 
-  it("disables submit until phone and password are valid", () => {
+  it("keeps submit enabled and validates phone on submit", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
     renderWithIntl();
     const button = screen.getByRole("button", { name: "Kirish" });
-    expect(button).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
-    expect(button).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
     expect(button).not.toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "90111" } });
+    fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toBeInTheDocument()
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("logs in with phone+password and navigates to dashboard", async () => {

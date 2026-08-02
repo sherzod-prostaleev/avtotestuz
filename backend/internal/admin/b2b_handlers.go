@@ -116,9 +116,10 @@ func (h *Handler) addB2BMember(w http.ResponseWriter, r *http.Request) {
 }
 
 type createB2BLicenseBody struct {
-	Seats int    `json:"seats"`
-	Days  int    `json:"days"`
-	Note  string `json:"note"`
+	Seats     int    `json:"seats"`
+	HomeSeats int    `json:"home_seats"`
+	Days      int    `json:"days"`
+	Note      string `json:"note"`
 }
 
 func (h *Handler) createB2BLicense(w http.ResponseWriter, r *http.Request) {
@@ -133,13 +134,13 @@ func (h *Handler) createB2BLicense(w http.ResponseWriter, r *http.Request) {
 	}
 	claims, _ := FromContext(r.Context())
 	adminID := claims.AdminUserID
-	out, err := h.Svc.Store.CreateB2BLicense(r.Context(), orgID, body.Seats, body.Days, body.Note, "admin:"+adminID.String())
+	out, err := h.Svc.Store.CreateB2BLicense(r.Context(), orgID, body.Seats, body.Days, body.HomeSeats, body.Note, "admin:"+adminID.String())
 	if err != nil {
 		if IsNoRows(err) {
 			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
 			return
 		}
-		if strings.Contains(err.Error(), "positive") {
+		if strings.Contains(err.Error(), "positive") || strings.Contains(err.Error(), "home_seats") {
 			httpx.Error(w, http.StatusBadRequest, "invalid_license", err.Error())
 			return
 		}
@@ -147,7 +148,7 @@ func (h *Handler) createB2BLicense(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.licenses.create", "b2b_org_license", out.ID.String(),
-		nil, map[string]any{"org_id": orgID.String(), "seats": out.Seats, "ends_at": out.EndsAt},
+		nil, map[string]any{"org_id": orgID.String(), "seats": out.Seats, "home_seats": out.HomeSeats, "ends_at": out.EndsAt},
 		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
 	)
 	httpx.Data(w, http.StatusOK, out)
@@ -185,13 +186,23 @@ func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "not_member", "profile is not an org member")
 		return
 	}
-	seats, err := h.Svc.Store.ActiveB2BSeats(r.Context(), orgID)
+	// Personal grant is the Home Seat SKU (not classroom stations).
+	homeSeats, err := h.b2bStore().ActiveHomeSeats(r.Context(), orgID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "license check failed")
 		return
 	}
-	if seats <= 0 {
-		httpx.Error(w, http.StatusBadRequest, "no_license", "org has no active license seats")
+	if homeSeats <= 0 {
+		httpx.Error(w, http.StatusBadRequest, "no_home_seats", "org has no active home seat quota")
+		return
+	}
+	var orgStatus string
+	if err := h.Svc.Store.Pool.QueryRow(r.Context(), `SELECT status FROM b2b_org WHERE id=$1`, orgID).Scan(&orgStatus); err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "org check failed")
+		return
+	}
+	if orgStatus != "active" {
+		httpx.Error(w, http.StatusConflict, "org_suspended", "org is suspended")
 		return
 	}
 	already, err := h.Svc.Store.HasActiveB2BGrant(r.Context(), orgID, profileID)
@@ -202,13 +213,16 @@ func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
 	if !already {
 		used, err := h.Svc.Store.CountActiveB2BGrants(r.Context(), orgID)
 		if err != nil {
-			httpx.Error(w, http.StatusInternalServerError, "internal", "seat usage failed")
+			httpx.Error(w, http.StatusInternalServerError, "internal", "home seat usage failed")
 			return
 		}
-		if used >= seats {
-			httpx.Error(w, http.StatusConflict, "seats_exhausted", "active b2b grants already fill license seats")
+		if used >= homeSeats {
+			httpx.Error(w, http.StatusConflict, "home_seats_exhausted", "active home grants already fill home seat quota")
 			return
 		}
+	}
+	if noteBody := strings.TrimSpace(body.Note); noteBody == "" {
+		body.Note = "home seat"
 	}
 	if h.Pool == nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "pool required")
@@ -216,9 +230,9 @@ func (h *Handler) grantB2BMember(w http.ResponseWriter, r *http.Request) {
 	}
 	note := strings.TrimSpace(body.Note)
 	if note == "" {
-		note = "b2b grant"
+		note = "home seat"
 	}
-	note = "b2b_org=" + orgID.String() + "; " + note
+	note = "b2b_org=" + orgID.String() + "; kind=home; " + note
 
 	ctx := r.Context()
 	tx, err := h.Pool.Begin(ctx)
@@ -267,10 +281,18 @@ func writeB2BStoreErr(w http.ResponseWriter, err error, fallback string) {
 		httpx.Error(w, http.StatusNotFound, "not_found", "not found")
 	case errors.Is(err, b2b.ErrForbidden):
 		httpx.Error(w, http.StatusForbidden, "forbidden", "forbidden")
+	case errors.Is(err, b2b.ErrSeatsExhausted):
+		httpx.Error(w, http.StatusConflict, "seats_exhausted", "active stations already fill license seats")
+	case errors.Is(err, b2b.ErrOrgSuspended):
+		httpx.Error(w, http.StatusConflict, "org_suspended", "org is suspended")
+	case errors.Is(err, b2b.ErrNoLicense):
+		httpx.Error(w, http.StatusBadRequest, "no_license", "org has no active license seats")
 	case errors.Is(err, b2b.ErrConflict):
 		msg := "conflict"
 		if strings.Contains(err.Error(), "last owner") {
 			msg = "cannot remove or demote the last owner"
+		} else if strings.Contains(err.Error(), "already used") {
+			msg = "activation code already used"
 		}
 		httpx.Error(w, http.StatusConflict, "conflict", msg)
 	case errors.Is(err, b2b.ErrInvalid):
@@ -386,6 +408,155 @@ func (h *Handler) removeB2BMember(w http.ResponseWriter, r *http.Request) {
 
 type changeB2BRoleBody struct {
 	Role string `json:"role"`
+}
+
+type patchB2BOrgBody struct {
+	Status string `json:"status"`
+}
+
+func (h *Handler) patchB2BOrg(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body patchB2BOrgBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	if err := h.b2bStore().SetOrgStatus(r.Context(), orgID, body.Status); err != nil {
+		writeB2BStoreErr(w, err, "update org failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.orgs.status", "b2b_org", orgID.String(),
+		nil, map[string]any{"status": body.Status},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"id": orgID, "status": body.Status})
+}
+
+type createStationCodeBody struct {
+	Label    string `json:"label"`
+	TTLHours int    `json:"ttl_hours"`
+}
+
+func (h *Handler) createB2BStationCode(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body createStationCodeBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && r.ContentLength != 0 {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	ttl := time.Duration(body.TTLHours) * time.Hour
+	if body.TTLHours <= 0 {
+		ttl = 7 * 24 * time.Hour
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	out, err := h.b2bStore().CreateActivateCode(r.Context(), orgID, body.Label, "admin:"+adminID.String(), ttl)
+	if err != nil {
+		writeB2BStoreErr(w, err, "create station code failed")
+		return
+	}
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.stations.code", "b2b_org", orgID.String(),
+		nil, map[string]any{"code_id": out.ID.String(), "label": out.Label},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listB2BStations(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	out, err := h.b2bStore().ListStations(r.Context(), orgID, true)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "stations query failed")
+		return
+	}
+	if out == nil {
+		out = []b2b.StationRow{}
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) revokeB2BStation(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	stationID, ok := parseUUIDParam(w, r, "stationID")
+	if !ok {
+		return
+	}
+	if err := h.b2bStore().RevokeStation(r.Context(), orgID, stationID); err != nil {
+		writeB2BStoreErr(w, err, "revoke station failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.stations.revoke", "b2b_station", stationID.String(),
+		nil, map[string]any{"org_id": orgID.String()},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"revoked": true})
+}
+
+type partnerPromoBody struct {
+	Code      string `json:"code"`
+	Kind      string `json:"kind"`
+	Value     int    `json:"value"`
+	ValidDays int    `json:"valid_days"`
+}
+
+func (h *Handler) createB2BPartnerPromo(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var body partnerPromoBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
+		return
+	}
+	out, err := h.b2bStore().CreatePartnerPromo(r.Context(), orgID, body.Code, body.Kind, body.Value, body.ValidDays)
+	if err != nil {
+		writeB2BStoreErr(w, err, "create partner promo failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.partner_promo.create", "promo_code", out.ID.String(),
+		nil, map[string]any{"org_id": orgID.String(), "code": out.Code},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, out)
+}
+
+func (h *Handler) listB2BPartnerPromos(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	if err := h.b2bStore().EnsureOrgExists(r.Context(), orgID); err != nil {
+		writeB2BStoreErr(w, err, "org check failed")
+		return
+	}
+	out, err := h.b2bStore().ListPartnerPromos(r.Context(), orgID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "partner promos query failed")
+		return
+	}
+	if out == nil {
+		out = []b2b.PartnerPromo{}
+	}
+	httpx.Data(w, http.StatusOK, out)
 }
 
 func (h *Handler) changeB2BMemberRole(w http.ResponseWriter, r *http.Request) {

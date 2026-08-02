@@ -37,7 +37,6 @@ type registerBody struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
-	Code     string `json:"code"`
 }
 
 type loginBody struct {
@@ -73,7 +72,6 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Phone:    body.Phone,
 		Password: body.Password,
 		Name:     body.Name,
-		Code:     body.Code,
 		IP:       h.ClientIPs.Resolve(r),
 	})
 	if err != nil {

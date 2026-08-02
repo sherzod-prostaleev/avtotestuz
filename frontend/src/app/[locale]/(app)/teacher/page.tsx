@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Download, Users } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
+import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { Button } from "@/components/ui/button";
 
 type OrgSummary = {
@@ -48,6 +49,16 @@ type OrgStats = {
   sessions_finished_30d: number;
   active_members_7d: number;
   pending_invites: number;
+  license_expiring_soon?: boolean;
+  license_ends_at?: string;
+};
+
+type Station = {
+  id: string;
+  label: string;
+  status: string;
+  fingerprint?: string;
+  last_seen_at?: string;
 };
 
 type InviteRow = {
@@ -69,19 +80,25 @@ export default function TeacherPage() {
   const [role, setRole] = useState("student");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [stations, setStations] = useState<Station[]>([]);
+  const [stationLabel, setStationLabel] = useState("");
+  const [activateCode, setActivateCode] = useState("");
+  const [lastCode, setLastCode] = useState<string | null>(null);
 
   const openOrg = useCallback(
     async (id: string) => {
       setError(null);
       try {
-        const [detail, st, inv] = await Promise.all([
+        const [detail, st, inv, stns] = await Promise.all([
           apiGet<OrgDetail>(`me/teacher/orgs/${id}`),
           apiGet<OrgStats>(`me/teacher/orgs/${id}/stats`),
           apiGet<InviteRow[]>(`me/teacher/orgs/${id}/invites`),
+          apiGet<Station[]>(`me/teacher/orgs/${id}/stations`),
         ]);
         setSelected(detail);
         setStats(st);
         setInvites(inv);
+        setStations(stns);
       } catch {
         setError(t("errorLoad"));
       }
@@ -176,6 +193,59 @@ export default function TeacherPage() {
     }
   }
 
+  async function createStationCode() {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    setLastCode(null);
+    try {
+      const out = await apiPost<{ code: string }>(`me/teacher/orgs/${selected.org.id}/station-codes`, {
+        label: stationLabel || "PC",
+        ttl_hours: 168,
+      });
+      setLastCode(out.code);
+      setStationLabel("");
+      await refreshSelected();
+    } catch {
+      setError(t("errorStationCode"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function activateThisPC() {
+    if (!activateCode.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiPost("me/stations/activate", {
+        code: activateCode.trim(),
+        fingerprint: getDeviceFingerprint(),
+        label: stationLabel || "PC",
+      });
+      setActivateCode("");
+      if (selected) await refreshSelected();
+    } catch {
+      setError(t("errorActivateStation"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function revokeStation(stationId: string) {
+    if (!selected) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await apiDelete(`me/teacher/orgs/${selected.org.id}/stations/${stationId}`);
+      await refreshSelected();
+    } catch {
+      setError(t("errorRevokeStation"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const isOwner = selected?.org.my_role === "owner";
 
   return (
@@ -191,6 +261,22 @@ export default function TeacherPage() {
         <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
         <p className="mt-2 text-xs text-muted-foreground">{t("note")}</p>
       </header>
+
+      <section className="space-y-2 rounded-xl border border-border bg-card p-4">
+        <h2 className="text-sm font-bold">{t("activateThisPcTitle")}</h2>
+        <p className="text-xs text-muted-foreground">{t("activateThisPcHint")}</p>
+        <div className="flex flex-wrap gap-2">
+          <input
+            value={activateCode}
+            onChange={(e) => setActivateCode(e.target.value)}
+            placeholder={t("activateCodePlaceholder")}
+            className="h-10 flex-1 rounded-xl border border-border bg-background px-3 font-mono text-sm"
+          />
+          <Button type="button" size="sm" disabled={busy} onClick={() => void activateThisPC()}>
+            {t("activateThisPc")}
+          </Button>
+        </div>
+      </section>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
@@ -251,8 +337,58 @@ export default function TeacherPage() {
                 <span className="text-muted-foreground">{t("statPending")}</span>{" "}
                 <strong>{stats.pending_invites}</strong>
               </p>
+              {stats.license_expiring_soon ? (
+                <p className="col-span-full text-amber-700 dark:text-amber-400">{t("licenseExpiringSoon")}</p>
+              ) : null}
             </div>
           ) : null}
+
+          <div className="space-y-2 border-t border-border pt-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              {t("stationsTitle")}
+            </h3>
+            <div className="flex flex-wrap gap-2">
+              <input
+                value={stationLabel}
+                onChange={(e) => setStationLabel(e.target.value)}
+                placeholder={t("stationLabelPlaceholder")}
+                className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-sm"
+              />
+              <Button type="button" size="sm" disabled={busy} onClick={() => void createStationCode()}>
+                {t("createStationCode")}
+              </Button>
+            </div>
+            {lastCode ? (
+              <p className="rounded-lg bg-accent/10 px-3 py-2 font-mono text-sm font-bold">
+                {t("stationCodeReady")}: {lastCode}
+              </p>
+            ) : null}
+            <ul className="space-y-2">
+              {stations.map((s) => (
+                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <div>
+                    <p className="font-semibold">
+                      {s.label} · {s.status}
+                    </p>
+                    {s.fingerprint ? (
+                      <p className="font-mono text-xs text-muted-foreground">{s.fingerprint}</p>
+                    ) : null}
+                  </div>
+                  {s.status === "active" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => void revokeStation(s.id)}
+                    >
+                      {t("revokeStation")}
+                    </Button>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-2">
