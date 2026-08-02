@@ -12,6 +12,12 @@ import (
 	"github.com/google/uuid"
 )
 
+// learnerTyp is the `typ` claim every learner access token carries. Tokens
+// minted for other flows (admin sessions, admin TOTP challenge/enrollment)
+// are signed with the same secret, so ParseAccess matches on this exact value
+// rather than trying to enumerate the types it should refuse.
+const learnerTyp = "learner"
+
 type Claims struct {
 	ProfileID uuid.UUID
 	Role      string
@@ -22,7 +28,7 @@ func IssueAccess(secret []byte, profileID uuid.UUID, role string, ttl time.Durat
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  profileID.String(),
 		"role": role,
-		"typ":  "learner",
+		"typ":  learnerTyp,
 		"iat":  now.Unix(),
 		"exp":  now.Add(ttl).Unix(),
 		"jti":  uuid.NewString(),
@@ -44,9 +50,17 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 	if !ok {
 		return Claims{}, fmt.Errorf("invalid claims")
 	}
-	// Admin JWTs must never authenticate learner routes (blast-radius isolation).
-	if typ, _ := mc["typ"].(string); typ == "admin" {
-		return Claims{}, fmt.Errorf("admin token not allowed")
+	// Only a learner token authenticates learner routes (blast-radius
+	// isolation). This is an allowlist, not a "reject admin" denylist: the
+	// admin package also mints scoped tokens (admin_totp_challenge,
+	// admin_totp_enroll) that are signed with the same secret, so a denylist
+	// naming only "admin" let those parse here as a learner whose ProfileID
+	// is really an admin_user id. RejectBanned happens to refuse them today
+	// because no profile row has that id, but that is an accident of the
+	// route stack, not a guarantee — every future token type is refused here
+	// unless it says it is a learner.
+	if typ, _ := mc["typ"].(string); typ != learnerTyp {
+		return Claims{}, fmt.Errorf("token type %q not allowed on learner routes", typ)
 	}
 	sub, _ := mc["sub"].(string)
 	id, err := uuid.Parse(sub)

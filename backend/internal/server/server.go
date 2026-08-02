@@ -77,6 +77,13 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
 	r.Get("/metrics", metrics.Handler())
 
+	// dataKey seals data at rest (admin TOTP secrets, stored card PANs, the
+	// manual-pay Telegram credentials). It is DATA_ENCRYPTION_KEY when the
+	// deployment sets one and the JWT secret otherwise — the fallback is what
+	// keeps ciphertext written before the two keys were split readable, so it
+	// must be threaded into every Service that touches those columns.
+	dataKey := []byte(cfg.DataKey())
+
 	// M3 Super Admin — separate mount from learner /api/v1 (blast-radius isolation).
 	var pushSvc *push.Service
 	if deps.Pool != nil && deps.Queries != nil {
@@ -89,11 +96,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	if deps.Pool != nil {
 		adminStore := admin.Store{Pool: deps.Pool}
 		adminH := &admin.Handler{
-			Svc:             admin.Service{Store: adminStore, Secret: []byte(cfg.JWTSecret), Lim: auth.Limiter{R: deps.Redis}},
+			Svc:             admin.Service{Store: adminStore, Secret: []byte(cfg.JWTSecret), DataKey: dataKey, Lim: auth.Limiter{R: deps.Redis}},
 			Pool:            deps.Pool,
 			Redis:           deps.Redis,
 			Secret:          []byte(cfg.JWTSecret),
-			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret)},
+			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret), DataSecret: dataKey},
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
 		}
@@ -114,6 +121,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 					Pool:          deps.Pool,
 					PublicBaseURL: cfg.PublicBaseURL,
 					Secret:        []byte(cfg.JWTSecret),
+					DataSecret:    dataKey,
 				},
 				PaymeMerchantID:   cfg.PaymeMerchantID,
 				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),

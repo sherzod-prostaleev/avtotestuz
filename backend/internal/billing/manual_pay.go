@@ -81,7 +81,11 @@ func (s Service) StartManualCheckout(ctx context.Context, profileID uuid.UUID, t
 	}
 	defer func() { _ = dbtx.Rollback(ctx) }()
 	q := sqlc.New(dbtx)
-	txSvc := Service{Q: q, Pool: s.Pool, PublicBaseURL: s.PublicBaseURL, Secret: s.Secret}
+	// DataSecret must ride along with Secret: it is what the PAN and Telegram
+	// KEKs derive from once DATA_ENCRYPTION_KEY is set, so a copy carrying
+	// only Secret would silently fall back to the JWT secret and read or write
+	// card ciphertext under the wrong key.
+	txSvc := Service{Q: q, Pool: s.Pool, PublicBaseURL: s.PublicBaseURL, Secret: s.Secret, DataSecret: s.DataSecret}
 
 	amount := tariff.PriceUzs
 	var promoID uuid.NullUUID
