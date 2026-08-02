@@ -26,6 +26,21 @@ type AdminAuditLog struct {
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
+type AdminAuditLogArchive struct {
+	ID          uuid.UUID          `json:"id"`
+	AdminUserID uuid.NullUUID      `json:"admin_user_id"`
+	Action      string             `json:"action"`
+	EntityType  string             `json:"entity_type"`
+	EntityID    pgtype.Text        `json:"entity_id"`
+	BeforeJson  []byte             `json:"before_json"`
+	AfterJson   []byte             `json:"after_json"`
+	Ip          *netip.Addr        `json:"ip"`
+	Ua          string             `json:"ua"`
+	RequestID   string             `json:"request_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	ArchivedAt  pgtype.Timestamptz `json:"archived_at"`
+}
+
 type AdminPermission struct {
 	ID          uuid.UUID `json:"id"`
 	Code        string    `json:"code"`

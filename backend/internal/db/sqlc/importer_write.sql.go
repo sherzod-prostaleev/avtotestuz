@@ -16,6 +16,8 @@ const deleteAnswersForQuestion = `-- name: DeleteAnswersForQuestion :exec
 DELETE FROM answer WHERE question_id = $1
 `
 
+// Dev/fixture wipe helper. Production re-import must NOT call this when
+// session_answer / arena_answer rows still reference answer ids.
 func (q *Queries) DeleteAnswersForQuestion(ctx context.Context, questionID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteAnswersForQuestion, questionID)
 	return err
@@ -137,6 +139,60 @@ type SetCorrectAnswerParams struct {
 
 func (q *Queries) SetCorrectAnswer(ctx context.Context, arg SetCorrectAnswerParams) error {
 	_, err := q.db.Exec(ctx, setCorrectAnswer, arg.ID, arg.CorrectAnswerID)
+	return err
+}
+
+const upsertAnswer = `-- name: UpsertAnswer :one
+INSERT INTO answer (question_id, position, is_correct, image_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (question_id, position) DO UPDATE
+  SET is_correct = EXCLUDED.is_correct,
+      image_id = EXCLUDED.image_id
+RETURNING id
+`
+
+type UpsertAnswerParams struct {
+	QuestionID uuid.UUID     `json:"question_id"`
+	Position   int16         `json:"position"`
+	IsCorrect  bool          `json:"is_correct"`
+	ImageID    uuid.NullUUID `json:"image_id"`
+}
+
+// Preserve answer row ids across re-import so session_answer / arena_answer
+// foreign keys keep pointing at the same choices.
+func (q *Queries) UpsertAnswer(ctx context.Context, arg UpsertAnswerParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertAnswer,
+		arg.QuestionID,
+		arg.Position,
+		arg.IsCorrect,
+		arg.ImageID,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const upsertAnswerTranslation = `-- name: UpsertAnswerTranslation :exec
+INSERT INTO answer_translation (answer_id, locale, text, status)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (answer_id, locale) DO UPDATE
+  SET text = EXCLUDED.text, status = EXCLUDED.status
+`
+
+type UpsertAnswerTranslationParams struct {
+	AnswerID uuid.UUID `json:"answer_id"`
+	Locale   string    `json:"locale"`
+	Text     string    `json:"text"`
+	Status   string    `json:"status"`
+}
+
+func (q *Queries) UpsertAnswerTranslation(ctx context.Context, arg UpsertAnswerTranslationParams) error {
+	_, err := q.db.Exec(ctx, upsertAnswerTranslation,
+		arg.AnswerID,
+		arg.Locale,
+		arg.Text,
+		arg.Status,
+	)
 	return err
 }
 

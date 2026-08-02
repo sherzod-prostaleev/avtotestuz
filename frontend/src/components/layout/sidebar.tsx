@@ -9,7 +9,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
-import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
+import { useVariantCount } from "@/hooks/use-variant-count";
 import {
   LayoutDashboard,
   BookOpen,
@@ -43,6 +43,7 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const { streak, entitlement, user, loading } = useUserStats();
+  const ticketCount = useVariantCount();
 
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
@@ -50,7 +51,7 @@ export function Sidebar() {
 
   const primaryLinks: NavLink[] = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
-    { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: OFFICIAL_TICKET_COUNT }), icon: BookOpen },
+    { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: ticketCount }), icon: BookOpen },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
     { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },

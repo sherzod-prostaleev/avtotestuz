@@ -53,7 +53,19 @@ ON CONFLICT (source_ext_id) DO UPDATE
 RETURNING id;
 
 -- name: DeleteAnswersForQuestion :exec
+-- Dev/fixture wipe helper. Production re-import must NOT call this when
+-- session_answer / arena_answer rows still reference answer ids.
 DELETE FROM answer WHERE question_id = $1;
+
+-- name: UpsertAnswer :one
+-- Preserve answer row ids across re-import so session_answer / arena_answer
+-- foreign keys keep pointing at the same choices.
+INSERT INTO answer (question_id, position, is_correct, image_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (question_id, position) DO UPDATE
+  SET is_correct = EXCLUDED.is_correct,
+      image_id = EXCLUDED.image_id
+RETURNING id;
 
 -- name: InsertAnswer :one
 INSERT INTO answer (question_id, position, is_correct, image_id)
@@ -68,6 +80,12 @@ INSERT INTO question_translation (question_id, locale, text, status, source)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (question_id, locale) DO UPDATE
   SET text = EXCLUDED.text, status = EXCLUDED.status, source = EXCLUDED.source;
+
+-- name: UpsertAnswerTranslation :exec
+INSERT INTO answer_translation (answer_id, locale, text, status)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (answer_id, locale) DO UPDATE
+  SET text = EXCLUDED.text, status = EXCLUDED.status;
 
 -- name: InsertAnswerTranslation :exec
 INSERT INTO answer_translation (answer_id, locale, text, status)

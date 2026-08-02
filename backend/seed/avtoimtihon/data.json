@@ -51742,6 +51742,1196 @@
         }
       ],
       "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1236",
+      "category": "maneuvering_lane_position",
+      "image": "images/i1236_1.webp",
+      "texts": {
+        "ru": "Какие водители нарушают правила поворота на перекрестке?",
+        "uz-Cyrl": "Қайси ҳайдовчилар чорраҳада бурилиш қоидаларини бузадилар?",
+        "uz-Latn": "Qaysi haydovchilar chorrahada burilish qoidalarini buzadilar?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Никто не нарушает правила",
+            "uz-Cyrl": "Ҳеч ким қоидаларни бузмаяпти",
+            "uz-Latn": "Hech kim qoidalarni buzmayapti"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Только водитель мотоцикла, поворачивающий налево",
+            "uz-Cyrl": "Фақат чапга бурилаётган мотосикл ҳайдовчиси",
+            "uz-Latn": "Faqat chapga burilayotgan mototsikl haydovchisi"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "Оба",
+            "uz-Cyrl": "Иккиси ҳам",
+            "uz-Latn": "Ikkisi ham"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Только водитель автомобиля",
+            "uz-Cyrl": "Фақат машина ҳайдовчиси",
+            "uz-Latn": "Faqat mashina haydovchisi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1237",
+      "category": "maneuvering_lane_position",
+      "image": "images/i1237_1.webp",
+      "texts": {
+        "ru": "Какой сигнал должен подать красный автомобиль, поворачивающий направо, впереди стоящему транспортному средству?",
+        "uz-Cyrl": "Чораҳада ўнга борилаётган қизил транспорт воситаси олдиндаги транспорт воситасига қандай ишора бериш керак?",
+        "uz-Latn": "Chorahada o'nga burilayotgan qizil transport vositasi oldindagi transport vositasiga qanday ishora berish kerak?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Звуковой сигнал",
+            "uz-Cyrl": "Товушли ишора",
+            "uz-Latn": "Tovushli ishora"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Внешние световые приборы",
+            "uz-Cyrl": "Ташқи ёритиш ишоралари",
+            "uz-Latn": "Tashqi yoritish ishoralari"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "Необходимо дождаться разрешающего сигнала светофора",
+            "uz-Cyrl": "Светафорнинг рухсат этувчи ишорасини кутиш керак",
+            "uz-Latn": "Svetaforning ruxsat etuvchi ishorasini kutish kerak"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Все ответы верны",
+            "uz-Cyrl": "Барча жавоблар тўғри",
+            "uz-Latn": "Barcha javoblar to'g'ri"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1238",
+      "category": "overtaking_speed",
+      "image": "images/i1238_1.webp",
+      "texts": {
+        "ru": "Разрешен ли вам обгон?",
+        "uz-Cyrl": "Сизга қувиб ўтишга рухсат бериладими?",
+        "uz-Latn": "Sizga quvib o'tishga ruxsat beriladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешено",
+            "uz-Cyrl": "Рухсат берилади",
+            "uz-Latn": "Ruxsat beriladi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Разрешено, если обгон будет завершен до перекрестка",
+            "uz-Cyrl": "Агар чорраҳадан олдин қувиб ўтиш амалга оширилса, рухсат этилади",
+            "uz-Latn": "Agar chorrahadan oldin quvib o'tish amalga oshirilsa, ruxsat etiladi"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Запрещено",
+            "uz-Cyrl": "Тақиқланади",
+            "uz-Latn": "Taqiqlanadi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1239",
+      "category": "road_signs_markings",
+      "image": "images/i1239_1.webp",
+      "texts": {
+        "ru": "На каком рисунке показано 4 полосы?",
+        "uz-Cyrl": "Қайси расмда 4 та тасма кўрсатилган?",
+        "uz-Latn": "Qaysi rasmda 4 ta tasma ko'rsatilgan?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "2 и 3",
+            "uz-Cyrl": "2 ва 3",
+            "uz-Latn": "2 va 3"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Только 2",
+            "uz-Cyrl": "Фақат 2",
+            "uz-Latn": "Faqat 2"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Только 1",
+            "uz-Cyrl": "Фақат 1",
+            "uz-Latn": "Faqat 1"
+          }
+        },
+        {
+          "position": 4,
+          "correct": true,
+          "texts": {
+            "ru": "1, 2 и 3",
+            "uz-Cyrl": "1, 2 ва 3",
+            "uz-Latn": "1, 2 va 3"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1240",
+      "category": "stopping_parking",
+      "image": "images/i1240_1.webp",
+      "texts": {
+        "ru": "Разрешается ли стоянка автомобиля на левой стороне дороги на дорогах с односторонним движением, имеющих две полосы движения?",
+        "uz-Cyrl": "Иккита ҳаракат бўлаги бўлган бир томонлама ҳаракат ташкил этилган йўлларда, автомобилнинг йўлни чап томонида тўхтаб туришига рухсат этиладими?",
+        "uz-Latn": "Ikkita harakat bo'lagi bo'lgan bir tomonlama harakat tashkil etilgan yo'llarda, avtomobilning yo'lni chap tomonida to'xtab turishiga ruxsat etiladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешается",
+            "uz-Cyrl": "Рухсат этилади",
+            "uz-Latn": "Ruxsat etiladi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Запрещается",
+            "uz-Cyrl": "Тақиқланади",
+            "uz-Latn": "Taqiqlanadi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1241",
+      "category": "overtaking_speed",
+      "image": "images/i1241_1.webp",
+      "texts": {
+        "ru": "По какому направлению водитель автомобиля правильно выполняет обгон?",
+        "uz-Cyrl": "Автомобил ҳайдовчиси қувиб ўтишни қайси йўналиш бўйича тўғри бажаради?",
+        "uz-Latn": "Avtomobil haydovchisi quvib o'tishni qaysi yo'nalish bo'yicha to'g'ri bajaradi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "По направлению «А»",
+            "uz-Cyrl": "«А» йўналиши бўйича",
+            "uz-Latn": "«А» yo'nalishi bo'yicha"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "По направлению «Б»",
+            "uz-Cyrl": "«Б» йўналиши бўйича",
+            "uz-Latn": "«Б» yo'nalishi bo'yicha"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "По направлению «А» и «Б»",
+            "uz-Cyrl": "«А» ва «Б» йўналиши бўйича",
+            "uz-Latn": "«А» va «Б» yo'nalishi bo'yicha"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1242",
+      "category": "general_provisions_admin",
+      "texts": {
+        "ru": "Считается ли человек, обучающий вождению транспортного средства, водителем?",
+        "uz-Cyrl": "Транспорт воситасини бошқаришни ўргатётган шахс ҳайдовчи ҳисопланадими?",
+        "uz-Latn": "Transport vositasini boshqarishni o'rgatyotgan shaxs haydovchi hisoplanadimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Да",
+            "uz-Cyrl": "Ҳа",
+            "uz-Latn": "Ha"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Нет",
+            "uz-Cyrl": "Йўқ",
+            "uz-Latn": "Yo'q"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1243",
+      "category": "accidents_first_aid_dynamics",
+      "texts": {
+        "ru": "Если в результате дорожно-транспортного происшествия нет пострадавших, а материальный ущерб несущественен, могут ли водители сами покинуть место происшествия и прибыть на ближайший пост ГСБДД или в органы внутренних дел для оформления происшествия?",
+        "uz-Cyrl": "Агар йўл-транспорт ҳодисаси натижасида ҳеч ким жабрланмаса, моддий зарар эса аҳамиятсиз бўлса, ҳайдовчиларнинг ўзлари ҳодиса рўй берган жойни тарк этиб, ДЙҲХХнинг энг яқин ёки ИИО идорасига ҳодисани қайд қилиш учун бора оладиларми?",
+        "uz-Latn": "Agar yo'l-transport hodisasi natijasida hech kim jabrlanmasa, moddiy zarar esa ahamiyatsiz bo'lsa, haydovchilarning o'zlari hodisa ro'y bergan joyni tark etib, DYHXXning eng yaqin yoki IIO idorasiga hodisani qayd qilish uchun bora oladilarmi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Не могут",
+            "uz-Cyrl": "Бора олмайдилар",
+            "uz-Latn": "Bora olmaydilar"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Могут",
+            "uz-Cyrl": "Бора оладилар",
+            "uz-Latn": "Bora oladilar"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "Могут; предварительно составив схему происшествия и подписав ее",
+            "uz-Cyrl": "Ҳодиса чизмасини тахминий тузиб ва уни имзолаб бора оладилар",
+            "uz-Latn": "Hodisa chizmasini taxminiy tuzib va uni imzolab bora oladilar"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1244",
+      "category": "pedestrians_public_transport",
+      "image": "images/i1244_1.webp",
+      "texts": {
+        "ru": "На каком снимке пешеход переходил дорогу с нарушением правил?",
+        "uz-Cyrl": "Қайси расмда пиёда қоидани бузган ҳолда йўлни кесиб ўтябди?",
+        "uz-Latn": "Qaysi rasmda piyoda qoidani buzgan holda yo'lni kesib o'tyabdi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Пешеход на рисунке 1-2",
+            "uz-Cyrl": "1-2-расмдаги пиёда",
+            "uz-Latn": "1-2-rasmdagi piyoda"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Пешеход на рисунке 3",
+            "uz-Cyrl": "3-расмдаги пиёда",
+            "uz-Latn": "3-rasmdagi piyoda"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Пешеход на рисунке 4",
+            "uz-Cyrl": "4-расмдаги пиёда",
+            "uz-Latn": "4-rasmdagi piyoda"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Пешеход на всех рисунках",
+            "uz-Cyrl": "Барча расмдаги пиёда",
+            "uz-Latn": "Barcha rasmdagi piyoda"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1245",
+      "category": "traffic_signals_gestures",
+      "image": "images/i1245_1.webp",
+      "texts": {
+        "ru": "В каком направлении следует двигаться на этом светофоре  ?  ",
+        "uz-Cyrl": "Сиз ушбу ишорада қайси йўналишларга ҳаракатланишингиз керак?",
+        "uz-Latn": "Siz ushbu ishorada qaysi yo'nalishlarga harakatlanishingiz kerak?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Только вперед",
+            "uz-Cyrl": "Фақат тўғрига",
+            "uz-Latn": "Faqat to'g'riga"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Только назад",
+            "uz-Cyrl": "Фақат орқа йўналишга",
+            "uz-Latn": "Faqat orqa yo'nalishga"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Только влево",
+            "uz-Cyrl": "Фақат чапга",
+            "uz-Latn": "Faqat chapga"
+          }
+        },
+        {
+          "position": 4,
+          "correct": true,
+          "texts": {
+            "ru": "Только вправо",
+            "uz-Cyrl": "Фақат ўнгга",
+            "uz-Latn": "Faqat o'ngga"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1246",
+      "category": "traffic_signals_gestures",
+      "image": "images/i1246_1.webp",
+      "texts": {
+        "ru": "Что означает, когда регулировщик дорожного движения поднимает руку на перекрестке?",
+        "uz-Cyrl": "Тартипга солувчининг чораҳаларда қўли юқорига кўтарилганда қандай манони билдиради?",
+        "uz-Latn": "Tartibga soluvchining chorahalarda qo'li yuqoriga ko'tarilganda qanday manoni bildiradi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Приоритет светофора",
+            "uz-Cyrl": "Светафор устунлиги",
+            "uz-Latn": "Svetafor ustunligi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Изменение направления движения",
+            "uz-Cyrl": "Йўналишни ўзгартириш",
+            "uz-Latn": "Yo'nalishni o'zgartirish"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Начало движения",
+            "uz-Cyrl": "Ҳаракатни бошлаш",
+            "uz-Latn": "Harakatni boshlash"
+          }
+        },
+        {
+          "position": 4,
+          "correct": true,
+          "texts": {
+            "ru": "Запрет движения",
+            "uz-Cyrl": " Ҳаракатни тақиқлаш",
+            "uz-Latn": "Harakatni taqiqlash"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1247",
+      "category": "road_signs_markings",
+      "image": "images/i1247_1.webp",
+      "texts": {
+        "ru": "Какой знак обозначает полосу для велосипедистов и средств индивидуальной мобильности?",
+        "uz-Cyrl": "Қайси белги велосипедчилар ва индивидуал ҳаракатланиш воситалари учун тасмани билдиради?",
+        "uz-Latn": "Qaysi belgi velosipedchilar va individual harakatlanish vositalari uchun tasmani bildiradi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "1",
+            "uz-Cyrl": "1",
+            "uz-Latn": "1"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "2",
+            "uz-Cyrl": "2",
+            "uz-Latn": "2"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "3",
+            "uz-Cyrl": "3",
+            "uz-Latn": "3"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1248",
+      "category": "traffic_signals_gestures",
+      "image": "images/i1248_1.webp",
+      "texts": {
+        "ru": "В каких направлениях могут двигаться транспортные средства при данном сигнале от регулировщика дорожного движения?",
+        "uz-Cyrl": "Тартипга солувчининг ушбу ишорасида транспорт воситари қайси йўналишларга ҳаракатланиш мумкун?",
+        "uz-Latn": "Tartibga soluvchining ushbu ishorasida transport vositari qaysi yo'nalishlarga harakatlanish mumkun?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Трамваи — направо, нерельсовый транспорт — направо и вправо",
+            "uz-Cyrl": "Трамвайларга тўғрига, релессиз транспорт воситари тўғрига ва ўнгга",
+            "uz-Latn": "Tramvaylarga to'g'riga, relessiz transport vositari to'g'riga va o'ngga"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Трамваи — налево, нерельсовый транспорт — во всех направлениях.",
+            "uz-Cyrl": "Трамвайларга чапга, релессиз транспорт воситари барча йўналишларга",
+            "uz-Latn": "Tramvaylarga chapga, relessiz transport vositari barcha yo'nalishlarga"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Все направления",
+            "uz-Cyrl": "Барча йўналишларга",
+            "uz-Latn": "Barcha yo'nalishlarga"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1249",
+      "category": "stopping_parking",
+      "image": "images/i1249_1.webp",
+      "texts": {
+        "ru": "Какой автомобиль, остановившийся из-за затора, не нарушает правила?",
+        "uz-Cyrl": "Тирбандлик сабабли тўхтаб турган қайси автомобил қоидани бузмаяпти?",
+        "uz-Latn": "Tirbandlik sababli to'xtab turgan qaysi avtomobil qoidani buzmayapti?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Оба не нарушают",
+            "uz-Cyrl": "Ҳар иккаласи бузмаяпти",
+            "uz-Latn": "Har ikkisi buzmayapti"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Жёлтый автомобиль",
+            "uz-Cyrl": "Сариқ автомобил",
+            "uz-Latn": "Sariq avtomobil"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Красный автомобиль",
+            "uz-Cyrl": "Қизил автомобил",
+            "uz-Latn": "Qizil avtomobil"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Оба нарушают",
+            "uz-Cyrl": "Ҳар иккаласи бузяпти",
+            "uz-Latn": "Har ikkisi buzayapti"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1250",
+      "category": "vehicle_equipment_lighting",
+      "image": "images/i1250_1.webp",
+      "texts": {
+        "ru": "Какой из следующих опознавательных знаков может быть установлен по желанию водителя?",
+        "uz-Cyrl": "Қуйидаги таниқлик белгиларидан қайси бири ҳайдовчининг хоҳишига кўра ўрнатилиши мумкин?",
+        "uz-Latn": "Quyidagi taniqlik belgilaridan qaysi biri haydovchining xohishiga ko'ra o'rnatilishi mumkin?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Начинающий водитель",
+            "uz-Cyrl": "Ҳайдовчиликни энди бошлаган шахс белгиси",
+            "uz-Latn": "Haydovchilikni endi boshlagan shaxs belgisi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Автомобиль, управляемый водителем с инвалидностью",
+            "uz-Cyrl": "Ногирон ҳайдовчи бошқараётган автомобиль белгис",
+            "uz-Latn": "Nogiron haydovchi boshqarayotgan avtomobil belgisi"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Автомобиль, управляемый врачом",
+            "uz-Cyrl": "Шифокор ҳайдовчи бошқараётган автомобиль белгиси",
+            "uz-Latn": "Shifokor haydovchi boshqarayotgan avtomobil belgisi"
+          }
+        },
+        {
+          "position": 4,
+          "correct": true,
+          "texts": {
+            "ru": "Все знаки",
+            "uz-Cyrl": "Барча белгилар",
+            "uz-Latn": "Barcha belgilar"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1251",
+      "category": "vehicle_equipment_lighting",
+      "image": "images/i1251_1.webp",
+      "texts": {
+        "ru": "Какой из следующих опознавательных знаков может быть установлен по желанию водителя?",
+        "uz-Cyrl": "Қуйидаги таниқлик белгиларидан қайси бири ҳайдовчининг хоҳишига кўра ўрнатилиши мумкин?",
+        "uz-Latn": "Quyidagi taniqlik belgilaridan qaysi biri haydovchining xohishiga ko'ra o'rnatilishi mumkin?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "1, 2",
+            "uz-Cyrl": "1, 2",
+            "uz-Latn": "1, 2"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "2, 3",
+            "uz-Cyrl": "2, 3",
+            "uz-Latn": "2, 3"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "2, 3",
+            "uz-Cyrl": "2, 3",
+            "uz-Latn": "2, 3"
+          }
+        },
+        {
+          "position": 4,
+          "correct": true,
+          "texts": {
+            "ru": "Все знаки",
+            "uz-Cyrl": "Барча белгилар",
+            "uz-Latn": "Barcha belgilar"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1252",
+      "category": "priority_intersections",
+      "image": "images/i1252_1.webp",
+      "texts": {
+        "ru": "Нарушает ли водитель красного автомобиля правила дорожного движения?",
+        "uz-Cyrl": "Қизил автомобиль ҳайдовчиси қоидани бузиб ҳаракатланмоқдами?",
+        "uz-Latn": "Qizil avtomobil haydovchisi qoidani buzib harakatlanmoqdami?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Не нарушает",
+            "uz-Cyrl": "Бузмади",
+            "uz-Latn": "Buzmadi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Нарушает",
+            "uz-Cyrl": "Бузди",
+            "uz-Latn": "Buzdi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1253",
+      "category": "stopping_parking",
+      "image": "images/i1253_1.webp",
+      "texts": {
+        "ru": "На каком снимке водитель остановился без нарушения правил?",
+        "uz-Cyrl": "Ҳайдовчи қайси расмда қоидани бузмай тўхтаган?",
+        "uz-Latn": "Haydovchi qaysi rasmda qoidani buzmay to'xtagan?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "На рисунке слева",
+            "uz-Cyrl": "Чапдаги расмда",
+            "uz-Latn": "Chapdagi rasmda"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "На рисунке справа",
+            "uz-Cyrl": "Ўнгдаги расмда",
+            "uz-Latn": "O'ngdagi rasmda"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "На обоих изображениях",
+            "uz-Cyrl": "Ҳар иккила расмда",
+            "uz-Latn": "Har ikkila rasmda"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1254",
+      "category": "special_road_zones",
+      "texts": {
+        "ru": "Разрешается ли движение других видов транспортных средств по полосе проезжей части, выделенной только для транспортных средств установленного направления?",
+        "uz-Cyrl": "Фақат белгиланган йўналишли транспорт воситаларига қатнов қисимда ажратилган тасмасида бошқа турдаги транспорт воситалари ҳаракатланишга руҳсат этиладими?",
+        "uz-Latn": "Faqat belgilangan yo'nalishli transport vositalariga qatnov qisimda ajratilgan tasmasida boshqa turdagi transport vositalari harakatlanishga ruhsat etiladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Разрешено",
+            "uz-Cyrl": "Рухсат этилади",
+            "uz-Latn": "Ruxsat etiladi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Запрещено",
+            "uz-Cyrl": "Тақиқланади",
+            "uz-Latn": "Taqiqlanadi"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешается только по истечении времени движения транспортного средства по установленному направлению",
+            "uz-Cyrl": "Фақат белгиланган йўналишли транспорт воситасининг ҳаракатланиш вақти тугаганида руҳсат этилади",
+            "uz-Latn": "Faqat belgilangan yo'nalishli transport vositasining harakatlanish vaqti tugaganida ruhsat etiladi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1255",
+      "category": "general_provisions_admin",
+      "texts": {
+        "ru": "Из скольких глав и пунктов правил дорожного движения состоит \"Дорога\"?",
+        "uz-Cyrl": "Йўл ҳаракат қоидаларида нечта боб ва бандидан иборат?",
+        "uz-Latn": "Yo‘l harakat qoidalarida nechta bob va bandidan iborat?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Глава 50 - параграф 300",
+            "uz-Cyrl": "50 боб 300 банд",
+            "uz-Latn": "50 bob 300 band"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Глава 37 - параграф 286",
+            "uz-Cyrl": "37 боб 286 банд",
+            "uz-Latn": "37 bob 286 band"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "Глава  29 - параграф 186",
+            "uz-Cyrl": "29 боб 186 банд",
+            "uz-Latn": "29 bob 186 band"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1256",
+      "category": "overtaking_speed",
+      "texts": {
+        "ru": "Разрешается опережение безрельсового транспортного средства, движущегося в одном направлении (не начавшего поворот):",
+        "uz-Cyrl": "Бир йўналишда ҳаракатланаётган (бурилишга киришмаган) релссиз транспорт воситасидан ўзиб кетишга рухсат берилади:",
+        "uz-Latn": "Bir yo‘nalishda harakatlanayotgan (burilishga kirishmagan) relssiz transport vositasidan o‘zib ketishga ruxsat beriladi:"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Только слева",
+            "uz-Cyrl": "Фақат чап томондан",
+            "uz-Latn": "Faqat chap tomondan"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Только справа",
+            "uz-Cyrl": "Фақат ўнг томондан",
+            "uz-Latn": "Faqat o‘ng tomondan"
+          }
+        },
+        {
+          "position": 3,
+          "correct": true,
+          "texts": {
+            "ru": "С обеих сторон",
+            "uz-Cyrl": "Ҳар икки томондан",
+            "uz-Latn": "Har ikki tomondan"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1257",
+      "category": "road_signs_markings",
+      "image": "images/i1257_1.webp",
+      "texts": {
+        "ru": "Как называется эта наклонная линия?",
+        "uz-Cyrl": "Ушбу ётиқ чизиқ қандай номланади?",
+        "uz-Latn": "Ushbu yotiq chiziq qanday nomlanadi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Ширина перекрёстка",
+            "uz-Cyrl": "Чорраҳа кенглиги",
+            "uz-Latn": "Choraha kengligi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Площадь перекрёстка",
+            "uz-Cyrl": "Чорраҳа майдони",
+            "uz-Latn": "Choraha maydoni"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1258",
+      "category": "vehicle_equipment_lighting",
+      "image": "images/i1258_1.webp",
+      "texts": {
+        "ru": "В данной ситуации какой световой сигнал вы обязаны включить?",
+        "uz-Cyrl": "Бу ҳолатда қайси ёруғлик ишорасини ёқишингиз шарт?",
+        "uz-Latn": "Bu holatda qaysi yorug'lik ishorasini yoqishingiz shart?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Включите указатель поворота налево",
+            "uz-Cyrl": "Чапга бурилиш кўрсатгичини ёқинг",
+            "uz-Latn": "Chapga burilish ko'rsatgichini yoqing"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Переключите на дальний/ближний свет",
+            "uz-Cyrl": "Узоқ/яқин ёруғликка ўтказинг",
+            "uz-Latn": "Uzoq/yaqin yorug‘likka o‘tkazing"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Используйте оба одновременно",
+            "uz-Cyrl": "Иккаласини бир вақтда қўлланг",
+            "uz-Latn": "Ikkalasini bir vaqtta qo'llang"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1259",
+      "category": "stopping_parking",
+      "image": "images/i1259_1.webp",
+      "texts": {
+        "ru": "Разрешена ли остановка автомобиля в данной ситуации?",
+        "uz-Cyrl": "Автомобилга шу вазиятда тўхташга рухсат этиладими?",
+        "uz-Latn": "Avtomobilga shu vaziyatda to‘xtashga ruxsat etiladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Запрещена",
+            "uz-Cyrl": "Тақиқланади",
+            "uz-Latn": "Taqiqlanadi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешена",
+            "uz-Cyrl": "Рухсат этилади",
+            "uz-Latn": "Ruxsat etiladi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1260",
+      "category": "priority_intersections",
+      "image": "images/i1260_1.webp",
+      "texts": {
+        "ru": "Какое транспортное средство движется правильно?",
+        "uz-Cyrl": "Қайси транспорт воситаси тўғри ҳаракатланмоқда?",
+        "uz-Latn": "Qaysi transport vositasi to'g'ri harakatlanmoqda?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Жёлтый и зелёный автомобили",
+            "uz-Cyrl": "Сариқ ва яшил автомобил",
+            "uz-Latn": "Sariq va yashil avtomobil"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Красный и жёлтый автомобили",
+            "uz-Cyrl": "Қизил ва сариқ автомобил",
+            "uz-Latn": "Qizil va sariq avtomobil"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Зелёный и красный автомобили",
+            "uz-Cyrl": "Яшил ва қизил автомобил",
+            "uz-Latn": "Yashil va qizil avtomobil"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Все правильно",
+            "uz-Cyrl": "Барчаси тўғри",
+            "uz-Latn": "Barchasi to'g'ri"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1261",
+      "category": "traffic_signals_gestures",
+      "image": "images/i1261_1.webp",
+      "texts": {
+        "ru": "Что означает сигнал регулировщика, когда его руки вытянуты в стороны?",
+        "uz-Cyrl": "Тартибга солувчининг қўллари ҳар икки ёнга чўзилганда қандай маънони билдиради?",
+        "uz-Latn": "Tartibga soluvchining qo'llari har ikki yonga cho'zilganda qanday ma'noni bildiradi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Трамваям с левой и правой стороны разрешается движение прямо, безрельсовым транспортным средствам — прямо и направо; со стороны груди и спины движение запрещено",
+            "uz-Cyrl": "Чап ва ўнг томондан трамвайларга — тўғрига, рельссиз транспорт воситаларига — тўғрига ва ўнгга ҳаракатланишга рухсат этилади, олд ва орқа томондан эса ҳаракат тақиқланади",
+            "uz-Latn": "Chap va o'ng tomondan tramvaylarga — to'g'riga, relssiz transport vositalariga — to'g'riga va o'ngga harakatlanishga ruxsat etiladi, old va orqa tomondan esa harakat taqiqlanadi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Трамваям с левой и правой стороны разрешается поворот налево, безрельсовым транспортным средствам — направо",
+            "uz-Cyrl": "Чап ва ўнг томондан трамвайларга — чапга, рельссиз транспорт воситаларига — ўнгга ҳаракатланишга рухсат этилади",
+            "uz-Latn": "Chap va o'ng tomondan tramvaylarga — chapga, relssiz transport vositalariga — o'ngga harakatlanishga ruxsat etiladi"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Трамваям с левой и правой стороны разрешается движение прямо, безрельсовым транспортным средствам — прямо, направо и налево",
+            "uz-Cyrl": "Чап ва ўнг томондан трамвайларга — тўғрига, рельссиз транспорт воситаларига — тўғрига, ўнгга ва чапга ҳаракатланишга рухсат этилади",
+            "uz-Latn": "Chap va o'ng tomondan tramvaylarga — to'g'riga, relssiz transport vositalariga — to'g'riga, o'ngga va chapga harakatlanishga ruxsat etiladi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1262",
+      "category": "maneuvering_lane_position",
+      "image": "images/i1262_1.webp",
+      "texts": {
+        "ru": "Разрешается ли водителю синего автомобиля в данной ситуации повернуть направо?",
+        "uz-Cyrl": "Кўк машина ҳайдовчисига бу ҳолатда ўнгга бурилишга рухсат этиладими?",
+        "uz-Latn": "Ko'k mashina haydovchisiga bu holatda o'ngga burilishga ruxsat etiladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешается",
+            "uz-Cyrl": "Рухсат этилади",
+            "uz-Latn": "Ruxsat etiladi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": false,
+          "texts": {
+            "ru": "Не разрешается",
+            "uz-Cyrl": "Рухсат этилмайди",
+            "uz-Latn": "Ruxsat etilmaydi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1263",
+      "category": "general_provisions_admin",
+      "texts": {
+        "ru": "Для чего разработаны Правила дорожного движения Республики Узбекистан?",
+        "uz-Cyrl": "Ўзбекистон Республикаси йўл ҳаракати қоидалари нима учун ташкил этилган?",
+        "uz-Latn": "O'zbekiston Respublikasi yo'l harakati qoidalari nima uchun tashkil etilgan?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Для определения порядка тонировки стёкол автомобилей",
+            "uz-Cyrl": "Автомобил ойналарини қорайтириш тартибини белгилаш учун",
+            "uz-Latn": "Avtomobil oynalarini qoraytirish tartibini belgilash uchun"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Для дальнейшего совершенствования правил дорожного движения, предотвращения дорожно-транспортных происшествий, обеспечения безопасности дорожного движения и повышения её эффективности",
+            "uz-Cyrl": "Йўл ҳаракати қоидаларини янада такомиллаштириш, йўл-транспорт ҳодисаларининг олдини олиш, йўл ҳаракати хавфсизлигини назорат қилиш ва самарадорлигини ошириш мақсадида",
+            "uz-Latn": "Yo'l harakati qoidalarini yanada takomillashtirish, yo'l-transport hodisalarining oldini olish, yo'l harakati xavfsizligini nazorat qilish va samaradorligini oshirish maqsadida"
+          }
+        },
+        {
+          "position": 3,
+          "correct": false,
+          "texts": {
+            "ru": "Для государственной регистрации транспортных средств и взыскания штрафов",
+            "uz-Cyrl": "Транспорт воситаларини давлат рўйхатидан ўтказиш ва жарималарни ундириш мақсадида",
+            "uz-Latn": "Transport vositalarini davlat ro'yxatidan o'tkazish va jarimalarni undirish maqsadida"
+          }
+        },
+        {
+          "position": 4,
+          "correct": false,
+          "texts": {
+            "ru": "Для ремонта дорожных ям и проведения дорожных работ",
+            "uz-Cyrl": "Йўллардаги чуқурликларни ва йўл ишларини таъмирлаш учун",
+            "uz-Latn": "Yo'llardagi chuqurliklarni va yo'l ishlarini ta'mirlash uchun"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
+    },
+    {
+      "ext_id": "avtoimtihon-1264",
+      "category": "stopping_parking",
+      "image": "images/i1264_1.webp",
+      "texts": {
+        "ru": "Разрешена ли остановка черному автомобилю в указанном месте?",
+        "uz-Cyrl": "Кўрсатилган жойда қора автомобилга тўхташга рухсат этиладими?",
+        "uz-Latn": "Ko'rsatilgan joyda qora avtomobilga to'xtashga ruxsat etiladimi?"
+      },
+      "answers": [
+        {
+          "position": 1,
+          "correct": false,
+          "texts": {
+            "ru": "Запрещается",
+            "uz-Cyrl": "Тақиқланади",
+            "uz-Latn": "Taqiqlanadi"
+          }
+        },
+        {
+          "position": 2,
+          "correct": true,
+          "texts": {
+            "ru": "Разрешается",
+            "uz-Cyrl": "Рухсат этилади",
+            "uz-Latn": "Ruxsat etiladi"
+          }
+        }
+      ],
+      "source": "avtoimtihon"
     }
   ],
   "variants": [
@@ -53283,7 +54473,41 @@
         "avtoimtihon-1232",
         "avtoimtihon-1233",
         "avtoimtihon-1234",
-        "avtoimtihon-1235"
+        "avtoimtihon-1235",
+        "avtoimtihon-1236",
+        "avtoimtihon-1237",
+        "avtoimtihon-1238",
+        "avtoimtihon-1239",
+        "avtoimtihon-1240",
+        "avtoimtihon-1241",
+        "avtoimtihon-1242",
+        "avtoimtihon-1243",
+        "avtoimtihon-1244"
+      ]
+    },
+    {
+      "number": 63,
+      "questions": [
+        "avtoimtihon-1245",
+        "avtoimtihon-1246",
+        "avtoimtihon-1247",
+        "avtoimtihon-1248",
+        "avtoimtihon-1249",
+        "avtoimtihon-1250",
+        "avtoimtihon-1251",
+        "avtoimtihon-1252",
+        "avtoimtihon-1253",
+        "avtoimtihon-1254",
+        "avtoimtihon-1255",
+        "avtoimtihon-1256",
+        "avtoimtihon-1257",
+        "avtoimtihon-1258",
+        "avtoimtihon-1259",
+        "avtoimtihon-1260",
+        "avtoimtihon-1261",
+        "avtoimtihon-1262",
+        "avtoimtihon-1263",
+        "avtoimtihon-1264"
       ]
     }
   ],

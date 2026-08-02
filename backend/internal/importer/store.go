@@ -212,9 +212,9 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 			rep.QuestionsQuarantined++
 		}
 
-		if err := q.DeleteAnswersForQuestion(ctx, qid); err != nil {
-			return rep, err
-		}
+		// Upsert answers in place. Never DELETE answer rows during re-import:
+		// session_answer / arena_answer keep FK references to answer ids, and
+		// wiping them would either fail the transaction or erase learner history.
 		for _, a := range cq.Answers {
 			if a.Position < 1 || a.Position > 5 {
 				continue // invariant issue already recorded; DB CHECK would reject it
@@ -223,7 +223,7 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 			if err != nil {
 				return rep, err
 			}
-			aid, err := q.InsertAnswer(ctx, sqlc.InsertAnswerParams{
+			aid, err := q.UpsertAnswer(ctx, sqlc.UpsertAnswerParams{
 				QuestionID: qid, Position: int16(a.Position), IsCorrect: a.Correct, ImageID: aImgID,
 			})
 			if err != nil {
@@ -237,7 +237,7 @@ func Store(ctx context.Context, pool *pgxpool.Pool, blobs blob.Store, ds Dataset
 				}
 			}
 			for loc, text := range a.Texts {
-				if err := q.InsertAnswerTranslation(ctx, sqlc.InsertAnswerTranslationParams{
+				if err := q.UpsertAnswerTranslation(ctx, sqlc.UpsertAnswerTranslationParams{
 					AnswerID: aid, Locale: loc, Text: text, Status: status,
 				}); err != nil {
 					return rep, err

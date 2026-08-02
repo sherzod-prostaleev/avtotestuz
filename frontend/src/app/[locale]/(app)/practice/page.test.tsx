@@ -145,7 +145,7 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1231&has_image=false"
+      "/uz-Latn/session/start?mode=practice&count=1260&has_image=false"
     );
   });
 

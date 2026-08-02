@@ -37,7 +37,7 @@ export const ADMIN_ROW_FIXTURES: Record<string, unknown> = {
     })),
     page: 1,
     limit: 20,
-    total: 1231,
+    total: 1260,
   },
 
   "/api/admin/content/tickets": {
@@ -48,7 +48,7 @@ export const ADMIN_ROW_FIXTURES: Record<string, unknown> = {
     })),
     page: 1,
     limit: 20,
-    total: 62,
+    total: 63,
   },
 
   "/api/admin/content/signs": {

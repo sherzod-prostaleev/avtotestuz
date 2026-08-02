@@ -8,7 +8,11 @@ const contentSecurityPolicy = [
   "object-src 'none'",
   "frame-ancestors 'none'",
   "form-action 'self' https://checkout.paycom.uz",
-  "script-src 'self' 'unsafe-inline'",
+  // React Dev (and some Next.js HMR helpers) need eval() in development.
+  // Keep production strict: never allow unsafe-eval there.
+  process.env.NODE_ENV === "production"
+    ? "script-src 'self' 'unsafe-inline'"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",

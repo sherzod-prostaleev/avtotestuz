@@ -45,7 +45,7 @@ seed:
 seed-admin:
 	cd backend && go run ./cmd/seedadmin
 
-# Committed corpus parity gate (1231 Q / 62 bilets / 285 signs). Run after any
+# Committed corpus parity gate (1260 Q / 63 bilets / 285 signs). Run after any
 # convertavtoimtihon / gensigns regeneration before trusting wipe-restore.
 seed-verify:
 	python3 scripts/seed/verify-committed.py
@@ -85,12 +85,14 @@ seed-reset-content:
 # questions+bilets → signs → question_sign links → admin. CMS chrome/legal stay
 # empty (FE i18n fallback) until an operator saves them again — intentional.
 seed-dev: seed-reset-content seed-import seed-signs seed-link-signs seed-admin
-	@echo "seed-dev complete: 1231 questions, 62 bilets, 285 signs, question↔sign links, admin user"
+	@echo "seed-dev complete: 1260 questions, 63 bilets, 285 signs, question↔sign links, admin user"
 
 # Real, user-licensed avtoimtihon content. Regenerates canonical JSON from the
-# aaa/ source tree (1231 questions / 62 bilets after dedupe), then imports
+# aaa/ source tree (1260 questions / 63 bilets after NEW+MAJOR fold), then imports
 # (upsert). Prefer `make seed-dev` for wipe-restore from git; use seed-real only
 # when intentionally re-exporting from aaa/. Truncate first for a clean DB.
+# NEVER run seed-dev / seed-reset-content on production — it CASCADE-wipes
+# learner progress tied to content FKs. Prod = backup + upsert seed-import only.
 # Checks that the three locale files still describe the same questions before
 # a conversion is attempted. The converter joins them by id and stops at the
 # first bad one; this lists every offender so the export can be repaired.

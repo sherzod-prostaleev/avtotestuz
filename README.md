@@ -10,7 +10,7 @@ Talablar: Docker (compose bilan), Go 1.26.5+ (`~/.local/go`ga o'rnatilgan bo'lsa
 
 ```bash
 make up        # Postgres + Redis + MinIO (compose)
-make seed-dev  # wipe-restore: committed 1231 savol / 62 bilet / 285 belgi + admin
+make seed-dev  # LOCAL wipe-restore only: committed 1260 savol / 63 bilet / 285 belgi + admin
 make seed      # [NAMUNA] sintetik namuna (faqat smoke/test; real bilan aralashtirmang)
 make seed-real # aaa/ dan qayta eksport (ixtiyoriy; odatda seed-dev yetarli)
 make run       # API :8080 (PORT env bilan o'zgartiriladi)
@@ -68,26 +68,44 @@ Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
 
 **Hozirgi committed sonlar (wipe-restore SoT — `make seed-verify`):**
 
-- **1231 ta savol**, 3 tilda (uz-Latn / uz-Cyrl / ru), har biri **verified**.
+- **1260 ta savol**, 3 tilda (uz-Latn / uz-Cyrl / ru), har biri **verified**.
 - Javob soni har xil: 2/3/4/5 (haqiqiy manba qanday bo'lsa shunday — 4'ga
   majburlanmaydi).
-- **62 ta bilet**: 61×20 savol + **62-bilet 11 savol** (qisqa qoldiq).
-  Barcha yaroqli savollar biletga biriktirilgan (orphan yo‘q).
+- **63 ta bilet**, har biri **20 savol** (orphan yo‘q).
+- **Ticket 64 yo‘q (mahsulot qarori):** manbadagi B64 savollari alohida
+  64-bilet qilinmagan — importer har biletni aynan 20 savol qilishni talab
+  qiladi, shuning uchun B64 kontenti **bilet 63** ichiga qo‘shilgan.
+  UI/API da faqat 1…63. Bo‘sh “fake” bilet 64 yaratilmaydi.
 - **Kategoriya** (13 ta, `umumiy` yo‘q):
-  `road_signs_markings` (334), `priority_intersections` (138),
-  `maneuvering_lane_position` (105), `accidents_first_aid_dynamics` (100),
-  `vehicle_equipment_lighting` (94), `stopping_parking` (80),
-  `pedestrians_public_transport` (66), `general_provisions_admin` (65),
-  `overtaking_speed` (62), `traffic_signals_gestures` (56),
-  `special_road_zones` (52), `towing_special_vehicles` (40),
+  `road_signs_markings` (337), `priority_intersections` (140),
+  `maneuvering_lane_position` (108), `accidents_first_aid_dynamics` (101),
+  `vehicle_equipment_lighting` (97), `stopping_parking` (85),
+  `general_provisions_admin` (68), `pedestrians_public_transport` (67),
+  `overtaking_speed` (65), `traffic_signals_gestures` (60),
+  `special_road_zones` (53), `towing_special_vehicles` (40),
   `cargo_passenger_carriage` (39).
-- **Izohlar**: 1219 ta. `LegalRefs` bo'sh (inline proza; soxta iqtibos emas).
+- **Izohlar**: 1219 ta (yangi 29 savolda izoh hali yo‘q — manba comment
+  dump/ptest cookie topilmadi; savol/javob to‘liq, izoh keyinroq
+  `-explanations-only` bilan qo‘shilishi mumkin).
 - **Yo‘l belgilari**: alohida `make seed-signs` / `seed-dev` ichida —
-  **7 guruh / 285 belgi** (`backend/seed/signs/`).
-- Import Report (tipik): `categories=13 signs=0 images=715 · questions valid=1231
-  quarantined=0 · variants stored=62` (+ keyin signs import).
+  **7 guruh / 285 belgi** (`backend/seed/signs/`). Yangi savollarga
+  `question_signs` link hali qo‘yilmagan (ixtiyoriy keyingi qadam).
+- **Rasmlar**: `backend/seed/avtoimtihon/images/` **gitignore** (blob).
+  Prod’ga `./deploy/sync-to-vps.sh` orqali rsync qilinadi (exclude
+  qilinmagan). `make seed-verify` images/ bor bo‘lsa fayllarni tekshiradi.
+- Import Report (tipik): `categories=13 images≈738 · questions valid=1260
+  quarantined=0 · variants stored=63` (+ keyin signs import).
 
-**Wipe / toza restore (tavsiya):**
+**Production kontent yangilash (foydalanuvchi/premium/progress SAQLANADI):**
+
+```bash
+# 1) backup  2) rsync (JSON + images/)  3) upsert import — HECH QACHON seed-dev
+./deploy/sync-to-vps.sh
+# VPS: pg_dump → go run ./cmd/importer -data seed/avtoimtihon -verified
+# (importer answer qatorlarini DELETE qilmaydi — session_answer FK saqlanadi)
+```
+
+**Wipe / toza restore (faqat LOCAL / bo‘sh DB):**
 
 ```bash
 make up

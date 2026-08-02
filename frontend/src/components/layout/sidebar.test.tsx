@@ -25,6 +25,8 @@ vi.mock("@/i18n/navigation", () => ({
 
 vi.mock("@/hooks/use-user-stats", () => ({ useUserStats: vi.fn() }));
 
+vi.mock("@/hooks/use-variant-count", () => ({ useVariantCount: () => 63 }));
+
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
 
 const localeCases = [
@@ -91,6 +93,11 @@ describe("Sidebar i18n and accessibility", () => {
       .getAllByRole("link")
       .find((link) => link.getAttribute("href") === `/${localeCase.locale}/dashboard` && link.textContent?.includes(localeCase.dashboard));
     expect(dashboard).toBeTruthy();
+    const ticketsLabel = localeCase.messages.Sidebar.navTickets.replace("{count}", "63");
+    expect(screen.getByRole("link", { name: ticketsLabel })).toHaveAttribute(
+      "href",
+      `/${localeCase.locale}/tickets`
+    );
     fireEvent.click(screen.getByRole("button", { name: localeCase.more }));
     expect(screen.getByRole("link", { name: localeCase.saved })).toHaveAttribute(
       "href",

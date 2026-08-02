@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Verify committed content seeds match the live product counts.
 
-Canonical numbers (post-dedupe / 62-bilet catalog):
-  - questions: 1231
-  - variants: 62
+Canonical numbers (post NEW+MAJOR import / 63-bilet catalog):
+  - questions: 1260
+  - variants: 63
   - explanations: 1219
   - sign groups: 7
   - signs: 285
@@ -24,8 +24,8 @@ SIGNS = ROOT / "backend" / "seed" / "signs" / "data.json"
 QUESTION_SIGNS = ROOT / "backend" / "seed" / "avtoimtihon" / "question_signs.json"
 
 EXPECT = {
-    "questions": 1231,
-    "variants": 62,
+    "questions": 1260,
+    "variants": 63,
     "explanations": 1219,
     "sign_groups": 7,
     "signs": 285,
@@ -69,9 +69,8 @@ def main() -> None:
     assigned: set[str] = set()
     for variant in v:
         qs = variant.get("questions") or []
-        if len(qs) not in (11, 20):
-            # Bilet 62 is the short remainder (11); all others are official 20.
-            fail(f"variant {variant.get('number')}: {len(qs)} questions (want 20 or 11)")
+        if len(qs) != 20:
+            fail(f"variant {variant.get('number')}: {len(qs)} questions (want 20)")
         assigned.update(qs)
 
     orphans = [item["ext_id"] for item in q if item.get("ext_id") not in assigned]
@@ -97,10 +96,39 @@ def main() -> None:
     if None in cats or "" in cats:
         fail("every question must have a category")
 
+    # Images are gitignored (blob bundle). When the local images/ dir exists
+    # (operator laptop / VPS after rsync), every referenced file must be present.
+    # Fresh git clones without the bundle only WARN — deploy must rsync images.
+    img_dir = AVTO.parent / "images"
+    missing_imgs: list[str] = []
+    referenced = 0
+    for item in q:
+        rel = item.get("image") or ""
+        if not rel:
+            continue
+        referenced += 1
+        if img_dir.is_dir():
+            candidate = img_dir / Path(rel).name
+            alt = AVTO.parent / rel
+            if not candidate.is_file() and not alt.is_file():
+                missing_imgs.append(f"{item.get('ext_id')}:{rel}")
+    if img_dir.is_dir():
+        if missing_imgs:
+            fail(f"{len(missing_imgs)} question images missing under {img_dir} (e.g. {missing_imgs[:3]})")
+    else:
+        print(
+            f"WARN: {img_dir} missing (gitignored). "
+            f"{referenced} questions reference images — deliver via "
+            f"./deploy/sync-to-vps.sh before prod import.",
+            file=sys.stderr,
+        )
+
     print("OK committed seed parity:")
     for key in EXPECT:
         print(f"  {key}={got[key]}")
     print("  categories:", ", ".join(f"{k}:{n}" for k, n in cats.most_common()))
+    if img_dir.is_dir():
+        print(f"  images_on_disk: referenced={referenced} dir={img_dir}")
 
 
 if __name__ == "__main__":

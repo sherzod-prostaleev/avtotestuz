@@ -64,8 +64,18 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
 ```
 
 Content is **not** created by this overlay. Use your existing DB data (do not
-`make seed` / `seed-real` as part of staging bring-up unless you intentionally
-want fixture data).
+`make seed` / `seed-real` / `seed-dev` as part of staging/prod bring-up unless
+you intentionally want a content wipe).
+
+### Content + images on the VPS
+
+`backend/seed/avtoimtihon/images/` is **gitignored**. The real deploy path is
+`./deploy/sync-to-vps.sh` (rsync) — that exclude list does **not** drop
+`images/`, so the blob bundle lands under `/opt/drivergo/.../images/` for
+`cmd/importer`. Never rely on `git pull` alone for question images.
+
+Prod content refresh = Postgres backup → rsync → **upsert**
+`go run ./cmd/importer -data seed/avtoimtihon -verified` (not `make seed-dev`).
 
 ## Hardening notes
 

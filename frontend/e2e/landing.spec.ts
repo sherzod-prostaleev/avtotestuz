@@ -8,9 +8,9 @@ test.describe("Landing page", () => {
 
   test("shows proof stats (question + ticket counts)", async ({ page }) => {
     await page.goto("/uz-Latn");
-    // Copy uses "1231+" (verified import size), not a hard "1235".
-    await expect(page.getByText("1231+")).toBeVisible();
-    await expect(page.getByText("62")).toBeVisible();
+    // Copy uses "1260+" (verified import size), not a hard "1235".
+    await expect(page.getByText("1260+")).toBeVisible();
+    await expect(page.getByText("63")).toBeVisible();
   });
 
   test("has login link in header", async ({ page }) => {
