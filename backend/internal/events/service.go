@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -76,16 +77,27 @@ func (s *Service) LogBatch(ctx context.Context, profileID uuid.UUID, idempotency
 	if tag.RowsAffected() == 0 {
 		return tx.Commit(ctx)
 	}
-	q := sqlc.New(tx)
-	for _, e := range events {
-		if err := q.InsertEvent(ctx, sqlc.InsertEventParams{
-			ProfileID: uuid.NullUUID{UUID: profileID, Valid: true},
-			Name:      e.Name,
-			Props:     propsOrEmptyObject(e.Props),
-			Ts:        pgtype.Timestamptz{Time: tsOrNow(e.TS), Valid: true},
-		}); err != nil {
-			return err
+	// A single multi-row COPY instead of one INSERT per event: a full
+	// 100-event batch used to cost 100 round-trips. event is RANGE
+	// partitioned on ts (0005/0050); COPY ... FROM STDIN routes rows to the
+	// right partition the same way INSERT does (supported since PG 11), and
+	// still fires the destination partition's row-level triggers, so this
+	// stays inside the transaction/rollback semantics below unchanged.
+	rows := make([][]any, len(events))
+	for i, e := range events {
+		rows[i] = []any{
+			uuid.NullUUID{UUID: profileID, Valid: true},
+			e.Name,
+			propsOrEmptyObject(e.Props),
+			pgtype.Timestamptz{Time: tsOrNow(e.TS), Valid: true},
 		}
+	}
+	if _, err := tx.CopyFrom(ctx,
+		pgx.Identifier{"event"},
+		[]string{"profile_id", "name", "props", "ts"},
+		pgx.CopyFromRows(rows),
+	); err != nil {
+		return err
 	}
 	return tx.Commit(ctx)
 }
