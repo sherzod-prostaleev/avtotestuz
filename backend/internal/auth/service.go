@@ -2,6 +2,12 @@ package auth
 
 import (
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hkdf"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -430,36 +436,176 @@ func refreshGraceKey(raw string) string {
 	return "auth:rtgrace:" + HashToken(raw)
 }
 
+// storedRefreshPair is the grace-window payload.
+//
+// ProfileID is carried alongside the tokens so the grace path can enforce the
+// account-status check (see gracePair) with one primary-key read, instead of
+// first resolving the refresh-token row to learn whose session this is.
 type storedRefreshPair struct {
-	Access  string `json:"a"`
-	Refresh string `json:"r"`
+	Access    string    `json:"a"`
+	Refresh   string    `json:"r"`
+	ProfileID uuid.UUID `json:"p"`
 }
 
-func (s *Service) readRefreshGrace(ctx context.Context, raw string) (Tokens, bool) {
+// graceSealInfo is the HKDF label separating this key derivation from any
+// other use of Service.Secret (JWT signing today, anything added later).
+const graceSealInfo = "avtotest.uz/auth/refresh-grace/v1"
+
+// graceAEAD derives the AES-256-GCM key that seals one grace entry.
+//
+// Why encrypt at all: the grace path must hand the caller the *actual*
+// successor access+refresh tokens, so — unlike every other token in this
+// codebase — the stored value cannot be a one-way HashToken digest. It used to
+// be stored as plaintext JSON, which made `redis-cli --scan` or a leaked RDB
+// snapshot a source of live 15-minute sessions and 30-day refresh tokens for
+// every account that had refreshed in the last 45 seconds.
+//
+// Why the key is derived from the raw token and not from Service.Secret alone:
+// the Redis key is HashToken(raw), i.e. only a sha256 digest of the token, so
+// mixing raw into the derivation makes the entry openable *only* by a caller
+// who already presents the pre-rotation token. That is exactly the caller the
+// grace window exists to serve, and it means an attacker holding a full Redis
+// dump gets nothing even if the JWT secret leaks too — they would need a
+// sha256 preimage. Salting with raw also binds each entry to its own key, so a
+// blob copied to another key simply fails to open.
+//
+// The trade-offs this accepts: (1) the server cannot enumerate or inspect
+// grace entries out of band — nothing needs to, they are write-once,
+// read-by-the-holder, 45s-lived; (2) rotating Service.Secret orphans entries
+// written before the rotation. They then behave exactly like an expired grace
+// entry (the pre-rotation token falls through to reuse detection), which is
+// already the fate of every access token at a secret rotation and is bounded
+// by the 45-second TTL.
+func (s *Service) graceAEAD(raw string) (cipher.AEAD, error) {
+	key, err := hkdf.Key(sha256.New, s.Secret, []byte(raw), graceSealInfo, 32)
+	if err != nil {
+		return nil, err
+	}
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	return cipher.NewGCM(block)
+}
+
+// sealRefreshGrace encrypts pair into the value stored under the grace key.
+// Output is base64url(nonce || AES-GCM ciphertext).
+func (s *Service) sealRefreshGrace(raw string, pair storedRefreshPair) (string, error) {
+	payload, err := json.Marshal(pair)
+	if err != nil {
+		return "", err
+	}
+	aead, err := s.graceAEAD(raw)
+	if err != nil {
+		return "", err
+	}
+	nonce := make([]byte, aead.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(aead.Seal(nonce, nonce, payload, nil)), nil
+}
+
+// openRefreshGrace reverses sealRefreshGrace. Anything that does not decrypt
+// and parse into a complete pair is reported as a miss: the caller then falls
+// through to the DB path, which is the same behaviour a corrupt or truncated
+// value had before.
+func (s *Service) openRefreshGrace(raw, sealed string) (storedRefreshPair, bool) {
+	blob, err := base64.RawURLEncoding.DecodeString(sealed)
+	if err != nil {
+		return storedRefreshPair{}, false
+	}
+	aead, err := s.graceAEAD(raw)
+	if err != nil || len(blob) < aead.NonceSize() {
+		return storedRefreshPair{}, false
+	}
+	plain, err := aead.Open(nil, blob[:aead.NonceSize()], blob[aead.NonceSize():], nil)
+	if err != nil {
+		return storedRefreshPair{}, false
+	}
+	var pair storedRefreshPair
+	if err := json.Unmarshal(plain, &pair); err != nil {
+		return storedRefreshPair{}, false
+	}
+	if pair.Access == "" || pair.Refresh == "" || pair.ProfileID == uuid.Nil {
+		return storedRefreshPair{}, false
+	}
+	return pair, true
+}
+
+func (s *Service) readRefreshGrace(ctx context.Context, raw string) (storedRefreshPair, bool) {
 	if s.Lim.R == nil {
-		return Tokens{}, false
+		return storedRefreshPair{}, false
 	}
 	val, err := s.Lim.R.Get(ctx, refreshGraceKey(raw)).Result()
 	if err != nil {
-		return Tokens{}, false
+		return storedRefreshPair{}, false
 	}
-	var pair storedRefreshPair
-	if err := json.Unmarshal([]byte(val), &pair); err != nil || pair.Access == "" || pair.Refresh == "" {
-		return Tokens{}, false
-	}
-	return Tokens(pair), true
+	return s.openRefreshGrace(raw, val)
 }
 
-func (s *Service) writeRefreshGrace(ctx context.Context, oldRaw string, tokens Tokens) {
+// gracePair resolves the cached successor pair for raw and applies the same
+// account-status gate the rotation path applies.
+//
+// The bug this closes: Refresh returned the cached pair before touching the
+// database, so assertProfileActive never ran on the grace path. A profile
+// banned during those 45 seconds still collected a fresh 15-minute access
+// token — and since a client refreshes exactly when its access token is about
+// to expire, the banned user's next request was very likely to land here.
+//
+// The status check costs one indexed primary-key SELECT on a grace hit. That
+// is deliberately not free, and it is still an order of magnitude cheaper than
+// the rotation it short-circuits (token lookup, profile lookup, then a
+// BEGIN/UPDATE/INSERT/COMMIT), it is read-only, and grace hits are rare by
+// construction — only late or parallel callers holding a token that was
+// rotated in the last 45 seconds reach it. For scale: RejectBanned already
+// runs this identical query on *every* authenticated learner request.
+//
+// The check lives here rather than in an "invalidate the grace entries when an
+// admin bans someone" hook because the database is the single source of truth
+// for account status: bans applied by a support script, a migration, or direct
+// SQL — the way the existing test bans, and the way incidents actually get
+// handled at 3am — carry no application hook to fire. An invalidation hook
+// would be a latency optimisation on top of this check, never a replacement
+// for it.
+//
+// A missing profile (deleted account) reports an invalid refresh token rather
+// than a "reused" one: there is nobody left to revoke tokens for, and the
+// revoke-all path would only spend writes on a dead profile id. Any other
+// database error propagates, so the grace path fails closed instead of
+// issuing tokens it could not authorise.
+func (s *Service) gracePair(ctx context.Context, raw string) (Tokens, bool, error) {
+	pair, ok := s.readRefreshGrace(ctx, raw)
+	if !ok {
+		return Tokens{}, false, nil
+	}
+	profile, err := s.Q.GetProfileByID(ctx, pair.ProfileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return Tokens{}, false, ErrInvalidRefresh
+		}
+		return Tokens{}, false, err
+	}
+	if err := assertProfileActive(profile); err != nil {
+		return Tokens{}, false, err
+	}
+	return Tokens{Access: pair.Access, Refresh: pair.Refresh}, true, nil
+}
+
+func (s *Service) writeRefreshGrace(ctx context.Context, oldRaw string, profileID uuid.UUID, tokens Tokens) {
 	if s.Lim.R == nil {
 		return
 	}
-	payload, err := json.Marshal(storedRefreshPair(tokens))
+	sealed, err := s.sealRefreshGrace(oldRaw, storedRefreshPair{
+		Access:    tokens.Access,
+		Refresh:   tokens.Refresh,
+		ProfileID: profileID,
+	})
 	if err != nil {
 		return
 	}
 	// Best-effort: a Redis blip must not fail the successful rotation.
-	_ = s.Lim.R.Set(ctx, refreshGraceKey(oldRaw), payload, refreshGraceTTL).Err()
+	_ = s.Lim.R.Set(ctx, refreshGraceKey(oldRaw), sealed, refreshGraceTTL).Err()
 }
 
 // claimRefreshRotation serializes concurrent rotations of the same raw token
@@ -488,18 +634,25 @@ func (s *Service) refreshClaimHeld(ctx context.Context, raw string) bool {
 	return err == nil && n > 0
 }
 
-func (s *Service) waitRefreshGrace(ctx context.Context, raw string) (Tokens, bool) {
+// waitRefreshGrace polls for the winner's grace entry. A non-nil error means
+// the entry was found but must not be handed out (e.g. the profile is banned);
+// the caller propagates it instead of continuing down the rotation path.
+func (s *Service) waitRefreshGrace(ctx context.Context, raw string) (Tokens, bool, error) {
 	deadline := time.Now().Add(2 * time.Second)
 	for {
-		if cached, ok := s.readRefreshGrace(ctx, raw); ok {
-			return cached, true
+		cached, ok, err := s.gracePair(ctx, raw)
+		if err != nil {
+			return Tokens{}, false, err
+		}
+		if ok {
+			return cached, true, nil
 		}
 		if time.Now().After(deadline) {
-			return Tokens{}, false
+			return Tokens{}, false, nil
 		}
 		select {
 		case <-ctx.Done():
-			return Tokens{}, false
+			return Tokens{}, false, nil
 		case <-time.After(25 * time.Millisecond):
 		}
 	}
@@ -509,10 +662,13 @@ func (s *Service) waitRefreshGrace(ctx context.Context, raw string) (Tokens, boo
 // Presenting an already-rotated (revoked) token outside the short grace
 // window is treated as a compromise signal and revokes every refresh token
 // belonging to that profile. Within the grace window (concurrent/late
-// retries with the old cookie), the same successor pair is returned.
+// retries with the old cookie), the same successor pair is returned — but
+// only to a profile that is still active; see gracePair.
 func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 	// Fast path for late/parallel callers that still hold the pre-rotation cookie.
-	if cached, ok := s.readRefreshGrace(ctx, raw); ok {
+	if cached, ok, err := s.gracePair(ctx, raw); err != nil {
+		return Tokens{}, err
+	} else if ok {
 		return cached, nil
 	}
 
@@ -525,12 +681,18 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 	}
 	if rt.RevokedAt.Valid {
 		// Winner may have written grace between our miss and this Get.
-		if cached, ok := s.readRefreshGrace(ctx, raw); ok {
+		if cached, ok, err := s.gracePair(ctx, raw); err != nil {
+			return Tokens{}, err
+		} else if ok {
 			return cached, nil
 		}
 		// Concurrent rotator still holding the claim — wait for its grace write.
 		if s.refreshClaimHeld(ctx, raw) {
-			if cached, ok := s.waitRefreshGrace(ctx, raw); ok {
+			cached, ok, err := s.waitRefreshGrace(ctx, raw)
+			if err != nil {
+				return Tokens{}, err
+			}
+			if ok {
 				return cached, nil
 			}
 		}
@@ -544,7 +706,11 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 	}
 
 	if !s.claimRefreshRotation(ctx, raw) {
-		if cached, ok := s.waitRefreshGrace(ctx, raw); ok {
+		cached, ok, err := s.waitRefreshGrace(ctx, raw)
+		if err != nil {
+			return Tokens{}, err
+		}
+		if ok {
 			return cached, nil
 		}
 		// Winner vanished without writing grace — soft-fail without revoke-all.
@@ -578,7 +744,11 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 		return Tokens{}, err
 	}
 	if tag.RowsAffected() != 1 {
-		if cached, ok := s.waitRefreshGrace(ctx, raw); ok {
+		cached, ok, waitErr := s.waitRefreshGrace(ctx, raw)
+		if waitErr != nil {
+			return Tokens{}, waitErr
+		}
+		if ok {
 			return cached, nil
 		}
 		return Tokens{}, ErrInvalidRefresh
@@ -596,7 +766,7 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 	}
 
 	tokens := Tokens{Access: access, Refresh: newRaw}
-	s.writeRefreshGrace(ctx, raw, tokens)
+	s.writeRefreshGrace(ctx, raw, profile.ID, tokens)
 	return tokens, nil
 }
 

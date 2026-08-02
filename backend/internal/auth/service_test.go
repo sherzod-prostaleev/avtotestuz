@@ -1,8 +1,12 @@
 package auth
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -251,6 +255,220 @@ func TestRefreshConcurrentCallersShareGracePair(t *testing.T) {
 		if results[i].Refresh != first.Refresh || results[i].Access != first.Access {
 			t.Fatalf("caller %d got different pair %+v want %+v", i, results[i], first)
 		}
+	}
+}
+
+// rotateOnce signs a fresh profile in and rotates its refresh token once, so
+// the grace entry for oldRefresh exists and holds the returned pair.
+func rotateOnce(t *testing.T, svc *Service, sender *captureSender, phone string) (profile sqlc.Profile, oldRefresh string, rotated Tokens) {
+	t.Helper()
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, phone, ""); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	verifyRes, err := svc.VerifyOTP(ctx, phone, sender.last)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+	rotated, err = svc.Refresh(ctx, verifyRes.Refresh)
+	if err != nil {
+		t.Fatalf("refresh: %v", err)
+	}
+	if rotated.Access == "" || rotated.Refresh == "" {
+		t.Fatalf("rotation returned empty tokens: %+v", rotated)
+	}
+	return verifyRes.Profile, verifyRes.Refresh, rotated
+}
+
+// TestRefreshGracePathRejectsBannedProfile pins the fix for a ban bypass: the
+// grace fast path returned its cached successor pair before any DB lookup, so
+// assertProfileActive never ran. A profile banned inside the 45s window still
+// received a fresh 15-minute access token — and since clients refresh exactly
+// when their access token is about to expire, a just-banned user was very
+// likely to land on this path.
+func TestRefreshGracePathRejectsBannedProfile(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	profile, oldRefresh, rotated := rotateOnce(t, svc, sender, testPhone)
+
+	// While the account is active the grace entry serves the same pair; that is
+	// what must keep working, and it proves the entry is live for the ban below.
+	again, err := svc.Refresh(ctx, oldRefresh)
+	if err != nil {
+		t.Fatalf("grace reuse before ban: %v", err)
+	}
+	if again != rotated {
+		t.Fatalf("grace reuse tokens=%+v want %+v", again, rotated)
+	}
+
+	if _, err := pool.Exec(ctx, `UPDATE profile SET status = 'banned' WHERE id = $1`, profile.ID); err != nil {
+		t.Fatalf("ban: %v", err)
+	}
+
+	got, err := svc.Refresh(ctx, oldRefresh)
+	if !errors.Is(err, ErrAccountBlocked) {
+		t.Fatalf("grace refresh after ban: err=%v want ErrAccountBlocked", err)
+	}
+	if got.Access != "" || got.Refresh != "" {
+		t.Fatalf("grace path handed tokens to a banned profile: %+v", got)
+	}
+
+	// The successor token is refused too, so the ban is total, not just on the
+	// stale cookie.
+	if _, err := svc.Refresh(ctx, rotated.Refresh); !errors.Is(err, ErrAccountBlocked) {
+		t.Fatalf("rotated token after ban: err=%v want ErrAccountBlocked", err)
+	}
+
+	// Un-banning restores service from the very same grace entry: the check is a
+	// live status read, not a one-way poisoning of the cached pair.
+	if _, err := pool.Exec(ctx, `UPDATE profile SET status = 'active' WHERE id = $1`, profile.ID); err != nil {
+		t.Fatalf("unban: %v", err)
+	}
+	restored, err := svc.Refresh(ctx, oldRefresh)
+	if err != nil {
+		t.Fatalf("grace refresh after unban: %v", err)
+	}
+	if restored != rotated {
+		t.Fatalf("after unban tokens=%+v want %+v", restored, rotated)
+	}
+}
+
+// TestRefreshGraceValueIsUselessInARedisDump pins the fix for plaintext token
+// storage: the grace entry used to be JSON holding the live access and refresh
+// tokens, so `redis-cli --scan`, a leaked RDB snapshot or a compromised
+// read-replica handed over working sessions for every account that had
+// refreshed in the last 45 seconds.
+func TestRefreshGraceValueIsUselessInARedisDump(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	profile, oldRefresh, rotated := rotateOnce(t, svc, sender, testPhone)
+
+	stored, err := svc.Lim.R.Get(ctx, refreshGraceKey(oldRefresh)).Result()
+	if err != nil {
+		t.Fatalf("grace entry missing, nothing to assert about: %v", err)
+	}
+
+	// Whole-keyspace dump: no value anywhere may carry a usable token.
+	keys, err := svc.Lim.R.Keys(ctx, "*").Result()
+	if err != nil {
+		t.Fatal(err)
+	}
+	secrets := map[string]string{
+		"successor access token":  rotated.Access,
+		"successor refresh token": rotated.Refresh,
+		"presented refresh token": oldRefresh,
+	}
+	for _, k := range keys {
+		val, err := svc.Lim.R.Get(ctx, k).Result()
+		if err != nil {
+			continue // non-string key: no plaintext to leak
+		}
+		for name, secret := range secrets {
+			if strings.Contains(val, secret) {
+				t.Fatalf("redis key %q leaks the %s in plaintext", k, name)
+			}
+		}
+	}
+
+	blob, err := base64.RawURLEncoding.DecodeString(stored)
+	if err != nil {
+		t.Fatalf("grace value is not base64url: %q", stored)
+	}
+	for name, secret := range secrets {
+		if bytes.Contains(blob, []byte(secret)) {
+			t.Fatalf("decoded grace value still contains the %s", name)
+		}
+	}
+	var probe storedRefreshPair
+	if err := json.Unmarshal([]byte(stored), &probe); err == nil {
+		t.Fatalf("grace value is still readable JSON: %+v", probe)
+	}
+
+	// An attacker holding the dump — and even the service secret, which svc has —
+	// cannot open the entry without the pre-rotation token itself. The Redis key
+	// only exposes sha256(token), so there is nothing in the dump to derive it
+	// from.
+	otherRaw, err := NewRefreshToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, wrong := range map[string]string{
+		"successor token": rotated.Refresh,
+		"empty token":     "",
+		"unrelated token": otherRaw,
+		"key digest":      HashToken(oldRefresh),
+	} {
+		if _, ok := svc.openRefreshGrace(wrong, stored); ok {
+			t.Fatalf("grace entry opened with the %s", name)
+		}
+	}
+
+	// Copying the blob under another entry does not help either: the key is
+	// bound to the token that entry belongs to.
+	if err := svc.Lim.R.Set(ctx, refreshGraceKey(otherRaw), stored, refreshGraceTTL).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := svc.readRefreshGrace(ctx, otherRaw); ok {
+		t.Fatal("a grace blob moved to another key still opened")
+	}
+
+	// The legitimate holder of the pre-rotation token still gets the exact pair,
+	// which is the whole point of the grace window.
+	pair, ok := svc.openRefreshGrace(oldRefresh, stored)
+	if !ok {
+		t.Fatal("the pre-rotation token could not open its own grace entry")
+	}
+	if pair.Access != rotated.Access || pair.Refresh != rotated.Refresh {
+		t.Fatalf("opened pair = %+v, want %+v", pair, rotated)
+	}
+	if pair.ProfileID != profile.ID {
+		t.Fatalf("grace entry profile = %s, want %s", pair.ProfileID, profile.ID)
+	}
+}
+
+// TestRefreshGraceEntryFromAnotherSecretDoesNotRevokeEverything guards the
+// rollout/rotation edge of sealing the grace entry: a value the current secret
+// cannot open must degrade to a plain grace miss (the DB decides), exactly like
+// the corrupt-JSON case did before.
+func TestRefreshGraceEntryFromAnotherSecretDoesNotRevokeEverything(t *testing.T) {
+	pool := testdb.New(t)
+	svc, sender := newTestService(t, pool)
+	ctx := context.Background()
+
+	if _, err := svc.RequestOTP(ctx, testPhone, ""); err != nil {
+		t.Fatalf("request: %v", err)
+	}
+	verifyRes, err := svc.VerifyOTP(ctx, testPhone, sender.last)
+	if err != nil {
+		t.Fatalf("verify: %v", err)
+	}
+
+	stale := *svc
+	stale.Secret = []byte("previous-secret")
+	sealed, err := stale.sealRefreshGrace(verifyRes.Refresh, storedRefreshPair{
+		Access: "stale-access", Refresh: "stale-refresh", ProfileID: verifyRes.Profile.ID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Lim.R.Set(ctx, refreshGraceKey(verifyRes.Refresh), sealed, refreshGraceTTL).Err(); err != nil {
+		t.Fatal(err)
+	}
+
+	tokens, err := svc.Refresh(ctx, verifyRes.Refresh)
+	if err != nil {
+		t.Fatalf("refresh over an unreadable grace entry: %v", err)
+	}
+	if tokens.Refresh == "stale-refresh" || tokens.Access == "stale-access" {
+		t.Fatal("an entry sealed under a different secret was served to the caller")
+	}
+	if tokens.Refresh == verifyRes.Refresh {
+		t.Fatal("expected a real rotation")
 	}
 }
 
