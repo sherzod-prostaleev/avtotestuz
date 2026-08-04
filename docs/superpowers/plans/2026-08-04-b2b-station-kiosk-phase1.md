@@ -1055,7 +1055,8 @@ func TestEnrollStationRejectsBadCodes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.CloseEnrollWindowAsTeacherForTest(ctx, orgID, code2.ID); err != nil {
+	if _, err := pool.Exec(ctx,
+		`UPDATE b2b_org_enroll_code SET revoked_at = now() WHERE id = $1`, code2.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
@@ -1145,19 +1146,9 @@ func TestEnrollStationConcurrentStampedeRespectsSeats(t *testing.T) {
 }
 ```
 
-Add this test-only helper to `backend/internal/b2b/enroll_code.go` so the revoked-code case is reachable without a teacher fixture:
-
-```go
-// CloseEnrollWindowForTest revokes a window without a membership check. It
-// exists for tests that have no teacher profile; production paths must use
-// CloseEnrollWindowAsTeacher.
-func (s Store) CloseEnrollWindowAsTeacherForTest(ctx context.Context, orgID, codeID uuid.UUID) error {
-	_, err := s.Pool.Exec(ctx, `
-		UPDATE b2b_org_enroll_code SET revoked_at = now()
-		WHERE id = $1 AND org_id = $2`, codeID, orgID)
-	return err
-}
-```
+The revoked-code case updates the row directly rather than through a
+test-only exported method: adding an authz-bypassing helper to `Store` would
+put a production-surface method in the codebase whose only caller is a test.
 
 - [ ] **Step 2: Run to verify they fail**
 
@@ -2814,7 +2805,7 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
   const [window, setWindow] = useState<EnrollWindow | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [tick, setTick] = useState(0);
+  const [minutes, setMinutes] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -2828,11 +2819,14 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
     void load();
   }, [load]);
 
-  // Re-render once a minute so the countdown stays honest without polling.
+  // Recompute the countdown once a minute, without re-fetching: the window's
+  // expiry is fixed at creation, so only the clock moves.
   useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 60_000);
+    if (!window) return;
+    setMinutes(minutesLeft(window.expires_at));
+    const id = setInterval(() => setMinutes(minutesLeft(window.expires_at)), 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [window]);
 
   const open = async () => {
     setBusy(true);
@@ -2863,7 +2857,7 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
   };
 
   return (
-    <section className="rounded-lg border p-4" data-tick={tick}>
+    <section className="rounded-lg border p-4">
       <h2 className="mb-2 text-lg font-semibold">{t("enrollTitle")}</h2>
 
       {window ? (
@@ -2873,7 +2867,7 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
             {t("enrollUsed", { used: window.used_count, max: window.max_uses })}
           </p>
           <p className="text-sm opacity-80">
-            {t("enrollExpires", { minutes: minutesLeft(window.expires_at) })}
+            {t("enrollExpires", { minutes })}
           </p>
           <p className="text-sm opacity-70">{t("enrollHint", { max: window.max_uses })}</p>
           <Button variant="outline" onClick={close} disabled={busy}>
