@@ -169,6 +169,34 @@ func (s Store) SetOrgStatus(ctx context.Context, orgID uuid.UUID, status string)
 	return nil
 }
 
+// ActiveStationVIP implements billing.StationVIPChecker: the station must be
+// active, under a non-suspended org with a live license. The station id comes
+// from a verified JWT (see stationctx), never from a request header.
+func (s Store) ActiveStationVIP(ctx context.Context, stationID uuid.UUID) (bool, *time.Time, error) {
+	if stationID == uuid.Nil {
+		return false, nil, nil
+	}
+	var ends time.Time
+	err := s.Pool.QueryRow(ctx, `
+		SELECT MAX(l.ends_at)
+		FROM b2b_station s
+		JOIN b2b_org o ON o.id = s.org_id AND o.status = 'active'
+		JOIN b2b_org_license l ON l.org_id = s.org_id
+		  AND l.starts_at <= now() AND l.ends_at > now()
+		WHERE s.id = $1 AND s.status = 'active'
+		GROUP BY s.org_id`, stationID).Scan(&ends)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil, nil
+		}
+		return false, nil, err
+	}
+	_, _ = s.Pool.Exec(ctx, `
+		UPDATE b2b_station SET last_seen_at = now() WHERE id = $1`, stationID)
+	t := ends.UTC()
+	return true, &t, nil
+}
+
 // LicenseExpiringSoon reports if any active license ends within days.
 func (s Store) LicenseExpiringSoon(ctx context.Context, orgID uuid.UUID, withinDays int) (bool, *time.Time, error) {
 	if withinDays <= 0 {

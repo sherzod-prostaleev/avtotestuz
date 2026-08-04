@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/stationctx"
 )
 
 // Service is billing's core, reused both non-transactionally (Q backed
@@ -25,10 +26,10 @@ import (
 // (currently just StartCheckout, for its row-locked promo redemption) — it
 // is nil, harmlessly, for the tx-bound Service values those methods never
 // call.
-// StationVIPChecker grants classroom VIP when the request device is a bound
-// school station under a live, non-suspended org license.
+// StationVIPChecker grants classroom VIP when the request was authenticated
+// as a bound station under a live, non-suspended org license.
 type StationVIPChecker interface {
-	ActiveStationVIP(ctx context.Context, fingerprint string) (active bool, until *time.Time, err error)
+	ActiveStationVIP(ctx context.Context, stationID uuid.UUID) (active bool, until *time.Time, err error)
 }
 
 type Service struct {
@@ -70,19 +71,27 @@ func (s Service) publicBaseURL() string {
 	return defaultPublicBaseURL
 }
 
-// Status reports whether profileID currently has an active entitlement.
-// Station VIP is rewired in the next commit; until then only a personal
-// entitlement grants access.
+// Status reports whether profileID currently has an active entitlement,
+// falling through to station VIP (see stationctx) when there is no personal
+// entitlement.
 func (s Service) Status(ctx context.Context, profileID uuid.UUID) (active bool, until *time.Time, err error) {
 	ends, err := s.Q.ActiveEntitlementEnd(ctx, profileID)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return false, nil, err
 		}
+	} else {
+		t := ends.Time
+		return true, &t, nil
+	}
+	if s.StationVIP == nil {
 		return false, nil, nil
 	}
-	t := ends.Time
-	return true, &t, nil
+	stationID, ok := stationctx.FromContext(ctx)
+	if !ok {
+		return false, nil, nil
+	}
+	return s.StationVIP.ActiveStationVIP(ctx, stationID)
 }
 
 // GrantDays adds `days` of entitlement, stacking: starts at
