@@ -26,7 +26,6 @@ import (
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/demo"
-	"avtotest.uz/backend/internal/devicefp"
 	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/explanation"
 	"avtotest.uz/backend/internal/flags"
@@ -62,7 +61,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: cfg.CORSOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token", devicefp.Header},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
 	}))
 
 	// U-41: process-local request counters (not Prometheus). Must wrap before
@@ -111,16 +110,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	var arenaSvc *arena.Service
 	if deps.Queries != nil {
 		r.Route("/api/v1", func(api chi.Router) {
-			api.Use(devicefp.Middleware)
-
-			var stationVIP billing.StationVIPChecker
-			if deps.Pool != nil {
-				stationVIP = b2b.Store{Pool: deps.Pool}
-			}
 			learnerBilling := billing.Service{
 				Q:             deps.Queries,
 				Pool:          deps.Pool,
-				StationVIP:    stationVIP,
 				PublicBaseURL: cfg.PublicBaseURL,
 				Secret:        []byte(cfg.JWTSecret),
 				DataSecret:    dataKey,

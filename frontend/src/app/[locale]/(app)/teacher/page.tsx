@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Download, Users } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
-import { getDeviceFingerprint } from "@/lib/device-fingerprint";
 import { Button } from "@/components/ui/button";
 
 type OrgSummary = {
@@ -82,7 +81,6 @@ export default function TeacherPage() {
   const [busy, setBusy] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
   const [stationLabel, setStationLabel] = useState("");
-  const [activateCode, setActivateCode] = useState("");
   const [lastCode, setLastCode] = useState<string | null>(null);
 
   const openOrg = useCallback(
@@ -213,25 +211,6 @@ export default function TeacherPage() {
     }
   }
 
-  async function activateThisPC() {
-    if (!activateCode.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await apiPost("me/stations/activate", {
-        code: activateCode.trim(),
-        fingerprint: getDeviceFingerprint(),
-        label: stationLabel || "PC",
-      });
-      setActivateCode("");
-      if (selected) await refreshSelected();
-    } catch {
-      setError(t("errorActivateStation"));
-    } finally {
-      setBusy(false);
-    }
-  }
-
   async function revokeStation(stationId: string) {
     if (!selected) return;
     setBusy(true);
@@ -271,22 +250,6 @@ export default function TeacherPage() {
       <section className="space-y-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
         <h2 className="text-sm font-bold">{t("multiPcTitle")}</h2>
         <p className="text-xs text-muted-foreground">{t("multiPcHint")}</p>
-      </section>
-
-      <section className="space-y-2 rounded-xl border border-border bg-card p-4">
-        <h2 className="text-sm font-bold">{t("activateThisPcTitle")}</h2>
-        <p className="text-xs text-muted-foreground">{t("activateThisPcHint")}</p>
-        <div className="flex flex-wrap gap-2">
-          <input
-            value={activateCode}
-            onChange={(e) => setActivateCode(e.target.value)}
-            placeholder={t("activateCodePlaceholder")}
-            className="h-10 flex-1 rounded-xl border border-border bg-background px-3 font-mono text-sm"
-          />
-          <Button type="button" size="sm" disabled={busy} onClick={() => void activateThisPC()}>
-            {t("activateThisPc")}
-          </Button>
-        </div>
       </section>
 
       {error ? <p className="text-sm text-destructive">{error}</p> : null}

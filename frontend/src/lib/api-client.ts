@@ -1,5 +1,3 @@
-import { DEVICE_FP_HEADER, getDeviceFingerprint } from "@/lib/device-fingerprint";
-
 export class ApiError extends Error {
   code: string;
   status: number;
@@ -14,8 +12,6 @@ export class ApiError extends Error {
 
 function deviceHeaders(): Record<string, string> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  const fp = getDeviceFingerprint();
-  if (fp) headers[DEVICE_FP_HEADER] = fp;
   return headers;
 }
 

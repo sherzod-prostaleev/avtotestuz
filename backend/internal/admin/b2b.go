@@ -151,7 +151,7 @@ func (s Store) GetB2BOrgDetail(ctx context.Context, orgID uuid.UUID) (B2BOrgDeta
 		}
 	}
 	bs := b2b.Store{Pool: s.Pool}
-	stations, err := bs.ListStations(ctx, orgID, true)
+	stations, err := bs.ListStations(ctx, orgID)
 	if err != nil {
 		return out, err
 	}

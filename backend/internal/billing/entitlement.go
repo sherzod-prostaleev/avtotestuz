@@ -14,12 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/db/sqlc"
-	"avtotest.uz/backend/internal/devicefp"
 )
-
-func stationFingerprint(ctx context.Context) string {
-	return devicefp.FromContext(ctx)
-}
 
 // Service is billing's core, reused both non-transactionally (Q backed
 // directly by the pool — most reads, and writes with no cross-statement
@@ -75,27 +70,19 @@ func (s Service) publicBaseURL() string {
 	return defaultPublicBaseURL
 }
 
-// Status reports whether profileID currently has an active entitlement, or
-// (when StationVIP is configured) whether the request device fingerprint is a
-// bound classroom station with a live org license.
+// Status reports whether profileID currently has an active entitlement.
+// Station VIP is rewired in the next commit; until then only a personal
+// entitlement grants access.
 func (s Service) Status(ctx context.Context, profileID uuid.UUID) (active bool, until *time.Time, err error) {
 	ends, err := s.Q.ActiveEntitlementEnd(ctx, profileID)
 	if err != nil {
 		if !errors.Is(err, pgx.ErrNoRows) {
 			return false, nil, err
 		}
-	} else {
-		t := ends.Time
-		return true, &t, nil
-	}
-	if s.StationVIP == nil {
 		return false, nil, nil
 	}
-	fp := stationFingerprint(ctx)
-	if fp == "" {
-		return false, nil, nil
-	}
-	return s.StationVIP.ActiveStationVIP(ctx, fp)
+	t := ends.Time
+	return true, &t, nil
 }
 
 // GrantDays adds `days` of entitlement, stacking: starts at

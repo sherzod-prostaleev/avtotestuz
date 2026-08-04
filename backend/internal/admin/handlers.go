@@ -243,7 +243,6 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Post("/b2b/orgs/{id}/members", h.addB2BMember)
 			br.Post("/b2b/orgs/{id}/invites", h.inviteB2BMember)
 			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
-			br.Post("/b2b/orgs/{id}/station-codes", h.createB2BStationCode)
 			br.Post("/b2b/orgs/{id}/partner-promos", h.createB2BPartnerPromo)
 			br.Delete("/b2b/orgs/{id}/stations/{stationID}", h.revokeB2BStation)
 			br.Post("/b2b/orgs/{id}/members/{profileID}/grant", h.grantB2BMember)

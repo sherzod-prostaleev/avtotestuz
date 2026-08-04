@@ -5,14 +5,12 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/auth"
-	"avtotest.uz/backend/internal/devicefp"
 	"avtotest.uz/backend/internal/httpx"
 )
 
@@ -35,11 +33,8 @@ func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Get("/me/teacher/orgs/{id}/stats", h.orgStats)
 	r.Get("/me/teacher/orgs/{id}/export.csv", h.exportCSV)
 	r.Get("/me/teacher/orgs/{id}/stations", h.listStations)
-	r.Post("/me/teacher/orgs/{id}/station-codes", h.createStationCode)
 	r.Delete("/me/teacher/orgs/{id}/stations/{stationID}", h.revokeStation)
 	r.Patch("/me/teacher/orgs/{id}/stations/{stationID}", h.renameStation)
-
-	r.Post("/me/stations/activate", h.activateStation)
 
 	r.Get("/me/invites", h.myInvites)
 	r.Post("/me/invites/accept", h.acceptInvite)
@@ -220,39 +215,6 @@ func (h *Handler) listLicenses(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-type stationCodeBody struct {
-	Label    string `json:"label"`
-	TTLHours int    `json:"ttl_hours"`
-}
-
-func (h *Handler) createStationCode(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	var body stationCodeBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && r.ContentLength != 0 {
-		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-		return
-	}
-	ttl := time.Duration(body.TTLHours) * time.Hour
-	if body.TTLHours <= 0 {
-		ttl = 7 * 24 * time.Hour
-	}
-	out, err := h.store().CreateActivateCodeAsTeacher(r.Context(), claims.ProfileID, orgID, body.Label, ttl)
-	if err != nil {
-		writeStoreErr(w, err, "create station code failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
 func (h *Handler) listStations(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
@@ -326,35 +288,6 @@ func (h *Handler) renameStation(w http.ResponseWriter, r *http.Request) {
 	out, err := h.store().RenameStationAsTeacher(r.Context(), claims.ProfileID, orgID, stationID, body.Label)
 	if err != nil {
 		writeStoreErr(w, err, "rename station failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
-type activateStationBody struct {
-	Code        string `json:"code"`
-	Fingerprint string `json:"fingerprint"`
-	Label       string `json:"label"`
-}
-
-func (h *Handler) activateStation(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
-		return
-	}
-	var body activateStationBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-		return
-	}
-	fp := devicefp.Normalize(body.Fingerprint)
-	if fp == "" {
-		fp = devicefp.FromContext(r.Context())
-	}
-	out, err := h.store().ActivateStation(r.Context(), body.Code, fp, body.Label, "profile:"+claims.ProfileID.String())
-	if err != nil {
-		writeStoreErr(w, err, "activate station failed")
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)

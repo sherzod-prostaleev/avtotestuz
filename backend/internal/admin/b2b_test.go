@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -116,39 +115,6 @@ func TestAdminB2B(t *testing.T) {
 			t.Fatalf("detail=%+v", detailEnv.Data)
 		}
 
-		// Classroom station: activate code + bind fingerprint
-		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/station-codes",
-			bytes.NewBufferString(`{"label":"Lab-1"}`))
-		req.Header.Set("Authorization", "Bearer "+access)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("station code status=%d body=%s", w.Code, w.Body.String())
-		}
-		var codeEnv struct {
-			Data struct {
-				Code string `json:"code"`
-			} `json:"data"`
-		}
-		if err := json.Unmarshal(w.Body.Bytes(), &codeEnv); err != nil {
-			t.Fatal(err)
-		}
-		bs := b2b.Store{Pool: pool}
-		if _, err := bs.ActivateStation(context.Background(), codeEnv.Data.Code, "admin-test-fp", "Lab-1", "test"); err != nil {
-			t.Fatalf("activate station: %v", err)
-		}
-		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if err := json.Unmarshal(w.Body.Bytes(), &detailEnv); err != nil {
-			t.Fatal(err)
-		}
-		if detailEnv.Data.SeatsUsed < 1 {
-			t.Fatalf("expected station seats_used>=1, got %+v", detailEnv.Data)
-		}
-
 		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/stats", nil)
 		req.Header.Set("Authorization", "Bearer "+access)
 		w = httptest.NewRecorder()
@@ -233,11 +199,10 @@ func TestAdminB2BHardDelete(t *testing.T) {
 		t.Fatal(err)
 	}
 	b2bStore := b2b.Store{Pool: pool}
-	code, err := b2bStore.CreateActivateCode(ctx, org.ID, "Class-1", "test", 24*time.Hour)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b2bStore.ActivateStation(ctx, code.Code, "delete-school-fp", "Class-1", "test"); err != nil {
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_station (org_id, label, status, activated_by, public_key, hwid_hash)
+		VALUES ($1, 'Class-1', 'active', 'test', $2, 'delete-school-hwid')`,
+		org.ID, []byte("delete-school-pubkey")); err != nil {
 		t.Fatal(err)
 	}
 	promo, err := b2bStore.CreatePartnerPromo(ctx, org.ID, "DELETE20", "percent", 20, 90)
@@ -348,7 +313,6 @@ func TestAdminB2BHardDelete(t *testing.T) {
 		"license":       `SELECT COUNT(*)::int FROM b2b_org_license WHERE org_id=$1`,
 		"invite":        `SELECT COUNT(*)::int FROM b2b_invite WHERE org_id=$1`,
 		"station":       `SELECT COUNT(*)::int FROM b2b_station WHERE org_id=$1`,
-		"station_code":  `SELECT COUNT(*)::int FROM b2b_station_activate_code WHERE org_id=$1`,
 		"partner_promo": `SELECT COUNT(*)::int FROM promo_code WHERE partner_org_id=$1`,
 	} {
 		var n int

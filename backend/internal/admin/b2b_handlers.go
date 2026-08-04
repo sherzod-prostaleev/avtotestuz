@@ -472,45 +472,12 @@ func (h *Handler) patchB2BOrg(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]any{"id": orgID, "status": body.Status})
 }
 
-type createStationCodeBody struct {
-	Label    string `json:"label"`
-	TTLHours int    `json:"ttl_hours"`
-}
-
-func (h *Handler) createB2BStationCode(w http.ResponseWriter, r *http.Request) {
-	orgID, ok := parseUUIDParam(w, r, "id")
-	if !ok {
-		return
-	}
-	var body createStationCodeBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && r.ContentLength != 0 {
-		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
-		return
-	}
-	ttl := time.Duration(body.TTLHours) * time.Hour
-	if body.TTLHours <= 0 {
-		ttl = 7 * 24 * time.Hour
-	}
-	claims, _ := FromContext(r.Context())
-	adminID := claims.AdminUserID
-	out, err := h.b2bStore().CreateActivateCode(r.Context(), orgID, body.Label, "admin:"+adminID.String(), ttl)
-	if err != nil {
-		writeB2BStoreErr(w, err, "create station code failed")
-		return
-	}
-	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.stations.code", "b2b_org", orgID.String(),
-		nil, map[string]any{"code_id": out.ID.String(), "label": out.Label},
-		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
-	)
-	httpx.Data(w, http.StatusOK, out)
-}
-
 func (h *Handler) listB2BStations(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := parseUUIDParam(w, r, "id")
 	if !ok {
 		return
 	}
-	out, err := h.b2bStore().ListStations(r.Context(), orgID, true)
+	out, err := h.b2bStore().ListStations(r.Context(), orgID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "stations query failed")
 		return
