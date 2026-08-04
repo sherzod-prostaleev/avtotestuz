@@ -61,8 +61,6 @@ export default function AdminB2BOrgDetailPage() {
   const [homeSeats, setHomeSeats] = useState("0");
   const [days, setDays] = useState("365");
   const [grantDays, setGrantDays] = useState("30");
-  const [stationLabel, setStationLabel] = useState("");
-  const [lastCode, setLastCode] = useState<string | null>(null);
   const [promoCode, setPromoCode] = useState("");
   const [promoValue, setPromoValue] = useState("20");
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -142,24 +140,6 @@ export default function AdminB2BOrgDetailPage() {
       setError(t("errorCreate"));
       return;
     }
-    await load();
-  }
-
-  async function createStationCode() {
-    setError(null);
-    setLastCode(null);
-    const res = await fetch(`/api/admin/b2b/orgs/${params.id}/station-codes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ label: stationLabel || "PC", ttl_hours: 168 }),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      setError(t("errorStationCode"));
-      return;
-    }
-    setLastCode(json.data?.code ?? null);
-    setStationLabel("");
     await load();
   }
 
@@ -440,22 +420,6 @@ export default function AdminB2BOrgDetailPage() {
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("stationsTitle")}</h2>
             <p className="text-xs text-muted-foreground">{t("stationsHint")}</p>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={stationLabel}
-                onChange={(e) => setStationLabel(e.target.value)}
-                placeholder={t("stationLabelPlaceholder")}
-                className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-sm"
-              />
-              <Button type="button" size="sm" onClick={() => void createStationCode()}>
-                {t("createStationCode")}
-              </Button>
-            </div>
-            {lastCode ? (
-              <p className="rounded-lg bg-accent/10 px-3 py-2 font-mono text-sm font-bold">
-                {t("stationCodeReady")}: {lastCode}
-              </p>
-            ) : null}
             <p className="text-xs text-muted-foreground">
               {t("stationsUsed", { used: activeStations.length })} / {data.org.active_seats ?? 0}
             </p>
