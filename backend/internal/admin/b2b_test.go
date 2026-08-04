@@ -98,6 +98,13 @@ func TestAdminB2B(t *testing.T) {
 			t.Fatalf("source=%s", source)
 		}
 
+		if _, err := pool.Exec(context.Background(), `
+			INSERT INTO b2b_station (org_id, label, status, activated_by, public_key, hwid_hash)
+			VALUES ($1, 'Class-1', 'active', 'test', $2, 'admin-b2b-test-hwid')`,
+			orgID, []byte("admin-b2b-test-pubkey")); err != nil {
+			t.Fatal(err)
+		}
+
 		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String(), nil)
 		req.Header.Set("Authorization", "Bearer "+access)
 		w = httptest.NewRecorder()
@@ -113,6 +120,9 @@ func TestAdminB2B(t *testing.T) {
 		}
 		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 || detailEnv.Data.HomeSeatsUsed < 1 {
 			t.Fatalf("detail=%+v", detailEnv.Data)
+		}
+		if detailEnv.Data.SeatsUsed < 1 {
+			t.Fatalf("seats_used=%d, want >=1 for active station", detailEnv.Data.SeatsUsed)
 		}
 
 		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/stats", nil)

@@ -56,7 +56,6 @@ type Station = {
   id: string;
   label: string;
   status: string;
-  fingerprint?: string;
   last_seen_at?: string;
 };
 
@@ -80,8 +79,6 @@ export default function TeacherPage() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [stations, setStations] = useState<Station[]>([]);
-  const [stationLabel, setStationLabel] = useState("");
-  const [lastCode, setLastCode] = useState<string | null>(null);
 
   const openOrg = useCallback(
     async (id: string) => {
@@ -188,26 +185,6 @@ export default function TeacherPage() {
       URL.revokeObjectURL(url);
     } catch {
       setError(t("errorExport"));
-    }
-  }
-
-  async function createStationCode() {
-    if (!selected) return;
-    setBusy(true);
-    setError(null);
-    setLastCode(null);
-    try {
-      const out = await apiPost<{ code: string }>(`me/teacher/orgs/${selected.org.id}/station-codes`, {
-        label: stationLabel || "PC",
-        ttl_hours: 168,
-      });
-      setLastCode(out.code);
-      setStationLabel("");
-      await refreshSelected();
-    } catch {
-      setError(t("errorStationCode"));
-    } finally {
-      setBusy(false);
     }
   }
 
@@ -322,22 +299,6 @@ export default function TeacherPage() {
               {t("stationsTitle")}
             </h3>
             <p className="text-xs text-muted-foreground">{t("stationsHint")}</p>
-            <div className="flex flex-wrap gap-2">
-              <input
-                value={stationLabel}
-                onChange={(e) => setStationLabel(e.target.value)}
-                placeholder={t("stationLabelPlaceholder")}
-                className="h-10 flex-1 rounded-xl border border-border bg-background px-3 text-sm"
-              />
-              <Button type="button" size="sm" disabled={busy} onClick={() => void createStationCode()}>
-                {t("createStationCode")}
-              </Button>
-            </div>
-            {lastCode ? (
-              <p className="rounded-lg bg-accent/10 px-3 py-2 font-mono text-sm font-bold">
-                {t("stationCodeReady")}: {lastCode}
-              </p>
-            ) : null}
             <ul className="space-y-2">
               {stations.map((s) => (
                 <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -345,9 +306,6 @@ export default function TeacherPage() {
                     <p className="font-semibold">
                       {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
                     </p>
-                    {s.fingerprint ? (
-                      <p className="font-mono text-xs text-muted-foreground">{s.fingerprint}</p>
-                    ) : null}
                   </div>
                   {s.status === "active" ? (
                     <Button
