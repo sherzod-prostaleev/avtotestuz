@@ -229,8 +229,18 @@ CREATE INDEX b2b_org_enroll_code_org_idx
   ON b2b_org_enroll_code (org_id, expires_at DESC);
 ```
 
-`fingerprint` ustuni va uning unique indexi Faza 1da saqlanadi (nullable
-qilinadi), Faza 3da o'chiriladi.
+Prod'da faol stansiya yo'qligi sababli (8.1) `fingerprint` ustuni va uning
+unique indexi shu migratsiyada darhol o'chiriladi; `public_key` va `hwid_hash`
+esa `NOT NULL` bo'ladi:
+
+```sql
+TRUNCATE b2b_station, b2b_station_activate_code;
+ALTER TABLE b2b_station
+  DROP COLUMN fingerprint,
+  ALTER COLUMN public_key SET NOT NULL,
+  ALTER COLUMN hwid_hash  SET NOT NULL;
+DROP TABLE b2b_station_activate_code;
+```
 
 ## 8. Kod o'zgarishlari
 
@@ -252,11 +262,12 @@ qilinadi), Faza 3da o'chiriladi.
 
 ### 8.1. Migratsiya xavfsizligi
 
-Prod'da allaqachon bog'langan stansiyalar bo'lsa, eski `devicefp` yo'li 30 kun
-`DEPRECATED_DEVICEFP=1` env flagi ostida saqlanadi va shundan keyin o'chiriladi.
-Agar prod'da hali real maktab bo'lmasa — flag umuman qo'shilmaydi va eski yo'l
-darhol olib tashlanadi. **Bu implementatsiya boshlanishidan oldin
-tekshirilishi kerak:** `SELECT count(*) FROM b2b_station WHERE status='active'`.
+**Hal qilindi (2026-08-04):** prod'da faol stansiya yo'q (0 ta), real maktab
+hali ulanmagan. Demak deprecation flagi kerak emas — `devicefp` paketi, uning
+middleware'i, frontend `device-fingerprint.ts` va `b2b_station.fingerprint`
+ustuni **Faza 1da darhol** o'chiriladi. Orqaga moslik yuki yo'q; migratsiya
+`b2b_station` va `b2b_station_activate_code` jadvallarini bo'shatib
+(`TRUNCATE`) yangi sxemaga o'tkazadi.
 
 ## 9. Fazalar
 
