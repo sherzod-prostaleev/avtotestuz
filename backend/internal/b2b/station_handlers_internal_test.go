@@ -1,11 +1,21 @@
 package b2b
 
 import (
+	"bytes"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/testredis"
@@ -13,9 +23,9 @@ import (
 
 // TestStationRateLimitIdentityDimension drives (*Handler).allow directly with a
 // low limit instead of sending hundreds of HTTP requests through a handler
-// that hardcodes production limits (40-600/hour). allow's boolean return is
-// exactly what each station handler turns into 429: the moment it flips
-// false, stationChallenge/stationToken/enrollStation all write
+// that hardcodes production limits. allow's boolean return is exactly what
+// each station handler turns into 429: the moment it flips false,
+// stationChallenge/stationToken/enrollStation all write
 // http.StatusTooManyRequests and return.
 func TestStationRateLimitIdentityDimension(t *testing.T) {
 	rdb := testredis.New(t)
@@ -40,58 +50,100 @@ func TestStationRateLimitIdentityDimension(t *testing.T) {
 	}
 }
 
-// TestStationRateLimitIPDimension exercises the secondary IP dimension the same
-// way, proving it still applies (finding 1 says keep it, not delete it) even
-// though identity now carries the primary protection.
+// signedClientIPRequest builds a request carrying a valid signed
+// trusted-proxy IP assertion, mirroring what nginx is expected to send once
+// configured (frontend/src/lib/client-ip-assertion.ts is the producer side
+// of this same header contract). auth.ClientIPResolver is package-private
+// about its fields, so a white-box test in package auth can call the
+// unexported signing helper directly (see client_ip_test.go); from package
+// b2b the header names and payload format have to be reproduced here to
+// build a request that ResolveAsserted will actually verify.
+func signedClientIPRequest(t *testing.T, secret []byte, method, path, ip string) *http.Request {
+	t.Helper()
+	req := httptest.NewRequest(method, path, nil)
+	ts := strconv.FormatInt(time.Now().Unix(), 10)
+	payload := strings.Join([]string{"v1", ts, ip, method, req.URL.EscapedPath()}, "\n")
+	mac := hmac.New(sha256.New, secret)
+	_, _ = mac.Write([]byte(payload))
+	req.Header.Set("X-Avtotest-Client-IP", ip)
+	req.Header.Set("X-Avtotest-Client-IP-Timestamp", ts)
+	req.Header.Set("X-Avtotest-Client-IP-Signature", base64.RawURLEncoding.EncodeToString(mac.Sum(nil)))
+	return req
+}
+
+// TestStationRateLimitIPDimension exercises the secondary IP dimension the
+// same way, proving it still applies (finding 1 says close the loophole,
+// not delete the dimension) once h.ClientIPs actually verifies a signed
+// assertion -- an unasserted RemoteAddr alone must not be enough, which is
+// exactly finding 1's bug.
 func TestStationRateLimitIPDimension(t *testing.T) {
 	rdb := testredis.New(t)
-	h := &Handler{Lim: auth.Limiter{R: rdb}}
+	secret := []byte("station-ip-dimension-test-secret-32-bytes!")
+	h := &Handler{Lim: auth.Limiter{R: rdb}, ClientIPs: auth.NewClientIPResolver(secret)}
 
 	const limit = 2
 	for i := 1; i <= limit; i++ {
-		req := httptest.NewRequest(http.MethodPost, "/b2b/stations/challenge", nil)
-		req.RemoteAddr = "198.51.100.9:1111"
+		req := signedClientIPRequest(t, secret, http.MethodPost, "/b2b/stations/challenge", "198.51.100.9")
 		// A fresh identity per call so only the IP dimension can deny.
 		identity := fmt.Sprintf("station-%d", i)
 		if !h.allow(req, "test-exhaust-ip", identity, 1000, limit, time.Hour) {
 			t.Fatalf("call %d/%d: want allowed, got denied", i, limit)
 		}
 	}
-	req := httptest.NewRequest(http.MethodPost, "/b2b/stations/challenge", nil)
-	req.RemoteAddr = "198.51.100.9:2222"
+	req := signedClientIPRequest(t, secret, http.MethodPost, "/b2b/stations/challenge", "198.51.100.9")
 	if h.allow(req, "test-exhaust-ip", "station-final", 1000, limit, time.Hour) {
 		t.Fatalf("call %d/%d: want denied (429) by the IP dimension, got allowed", limit+1, limit)
 	}
 }
 
-// TestStationRateLimitSkipsEmptyIP covers finding 2: an unresolvable IP must
-// not become the shared key "station:<action>:ip:" for every such caller.
-// With the IP dimension disabled, two different identities behind the same
-// broken address must be limited independently, not lumped together.
-func TestStationRateLimitSkipsEmptyIP(t *testing.T) {
+// TestStationRateLimitUnassertedIPNeverAppliesIPDimension covers finding 1
+// directly: a RemoteAddr alone (no signed assertion), which is exactly what
+// nginx sends today over its loopback hop to this service, must never key
+// the IP bucket -- otherwise every station on the platform shares one
+// bucket keyed on the proxy's own address. Two different identities behind
+// the same unasserted RemoteAddr must be limited independently.
+func TestStationRateLimitUnassertedIPNeverAppliesIPDimension(t *testing.T) {
 	rdb := testredis.New(t)
-	h := &Handler{Lim: auth.Limiter{R: rdb}}
+	h := &Handler{Lim: auth.Limiter{R: rdb}} // zero-value ClientIPs: never asserts
 	req := httptest.NewRequest(http.MethodPost, "/b2b/stations/challenge", nil)
-	req.RemoteAddr = "not-an-address" // unparseable -> clientIP returns ""
-
-	if h.clientIP(req) != "" {
-		t.Fatalf("clientIP(%q) = %q, want empty", req.RemoteAddr, h.clientIP(req))
-	}
+	req.RemoteAddr = "198.51.100.9:54321"
 
 	const limit = 2
 	for i := 1; i <= limit; i++ {
-		if !h.allow(req, "test-empty-ip", "identity-1", limit, 1, time.Hour) {
+		if !h.allow(req, "test-unasserted-ip", "identity-1", limit, 1, time.Hour) {
 			t.Fatalf("call %d/%d: want allowed, got denied", i, limit)
 		}
 	}
-	if h.allow(req, "test-empty-ip", "identity-1", limit, 1, time.Hour) {
+	if h.allow(req, "test-unasserted-ip", "identity-1", limit, 1, time.Hour) {
 		t.Fatal("identity-1's own limit should have denied this call")
 	}
 
-	// identity-2 must be unaffected: if the empty IP were used as a literal
-	// key, both identities would share one exhausted bucket by now.
-	if !h.allow(req, "test-empty-ip", "identity-2", limit, 1, time.Hour) {
+	// identity-2 must be unaffected: if the unasserted RemoteAddr were used
+	// as the IP-bucket key (ipLimit=1 above), both identities would share
+	// one exhausted bucket by now.
+	if !h.allow(req, "test-unasserted-ip", "identity-2", limit, 1, time.Hour) {
 		t.Fatal("identity-2 was denied by identity-1's exhausted bucket")
+	}
+}
+
+// TestStationRateLimitFailsClosedWithNoDimension covers finding 2: empty
+// identity and an unasserted IP together must not make allow return true
+// having applied no limit at all. Reachable via e.g. enrollStation on
+// {"code":""}.
+func TestStationRateLimitFailsClosedWithNoDimension(t *testing.T) {
+	rdb := testredis.New(t)
+	h := &Handler{Lim: auth.Limiter{R: rdb}}
+	req := httptest.NewRequest(http.MethodPost, "/b2b/stations/enroll", nil)
+	req.RemoteAddr = "198.51.100.20:54321" // present but never asserted
+
+	const limit = 2
+	for i := 1; i <= limit; i++ {
+		if !h.allow(req, "test-unkeyed", "", limit, limit, time.Hour) {
+			t.Fatalf("call %d/%d: want allowed, got denied", i, limit)
+		}
+	}
+	if h.allow(req, "test-unkeyed", "", limit, limit, time.Hour) {
+		t.Fatal("empty identity + unasserted IP must still be bounded by the unkeyed fallback bucket")
 	}
 }
 
@@ -119,5 +171,46 @@ func TestStationClientIP(t *testing.T) {
 				t.Fatalf("clientIP(%q) = %q, want %q", tc.remoteAddr, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestStationChallengeHandlerRateLimitsSameStation drives the real HTTP
+// handler chain end to end (finding 4). Every other rate-limit test in this
+// file calls (*Handler).allow directly with synthetic action strings no
+// handler actually uses, so a regression that dropped the h.allow call from
+// stationChallenge, or passed the wrong action/identity/limit, would go
+// completely undetected. challenge needs no Postgres fixture --
+// StationAuth.Challenge never touches h.Pool -- so driving it past
+// challengeIdentityLimit is cheap.
+func TestStationChallengeHandlerRateLimitsSameStation(t *testing.T) {
+	rdb := testredis.New(t)
+	h := &Handler{Redis: rdb, Secret: []byte("test-secret-that-is-long-enough-000000"), Lim: auth.Limiter{R: rdb}}
+	r := chi.NewRouter()
+	r.Route("/api/v1", h.PublicRoutes)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	body, err := json.Marshal(map[string]string{"station_id": uuid.New().String()})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	post := func(t *testing.T) int {
+		t.Helper()
+		resp, err := http.Post(srv.URL+"/api/v1/b2b/stations/challenge", "application/json", bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		return resp.StatusCode
+	}
+
+	for i := 1; i <= challengeIdentityLimit; i++ {
+		if status := post(t); status != http.StatusOK {
+			t.Fatalf("request %d/%d: status=%d, want 200", i, challengeIdentityLimit, status)
+		}
+	}
+	if status := post(t); status != http.StatusTooManyRequests {
+		t.Fatalf("request %d: status=%d, want 429", challengeIdentityLimit+1, status)
 	}
 }

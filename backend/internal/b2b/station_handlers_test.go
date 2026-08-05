@@ -117,9 +117,15 @@ func TestStationEndpointsEndToEnd(t *testing.T) {
 	}
 
 	// A wrong hwid on an otherwise valid flow is a flat 401.
-	_, body = post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+	resp, body = post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("challenge (hwid case) status=%d body=%v", resp.StatusCode, body)
+	}
 	data, _ = body["data"].(map[string]any)
 	nonce2, _ := data["nonce"].(string)
+	if nonce2 == "" {
+		t.Fatalf("no nonce in %v", body)
+	}
 	ts2 := time.Now().Unix()
 	sig2 := ed25519.Sign(priv, b2b.SignedMessage(sid, nonce2, ts2))
 	resp, hwidBody := post(t, "/api/v1/b2b/stations/token", map[string]any{
@@ -137,9 +143,15 @@ func TestStationEndpointsEndToEnd(t *testing.T) {
 	// error.code and error.message as the hwid mismatch above -- a
 	// status-only check on one reason cannot catch a regression that leaks
 	// which reason it was through the body.
-	_, body = post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+	resp, body = post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("challenge (sig case) status=%d body=%v", resp.StatusCode, body)
+	}
 	data, _ = body["data"].(map[string]any)
 	nonce3, _ := data["nonce"].(string)
+	if nonce3 == "" {
+		t.Fatalf("no nonce in %v", body)
+	}
 	ts3 := time.Now().Unix()
 	sig3 := ed25519.Sign(priv, b2b.SignedMessage(sid, nonce3, ts3))
 	sig3[0] ^= 0xFF // corrupt the signature; hwid stays correct

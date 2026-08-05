@@ -33,21 +33,34 @@ func NewClientIPResolver(secret []byte) ClientIPResolver {
 }
 
 func (r ClientIPResolver) Resolve(req *http.Request) string {
+	ip, _ := r.ResolveAsserted(req)
+	return ip
+}
+
+// ResolveAsserted is Resolve plus provenance: asserted is true only when the
+// returned ip came from a signed, freshly-verified assertion header, false
+// whenever it fell back to the TCP peer address (no secret configured, no
+// assertion headers present, or the assertion failed to verify). Callers
+// that want to trust the IP for something stronger than telemetry — e.g.
+// keying a rate-limit bucket that must not be shared by every caller behind
+// the same unauthenticated proxy hop — must check asserted, not just look at
+// whether the string is non-empty.
+func (r ClientIPResolver) ResolveAsserted(req *http.Request) (ip string, asserted bool) {
 	fallback := remoteIP(req)
 	if len(r.secret) == 0 {
-		return fallback
+		return fallback, false
 	}
 
 	assertedIP := strings.TrimSpace(req.Header.Get(clientIPHeader))
 	timestampText := strings.TrimSpace(req.Header.Get(clientIPTimestampHeader))
 	signatureText := strings.TrimSpace(req.Header.Get(clientIPSignatureHeader))
 	if assertedIP == "" || timestampText == "" || signatureText == "" || net.ParseIP(assertedIP) == nil {
-		return fallback
+		return fallback, false
 	}
 
 	timestamp, err := strconv.ParseInt(timestampText, 10, 64)
 	if err != nil {
-		return fallback
+		return fallback, false
 	}
 	now := time.Now()
 	if r.now != nil {
@@ -55,20 +68,20 @@ func (r ClientIPResolver) Resolve(req *http.Request) string {
 	}
 	assertedAt := time.Unix(timestamp, 0)
 	if now.Sub(assertedAt) > clientIPAssertionMaxAge || assertedAt.Sub(now) > clientIPAssertionFuture {
-		return fallback
+		return fallback, false
 	}
 
 	provided, err := base64.RawURLEncoding.DecodeString(signatureText)
 	if err != nil {
-		return fallback
+		return fallback, false
 	}
 	expected := hmac.New(sha256.New, r.secret)
 	_, _ = expected.Write([]byte(clientIPSigningPayload(timestampText, assertedIP, req.Method, req.URL.EscapedPath())))
 	if !hmac.Equal(provided, expected.Sum(nil)) {
-		return fallback
+		return fallback, false
 	}
 
-	return assertedIP
+	return assertedIP, true
 }
 
 func clientIPSigningPayload(timestamp, ip, method, path string) string {

@@ -1,12 +1,15 @@
 package b2b
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,29 +34,58 @@ func (h *Handler) stationAuth() StationAuth {
 	return StationAuth{Pool: h.Pool, Redis: h.Redis, Secret: h.Secret}
 }
 
-// Per-action limits. The identity dimension is the real abuse control: nginx
-// proxies to this service over loopback and middleware.RealIP is
-// deliberately absent, so every request's TCP peer is the proxy itself, not
-// the caller. h.ClientIPs can recover a real client IP from a signed
-// trusted-proxy header when nginx is configured to send one, but until then
-// the IP dimension collapses to one shared bucket for the whole platform —
-// identity is what actually bounds a single bad actor.
+// Per-action limits. identity is the real abuse control: nginx proxies to
+// this service over loopback and does not yet send the signed trusted-proxy
+// assertion h.ClientIPs needs to recover the real caller, so until that is
+// configured `allow` skips the IP dimension entirely rather than collapsing
+// every caller on the platform into one shared bucket (see allow's doc
+// comment for why). It activates automatically, with no code change, the
+// moment nginx starts sending the assertion.
 //
-// A live station needs about 4 challenge+token pairs per hour (its access
-// token has a 15-minute TTL); the identity limits below give an order of
-// magnitude of headroom over that for clock drift, retries and reconnects
-// without letting one leaked station id or enrollment code hammer the
-// service.
+// challenge issues a bearer-less nonce that proves nothing about the
+// caller — every syntactically valid station id "succeeds" whether or not
+// that station exists — so there is no failed/successful split to key on;
+// its identity ceiling only has to bound raw resource use, not act as a
+// per-station lockout. A live station needs roughly 5 challenge+token pairs
+// an hour (the access token's TTL is 15 minutes); challengeIdentityLimit
+// gives ~40x that for clock drift, retries and reconnects, which is still
+// far too low to be a meaningful DoS budget for an attacker.
+//
+// token verifies a real signature, so unlike challenge a wrong guess is
+// distinguishable from the station's own traffic. tokenIdentityLimit is a
+// coarse pre-work volume cap only — raised the same way as challenge's, and
+// it still counts every attempt including a station's own successful ones,
+// so it must never be the sole gate or the same lockout challenge had would
+// just move here. tokenFailedIdentityLimit is the control that actually
+// matters: it only grows on a failed verification, so a legitimate
+// station's own successful traffic can never push it over the edge, while
+// an attacker who cannot produce a valid signature for a station id it does
+// not own (a station id is not a credential — it sits in agent config and
+// teacher-facing station lists) is bounded to a small number of guesses per
+// hour.
 const (
 	enrollIdentityLimit = 20
 	enrollIPLimit       = 60
 
-	challengeIdentityLimit = 40
+	challengeIdentityLimit = 200
 	challengeIPLimit       = 600
 
-	tokenIdentityLimit = 40
-	tokenIPLimit       = 600
+	tokenIdentityLimit       = 200
+	tokenFailedIdentityLimit = 20
+	tokenIPLimit             = 600
 )
+
+// hashIdentity turns a caller-supplied rate-limit identity (an enrollment
+// code or a station id) into a fixed-length, non-reversible key segment. The
+// enrollment code in particular is a short-lived shared secret; without this
+// it would appear verbatim in Redis MONITOR output and the slowlog for the
+// life of the enrollment window. Applied uniformly to every identity
+// dimension so the keying stays consistent regardless of what the identity
+// actually is.
+func hashIdentity(identity string) string {
+	sum := sha256.Sum256([]byte(identity))
+	return hex.EncodeToString(sum[:16])
+}
 
 // clientIP resolves the caller's address through h.ClientIPs — a signed
 // trusted-proxy assertion when nginx is configured to send one, otherwise
@@ -72,22 +104,51 @@ func (h *Handler) clientIP(r *http.Request) string {
 }
 
 // allow applies a two-dimension fixed-window limit: identity first, IP
-// second. Either dimension is skipped when its key would be empty (no
-// identity yet, or an unresolvable IP) rather than letting every such
-// request share one bucket keyed on an empty string. A missing limiter
-// (tests) allows. Fails closed: a limiter error denies the request.
+// second. identity is skipped when it is empty (no code/station id yet).
+//
+// The IP dimension is skipped unless h.ClientIPs verified a signed
+// trusted-proxy assertion for this request (ResolveAsserted's asserted
+// return). An *unasserted* IP is not "no IP" — h.clientIP(r) will happily
+// return the TCP peer address — but in production that peer is nginx's own
+// loopback address for every request until nginx is configured to send the
+// assertion, so keying a limit on it would share one bucket across every
+// caller on the platform: an attacker rotating identities (a fresh
+// station_id per request) never trips their own identity bucket while
+// draining the shared IP bucket dry, locking out every real station until
+// the window rolls. Gating on asserted rather than on "IP is non-empty" is
+// what closes that: the dimension turns on by itself, correctly, the moment
+// nginx starts sending the header, with no code change here.
+//
+// If neither dimension applied — identity empty and IP unasserted — the
+// request would otherwise leave with no limit at all, breaking allow's own
+// fail-closed contract (reachable today via e.g. an enroll call with
+// `{"code":""}`). That case falls back to one coarse action-wide bucket,
+// sized the same as the dormant IP bucket: it can't attribute the request
+// to a caller, but it still bounds the total rate of unkeyable requests.
+//
+// A missing limiter (tests) allows. Fails closed: a limiter error denies.
 func (h *Handler) allow(r *http.Request, action, identity string, identityLimit, ipLimit int, window time.Duration) bool {
 	if h.Lim.R == nil {
 		return true
 	}
+	applied := false
 	if identity != "" {
-		ok, err := h.Lim.Allow(r.Context(), "station:"+action+":id:"+identity, identityLimit, window)
+		key := "station:" + action + ":id:" + hashIdentity(identity)
+		ok, err := h.Lim.Allow(r.Context(), key, identityLimit, window)
 		if err != nil || !ok {
 			return false
 		}
+		applied = true
 	}
-	if ip := h.clientIP(r); ip != "" {
+	if ip, asserted := h.ClientIPs.ResolveAsserted(r); asserted {
 		ok, err := h.Lim.Allow(r.Context(), "station:"+action+":ip:"+ip, ipLimit, window)
+		if err != nil || !ok {
+			return false
+		}
+		applied = true
+	}
+	if !applied {
+		ok, err := h.Lim.Allow(r.Context(), "station:"+action+":unkeyed", ipLimit, window)
 		if err != nil || !ok {
 			return false
 		}
@@ -112,7 +173,12 @@ func (h *Handler) enrollStation(w http.ResponseWriter, r *http.Request) {
 	// Decoding the body is pure CPU work, no DB or Redis touched yet, so the
 	// limiter still runs before any I/O. The enrollment code is the identity
 	// dimension here — there is no station id until enrollment succeeds.
-	if !h.allow(r, "enroll", body.Code, enrollIdentityLimit, enrollIPLimit, time.Hour) {
+	// Canonicalize it the same way Store.EnrollStation does before it becomes
+	// a rate-limit key: otherwise "AVTO-ABCD-EFGH", "avto-abcd-efgh" and
+	// " AVTO-ABCD-EFGH " are three independent buckets for what is really one
+	// leaked code, and the limit is evaded by changing case or whitespace.
+	identity := strings.ToUpper(strings.TrimSpace(body.Code))
+	if !h.allow(r, "enroll", identity, enrollIdentityLimit, enrollIPLimit, time.Hour) {
 		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many enrollment attempts")
 		return
 	}
@@ -190,14 +256,30 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Decoding the body and parsing the UUID are both pure CPU work, no DB
-	// or Redis touched yet, so the limiter still runs before any I/O. The
-	// station id is the identity dimension.
+	// or Redis touched yet, so the pre-work limiter still runs before any
+	// I/O. This is a coarse volume cap only -- it counts every attempt,
+	// including the station's own successful ones -- so it must not be the
+	// only gate; see the constants' doc comment.
 	if !h.allow(r, "token", stationID.String(), tokenIdentityLimit, tokenIPLimit, time.Hour) {
 		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many token requests")
 		return
 	}
+	// The failed-attempt bucket is what actually protects one station from
+	// being locked out by someone who merely knows its id: it only grows
+	// when a call turns out to be bogus, so a legitimate station's own
+	// successful renewals can never fill it. Checked before doing any
+	// verification work so an already-bounded attacker doesn't get a free
+	// signature check per request.
+	failKey := "station:token:fail:" + hashIdentity(stationID.String())
+	if h.Lim.R != nil {
+		if n, err := h.Lim.Count(r.Context(), failKey); err != nil || n >= tokenFailedIdentityLimit {
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many failed token attempts")
+			return
+		}
+	}
 	sig, err := base64.StdEncoding.DecodeString(body.Sig)
 	if err != nil {
+		h.recordTokenFailure(r, failKey)
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "sig must be base64")
 		return
 	}
@@ -212,6 +294,7 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if errors.Is(err, ErrStationAuth) {
+			h.recordTokenFailure(r, failKey)
 			httpx.Error(w, http.StatusUnauthorized, "station_unauthorized", "station authentication failed")
 			return
 		}
@@ -219,6 +302,18 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+// recordTokenFailure grows the failed-attempt bucket that gates further
+// stationToken calls for this station id. Best effort: the response for
+// this request is already decided (401 or 400) by the time this runs, so a
+// limiter error here does not need to change it -- the pre-work bucket in
+// stationToken already fails closed on every subsequent call regardless.
+func (h *Handler) recordTokenFailure(r *http.Request, failKey string) {
+	if h.Lim.R == nil {
+		return
+	}
+	_, _ = h.Lim.Allow(r.Context(), failKey, tokenFailedIdentityLimit, time.Hour)
 }
 
 type enrollWindowBody struct {
