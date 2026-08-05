@@ -23,8 +23,16 @@ type StationRow struct {
 	ActivatedBy string    `json:"activated_by"`
 }
 
-// ErrSeatsExhausted means active stations already fill license seats.
+// ErrSeatsExhausted means active stations already fill license seats. This is
+// distinct from ErrCodeExhausted: a license can shrink after a code is
+// minted, so the two counters are checked independently and need different
+// user-facing messages ("your school has no free seats" vs. "ask your
+// teacher for a new code").
 var ErrSeatsExhausted = errors.New("seats exhausted")
+
+// ErrCodeExhausted means the enroll code has hit its own max_uses, separate
+// from the org's live seat count.
+var ErrCodeExhausted = errors.New("enroll code exhausted")
 
 // ErrOrgSuspended means the org cannot grant station VIP.
 var ErrOrgSuspended = errors.New("org suspended")

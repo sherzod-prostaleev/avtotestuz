@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // EnrollInput is one classroom PC presenting an org code and the public half
@@ -76,8 +78,12 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 	if label == "" {
 		label = "PC"
 	}
-	if len(label) > maxLabelLen {
-		label = label[:maxLabelLen]
+	if utf8.RuneCountInString(label) > maxLabelLen {
+		// Truncate on runes, not bytes: Cyrillic labels (Uzbek/Russian PC
+		// names) are 2 bytes per rune, so byte slicing can cut mid-rune and
+		// produce invalid UTF-8 that the profile insert then rejects.
+		runes := []rune(label)
+		label = string(runes[:maxLabelLen])
 	}
 
 	tx, err := s.Pool.Begin(ctx)
@@ -114,13 +120,21 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		return EnrollResult{}, ErrOrgSuspended
 	}
 
-	// Re-read the counter under the lock; a concurrent enroll may have used it.
-	if err := tx.QueryRow(ctx,
-		`SELECT used_count FROM b2b_org_enroll_code WHERE id = $1`, codeID).Scan(&usedCount); err != nil {
+	// Re-read the counter under the lock; a concurrent enroll may have used
+	// it. Re-check revoked_at/expires_at too: under a stampede a transaction
+	// can sit blocked on the org lock for a long time, and a teacher
+	// revoking a leaked code -- the emergency stop -- must still cut off
+	// every transaction already queued behind the lock, not just future ones.
+	if err := tx.QueryRow(ctx, `
+		SELECT used_count FROM b2b_org_enroll_code
+		WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`, codeID).Scan(&usedCount); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return EnrollResult{}, ErrNotFound
+		}
 		return EnrollResult{}, err
 	}
 	if usedCount >= maxUses {
-		return EnrollResult{}, ErrSeatsExhausted
+		return EnrollResult{}, ErrCodeExhausted
 	}
 
 	var seats int64
@@ -136,11 +150,32 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		return EnrollResult{}, ErrNoLicense
 	}
 
-	// Re-imaging the same machine reuses its seat instead of burning a new one.
-	if _, err := tx.Exec(ctx, `
+	// Re-imaging the same machine reuses its seat instead of burning a new
+	// one -- but only within the enrolling org. hwid_hash is not a secret
+	// (every agent transmits it), so a valid code for org A must never let
+	// it silently revoke and take over a PC bound to org B: that's a
+	// cross-tenant denial-of-service with no audit trail.
+	revokeTag, err := tx.Exec(ctx, `
 		UPDATE b2b_station SET status = 'revoked'
-		WHERE hwid_hash = $1 AND status = 'active'`, hwid); err != nil {
+		WHERE hwid_hash = $1 AND status = 'active' AND org_id = $2`, hwid, orgID)
+	if err != nil {
 		return EnrollResult{}, err
+	}
+	if revokeTag.RowsAffected() == 0 {
+		// No active binding in this org. If the hwid is actively bound to a
+		// DIFFERENT org, refuse rather than silently transferring it --
+		// a deliberate cross-org rebind is a support action, not something
+		// any code-holder can trigger.
+		var crossOrgActive bool
+		if err := tx.QueryRow(ctx, `
+			SELECT EXISTS (
+				SELECT 1 FROM b2b_station WHERE hwid_hash = $1 AND status = 'active'
+			)`, hwid).Scan(&crossOrgActive); err != nil {
+			return EnrollResult{}, err
+		}
+		if crossOrgActive {
+			return EnrollResult{}, ErrConflict
+		}
 	}
 
 	var active int64
@@ -167,6 +202,15 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		VALUES ($1, $2, $3, $4, 'active', 'enroll', $5, $6)
 		RETURNING id`,
 		orgID, []byte(in.PublicKey), hwid, label, in.AgentVersion, profileID).Scan(&stationID); err != nil {
+		if isUniqueViolation(err) {
+			// A concurrent enrollment of the same hwid_hash under a
+			// different org isn't serialized by the org lock (different
+			// orgs, different lock rows) and can race past the cross-org
+			// check above; the global partial unique index is the last
+			// line of defense. Map it to the same conflict the check above
+			// returns instead of leaking a raw pgx 23505 as a 500.
+			return EnrollResult{}, ErrConflict
+		}
 		return EnrollResult{}, err
 	}
 
@@ -185,4 +229,12 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		Label:         label,
 		LicenseEndsAt: licenseEnds.UTC(),
 	}, nil
+}
+
+// isUniqueViolation reports whether err is a Postgres unique-constraint
+// violation (SQLSTATE 23505), mirroring internal/auth/service.go's helper of
+// the same name (unexported, package-local -- no shared identifier to collide).
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
