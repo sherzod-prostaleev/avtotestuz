@@ -70,8 +70,26 @@ const (
 	challengeIdentityLimit = 200
 	challengeIPLimit       = 600
 
-	tokenIdentityLimit       = 200
-	tokenFailedIdentityLimit = 20
+	tokenIdentityLimit = 200
+	// tokenFailedIdentityLimit gates how many failed signature checks a
+	// single station id can accumulate in an hour before token issuance
+	// locks out for that id (see recordTokenFailure). It was 20 in the
+	// previous round, sized to also leave headroom for a station's own
+	// legitimate traffic sharing the bucket. That headroom concern is gone:
+	// a station's own successful renewals never touch this bucket, and a
+	// successful issue now clears it outright (see the reset in
+	// stationToken), so nothing legitimate accumulates here anymore -- only
+	// sustained failure does. What is left to size for is purely how
+	// expensive it is for someone who merely knows a station's id (not a
+	// secret -- it sits in agent config and teacher-facing station lists)
+	// to lock that station out of obtaining tokens for the rest of the
+	// window. Raised to 100: still small enough to fail closed quickly
+	// against a sustained attacker (an attacker without the station's
+	// private key can never produce a passing signature no matter how many
+	// tries it gets, so a higher ceiling does not buy it anything but
+	// wasted requests), while making a deliberate lockout cost 5x what it
+	// did before.
+	tokenFailedIdentityLimit = 100
 	tokenIPLimit             = 600
 )
 
@@ -87,17 +105,24 @@ func hashIdentity(identity string) string {
 	return hex.EncodeToString(sum[:16])
 }
 
-// clientIP resolves the caller's address through h.ClientIPs — a signed
-// trusted-proxy assertion when nginx is configured to send one, otherwise
-// the TCP peer address — and returns bare host only, never host:port: the
-// result is written to b2b_station.last_ip through a ::inet cast, and a
-// malformed value there fails that cast, which silently drops the rest of
-// the telemetry UPDATE (last_seen_at, agent_version) along with it. Any
-// value that is not a valid IP (including an unparseable RemoteAddr) yields
-// an empty string, not a mangled one.
+// clientIP returns the caller's address only when h.ClientIPs verified a
+// signed trusted-proxy assertion for this request -- the same asserted
+// check allow uses for its own IP dimension (see allow's doc comment for
+// why an unasserted value cannot be trusted as the caller's IP). An
+// unasserted result is not "no IP available": h.ClientIPs.Resolve would
+// happily return one, but in this deployment that is nginx's own loopback
+// peer address for every request until nginx is configured to send the
+// assertion, so writing it as-is would populate b2b_station.last_ip with
+// the same wrong value for every station on every login. The result is
+// written through a ::inet cast via NULLIF($3,'')::inet, and a malformed
+// value there fails that cast, which silently drops the rest of the
+// telemetry UPDATE (last_seen_at, agent_version) along with it, so an
+// unasserted or otherwise-unparseable IP yields an empty string -- turned
+// into a NULL an operator can interpret, not a loopback address that looks
+// like real data.
 func (h *Handler) clientIP(r *http.Request) string {
-	ip := h.ClientIPs.Resolve(r)
-	if net.ParseIP(ip) == nil {
+	ip, asserted := h.ClientIPs.ResolveAsserted(r)
+	if !asserted || net.ParseIP(ip) == nil {
 		return ""
 	}
 	return ip
@@ -300,6 +325,20 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 		}
 		httpx.Error(w, http.StatusInternalServerError, "server_error", "token failed")
 		return
+	}
+	// A successful Token call proves in.Sig verified against this station's
+	// real key, so whatever is already sitting in failKey was noise --
+	// clock drift, an expired nonce, a restart mid-handshake -- and not an
+	// attacker grinding it up: nothing lacking the station's private key
+	// can ever reach this line, so an attacker can never trigger this reset
+	// to launder its own failed attempts. Clearing it here is what lets a
+	// station that recovers keep working for the rest of the hour instead
+	// of staying locked out by failures that happened before it recovered.
+	// Best effort, like recordTokenFailure: the response is already a 200
+	// by the time this runs, so a Redis error here does not need to change
+	// it.
+	if h.Lim.R != nil {
+		_ = h.Lim.Reset(r.Context(), failKey)
 	}
 	httpx.Data(w, http.StatusOK, out)
 }

@@ -2,9 +2,13 @@ package b2b
 
 import (
 	"bytes"
+	"context"
+	"crypto/ed25519"
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -16,8 +20,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/testdb"
 	"avtotest.uz/backend/internal/testredis"
 )
 
@@ -147,30 +153,199 @@ func TestStationRateLimitFailsClosedWithNoDimension(t *testing.T) {
 	}
 }
 
-// TestStationClientIP covers the three shapes RemoteAddr can take. h is a zero
-// value, so h.ClientIPs is a zero-value auth.ClientIPResolver (no secret),
-// which always falls back to the TCP peer address -- exactly what
-// (*Handler).clientIP is documented to reduce to a bare host, or "" when
-// that address is not parseable.
+// TestStationClientIP covers finding 2: clientIP must return the caller's
+// address only when h.ClientIPs verified a signed assertion, never as a
+// fallback to the TCP peer. h is a zero value here, so h.ClientIPs is a
+// zero-value auth.ClientIPResolver (no secret) which never asserts --
+// exactly what nginx sends today over its loopback hop to this service --
+// so every RemoteAddr shape, however well-formed, must come back "". This
+// replaces the pre-fix version of this test, which asserted the opposite
+// (that a well-formed unasserted RemoteAddr resolved to its own address):
+// that was the uniformly-wrong-last_ip bug, not a behavior to preserve.
 func TestStationClientIP(t *testing.T) {
 	cases := []struct {
 		name       string
 		remoteAddr string
-		want       string
 	}{
-		{"host and port", "203.0.113.7:54321", "203.0.113.7"},
-		{"ipv6 bracketed host and port", "[::1]:8080", "::1"},
-		{"unparseable", "not-an-address", ""},
+		{"host and port", "203.0.113.7:54321"},
+		{"ipv6 bracketed host and port", "[::1]:8080"},
+		{"unparseable", "not-an-address"},
 	}
 	h := &Handler{}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/", nil)
 			req.RemoteAddr = tc.remoteAddr
-			if got := h.clientIP(req); got != tc.want {
-				t.Fatalf("clientIP(%q) = %q, want %q", tc.remoteAddr, got, tc.want)
+			if got := h.clientIP(req); got != "" {
+				t.Fatalf("clientIP(%q) = %q, want \"\" (unasserted must never resolve)", tc.remoteAddr, got)
 			}
 		})
+	}
+
+	// The positive path: a verified assertion is the only way to get a real
+	// IP out, and it must still work.
+	t.Run("verified assertion resolves", func(t *testing.T) {
+		secret := []byte("station-client-ip-test-secret-32-bytes!")
+		h := &Handler{ClientIPs: auth.NewClientIPResolver(secret)}
+		req := signedClientIPRequest(t, secret, http.MethodPost, "/", "198.51.100.9")
+		if got := h.clientIP(req); got != "198.51.100.9" {
+			t.Fatalf("clientIP with verified assertion = %q, want %q", got, "198.51.100.9")
+		}
+	})
+}
+
+// testStationOrg inserts a minimal org with an active 2-seat license, enough
+// for the enroll/challenge/token flow the failure-bucket test below drives
+// through real HTTP handlers. Kept local to this file (rather than reusing
+// b2b_test's seatedOrg) because this is a whitebox (package b2b) test file
+// and seatedOrg lives in the external test package.
+func testStationOrg(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
+	t.Helper()
+	ctx := context.Background()
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
+		VALUES ($1, 2, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+	return orgID
+}
+
+// testStationHWID turns a seed string into a deterministic 64-character
+// lowercase sha256 hex digest, the shape EnrollInput.validate requires of
+// hwid_hash (mirrors b2b_test's testHWID, unreachable from this package).
+func testStationHWID(seed string) string {
+	sum := sha256.Sum256([]byte(seed))
+	return hex.EncodeToString(sum[:])
+}
+
+// TestStationTokenFailureBucketClearsOnSuccess covers the residual finding
+// from task 7's review: tokenFailedIdentityLimit only ever grew, so a
+// station that failed a handful of times for an innocent reason -- clock
+// drift, an expired nonce, a restart mid-handshake -- and then started
+// succeeding again stayed penalized against the same threshold for the rest
+// of the hour regardless. stationToken now resets failKey on a successful
+// issue; this drives the bucket partway up, forces one success, then proves
+// a full run of tokenFailedIdentityLimit fresh failures is accepted (never
+// 429) afterward -- which is only possible if the earlier failures were
+// actually cleared, not merely stopped from growing further.
+func TestStationTokenFailureBucketClearsOnSuccess(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	rdb := testredis.New(t)
+	ctx := context.Background()
+	secret := []byte("test-secret-that-is-long-enough-000000")
+
+	store := Store{Pool: pool}
+	orgID := testStationOrg(t, pool)
+	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &Handler{Pool: pool, Redis: rdb, Secret: secret, Lim: auth.Limiter{R: rdb}}
+	r := chi.NewRouter()
+	r.Route("/api/v1", h.PublicRoutes)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	post := func(t *testing.T, path string, body any) (int, map[string]any) {
+		t.Helper()
+		buf, err := json.Marshal(body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := http.Post(srv.URL+path, "application/json", bytes.NewReader(buf))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		var out map[string]any
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		return resp.StatusCode, out
+	}
+
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwid := testStationHWID("hw-clear-on-success")
+
+	status, body := post(t, "/api/v1/b2b/stations/enroll", map[string]any{
+		"code":          code.Code,
+		"public_key":    base64.StdEncoding.EncodeToString(pub),
+		"hwid_hash":     hwid,
+		"label":         "PC-1",
+		"agent_version": "1.0.0",
+	})
+	if status != http.StatusOK {
+		t.Fatalf("enroll status=%d body=%v", status, body)
+	}
+	data, _ := body["data"].(map[string]any)
+	stationID, _ := data["station_id"].(string)
+	sid, err := uuid.Parse(stationID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// attempt gets a fresh nonce and answers it -- with a bad signature if
+	// bad is true, otherwise a genuine one -- and returns the token call's
+	// status code.
+	attempt := func(t *testing.T, bad bool) int {
+		t.Helper()
+		status, cbody := post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+		if status != http.StatusOK {
+			t.Fatalf("challenge status=%d body=%v", status, cbody)
+		}
+		cdata, _ := cbody["data"].(map[string]any)
+		nonce, _ := cdata["nonce"].(string)
+		if nonce == "" {
+			t.Fatalf("no nonce in %v", cbody)
+		}
+		ts := time.Now().Unix()
+		sig := ed25519.Sign(priv, SignedMessage(sid, nonce, ts))
+		if bad {
+			sig[0] ^= 0xFF
+		}
+		status, _ = post(t, "/api/v1/b2b/stations/token", map[string]any{
+			"station_id": stationID, "nonce": nonce, "ts": ts,
+			"sig": base64.StdEncoding.EncodeToString(sig), "hwid_hash": hwid,
+		})
+		return status
+	}
+
+	// Drive the failure bucket partway up -- well short of the limit, so
+	// this alone proves nothing about resets; it just establishes there is
+	// something in the bucket for the reset to clear.
+	const partial = 10
+	for i := 0; i < partial; i++ {
+		if status := attempt(t, true); status != http.StatusUnauthorized {
+			t.Fatalf("pre-success failed attempt %d/%d: status=%d, want 401", i+1, partial, status)
+		}
+	}
+
+	// One genuine success.
+	if status := attempt(t, false); status != http.StatusOK {
+		t.Fatalf("recovery attempt: status=%d, want 200", status)
+	}
+
+	// If the success had not cleared failKey, it would still sit at
+	// `partial`, and this loop -- tokenFailedIdentityLimit more failures --
+	// would trip 429 with `partial` attempts still to go. Every one of these
+	// landing as 401 is only possible if the bucket actually reset to zero.
+	for i := 0; i < tokenFailedIdentityLimit; i++ {
+		if status := attempt(t, true); status != http.StatusUnauthorized {
+			t.Fatalf("post-success failed attempt %d/%d: status=%d, want 401 (bucket did not reset)",
+				i+1, tokenFailedIdentityLimit, status)
+		}
+	}
+	if status := attempt(t, true); status != http.StatusTooManyRequests {
+		t.Fatalf("attempt %d after the post-success run: status=%d, want 429 (limit not enforced)",
+			tokenFailedIdentityLimit+1, status)
 	}
 }
 
