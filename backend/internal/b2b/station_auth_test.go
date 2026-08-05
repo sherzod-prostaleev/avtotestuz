@@ -164,8 +164,12 @@ func TestStationAuthRejects(t *testing.T) {
 
 		// Nonce issued for the original station...
 		nonce, ts := fresh(t)
-		// ...but signed and presented as the other station's credential.
-		sig := ed25519.Sign(otherPriv, b2b.SignedMessage(res.StationID, nonce, ts))
+		// ...but the credential is otherwise fully valid for the other
+		// station: signed by its own key, over its own station id, with its
+		// own hwid. The only thing wrong is that the nonce was issued for a
+		// different station, so only the Redis nonce-key binding (which
+		// embeds the station id) can be what rejects this.
+		sig := ed25519.Sign(otherPriv, b2b.SignedMessage(otherRes.StationID, nonce, ts))
 		if _, err := sa.Token(ctx, b2b.TokenInput{
 			StationID: otherRes.StationID, Nonce: nonce, TS: ts, Sig: sig, HWIDHash: otherHWID,
 		}); !errors.Is(err, b2b.ErrStationAuth) {
@@ -181,7 +185,7 @@ func TestStationAuthRejects(t *testing.T) {
 		}
 		t.Cleanup(func() {
 			if err := store.SetOrgStatus(ctx, orgID, "active"); err != nil {
-				t.Fatal(err)
+				t.Errorf("restore org status: %v", err)
 			}
 		})
 		if _, err := sa.Token(ctx, b2b.TokenInput{
@@ -194,6 +198,24 @@ func TestStationAuthRejects(t *testing.T) {
 	t.Run("expired licence", func(t *testing.T) {
 		nonce, ts := fresh(t)
 		sig := ed25519.Sign(priv, b2b.SignedMessage(res.StationID, nonce, ts))
+
+		// Capture the licence window as it stood before this subtest so it can
+		// be restored afterward: later subtests (e.g. "revoked station") share
+		// this org's licence row and must not see it as expired.
+		var origStarts, origEnds time.Time
+		if err := pool.QueryRow(ctx,
+			`SELECT starts_at, ends_at FROM b2b_org_license WHERE org_id = $1`, orgID,
+		).Scan(&origStarts, &origEnds); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if _, err := pool.Exec(ctx,
+				`UPDATE b2b_org_license SET starts_at = $2, ends_at = $3 WHERE org_id = $1`,
+				orgID, origStarts, origEnds); err != nil {
+				t.Errorf("restore licence window: %v", err)
+			}
+		})
+
 		// b2b_org_license has a CHECK (ends_at > starts_at), so starts_at must
 		// move back too or this violates that constraint.
 		if _, err := pool.Exec(ctx,
