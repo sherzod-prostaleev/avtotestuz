@@ -9,14 +9,19 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/httpx"
 )
 
-// Handler exposes learner teacher-portal routes under /me/teacher/* and /me/invites*.
+// Handler exposes learner teacher-portal routes under /me/teacher/* and /me/invites*,
+// plus (see station_handlers.go) the public station enroll/challenge/token routes.
 type Handler struct {
-	Pool *pgxpool.Pool
+	Pool   *pgxpool.Pool
+	Redis  *redis.Client
+	Secret []byte
+	Lim    auth.Limiter
 }
 
 func (h *Handler) store() Store { return Store{Pool: h.Pool} }
@@ -35,6 +40,10 @@ func (h *Handler) AuthedRoutes(r chi.Router) {
 	r.Get("/me/teacher/orgs/{id}/stations", h.listStations)
 	r.Delete("/me/teacher/orgs/{id}/stations/{stationID}", h.revokeStation)
 	r.Patch("/me/teacher/orgs/{id}/stations/{stationID}", h.renameStation)
+
+	r.Post("/me/teacher/orgs/{id}/enroll-window", h.openEnrollWindow)
+	r.Get("/me/teacher/orgs/{id}/enroll-window", h.getEnrollWindow)
+	r.Delete("/me/teacher/orgs/{id}/enroll-window/{codeID}", h.closeEnrollWindow)
 
 	r.Get("/me/invites", h.myInvites)
 	r.Post("/me/invites/accept", h.acceptInvite)
@@ -390,10 +399,14 @@ func writeStoreErr(w http.ResponseWriter, err error, fallback string) {
 		httpx.Error(w, http.StatusForbidden, "forbidden", "forbidden")
 	case errors.Is(err, ErrSeatsExhausted):
 		httpx.Error(w, http.StatusConflict, "seats_exhausted", "active stations already fill license seats")
+	case errors.Is(err, ErrCodeExhausted):
+		httpx.Error(w, http.StatusConflict, "code_exhausted", "enrollment code has already been used up; ask your teacher for a new one")
 	case errors.Is(err, ErrOrgSuspended):
 		httpx.Error(w, http.StatusConflict, "org_suspended", "org is suspended")
 	case errors.Is(err, ErrNoLicense):
 		httpx.Error(w, http.StatusBadRequest, "no_license", "org has no active license seats")
+	case errors.Is(err, ErrStationAuth):
+		httpx.Error(w, http.StatusUnauthorized, "station_unauthorized", "station authentication failed")
 	case errors.Is(err, ErrConflict):
 		msg := "conflict"
 		if strings.Contains(err.Error(), "last owner") {

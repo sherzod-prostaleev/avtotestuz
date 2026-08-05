@@ -114,6 +114,15 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			if deps.Pool != nil {
 				stationVIP = b2b.Store{Pool: deps.Pool}
 			}
+			b2bH := &b2b.Handler{
+				Pool:   deps.Pool,
+				Redis:  deps.Redis,
+				Secret: []byte(cfg.JWTSecret),
+				Lim:    auth.Limiter{R: deps.Redis},
+			}
+			if deps.Pool != nil && deps.Redis != nil {
+				b2bH.PublicRoutes(api)
+			}
 			learnerBilling := billing.Service{
 				Q:             deps.Queries,
 				Pool:          deps.Pool,
@@ -187,8 +196,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)
 
-				tb2b := &b2b.Handler{Pool: deps.Pool}
-				tb2b.AuthedRoutes(learnerAuth)
+				b2bH.AuthedRoutes(learnerAuth)
 
 				bh.AuthedRoutes(learnerAuth)
 
