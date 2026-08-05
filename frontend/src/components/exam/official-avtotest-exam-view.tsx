@@ -20,6 +20,12 @@ interface OfficialAvtotestExamViewProps {
   finishing: boolean;
   /** Optimistic selection while the grade request is in flight. */
   pendingAnswer?: { questionId: string; answerId: string } | null;
+  /**
+   * Where the close (X) button exits to. Callers on the kiosk pass
+   * `/${locale}/station` instead of the learner `/${locale}/dashboard` —
+   * see session/[id]/page.tsx's `exitHref`.
+   */
+  exitHref: string;
 }
 
 type ExamAnswerVisual = "correct" | "wrong" | "selected" | "answered" | "neutral";
@@ -63,6 +69,7 @@ export function OfficialAvtotestExamView({
   submitting,
   finishing,
   pendingAnswer = null,
+  exitHref,
 }: OfficialAvtotestExamViewProps) {
   const locale = useLocale();
   const router = useRouter();
@@ -203,7 +210,7 @@ export function OfficialAvtotestExamView({
         {/* Right: X close */}
         <button
           type="button"
-          onClick={() => router.push(`/${locale}/dashboard`)}
+          onClick={() => router.push(exitHref)}
           aria-label="Close"
           className="text-slate-300 hover:text-white transition-colors p-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center"
         >

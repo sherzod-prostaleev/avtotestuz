@@ -45,6 +45,10 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const { tickets, loading, error, refetch } = useTickets();
   const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
   const practiceHref = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
+  // /station/session/start (not /session/start): keeps the proxy.ts kiosk
+  // exemption scoped to the /station/... namespace — see practice/page.tsx
+  // for the same pattern.
+  const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -91,7 +95,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
     setLockNotice(null);
     // Warm SW variant-detail cache for this ticket (offline re-read later).
     prefetchVariantDetail(ticket.number, locale);
-    router.push(`/${locale}/session/start?mode=variant&variant_id=${ticket.number}`);
+    router.push(`${sessionStartBase}?mode=variant&variant_id=${ticket.number}`);
   };
 
   const handleTicketKeyDown = (event: KeyboardEvent<HTMLDivElement>, ticket: TicketItem) => {

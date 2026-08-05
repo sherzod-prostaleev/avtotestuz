@@ -66,6 +66,11 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const locale = useLocale();
   const router = useRouter();
   const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
+  // /station/session/start (not /session/start): keeps the proxy.ts kiosk
+  // exemption scoped to the /station/... namespace instead of unauthenticating
+  // /session/start for every learner — see the (kiosk)/station/session/start
+  // route, which reuses this same session/start page with kiosk=true.
+  const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
 
   const [source, setSource] = useState<Source>("category");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -176,10 +181,10 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     if (source === "sign") return;
     if (source === "due") {
       const reviewCount = Math.min(20, Math.max(dueCount, 1));
-      router.push(`/${locale}/session/start?mode=review&count=${reviewCount}`);
+      router.push(`${sessionStartBase}?mode=review&count=${reviewCount}`);
       return;
     }
-    const base = `/${locale}/session/start?mode=practice&count=${count}`;
+    const base = `${sessionStartBase}?mode=practice&count=${count}`;
     if (source === "category") {
       router.push(`${base}&category_id=${encodeURIComponent(selectedCategory)}`);
       return;
@@ -202,7 +207,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
   const nextDueLabel = nextDueAt ? formatDateWithTime(nextDueAt) : null;
 
-  const sources: { value: Source; icon: typeof BookOpen; label: string; hint: string; disabled?: boolean }[] = [
+  const allSources: { value: Source; icon: typeof BookOpen; label: string; hint: string; disabled?: boolean }[] = [
     {
       value: "due",
       icon: BrainCircuit,
@@ -221,6 +226,12 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       disabled: !signsAvailable,
     },
   ];
+  // The sign source is a browse-and-deep-link picker (SignPracticeGrid links
+  // to /signs and /session/start directly, bypassing sessionStartBase) with
+  // no station-scoped equivalent, and it never supports Start anyway
+  // (canStart is false for it below). Drop it entirely on the kiosk instead
+  // of leaving a tile that dead-ends at a login-gated route.
+  const sources = kiosk ? allSources.filter((item) => item.value !== "sign") : allSources;
 
   return (
     <main className="page-shell-tight space-y-5 sm:space-y-6">
@@ -233,7 +244,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       </div>
 
       <Link
-        href={`/${locale}/session/start?mode=placement`}
+        href={`${sessionStartBase}?mode=placement`}
         className="block"
       >
         <Card className="group flex items-center justify-between gap-3 border-accent/35 p-4 transition-colors hover:border-accent sm:p-5">

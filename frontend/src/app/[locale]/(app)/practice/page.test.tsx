@@ -4,6 +4,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import PracticePage from "./page";
 import * as apiClient from "@/lib/api-client";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
+
+/** True once the locale prefix is stripped and every segment is checked
+ * against the cookie gate — the same check src/proxy.ts runs on every
+ * request from the login-free kiosk browser. */
+function isKioskReachable(hrefOrPush: string): boolean {
+  const withoutLocale = hrefOrPush.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
+}
 
 const { pushMock } = vi.hoisted(() => ({ pushMock: vi.fn() }));
 
@@ -290,5 +300,86 @@ describe("PracticePage", () => {
 
     expect(await screen.findByText("Chorrahalar")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeEnabled());
+  });
+});
+
+// Walks every navigation this page can perform for a cookie-less classroom
+// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/practice/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces — a kiosk browser
+// carries no auth cookie, so a gated destination is a dead end at /login.
+describe("PracticePage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    pushMock.mockReset();
+    mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
+  });
+
+  function renderKiosk() {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <PracticePage kiosk />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps the back link under /station", async () => {
+    mockEndpoints();
+    renderKiosk();
+    await screen.findByText("Chorrahalar");
+
+    const backLink = screen.getByRole("link", { name: /Bosh sahifaga qaytish/ });
+    expect(backLink.getAttribute("href")).toBe("/uz-Latn/station");
+    expect(isKioskReachable(backLink.getAttribute("href")!)).toBe(true);
+  });
+
+  it("hides the sign source tile entirely — it only ever deep-links to /signs and /session/start", async () => {
+    mockEndpoints();
+    renderKiosk();
+    await screen.findByText("Chorrahalar");
+
+    expect(screen.queryByRole("button", { name: /Yo'l belgilari/ })).not.toBeInTheDocument();
+  });
+
+  it("sends the placement card to a kiosk-reachable session/start", async () => {
+    mockEndpoints();
+    renderKiosk();
+    await screen.findByText("Chorrahalar");
+
+    const placementLink = screen
+      .getAllByRole("link")
+      .find((a) => a.getAttribute("href")?.includes("mode=placement"));
+    const href = placementLink?.getAttribute("href") ?? "";
+    expect(href).toBe("/uz-Latn/station/session/start?mode=placement");
+    expect(isKioskReachable(href)).toBe(true);
+  });
+
+  it("starts a category practice session on a kiosk-reachable session/start", async () => {
+    mockEndpoints();
+    renderKiosk();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: "20 ta savol" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const target = pushMock.mock.calls[0][0] as string;
+    expect(target.startsWith("/uz-Latn/station/session/start")).toBe(true);
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("starts the smart-review (due) session on a kiosk-reachable session/start", async () => {
+    mockEndpoints({
+      stats: { due_count: 7 },
+      mistakes: { due_count: 7, total_bank_count: 12, next_due_at: null },
+    });
+    renderKiosk();
+
+    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    const target = pushMock.mock.calls[0][0] as string;
+    expect(target.startsWith("/uz-Latn/station/session/start")).toBe(true);
+    expect(isKioskReachable(target)).toBe(true);
   });
 });

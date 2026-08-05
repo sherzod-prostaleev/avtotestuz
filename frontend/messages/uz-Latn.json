@@ -665,7 +665,8 @@
     "goToPremium": "VIP tariflarini ko'rish",
     "backToPractice": "Mashqqa qaytish",
     "backToDashboard": "Boshqaruv paneliga qaytish",
-    "backToTickets": "Biletlarga qaytish"
+    "backToTickets": "Biletlarga qaytish",
+    "backToStation": "Sinfxonaga qaytish"
   },
   "Saved": {
     "navLabel": "Saqlangan savollar",

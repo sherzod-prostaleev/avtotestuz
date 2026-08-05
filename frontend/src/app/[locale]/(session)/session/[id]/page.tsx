@@ -85,12 +85,24 @@ function answerState(
   return "neutral";
 }
 
-export default function TestSessionPage() {
+export interface TestSessionPageProps {
+  // Reused as-is under the login-free kiosk
+  // (frontend/src/app/[locale]/(kiosk)/station/session/[id]/page.tsx): a
+  // walk-up student has no dashboard/tickets/practice/mistakes under the
+  // learner's login-gated namespace to land on, so every navigation this
+  // screen performs must stay under /station/... instead.
+  kiosk?: boolean;
+}
+
+export default function TestSessionPage({ kiosk = false }: TestSessionPageProps = {}) {
   const params = useParams();
   const router = useRouter();
   const locale = useLocale();
   const t = useTranslations("Session");
   const sessionId = typeof params.id === "string" ? params.id : "";
+  const exitHref = `/${locale}/${kiosk ? "station" : "dashboard"}`;
+  const kioskTickets = `/${locale}/${kiosk ? "station/tickets" : "tickets"}`;
+  const kioskPractice = `/${locale}/${kiosk ? "station/practice" : "practice"}`;
   const { session, loading, submitting, error, loadSession, submitAnswer, finishSession } =
     useSessionEngine(sessionId);
 
@@ -492,7 +504,7 @@ export default function TestSessionPage() {
                 {t("retry")}
               </Button>
             )}
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/tickets`)}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(kioskTickets)}>
               {t("backToTickets")}
             </Button>
           </div>
@@ -531,7 +543,7 @@ export default function TestSessionPage() {
               <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
               {t("retry")}
             </Button>
-            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/tickets`)}>
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => router.push(kioskTickets)}>
               {t("backToTickets")}
             </Button>
           </div>
@@ -557,10 +569,16 @@ export default function TestSessionPage() {
     const resultBody = isExamResult ? (passed ? t("passedBody") : t("failedBody")) : t(completedBodyKey);
     const primaryRoute =
       session.mode === "practice"
-        ? `/${locale}/practice`
+        ? kioskPractice
+        // "mistakes" mode is never reached from the kiosk flow (the kiosk's
+        // /station/practice never links to /mistakes), but fall back to the
+        // station home rather than the login-gated /mistakes route just in
+        // case a session somehow arrives in that mode.
         : session.mode === "mistakes"
-          ? `/${locale}/mistakes`
-          : `/${locale}/tickets`;
+          ? kiosk
+            ? exitHref
+            : `/${locale}/mistakes`
+          : kioskTickets;
     const primaryLabel =
       session.mode === "practice"
         ? t("backToPractice")
@@ -614,7 +632,7 @@ export default function TestSessionPage() {
             <Button variant="game" size="lg" className="w-full sm:w-auto" onClick={() => router.push(primaryRoute)}>
               {primaryLabel}
             </Button>
-            <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => router.push(`/${locale}/dashboard`)}>
+            <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => router.push(exitHref)}>
               {t("dashboard")}
             </Button>
           </div>
@@ -690,7 +708,7 @@ export default function TestSessionPage() {
             onClose={() => setExamPassOpen(false)}
             onDashboard={() => {
               setExamPassOpen(false);
-              router.push(`/${locale}/dashboard`);
+              router.push(exitHref);
             }}
             score={score}
             total={total}
@@ -724,6 +742,7 @@ export default function TestSessionPage() {
         pendingAnswer={pendingAnswer}
         submitting={submitting}
         finishing={finishing}
+        exitHref={exitHref}
       />
     );
   }
@@ -739,7 +758,7 @@ export default function TestSessionPage() {
             size="sm"
             className="h-9 min-h-9 w-9 px-0 sm:h-11 sm:min-h-11 sm:w-auto sm:px-4"
             aria-label={t("exit")}
-            onClick={() => router.push(`/${locale}/dashboard`)}
+            onClick={() => router.push(exitHref)}
           >
             <ChevronLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{t("exit")}</span>
@@ -774,7 +793,7 @@ export default function TestSessionPage() {
             onChange={(event) => {
               const next = event.target.value;
               startTransition(() => {
-                router.replace(`/${next}/session/${sessionId}`);
+                router.replace(`/${next}/${kiosk ? "station/session" : "session"}/${sessionId}`);
               });
             }}
             className="h-9 min-w-[3.75rem] rounded-lg border border-border bg-background px-1.5 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-11 sm:min-w-[4.5rem] sm:rounded-xl sm:px-2 sm:text-xs"

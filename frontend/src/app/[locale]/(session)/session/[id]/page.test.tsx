@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../../messages/uz-Latn.json";
 import SessionPage from "./page";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
 import {
   useSessionEngine,
   type SessionQuestionItem,
@@ -11,11 +12,11 @@ import {
 import * as apiClient from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics-events";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "sess-123" }),
-  useRouter: () => ({ push: navigation.push, replace: vi.fn() }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
 }));
 
 vi.mock("@/hooks/use-session-engine", async (importOriginal) => {
@@ -86,10 +87,26 @@ function renderPage() {
   );
 }
 
+function renderKioskPage() {
+  return render(
+    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+      <SessionPage kiosk />
+    </NextIntlClientProvider>
+  );
+}
+
+/** Same check src/proxy.ts runs on every request from a login-free kiosk browser. */
+function isKioskReachable(target: string): boolean {
+  const withoutLocale = target.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
+}
+
 describe("SessionPage secure session flow", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     navigation.push.mockReset();
+    navigation.replace.mockReset();
     vi.mocked(useSessionEngine).mockReset();
     vi.mocked(trackEvent).mockReset();
     vi.spyOn(apiClient, "apiGet").mockResolvedValue([] as never);
@@ -528,5 +545,123 @@ describe("SessionPage secure session flow", () => {
 
     expect(screen.getByRole("alert")).toHaveTextContent("Amalni bajarib bo'lmadi");
     expect(screen.queryByText(/database exploded/)).not.toBeInTheDocument();
+  });
+});
+
+// Walks every exit this screen can take for a cookie-less classroom kiosk
+// browser (frontend/src/app/[locale]/(kiosk)/station/session/[id]/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces: the header exit,
+// the completed-screen buttons, the exam-mode close button, the exam-pass
+// celebration's dashboard button, and the locale switcher.
+describe("SessionPage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    navigation.push.mockReset();
+    navigation.replace.mockReset();
+    vi.mocked(useSessionEngine).mockReset();
+    vi.mocked(trackEvent).mockReset();
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue([] as never);
+    vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+    vi.spyOn(apiClient, "apiDelete").mockResolvedValue({ ok: true } as never);
+  });
+
+  it("sends the header exit button to a kiosk-reachable route", () => {
+    mockEngine(activeSession());
+    renderKioskPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Chiqish" }));
+    expect(navigation.push).toHaveBeenCalledTimes(1);
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("sends the not-found error card's back button to a kiosk-reachable route", () => {
+    mockEngine(null);
+    renderKioskPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Biletlarga qaytish" }));
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station/tickets");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("sends both completed-screen buttons to kiosk-reachable routes for a practice session", () => {
+    mockEngine(
+      activeSession({
+        mode: "practice",
+        status: "completed",
+        score: 15,
+        total: 20,
+        passed: null,
+        completed_at: "2026-07-22T12:00:00Z",
+        questions: [],
+      })
+    );
+    renderKioskPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Mashqqa qaytish" }));
+    fireEvent.click(screen.getByRole("button", { name: "Bosh sahifa" }));
+
+    expect(navigation.push).toHaveBeenCalledTimes(2);
+    const targets = navigation.push.mock.calls.map((call) => call[0] as string);
+    expect(targets).toEqual(["/uz-Latn/station/practice", "/uz-Latn/station"]);
+    for (const target of targets) expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("keeps the exam close (X) button under /station instead of /dashboard", () => {
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        time_limit_sec: 1500,
+        remaining_sec: 300,
+        questions: [question()],
+      })
+    );
+    renderKioskPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("keeps the exam-pass celebration's dashboard button under /station", () => {
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        status: "completed",
+        score: 20,
+        total: 20,
+        passed: true,
+        completed_at: "2026-07-22T12:00:00Z",
+        questions: [
+          question({
+            answered: true,
+            user_answer_id: "a-1",
+            correct: true,
+            correct_answer_id: "a-1",
+          }),
+        ],
+      })
+    );
+    renderKioskPage();
+
+    const dialog = screen.getByRole("dialog", { name: "Tabriklaymiz!" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Bosh sahifa" }));
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("keeps the locale switcher on /station/session/:id, not /session/:id", async () => {
+    mockEngine(activeSession());
+    renderKioskPage();
+
+    fireEvent.change(screen.getByLabelText("Sessiya tili"), { target: { value: "ru" } });
+
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/ru/station/session/sess-123"));
+    expect(isKioskReachable(navigation.replace.mock.calls[0][0])).toBe(true);
   });
 });

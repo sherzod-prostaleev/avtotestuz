@@ -5,6 +5,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../../messages/uz-Latn.json";
 import SessionStartPage from "./page";
 import { useSessionEngine, type SessionError } from "@/hooks/use-session-engine";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
+
+/** Same check src/proxy.ts runs on every request from a login-free kiosk browser. */
+function isKioskReachable(target: string): boolean {
+  const withoutLocale = target.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
+}
 
 const navigation = vi.hoisted(() => ({
   searchParams: new URLSearchParams(),
@@ -46,6 +54,14 @@ function renderPage(strict = false) {
   );
 
   return render(strict ? <StrictMode>{page}</StrictMode> : page);
+}
+
+function renderKioskPage() {
+  return render(
+    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+      <SessionStartPage kiosk />
+    </NextIntlClientProvider>
+  );
 }
 
 describe("SessionStartPage", () => {
@@ -193,5 +209,60 @@ describe("SessionStartPage", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Mashqqa qaytish" }));
     expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/practice");
+  });
+});
+
+// Walks every exit this screen can take for a cookie-less classroom kiosk
+// browser (frontend/src/app/[locale]/(kiosk)/station/session/start/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces. This is the exact
+// screen the previous fix round left broken: practice/tickets pushed here,
+// but the success/error exits were still all under the login-gated /session,
+// /tickets, /practice, /premium, and /dashboard routes.
+describe("SessionStartPage kiosk mode", () => {
+  beforeEach(() => {
+    navigation.searchParams = new URLSearchParams();
+    navigation.push.mockReset();
+    navigation.replace.mockReset();
+    vi.mocked(useSessionEngine).mockReset();
+  });
+
+  it("replaces to a kiosk-reachable session route on success", async () => {
+    navigation.searchParams = new URLSearchParams("mode=variant&variant_id=1");
+    vi.mocked(useSessionEngine).mockReturnValue({
+      session: null,
+      loading: false,
+      submitting: false,
+      error: null,
+      loadSession: vi.fn(),
+      startSession: vi.fn().mockResolvedValue({ id: "sess-kiosk-1" }),
+      submitAnswer: vi.fn(),
+      finishSession: vi.fn(),
+    } as SessionEngine);
+
+    renderKioskPage();
+
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/uz-Latn/station/session/sess-kiosk-1"));
+    expect(isKioskReachable(navigation.replace.mock.calls[0][0])).toBe(true);
+  });
+
+  it.each([
+    ["vip_required", "active entitlement required", "Sinfxonaga qaytish"],
+    ["previous_ticket_required", "complete the previous ticket first", "Biletlarga qaytish"],
+    ["daily_limit_reached", "daily practice limit reached", "Mashqqa qaytish"],
+    ["mock_not_eligible", "not eligible for grand mock", "Sinfxonaga qaytish"],
+    ["nothing_due", "nothing due for review", "Mashqqa qaytish"],
+    ["network_error", "backend unreachable", "Biletlarga qaytish"],
+  ])("routes the %s error to a kiosk-reachable destination", (code, message, actionLabel) => {
+    mockSessionEngine({ code, message } as SessionError);
+
+    renderKioskPage();
+
+    fireEvent.click(screen.getByRole("button", { name: actionLabel }));
+    expect(navigation.push).toHaveBeenCalledTimes(1);
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(isKioskReachable(target)).toBe(true);
+    // Never /premium or any other purchase/dashboard route the kiosk hides.
+    expect(target.startsWith("/uz-Latn/station")).toBe(true);
   });
 });

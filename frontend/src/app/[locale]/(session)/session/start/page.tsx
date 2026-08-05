@@ -26,7 +26,16 @@ function isSessionMode(value: string | null): value is SessionMode {
   return value !== null && SESSION_MODES.includes(value as SessionMode);
 }
 
-function SessionStartContent() {
+interface SessionStartContentProps {
+  // Reused as-is under the login-free kiosk
+  // (frontend/src/app/[locale]/(kiosk)/station/session/start/page.tsx): a
+  // walk-up student has no dashboard/tickets/practice/premium under the
+  // learner's login-gated namespace to land on, so every destination this
+  // screen can push to must stay under /station/... instead.
+  kiosk?: boolean;
+}
+
+function SessionStartContent({ kiosk = false }: SessionStartContentProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const locale = useLocale();
@@ -85,46 +94,55 @@ function SessionStartContent() {
 
       const session = await startSession(mode, options);
       if (session?.id) {
-        router.replace(`/${locale}/session/${session.id}`);
+        router.replace(
+          kiosk ? `/${locale}/station/session/${session.id}` : `/${locale}/session/${session.id}`
+        );
       }
     }
 
     initSession();
-  }, [searchParams, router, locale, startSession]);
+  }, [searchParams, router, locale, startSession, kiosk]);
 
   if (error) {
     // Each recoverable server code gets its own message *and* its own exit, so
     // the button always leads somewhere the user can act on the problem —
     // 402 to the tariffs, 403 on grand mock back to the dashboard where the
     // card shows exactly how much study is still missing.
-    let destination = `/${locale}/tickets`;
+    let destination = kiosk ? `/${locale}/station/tickets` : `/${locale}/tickets`;
     let actionLabel = t("backToTickets");
     let message =
       error.code === "network_error" ? sessionT("networkError") : sessionT("genericError");
 
     switch (error.code) {
       case "vip_required":
-        destination = `/${locale}/premium`;
-        actionLabel = t("goToPremium");
+        // No checkout entry point on the kiosk: a walk-up student must never
+        // be one tap from VIP purchase, and /premium is login-gated anyway.
+        if (kiosk) {
+          destination = `/${locale}/station`;
+          actionLabel = t("backToStation");
+        } else {
+          destination = `/${locale}/premium`;
+          actionLabel = t("goToPremium");
+        }
         message = t("vipRequired");
         break;
       case "previous_ticket_required":
-        destination = `/${locale}/tickets`;
+        destination = kiosk ? `/${locale}/station/tickets` : `/${locale}/tickets`;
         actionLabel = t("backToTickets");
         message = t("previousTicketRequired");
         break;
       case "daily_limit_reached":
-        destination = `/${locale}/practice`;
+        destination = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
         actionLabel = t("backToPractice");
         message = practiceT("dailyLimitReached");
         break;
       case "mock_not_eligible":
-        destination = `/${locale}/dashboard`;
-        actionLabel = t("backToDashboard");
+        destination = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
+        actionLabel = kiosk ? t("backToStation") : t("backToDashboard");
         message = t("mockNotEligible");
         break;
       case "nothing_due":
-        destination = `/${locale}/practice`;
+        destination = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
         actionLabel = t("backToPractice");
         message = t("nothingDue");
         break;
@@ -151,7 +169,12 @@ function SessionStartContent() {
   );
 }
 
-export default function SessionStartPage() {
+export interface SessionStartPageProps {
+  // See SessionStartContentProps: reused as-is under the login-free kiosk.
+  kiosk?: boolean;
+}
+
+export default function SessionStartPage({ kiosk = false }: SessionStartPageProps = {}) {
   const t = useTranslations("SessionStart");
 
   return (
@@ -165,7 +188,7 @@ export default function SessionStartPage() {
             </Card>
           }
         >
-          <SessionStartContent />
+          <SessionStartContent kiosk={kiosk} />
         </Suspense>
       </div>
     </main>

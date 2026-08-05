@@ -665,7 +665,8 @@
     "goToPremium": "VIP тарифларини кўриш",
     "backToPractice": "Машққа қайтиш",
     "backToDashboard": "Бошқарув панелига қайтиш",
-    "backToTickets": "Билетларга қайтиш"
+    "backToTickets": "Билетларга қайтиш",
+    "backToStation": "Синфхонага қайтиш"
   },
   "Saved": {
     "navLabel": "Сақланган саволлар",

@@ -4,26 +4,12 @@ import { locales, type Locale } from "@/i18n/config";
 import { routing } from "@/i18n/routing";
 import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
 import { ADMIN_AUTH_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-auth-cookies";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
+
+export { PROTECTED_SEGMENTS, matchesAny };
 
 const intlMiddleware = createMiddleware(routing);
 
-const PROTECTED_SEGMENTS = [
-  "dashboard",
-  "exam-mockup",
-  "tickets",
-  "practice",
-  "mistakes",
-  "signs",
-  "leaderboard",
-  "arena",
-  "stats",
-  "profile",
-  "premium",
-  "saved",
-  "session",
-  "checkout",
-  "teacher",
-];
 const AUTH_SEGMENTS = ["login"];
 const LEGACY_OPS_REDIRECTS: Record<string, string> = {
   health: "monitoring/health",
@@ -34,10 +20,6 @@ const LEGACY_OPS_REDIRECTS: Record<string, string> = {
   audit: "security/audit",
   limits: "settings/limits",
 };
-
-function matchesAny(pathname: string, segments: string[]): boolean {
-  return segments.some((seg) => pathname === `/${seg}` || pathname.startsWith(`/${seg}/`));
-}
 
 export default function proxy(request: NextRequest) {
   const segments = request.nextUrl.pathname.split("/").filter(Boolean);

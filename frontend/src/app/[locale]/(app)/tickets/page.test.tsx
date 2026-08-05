@@ -4,6 +4,14 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import TicketsPage from "./page";
 import * as useTicketsModule from "@/hooks/use-tickets";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
+
+/** Same check src/proxy.ts runs on every request from a login-free kiosk browser. */
+function isKioskReachable(hrefOrPush: string): boolean {
+  const withoutLocale = hrefOrPush.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
+}
 
 const { pushMock, prefetchMock } = vi.hoisted(() => ({
   pushMock: vi.fn(),
@@ -101,5 +109,84 @@ describe("TicketsPage", () => {
     expect(
       screen.getByText(/Avval oldingi biletda kamida 10 ta to'g'ri/i)
     ).toBeInTheDocument();
+  });
+});
+
+// Walks every navigation this page can perform for a cookie-less classroom
+// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/tickets/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces.
+describe("TicketsPage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    pushMock.mockReset();
+    prefetchMock.mockReset();
+  });
+
+  function renderKiosk() {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <TicketsPage kiosk />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps back and practice links under /station", () => {
+    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+      tickets: [{ number: 1, best_correct: 19, attempts: 1, unlocked: true }] as any,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderKiosk();
+
+    const backLink = screen.getByRole("link", { name: /Bosh sahifaga qaytish/ });
+    expect(backLink.getAttribute("href")).toBe("/uz-Latn/station");
+    expect(isKioskReachable(backLink.getAttribute("href")!)).toBe(true);
+  });
+
+  it("starts a ticket on a kiosk-reachable session/start", () => {
+    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+      tickets: [
+        { number: 1, best_correct: 19, attempts: 1, unlocked: true },
+        { number: 2, best_correct: 0, attempts: 0, unlocked: false },
+      ] as any,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderKiosk();
+
+    fireEvent.keyDown(screen.getByRole("button", { name: "1-biletni ochish" }), { key: "Enter" });
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    const target = pushMock.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station/session/start?mode=variant&variant_id=1");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("never pushes to /premium for a VIP-locked ticket — shows the kiosk notice instead", () => {
+    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+      tickets: [
+        {
+          number: 1,
+          best_correct: 0,
+          attempts: 0,
+          unlocked: false,
+          lock_reason: "vip_required",
+          status: "locked",
+        },
+      ] as any,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderKiosk();
+
+    fireEvent.click(screen.getByRole("button", { name: "1-biletni ochish" }));
+    expect(pushMock).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("VIP kerak");
   });
 });
