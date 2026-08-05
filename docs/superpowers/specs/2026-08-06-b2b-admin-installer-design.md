@@ -32,10 +32,19 @@ jadvallari — hozirgi masshtabda faqat ortiqcha mashina.
 
 ### Maqsad emas
 
-- **Offline ish** — internet uzilishiga chidamlilik. Bu keyingi spec (imzolangan
-  lease, kontent keshi, natijalar navbati, soat orqaga surilishidan himoya). Bu
-  spec tugagach darhol shunga o'tiladi. **Bu ish tugaganda ham internet ishonchsiz
-  maktabga "offline ishlaydi" deb va'da berib bo'lmaydi.**
+- **Offline ish — rejalashtirilmaydi.** Kesh, imzolangan lease va natijalar navbati
+  qilinmaydi. Oqibati aniq va qabul qilingan: **internet uzilsa sinfxona darhol
+  to'xtaydi** — 15 daqiqadan keyin emas, o'sha zahoti, chunki har bir savol, rasm
+  va javob serverdan keladi va agent proxy'si tokensiz fail-closed ishlaydi.
+  Maktabga "offline ishlaydi" deb va'da bermaslik kerak. Arxitektura keyinroq
+  qo'shishni bloklamaydi, lekin hozir reja yo'q.
+- **Arena kioskda bo'lmaydi.** Uchta sababi bor: WebSocket agent proxy'sini
+  aylanib o'tadi (`wss://<domen>/api/v1/arena/ws` ga to'g'ridan-to'g'ri ulanadi,
+  ya'ni stansiya tokeni qo'shilmaydi va ulanish rad etiladi); tuzatish uchun
+  proxy'ga WS qo'llab-quvvatlash va frontendga kiosk shoxi kerak; va 30 o'quvchi
+  bitta arena shaxsiyatini bo'lishgani uchun raqiblar uchun ma'nosiz o'yin chiqadi.
+- **Xatolar ustida ishlash kioskda bo'lmaydi** — bitta soya-profilda hamma
+  o'quvchining xatolari aralashib ketadi.
 - MSI paketi, auto-update, Authenticode imzosi.
 
 ## 3. Model qanday soddalashadi
@@ -180,6 +189,45 @@ Yuklab olingan asl faylni USB'dan ishlatib, keyin o'chirib tashlash mumkin.
 kalit/holat fayllarini o'chiradi. Serverdagi stansiya yozuvi tegilmaydi; uni admin
 panelidan revoke qilish kerak (seat shunda bo'shaydi).
 
+## 6A. Kiosk ekranida nima bo'ladi
+
+Hozir kioskda ikkita havola bor. Bu kam — o'quvchi oddiy foydalanuvchi ko'radigan
+narsalarning ko'pini ko'rishi kerak. Oltita bo'lim bo'ladi:
+
+| Bo'lim | Nega |
+|---|---|
+| Mashq qilish | bor |
+| Biletlar | bor |
+| **Yo'l belgilari** | 285 ta belgi, sof ma'lumotnoma, shaxsga bog'liq emas — bu boshidan bo'lishi kerak edi |
+| **Statistika** | qo'shiladi |
+| **Saqlanganlar** | qo'shiladi |
+| **Reyting** | qo'shiladi, faqat ko'rish uchun |
+
+**Chiqmaydi:** Profil, Premium, To'lov, Dashboard, Arena, Xatolar ustida ishlash.
+Birinchi to'rttasi sinfxonada ma'nosiz va xavfli — o'quvchi allaqachon VIP bo'lgan
+PCdan to'lov sahifasiga o'tishi faqat chalkashlik keltiradi, va oldingi review
+aynan shu teshikni topib tuzatgan edi (`(kiosk)` guruhi shuning uchun ajratilgan).
+
+**Qabul qilingan cheklov:** stansiyada bitta soya-profil bor, ya'ni statistika va
+saqlanganlar **o'sha PCdagi hamma o'quvchiga tegishli** bo'ladi, bitta o'quvchiga
+emas. "Shu PCning statistikasi" degani. Reyting esa PCni hech qachon ko'rsatmaydi —
+stansiyalar reytingdan ataylab chiqarilgan — ya'ni o'quvchi "mening o'rnim"ni
+ko'rmaydi. Ikkalasi ham bilib turib qabul qilingan.
+
+### 6A.1. Texnik shart
+
+Har bir bo'lim `(kiosk)` guruhida `/station/...` fazosida o'z marshrutiga ega
+bo'lishi kerak — `PROTECTED_SEGMENTS` cookie'siz brauzerni `/login` ga otadi, va
+`(app)` layout'i yon panel bilan birga Premium/Profil havolalarini olib keladi.
+Mavjud sahifa komponentlari `kiosk` prop bilan qayta ishlatiladi (Faza 1 da
+`practice` va `tickets` uchun qilinganidek), nusxa ko'chirilmaydi.
+
+**Har sahifa ichidagi har bir navigatsiya ham tuzatilishi shart.** Faza 1 da aynan
+shu bosqichda ketma-ket to'rtta uzilish topilgan edi: bitta unutilgan `router.push`
+o'quvchini login formasiga otadi. Mavjud `kiosk-path.test.tsx` faqat marshrutning
+o'zi himoyalanmaganini tekshiradi, **navigatsiya manzillarini emas** — shuning
+uchun u kengaytiriladi (10-bo'limga qarang).
+
 ## 7. Ma'lumotlar bazasi
 
 Migratsiya `0058_b2b_drop_membership`:
@@ -254,15 +302,36 @@ buni fayl boshida aniq yozish kerak.
 yozuvi, qayta yuklashdan keyin kiosk o'zi ochilishi, `-uninstall` hammasini
 tozalashi.
 
+**Reja 2 uchun — `kiosk-path.test.tsx` kengaytiriladi.** Hozir u `(kiosk)` ostidagi
+har bir `page.tsx` ning **o'z yo'li** `PROTECTED_SEGMENTS` dan tashqarida ekanini
+tekshiradi. Bu Faza 1 dagi to'rtta uzilishning **bittasini ham tutmagan bo'lardi** —
+ularning hammasi navigatsiya manzili edi, sahifaning o'z yo'li emas. Test har
+kiosk sahifasi faylidan `href=` va `router.push(...)` ichidagi literal yo'llarni
+ajratib olib, ularni ham xuddi shu darvozadan o'tkazishi kerak. Runtime'da
+hisoblanadigan yo'llarni statik test tuta olmaydi — bu cheklov test faylida
+izoh sifatida yozib qo'yiladi.
+
 ## 11. Bajarilish tartibi
 
-Bitta reja, ketma-ket:
+**Ikkita alohida reja.** Ular bir-biriga bog'liq emas va har biri o'zicha
+ishlaydigan natija beradi, shuning uchun bitta ulkan rejaga tiqilmaydi.
+
+### Reja 1 — admin-only va installer (avval shu)
+
+Biznes ehtiyoji shu: maktabni ulash hozir amalda ishlamayapti.
 
 1. Migratsiya + a'zolik/rol/home-seat mashinasini o'chirish (backend va frontend)
-2. Installer kaliti: litsenziya muddatiga bog'langan TTL, admin store funksiyalari
+2. Installer kaliti: litsenziya muddatiga bog'langan muddat, admin store funksiyalari
 3. Footer formati (backend yozadi, station o'qiydi — bitta formatning ikki tomoni)
 4. Admin endpointlari + EXE oqimi
 5. Docker image'ga station binarini qo'shish
 6. Agent: footerdan o'qish, o'zini ko'chirish, avtostart, `-uninstall`
 7. Admin UI paneli + uch tilda matnlar
 8. Hujjatlarni yangilash
+
+### Reja 2 — kiosk bo'limlarini kengaytirish (keyin)
+
+6A-bo'lim: belgilar, statistika, saqlanganlar, reyting uchun `/station/...`
+marshrutlari, har sahifa ichidagi navigatsiyani `kiosk` prop bilan tuzatish, va
+`kiosk-path.test.tsx` ni navigatsiya manzillarini ham tekshiradigan qilib
+kengaytirish.
