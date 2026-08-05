@@ -197,13 +197,30 @@ narsalarning ko'pini ko'rishi kerak. Oltita bo'lim bo'ladi:
 | Bo'lim | Nega |
 |---|---|
 | Mashq qilish | bor |
-| Biletlar | bor |
+| Biletlar | bor (`mode=variant`) |
+| **Imtihon** | **eng kerakli va dizayndan tushib qolgan edi** — pastga qarang |
 | **Yo'l belgilari** | 285 ta belgi, sof ma'lumotnoma, shaxsga bog'liq emas — bu boshidan bo'lishi kerak edi |
 | **Statistika** | qo'shiladi |
 | **Saqlanganlar** | qo'shiladi |
 | **Reyting** | qo'shiladi, faqat ko'rish uchun |
 
-**Chiqmaydi:** Profil, Premium, To'lov, Dashboard, Arena, Xatolar ustida ishlash.
+**Imtihon simulyatsiyasi.** Haqiqiy imtihon rejimi `/{locale}/session/start?mode=exam`
+orqali boshlanadi va uni ishga tushiradigan yagona tugma **dashboard**da turadi —
+ya'ni kioskdan chiqarib tashlangan sahifada. Demak hozirgi holatda sinfxonada
+imtihon umuman ochilmaydi, bu esa sinfxonaning asosiy ehtiyoji.
+
+Tuzatish arzon: `(kiosk)/station/session/start` marshruti allaqachon mavjud va
+`mode` qidiruv parametrini o'qiydi, shuning uchun kiosk bosh sahifasiga
+`/station/session/start?mode=exam` ga olib boradigan karta qo'shiladi. Yangi
+marshrut kerak emas.
+
+`exam-mockup` — imtihon emas: u savol kartochkasi holatlarini ko'rsatadigan statik
+maket (o'z kodida ham shunday yozilgan). Kioskka kirmaydi.
+
+**Chiqmaydi:** Profil, Premium, To'lov, Dashboard, Arena, Xatolar ustida ishlash,
+va **Katta sinov (`grand_mock`)**. Oxirgisi tugagach `grand_mock_certificate`
+yozadi, sertifikat esa `profile_id` ga bog'lanadi — sinfxonada u "PC-1 o'tdi" degan
+ma'nosiz hujjat bo'ladi va bitta PCda hamma o'quvchining sertifikatlari to'planadi.
 Birinchi to'rttasi sinfxonada ma'nosiz va xavfli — o'quvchi allaqachon VIP bo'lgan
 PCdan to'lov sahifasiga o'tishi faqat chalkashlik keltiradi, va oldingi review
 aynan shu teshikni topib tuzatgan edi (`(kiosk)` guruhi shuning uchun ajratilgan).
