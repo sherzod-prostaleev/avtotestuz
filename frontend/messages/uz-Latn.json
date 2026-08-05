@@ -2086,7 +2086,22 @@
     "licenseSummary": "{pcs} ta sinfxona PC · {status} · {date}",
     "vipLabel": "VIP",
     "multiPcTitle": "O‘quvchilar qanday kiradi?",
-    "multiPcHint": "Tavsiya: har bir o‘quvchi o‘z akkaunti bilan kiradi. VIP akkauntga emas, shu ulangan PCga bog‘langan. Bir akkauntda bir nechta parallel sessiya mumkin, lekin bitta umumiy maktab loginidan foydalanmang; eski refresh-token qayta ishlatilsa xavfsizlik uchun barcha sessiyalar yopilishi mumkin."
+    "multiPcHint": "Tavsiya: har bir o‘quvchi o‘z akkaunti bilan kiradi. VIP akkauntga emas, shu ulangan PCga bog‘langan. Bir akkauntda bir nechta parallel sessiya mumkin, lekin bitta umumiy maktab loginidan foydalanmang; eski refresh-token qayta ishlatilsa xavfsizlik uchun barcha sessiyalar yopilishi mumkin.",
+    "enrollTitle": "PC ulash oynasi",
+    "enrollOpen": "Oynani ochish (2 soat)",
+    "enrollClose": "Oynani yopish",
+    "enrollNone": "Hozir ochiq oyna yo'q",
+    "enrollUsed": "{used} / {max} PC ulandi",
+    "enrollExpires": "{minutes} daqiqadan keyin tugaydi",
+    "enrollHint": "Har bir kompyuterda dasturni o'rnating va shu kodni kiriting. Kod {max} tagacha PC uchun amal qiladi.",
+    "enrollError": "Amal bajarilmadi"
+  },
+  "Station": {
+    "title": "Sinfxona",
+    "practice": "Mashq qilish",
+    "exam": "Imtihon",
+    "newStudent": "Yangi o'quvchi",
+    "notStation": "Bu sahifa faqat sinfxona kompyuteri uchun"
   },
   "MaintenanceBanner": {
     "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."

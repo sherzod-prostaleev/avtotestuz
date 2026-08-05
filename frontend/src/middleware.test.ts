@@ -113,11 +113,21 @@ describe("proxy auth guard", () => {
 
     expect(routes).toContain("session");
     expect(routes.length).toBeGreaterThan(1);
-    for (const route of routes) {
+    // /station is the one deliberate exception: it is a login-free classroom
+    // kiosk landing page opened on a shared PC that never carries a learner
+    // AUTH_COOKIE. Gating it behind /login would make it unreachable from
+    // the very PCs it exists for. The page itself checks GET /me's `kind`
+    // and renders a refusal for anything that isn't a station.
+    for (const route of routes.filter((r) => r !== "station")) {
       const response = proxy(makeRequest(`/uz-Latn/${route}`));
       expect(response.headers.get("location"), `/${route} is not auth-guarded`).toBe(
         "http://localhost:3000/uz-Latn/login"
       );
     }
+  });
+
+  it("does not gate the login-free classroom kiosk page", () => {
+    const response = proxy(makeRequest("/uz-Latn/station"));
+    expect(response.headers.get("location")).toBeNull();
   });
 });

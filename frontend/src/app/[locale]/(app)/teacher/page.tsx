@@ -6,6 +6,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Download, Users } from "lucide-react";
 import { apiDelete, apiGet, apiPatch, apiPost } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import EnrollWindowPanel from "./enroll-window-panel";
 
 type OrgSummary = {
   id: string;
@@ -257,6 +258,8 @@ export default function TeacherPage() {
           ))}
         </ul>
       )}
+
+      {selected ? <EnrollWindowPanel orgId={selected.org.id} /> : null}
 
       {selected ? (
         <section className="space-y-4 rounded-xl border border-border bg-card p-4">
