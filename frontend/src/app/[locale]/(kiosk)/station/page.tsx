@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 
 // `kind` is the only field that distinguishes a station: a shadow profile's
 // `role` is the default "user" like any learner's.
-type Me = { kind: string; name: string };
+type Me = { kind: string };
 
 export default function StationPage() {
   const t = useTranslations("Station");

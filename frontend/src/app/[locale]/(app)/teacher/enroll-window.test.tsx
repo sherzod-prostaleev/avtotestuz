@@ -45,6 +45,22 @@ describe("EnrollWindowPanel", () => {
     expect(apiPost).toHaveBeenCalledWith("me/teacher/orgs/org-1/enroll-window", { ttl_minutes: 120 });
   });
 
+  it("shows an expired state instead of the stale code once the window's time is up", async () => {
+    apiGet.mockResolvedValue({
+      id: "code-1",
+      code: "AVTO-ABCD-EFGH",
+      max_uses: 30,
+      used_count: 4,
+      expires_at: new Date(Date.now() - 1_000).toISOString(),
+    });
+
+    render(<EnrollWindowPanel orgId="org-1" />);
+
+    await waitFor(() => expect(screen.getByText("enrollExpired")).toBeInTheDocument());
+    expect(screen.queryByText("AVTO-ABCD-EFGH")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "enrollClose" })).toBeInTheDocument();
+  });
+
   it("closes an open window", async () => {
     apiGet.mockResolvedValue({
       id: "code-1",

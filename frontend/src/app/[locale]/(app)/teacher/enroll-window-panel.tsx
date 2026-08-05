@@ -30,7 +30,9 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
   const [win, setWin] = useState<EnrollWindow | null>(null);
   const [busy, setBusy] = useState(false);
   const [errorKey, setErrorKey] = useState<ErrorKey | null>(null);
-  const [minutes, setMinutes] = useState(0);
+  // Value itself is unused — bumping it just forces the once-a-minute
+  // re-render that recomputes `minutesRemaining` below.
+  const [, forceTick] = useState(0);
 
   const load = useCallback(async () => {
     try {
@@ -45,13 +47,20 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
   }, [load]);
 
   // Recompute the countdown once a minute, without re-fetching: the window's
-  // expiry is fixed at creation, so only the clock moves.
+  // expiry is fixed at creation, so only the clock moves. `minutesRemaining`
+  // below is derived straight from `win.expires_at` on every render, so this
+  // effect only needs to trigger the re-render — it doesn't own the value.
   useEffect(() => {
     if (!win) return;
-    setMinutes(minutesLeft(win.expires_at));
-    const id = setInterval(() => setMinutes(minutesLeft(win.expires_at)), 60_000);
+    const id = setInterval(() => forceTick((n) => n + 1), 60_000);
     return () => clearInterval(id);
   }, [win]);
+
+  const minutesRemaining = win ? minutesLeft(win.expires_at) : 0;
+  // Once the window's real expiry has passed, stop showing the stale code
+  // and a "0 minutes left" countdown that never changes again — a teacher
+  // reading it out loud would be reading a dead code.
+  const expired = win ? minutesRemaining <= 0 : false;
 
   const open = async () => {
     setBusy(true);
@@ -85,14 +94,21 @@ export default function EnrollWindowPanel({ orgId }: { orgId: string }) {
     <section className="rounded-lg border p-4">
       <h2 className="mb-2 text-lg font-semibold">{t("enrollTitle")}</h2>
 
-      {win ? (
+      {win && expired ? (
+        <div className="space-y-3">
+          <p className="text-sm font-semibold text-red-500">{t("enrollExpired")}</p>
+          <Button variant="outline" onClick={close} disabled={busy}>
+            {t("enrollClose")}
+          </Button>
+        </div>
+      ) : win ? (
         <div className="space-y-3">
           <p className="select-all font-mono text-3xl tracking-widest">{win.code}</p>
           <p className="text-sm opacity-80">
             {t("enrollUsed", { used: win.used_count, max: win.max_uses })}
           </p>
           <p className="text-sm opacity-80">
-            {t("enrollExpires", { minutes })}
+            {t("enrollExpires", { minutes: minutesRemaining })}
           </p>
           <p className="text-sm opacity-70">{t("enrollHint", { max: win.max_uses })}</p>
           <Button variant="outline" onClick={close} disabled={busy}>

@@ -2094,7 +2094,8 @@
     "enrollUsed": "{used} / {max} PC ulandi",
     "enrollExpires": "{minutes} daqiqadan keyin tugaydi",
     "enrollHint": "Har bir kompyuterda dasturni o'rnating va shu kodni kiriting. Kod {max} tagacha PC uchun amal qiladi.",
-    "enrollError": "Amal bajarilmadi"
+    "enrollError": "Amal bajarilmadi",
+    "enrollExpired": "Kod muddati tugadi. Oynani yoping va yangisini oching."
   },
   "Station": {
     "title": "Sinfxona",
