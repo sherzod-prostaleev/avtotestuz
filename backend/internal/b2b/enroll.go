@@ -3,6 +3,7 @@ package b2b
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -35,6 +36,11 @@ type EnrollResult struct {
 // maxLabelLen keeps operator-supplied PC names from bloating list responses.
 const maxLabelLen = 64
 
+// hwidHashLen is the hex-encoded length of a SHA-256 digest (32 bytes -> 64
+// hex chars). The station agent derives hwid_hash by hashing local machine
+// identifiers; anything else is not a hardware identity we can trust.
+const hwidHashLen = 64
+
 func (in EnrollInput) validate() error {
 	if strings.TrimSpace(in.Code) == "" {
 		return fmt.Errorf("%w: code required", ErrInvalid)
@@ -42,8 +48,11 @@ func (in EnrollInput) validate() error {
 	if len(in.PublicKey) != ed25519.PublicKeySize {
 		return fmt.Errorf("%w: public_key must be %d bytes", ErrInvalid, ed25519.PublicKeySize)
 	}
-	if strings.TrimSpace(in.HWIDHash) == "" {
-		return fmt.Errorf("%w: hwid_hash required", ErrInvalid)
+	if len(in.HWIDHash) != hwidHashLen || strings.ToLower(in.HWIDHash) != in.HWIDHash {
+		return fmt.Errorf("%w: hwid_hash must be a %d-character lowercase sha256 hex digest", ErrInvalid, hwidHashLen)
+	}
+	if _, err := hex.DecodeString(in.HWIDHash); err != nil {
+		return fmt.Errorf("%w: hwid_hash must be hex-encoded", ErrInvalid)
 	}
 	return nil
 }

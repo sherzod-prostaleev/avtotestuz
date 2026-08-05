@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"strings"
 	"sync"
@@ -16,6 +18,24 @@ import (
 	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/testdb"
 )
+
+// testHWID turns any seed string into a deterministic 64-character lowercase
+// sha256 hex digest, the shape EnrollInput.validate requires of hwid_hash.
+// Distinct seeds always hash to distinct digests, so tests that need several
+// unique station identities (or one reused identity) can keep using plain,
+// readable seeds like "hw-1" or "hw-same".
+func testHWID(seed string) string {
+	sum := sha256.Sum256([]byte(seed))
+	return hex.EncodeToString(sum[:])
+}
+
+// freshHWID hashes a fresh random UUID, for tests that need many distinct
+// runtime-generated identities (e.g. a concurrency stampede) rather than a
+// fixed seed.
+func freshHWID() string {
+	sum := sha256.Sum256([]byte(uuid.NewString()))
+	return hex.EncodeToString(sum[:])
+}
 
 // seatedOrg inserts an active org with `seats` classroom seats live for 30 days.
 func seatedOrg(t *testing.T, pool *pgxpool.Pool, seats int) uuid.UUID {
@@ -56,7 +76,7 @@ func TestEnrollStationBindsAndCapsSeats(t *testing.T) {
 	}
 
 	first, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-1",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-1"),
 		Label: "PC-1", AgentVersion: "1.0.0",
 	})
 	if err != nil {
@@ -77,14 +97,14 @@ func TestEnrollStationBindsAndCapsSeats(t *testing.T) {
 	}
 
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-2", Label: "PC-2",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-2"), Label: "PC-2",
 	}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Third machine: seats are gone.
 	_, err = store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-3", Label: "PC-3",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-3"), Label: "PC-3",
 	})
 	if !errors.Is(err, b2b.ErrSeatsExhausted) {
 		t.Fatalf("err=%v, want ErrSeatsExhausted", err)
@@ -100,7 +120,7 @@ func TestEnrollStationRejectsBadCodes(t *testing.T) {
 	orgID := seatedOrg(t, pool, 5)
 
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: "AVTO-ZZZZ-ZZZZ", PublicKey: newPub(t), HWIDHash: "hw-x", Label: "PC",
+		Code: "AVTO-ZZZZ-ZZZZ", PublicKey: newPub(t), HWIDHash: testHWID("hw-x"), Label: "PC",
 	}); !errors.Is(err, b2b.ErrNotFound) {
 		t.Fatalf("unknown code err=%v, want ErrNotFound", err)
 	}
@@ -115,7 +135,7 @@ func TestEnrollStationRejectsBadCodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-y", Label: "PC",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-y"), Label: "PC",
 	}); err == nil {
 		t.Fatal("expired code must be refused")
 	}
@@ -129,9 +149,38 @@ func TestEnrollStationRejectsBadCodes(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code2.Code, PublicKey: newPub(t), HWIDHash: "hw-z", Label: "PC",
+		Code: code2.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-z"), Label: "PC",
 	}); err == nil {
 		t.Fatal("revoked code must be refused")
+	}
+}
+
+func TestEnrollStationRejectsMalformedHWIDHash(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	orgID := seatedOrg(t, pool, 5)
+	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cases := map[string]string{
+		"empty":                       "",
+		"too short":                   "hw-1",
+		"right length, non-hex chars": strings.Repeat("z", 64),
+	}
+	for name, hwid := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := store.EnrollStation(ctx, b2b.EnrollInput{
+				Code: code.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC",
+			})
+			if !errors.Is(err, b2b.ErrInvalid) {
+				t.Fatalf("hwid_hash=%q err=%v, want ErrInvalid", hwid, err)
+			}
+		})
 	}
 }
 
@@ -147,7 +196,7 @@ func TestEnrollStationRebindsSameMachine(t *testing.T) {
 		t.Fatal(err)
 	}
 	first, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-same", Label: "PC-1",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-same"), Label: "PC-1",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -155,7 +204,7 @@ func TestEnrollStationRebindsSameMachine(t *testing.T) {
 	// Re-imaged machine, same hardware, fresh key: the old bind is revoked and
 	// the seat is reused rather than double-spent.
 	second, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: "hw-same", Label: "PC-1",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-same"), Label: "PC-1",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -192,7 +241,7 @@ func TestEnrollStationConcurrentStampedeRespectsSeats(t *testing.T) {
 			_, results[i] = store.EnrollStation(ctx, b2b.EnrollInput{
 				Code:      code.Code,
 				PublicKey: newPub(t),
-				HWIDHash:  "hw-" + uuid.NewString(),
+				HWIDHash:  freshHWID(),
 				Label:     "PC",
 			})
 		}(i)
