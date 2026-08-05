@@ -23,6 +23,28 @@ var (
 	fastTokenRetry  = tokenSchedule{initial: time.Millisecond, max: 4 * time.Millisecond, steady: 5 * time.Millisecond}
 )
 
+// TestStationURLUsesARealFrontendLocale guards against a repeat of the
+// review finding where the kiosk opened "/uz/station" — a locale the
+// frontend does not define (it only serves uz-Latn, uz-Cyrl and ru) — and
+// landed every classroom PC on a 404. The launched path must always carry a
+// locale from stationLocales.
+func TestStationURLUsesARealFrontendLocale(t *testing.T) {
+	for _, locale := range stationLocales {
+		got := stationURL("127.0.0.1:17817", locale)
+		want := "http://127.0.0.1:17817/" + locale + "/station"
+		if got != want {
+			t.Fatalf("stationURL(%q) = %q, want %q", locale, got, want)
+		}
+		if !validLocale(locale) {
+			t.Fatalf("validLocale(%q) = false, want true", locale)
+		}
+	}
+
+	if validLocale("uz") {
+		t.Fatal(`validLocale("uz") = true, want false: "uz" is not a real frontend locale`)
+	}
+}
+
 // TestEnrollWithRetrySucceedsAfterTransientFailures drives Enroll against a
 // fake backend that refuses the first two attempts (simulating the
 // cold-network window on a first-boot GPO rollout) and only then accepts —

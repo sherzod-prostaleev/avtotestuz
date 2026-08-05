@@ -44,10 +44,10 @@ export default function StationPage() {
       <h1 className="text-3xl font-bold">{t("title")}</h1>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Link href={`/${locale}/practice`} className="rounded-lg border p-6 text-center text-xl">
+        <Link href={`/${locale}/station/practice`} className="rounded-lg border p-6 text-center text-xl">
           {t("practice")}
         </Link>
-        <Link href={`/${locale}/tickets`} className="rounded-lg border p-6 text-center text-xl">
+        <Link href={`/${locale}/station/tickets`} className="rounded-lg border p-6 text-center text-xl">
           {t("exam")}
         </Link>
       </div>

@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"avtotest.uz/station/internal/agent"
@@ -24,6 +25,29 @@ import (
 // version is stamped at build time: go build -ldflags "-X main.version=1.0.0"
 var version = "dev"
 
+// stationLocales mirrors frontend/src/i18n/config.ts's `locales` export.
+// There is no "uz" locale and no rewrite for it — next-intl's
+// localePrefix:"always" would just prefix a real locale onto an unknown one
+// (e.g. "/uz-Latn/uz/station") and 404. Keep this list in sync with that
+// file by hand; the two live in separate module trees with no shared build
+// step to enforce it automatically.
+var stationLocales = []string{"uz-Latn", "uz-Cyrl", "ru"}
+
+// validLocale reports whether locale is one the frontend actually serves.
+func validLocale(locale string) bool {
+	for _, l := range stationLocales {
+		if l == locale {
+			return true
+		}
+	}
+	return false
+}
+
+// stationURL builds the kiosk landing page URL served at addr for locale.
+func stationURL(addr, locale string) string {
+	return fmt.Sprintf("http://%s/%s/station", addr, locale)
+}
+
 func main() {
 	var (
 		code     = flag.String("code", "", "one-time org enrollment code (first run only)")
@@ -33,8 +57,13 @@ func main() {
 		addr     = flag.String("addr", "127.0.0.1:17817", "local listen address")
 		stateDir = flag.String("state", defaultStateDir(), "directory for the station key and state")
 		noKiosk  = flag.Bool("no-kiosk", false, "serve only; do not launch a browser")
+		locale   = flag.String("locale", "uz-Latn", "frontend locale the kiosk page opens in (uz-Latn, uz-Cyrl, ru)")
 	)
 	flag.Parse()
+
+	if !validLocale(*locale) {
+		log.Fatalf("invalid -locale %q: must be one of %s", *locale, strings.Join(stationLocales, ", "))
+	}
 
 	id, err := hwid.Collect()
 	if err != nil {
@@ -90,7 +119,7 @@ func main() {
 	go keepTokenWarm(ctx, a, defaultTokenRetry)
 
 	handler := proxy.New(*frontend, *apiBase, a.Token)
-	url := fmt.Sprintf("http://%s/uz/station", *addr)
+	url := stationURL(*addr, *locale)
 
 	if !*noKiosk {
 		if _, err := kiosk.Launch(url); err != nil {

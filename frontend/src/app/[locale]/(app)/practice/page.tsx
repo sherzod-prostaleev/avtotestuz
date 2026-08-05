@@ -54,10 +54,18 @@ interface MistakesDTO {
   next_due_at: string | null;
 }
 
-export default function PracticePage() {
+export interface PracticePageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/practice/page.tsx):
+  // a walk-up student has no dashboard or VIP checkout to go back to, so
+  // those two surfaces must not appear when kiosk is true.
+  kiosk?: boolean;
+}
+
+export default function PracticePage({ kiosk = false }: PracticePageProps = {}) {
   const t = useTranslations("Practice");
   const locale = useLocale();
   const router = useRouter();
+  const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
 
   const [source, setSource] = useState<Source>("category");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
@@ -217,7 +225,7 @@ export default function PracticePage() {
   return (
     <main className="page-shell-tight space-y-5 sm:space-y-6">
       <div>
-        <Link href={`/${locale}/dashboard`} className="back-link">
+        <Link href={backHref} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
@@ -518,13 +526,17 @@ export default function PracticePage() {
               ) : exhausted ? (
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>{t("allowanceExhausted")}</span>
-                  <Link
-                    href={`/${locale}/premium`}
-                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
-                  >
-                    <Crown aria-hidden="true" className="h-4 w-4" />
-                    {t("allowanceUpgrade")}
-                  </Link>
+                  {/* No checkout entry point on the kiosk: a walk-up student
+                      must never be one tap from VIP purchase. */}
+                  {!kiosk && (
+                    <Link
+                      href={`/${locale}/premium`}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
+                    >
+                      <Crown aria-hidden="true" className="h-4 w-4" />
+                      {t("allowanceUpgrade")}
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-1">

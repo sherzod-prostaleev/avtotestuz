@@ -31,11 +31,20 @@ function ticketTileClass(isCompleted: boolean, isLocked: boolean, attempts: numb
   return "ticket-tile ticket-tile-open";
 }
 
-export default function TicketsPage() {
+export interface TicketsPageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/tickets/page.tsx):
+  // a walk-up student has no dashboard or VIP checkout to go back to, so
+  // those two surfaces must not appear when kiosk is true.
+  kiosk?: boolean;
+}
+
+export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const t = useTranslations("Tickets");
   const locale = useLocale();
   const router = useRouter();
   const { tickets, loading, error, refetch } = useTickets();
+  const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
+  const practiceHref = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
 
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
@@ -68,6 +77,13 @@ export default function TicketsPage() {
         setLockNotice(t("lockedPrevRequired"));
         return;
       }
+      // No checkout entry point on the kiosk: a walk-up student must never
+      // be one tap from VIP purchase. Show the same locked notice instead
+      // of the learner app's redirect to /premium.
+      if (kiosk) {
+        setLockNotice(t("vipRequiredShort"));
+        return;
+      }
       setLockNotice(null);
       router.push(`/${locale}/premium`);
       return;
@@ -95,7 +111,7 @@ export default function TicketsPage() {
     <main className="page-shell space-y-6 sm:space-y-8">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={`/${locale}/dashboard`} className="back-link">
+          <Link href={backHref} className="back-link">
             <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
           </Link>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
@@ -223,7 +239,7 @@ export default function TicketsPage() {
                 {t("solve")}
               </Button>
             ) : (
-              <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(`/${locale}/practice`)}>
+              <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(practiceHref)}>
                 {t("goToPractice")}
               </Button>
             )}
@@ -371,7 +387,7 @@ export default function TicketsPage() {
               {t("solve")}
             </Button>
           ) : (
-            <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(`/${locale}/practice`)}>
+            <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(practiceHref)}>
               {t("goToPractice")}
             </Button>
           )}
