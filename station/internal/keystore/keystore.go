@@ -47,6 +47,17 @@ func (s *fileStore) Load() (ed25519.PrivateKey, error) {
 	raw, err := os.ReadFile(s.path)
 	switch {
 	case err == nil:
+		if len(raw) == 0 {
+			// An interrupted write, a full disk, or an AV quarantine can leave
+			// a zero-byte station.key behind. The platform seal/unseal
+			// functions index their input unconditionally (DPAPI's DataBlob
+			// needs a valid pointer to element 0), so an empty slice must
+			// never reach them — it would panic instead of returning an
+			// error, and main has no recover() to turn that into the clean
+			// "run again with -code" message. Treat it exactly like a DPAPI
+			// failure: the file is unusable either way.
+			return nil, ErrCorruptKey
+		}
 		plain, err := s.open(raw)
 		if err != nil {
 			return nil, ErrCorruptKey
@@ -71,6 +82,14 @@ func (s *fileStore) Load() (ed25519.PrivateKey, error) {
 
 // Save seals and writes the key.
 func (s *fileStore) Save(priv ed25519.PrivateKey) error {
+	if len(priv) == 0 {
+		// Same reasoning as the guard in Load: seal() indexes &plain[0]
+		// unconditionally on Windows, so an empty key must never reach it.
+		// This should not happen in practice — Load only ever calls Save
+		// with a freshly generated key — but the guard is one line and keeps
+		// the invariant enforced at the same layer for both directions.
+		return errors.New("keystore: refusing to save an empty key")
+	}
 	sealed, err := s.seal(priv)
 	if err != nil {
 		return err
