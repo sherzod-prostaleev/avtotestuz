@@ -218,9 +218,21 @@ marshrut kerak emas.
 maket (o'z kodida ham shunday yozilgan). Kioskka kirmaydi.
 
 **Chiqmaydi:** Profil, Premium, To'lov, Dashboard, Arena, Xatolar ustida ishlash,
-va **Katta sinov (`grand_mock`)**. Oxirgisi tugagach `grand_mock_certificate`
-yozadi, sertifikat esa `profile_id` ga bog'lanadi — sinfxonada u "PC-1 o'tdi" degan
-ma'nosiz hujjat bo'ladi va bitta PCda hamma o'quvchining sertifikatlari to'planadi.
+va **Katta sinov (`grand_mock`)**.
+
+Katta sinov imtihon simulyatsiyasi bilan bir narsa emas — bu ikki alohida rejim.
+Imtihon simulyatsiyasi = `mode=exam` (i18n kaliti `navExamTitle`), foydalanuvchi
+odatda ko'radigani ham shu. Katta sinov = `mode=grand_mock`, dashboard'dagi
+`GrandMockCard` orqali va faqat `GET /me/mock-eligibility` ruxsat berganda ochiladi
+(VIP, o'rganilgan savollar soni va mastery foizi bo'yicha shartlar).
+
+Kioskka kirmasligining ikki sababi bor, ikkinchisi kuchliroq:
+1. Tugagach `grand_mock_certificate` yoziladi, sertifikat `profile_id` ga
+   bog'lanadi — sinfxonada u "PC-1 o'tdi" degan ma'nosiz hujjat bo'ladi.
+2. **Ochilish sharti soya-profilda ma'nosiz.** Shartlar 30 o'quvchining
+   birgalikda o'rgangani bilan bajariladi, ya'ni bir necha kundan keyin PC uchun
+   qulf ochiladi va endigina o'tirgan o'quvchi ham yakuniy sinovni topshira oladi.
+   Shart o'z ma'nosini butunlay yo'qotadi.
 Birinchi to'rttasi sinfxonada ma'nosiz va xavfli — o'quvchi allaqachon VIP bo'lgan
 PCdan to'lov sahifasiga o'tishi faqat chalkashlik keltiradi, va oldingi review
 aynan shu teshikni topib tuzatgan edi (`(kiosk)` guruhi shuning uchun ajratilgan).
