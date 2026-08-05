@@ -113,7 +113,8 @@ func (s Store) ListLearners(ctx context.Context, f ListLearnersFilter, page, lim
 	offset := (page - 1) * limit
 
 	where := `
-		($1 = '' OR
+		p.kind = 'user'
+		AND ($1 = '' OR
 		  p.phone ILIKE '%' || $1 || '%' OR
 		  p.name ILIKE '%' || $1 || '%' OR
 		  p.id::text ILIKE $1 || '%' OR

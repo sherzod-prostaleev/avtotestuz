@@ -20,6 +20,7 @@ SELECT
   max(sa.answered_at)::timestamptz AS last_answered_at
 FROM session_answer sa
 JOIN exam_session es ON es.id = sa.session_id
+JOIN profile p ON p.id = es.profile_id AND p.kind = 'user'
 WHERE sa.is_correct
   AND sa.answered_at >= $1
   AND sa.answered_at < $2
@@ -75,6 +76,7 @@ SELECT
   max(sa.answered_at)::timestamptz AS last_answered_at
 FROM session_answer sa
 JOIN exam_session es ON es.id = sa.session_id
+JOIN profile p ON p.id = es.profile_id AND p.kind = 'user'
 WHERE sa.is_correct
   AND sa.answered_at >= $1
   AND sa.answered_at < $2

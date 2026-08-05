@@ -41,6 +41,7 @@ type profileDTO struct {
 	ThemePref    string  `json:"theme_pref"`
 	ReferralCode string  `json:"referral_code"`
 	Role         string  `json:"role"`
+	Kind         string  `json:"kind"`
 	CreatedAt    string  `json:"created_at"`
 }
 
@@ -61,6 +62,7 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 		ThemePref:    p.ThemePref,
 		ReferralCode: p.ReferralCode.String,
 		Role:         p.Role,
+		Kind:         p.Kind,
 		CreatedAt:    p.CreatedAt.Time.Format(time.RFC3339),
 	}
 }

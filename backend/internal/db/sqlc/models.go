@@ -182,6 +182,18 @@ type B2bOrg struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type B2bOrgEnrollCode struct {
+	ID        uuid.UUID          `json:"id"`
+	OrgID     uuid.UUID          `json:"org_id"`
+	Code      string             `json:"code"`
+	MaxUses   int32              `json:"max_uses"`
+	UsedCount int32              `json:"used_count"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	CreatedBy string             `json:"created_by"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type B2bOrgLicense struct {
 	ID        uuid.UUID          `json:"id"`
 	OrgID     uuid.UUID          `json:"org_id"`
@@ -191,6 +203,7 @@ type B2bOrgLicense struct {
 	Note      string             `json:"note"`
 	CreatedBy string             `json:"created_by"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	HomeSeats int32              `json:"home_seats"`
 }
 
 type B2bOrgMember struct {
@@ -198,6 +211,22 @@ type B2bOrgMember struct {
 	ProfileID uuid.UUID          `json:"profile_id"`
 	Role      string             `json:"role"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type B2bStation struct {
+	ID               uuid.UUID          `json:"id"`
+	OrgID            uuid.UUID          `json:"org_id"`
+	Label            string             `json:"label"`
+	Status           string             `json:"status"`
+	ActivatedAt      pgtype.Timestamptz `json:"activated_at"`
+	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
+	ActivatedBy      string             `json:"activated_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	PublicKey        []byte             `json:"public_key"`
+	HwidHash         string             `json:"hwid_hash"`
+	AgentVersion     string             `json:"agent_version"`
+	LastIp           *netip.Addr        `json:"last_ip"`
+	StationProfileID uuid.NullUUID      `json:"station_profile_id"`
 }
 
 type Category struct {
@@ -512,6 +541,7 @@ type Profile struct {
 	PasswordHash              pgtype.Text        `json:"password_hash"`
 	ReferralCommissionPercent int32              `json:"referral_commission_percent"`
 	BypassVariantProgress     bool               `json:"bypass_variant_progress"`
+	Kind                      string             `json:"kind"`
 }
 
 type PromoCode struct {
@@ -525,6 +555,7 @@ type PromoCode struct {
 	ValidTo      pgtype.Timestamptz `json:"valid_to"`
 	Active       bool               `json:"active"`
 	CreatedBy    uuid.NullUUID      `json:"created_by"`
+	PartnerOrgID uuid.NullUUID      `json:"partner_org_id"`
 }
 
 type PromoRedemption struct {
