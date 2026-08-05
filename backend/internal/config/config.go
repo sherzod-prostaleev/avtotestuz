@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"strconv"
@@ -68,6 +69,18 @@ type Config struct {
 	TelegramGatewayToken    string
 	TelegramGatewayURL      string
 	ClientIPAssertionSecret string
+
+	// TrustedProxyCIDRs lists networks whose TCP peer address is trusted to
+	// have proxied a request unmodified, so its X-Real-IP header can stand
+	// in for a signed client-IP assertion (auth.ClientIPResolver.
+	// ResolveAsserted's second, trusted-proxy path). Defaults to loopback
+	// only: this process binds 127.0.0.1 (see deploy/nginx-drivergo.uz.conf),
+	// so a request whose peer is loopback provably came through nginx, which
+	// overwrites X-Real-IP with $remote_addr on every location that reaches
+	// this service — a client cannot make its own X-Real-IP survive that
+	// hop. Parsed once at startup; an unparseable entry fails startup rather
+	// than silently dropping out of the trust boundary.
+	TrustedProxyCIDRs []*net.IPNet
 
 	// Telegram bot (M4-06) — a different Telegram product from the OTP
 	// Gateway above: the Gateway API only delivers verification codes, it
@@ -171,6 +184,10 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	publicBaseURL := strings.TrimRight(getenv("PUBLIC_BASE_URL", "http://localhost:3000"), "/")
+	trustedProxyCIDRs, err := parseCIDRListEnv("TRUSTED_PROXY_CIDRS", "127.0.0.1/32,::1/128")
+	if err != nil {
+		return Config{}, err
+	}
 	cfg := Config{
 		Env:               getenv("ENV", "dev"),
 		Port:              port,
@@ -192,6 +209,7 @@ func Load() (Config, error) {
 		TelegramGatewayToken:    getenv("TELEGRAM_GATEWAY_TOKEN", ""),
 		TelegramGatewayURL:      getenv("TELEGRAM_GATEWAY_URL", "https://gatewayapi.telegram.org"),
 		ClientIPAssertionSecret: getenv("CLIENT_IP_ASSERTION_SECRET", ""),
+		TrustedProxyCIDRs:       trustedProxyCIDRs,
 
 		TelegramBotToken:          getenv("TELEGRAM_BOT_TOKEN", ""),
 		TelegramBotAPIBaseURL:     getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org"),
@@ -372,6 +390,25 @@ func parseInt32Env(key string, def int32) (int32, error) {
 		return 0, fmt.Errorf("invalid %s %q: %w", key, raw, err)
 	}
 	return int32(value), nil
+}
+
+// parseCIDRListEnv parses a comma-separated list of CIDR networks the same
+// way splitCSV parses other list-shaped env vars, but — unlike splitCSV's
+// callers, which just collect strings — an entry that fails to parse as a
+// CIDR fails startup instead of being silently dropped. Silently dropping a
+// typo'd entry here would silently shrink the trust boundary
+// TrustedProxyCIDRs exists to draw, which is worse than refusing to start.
+func parseCIDRListEnv(key, def string) ([]*net.IPNet, error) {
+	entries := splitCSV(getenv(key, def))
+	out := make([]*net.IPNet, 0, len(entries))
+	for _, entry := range entries {
+		_, network, err := net.ParseCIDR(entry)
+		if err != nil {
+			return nil, fmt.Errorf("invalid %s entry %q: %w", key, entry, err)
+		}
+		out = append(out, network)
+	}
+	return out, nil
 }
 
 func parseDurationEnv(key string, def time.Duration) (time.Duration, error) {

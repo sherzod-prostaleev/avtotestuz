@@ -119,7 +119,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				Redis:     deps.Redis,
 				Secret:    []byte(cfg.JWTSecret),
 				Lim:       auth.Limiter{R: deps.Redis},
-				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 			}
 			if deps.Pool != nil && deps.Redis != nil {
 				b2bH.PublicRoutes(api)
@@ -155,7 +155,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			sup := &support.Handler{
 				Pool:      deps.Pool,
 				Lim:       auth.Limiter{R: deps.Redis},
-				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 			}
 			sup.PublicRoutes(api)
 
@@ -185,7 +185,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				svc.DebugEcho = cfg.OTPDebugEcho
 				ah := &auth.Handler{
 					Svc:       svc,
-					ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
+					ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 				}
 				ah.Routes(api)
 

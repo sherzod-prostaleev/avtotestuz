@@ -11,6 +11,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -129,6 +130,46 @@ func TestStationRateLimitUnassertedIPNeverAppliesIPDimension(t *testing.T) {
 	// one exhausted bucket by now.
 	if !h.allow(req, "test-unasserted-ip", "identity-2", limit, 1, time.Hour) {
 		t.Fatal("identity-2 was denied by identity-1's exhausted bucket")
+	}
+}
+
+// TestStationRateLimitIPDimensionViaTrustedProxy proves the fix for the
+// dormant-IP-dimension gap directly, end to end: the station agent talks to
+// the backend directly and never goes through the Next.js BFF that signs
+// HMAC assertions, so it can never produce a signedClientIPRequest -- and
+// TestStationRateLimitUnassertedIPNeverAppliesIPDimension shows that a bare
+// RemoteAddr, which is all nginx's loopback hop gave this service before
+// Task 1, never applies the IP dimension. Here the same kind of request
+// (no HMAC headers) arrives with a trusted-proxy peer address and an
+// X-Real-IP header instead, exactly as nginx now sends it, and the IP
+// dimension applies where before it was skipped entirely.
+func TestStationRateLimitIPDimensionViaTrustedProxy(t *testing.T) {
+	rdb := testredis.New(t)
+	_, loopback, err := net.ParseCIDR("127.0.0.1/32")
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &Handler{
+		Lim:       auth.Limiter{R: rdb},
+		ClientIPs: auth.NewClientIPResolver(nil).WithTrustedProxies([]*net.IPNet{loopback}),
+	}
+
+	const limit = 2
+	for i := 1; i <= limit; i++ {
+		req := httptest.NewRequest(http.MethodPost, "/b2b/stations/challenge", nil)
+		req.RemoteAddr = "127.0.0.1:54321" // nginx's loopback hop, trusted
+		req.Header.Set("X-Real-IP", "198.51.100.9")
+		// A fresh identity per call so only the IP dimension can deny.
+		identity := fmt.Sprintf("station-%d", i)
+		if !h.allow(req, "test-trusted-proxy-ip", identity, 1000, limit, time.Hour) {
+			t.Fatalf("call %d/%d: want allowed, got denied", i, limit)
+		}
+	}
+	req := httptest.NewRequest(http.MethodPost, "/b2b/stations/challenge", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	req.Header.Set("X-Real-IP", "198.51.100.9")
+	if h.allow(req, "test-trusted-proxy-ip", "station-final", 1000, limit, time.Hour) {
+		t.Fatalf("call %d/%d: want denied (429) by the IP dimension via trusted-proxy X-Real-IP, got allowed", limit+1, limit)
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/base64"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -118,5 +119,77 @@ func TestDistinctSignedClientIPsUseDistinctRateLimitBuckets(t *testing.T) {
 	ok, err = limiter.Allow(ctx, "otp:ip:"+second, 20, time.Hour)
 	if err != nil || !ok {
 		t.Fatalf("second client must have an independent bucket: ok=%v err=%v", ok, err)
+	}
+}
+
+// mustCIDR parses s into a *net.IPNet or fails the test. Test helper only —
+// production parsing (with loud failure on a bad entry) lives in
+// config.parseCIDRListEnv.
+func mustCIDR(t *testing.T, s string) *net.IPNet {
+	t.Helper()
+	_, network, err := net.ParseCIDR(s)
+	if err != nil {
+		t.Fatalf("ParseCIDR(%q): %v", s, err)
+	}
+	return network
+}
+
+func TestClientIPResolverTrustsRealIPFromTrustedPeer(t *testing.T) {
+	resolver := NewClientIPResolver(nil).WithTrustedProxies([]*net.IPNet{mustCIDR(t, "127.0.0.1/32")})
+
+	req := httptest.NewRequest(http.MethodPost, "http://backend.test/api/v1/b2b/stations/challenge", nil)
+	req.RemoteAddr = "127.0.0.1:54321"
+	req.Header.Set("X-Real-IP", "198.51.100.42")
+
+	ip, asserted := resolver.ResolveAsserted(req)
+	if !asserted || ip != "198.51.100.42" {
+		t.Fatalf("ResolveAsserted = (%q, %v), want (%q, true)", ip, asserted, "198.51.100.42")
+	}
+}
+
+func TestClientIPResolverIgnoresRealIPFromUntrustedPeer(t *testing.T) {
+	resolver := NewClientIPResolver(nil).WithTrustedProxies([]*net.IPNet{mustCIDR(t, "127.0.0.1/32")})
+
+	req := httptest.NewRequest(http.MethodPost, "http://backend.test/api/v1/b2b/stations/challenge", nil)
+	req.RemoteAddr = "203.0.113.5:54321"
+	// Client-supplied X-Real-IP from an untrusted peer must be ignored --
+	// this is exactly the header an attacker would forge if the peer check
+	// were missing.
+	req.Header.Set("X-Real-IP", "198.51.100.42")
+
+	ip, asserted := resolver.ResolveAsserted(req)
+	if asserted || ip != "203.0.113.5" {
+		t.Fatalf("ResolveAsserted = (%q, %v), want (%q, false)", ip, asserted, "203.0.113.5")
+	}
+}
+
+func TestClientIPResolverTrustedPeerWithoutRealIPFallsBack(t *testing.T) {
+	resolver := NewClientIPResolver(nil).WithTrustedProxies([]*net.IPNet{mustCIDR(t, "127.0.0.1/32")})
+
+	req := httptest.NewRequest(http.MethodPost, "http://backend.test/x", nil)
+	req.RemoteAddr = "127.0.0.1:1"
+
+	ip, asserted := resolver.ResolveAsserted(req)
+	if asserted || ip != "127.0.0.1" {
+		t.Fatalf("ResolveAsserted = (%q, %v), want (%q, false)", ip, asserted, "127.0.0.1")
+	}
+}
+
+// TestClientIPResolverHMACAssertionWinsOverTrustedProxy covers the ordering
+// requirement: a valid signed assertion must be returned even when the
+// request also arrives from a trusted-proxy peer with a (different)
+// X-Real-IP header set, so a signed assertion always wins.
+func TestClientIPResolverHMACAssertionWinsOverTrustedProxy(t *testing.T) {
+	now := time.Date(2026, 7, 22, 12, 0, 0, 0, time.UTC)
+	// signedClientIPRequest sets RemoteAddr to 10.0.0.8, so trust that whole /8.
+	resolver := NewClientIPResolver(clientIPTestSecret).WithTrustedProxies([]*net.IPNet{mustCIDR(t, "10.0.0.0/8")})
+	resolver.now = func() time.Time { return now }
+
+	req := signedClientIPRequest(t, now, "198.51.100.10")
+	req.Header.Set("X-Real-IP", "203.0.113.99") // must lose to the HMAC assertion
+
+	ip, asserted := resolver.ResolveAsserted(req)
+	if !asserted || ip != "198.51.100.10" {
+		t.Fatalf("ResolveAsserted = (%q, %v), want (%q, true) -- HMAC assertion must win over X-Real-IP", ip, asserted, "198.51.100.10")
 	}
 }
