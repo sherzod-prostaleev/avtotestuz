@@ -19,7 +19,8 @@
     "retry": "Қайта уриниш",
     "notFoundTitle": "Саҳифа топилмади",
     "notFoundMessage": "Бу манзил мавжуд эмас ёки саҳифа кўчирилган.",
-    "backHome": "Бош саҳифага қайтиш"
+    "backHome": "Бош саҳифага қайтиш",
+    "backToStation": "Синфхона саҳифасига қайтиш"
   },
   "Landing": {
     "brandName": "Driver Go",

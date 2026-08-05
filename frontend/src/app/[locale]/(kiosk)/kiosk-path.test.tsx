@@ -30,6 +30,29 @@ function findPageRoutes(dir: string, segments: string[] = []): string[] {
   return routes;
 }
 
+/**
+ * not-found.tsx and error.tsx are boundaries, not routes — they own no URL
+ * segment of their own, so they're invisible to findPageRoutes above (which
+ * only looks for "page.tsx") and to the PROTECTED_SEGMENTS check that
+ * follows. They're exactly the surface a walk-up student lands on when a
+ * route is missing or throws, so this walks the filesystem for them the
+ * same way, and the test below reads their source to confirm the one
+ * escape hatch they offer stays inside the kiosk.
+ */
+function findBoundaryFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.endsWith(".test.tsx") || entry.name.endsWith(".test.ts")) continue;
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...findBoundaryFiles(entryPath));
+    } else if (entry.name === "not-found.tsx" || entry.name === "error.tsx") {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
 describe("kiosk route registration", () => {
   it("keeps every (kiosk) page.tsx outside PROTECTED_SEGMENTS", () => {
     const routes = findPageRoutes(kioskDir);
@@ -68,5 +91,29 @@ describe("kiosk route registration", () => {
     expect(matchesAny("/tickets", PROTECTED_SEGMENTS)).toBe(true);
     expect(matchesAny("/session/start", PROTECTED_SEGMENTS)).toBe(true);
     expect(matchesAny("/session/abc-123", PROTECTED_SEGMENTS)).toBe(true);
+  });
+});
+
+describe("kiosk error boundaries", () => {
+  it("gives the (kiosk) group its own not-found and error boundaries", () => {
+    const boundaries = findBoundaryFiles(kioskDir).map((f) => path.relative(kioskDir, f));
+
+    // Next.js resolves the nearest boundary. Without a kiosk-scoped pair,
+    // a stranded student falls through to the shared [locale]/not-found.tsx
+    // and [locale]/error.tsx, which link back to the public marketing site.
+    expect(boundaries.sort()).toEqual(["error.tsx", "not-found.tsx"]);
+  });
+
+  it("links each kiosk boundary only to /station, never to dashboard/premium/checkout/etc", () => {
+    const boundaries = findBoundaryFiles(kioskDir);
+    expect(boundaries.length).toBeGreaterThan(0);
+
+    for (const file of boundaries) {
+      const source = fs.readFileSync(file, "utf8");
+      const hrefs = [...source.matchAll(/href=\{`([^`]*)`\}/g)].map((m) => m[1]);
+
+      // Exactly one link out, and it goes to the kiosk home — nothing else.
+      expect(hrefs).toEqual(["/${locale}/station"]);
+    }
   });
 });

@@ -19,7 +19,8 @@
     "retry": "Qayta urinish",
     "notFoundTitle": "Sahifa topilmadi",
     "notFoundMessage": "Bu manzil mavjud emas yoki sahifa ko'chirilgan.",
-    "backHome": "Bosh sahifaga qaytish"
+    "backHome": "Bosh sahifaga qaytish",
+    "backToStation": "Sinfxona sahifasiga qaytish"
   },
   "Landing": {
     "brandName": "Driver Go",

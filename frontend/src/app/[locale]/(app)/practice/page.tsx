@@ -569,12 +569,17 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
               </h2>
               <p className="text-base text-muted-foreground">{t("sourceSignHint")}</p>
             </div>
-            <Link
-              href={`/${locale}/signs`}
-              className="shrink-0 text-sm font-bold text-accent hover:underline"
-            >
-              {t("openSigns")}
-            </Link>
+            {/* Unreachable today — sources filters out "sign" on the kiosk, so
+                source can never be "sign" there — but guarded so it stays
+                correct if source ever becomes settable independently. */}
+            {!kiosk && (
+              <Link
+                href={`/${locale}/signs`}
+                className="shrink-0 text-sm font-bold text-accent hover:underline"
+              >
+                {t("openSigns")}
+              </Link>
+            )}
           </div>
           <SignPracticeGrid signs={signs} emptyHint={t("sourceSignEmptyLinks")} />
         </section>
