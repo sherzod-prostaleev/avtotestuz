@@ -249,8 +249,8 @@ func testStationOrg(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 2, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 2, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
 		t.Fatal(err)
 	}
 	return orgID

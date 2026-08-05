@@ -197,8 +197,6 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)
 
-				b2bH.AuthedRoutes(learnerAuth)
-
 				bh.AuthedRoutes(learnerAuth)
 
 				pmh := &payme.Handler{Q: deps.Queries, Svc: billing.Service{Q: deps.Queries}, Key: cfg.PaymeKey(), Pool: deps.Pool}

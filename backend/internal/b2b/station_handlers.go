@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/httpx"
 )
 
@@ -353,79 +351,4 @@ func (h *Handler) recordTokenFailure(r *http.Request, failKey string) {
 		return
 	}
 	_, _ = h.Lim.Allow(r.Context(), failKey, tokenFailedIdentityLimit, time.Hour)
-}
-
-type enrollWindowBody struct {
-	TTLMinutes int `json:"ttl_minutes"`
-}
-
-func (h *Handler) openEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	var body enrollWindowBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
-		// An empty body keeps meaning "use the default": Decode returns EOF
-		// when there is nothing to read. Any other error (malformed JSON, a
-		// string ttl_minutes) must not silently fall back to the 2-hour
-		// default with no signal to the teacher who asked for something else.
-		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
-		return
-	}
-	ttl := time.Duration(body.TTLMinutes) * time.Minute
-	out, err := h.store().OpenEnrollWindowAsTeacher(r.Context(), claims.ProfileID, orgID, ttl)
-	if err != nil {
-		writeStoreErr(w, err, "open enroll window failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
-func (h *Handler) getEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	out, err := h.store().ActiveEnrollCodeAsTeacher(r.Context(), claims.ProfileID, orgID)
-	if err != nil {
-		writeStoreErr(w, err, "enroll window query failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
-func (h *Handler) closeEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	codeID, err := uuid.Parse(chi.URLParam(r, "codeID"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid code id")
-		return
-	}
-	if err := h.store().CloseEnrollWindowAsTeacher(r.Context(), claims.ProfileID, orgID, codeID); err != nil {
-		writeStoreErr(w, err, "close enroll window failed")
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }

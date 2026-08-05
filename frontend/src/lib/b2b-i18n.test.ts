@@ -4,8 +4,8 @@ import uzCyrl from "../../messages/uz-Cyrl.json";
 import ru from "../../messages/ru.json";
 
 describe("B2B locale contract", () => {
-  it("keeps AdminB2B and Teacher keys identical in all three locales", () => {
-    for (const section of ["AdminB2B", "Teacher"] as const) {
+  it("keeps AdminB2B keys identical in all three locales", () => {
+    for (const section of ["AdminB2B"] as const) {
       const expected = Object.keys(uzLatn[section]).sort();
       expect(Object.keys(uzCyrl[section]).sort()).toEqual(expected);
       expect(Object.keys(ru[section]).sort()).toEqual(expected);
@@ -18,7 +18,6 @@ describe("B2B locale contract", () => {
       expect(messages.AdminUsers.deletePhrase).toBeTruthy();
       expect(messages.AdminB2B.deleteButton).toBeTruthy();
       expect(messages.AdminB2B.multiPcStepLearner).toBeTruthy();
-      expect(messages.Teacher.multiPcHint).toBeTruthy();
     }
   });
 });

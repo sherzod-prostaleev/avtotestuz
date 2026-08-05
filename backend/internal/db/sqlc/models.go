@@ -162,19 +162,6 @@ type AuditLog struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
-type B2bInvite struct {
-	ID         uuid.UUID          `json:"id"`
-	Token      string             `json:"token"`
-	OrgID      uuid.UUID          `json:"org_id"`
-	Phone      string             `json:"phone"`
-	Role       string             `json:"role"`
-	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
-	CreatedBy  uuid.NullUUID      `json:"created_by"`
-	AcceptedAt pgtype.Timestamptz `json:"accepted_at"`
-	AcceptedBy uuid.NullUUID      `json:"accepted_by"`
-	CreatedAt  pgtype.Timestamptz `json:"created_at"`
-}
-
 type B2bOrg struct {
 	ID        uuid.UUID          `json:"id"`
 	Name      string             `json:"name"`
@@ -202,14 +189,6 @@ type B2bOrgLicense struct {
 	EndsAt    pgtype.Timestamptz `json:"ends_at"`
 	Note      string             `json:"note"`
 	CreatedBy string             `json:"created_by"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	HomeSeats int32              `json:"home_seats"`
-}
-
-type B2bOrgMember struct {
-	OrgID     uuid.UUID          `json:"org_id"`
-	ProfileID uuid.UUID          `json:"profile_id"`
-	Role      string             `json:"role"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 

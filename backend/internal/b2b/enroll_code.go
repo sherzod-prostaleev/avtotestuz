@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/rand"
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -140,55 +139,4 @@ func insertEnrollCode(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, code stri
 	row.ExpiresAt = row.ExpiresAt.UTC()
 	row.CreatedAt = row.CreatedAt.UTC()
 	return row, nil
-}
-
-// OpenEnrollWindowAsTeacher requires owner/teacher membership.
-func (s Store) OpenEnrollWindowAsTeacher(ctx context.Context, actorID, orgID uuid.UUID, ttl time.Duration) (EnrollCodeRow, error) {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return EnrollCodeRow{}, err
-	}
-	return s.OpenEnrollWindow(ctx, orgID, ttl, "profile:"+actorID.String())
-}
-
-// CloseEnrollWindowAsTeacher revokes a live window early.
-func (s Store) CloseEnrollWindowAsTeacher(ctx context.Context, actorID, orgID, codeID uuid.UUID) error {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return err
-	}
-	tag, err := s.Pool.Exec(ctx, `
-		UPDATE b2b_org_enroll_code SET revoked_at = now()
-		WHERE id = $1 AND org_id = $2 AND revoked_at IS NULL`, codeID, orgID)
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
-// ActiveEnrollCodeAsTeacher returns the live window, or nil when none is open.
-func (s Store) ActiveEnrollCodeAsTeacher(ctx context.Context, actorID, orgID uuid.UUID) (*EnrollCodeRow, error) {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return nil, err
-	}
-	var row EnrollCodeRow
-	var revoked pgtype.Timestamptz
-	err := s.Pool.QueryRow(ctx, `
-		SELECT id, org_id, code, max_uses, used_count, expires_at, revoked_at, created_at
-		FROM b2b_org_enroll_code
-		WHERE org_id = $1 AND revoked_at IS NULL AND expires_at > now()
-		  AND used_count < max_uses
-		ORDER BY created_at DESC LIMIT 1`, orgID,
-	).Scan(&row.ID, &row.OrgID, &row.Code, &row.MaxUses, &row.UsedCount,
-		&row.ExpiresAt, &revoked, &row.CreatedAt)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("active enroll code: %w", err)
-	}
-	row.ExpiresAt = row.ExpiresAt.UTC()
-	row.CreatedAt = row.CreatedAt.UTC()
-	return &row, nil
 }

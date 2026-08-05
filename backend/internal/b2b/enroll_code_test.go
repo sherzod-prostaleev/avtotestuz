@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/b2b"
-	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/testdb"
 )
 
@@ -27,8 +26,8 @@ func TestOpenEnrollWindowSizesToFreeSeats(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 30, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 30, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -83,8 +82,8 @@ func TestOpenEnrollWindowRefusesSuspendedOrgAndDeadLicense(t *testing.T) {
 	}
 
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 10, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 10, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
 		t.Fatal(err)
 	}
 	if err := store.SetOrgStatus(ctx, orgID, "suspended"); err != nil {
@@ -107,8 +106,8 @@ func TestOpenEnrollWindowRefusesWhenSeatsFull(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 3, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 3, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -148,8 +147,8 @@ func TestOpenEnrollWindowOpensAtSeatsBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 3, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 3, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -169,144 +168,5 @@ func TestOpenEnrollWindowOpensAtSeatsBoundary(t *testing.T) {
 	}
 	if code.MaxUses != 1 {
 		t.Fatalf("max_uses=%d, want 1 (exactly one free seat)", code.MaxUses)
-	}
-}
-
-func TestActiveEnrollCodeAsTeacherReturnsNilWithoutError(t *testing.T) {
-	pool := testdb.New(t)
-	testdb.Truncate(t, pool)
-	store := b2b.Store{Pool: pool}
-	q := sqlc.New(pool)
-	ctx := context.Background()
-
-	teacher, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180301", Name: "Teacher"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var orgID uuid.UUID
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_member (org_id, profile_id, role) VALUES ($1, $2, 'teacher')`,
-		orgID, teacher.ID); err != nil {
-		t.Fatal(err)
-	}
-
-	row, err := store.ActiveEnrollCodeAsTeacher(ctx, teacher.ID, orgID)
-	if err != nil {
-		t.Fatalf("unexpected error with no open window: %v", err)
-	}
-	if row != nil {
-		t.Fatalf("row=%+v, want nil when no window is open", row)
-	}
-}
-
-func TestEnrollWindowTeacherLifecycle(t *testing.T) {
-	pool := testdb.New(t)
-	testdb.Truncate(t, pool)
-	store := b2b.Store{Pool: pool}
-	q := sqlc.New(pool)
-	ctx := context.Background()
-
-	teacher, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180302", Name: "Teacher"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var orgID uuid.UUID
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_member (org_id, profile_id, role) VALUES ($1, $2, 'teacher')`,
-		orgID, teacher.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 10, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
-		t.Fatal(err)
-	}
-
-	opened, err := store.OpenEnrollWindowAsTeacher(ctx, teacher.ID, orgID, time.Hour)
-	if err != nil {
-		t.Fatalf("OpenEnrollWindowAsTeacher: %v", err)
-	}
-
-	active, err := store.ActiveEnrollCodeAsTeacher(ctx, teacher.ID, orgID)
-	if err != nil {
-		t.Fatalf("ActiveEnrollCodeAsTeacher: %v", err)
-	}
-	if active == nil || active.ID != opened.ID {
-		t.Fatalf("active=%+v, want the just-opened window %s", active, opened.ID)
-	}
-
-	if err := store.CloseEnrollWindowAsTeacher(ctx, teacher.ID, orgID, opened.ID); err != nil {
-		t.Fatalf("CloseEnrollWindowAsTeacher: %v", err)
-	}
-
-	after, err := store.ActiveEnrollCodeAsTeacher(ctx, teacher.ID, orgID)
-	if err != nil {
-		t.Fatalf("ActiveEnrollCodeAsTeacher after close: %v", err)
-	}
-	if after != nil {
-		t.Fatalf("after=%+v, want nil once the window has been revoked", after)
-	}
-}
-
-func TestEnrollWindowTeacherWrappersRefuseNonTeacherMembers(t *testing.T) {
-	pool := testdb.New(t)
-	testdb.Truncate(t, pool)
-	store := b2b.Store{Pool: pool}
-	q := sqlc.New(pool)
-	ctx := context.Background()
-
-	outsider, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180303", Name: "Outsider"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	student, err := q.CreateProfile(ctx, sqlc.CreateProfileParams{Phone: "+998901180304", Name: "Student"})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	var orgID uuid.UUID
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
-		t.Fatal(err)
-	}
-	// Student is a member but not a teacher/owner; outsider has no
-	// membership row at all. Both must be refused by every wrapper.
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_member (org_id, profile_id, role) VALUES ($1, $2, 'student')`,
-		orgID, student.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_org_license (org_id, seats, home_seats, starts_at, ends_at, note)
-		VALUES ($1, 10, 0, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
-		t.Fatal(err)
-	}
-
-	for _, actor := range []struct {
-		name string
-		id   uuid.UUID
-	}{
-		{"outsider", outsider.ID},
-		{"student", student.ID},
-	} {
-		if _, err := store.OpenEnrollWindowAsTeacher(ctx, actor.id, orgID, time.Hour); !errors.Is(err, b2b.ErrNotFound) {
-			t.Fatalf("OpenEnrollWindowAsTeacher(%s): err=%v, want ErrNotFound", actor.name, err)
-		}
-		if err := store.CloseEnrollWindowAsTeacher(ctx, actor.id, orgID, uuid.New()); !errors.Is(err, b2b.ErrNotFound) {
-			t.Fatalf("CloseEnrollWindowAsTeacher(%s): err=%v, want ErrNotFound", actor.name, err)
-		}
-		if _, err := store.ActiveEnrollCodeAsTeacher(ctx, actor.id, orgID); !errors.Is(err, b2b.ErrNotFound) {
-			t.Fatalf("ActiveEnrollCodeAsTeacher(%s): err=%v, want ErrNotFound", actor.name, err)
-		}
 	}
 }

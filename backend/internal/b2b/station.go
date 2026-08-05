@@ -49,15 +49,6 @@ func (s Store) CountActiveStations(ctx context.Context, orgID uuid.UUID) (int64,
 	return n, err
 }
 
-// ActiveHomeSeats returns sum of home_seats on currently active licenses.
-func (s Store) ActiveHomeSeats(ctx context.Context, orgID uuid.UUID) (int64, error) {
-	var n int64
-	err := s.Pool.QueryRow(ctx, `
-		SELECT COALESCE(SUM(home_seats), 0) FROM b2b_org_license
-		WHERE org_id=$1 AND starts_at <= now() AND ends_at > now()`, orgID).Scan(&n)
-	return n, err
-}
-
 // LicenseEndsAt returns the latest active license end for an org (UTC).
 func (s Store) LicenseEndsAt(ctx context.Context, orgID uuid.UUID) (*time.Time, error) {
 	var ends time.Time
@@ -103,14 +94,6 @@ func (s Store) ListStations(ctx context.Context, orgID uuid.UUID) ([]StationRow,
 	return out, rows.Err()
 }
 
-// ListStationsAsTeacher lists stations if caller is owner/teacher.
-func (s Store) ListStationsAsTeacher(ctx context.Context, actorID, orgID uuid.UUID) ([]StationRow, error) {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return nil, err
-	}
-	return s.ListStations(ctx, orgID)
-}
-
 // RevokeStation marks a station revoked (frees a seat).
 func (s Store) RevokeStation(ctx context.Context, orgID, stationID uuid.UUID) error {
 	tag, err := s.Pool.Exec(ctx, `
@@ -123,42 +106,6 @@ func (s Store) RevokeStation(ctx context.Context, orgID, stationID uuid.UUID) er
 		return ErrNotFound
 	}
 	return nil
-}
-
-// RevokeStationAsTeacher requires owner/teacher.
-func (s Store) RevokeStationAsTeacher(ctx context.Context, actorID, orgID, stationID uuid.UUID) error {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return err
-	}
-	return s.RevokeStation(ctx, orgID, stationID)
-}
-
-// RenameStationAsTeacher updates label.
-func (s Store) RenameStationAsTeacher(ctx context.Context, actorID, orgID, stationID uuid.UUID, label string) (StationRow, error) {
-	if _, err := s.teacherRole(ctx, actorID, orgID); err != nil {
-		return StationRow{}, err
-	}
-	label = strings.TrimSpace(label)
-	if label == "" {
-		return StationRow{}, fmt.Errorf("%w: label required", ErrInvalid)
-	}
-	var row StationRow
-	err := s.Pool.QueryRow(ctx, `
-		UPDATE b2b_station SET label = $3
-		WHERE id = $1 AND org_id = $2
-		RETURNING id, org_id, label, status, activated_at, last_seen_at, activated_by`,
-		stationID, orgID, label,
-	).Scan(&row.ID, &row.OrgID, &row.Label, &row.Status,
-		&row.ActivatedAt, &row.LastSeenAt, &row.ActivatedBy)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return StationRow{}, ErrNotFound
-		}
-		return StationRow{}, err
-	}
-	row.ActivatedAt = row.ActivatedAt.UTC()
-	row.LastSeenAt = row.LastSeenAt.UTC()
-	return row, nil
 }
 
 // SetOrgStatus updates org status (admin).
