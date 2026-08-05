@@ -32,7 +32,21 @@ const dailyPointsConfigKey = "leaderboard_daily_points"
 // triggered it — leaderboard standing is a side effect, never the source
 // of truth for anything else (session_answer already recorded the answer
 // by the time this runs). See internal/session.Service.SubmitAnswer.
+//
+// Station shadow profiles (kind = 'station') are excluded entirely: a
+// classroom PC accumulates every student who sits at it under one profile,
+// which would let a PC label top the public boards, and station VIP would
+// hand it the VIP daily cap instead of the free one. The kind check runs
+// before Billing.Status so a station never even reaches the VIP-cap path.
 func (s *Service) RecordPoint(ctx context.Context, profileID uuid.UUID) error {
+	kind, err := s.Q.GetProfileKind(ctx, profileID)
+	if err != nil {
+		return err
+	}
+	if kind == "station" {
+		return nil
+	}
+
 	now := time.Now().UTC()
 	member := profileID.String()
 

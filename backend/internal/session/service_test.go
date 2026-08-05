@@ -1368,6 +1368,72 @@ func TestSubmitAnswerRecordsLeaderboardPointOnCorrectAnswer(t *testing.T) {
 	}
 }
 
+// TestSubmitAnswerExcludesStationFromLeaderboardButKeepsLearner drives one
+// learner (kind='user') and one classroom-PC shadow profile (kind='station')
+// through the real answer-submission path — SubmitAnswer, not the rebuild
+// query — and reads the leaderboard back through GetLeaderboard. It asserts
+// BOTH directions: the learner must be present (a positive control) and the
+// station must be absent. A test that only checked the station's absence
+// would also pass if the kind filter accidentally excluded everyone.
+func TestSubmitAnswerExcludesStationFromLeaderboardButKeepsLearner(t *testing.T) {
+	q, svc, learnerID := seed(t)
+	rdb := redisx.NewTest(t)
+	svc.Leaderboard = leaderboard.NewService(rdb, q, billing.Service{Q: q})
+
+	var stationID uuid.UUID
+	if err := svc.Pool.QueryRow(context.Background(), `
+		INSERT INTO profile (phone, name, kind)
+		VALUES ('st:' || gen_random_uuid(), 'PC-1', 'station') RETURNING id`).Scan(&stationID); err != nil {
+		t.Fatalf("create station profile: %v", err)
+	}
+
+	catID, err := q.GetCategoryIDByCode(context.Background(), "signs")
+	if err != nil {
+		t.Fatalf("category lookup: %v", err)
+	}
+
+	submitOneCorrectAnswer := func(profileID uuid.UUID) {
+		t.Helper()
+		view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+			Mode: "practice", CategoryID: catID, Locale: "uz-Latn", Count: 1,
+		})
+		if err != nil {
+			t.Fatalf("StartSession(%s): %v", profileID, err)
+		}
+		correctAnswerID, err := q.GetCorrectAnswerID(context.Background(), view.QuestionIDs[0])
+		if err != nil {
+			t.Fatalf("GetCorrectAnswerID: %v", err)
+		}
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, view.QuestionIDs[0], correctAnswerID, session.SubmitAnswerOpts{}); err != nil {
+			t.Fatalf("SubmitAnswer(%s): %v", profileID, err)
+		}
+	}
+
+	submitOneCorrectAnswer(learnerID)
+	submitOneCorrectAnswer(stationID)
+
+	learnerResult, err := svc.Leaderboard.GetLeaderboard(context.Background(), learnerID, leaderboard.PeriodDaily)
+	if err != nil {
+		t.Fatalf("GetLeaderboard(learner): %v", err)
+	}
+	if learnerResult.YouRank == nil || learnerResult.YouScore != 1 {
+		t.Fatalf("learner rank=%v score=%d, want rank set and score=1 (positive control)", learnerResult.YouRank, learnerResult.YouScore)
+	}
+
+	stationResult, err := svc.Leaderboard.GetLeaderboard(context.Background(), stationID, leaderboard.PeriodDaily)
+	if err != nil {
+		t.Fatalf("GetLeaderboard(station): %v", err)
+	}
+	if stationResult.YouRank != nil || stationResult.YouScore != 0 {
+		t.Fatalf("station rank=%v score=%d, want no rank and score=0 (station must never reach the leaderboard)", stationResult.YouRank, stationResult.YouScore)
+	}
+	for _, e := range learnerResult.Top {
+		if e.Name == "PC-1" {
+			t.Fatalf("station %q leaked into the Top listing: %+v", e.Name, learnerResult.Top)
+		}
+	}
+}
+
 func TestSubmitAnswerWorksWithNilLeaderboard(t *testing.T) {
 	// svc.Leaderboard defaults to nil (seed() doesn't set it) — confirms
 	// existing/unrelated tests and any caller that never wires a

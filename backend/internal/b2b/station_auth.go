@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -161,12 +162,18 @@ func (a StationAuth) Token(ctx context.Context, in TokenInput) (TokenResult, err
 		return TokenResult{}, err
 	}
 
+	// agent_version is attacker-controlled (sent by whoever holds the
+	// station's key) and would otherwise be unbounded text; cap it the same
+	// way EnrollStation does at enrollment time. Truncate rather than
+	// reject: a future agent version string is not worth failing a token
+	// renewal over.
+	agentVersion := truncateRunes(strings.TrimSpace(in.AgentVersion), maxAgentVersionLen)
 	_, _ = a.Pool.Exec(ctx, `
 		UPDATE b2b_station
 		SET last_seen_at = now(),
 		    agent_version = COALESCE(NULLIF($2, ''), agent_version),
 		    last_ip = NULLIF($3, '')::inet
-		WHERE id = $1`, in.StationID, in.AgentVersion, in.IP)
+		WHERE id = $1`, in.StationID, agentVersion, in.IP)
 
 	return TokenResult{
 		AccessToken:   token,

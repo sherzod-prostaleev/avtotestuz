@@ -243,6 +243,22 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 	return i, err
 }
 
+const getProfileKind = `-- name: GetProfileKind :one
+SELECT kind FROM profile WHERE id = $1
+`
+
+// Used by leaderboard.Service.RecordPoint to keep station shadow profiles
+// (kind = 'station') out of the live leaderboard write path before it ever
+// touches Billing.Status or Redis. Selecting just the column, rather than
+// reusing GetProfileByID, keeps the hot answer-submission path from paying
+// for columns it doesn't need.
+func (q *Queries) GetProfileKind(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getProfileKind, id)
+	var kind string
+	err := row.Scan(&kind)
+	return kind, err
+}
+
 const getProfileByPhone = `-- name: GetProfileByPhone :one
 SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind FROM profile WHERE phone = $1
 `

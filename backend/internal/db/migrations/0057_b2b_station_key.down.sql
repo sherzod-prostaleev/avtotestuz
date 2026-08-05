@@ -27,4 +27,13 @@ CREATE TABLE b2b_station_activate_code (
 CREATE INDEX b2b_station_activate_code_org_idx
   ON b2b_station_activate_code (org_id, expires_at DESC);
 
+-- Every shadow profile (phone = 'st:<uuid>', kind = 'station') exists only
+-- to give a classroom PC a profile-keyed identity. b2b_station is already
+-- truncated above, so nothing references these rows anymore, but the `kind`
+-- column that marks them is about to disappear. Delete them here or they
+-- survive as ordinary (kind-less) rows -- indistinguishable from real
+-- learners to anything downstream (learner lists, analytics, leaderboards)
+-- once the filter this column enabled no longer exists.
+DELETE FROM profile WHERE kind = 'station';
+
 ALTER TABLE profile DROP COLUMN kind;

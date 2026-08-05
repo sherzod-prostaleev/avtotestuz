@@ -19,6 +19,14 @@ SELECT * FROM profile WHERE phone = $1;
 -- name: GetProfileByID :one
 SELECT * FROM profile WHERE id = $1;
 
+-- name: GetProfileKind :one
+-- Used by leaderboard.Service.RecordPoint to keep station shadow profiles
+-- (kind = 'station') out of the live leaderboard write path before it ever
+-- touches Billing.Status or Redis. Selecting just the column, rather than
+-- reusing GetProfileByID, keeps the hot answer-submission path from paying
+-- for columns it doesn't need.
+SELECT kind FROM profile WHERE id = $1;
+
 -- name: SetBypassVariantProgress :exec
 UPDATE profile SET bypass_variant_progress = $2 WHERE id = $1;
 

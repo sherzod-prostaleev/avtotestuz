@@ -38,10 +38,29 @@ type EnrollResult struct {
 // maxLabelLen keeps operator-supplied PC names from bloating list responses.
 const maxLabelLen = 64
 
+// maxAgentVersionLen bounds the attacker-controlled agent_version string
+// (accepted on both /b2b/stations/enroll and /b2b/stations/token) before it
+// reaches the otherwise-unbounded text column. A future version string
+// longer than this is not worth failing an enrollment or a token renewal
+// over, so it is truncated rather than rejected -- see truncateRunes.
+const maxAgentVersionLen = 32
+
 // hwidHashLen is the hex-encoded length of a SHA-256 digest (32 bytes -> 64
 // hex chars). The station agent derives hwid_hash by hashing local machine
 // identifiers; anything else is not a hardware identity we can trust.
 const hwidHashLen = 64
+
+// truncateRunes caps s at maxLen runes, truncating on rune boundaries rather
+// than bytes: Cyrillic input (Uzbek/Russian PC names, agent version tags)
+// is 2 bytes per rune, so a byte-slice cut can land mid-rune and produce
+// invalid UTF-8 that a later insert then rejects.
+func truncateRunes(s string, maxLen int) string {
+	if utf8.RuneCountInString(s) <= maxLen {
+		return s
+	}
+	runes := []rune(s)
+	return string(runes[:maxLen])
+}
 
 func (in EnrollInput) validate() error {
 	if strings.TrimSpace(in.Code) == "" {
@@ -78,13 +97,8 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 	if label == "" {
 		label = "PC"
 	}
-	if utf8.RuneCountInString(label) > maxLabelLen {
-		// Truncate on runes, not bytes: Cyrillic labels (Uzbek/Russian PC
-		// names) are 2 bytes per rune, so byte slicing can cut mid-rune and
-		// produce invalid UTF-8 that the profile insert then rejects.
-		runes := []rune(label)
-		label = string(runes[:maxLabelLen])
-	}
+	label = truncateRunes(label, maxLabelLen)
+	agentVersion := truncateRunes(strings.TrimSpace(in.AgentVersion), maxAgentVersionLen)
 
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
@@ -201,7 +215,7 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		  (org_id, public_key, hwid_hash, label, status, activated_by, agent_version, station_profile_id)
 		VALUES ($1, $2, $3, $4, 'active', 'enroll', $5, $6)
 		RETURNING id`,
-		orgID, []byte(in.PublicKey), hwid, label, in.AgentVersion, profileID).Scan(&stationID); err != nil {
+		orgID, []byte(in.PublicKey), hwid, label, agentVersion, profileID).Scan(&stationID); err != nil {
 		if isUniqueViolation(err) {
 			// A concurrent enrollment of the same hwid_hash under a
 			// different org isn't serialized by the org lock (different
