@@ -147,6 +147,66 @@ func TestStationAuthRejects(t *testing.T) {
 		}
 	})
 
+	t.Run("nonce bound to a different station", func(t *testing.T) {
+		// A second station under the same org, so the only variable is which
+		// station the nonce (and its signed bytes) were issued for.
+		otherPub, otherPriv, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		otherHWID := testHWID("station-auth-cross-station-other")
+		otherRes, err := store.EnrollStation(ctx, b2b.EnrollInput{
+			Code: code.Code, PublicKey: otherPub, HWIDHash: otherHWID, Label: "PC-2",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		// Nonce issued for the original station...
+		nonce, ts := fresh(t)
+		// ...but signed and presented as the other station's credential.
+		sig := ed25519.Sign(otherPriv, b2b.SignedMessage(res.StationID, nonce, ts))
+		if _, err := sa.Token(ctx, b2b.TokenInput{
+			StationID: otherRes.StationID, Nonce: nonce, TS: ts, Sig: sig, HWIDHash: otherHWID,
+		}); !errors.Is(err, b2b.ErrStationAuth) {
+			t.Fatalf("err=%v, want ErrStationAuth", err)
+		}
+	})
+
+	t.Run("suspended org", func(t *testing.T) {
+		nonce, ts := fresh(t)
+		sig := ed25519.Sign(priv, b2b.SignedMessage(res.StationID, nonce, ts))
+		if err := store.SetOrgStatus(ctx, orgID, "suspended"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			if err := store.SetOrgStatus(ctx, orgID, "active"); err != nil {
+				t.Fatal(err)
+			}
+		})
+		if _, err := sa.Token(ctx, b2b.TokenInput{
+			StationID: res.StationID, Nonce: nonce, TS: ts, Sig: sig, HWIDHash: hwid,
+		}); !errors.Is(err, b2b.ErrStationAuth) {
+			t.Fatalf("err=%v, want ErrStationAuth", err)
+		}
+	})
+
+	t.Run("expired licence", func(t *testing.T) {
+		nonce, ts := fresh(t)
+		sig := ed25519.Sign(priv, b2b.SignedMessage(res.StationID, nonce, ts))
+		// b2b_org_license has a CHECK (ends_at > starts_at), so starts_at must
+		// move back too or this violates that constraint.
+		if _, err := pool.Exec(ctx,
+			`UPDATE b2b_org_license SET starts_at = now() - interval '2 days', ends_at = now() - interval '1 day' WHERE org_id = $1`, orgID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := sa.Token(ctx, b2b.TokenInput{
+			StationID: res.StationID, Nonce: nonce, TS: ts, Sig: sig, HWIDHash: hwid,
+		}); !errors.Is(err, b2b.ErrStationAuth) {
+			t.Fatalf("err=%v, want ErrStationAuth", err)
+		}
+	})
+
 	t.Run("revoked station", func(t *testing.T) {
 		if err := store.RevokeStation(ctx, orgID, res.StationID); err != nil {
 			t.Fatal(err)

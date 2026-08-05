@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -130,7 +131,7 @@ func (a StationAuth) Token(ctx context.Context, in TokenInput) (TokenResult, err
 		JOIN b2b_org o ON o.id = s.org_id AND o.status = 'active'
 		JOIN b2b_org_license l ON l.org_id = s.org_id
 		  AND l.starts_at <= now() AND l.ends_at > now()
-		WHERE s.id = $1 AND s.status = 'active'
+		WHERE s.id = $1 AND s.status = 'active' AND s.station_profile_id IS NOT NULL
 		GROUP BY s.public_key, s.hwid_hash, s.station_profile_id, o.name`,
 		in.StationID).Scan(&pub, &hwid, &profileID, &orgName, &ends)
 	if err != nil {
@@ -139,10 +140,19 @@ func (a StationAuth) Token(ctx context.Context, in TokenInput) (TokenResult, err
 		}
 		return TokenResult{}, err
 	}
-	if hwid != in.HWIDHash {
-		return TokenResult{}, ErrStationAuth
-	}
-	if !ed25519.Verify(ed25519.PublicKey(pub), SignedMessage(in.StationID, in.Nonce, in.TS), in.Sig) {
+
+	// Both checks always run, in this order, so that whether the hwid
+	// matched cannot be inferred from whether the (much costlier) signature
+	// verification ran: an unauthenticated Challenge caller could otherwise
+	// use response latency to distinguish "hwid wrong" from "hwid right,
+	// signature wrong" for free. ed25519.Verify panics on a public key that
+	// is not exactly 32 bytes rather than returning false, so the length is
+	// guarded first; the column has no length constraint, so a bad row must
+	// not be able to turn a rejection into a panic.
+	sigOK := len(pub) == ed25519.PublicKeySize &&
+		ed25519.Verify(ed25519.PublicKey(pub), SignedMessage(in.StationID, in.Nonce, in.TS), in.Sig)
+	hwidOK := subtle.ConstantTimeCompare([]byte(hwid), []byte(in.HWIDHash)) == 1
+	if !sigOK || !hwidOK {
 		return TokenResult{}, ErrStationAuth
 	}
 

@@ -1,8 +1,11 @@
 // Package testredis hands tests an isolated Redis database.
 //
-// It uses REDIS_TEST_URL (or the compose default) and picks a per-test
-// logical DB, flushing it on cleanup so nonces from one test never satisfy
-// another's replay check.
+// It uses REDIS_TEST_URL (or the compose default) and always binds to
+// logical DB 15, flushing it on setup and cleanup so nonces from one test
+// never satisfy another's replay check. That DB is shared by every caller,
+// so only one package may use this helper at a time — today that is
+// internal/b2b. A second package using it concurrently under `go test ./...`
+// parallelism would FlushDB the first package's live state mid-run.
 package testredis
 
 import (
@@ -27,7 +30,7 @@ func New(t *testing.T) *redis.Client {
 	c := redis.NewClient(opt)
 	ctx := context.Background()
 	if err := c.Ping(ctx).Err(); err != nil {
-		t.Skipf("redis unavailable at %s: %v", url, err)
+		t.Fatalf("redis unavailable at %s: %v", url, err)
 	}
 	if err := c.FlushDB(ctx).Err(); err != nil {
 		t.Fatalf("flushdb: %v", err)
