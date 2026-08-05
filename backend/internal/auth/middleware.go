@@ -9,6 +9,7 @@ import (
 
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/stationctx"
 )
 
 type ctxKey int
@@ -36,7 +37,9 @@ func Required(secret []byte) func(http.Handler) http.Handler {
 				httpx.Error(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
 				return
 			}
-			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), claimsKey, claims)))
+			ctx := context.WithValue(r.Context(), claimsKey, claims)
+			ctx = stationctx.WithContext(ctx, claims.StationID)
+			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }

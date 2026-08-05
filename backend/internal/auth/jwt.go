@@ -18,9 +18,17 @@ import (
 // rather than trying to enumerate the types it should refuse.
 const learnerTyp = "learner"
 
+// stationTyp is the `typ` claim on a classroom-station access token. A station
+// authenticates as a machine, not a person: `sub` is its shadow profile so
+// every profile-keyed subsystem keeps working, and `sid` is the station row
+// that entitlement checks read.
+const stationTyp = "station"
+
 type Claims struct {
 	ProfileID uuid.UUID
 	Role      string
+	// StationID is set only for station tokens; uuid.Nil for learners.
+	StationID uuid.UUID
 }
 
 func IssueAccess(secret []byte, profileID uuid.UUID, role string, ttl time.Duration) (string, error) {
@@ -29,6 +37,21 @@ func IssueAccess(secret []byte, profileID uuid.UUID, role string, ttl time.Durat
 		"sub":  profileID.String(),
 		"role": role,
 		"typ":  learnerTyp,
+		"iat":  now.Unix(),
+		"exp":  now.Add(ttl).Unix(),
+		"jti":  uuid.NewString(),
+	})
+	return t.SignedString(secret)
+}
+
+// IssueStationAccess mints a short-lived access token for a bound station.
+func IssueStationAccess(secret []byte, stationID, profileID uuid.UUID, ttl time.Duration) (string, error) {
+	now := time.Now()
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"sub":  profileID.String(),
+		"sid":  stationID.String(),
+		"role": "station",
+		"typ":  stationTyp,
 		"iat":  now.Unix(),
 		"exp":  now.Add(ttl).Unix(),
 		"jti":  uuid.NewString(),
@@ -50,16 +73,17 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 	if !ok {
 		return Claims{}, fmt.Errorf("invalid claims")
 	}
-	// Only a learner token authenticates learner routes (blast-radius
-	// isolation). This is an allowlist, not a "reject admin" denylist: the
-	// admin package also mints scoped tokens (admin_totp_challenge,
-	// admin_totp_enroll) that are signed with the same secret, so a denylist
-	// naming only "admin" let those parse here as a learner whose ProfileID
-	// is really an admin_user id. RejectBanned happens to refuse them today
-	// because no profile row has that id, but that is an accident of the
-	// route stack, not a guarantee — every future token type is refused here
-	// unless it says it is a learner.
-	if typ, _ := mc["typ"].(string); typ != learnerTyp {
+	// Only a learner or station token authenticates these routes
+	// (blast-radius isolation). This is an allowlist, not a "reject admin"
+	// denylist: the admin package also mints scoped tokens
+	// (admin_totp_challenge, admin_totp_enroll) that are signed with the same
+	// secret, so a denylist naming only "admin" let those parse here as a
+	// learner whose ProfileID is really an admin_user id. RejectBanned
+	// happens to refuse them today because no profile row has that id, but
+	// that is an accident of the route stack, not a guarantee — every future
+	// token type is refused here unless it is explicitly allowlisted.
+	typ, _ := mc["typ"].(string)
+	if typ != learnerTyp && typ != stationTyp {
 		return Claims{}, fmt.Errorf("token type %q not allowed on learner routes", typ)
 	}
 	sub, _ := mc["sub"].(string)
@@ -68,7 +92,16 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 		return Claims{}, fmt.Errorf("invalid sub")
 	}
 	role, _ := mc["role"].(string)
-	return Claims{ProfileID: id, Role: role}, nil
+	out := Claims{ProfileID: id, Role: role}
+	if typ == stationTyp {
+		sid, _ := mc["sid"].(string)
+		stationID, err := uuid.Parse(sid)
+		if err != nil {
+			return Claims{}, fmt.Errorf("invalid sid")
+		}
+		out.StationID = stationID
+	}
+	return out, nil
 }
 
 // NewRefreshToken returns an opaque 256-bit token (base64url, no padding).
