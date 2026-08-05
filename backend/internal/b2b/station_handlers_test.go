@@ -122,12 +122,42 @@ func TestStationEndpointsEndToEnd(t *testing.T) {
 	nonce2, _ := data["nonce"].(string)
 	ts2 := time.Now().Unix()
 	sig2 := ed25519.Sign(priv, b2b.SignedMessage(sid, nonce2, ts2))
-	resp, _ = post(t, "/api/v1/b2b/stations/token", map[string]any{
+	resp, hwidBody := post(t, "/api/v1/b2b/stations/token", map[string]any{
 		"station_id": stationID, "nonce": nonce2, "ts": ts2,
 		"sig":       base64.StdEncoding.EncodeToString(sig2),
 		"hwid_hash": "00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff",
 	})
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("hwid mismatch status=%d, want 401", resp.StatusCode)
+	}
+
+	// The property being defended is that every station-auth failure reason
+	// is indistinguishable to the caller, not just that they all return 401.
+	// A corrupted signature on a fresh challenge must produce the exact same
+	// error.code and error.message as the hwid mismatch above -- a
+	// status-only check on one reason cannot catch a regression that leaks
+	// which reason it was through the body.
+	_, body = post(t, "/api/v1/b2b/stations/challenge", map[string]any{"station_id": stationID})
+	data, _ = body["data"].(map[string]any)
+	nonce3, _ := data["nonce"].(string)
+	ts3 := time.Now().Unix()
+	sig3 := ed25519.Sign(priv, b2b.SignedMessage(sid, nonce3, ts3))
+	sig3[0] ^= 0xFF // corrupt the signature; hwid stays correct
+	resp, sigBody := post(t, "/api/v1/b2b/stations/token", map[string]any{
+		"station_id": stationID, "nonce": nonce3, "ts": ts3,
+		"sig":       base64.StdEncoding.EncodeToString(sig3),
+		"hwid_hash": hwid,
+	})
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("corrupted signature status=%d, want 401", resp.StatusCode)
+	}
+
+	hwidErr, _ := hwidBody["error"].(map[string]any)
+	sigErr, _ := sigBody["error"].(map[string]any)
+	if hwidErr["code"] == nil || sigErr["code"] == nil {
+		t.Fatalf("missing error body: hwid=%v sig=%v", hwidBody, sigBody)
+	}
+	if hwidErr["code"] != sigErr["code"] || hwidErr["message"] != sigErr["message"] {
+		t.Fatalf("station-auth failure reasons are distinguishable: hwid=%v sig=%v", hwidErr, sigErr)
 	}
 }

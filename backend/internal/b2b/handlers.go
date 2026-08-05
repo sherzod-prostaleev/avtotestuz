@@ -18,10 +18,11 @@ import (
 // Handler exposes learner teacher-portal routes under /me/teacher/* and /me/invites*,
 // plus (see station_handlers.go) the public station enroll/challenge/token routes.
 type Handler struct {
-	Pool   *pgxpool.Pool
-	Redis  *redis.Client
-	Secret []byte
-	Lim    auth.Limiter
+	Pool      *pgxpool.Pool
+	Redis     *redis.Client
+	Secret    []byte
+	Lim       auth.Limiter
+	ClientIPs auth.ClientIPResolver
 }
 
 func (h *Handler) store() Store { return Store{Pool: h.Pool} }

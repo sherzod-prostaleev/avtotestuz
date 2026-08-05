@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"time"
@@ -17,7 +18,9 @@ import (
 
 // PublicRoutes are the three unauthenticated station endpoints. They are
 // public by necessity — a classroom PC has no session until it has proved it
-// holds a station key — so each one is rate limited by client IP.
+// holds a station key — so each one is rate limited two ways: by caller
+// identity (station id, or enrollment code for the one endpoint that has no
+// station id yet) and, secondarily, by client IP.
 func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Post("/b2b/stations/enroll", h.enrollStation)
 	r.Post("/b2b/stations/challenge", h.stationChallenge)
@@ -28,26 +31,68 @@ func (h *Handler) stationAuth() StationAuth {
 	return StationAuth{Pool: h.Pool, Redis: h.Redis, Secret: h.Secret}
 }
 
-// clientIP returns the bare host from r.RemoteAddr, never host:port: the
+// Per-action limits. The identity dimension is the real abuse control: nginx
+// proxies to this service over loopback and middleware.RealIP is
+// deliberately absent, so every request's TCP peer is the proxy itself, not
+// the caller. h.ClientIPs can recover a real client IP from a signed
+// trusted-proxy header when nginx is configured to send one, but until then
+// the IP dimension collapses to one shared bucket for the whole platform —
+// identity is what actually bounds a single bad actor.
+//
+// A live station needs about 4 challenge+token pairs per hour (its access
+// token has a 15-minute TTL); the identity limits below give an order of
+// magnitude of headroom over that for clock drift, retries and reconnects
+// without letting one leaked station id or enrollment code hammer the
+// service.
+const (
+	enrollIdentityLimit = 20
+	enrollIPLimit       = 60
+
+	challengeIdentityLimit = 40
+	challengeIPLimit       = 600
+
+	tokenIdentityLimit = 40
+	tokenIPLimit       = 600
+)
+
+// clientIP resolves the caller's address through h.ClientIPs — a signed
+// trusted-proxy assertion when nginx is configured to send one, otherwise
+// the TCP peer address — and returns bare host only, never host:port: the
 // result is written to b2b_station.last_ip through a ::inet cast, and a
 // malformed value there fails that cast, which silently drops the rest of
-// the telemetry UPDATE (last_seen_at, agent_version) along with it. An
-// unparseable RemoteAddr yields an empty string, not a mangled one.
-func clientIP(r *http.Request) string {
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+// the telemetry UPDATE (last_seen_at, agent_version) along with it. Any
+// value that is not a valid IP (including an unparseable RemoteAddr) yields
+// an empty string, not a mangled one.
+func (h *Handler) clientIP(r *http.Request) string {
+	ip := h.ClientIPs.Resolve(r)
+	if net.ParseIP(ip) == nil {
 		return ""
 	}
-	return host
+	return ip
 }
 
-// allow applies a fixed-window IP limit; a missing limiter (tests) allows.
-func (h *Handler) allow(r *http.Request, action string, limit int, window time.Duration) bool {
+// allow applies a two-dimension fixed-window limit: identity first, IP
+// second. Either dimension is skipped when its key would be empty (no
+// identity yet, or an unresolvable IP) rather than letting every such
+// request share one bucket keyed on an empty string. A missing limiter
+// (tests) allows. Fails closed: a limiter error denies the request.
+func (h *Handler) allow(r *http.Request, action, identity string, identityLimit, ipLimit int, window time.Duration) bool {
 	if h.Lim.R == nil {
 		return true
 	}
-	ok, err := h.Lim.Allow(r.Context(), "station:"+action+":"+clientIP(r), limit, window)
-	return err == nil && ok
+	if identity != "" {
+		ok, err := h.Lim.Allow(r.Context(), "station:"+action+":id:"+identity, identityLimit, window)
+		if err != nil || !ok {
+			return false
+		}
+	}
+	if ip := h.clientIP(r); ip != "" {
+		ok, err := h.Lim.Allow(r.Context(), "station:"+action+":ip:"+ip, ipLimit, window)
+		if err != nil || !ok {
+			return false
+		}
+	}
+	return true
 }
 
 type enrollStationBody struct {
@@ -59,13 +104,16 @@ type enrollStationBody struct {
 }
 
 func (h *Handler) enrollStation(w http.ResponseWriter, r *http.Request) {
-	if !h.allow(r, "enroll", 60, time.Hour) {
-		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many enrollment attempts")
-		return
-	}
 	var body enrollStationBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
+		return
+	}
+	// Decoding the body is pure CPU work, no DB or Redis touched yet, so the
+	// limiter still runs before any I/O. The enrollment code is the identity
+	// dimension here — there is no station id until enrollment succeeds.
+	if !h.allow(r, "enroll", body.Code, enrollIdentityLimit, enrollIPLimit, time.Hour) {
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many enrollment attempts")
 		return
 	}
 	pub, err := base64.StdEncoding.DecodeString(body.PublicKey)
@@ -92,10 +140,6 @@ type stationChallengeBody struct {
 }
 
 func (h *Handler) stationChallenge(w http.ResponseWriter, r *http.Request) {
-	if !h.allow(r, "challenge", 600, time.Hour) {
-		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many challenge requests")
-		return
-	}
 	var body stationChallengeBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
@@ -106,8 +150,19 @@ func (h *Handler) stationChallenge(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid station id")
 		return
 	}
+	// Decoding the body and parsing the UUID are both pure CPU work, no DB
+	// or Redis touched yet, so the limiter still runs before any I/O. The
+	// station id is the identity dimension.
+	if !h.allow(r, "challenge", stationID.String(), challengeIdentityLimit, challengeIPLimit, time.Hour) {
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many challenge requests")
+		return
+	}
 	out, err := h.stationAuth().Challenge(r.Context(), stationID)
 	if err != nil {
+		if errors.Is(err, ErrStationAuth) {
+			httpx.Error(w, http.StatusUnauthorized, "station_unauthorized", "station authentication failed")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "server_error", "challenge failed")
 		return
 	}
@@ -124,10 +179,6 @@ type stationTokenBody struct {
 }
 
 func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
-	if !h.allow(r, "token", 600, time.Hour) {
-		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many token requests")
-		return
-	}
 	var body stationTokenBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
@@ -136,6 +187,13 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 	stationID, err := uuid.Parse(body.StationID)
 	if err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid station id")
+		return
+	}
+	// Decoding the body and parsing the UUID are both pure CPU work, no DB
+	// or Redis touched yet, so the limiter still runs before any I/O. The
+	// station id is the identity dimension.
+	if !h.allow(r, "token", stationID.String(), tokenIdentityLimit, tokenIPLimit, time.Hour) {
+		httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many token requests")
 		return
 	}
 	sig, err := base64.StdEncoding.DecodeString(body.Sig)
@@ -150,7 +208,7 @@ func (h *Handler) stationToken(w http.ResponseWriter, r *http.Request) {
 		Sig:          sig,
 		HWIDHash:     body.HWIDHash,
 		AgentVersion: body.AgentVersion,
-		IP:           clientIP(r),
+		IP:           h.clientIP(r),
 	})
 	if err != nil {
 		if errors.Is(err, ErrStationAuth) {
@@ -179,7 +237,14 @@ func (h *Handler) openEnrollWindow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body enrollWindowBody
-	_ = json.NewDecoder(r.Body).Decode(&body)
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		// An empty body keeps meaning "use the default": Decode returns EOF
+		// when there is nothing to read. Any other error (malformed JSON, a
+		// string ttl_minutes) must not silently fall back to the 2-hour
+		// default with no signal to the teacher who asked for something else.
+		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
+		return
+	}
 	ttl := time.Duration(body.TTLMinutes) * time.Minute
 	out, err := h.store().OpenEnrollWindowAsTeacher(r.Context(), claims.ProfileID, orgID, ttl)
 	if err != nil {

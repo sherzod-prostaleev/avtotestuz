@@ -115,10 +115,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				stationVIP = b2b.Store{Pool: deps.Pool}
 			}
 			b2bH := &b2b.Handler{
-				Pool:   deps.Pool,
-				Redis:  deps.Redis,
-				Secret: []byte(cfg.JWTSecret),
-				Lim:    auth.Limiter{R: deps.Redis},
+				Pool:      deps.Pool,
+				Redis:     deps.Redis,
+				Secret:    []byte(cfg.JWTSecret),
+				Lim:       auth.Limiter{R: deps.Redis},
+				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)),
 			}
 			if deps.Pool != nil && deps.Redis != nil {
 				b2bH.PublicRoutes(api)
