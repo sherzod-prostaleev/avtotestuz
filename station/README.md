@@ -70,6 +70,81 @@ school: without DPAPI, the key file is just a file, and copying it copies the
 station's identity. The Windows build (`GOOS=windows`) is the only one with
 real protection.
 
+## Building a release binary
+
+The agent is a single, statically-linked Windows executable with no
+installer and no runtime dependency (no .NET, no VC++ redistributable, no Go
+install on the target machine). Build it from `station/` with:
+
+```
+GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=1.0.0" -o avtotest-station.exe ./cmd/avtotest-station
+```
+
+- `-X main.version=1.0.0` stamps the version `main.go` logs on startup and
+  prints in `-selftest`; bump it per release.
+- `-s -w` strips debug symbols and the DWARF table — smaller binary, no
+  effect on behavior.
+- The result is one `.exe` (around 7 MB as of this writing). Copying that
+  file to `%ProgramData%` or anywhere else, and running it, is the entire
+  install — see "Install (IT staff, one line)" above.
+
+## Verifying the build actually works on Windows (`-selftest`)
+
+Everything about the key sealing (`internal/keystore/keystore_windows.go`,
+DPAPI) and the hardware id (`internal/hwid/hwid_windows.go`, the registry
+`MachineGuid`) only runs on Windows. Development happens on Linux, where
+both are replaced with plain, unsealed stand-ins on purpose (see
+"Non-Windows builds are development-only" below) — so the only way to know
+the real thing works is to run it on a real Windows PC. `-selftest` does
+that in one command, with no Go toolchain required:
+
+```
+avtotest-station.exe -selftest
+```
+
+This does **not** touch the real `%ProgramData%\AvtoTest\station\`
+enrollment — it works entirely inside a temporary directory it deletes when
+it finishes, so it is safe to run on a classroom PC that already has a
+working station on it. It checks, in order:
+
+1. **Hardware id** — that `hwid.Collect()` returns a 64-character hex id.
+2. **Seal round-trip** — that a key saved through the real keystore and
+   loaded back is byte-for-byte the same key.
+3. **The file is genuinely sealed** — that the raw bytes written to
+   `station.key` do not contain the plaintext private key anywhere in them.
+4. **Tamper rejection** — that flipping one byte of the sealed file makes
+   `Load` fail cleanly instead of returning a wrong key or crashing.
+5. **Empty file rejection** — that a zero-byte key file (an interrupted
+   write, a full disk) also fails cleanly.
+
+It prints one `PASS`/`FAIL` line per check, then a summary line, and exits
+with a non-zero code if anything failed — so it can be scripted (e.g. an IT
+rollout step that refuses to proceed on `FAIL`). **A passing run on Windows
+prints `SELFTEST RESULT: PASS` and all five lines say `PASS`.** Running the
+same command on a Linux dev build is expected to print `FAIL` on check 3 (and
+usually 4) — that build stores the key in the clear on purpose, so seeing it
+fail there is confirmation the check is real, not a rubber stamp.
+
+One property genuinely needs two machines and `-selftest` says so at the
+end of its own output: that a key sealed on PC A cannot be unsealed on PC B.
+To finish that check:
+
+```
+avtotest-station.exe -selftest-import <path-to-a-station.key-copied-from-another-PC>
+```
+
+Copy a real `station.key` from `%ProgramData%\AvtoTest\station\` on one
+Windows PC onto a second Windows PC (USB drive, network share, anything —
+it never writes back to the source path) and run the command above there.
+Read the verdict as printed, not by whether the command "errored":
+
+- If it prints **"RESULT: correctly bound to its original machine"**, the
+  import failed to unseal — that is the *good*, expected outcome. The key
+  is worthless off its original PC.
+- If it prints **"RESULT: SECURITY FAILURE"**, the key unsealed on a
+  machine it did not come from. That means the binding is broken; stop and
+  report it — do not read this as a harmless pass.
+
 ## What this does not do yet
 
 This is the Faza 1 agent. It has no offline lease, no content cache, no

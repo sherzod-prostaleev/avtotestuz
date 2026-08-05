@@ -42,6 +42,15 @@ func Open(dir string) (Store, error) {
 	}, nil
 }
 
+// KeyPath returns the path of the sealed key file inside dir. It exists so
+// diagnostics (the -selftest agent mode) can read or deliberately corrupt the
+// raw on-disk bytes to prove the seal/unseal round-trip and its failure modes
+// actually work, without exporting fileStore's internals or duplicating the
+// "station.key" filename in a second place.
+func KeyPath(dir string) string {
+	return filepath.Join(dir, "station.key")
+}
+
 // Load returns the existing key, generating and persisting one on first run.
 func (s *fileStore) Load() (ed25519.PrivateKey, error) {
 	raw, err := os.ReadFile(s.path)

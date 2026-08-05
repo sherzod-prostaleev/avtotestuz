@@ -58,8 +58,18 @@ func main() {
 		stateDir = flag.String("state", defaultStateDir(), "directory for the station key and state")
 		noKiosk  = flag.Bool("no-kiosk", false, "serve only; do not launch a browser")
 		locale   = flag.String("locale", "uz-Latn", "frontend locale the kiosk page opens in (uz-Latn, uz-Cyrl, ru)")
+
+		selfTest       = flag.Bool("selftest", false, "run hwid/keystore checks in a scratch directory and print a pass/fail verdict, then exit; does not touch the real enrollment")
+		selfTestImport = flag.String("selftest-import", "", "path to a station.key copied from another machine; try to unseal it here and report whether the machine binding held, then exit")
 	)
 	flag.Parse()
+
+	if *selfTestImport != "" {
+		os.Exit(runSelfTestImport(*selfTestImport))
+	}
+	if *selfTest {
+		os.Exit(runSelfTest())
+	}
 
 	if !validLocale(*locale) {
 		log.Fatalf("invalid -locale %q: must be one of %s", *locale, strings.Join(stationLocales, ", "))
