@@ -24,6 +24,9 @@ const learnerTyp = "learner"
 // that entitlement checks read.
 const stationTyp = "station"
 
+// stationRole is the `role` claim on a classroom-station access token.
+const stationRole = "station"
+
 type Claims struct {
 	ProfileID uuid.UUID
 	Role      string
@@ -50,7 +53,7 @@ func IssueStationAccess(secret []byte, stationID, profileID uuid.UUID, ttl time.
 	t := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub":  profileID.String(),
 		"sid":  stationID.String(),
-		"role": "station",
+		"role": stationRole,
 		"typ":  stationTyp,
 		"iat":  now.Unix(),
 		"exp":  now.Add(ttl).Unix(),
@@ -84,7 +87,7 @@ func ParseAccess(secret []byte, token string) (Claims, error) {
 	// token type is refused here unless it is explicitly allowlisted.
 	typ, _ := mc["typ"].(string)
 	if typ != learnerTyp && typ != stationTyp {
-		return Claims{}, fmt.Errorf("token type %q not allowed on learner routes", typ)
+		return Claims{}, fmt.Errorf("token type %q not accepted: only learner and station tokens are allowed here", typ)
 	}
 	sub, _ := mc["sub"].(string)
 	id, err := uuid.Parse(sub)
