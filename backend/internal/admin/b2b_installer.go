@@ -41,13 +41,25 @@ func (h *Handler) getB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if err := h.b2bStore().EnsureOrgExists(r.Context(), orgID); err != nil {
+		if errors.Is(err, b2b.ErrNotFound) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "org check failed")
+		return
+	}
 	row, err := h.b2bStore().ActiveInstallerKey(r.Context(), orgID)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "installer key query failed")
 		return
 	}
 	if row == nil {
-		httpx.Data(w, http.StatusOK, nil)
+		// A typed nil, not a bare nil: the interface value httpx.Data receives
+		// then holds a non-nil type with a nil pointer, which the JSON encoder
+		// serialises as {"data":null} rather than dropping the key via
+		// envelope's `omitempty` (see TestGetInstallerNoKeyBodyIsExplicitNull).
+		httpx.Data(w, http.StatusOK, (*installerKeyDTO)(nil))
 		return
 	}
 	httpx.Data(w, http.StatusOK, toInstallerKeyDTO(*row))
@@ -111,7 +123,11 @@ func (h *Handler) downloadB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	var orgName string
 	if err := h.Pool.QueryRow(r.Context(),
 		`SELECT name FROM b2b_org WHERE id = $1`, orgID).Scan(&orgName); err != nil {
-		httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "org not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "org query failed")
 		return
 	}
 

@@ -2,6 +2,7 @@ package admin
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
@@ -9,7 +10,9 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -308,5 +311,101 @@ func TestInstallerRefusesOrgWithoutLicense(t *testing.T) {
 	}
 	if env.Error.Code != "no_license" {
 		t.Fatalf("error code=%q, want no_license", env.Error.Code)
+	}
+}
+
+// TestGetInstallerNoKeyBodyIsExplicitNull proves the "no key yet" response is
+// the documented {"data":null}, not {} with the key dropped. This can only be
+// caught at the raw-byte level: unmarshalling either shape into a Go struct
+// field yields the same nil pointer, so a struct-based assertion here would
+// pass whether or not the handler regressed to a bare untyped nil.
+func TestGetInstallerNoKeyBodyIsExplicitNull(t *testing.T) {
+	_, r, access := newInstallerTestHandler(t, "installer-null-body@example.uz")
+	orgID := createInstallerTestOrg(t, r, access, "Null Body School", 5, 30)
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+	if body := strings.TrimSpace(w.Body.String()); body != `{"data":null}` {
+		t.Fatalf("body=%q, want exactly {\"data\":null}", body)
+	}
+}
+
+// TestGetInstallerUnknownOrgIs404 asserts a nonexistent org id 404s rather
+// than reading as "org exists, no key yet" — ActiveInstallerKey alone cannot
+// tell those apart, since it returns (nil, nil) for both.
+func TestGetInstallerUnknownOrgIs404(t *testing.T) {
+	_, r, access := newInstallerTestHandler(t, "installer-unknown-org@example.uz")
+
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+uuid.New().String()+"/installer", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status=%d body=%s, want 404", w.Code, w.Body.String())
+	}
+	var env installerErrEnv
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Error.Code != "not_found" {
+		t.Fatalf("error code=%q, want not_found", env.Error.Code)
+	}
+}
+
+// TestInstallerDownloadOrgLookupTransientErrorIs500 asserts that a genuine DB
+// error on the org-name lookup — a connection failure or timeout, not "no
+// rows" — reports 500, not the misleading "org not found" an admin would
+// otherwise see immediately after ActiveInstallerKey succeeded against the
+// same org id. An ACCESS EXCLUSIVE lock on b2b_org from a second connection
+// blocks only the raw `SELECT name FROM b2b_org` in the download handler
+// (ActiveInstallerKey reads a different table, b2b_org_enroll_code, and is
+// unaffected); a short request context timeout then turns that block into a
+// real non-ErrNoRows pgx error deterministically, without touching the pool.
+func TestInstallerDownloadOrgLookupTransientErrorIs500(t *testing.T) {
+	h, r, access := newInstallerTestHandler(t, "installer-lock@example.uz")
+	orgID := createInstallerTestOrg(t, r, access, "Lock School", 5, 30)
+
+	openReq := httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer", nil)
+	openReq.Header.Set("Authorization", "Bearer "+access)
+	openW := httptest.NewRecorder()
+	r.ServeHTTP(openW, openReq)
+	if openW.Code != http.StatusOK {
+		t.Fatalf("open installer status=%d body=%s", openW.Code, openW.Body.String())
+	}
+
+	lockTx, err := h.Pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = lockTx.Rollback(context.Background()) }()
+	if _, err := lockTx.Exec(context.Background(), "LOCK TABLE b2b_org IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatal(err)
+	}
+
+	h.StationBinaryPath = filepath.Join(t.TempDir(), "unused.exe")
+	if err := os.WriteFile(h.StationBinaryPath, []byte("BASE"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+	req := httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer.exe", nil).WithContext(ctx)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status=%d body=%s, want 500 (transient DB error must not read as not_found)", w.Code, w.Body.String())
+	}
+	var env installerErrEnv
+	if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
+		t.Fatal(err)
+	}
+	if env.Error.Code != "internal" {
+		t.Fatalf("error code=%q, want internal (not not_found)", env.Error.Code)
 	}
 }
