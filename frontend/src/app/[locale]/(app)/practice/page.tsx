@@ -541,6 +541,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                       must never be one tap from VIP purchase. */}
                   {!kiosk && (
                     <Link
+                      // kiosk-safe: wrapped in the !kiosk check two lines up — no checkout entry point on the kiosk, a walk-up student must never be one tap from VIP purchase
                       href={`/${locale}/premium`}
                       className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
                     >
@@ -574,6 +575,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                 correct if source ever becomes settable independently. */}
             {!kiosk && (
               <Link
+                // kiosk-safe: wrapped in the !kiosk check two lines up, and sources already filters "sign" out of the kiosk's source list, so this block is structurally unreachable there
                 href={`/${locale}/signs`}
                 className="shrink-0 text-sm font-bold text-accent hover:underline"
               >

@@ -94,6 +94,135 @@ describe("kiosk route registration", () => {
   });
 });
 
+/** Absolute paths to every page.tsx under (kiosk). */
+function findPageFiles(dir: string): string[] {
+  const files: string[] = [];
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...findPageFiles(entryPath));
+    } else if (entry.name === "page.tsx") {
+      files.push(entryPath);
+    }
+  }
+  return files;
+}
+
+/**
+ * A kiosk wrapper is three lines; the navigation that can strand a student
+ * lives in the `(app)` page it reuses. This resolves that import so the
+ * scan below covers both files.
+ *
+ * Only literal paths are checked. A target built at runtime — from an API
+ * response, or a variable this scan cannot see — is invisible here, and no
+ * static check can fix that. Those are covered by the per-page "kiosk mode"
+ * assertions in each reused page's own test file.
+ */
+function reusedPageFiles(kioskPageFile: string): string[] {
+  const src = fs.readFileSync(kioskPageFile, "utf8");
+  const out: string[] = [];
+  for (const m of src.matchAll(/from\s+"@\/app\/([^"]+)"/g)) {
+    const candidate = path.join(kioskDir, "..", "..", "..", "app", m[1] + ".tsx");
+    if (fs.existsSync(candidate)) out.push(candidate);
+  }
+  return out;
+}
+
+/**
+ * Literal navigation targets: href="/..." , router.push("/...") , router.replace("/...")
+ * Each target carries the 0-based line it was found on, so the offender scan
+ * below can check that line (and the one above it) for a kiosk-safe marker.
+ */
+function navigationTargets(file: string): { target: string; line: number }[] {
+  const src = fs.readFileSync(file, "utf8");
+  const lineOf = (index: number) => src.slice(0, index).split("\n").length - 1;
+  const out: { target: string; line: number }[] = [];
+  for (const m of src.matchAll(/(?:href=|router\.(?:push|replace)\()\s*[`"']([^`"']*)[`"']/g)) {
+    out.push({ target: m[1], line: lineOf(m.index!) });
+  }
+  for (const m of src.matchAll(/(?:href=|router\.(?:push|replace)\()\s*\{?\s*`([^`]*)`/g)) {
+    out.push({ target: m[1], line: lineOf(m.index!) });
+  }
+  return out;
+}
+
+/**
+ * Escape hatch for a literal target the scan cannot know is dead code: a
+ * `!kiosk &&` guard or an `if (kiosk) return` a few lines up keeps it from
+ * ever rendering or firing for a walk-up student, but this scan is lexical
+ * — it does not evaluate control flow, so a genuinely gated literal looks
+ * identical to a live one. Marking the site `kiosk-safe: <reason>` opts it
+ * out, but only when a reason follows: a bare marker with nothing after it
+ * doesn't count (the length check below), so silencing a target costs
+ * exactly as much as explaining it. A target with no marker still fails —
+ * this is a per-line claim, not a blanket suppression, and every use is a
+ * promise that a runtime "kiosk mode" test (see each reused page's own test
+ * file) actually renders or exercises that code path with kiosk=true and
+ * confirms the guard holds. The static scan has no way to verify that
+ * promise — only that the marker and a real reason are present.
+ */
+function isMarkedKioskSafe(lines: string[], line: number): boolean {
+  const marker = /kiosk-safe:\s*(.*)$/;
+  for (const candidate of [lines[line], lines[line - 1]]) {
+    const reason = candidate?.match(marker)?.[1]?.trim();
+    if (reason && reason.length >= 10) return true;
+  }
+  return false;
+}
+
+/**
+ * `/${locale}/station/practice` and `/uz-Latn/practice` both need to reduce
+ * to the path the middleware sees. Strips a leading template locale
+ * placeholder or a literal locale segment, and any query string.
+ */
+function toMiddlewarePath(target: string): string | null {
+  if (!target.startsWith("/")) return null;
+  const noQuery = target.split("?")[0];
+  const stripped = noQuery
+    .replace(/^\/\$\{locale\}/, "")
+    .replace(/^\/(uz-Latn|uz-Cyrl|ru)(?=\/|$)/, "");
+  return stripped === "" ? "/" : stripped;
+}
+
+describe("kiosk-safe marker", () => {
+  // Guards the escape hatch itself: if a bare marker suppressed a finding,
+  // silencing a real navigation break would cost nothing.
+  it("requires an actual reason, not just the bare marker", () => {
+    expect(isMarkedKioskSafe(["href={x} // kiosk-safe:"], 0)).toBe(false);
+    expect(isMarkedKioskSafe(["// kiosk-safe: x", "href={x}"], 1)).toBe(false);
+    expect(isMarkedKioskSafe(["href={x}"], 0)).toBe(false);
+  });
+
+  it("suppresses only when a real reason is on the target's own line or the one above", () => {
+    expect(isMarkedKioskSafe(["router.push(x); // kiosk-safe: unreachable, guarded above"], 0)).toBe(true);
+    expect(isMarkedKioskSafe(["// kiosk-safe: wrapped in !kiosk two lines up", "href={x}"], 1)).toBe(true);
+    // Two lines up doesn't count — only the match line or the one directly above it.
+    expect(isMarkedKioskSafe(["// kiosk-safe: wrapped in !kiosk", "<Link", "href={x}"], 2)).toBe(false);
+  });
+});
+
+describe("kiosk navigation targets", () => {
+  it("never navigates to a cookie-gated route", () => {
+    const pageFiles = findPageFiles(kioskDir);
+    expect(pageFiles.length).toBeGreaterThan(0);
+
+    const offenders: string[] = [];
+    for (const pageFile of pageFiles) {
+      const files = [pageFile, ...reusedPageFiles(pageFile)];
+      for (const file of files) {
+        const lines = fs.readFileSync(file, "utf8").split("\n");
+        for (const { target, line } of navigationTargets(file)) {
+          const p = toMiddlewarePath(target);
+          if (p && matchesAny(p, PROTECTED_SEGMENTS) && !isMarkedKioskSafe(lines, line)) {
+            offenders.push(`${path.relative(kioskDir, file)} -> ${target}`);
+          }
+        }
+      }
+    }
+    expect(offenders).toEqual([]);
+  });
+});
+
 describe("kiosk error boundaries", () => {
   it("gives the (kiosk) group its own not-found and error boundaries", () => {
     const boundaries = findBoundaryFiles(kioskDir).map((f) => path.relative(kioskDir, f));

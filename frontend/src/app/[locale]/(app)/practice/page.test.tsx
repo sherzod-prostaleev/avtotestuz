@@ -338,7 +338,43 @@ describe("PracticePage kiosk mode", () => {
     renderKiosk();
     await screen.findByText("Chorrahalar");
 
+    // Closes the loop on the kiosk-safe marker at the "sign" source's
+    // href={`/${locale}/signs`} in page.tsx: that link only renders when
+    // source === "sign", and this asserts the one button that could ever
+    // set source to "sign" isn't in the DOM for a kiosk render, so that
+    // state — and the link inside it — is unreachable here.
     expect(screen.queryByRole("button", { name: /Yo'l belgilari/ })).not.toBeInTheDocument();
+  });
+
+  it("never shows the premium upgrade link once the daily budget is spent", async () => {
+    // Closes the loop on the kiosk-safe marker at the exhausted-allowance
+    // href={`/${locale}/premium`} in page.tsx: this is the one state where
+    // that link would mount if the surrounding !kiosk guard were ever
+    // removed, so rendering it here is what makes the marker's claim
+    // checkable instead of just asserted.
+    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 30, remaining: 0 } });
+    renderKiosk();
+
+    expect(await screen.findByText("Bugungi bepul limit tugadi")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Premium olish/ })).not.toBeInTheDocument();
+  });
+
+  it("never renders a link into a protected segment, in any state", async () => {
+    // The targeted checks above cover the two links (session/start deep
+    // links, the exhausted-budget premium link) most likely to regress.
+    // This sweeps every link this render can produce as a backstop against
+    // a new one showing up without a matching targeted test.
+    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 30, remaining: 0 } });
+    renderKiosk();
+    await screen.findByText("Chorrahalar");
+
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(isKioskReachable(href)).toBe(true);
+    }
+    const withoutLocale = hrefs.map((h) => h.replace(/^\/[a-zA-Z-]+/, ""));
+    expect(withoutLocale.some((h) => /^\/(dashboard|premium|checkout|profile)(\/|$|\?)/.test(h))).toBe(false);
   });
 
   it("sends the placement card to a kiosk-reachable session/start", async () => {

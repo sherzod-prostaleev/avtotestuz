@@ -89,7 +89,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         return;
       }
       setLockNotice(null);
-      router.push(`/${locale}/premium`);
+      router.push(`/${locale}/premium`); // kiosk-safe: unreachable in kiosk mode — the if (kiosk) block above already returns before this line runs
       return;
     }
     setLockNotice(null);
