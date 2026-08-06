@@ -4,29 +4,74 @@
 station's Ed25519 key, keeps a 15-minute access token live against the
 AvtoTest backend, serves the kiosk browser from `127.0.0.1`, and opens Chrome
 in kiosk mode pointed at that local address. The browser never sees the
-station's key or its access token — only the agent does.
+station's key or its access token — only the agent does. The kiosk itself
+has no login: a learner is never asked for an account, because VIP comes
+from the station's own binding to the school's licence, not from anyone
+signing in.
 
-## Install (IT staff, one line)
+This module lives at `backend/station/` (a separate Go module,
+`avtotest.uz/station`) and is built and shipped as part of the API image;
+see `make station-check` at the repo root for its own lint/test/build target.
 
-Copy `avtotest-station.exe` to the classroom PC and run it once with the
-enrollment code the teacher generated in the school dashboard:
+## Install
 
-```
-avtotest-station.exe -code AVTO-XXXX-XXXX
-```
+### The normal way: the downloaded installer
 
-That first run binds this specific machine to the school's org, draws one
-seat from the school's licence, and writes the station's key and state to
-disk. Every run after that needs no flags — it already knows who it is:
+The school's admin opens the org's **installer key** in the admin panel and
+downloads `avtotest-station-<slug>.exe`. That download is a plain
+`avtotest-station.exe` with the org's enrollment code appended to its own
+tail (see `backend/internal/b2b/installer.go` for how the trailer is written
+and `internal/embedcfg` for how this binary reads it back). Nothing is typed
+on the classroom PC. Copy that one file to it and run it once:
 
 ```
 avtotest-station.exe
 ```
 
+That first run reads its own embedded code, binds this machine to the
+school's org, draws one seat from the licence, copies itself into
+`%ProgramData%\AvtoTest\station\`, registers a `HKCU` autostart entry (see
+`internal/selfinstall`), and opens the kiosk. Every run after that —
+including every future boot — needs nothing typed at all; it already knows
+who it is and comes back on its own.
+
+Downloading the same installer again later reuses the same key: it does not
+disturb PCs already enrolled from earlier copies of the file, and the same
+key can enroll every PC in the school up to its licensed seat count. If a
+downloaded file leaks, the admin can **rotate** the key from the same panel
+page — files already handed out stop being able to enroll new PCs, but
+stations that already enrolled keep working untouched.
+
+### The manual way: `-code`
+
+A plain build with no embedded code (a local dev build, or a copy that
+reached the PC by some route other than the admin panel download) can be
+pointed at an org by hand with the same code shown on the installer key
+panel:
+
+```
+avtotest-station.exe -code AVTO-XXXX-XXXX
+```
+
+This first run behaves identically to the downloaded installer's first run
+above; the code is the org's live installer key, not a separate per-PC
+secret, so the same one works for every PC in the school until it is
+rotated.
+
 Add `-label "Kabinet 3, PC-7"` on first run to give the station a name the
 school recognizes in its station list; it defaults to the machine's hostname.
 Add `-no-kiosk` to run the local server without launching a browser, useful
 for testing the agent on a machine that has no display.
+Add `-uninstall` to remove the installed copy and its autostart entry, and
+delete this station's local key and state:
+
+```
+avtotest-station.exe -uninstall
+```
+
+This only touches the local PC — it does not free the station's seat.
+Revoke the station in the admin panel too, or the licence keeps holding
+that seat.
 
 ## Where the key and state live
 
@@ -53,10 +98,13 @@ Re-imaging or replacing a classroom PC invalidates its old key beyond
 recovery — that is the point of DPAPI machine-scoping, not a bug to route
 around. To bring the PC back:
 
-1. Run `avtotest-station.exe -code AVTO-XXXX-XXXX` with a fresh enrollment
-   code from the school dashboard.
-2. The agent generates a new key, enrolls as a new station, and draws a seat.
-3. The school (or support) revokes the old station entry so its seat is
+1. Run the same downloaded installer again, or `avtotest-station.exe -code
+   AVTO-XXXX-XXXX` with the org's current installer key from the admin
+   panel, on the re-imaged PC.
+2. The agent generates a new key, enrolls as a new station, and draws a
+   seat — the installer key is not consumed by one PC, so reusing it here is
+   expected, not a special case.
+3. The admin revokes the old station entry in the admin panel so its seat is
    returned to the pool; the licence enforces a seat cap, not a device count,
    so nothing is lost by re-enrolling.
 
@@ -84,9 +132,10 @@ GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=1.0.0" -o avt
   prints in `-selftest`; bump it per release.
 - `-s -w` strips debug symbols and the DWARF table — smaller binary, no
   effect on behavior.
-- The result is one `.exe` (around 7 MB as of this writing). Copying that
-  file to `%ProgramData%` or anywhere else, and running it, is the entire
-  install — see "Install (IT staff, one line)" above.
+- The result is one `.exe` (around 7 MB as of this writing). This is the
+  binary the admin panel serves for download and appends each org's config
+  to (see "Install" above) — copying it to `%ProgramData%` or anywhere else,
+  and running it, is the entire install.
 
 ## Verifying the build actually works on Windows (`-selftest`)
 
@@ -145,11 +194,20 @@ Read the verdict as printed, not by whether the command "errored":
   machine it did not come from. That means the binding is broken; stop and
   report it — do not read this as a harmless pass.
 
+## Offline is not supported
+
+The classroom needs a live internet connection at all times. Every question,
+image and answer is proxied from the AvtoTest backend in real time — nothing
+is cached on the PC — so if the connection drops, the proxy fails closed and
+the kiosk stops immediately rather than degrading or serving stale content.
+Do not tell a school otherwise: there is no offline mode, no offline lease,
+and no queued results to replay once connectivity returns.
+
 ## What this does not do yet
 
-This is the Faza 1 agent. It has no offline lease, no content cache, no
-offline result queue, no clock-rollback protection, and no auto-update — the
-agent needs a live connection to the backend to renew its token, and if the
-backend is unreachable the proxy fails closed rather than degrading silently.
-There is also no MSI/GPO installer yet; deployment today is copying the
-binary and running it once per PC. Those are planned for Faza 2 and Faza 3.
+This is the Faza 1 agent. Beyond having no offline story at all (above), it
+also has no clock-rollback protection and no auto-update — the agent needs a
+live connection to the backend to renew its token, the same connection the
+proxy depends on. There is also no MSI/GPO installer yet; deployment today is
+downloading the binary from the admin panel and running it once per PC, or
+copying it by hand. Those are planned for Faza 2 and Faza 3.
