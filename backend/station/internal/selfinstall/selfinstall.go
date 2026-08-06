@@ -14,6 +14,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"avtotest.uz/station/internal/keystore"
 )
 
 // installedName is the file name the agent is copied to inside the state
@@ -23,6 +25,23 @@ import (
 // OS this particular build was compiled for -- the shipped article is
 // always the Windows one.
 const installedName = "avtotest-station.exe"
+
+// stateFileName is the file internal/agent's Agent persists enrollment state
+// (station id, org, label) to. It duplicates the literal in agent.go's
+// unexported statePath rather than importing the agent package to reuse it:
+// agent has no exported accessor for it -- unlike keystore.KeyPath, which is
+// kept exported for exactly this "let another package name the file" need
+// -- and pulling in agent's HTTP/enrollment dependencies here just to name
+// one file would be a worse trade than one duplicated string.
+const stateFileName = "station.json"
+
+// registerAutostartFn is registerAutostart by default. Ensure calls through
+// this indirection, rather than the function directly, so a test can
+// substitute it and observe that autostart registration happens -- which
+// matters because registerAutostart itself is a no-op off Windows (see
+// selfinstall_other.go), and a no-op has no side effect a test could
+// otherwise check for.
+var registerAutostartFn = registerAutostart
 
 // Target returns the path the agent runs from once installed.
 func Target(stateDir string) string {
@@ -52,39 +71,63 @@ func Ensure(stateDir string) (string, bool, error) {
 
 	// Idempotent: once installed, a later call (the next boot, a login
 	// script firing on every logon rather than just the first) must leave
-	// the existing installed copy and its autostart entry alone instead of
-	// rewriting them every time.
+	// the existing installed copy alone instead of rewriting it every time.
+	//
+	// Autostart is deliberately NOT gated behind this same check, though.
+	// This used to be "return early, autostart already done" -- but that
+	// conflated "the binary is in place" with "autostart is registered",
+	// and the two can fall out of sync: if copyExecutable above succeeds on
+	// some earlier run but registerAutostartFn then fails (a transient
+	// registry error, a profile not fully loaded yet), the error is logged
+	// once and every later boot would take this branch and never retry
+	// autostart -- silently and permanently defeating the one guarantee
+	// this package exists to provide. Writing the same registry value again
+	// is harmless, so it is retried unconditionally below instead.
+	didInstall := false
 	if _, err := os.Stat(target); err == nil {
-		return target, false, nil
+		// Already installed -- fall through to (re-)register autostart.
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", false, fmt.Errorf("selfinstall: stat target: %w", err)
+	} else {
+		if err := os.MkdirAll(stateDir, 0o755); err != nil {
+			return "", false, fmt.Errorf("selfinstall: create state dir: %w", err)
+		}
+		if err := copyExecutable(exePath, target); err != nil {
+			return "", false, fmt.Errorf("selfinstall: copy into place: %w", err)
+		}
+		didInstall = true
 	}
 
-	if err := os.MkdirAll(stateDir, 0o755); err != nil {
-		return "", false, fmt.Errorf("selfinstall: create state dir: %w", err)
-	}
-
-	if err := copyExecutable(exePath, target); err != nil {
-		return "", false, fmt.Errorf("selfinstall: copy into place: %w", err)
-	}
-
-	if err := registerAutostart(target); err != nil {
+	if err := registerAutostartFn(target); err != nil {
 		return "", false, fmt.Errorf("selfinstall: register autostart: %w", err)
 	}
 
-	return target, true, nil
+	return target, didInstall, nil
 }
 
-// Remove deregisters autostart and deletes the installed copy. Both halves
-// are idempotent: a missing registry value or a missing file counts as
-// success, not an error, so running -uninstall twice -- or once on a PC
-// that was never installed -- never fails.
+// Remove deregisters autostart and deletes the installed copy plus this
+// station's local state: the sealed private key (station.key) and the
+// enrollment record (station.json). Deleting the state, not just the
+// binary, matters because either file surviving on a decommissioned PC
+// means dropping any build of the agent back into this directory later
+// would silently re-authenticate as the old station with no re-enrolment --
+// the only thing standing between a decommissioned PC and a live session
+// would otherwise be an operator remembering to revoke it in the admin
+// panel. All three removals are idempotent: a missing registry value or a
+// missing file counts as success, not an error, so running -uninstall
+// twice -- or once on a PC that was never installed -- never fails.
 func Remove(stateDir string) error {
 	if err := unregisterAutostart(); err != nil {
 		return fmt.Errorf("selfinstall: unregister autostart: %w", err)
 	}
 	if err := os.Remove(Target(stateDir)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("selfinstall: remove installed copy: %w", err)
+	}
+	if err := os.Remove(keystore.KeyPath(stateDir)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("selfinstall: remove station key: %w", err)
+	}
+	if err := os.Remove(filepath.Join(stateDir, stateFileName)); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("selfinstall: remove station state: %w", err)
 	}
 	return nil
 }

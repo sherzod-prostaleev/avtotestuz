@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/selfinstall"
 )
 
@@ -159,7 +160,11 @@ func TestEnsureSkipsWhenAlreadyRunningFromTarget(t *testing.T) {
 // Remove must leave no target file behind, and calling it a second time --
 // an operator double-clicking an uninstall shortcut twice, or uninstalling
 // a PC that was never installed -- must not error just because there is
-// nothing left to remove.
+// nothing left to remove. It also proves Remove takes the station's local
+// state with it, not just the binary: station.key (the sealed private key)
+// and station.json (the enrollment record) must both be gone too, or a
+// decommissioned PC would stay able to silently re-authenticate as the old
+// station the moment any build of the agent is dropped back into place.
 func TestRemoveDeletesTheInstalledCopy(t *testing.T) {
 	dir := t.TempDir()
 
@@ -171,11 +176,22 @@ func TestRemoveDeletesTheInstalledCopy(t *testing.T) {
 		t.Fatalf("installed copy missing right after Ensure: %v", err)
 	}
 
+	keyPath := keystore.KeyPath(dir)
+	statePath := filepath.Join(dir, "station.json")
+	if err := os.WriteFile(keyPath, []byte("sealed-key-fixture"), 0o600); err != nil {
+		t.Fatalf("writing station.key fixture: %v", err)
+	}
+	if err := os.WriteFile(statePath, []byte(`{"station_id":"st-1","org_id":"org-1"}`), 0o600); err != nil {
+		t.Fatalf("writing station.json fixture: %v", err)
+	}
+
 	if err := selfinstall.Remove(dir); err != nil {
 		t.Fatalf("first Remove() error = %v", err)
 	}
-	if _, err := os.Stat(target); !os.IsNotExist(err) {
-		t.Fatalf("target still exists after Remove(): stat err = %v", err)
+	for _, p := range []string{target, keyPath, statePath} {
+		if _, err := os.Stat(p); !os.IsNotExist(err) {
+			t.Fatalf("%s still exists after Remove(): stat err = %v", p, err)
+		}
 	}
 
 	if err := selfinstall.Remove(dir); err != nil {

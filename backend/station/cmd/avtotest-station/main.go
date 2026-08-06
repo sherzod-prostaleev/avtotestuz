@@ -112,7 +112,7 @@ func main() {
 		if err := selfinstall.Remove(*stateDir); err != nil {
 			log.Fatalf("uninstall: %v", err)
 		}
-		fmt.Printf("Uninstalled: removed the autostart entry and deleted %s\n", selfinstall.Target(*stateDir))
+		fmt.Printf("Uninstalled: removed the autostart entry and deleted %s plus this station's saved key and state\n", selfinstall.Target(*stateDir))
 		fmt.Println("This only removes local files -- it does not free this station's seat.")
 		fmt.Println("Revoke this station in the admin panel too, or the licence stays held.")
 		return
