@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 
@@ -11,6 +12,45 @@ import (
 
 	"avtotest.uz/backend/internal/b2b"
 )
+
+// goldenFixturePath is the fixture committed under the station module so a
+// single file backs the cross-module byte-compatibility check from both
+// sides: this test regenerates it with AppendConfig, and
+// station/internal/embedcfg's TestReadGoldenFixture reads it with the real
+// reader. See the package comment on embedcfg.go for why a layout test
+// alone (each side pinning its own hardcoded literal) does not catch a
+// renamed JSON tag on one side.
+const goldenFixturePath = "../../station/internal/embedcfg/testdata/golden.bin"
+
+// TestInstallerGolden proves AppendConfig still produces exactly the bytes
+// committed at goldenFixturePath. If a JSON tag on InstallerConfig is
+// renamed without a matching change on the station side, this test is the
+// one that fails — TestAppendConfigLayout alone would not, since it only
+// round-trips into this package's own (equally renamed) type.
+func TestInstallerGolden(t *testing.T) {
+	cfg := b2b.InstallerConfig{
+		Code:     "AVTO-K7M2-P9XQ",
+		API:      "https://api.drivergo.uz",
+		Frontend: "https://drivergo.uz",
+		Org:      "1-sonli avtomaktab",
+		Locale:   "uz-Latn",
+	}
+	base := []byte("FAKE-EXE-BASE-BYTES-FOR-GOLDEN-FIXTURE")
+
+	var out bytes.Buffer
+	if err := b2b.AppendConfig(&out, bytes.NewReader(base), cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	want, err := os.ReadFile(goldenFixturePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(out.Bytes(), want) {
+		t.Fatalf("AppendConfig output diverged from %s (%d bytes) — regenerate the fixture only if this divergence is intentional:\ngot:  % x\nwant: % x",
+			goldenFixturePath, len(want), out.Bytes(), want)
+	}
+}
 
 func TestAppendConfigLayout(t *testing.T) {
 	base := []byte("PRETEND-EXE-BYTES")

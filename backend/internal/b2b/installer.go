@@ -38,15 +38,15 @@ type InstallerConfig struct {
 // The length prefix means the reader seeks straight to the JSON instead of
 // scanning for a marker that could occur inside the binary by chance.
 func AppendConfig(w io.Writer, base io.Reader, cfg InstallerConfig) error {
-	if _, err := io.Copy(w, base); err != nil {
-		return fmt.Errorf("copy station binary: %w", err)
-	}
 	payload, err := json.Marshal(cfg)
 	if err != nil {
 		return err
 	}
 	if len(payload) > maxConfigLen {
 		return fmt.Errorf("installer config too large: %d bytes", len(payload))
+	}
+	if _, err := io.Copy(w, base); err != nil {
+		return fmt.Errorf("copy station binary: %w", err)
 	}
 	if _, err := w.Write(payload); err != nil {
 		return err

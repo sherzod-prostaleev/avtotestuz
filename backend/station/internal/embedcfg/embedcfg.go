@@ -7,8 +7,14 @@
 //	[base bytes][config JSON][uint32 big-endian JSON length][16-byte magic]
 //
 // The two sides live in separate Go modules, so the format is duplicated
-// rather than shared. Each side has a test pinning the exact layout; changing
-// one without the other turns a silent field mismatch into a failing test.
+// rather than shared. A byte-level layout test alone cannot catch every
+// drift — e.g. a renamed JSON tag on one side round-trips fine against its
+// own hardcoded fixture and leaves the other side silently reading a zero
+// value. To close that gap, testdata/golden.bin is a fixture produced by the
+// real b2b.AppendConfig: this package's tests read it directly, and the
+// backend has a test that regenerates the same bytes with AppendConfig and
+// asserts they are byte-identical to it. A field rename on either side
+// breaks that comparison.
 package embedcfg
 
 import (
