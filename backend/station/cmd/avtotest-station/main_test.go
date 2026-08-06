@@ -48,18 +48,26 @@ func TestStationURLUsesARealFrontendLocale(t *testing.T) {
 
 // TestEmbeddedConfigBeatsFlagDefaults proves a downloaded installer needs no
 // arguments: the appended config supplies the code and the URLs, and a flag
-// left at its compiled-in default must not silently win over it.
+// left at its compiled-in default must not silently win over it. Every field
+// (embedded vs. flag-default) uses a distinct, recognisable value so each
+// assertion can only pass for the reason it claims to.
 func TestEmbeddedConfigBeatsFlagDefaults(t *testing.T) {
 	embedded := embedcfg.Config{
-		Code: "AVTO-K7M2-P9XQ", API: "https://drivergo.uz",
-		Frontend: "https://drivergo.uz", Org: "avto", Locale: "ru",
+		Code: "AVTO-K7M2-P9XQ", API: "https://embedded-api.example",
+		Frontend: "https://embedded-front.example", Org: "avto", Locale: "ru",
 	}
 	// Flag values are the compiled-in defaults and none was passed.
-	got := resolveConfig(embedded, "", "https://drivergo.uz", "https://drivergo.uz", "uz-Latn",
+	got := resolveConfig(embedded, "", "https://default-api.example", "https://default-front.example", "uz-Latn",
 		false, false, false)
 
 	if got.Code != "AVTO-K7M2-P9XQ" {
 		t.Fatalf("Code=%q, want the embedded code", got.Code)
+	}
+	if got.API != "https://embedded-api.example" {
+		t.Fatalf("API=%q, want the embedded API over the compiled-in default", got.API)
+	}
+	if got.Frontend != "https://embedded-front.example" {
+		t.Fatalf("Frontend=%q, want the embedded frontend over the compiled-in default", got.Frontend)
 	}
 	if got.Locale != "ru" {
 		t.Fatalf("Locale=%q, want the embedded ru over the uz-Latn default", got.Locale)
@@ -70,35 +78,57 @@ func TestEmbeddedConfigBeatsFlagDefaults(t *testing.T) {
 }
 
 // TestFlagsWinWhenNothingIsEmbedded keeps the manual install path working for a
-// plain unconfigured build.
+// plain unconfigured build: with no embedded config at all, every field must
+// come straight from the flags, untouched.
 func TestFlagsWinWhenNothingIsEmbedded(t *testing.T) {
 	got := resolveConfig(embedcfg.Config{}, "AVTO-TYPED-BYHAND",
-		"https://drivergo.uz", "https://drivergo.uz", "uz-Latn", false, false, false)
+		"https://flag-api.example", "https://flag-front.example", "uz-Latn", false, false, false)
 
 	if got.Code != "AVTO-TYPED-BYHAND" {
 		t.Fatalf("Code=%q, want the flag value", got.Code)
 	}
-	if got.API != "https://drivergo.uz" || got.Locale != "uz-Latn" {
-		t.Fatalf("got=%+v, want the flag values untouched", got)
+	if got.API != "https://flag-api.example" {
+		t.Fatalf("API=%q, want the flag value", got.API)
+	}
+	if got.Frontend != "https://flag-front.example" {
+		t.Fatalf("Frontend=%q, want the flag value", got.Frontend)
+	}
+	if got.Locale != "uz-Latn" {
+		t.Fatalf("Locale=%q, want the flag value", got.Locale)
+	}
+	if got.Org != "" {
+		t.Fatalf("Org=%q, want empty: nothing was embedded", got.Org)
 	}
 }
 
 // TestExplicitFlagOverridesEmbedded lets an operator point one PC at staging
-// without rebuilding an installer for it.
+// (or retype the code) without rebuilding an installer for it, while a flag
+// left unset still defers to the embedded value. apiSet is true and
+// frontendSet is false in the same call so a copy-paste that used the wrong
+// "Set" bool for either branch is caught: Frontend would come out as the
+// flag value instead of the embedded one.
 func TestExplicitFlagOverridesEmbedded(t *testing.T) {
 	embedded := embedcfg.Config{
-		Code: "AVTO-K7M2-P9XQ", API: "https://drivergo.uz",
-		Frontend: "https://drivergo.uz", Locale: "uz-Latn",
+		Code: "AVTO-EMBED-CODE", API: "https://embedded-api2.example",
+		Frontend: "https://embedded-front2.example", Org: "avto-org2", Locale: "uz-Cyrl",
 	}
-	got := resolveConfig(embedded, "", "https://staging.example", "https://drivergo.uz", "uz-Latn",
-		true /* apiSet */, false, false)
+	got := resolveConfig(embedded, "AVTO-FLAG-CODE", "https://staging.example", "https://flag-front2.example", "uz-Latn",
+		true /* apiSet */, false /* frontendSet */, true /* localeSet */)
 
+	if got.Code != "AVTO-FLAG-CODE" {
+		t.Fatalf("Code=%q, want the explicitly typed flag to win over the embedded code", got.Code)
+	}
 	if got.API != "https://staging.example" {
 		t.Fatalf("API=%q, want the explicitly passed flag to win", got.API)
 	}
-	// Everything not passed still comes from the binary.
-	if got.Code != "AVTO-K7M2-P9XQ" {
-		t.Fatalf("Code=%q, want the embedded code", got.Code)
+	if got.Frontend != "https://embedded-front2.example" {
+		t.Fatalf("Frontend=%q, want the embedded frontend: frontendSet was false", got.Frontend)
+	}
+	if got.Locale != "uz-Latn" {
+		t.Fatalf("Locale=%q, want the explicitly passed flag to win over the embedded uz-Cyrl", got.Locale)
+	}
+	if got.Org != "avto-org2" {
+		t.Fatalf("Org=%q, want the embedded org: Org has no flag at all", got.Org)
 	}
 }
 
