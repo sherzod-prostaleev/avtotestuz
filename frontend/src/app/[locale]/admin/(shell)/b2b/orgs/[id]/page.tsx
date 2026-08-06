@@ -7,6 +7,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { DangerConfirm } from "@/components/admin/danger-confirm";
 import { PermissionGate } from "@/components/admin/permission-gate";
+import InstallerPanel from "./installer-panel";
 
 type Station = {
   id: string;
@@ -273,6 +274,8 @@ export default function AdminB2BOrgDetailPage() {
               ))}
             </ul>
           </section>
+
+          <InstallerPanel orgId={params.id} />
 
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("stationsTitle")}</h2>
