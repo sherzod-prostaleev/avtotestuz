@@ -86,7 +86,7 @@ func resolveConfig(embedded embedcfg.Config, flagCode, flagAPI, flagFrontend, fl
 
 func main() {
 	var (
-		code     = flag.String("code", "", "one-time org enrollment code (first run only)")
+		code     = flag.String("code", "", "org installer key (reusable for the life of the licence, not a one-time code)")
 		label    = flag.String("label", "", "PC name shown to the school (default: hostname)")
 		apiBase  = flag.String("api", "https://drivergo.uz", "backend base URL")
 		frontend = flag.String("frontend", "https://drivergo.uz", "frontend base URL")

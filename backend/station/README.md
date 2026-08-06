@@ -53,10 +53,20 @@ panel:
 avtotest-station.exe -code AVTO-XXXX-XXXX
 ```
 
-This first run behaves identically to the downloaded installer's first run
-above; the code is the org's live installer key, not a separate per-PC
-secret, so the same one works for every PC in the school until it is
-rotated.
+The code is the org's live installer key, not a separate per-PC secret, so
+the same one works for every PC in the school until it is rotated — this
+first run does enroll the PC, draw a seat, and open the kiosk, the same as
+the downloaded installer.
+
+Where it does **not** match the downloaded installer: `selfinstall.Ensure`
+only runs when the binary has an embedded code baked into its own tail (see
+`internal/selfinstall`'s package doc), and a manually-passed `-code` flag
+never sets that. So this run does not copy itself into
+`%ProgramData%\AvtoTest\station\` and does not register an autostart entry —
+the agent keeps running from wherever it was launched, and it will **not**
+come back after the next reboot. Use this path for testing the agent, or for
+a one-off recovery run, not for putting a classroom PC into service. For a
+real classroom PC, use the downloaded installer above.
 
 Add `-label "Kabinet 3, PC-7"` on first run to give the station a name the
 school recognizes in its station list; it defaults to the machine's hostname.
@@ -98,9 +108,12 @@ Re-imaging or replacing a classroom PC invalidates its old key beyond
 recovery — that is the point of DPAPI machine-scoping, not a bug to route
 around. To bring the PC back:
 
-1. Run the same downloaded installer again, or `avtotest-station.exe -code
-   AVTO-XXXX-XXXX` with the org's current installer key from the admin
-   panel, on the re-imaged PC.
+1. Run the same downloaded installer again on the re-imaged PC (see "The
+   normal way" above). Use the manual `-code AVTO-XXXX-XXXX` form only for a
+   one-off test of the re-imaged machine — it does not self-install or
+   register autostart, so it will not survive the PC's next reboot and is
+   not a substitute for the installer when actually returning the PC to
+   service.
 2. The agent generates a new key, enrolls as a new station, and draws a
    seat — the installer key is not consumed by one PC, so reusing it here is
    expected, not a special case.
