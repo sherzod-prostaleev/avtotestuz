@@ -252,15 +252,14 @@ type pgxQuerier interface {
 
 func activeEnrollCodeTx(ctx context.Context, q pgxQuerier, orgID uuid.UUID) (*EnrollCodeRow, error) {
 	var row EnrollCodeRow
-	var revoked pgtype.Timestamptz
 	err := q.QueryRow(ctx, `
-		SELECT id, org_id, code, max_uses, used_count, expires_at, revoked_at, created_at
+		SELECT id, org_id, code, max_uses, used_count, expires_at, created_at
 		FROM b2b_org_enroll_code
 		WHERE org_id = $1 AND revoked_at IS NULL AND expires_at > now()
 		  AND used_count < max_uses
 		ORDER BY created_at DESC LIMIT 1`, orgID,
 	).Scan(&row.ID, &row.OrgID, &row.Code, &row.MaxUses, &row.UsedCount,
-		&row.ExpiresAt, &revoked, &row.CreatedAt)
+		&row.ExpiresAt, &row.CreatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, nil

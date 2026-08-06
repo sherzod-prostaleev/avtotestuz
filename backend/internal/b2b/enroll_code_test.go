@@ -289,3 +289,70 @@ func TestOpenInstallerKeyNeedsALiveLicense(t *testing.T) {
 		t.Fatalf("err=%v, want ErrNoLicense", err)
 	}
 }
+
+// TestOpenInstallerKeyRefusesSuspendedOrg exercises installerKeyTx's own
+// suspended-org check, which is a separate block from OpenEnrollWindow's
+// (not a shared helper) and so isn't covered by
+// TestOpenEnrollWindowRefusesSuspendedOrgAndDeadLicense.
+func TestOpenInstallerKeyRefusesSuspendedOrg(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 10, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetOrgStatus(ctx, orgID, "suspended"); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if !errors.Is(err, b2b.ErrOrgSuspended) {
+		t.Fatalf("err=%v, want ErrOrgSuspended for a suspended org", err)
+	}
+}
+
+// TestOpenInstallerKeyRefusesWhenSeatsFull exercises installerKeyTx's own
+// seats-exhausted check, which is a separate block from OpenEnrollWindow's
+// (not a shared helper) and so isn't covered by
+// TestOpenEnrollWindowRefusesWhenSeatsFull.
+func TestOpenInstallerKeyRefusesWhenSeatsFull(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 3, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Seat the org's whole license with active stations.
+	for i := 0; i < 3; i++ {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO b2b_station (org_id, public_key, hwid_hash, label)
+			VALUES ($1, $2, $3, 'PC')`,
+			orgID, []byte(newPub(t)), testHWID(fmt.Sprintf("installer-full-%d", i))); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if !errors.Is(err, b2b.ErrSeatsExhausted) {
+		t.Fatalf("err=%v, want ErrSeatsExhausted when active stations fill every seat", err)
+	}
+}
