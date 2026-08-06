@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"avtotest.uz/station/internal/agent"
+	"avtotest.uz/station/internal/embedcfg"
 	"avtotest.uz/station/internal/hwid"
 	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/kiosk"
@@ -48,12 +49,46 @@ func stationURL(addr, locale string) string {
 	return fmt.Sprintf("http://%s/%s/station", addr, locale)
 }
 
+// resolved is the agent's effective configuration after merging what was baked
+// into this copy with what the operator passed on the command line.
+type resolved struct {
+	Code     string
+	API      string
+	Frontend string
+	Locale   string
+	Org      string
+}
+
+// resolveConfig merges an embedded config with flag values. An explicitly-set
+// flag always wins, so one PC can be pointed at staging without a rebuild;
+// otherwise the embedded value wins over the compiled-in default, which is what
+// makes a downloaded installer need no arguments at all.
+func resolveConfig(embedded embedcfg.Config, flagCode, flagAPI, flagFrontend, flagLocale string, apiSet, frontendSet, localeSet bool) resolved {
+	out := resolved{
+		Code: flagCode, API: flagAPI, Frontend: flagFrontend,
+		Locale: flagLocale, Org: embedded.Org,
+	}
+	if out.Code == "" {
+		out.Code = embedded.Code
+	}
+	if !apiSet && embedded.API != "" {
+		out.API = embedded.API
+	}
+	if !frontendSet && embedded.Frontend != "" {
+		out.Frontend = embedded.Frontend
+	}
+	if !localeSet && embedded.Locale != "" {
+		out.Locale = embedded.Locale
+	}
+	return out
+}
+
 func main() {
 	var (
 		code     = flag.String("code", "", "one-time org enrollment code (first run only)")
 		label    = flag.String("label", "", "PC name shown to the school (default: hostname)")
-		apiBase  = flag.String("api", "https://api.avtotest.uz", "backend base URL")
-		frontend = flag.String("frontend", "https://avtotest.uz", "frontend base URL")
+		apiBase  = flag.String("api", "https://drivergo.uz", "backend base URL")
+		frontend = flag.String("frontend", "https://drivergo.uz", "frontend base URL")
 		addr     = flag.String("addr", "127.0.0.1:17817", "local listen address")
 		stateDir = flag.String("state", defaultStateDir(), "directory for the station key and state")
 		noKiosk  = flag.Bool("no-kiosk", false, "serve only; do not launch a browser")
@@ -71,8 +106,23 @@ func main() {
 		os.Exit(runSelfTest())
 	}
 
-	if !validLocale(*locale) {
-		log.Fatalf("invalid -locale %q: must be one of %s", *locale, strings.Join(stationLocales, ", "))
+	embedded := embedcfg.Config{}
+	if exe, err := os.Executable(); err == nil {
+		if cfg, err := embedcfg.Read(exe); err == nil {
+			embedded = cfg
+		} else if !errors.Is(err, embedcfg.ErrNoConfig) {
+			log.Printf("embedded config: %v (falling back to flags)", err)
+		}
+	}
+
+	set := map[string]bool{}
+	flag.Visit(func(f *flag.Flag) { set[f.Name] = true })
+
+	cfg := resolveConfig(embedded, *code, *apiBase, *frontend, *locale,
+		set["api"], set["frontend"], set["locale"])
+
+	if !validLocale(cfg.Locale) {
+		log.Fatalf("invalid -locale %q: must be one of %s", cfg.Locale, strings.Join(stationLocales, ", "))
 	}
 
 	id, err := hwid.Collect()
@@ -88,12 +138,12 @@ func main() {
 		name, _ = os.Hostname()
 	}
 
-	a := &agent.Agent{APIBase: *apiBase, StateDir: *stateDir, Keys: keys, HWID: id, Version: version}
+	a := &agent.Agent{APIBase: cfg.API, StateDir: *stateDir, Keys: keys, HWID: id, Version: version}
 	ctx := context.Background()
 
 	if _, err := a.Token(ctx); err != nil {
 		if errors.Is(err, agent.ErrNotEnrolled) {
-			if *code == "" {
+			if cfg.Code == "" {
 				log.Fatal("this PC is not enrolled yet: run again with -code AVTO-XXXX-XXXX")
 			}
 			// A first-boot GPO rollout runs this exe in the same cold-network
@@ -101,7 +151,7 @@ func main() {
 			// read as "the code is wrong". A one-time code doesn't deserve an
 			// unbounded retry either, so this gives up loudly after a few
 			// tries — there is nothing left to do automatically at that point.
-			if err := enrollWithRetry(ctx, a, *code, name, defaultEnrollRetry); err != nil {
+			if err := enrollWithRetry(ctx, a, cfg.Code, name, defaultEnrollRetry); err != nil {
 				log.Fatalf("enrollment failed: %v", err)
 			}
 			log.Printf("enrolled as %q", name)
@@ -128,8 +178,8 @@ func main() {
 	}
 	go keepTokenWarm(ctx, a, defaultTokenRetry)
 
-	handler := proxy.New(*frontend, *apiBase, a.Token)
-	url := stationURL(*addr, *locale)
+	handler := proxy.New(cfg.Frontend, cfg.API, a.Token)
+	url := stationURL(*addr, cfg.Locale)
 
 	if !*noKiosk {
 		if _, err := kiosk.Launch(url); err != nil {

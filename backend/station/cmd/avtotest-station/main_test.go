@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"avtotest.uz/station/internal/agent"
+	"avtotest.uz/station/internal/embedcfg"
 	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/proxy"
 )
@@ -42,6 +43,62 @@ func TestStationURLUsesARealFrontendLocale(t *testing.T) {
 
 	if validLocale("uz") {
 		t.Fatal(`validLocale("uz") = true, want false: "uz" is not a real frontend locale`)
+	}
+}
+
+// TestEmbeddedConfigBeatsFlagDefaults proves a downloaded installer needs no
+// arguments: the appended config supplies the code and the URLs, and a flag
+// left at its compiled-in default must not silently win over it.
+func TestEmbeddedConfigBeatsFlagDefaults(t *testing.T) {
+	embedded := embedcfg.Config{
+		Code: "AVTO-K7M2-P9XQ", API: "https://drivergo.uz",
+		Frontend: "https://drivergo.uz", Org: "avto", Locale: "ru",
+	}
+	// Flag values are the compiled-in defaults and none was passed.
+	got := resolveConfig(embedded, "", "https://drivergo.uz", "https://drivergo.uz", "uz-Latn",
+		false, false, false)
+
+	if got.Code != "AVTO-K7M2-P9XQ" {
+		t.Fatalf("Code=%q, want the embedded code", got.Code)
+	}
+	if got.Locale != "ru" {
+		t.Fatalf("Locale=%q, want the embedded ru over the uz-Latn default", got.Locale)
+	}
+	if got.Org != "avto" {
+		t.Fatalf("Org=%q", got.Org)
+	}
+}
+
+// TestFlagsWinWhenNothingIsEmbedded keeps the manual install path working for a
+// plain unconfigured build.
+func TestFlagsWinWhenNothingIsEmbedded(t *testing.T) {
+	got := resolveConfig(embedcfg.Config{}, "AVTO-TYPED-BYHAND",
+		"https://drivergo.uz", "https://drivergo.uz", "uz-Latn", false, false, false)
+
+	if got.Code != "AVTO-TYPED-BYHAND" {
+		t.Fatalf("Code=%q, want the flag value", got.Code)
+	}
+	if got.API != "https://drivergo.uz" || got.Locale != "uz-Latn" {
+		t.Fatalf("got=%+v, want the flag values untouched", got)
+	}
+}
+
+// TestExplicitFlagOverridesEmbedded lets an operator point one PC at staging
+// without rebuilding an installer for it.
+func TestExplicitFlagOverridesEmbedded(t *testing.T) {
+	embedded := embedcfg.Config{
+		Code: "AVTO-K7M2-P9XQ", API: "https://drivergo.uz",
+		Frontend: "https://drivergo.uz", Locale: "uz-Latn",
+	}
+	got := resolveConfig(embedded, "", "https://staging.example", "https://drivergo.uz", "uz-Latn",
+		true /* apiSet */, false, false)
+
+	if got.API != "https://staging.example" {
+		t.Fatalf("API=%q, want the explicitly passed flag to win", got.API)
+	}
+	// Everything not passed still comes from the binary.
+	if got.Code != "AVTO-K7M2-P9XQ" {
+		t.Fatalf("Code=%q, want the embedded code", got.Code)
 	}
 }
 
