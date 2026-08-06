@@ -17,6 +17,7 @@ import (
 
 	"avtotest.uz/station/internal/hwid"
 	"avtotest.uz/station/internal/keystore"
+	"avtotest.uz/station/internal/selfinstall"
 )
 
 // check is one line of the self-test report.
@@ -80,6 +81,9 @@ func runSelfTest() int {
 	}
 
 	checks = append(checks, checkEmptyFileRejection(dir))
+
+	checks = append(checks, checkAutostartRoundTrip(dir))
+	checks = append(checks, checkInstallTargetWritable(dir))
 
 	failed := 0
 	for i, c := range checks {
@@ -275,6 +279,31 @@ func checkEmptyFileRejection(dir string) check {
 		return check{name: name, ok: false, info: "truncated the key file to 0 bytes and Load returned a key anyway — this must be ErrCorruptKey"}
 	}
 	return check{name: name, ok: false, info: fmt.Sprintf("truncated the key file to 0 bytes; Load returned %v, want ErrCorruptKey", err)}
+}
+
+// checkAutostartRoundTrip exercises selfinstall.SelfTestAutostart: on
+// Windows this registers a value under HKCU\...\Run, reads it directly back
+// out of the registry, and restores whatever was there before, proving the
+// autostart mechanism the agent depends on for coming back after every
+// reboot genuinely round-trips on this machine. Off Windows, autostart is a
+// no-op by design (see selfinstall_other.go) — there is no registry to
+// round-trip against, so this reports that plainly rather than claiming a
+// verified pass, matching how checkFileIsSealed already treats the
+// unsealed development keystore.
+func checkAutostartRoundTrip(dir string) check {
+	ok, info := selfinstall.SelfTestAutostart(selfinstall.Target(dir))
+	return check{name: "Autostart round-trip (selfinstall)", ok: ok, info: info}
+}
+
+// checkInstallTargetWritable exercises selfinstall.SelfTestTargetWritable:
+// it proves the real directory this machine's install would use can be
+// created and written by whichever user is running this process, with no
+// elevation — the whole point of registering under HKCU instead of HKLM.
+// Off Windows it reports "not applicable" for the same reason as the
+// autostart check above.
+func checkInstallTargetWritable(dir string) check {
+	ok, info := selfinstall.SelfTestTargetWritable(dir)
+	return check{name: "Install target writable (selfinstall)", ok: ok, info: info}
 }
 
 // runSelfTestImport takes a station.key copied from another machine and

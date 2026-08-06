@@ -21,6 +21,7 @@ import (
 	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/kiosk"
 	"avtotest.uz/station/internal/proxy"
+	"avtotest.uz/station/internal/selfinstall"
 )
 
 // version is stamped at build time: go build -ldflags "-X main.version=1.0.0"
@@ -96,6 +97,7 @@ func main() {
 
 		selfTest       = flag.Bool("selftest", false, "run hwid/keystore checks in a scratch directory and print a pass/fail verdict, then exit; does not touch the real enrollment")
 		selfTestImport = flag.String("selftest-import", "", "path to a station.key copied from another machine; try to unseal it here and report whether the machine binding held, then exit")
+		uninstall      = flag.Bool("uninstall", false, "remove the installed copy and autostart entry, then exit (does not free this station's seat -- revoke it in the admin panel too)")
 	)
 	flag.Parse()
 
@@ -104,6 +106,16 @@ func main() {
 	}
 	if *selfTest {
 		os.Exit(runSelfTest())
+	}
+
+	if *uninstall {
+		if err := selfinstall.Remove(*stateDir); err != nil {
+			log.Fatalf("uninstall: %v", err)
+		}
+		fmt.Printf("Uninstalled: removed the autostart entry and deleted %s\n", selfinstall.Target(*stateDir))
+		fmt.Println("This only removes local files -- it does not free this station's seat.")
+		fmt.Println("Revoke this station in the admin panel too, or the licence stays held.")
+		return
 	}
 
 	embedded := embedcfg.Config{}
@@ -123,6 +135,15 @@ func main() {
 
 	if !validLocale(cfg.Locale) {
 		log.Fatalf("invalid -locale %q: must be one of %s", cfg.Locale, strings.Join(stationLocales, ", "))
+	}
+
+	if embedded.Code != "" {
+		installed, didInstall, err := selfinstall.Ensure(*stateDir)
+		if err != nil {
+			log.Printf("self-install: %v (continuing from the current location)", err)
+		} else if didInstall {
+			log.Printf("installed to %s and registered autostart", installed)
+		}
 	}
 
 	id, err := hwid.Collect()
