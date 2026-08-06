@@ -128,11 +128,13 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
       <p className="text-xs text-muted-foreground">{t("installerHint")}</p>
 
       <div className="flex flex-wrap gap-2">
-        <a href={downloadHref} download>
-          <Button type="button" as="span">
-            {t("installerDownload")}
-          </Button>
-        </a>
+        {key ? (
+          <a href={downloadHref} download>
+            <Button type="button" as="span">
+              {t("installerDownload")}
+            </Button>
+          </a>
+        ) : null}
         {key ? (
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void rotateKey()}>
             {t("installerRotate")}

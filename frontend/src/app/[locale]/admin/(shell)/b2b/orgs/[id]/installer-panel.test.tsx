@@ -156,12 +156,12 @@ describe("InstallerPanel", () => {
   });
 
   it("points the download link at installer.exe with the selected locale and updates it when the locale changes", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(json({ data: null })));
+    const fetchMock = vi.fn(() => Promise.resolve(json({ data: key })));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     renderPanel();
 
-    await screen.findByText(messages.AdminB2B.installerNone);
+    await screen.findByText(key.code);
 
     const link = screen.getByRole("link", { name: messages.AdminB2B.installerDownload });
     expect(link).toHaveAttribute(
@@ -176,5 +176,17 @@ describe("InstallerPanel", () => {
       "href",
       `/api/admin/b2b/orgs/${ORG_ID}/installer.exe?locale=ru`,
     );
+  });
+
+  it("does not render a download link when no key has been opened yet", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(json({ data: null })));
+    vi.stubGlobal("fetch", fetchMock);
+    renderPanel();
+
+    await screen.findByText(messages.AdminB2B.installerNone);
+
+    expect(
+      screen.queryByRole("link", { name: messages.AdminB2B.installerDownload }),
+    ).not.toBeInTheDocument();
   });
 });
