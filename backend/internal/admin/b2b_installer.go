@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
+
 	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/httpx"
 )
@@ -78,7 +80,13 @@ func (h *Handler) installerKeyWrite(w http.ResponseWriter, r *http.Request, rota
 	if !ok {
 		return
 	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
 	actor := adminActorLabel(r)
+	action := "b2b.installer.open"
+	if rotate {
+		action = "b2b.installer.rotate"
+	}
 	var (
 		row b2b.EnrollCodeRow
 		err error
@@ -89,9 +97,32 @@ func (h *Handler) installerKeyWrite(w http.ResponseWriter, r *http.Request, rota
 		row, err = h.b2bStore().OpenInstallerKey(r.Context(), orgID, actor)
 	}
 	if err != nil {
+		if rotate && errors.Is(err, b2b.ErrInstallerKeyRotatedNoSeats) {
+			// The rotate call's emergency stop already ran -- the old key is
+			// dead -- even though there's no replacement to hand back. That
+			// is a real mutation an operator needs to be able to find later
+			// (e.g. "who killed the key, and when"), so it's audited like any
+			// other successful write, not swallowed into the generic error
+			// path below. The key itself was never minted, so there's
+			// nothing secret in this entry.
+			_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, action, "b2b_org_enroll_code", orgID.String(),
+				nil, map[string]any{"org_id": orgID.String(), "result": "revoked_no_replacement"},
+				clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+			)
+		}
 		writeInstallerErr(w, err)
 		return
 	}
+	// Audit the exposure, not the key: an installer code is a bearer
+	// credential that enrols classroom PCs and spends a school's seats, and
+	// "who fetched or minted it" is the whole compensating control for a
+	// leak (see downloadB2BInstaller's audit call for the download side of
+	// the same concern). Following the WriteAudit shape used elsewhere in
+	// this package (see createB2BLicense) -- never the code itself.
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, action, "b2b_org_enroll_code", row.ID.String(),
+		nil, map[string]any{"org_id": orgID.String(), "max_uses": row.MaxUses, "expires_at": row.ExpiresAt},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
 	httpx.Data(w, http.StatusOK, toInstallerKeyDTO(row))
 }
 
@@ -139,6 +170,18 @@ func (h *Handler) downloadB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = base.Close() }()
 
+	// This is the actual moment a bearer credential leaves the admin panel as
+	// a working, pre-armed binary. Audited before streaming starts (not
+	// after: AppendConfig writes straight to w, so there is no later point to
+	// hook in without buffering the whole download) -- same shape as
+	// installerKeyWrite's audit call, never the code itself.
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.installer.download", "b2b_org_enroll_code", row.ID.String(),
+		nil, map[string]any{"org_id": orgID.String(), "locale": locale},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition",
 		`attachment; filename="`+b2b.InstallerFilename(orgName, orgID)+`"`)
@@ -167,6 +210,13 @@ func writeInstallerErr(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusConflict, "no_license", "org has no active licence")
 	case errors.Is(err, b2b.ErrSeatsExhausted):
 		httpx.Error(w, http.StatusConflict, "seats_exhausted", "all licensed seats are in use")
+	case errors.Is(err, b2b.ErrInstallerKeyRotatedNoSeats):
+		// Distinct from seats_exhausted: the rotate call's emergency stop
+		// already ran and the old key is dead, there just wasn't a free seat
+		// to mint a replacement into. Collapsing this into seats_exhausted
+		// would read to the caller as "rotate did nothing", which is false.
+		httpx.Error(w, http.StatusConflict, "rotated_no_seats",
+			"installer key revoked; no free seats for a replacement")
 	default:
 		httpx.Error(w, http.StatusInternalServerError, "internal", "installer key failed")
 	}

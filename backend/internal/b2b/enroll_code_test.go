@@ -356,3 +356,118 @@ func TestOpenInstallerKeyRefusesWhenSeatsFull(t *testing.T) {
 		t.Fatalf("err=%v, want ErrSeatsExhausted when active stations fill every seat", err)
 	}
 }
+
+// TestRotateInstallerKeyAtFullOccupancyRevokesWithoutReplacement is the
+// regression test for the emergency-stop bug: a fully-seated school (every
+// licensed seat holds an active station) is exactly the steady state a
+// leaked installer key matters most in, and rotate must still be able to
+// kill it even though there is no free seat to mint a replacement into.
+// Before this fix, installerKeyTx computed the seat check before minting and
+// returned ErrSeatsExhausted without ever touching the live code -- so the
+// documented emergency stop silently did nothing when it was needed most.
+func TestRotateInstallerKeyAtFullOccupancyRevokesWithoutReplacement(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 3, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+
+	// Open the live (leaked) key while seats are still free.
+	leaked, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Now fill every seat -- the steady state where a leak matters most.
+	for i := 0; i < 3; i++ {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO b2b_station (org_id, public_key, hwid_hash, label)
+			VALUES ($1, $2, $3, 'PC')`,
+			orgID, []byte(newPub(t)), testHWID(fmt.Sprintf("rotate-full-%d", i))); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, err = store.RotateInstallerKey(ctx, orgID, "admin:test")
+	if !errors.Is(err, b2b.ErrInstallerKeyRotatedNoSeats) {
+		t.Fatalf("err=%v, want ErrInstallerKeyRotatedNoSeats at full occupancy", err)
+	}
+
+	// The emergency stop must have actually run: the leaked code no longer
+	// enrols, even though rotate reported "no replacement" rather than a
+	// fresh code.
+	var revoked *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT revoked_at FROM b2b_org_enroll_code WHERE id = $1`, leaked.ID).Scan(&revoked); err != nil {
+		t.Fatal(err)
+	}
+	if revoked == nil {
+		t.Fatal("rotate at full occupancy must still revoke the live key -- the emergency stop must always run")
+	}
+
+	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: leaked.Code, PublicKey: newPub(t), HWIDHash: testHWID("rotate-full-post-check"), Label: "PC",
+	}); !errors.Is(err, b2b.ErrNotFound) {
+		t.Fatalf("leaked code err=%v, want ErrNotFound (it must be dead after rotate, replacement or not)", err)
+	}
+}
+
+// TestRotateInstallerKeyWithFreeSeatsRevokesAndMints pairs with the
+// full-occupancy test above: with a free seat available, rotate must revoke
+// the old key AND mint a working replacement in the same call, not just one
+// or the other.
+func TestRotateInstallerKeyWithFreeSeatsRevokesAndMints(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 10, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+
+	old, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fresh, err := store.RotateInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatalf("rotate with free seats must mint a replacement, got err=%v", err)
+	}
+	if fresh.Code == "" || fresh.Code == old.Code {
+		t.Fatalf("rotate = %+v, want a fresh non-empty code (old was %q)", fresh, old.Code)
+	}
+
+	var revoked *time.Time
+	if err := pool.QueryRow(ctx,
+		`SELECT revoked_at FROM b2b_org_enroll_code WHERE id = $1`, old.ID).Scan(&revoked); err != nil {
+		t.Fatal(err)
+	}
+	if revoked == nil {
+		t.Fatal("rotate must revoke the old key even when it also mints a replacement")
+	}
+
+	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: fresh.Code, PublicKey: newPub(t), HWIDHash: testHWID("rotate-free-seats-new"), Label: "PC",
+	}); err != nil {
+		t.Fatalf("replacement code failed to enrol: %v", err)
+	}
+}

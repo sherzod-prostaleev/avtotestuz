@@ -40,6 +40,16 @@ var ErrOrgSuspended = errors.New("org suspended")
 // ErrNoLicense means no active classroom license window.
 var ErrNoLicense = errors.New("no active license")
 
+// ErrInstallerKeyRotatedNoSeats means RotateInstallerKey ran its emergency
+// stop -- the live installer key is now revoked, unconditionally -- but
+// could not mint a replacement because the org has no free seat. Deliberately
+// distinct from ErrSeatsExhausted: that one means "nothing happened", this one
+// means "the leaked key is dead, but there is nothing to hand out until a
+// seat frees up". Collapsing the two would hide from the caller (and the
+// admin who just clicked rotate) that the emergency stop actually took
+// effect.
+var ErrInstallerKeyRotatedNoSeats = errors.New("installer key rotated: no free seats for a replacement")
+
 // CountActiveStations returns bound active stations for an org.
 func (s Store) CountActiveStations(ctx context.Context, orgID uuid.UUID) (int64, error) {
 	var n int64

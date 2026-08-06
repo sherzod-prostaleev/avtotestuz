@@ -7,6 +7,13 @@
 
 FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build
 WORKDIR /src
+# Declared so the station build's ${STATION_VERSION:-1.0.0} below has
+# something to expand: without an ARG of the same name, the shell sees an
+# unset variable and always falls through to the default, so every agent
+# ever built by this image reported 1.0.0 regardless of --build-arg
+# STATION_VERSION=... -- the one column (b2b_station.agent_version) that
+# would tell ops which build a classroom PC is running.
+ARG STATION_VERSION=1.0.0
 RUN apk add --no-cache ca-certificates git
 COPY go.mod go.sum ./
 RUN go mod download

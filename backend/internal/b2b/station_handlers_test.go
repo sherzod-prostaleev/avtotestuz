@@ -7,6 +7,8 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -171,5 +173,70 @@ func TestStationEndpointsEndToEnd(t *testing.T) {
 	}
 	if hwidErr["code"] != sigErr["code"] || hwidErr["message"] != sigErr["message"] {
 		t.Fatalf("station-auth failure reasons are distinguishable: hwid=%v sig=%v", hwidErr, sigErr)
+	}
+}
+
+// TestEnrollRateLimitAllowsAFullLicenceRollout is the regression test for the
+// incident this fixes: an installer key is idempotent and licence-lived (see
+// OpenInstallerKey), so every PC in a school's rollout hits /enroll with the
+// exact same code -- and the enroll rate limit is keyed on that code, not on
+// the PC. Before this fix enrollIdentityLimit was 20, a value left over from
+// when a code was a disposable 2-hour window a teacher could reopen at will.
+// A 30-seat school would enrol PCs 1-20, then PC 21 would get 429, the agent
+// would burn its retries and log.Fatalf, and there was no way to recover
+// short of waiting an hour or rotating the key -- which kills the copies
+// already handed to the rest of the classroom. Driven through the real HTTP
+// handler, with the real (unmocked) constant, because that is where the
+// limiter actually lives; the store has no rate limiting of its own.
+func TestEnrollRateLimitAllowsAFullLicenceRollout(t *testing.T) {
+	const seats = 30 // more than the old enrollIdentityLimit of 20
+
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	rdb := testredis.New(t)
+	ctx := context.Background()
+	secret := []byte("test-secret-that-is-long-enough-000000")
+
+	store := b2b.Store{Pool: pool}
+	orgID := seatedOrg(t, pool, seats)
+	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code.MaxUses != seats {
+		t.Fatalf("max_uses=%d, want %d (every seat must be free for this test to exercise all %d enrolments)", code.MaxUses, seats, seats)
+	}
+
+	h := &b2b.Handler{Pool: pool, Redis: rdb, Secret: secret, Lim: auth.Limiter{R: rdb}}
+	r := chi.NewRouter()
+	r.Route("/api/v1", h.PublicRoutes)
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+
+	for i := 0; i < seats; i++ {
+		pub, _, err := ed25519.GenerateKey(rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, err := json.Marshal(map[string]any{
+			"code":          code.Code,
+			"public_key":    base64.StdEncoding.EncodeToString(pub),
+			"hwid_hash":     testHWID(fmt.Sprintf("rate-limit-rollout-%d", i)),
+			"label":         fmt.Sprintf("PC-%d", i+1),
+			"agent_version": "1.0.0",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp, err := http.Post(srv.URL+"/api/v1/b2b/stations/enroll", "application/json", bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		respBody, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("PC %d/%d: status=%d body=%s (a same-code rollout must not trip the enroll rate limit before every seat is used)",
+				i+1, seats, resp.StatusCode, respBody)
+		}
 	}
 }

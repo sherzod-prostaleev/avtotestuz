@@ -139,12 +139,20 @@ func insertEnrollCode(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, code stri
 	return row, nil
 }
 
+// revokeLiveCode revokes whatever unexpired, unrevoked code the org
+// currently has. A no-op (0 rows) when there is none. The caller holds the
+// org row lock.
+func revokeLiveCode(ctx context.Context, tx pgx.Tx, orgID uuid.UUID) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE b2b_org_enroll_code SET revoked_at = now()
+		WHERE org_id = $1 AND revoked_at IS NULL AND expires_at > now()`, orgID)
+	return err
+}
+
 // mintEnrollCode revokes any live code and inserts a fresh one expiring at
 // expiresAt. The caller holds the org row lock.
 func mintEnrollCode(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, expiresAt time.Time, maxUses int, createdBy string) (EnrollCodeRow, error) {
-	if _, err := tx.Exec(ctx, `
-		UPDATE b2b_org_enroll_code SET revoked_at = now()
-		WHERE org_id = $1 AND revoked_at IS NULL AND expires_at > now()`, orgID); err != nil {
+	if err := revokeLiveCode(ctx, tx, orgID); err != nil {
 		return EnrollCodeRow{}, err
 	}
 	code, err := newEnrollCode()
@@ -203,6 +211,20 @@ func (s Store) installerKeyTx(ctx context.Context, orgID uuid.UUID, createdBy st
 			}
 			return *row, nil
 		}
+	} else {
+		// Rotate is the emergency stop for a leaked installer key, and it must
+		// always be available -- especially at full seat occupancy, which is
+		// exactly the steady state a leak matters most in. Revoking here,
+		// unconditionally and before the seat check below, is what makes the
+		// old key die on every rotate call regardless of whether there turns
+		// out to be a free seat to mint a replacement into. (The reuse branch
+		// above never reaches this: an idempotent OpenInstallerKey call that
+		// finds a live, usable key returns it untouched and commits early,
+		// so this revoke can never fire underneath a key OpenInstallerKey is
+		// about to hand back as "the same one".)
+		if err := revokeLiveCode(ctx, tx, orgID); err != nil {
+			return EnrollCodeRow{}, err
+		}
 	}
 
 	var used int64
@@ -212,7 +234,19 @@ func (s Store) installerKeyTx(ctx context.Context, orgID uuid.UUID, createdBy st
 	}
 	free := seats - used
 	if free <= 0 {
-		return EnrollCodeRow{}, ErrSeatsExhausted
+		if reuse {
+			return EnrollCodeRow{}, ErrSeatsExhausted
+		}
+		// The old key is already revoked above -- that is the emergency stop,
+		// and it already happened. There is just no free seat to mint a
+		// replacement into. Commit so the revoke sticks, and report a state
+		// distinct from ErrSeatsExhausted so the caller (and the admin
+		// handler's response code) can tell "nothing happened" apart from
+		// "the leaked key is dead now, but there's no new one yet".
+		if err := tx.Commit(ctx); err != nil {
+			return EnrollCodeRow{}, err
+		}
+		return EnrollCodeRow{}, ErrInstallerKeyRotatedNoSeats
 	}
 
 	row, err := mintEnrollCode(ctx, tx, orgID, licenseEnds.UTC(), int(free), createdBy)
@@ -233,9 +267,12 @@ func (s Store) OpenInstallerKey(ctx context.Context, orgID uuid.UUID, createdBy 
 	return s.installerKeyTx(ctx, orgID, createdBy, true)
 }
 
-// RotateInstallerKey revokes the live key and mints a new one. Stations already
-// enrolled are unaffected — they authenticate with their own Ed25519 key, not
-// with this one.
+// RotateInstallerKey is the emergency stop for a leaked installer key: it
+// always revokes the live key first, unconditionally, then mints a
+// replacement if the org has a free seat. When there is no free seat it
+// returns ErrInstallerKeyRotatedNoSeats -- the revoke still happened, there is
+// just nothing to hand back. Stations already enrolled are unaffected — they
+// authenticate with their own Ed25519 key, not with this one.
 func (s Store) RotateInstallerKey(ctx context.Context, orgID uuid.UUID, createdBy string) (EnrollCodeRow, error) {
 	return s.installerKeyTx(ctx, orgID, createdBy, false)
 }
