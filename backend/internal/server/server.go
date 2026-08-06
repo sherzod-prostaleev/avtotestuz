@@ -103,6 +103,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret), DataSecret: dataKey},
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
+
+			StationBinaryPath: cfg.StationBinaryPath,
+			PublicBaseURL:     cfg.PublicBaseURL,
 		}
 		r.Route("/admin/v1", adminH.Routes)
 	}

@@ -31,6 +31,13 @@ type Handler struct {
 	Billing         billing.Service
 	MetricsSnapshot MetricsSnapshot
 	Push            *push.Service
+
+	// StationBinaryPath is the Windows agent binary served by
+	// GET /b2b/orgs/{id}/installer.exe. See config.Config.StationBinaryPath.
+	StationBinaryPath string
+	// PublicBaseURL is embedded in every downloaded installer as both the API
+	// and frontend origin the station agent talks to.
+	PublicBaseURL string
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -234,6 +241,8 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Get("/b2b/orgs/{id}/stats", h.getB2BOrgStats)
 			br.Get("/b2b/orgs/{id}/stations", h.listB2BStations)
 			br.Get("/b2b/orgs/{id}/partner-promos", h.listB2BPartnerPromos)
+			br.Get("/b2b/orgs/{id}/installer", h.getB2BInstaller)
+			br.Get("/b2b/orgs/{id}/installer.exe", h.downloadB2BInstaller)
 		})
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("users.entitlements.grant"))
@@ -242,6 +251,8 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
 			br.Post("/b2b/orgs/{id}/partner-promos", h.createB2BPartnerPromo)
 			br.Delete("/b2b/orgs/{id}/stations/{stationID}", h.revokeB2BStation)
+			br.Post("/b2b/orgs/{id}/installer", h.openB2BInstaller)
+			br.Post("/b2b/orgs/{id}/installer/rotate", h.rotateB2BInstaller)
 		})
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("b2b.orgs.hard_delete"))
