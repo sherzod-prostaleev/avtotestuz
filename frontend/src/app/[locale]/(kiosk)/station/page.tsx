@@ -48,6 +48,9 @@ export default function StationPage() {
           {t("practice")}
         </Link>
         <Link href={`/${locale}/station/tickets`} className="rounded-lg border p-6 text-center text-xl">
+          {t("tickets")}
+        </Link>
+        <Link href={`/${locale}/station/session/start?mode=exam`} className="rounded-lg border p-6 text-center text-xl">
           {t("exam")}
         </Link>
       </div>
