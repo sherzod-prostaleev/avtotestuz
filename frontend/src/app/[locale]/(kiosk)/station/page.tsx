@@ -53,6 +53,9 @@ export default function StationPage() {
         <Link href={`/${locale}/station/session/start?mode=exam`} className="rounded-lg border p-6 text-center text-xl">
           {t("exam")}
         </Link>
+        <Link href={`/${locale}/station/signs`} className="rounded-lg border p-6 text-center text-xl">
+          {t("signs")}
+        </Link>
       </div>
 
       <Button className="w-full py-6 text-xl" onClick={() => setSitting((n) => n + 1)}>

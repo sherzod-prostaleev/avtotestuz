@@ -62,4 +62,12 @@ describe("StationPage", () => {
     const link = await screen.findByRole("link", { name: "exam" });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/session/start?mode=exam");
   });
+
+  it("offers road signs", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "signs" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/signs");
+  });
 });

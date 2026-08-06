@@ -172,3 +172,48 @@ describe("SignsPage", () => {
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
 });
+
+// Walks every navigation this page can perform for a cookie-less classroom
+// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/signs/page.tsx
+// reuses this component with kiosk=true). Both targets below are built at
+// runtime (backHref/practiceHref are variables, not string literals), so
+// the lexical scan in (kiosk)/kiosk-path.test.tsx cannot see them — this is
+// what makes them visible, per the task brief.
+describe("SignsPage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.spyOn(useSignsModule, "useSignDetail").mockReturnValue({
+      sign: null,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+  });
+
+  function renderKiosk() {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={testMessages}>
+        <SignsPage kiosk />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps the back link under /station/practice instead of the gated /practice", () => {
+    mockSigns();
+    renderKiosk();
+
+    const backLink = screen.getByRole("link", { name: /Mashq rejimiga qaytish/ });
+    expect(backLink).toHaveAttribute("href", "/uz-Latn/station/practice");
+  });
+
+  it("starts a sign practice session under /station/session/start", () => {
+    mockSigns();
+    renderKiosk();
+
+    const link = screen.getByRole("link", { name: /To'xtash taqiqlangan/ });
+    expect(link).toHaveAttribute(
+      "href",
+      "/uz-Latn/station/session/start?mode=practice&sign_id=3.27&count=4"
+    );
+  });
+});
