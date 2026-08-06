@@ -74,7 +74,7 @@ real protection.
 
 The agent is a single, statically-linked Windows executable with no
 installer and no runtime dependency (no .NET, no VC++ redistributable, no Go
-install on the target machine). Build it from `station/` with:
+install on the target machine). Build it from `backend/station/` with:
 
 ```
 GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=1.0.0" -o avtotest-station.exe ./cmd/avtotest-station

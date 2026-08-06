@@ -15,11 +15,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/encryptpan ./cmd/encryptpan \
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/healthcheck ./cmd/healthcheck
 
+# The classroom agent ships to school PCs from the admin panel, so the API image
+# carries a ready-to-serve Windows build. Cross-compiled here rather than
+# committed as a binary or copied onto the server by hand: either of those
+# drifts from the source, which is exactly how deploy/nginx-drivergo.uz.conf
+# ended up describing an architecture production never ran.
+RUN cd station \
+ && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
+      -ldflags="-s -w -X main.version=${STATION_VERSION:-1.0.0}" \
+      -o /out/avtotest-station.exe ./cmd/avtotest-station
+
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35
 WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=build /out/encryptpan /encryptpan
 COPY --from=build /out/healthcheck /healthcheck
+COPY --from=build /out/avtotest-station.exe /station/avtotest-station.exe
 ENV PORT=8080
 EXPOSE 8080
 USER nonroot:nonroot
