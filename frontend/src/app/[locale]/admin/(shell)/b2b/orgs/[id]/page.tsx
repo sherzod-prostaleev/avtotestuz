@@ -11,7 +11,6 @@ import InstallerPanel from "./installer-panel";
 
 type Station = {
   id: string;
-  fingerprint: string;
   label: string;
   status: string;
   activated_at: string;
@@ -290,7 +289,6 @@ export default function AdminB2BOrgDetailPage() {
                     <p className="font-semibold">
                       {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
                     </p>
-                    <p className="font-mono text-xs text-muted-foreground">{s.fingerprint}</p>
                   </div>
                   {s.status === "active" ? (
                     <Button type="button" size="sm" variant="outline" onClick={() => void revokeStation(s.id)}>

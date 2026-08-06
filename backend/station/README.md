@@ -31,9 +31,12 @@ avtotest-station.exe
 That first run reads its own embedded code, binds this machine to the
 school's org, draws one seat from the licence, copies itself into
 `%ProgramData%\AvtoTest\station\`, registers a `HKCU` autostart entry (see
-`internal/selfinstall`), and opens the kiosk. Every run after that —
-including every future boot — needs nothing typed at all; it already knows
-who it is and comes back on its own.
+`internal/selfinstall`), and opens the kiosk. Every time after that — every
+time the same Windows account logs back in, not merely every time the PC
+boots, since the autostart entry lives under that account's
+`HKCU\...\Run` — needs nothing typed at all; it already knows who it is and
+comes back on its own. That only happens unattended if the classroom PC
+auto-logs into that same account; see "Where the key and state live" below.
 
 Downloading the same installer again later reuses the same key: it does not
 disturb PCs already enrolled from earlier copies of the file, and the same
@@ -90,8 +93,16 @@ By default: `%ProgramData%\AvtoTest\station\`. That directory holds:
 - `station.key` — the sealed Ed25519 private key
 - `station.json` — the station id, org id and label returned at enrollment
 
-`%ProgramData%` is used, not a user profile, because the agent runs as a
-machine-wide service and no operator is necessarily logged in.
+`%ProgramData%` is used, not a user profile, so the install directory and
+seal don't move if a different account happens to touch the machine — but
+that does **not** mean the agent runs machine-wide or without a logged-in
+operator. Autostart is a `HKCU\...\Run` entry (see "The normal way" above),
+which only fires for the one Windows account that ran the installer. The
+classroom PC must be configured to **auto-login to that same account**: a
+second Windows account on the same machine will not launch the kiosk on its
+own, because the Run entry simply is not registered for it. Treat "one PC,
+one Windows account, that account auto-logs in" as a hard requirement of the
+install, not an incidental detail.
 
 ## The key is DPAPI machine-scoped
 
