@@ -35,7 +35,7 @@ func writeStoreErr(w http.ResponseWriter, err error, fallback string) {
 	case errors.Is(err, ErrSeatsExhausted):
 		httpx.Error(w, http.StatusConflict, "seats_exhausted", "active stations already fill license seats")
 	case errors.Is(err, ErrCodeExhausted):
-		httpx.Error(w, http.StatusConflict, "code_exhausted", "enrollment code has already been used up; ask your teacher for a new one")
+		httpx.Error(w, http.StatusConflict, "code_exhausted", "enrollment code has already been used up; ask your school admin to revoke a station or rotate the key")
 	case errors.Is(err, ErrOrgSuspended):
 		httpx.Error(w, http.StatusConflict, "org_suspended", "org is suspended")
 	case errors.Is(err, ErrNoLicense):

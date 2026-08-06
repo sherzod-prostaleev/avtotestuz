@@ -27,7 +27,7 @@ type StationRow struct {
 // distinct from ErrCodeExhausted: a license can shrink after a code is
 // minted, so the two counters are checked independently and need different
 // user-facing messages ("your school has no free seats" vs. "ask your
-// teacher for a new code").
+// admin to revoke a station or rotate the key").
 var ErrSeatsExhausted = errors.New("seats exhausted")
 
 // ErrCodeExhausted means the enroll code has hit its own max_uses, separate

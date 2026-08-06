@@ -62,7 +62,7 @@ func (h *Handler) stationAuth() StationAuth {
 // station's own successful traffic can never push it over the edge, while
 // an attacker who cannot produce a valid signature for a station id it does
 // not own (a station id is not a credential — it sits in agent config and
-// teacher-facing station lists) is bounded to a small number of guesses per
+// admin-facing station lists) is bounded to a small number of guesses per
 // hour.
 const (
 	// enrollIdentityLimit bounds attempts per enrollment code, not per PC:
@@ -124,7 +124,7 @@ const (
 	// stationToken), so nothing legitimate accumulates here anymore -- only
 	// sustained failure does. What is left to size for is purely how
 	// expensive it is for someone who merely knows a station's id (not a
-	// secret -- it sits in agent config and teacher-facing station lists)
+	// secret -- it sits in agent config and admin-facing station lists)
 	// to lock that station out of obtaining tokens for the rest of the
 	// window. Raised to 100: still small enough to fail closed quickly
 	// against a sustained attacker (an attacker without the station's

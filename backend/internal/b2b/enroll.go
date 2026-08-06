@@ -136,7 +136,7 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 
 	// Re-read the counter under the lock; a concurrent enroll may have used
 	// it. Re-check revoked_at/expires_at too: under a stampede a transaction
-	// can sit blocked on the org lock for a long time, and a teacher
+	// can sit blocked on the org lock for a long time, and an admin
 	// revoking a leaked code -- the emergency stop -- must still cut off
 	// every transaction already queued behind the lock, not just future ones.
 	if err := tx.QueryRow(ctx, `

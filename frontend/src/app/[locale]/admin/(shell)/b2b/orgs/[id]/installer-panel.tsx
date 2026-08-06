@@ -13,6 +13,19 @@ type InstallerKey = {
 
 const KIOSK_LOCALES = ["uz-Latn", "uz-Cyrl", "ru"] as const;
 
+// Domain error codes the backend's b2b installer endpoints can return (see
+// writeInstallerErr in backend/internal/admin/b2b_installer.go). Each gets its
+// own message so an operator knows what actually happened instead of a
+// generic "action failed" -- most importantly rotated_no_seats, where the
+// mutation (revoking the live key) already succeeded and only the
+// replacement failed to mint.
+const INSTALLER_ERROR_CODE_KEYS = {
+  rotated_no_seats: "installerErrorRotatedNoSeats",
+  no_license: "installerErrorNoLicense",
+  org_suspended: "installerErrorOrgSuspended",
+  seats_exhausted: "installerErrorSeatsExhausted",
+} as const;
+
 // One installer key per school: a POST is idempotent (returns the existing
 // key), rotate revokes it and issues a fresh one. The download is a plain
 // <a download> so the browser streams the .exe and honours the backend's
@@ -25,6 +38,14 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [dlLocale, setDlLocale] = useState<string>(locale);
+
+  const errorMessage = useCallback(
+    (code: unknown) => {
+      const key = typeof code === "string" ? INSTALLER_ERROR_CODE_KEYS[code as keyof typeof INSTALLER_ERROR_CODE_KEYS] : undefined;
+      return key ? t(key) : t("installerError");
+    },
+    [t],
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -54,7 +75,7 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
       const res = await fetch(`/api/admin/b2b/orgs/${orgId}/installer`, { method: "POST" });
       const body = await res.json();
       if (!res.ok) {
-        setError(t("installerError"));
+        setError(errorMessage(body?.error?.code));
         return;
       }
       setKey(body.data as InstallerKey);
@@ -73,7 +94,13 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
       const res = await fetch(`/api/admin/b2b/orgs/${orgId}/installer/rotate`, { method: "POST" });
       const body = await res.json();
       if (!res.ok) {
-        setError(t("installerError"));
+        setError(errorMessage(body?.error?.code));
+        if (body?.error?.code === "rotated_no_seats") {
+          // The backend's emergency stop already revoked the live key even
+          // though it couldn't mint a replacement -- the code we're still
+          // showing is dead. Stop rendering it as if it were live.
+          setKey(null);
+        }
         return;
       }
       setKey(body.data as InstallerKey);

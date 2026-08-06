@@ -178,6 +178,59 @@ describe("InstallerPanel", () => {
     );
   });
 
+  it("shows the no-seats message and stops rendering the code when rotate returns 409 rotated_no_seats", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === `/api/admin/b2b/orgs/${ORG_ID}/installer` && (!init || init.method === undefined)) {
+        return Promise.resolve(json({ data: key }));
+      }
+      if (init?.method === "POST" && url === `/api/admin/b2b/orgs/${ORG_ID}/installer/rotate`) {
+        return Promise.resolve(
+          json({ error: { code: "rotated_no_seats", message: "installer key revoked; no free seats for a replacement" } }, 409),
+        );
+      }
+      return Promise.resolve(json({ data: key }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    renderPanel();
+
+    expect(await screen.findByText(key.code)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: messages.AdminB2B.installerRotate }));
+
+    expect(
+      await screen.findByText(messages.AdminB2B.installerErrorRotatedNoSeats),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(key.code)).not.toBeInTheDocument();
+    expect(screen.getByText(messages.AdminB2B.installerNone)).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it("shows the generic error and keeps the code displayed when rotate fails for an unrecognised reason", async () => {
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === `/api/admin/b2b/orgs/${ORG_ID}/installer` && (!init || init.method === undefined)) {
+        return Promise.resolve(json({ data: key }));
+      }
+      if (init?.method === "POST" && url === `/api/admin/b2b/orgs/${ORG_ID}/installer/rotate`) {
+        return Promise.resolve(json({ error: { code: "internal", message: "boom" } }, 500));
+      }
+      return Promise.resolve(json({ data: key }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const user = userEvent.setup();
+    renderPanel();
+
+    expect(await screen.findByText(key.code)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: messages.AdminB2B.installerRotate }));
+
+    expect(await screen.findByText(messages.AdminB2B.installerError)).toBeInTheDocument();
+    expect(screen.getByText(key.code)).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
   it("does not render a download link when no key has been opened yet", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(json({ data: null })));
     vi.stubGlobal("fetch", fetchMock);
