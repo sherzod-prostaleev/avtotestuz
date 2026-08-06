@@ -170,3 +170,122 @@ func TestOpenEnrollWindowOpensAtSeatsBoundary(t *testing.T) {
 		t.Fatalf("max_uses=%d, want 1 (exactly one free seat)", code.MaxUses)
 	}
 }
+
+func TestOpenInstallerKeyIsIdempotent(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 30, now(), now() + interval '365 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+
+	first, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.MaxUses != 30 {
+		t.Fatalf("max_uses=%d, want 30", first.MaxUses)
+	}
+	// Expiry tracks the licence, not a fixed TTL: a 365-day licence must not
+	// yield a code that dies before a 30-PC rollout finishes.
+	if d := time.Until(first.ExpiresAt); d < 300*24*time.Hour {
+		t.Fatalf("expires in %v, want ~365 days", d)
+	}
+
+	second, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.Code != first.Code || second.ID != first.ID {
+		t.Fatalf("second call minted a new key (%s) instead of reusing %s", second.Code, first.Code)
+	}
+}
+
+func TestRotateInstallerKeyRevokesTheOldOne(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO b2b_org_license (org_id, seats, starts_at, ends_at, note)
+		VALUES ($1, 5, now(), now() + interval '30 days', 'test')`, orgID); err != nil {
+		t.Fatal(err)
+	}
+
+	old, err := store.OpenInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fresh, err := store.RotateInstallerKey(ctx, orgID, "admin:test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fresh.Code == old.Code {
+		t.Fatal("rotate returned the same code")
+	}
+
+	// The old key must no longer enrol.
+	_, err = store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: old.Code, PublicKey: newPub(t), HWIDHash: testHWID("rotate-old"), Label: "PC",
+	})
+	if !errors.Is(err, b2b.ErrNotFound) {
+		t.Fatalf("old code err=%v, want ErrNotFound", err)
+	}
+	// The new one must.
+	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: fresh.Code, PublicKey: newPub(t), HWIDHash: testHWID("rotate-new"), Label: "PC",
+	}); err != nil {
+		t.Fatalf("new code failed to enrol: %v", err)
+	}
+}
+
+func TestActiveInstallerKeyNilWithoutOne(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	row, err := store.ActiveInstallerKey(ctx, orgID)
+	if err != nil {
+		t.Fatalf("err=%v, want nil", err)
+	}
+	if row != nil {
+		t.Fatalf("row=%+v, want nil", row)
+	}
+}
+
+func TestOpenInstallerKeyNeedsALiveLicense(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	var orgID uuid.UUID
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO b2b_org (name) VALUES ('School') RETURNING id`).Scan(&orgID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := store.OpenInstallerKey(ctx, orgID, "admin:test"); !errors.Is(err, b2b.ErrNoLicense) {
+		t.Fatalf("err=%v, want ErrNoLicense", err)
+	}
+}
