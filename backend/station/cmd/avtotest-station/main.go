@@ -163,6 +163,16 @@ func main() {
 		} else if didInstall {
 			log.Printf("installed to %s and registered autostart", installed)
 		}
+		// Cosmetic, so a failure is logged and stepped over: a locked-down
+		// classroom profile may refuse to write to the desktop, and the kiosk
+		// works perfectly well without an icon.
+		if err == nil {
+			if path, created, sErr := selfinstall.EnsureShortcut(installed); sErr != nil {
+				log.Printf("desktop shortcut: %v (continuing without one)", sErr)
+			} else if created {
+				log.Printf("placed a DriverGo shortcut at %s", path)
+			}
+		}
 	}
 
 	id, err := hwid.Collect()

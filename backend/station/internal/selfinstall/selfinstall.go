@@ -120,6 +120,9 @@ func Remove(stateDir string) error {
 	if err := unregisterAutostart(); err != nil {
 		return fmt.Errorf("selfinstall: unregister autostart: %w", err)
 	}
+	if err := removeShortcut(); err != nil {
+		return fmt.Errorf("selfinstall: remove desktop shortcut: %w", err)
+	}
 	if err := os.Remove(Target(stateDir)); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return fmt.Errorf("selfinstall: remove installed copy: %w", err)
 	}

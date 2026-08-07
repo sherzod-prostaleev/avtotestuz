@@ -27,7 +27,15 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # committed as a binary or copied onto the server by hand: either of those
 # drifts from the source, which is exactly how deploy/nginx-drivergo.uz.conf
 # ended up describing an architecture production never ran.
+# genwinres first: it writes cmd/avtotest-station/rsrc_windows_amd64.syso,
+# which the Windows build below links in automatically. That carries the
+# DriverGo icon (so the desktop shortcut and Explorer show the emblem instead
+# of a blank executable) and the version block. Neither replaces an
+# Authenticode signature, but an unsigned binary that also has no publisher,
+# no product name and no version is the exact shape SmartScreen treats as
+# anonymous.
 RUN cd station \
+ && go run ./cmd/genwinres -version "${STATION_VERSION:-1.0.0}" \
  && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
       -ldflags="-s -w -X main.version=${STATION_VERSION:-1.0.0}" \
       -o /out/avtotest-station.exe ./cmd/avtotest-station
