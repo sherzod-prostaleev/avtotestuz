@@ -40,10 +40,10 @@ export default function StationPage() {
   }
 
   return (
-    <main key={sitting} className="mx-auto max-w-2xl space-y-6 p-8">
+    <main key={sitting} className="mx-auto max-w-3xl space-y-6 p-8">
       <h1 className="text-3xl font-bold">{t("title")}</h1>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Link href={`/${locale}/station/practice`} className="rounded-lg border p-6 text-center text-xl">
           {t("practice")}
         </Link>
@@ -61,6 +61,9 @@ export default function StationPage() {
         </Link>
         <Link href={`/${locale}/station/saved`} className="rounded-lg border p-6 text-center text-xl">
           {t("saved")}
+        </Link>
+        <Link href={`/${locale}/station/leaderboard`} className="rounded-lg border p-6 text-center text-xl">
+          {t("leaderboard")}
         </Link>
       </div>
 

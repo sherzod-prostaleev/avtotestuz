@@ -86,4 +86,12 @@ describe("StationPage", () => {
     const link = await screen.findByRole("link", { name: "saved" });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/saved");
   });
+
+  it("offers the leaderboard", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "leaderboard" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/leaderboard");
+  });
 });
