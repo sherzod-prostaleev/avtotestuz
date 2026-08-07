@@ -290,3 +290,42 @@ describe("adminProxy TOTP enrollment credential", () => {
     expect(response.cookies.get(ADMIN_AUTH_COOKIE)).toBeUndefined();
   });
 });
+
+// The installer download URL ends in .exe -- an extension CDNs treat as static
+// by default -- and its body is a bearer credential: the school's installer key
+// is appended to the binary. forwardResponse used to copy only Content-Type and
+// Content-Disposition, dropping whatever Cache-Control the backend set, so a
+// school kept being handed the build it downloaded first while the console
+// reported an old version.
+describe("adminProxy caching", () => {
+  it("marks a binary download no-store even when the backend header is dropped", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(new Uint8Array([0x4d, 0x5a, 0x90]), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/octet-stream",
+          "Content-Disposition": 'attachment; filename="avtotest-station-school.exe"',
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await adminProxy(adminRequest(), "/b2b/orgs/x/installer.exe", { method: "GET" });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Disposition")).toContain("avtotest-station-school.exe");
+    expect(response.headers.get("Cache-Control")).toMatch(/no-store/);
+    expect(response.headers.get("Cache-Control")).toMatch(/private/);
+  });
+
+  it("marks ordinary JSON admin responses no-store too", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await adminProxy(adminRequest(), "/me", { method: "GET" });
+
+    expect(response.headers.get("Cache-Control")).toMatch(/no-store/);
+  });
+});

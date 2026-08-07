@@ -59,6 +59,15 @@ async function forwardResponse(
   if (contentType) response.headers.set("Content-Type", contentType);
   const disposition = backendRes.headers.get("content-disposition");
   if (disposition) response.headers.set("Content-Disposition", disposition);
+  // Nothing behind an admin session may be cached by a browser, a proxy or a
+  // CDN. This used to forward only the two headers above, which dropped the
+  // backend's own Cache-Control -- and the installer download URL ends in
+  // .exe, an extension edge caches treat as static, so a school kept being
+  // handed the same build after every fix while the console reported an old
+  // version. That response body is also a bearer credential: the school's
+  // installer key is appended to the binary.
+  response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0");
+  response.headers.set("Pragma", "no-cache");
   if (rotated) setAdminAuthCookies(response, rotated);
   return response;
 }

@@ -189,6 +189,18 @@ func (h *Handler) downloadB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("Content-Disposition",
 		`attachment; filename="`+b2b.InstallerFilename(orgName, orgID)+`"`)
+	// Never cached, by anything.
+	//
+	// Two reasons, and the weaker one is the one that bit first: the URL ends
+	// in .exe, an extension edge caches treat as static by default, so a
+	// school that downloaded the agent once kept being handed that same build
+	// after every fix -- the console reported an old version and nobody could
+	// see why. The stronger reason is that this response body is a bearer
+	// credential: the installer key is appended to the binary, so a copy
+	// sitting in a shared cache is a copy of the school's enrolment key.
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	// Streamed, so no Content-Length: the trailer's size is not known until the
 	// base has been copied, and buffering a 7 MB binary per download to learn it
 	// buys nothing.
