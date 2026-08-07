@@ -6,9 +6,15 @@ import { useLocale, useTranslations } from "next-intl";
 import { apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 
+// GET /me answers {"data":{"profile":{...},"vip":{...}}} and apiGet unwraps
+// only "data", so the profile is one level down -- the same shape
+// (app)/profile/page.tsx and use-user-stats.ts already read. Reading kind off
+// the top level yields undefined against the real backend, which is how every
+// classroom PC was told it was not a classroom PC.
+//
 // `kind` is the only field that distinguishes a station: a shadow profile's
 // `role` is the default "user" like any learner's.
-type Me = { kind: string };
+type Me = { profile?: { kind?: string } };
 
 export default function StationPage() {
   const t = useTranslations("Station");
@@ -35,7 +41,7 @@ export default function StationPage() {
 
   if (!checked) return null;
 
-  if (!me || me.kind !== "station") {
+  if (me?.profile?.kind !== "station") {
     return <p className="p-8 text-center text-lg">{t("notStation")}</p>;
   }
 
