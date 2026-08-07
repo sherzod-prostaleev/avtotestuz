@@ -49,6 +49,54 @@ type State struct {
 // ErrNotEnrolled means this PC has never been bound to a school.
 var ErrNotEnrolled = errors.New("station is not enrolled")
 
+// ErrStationUnauthorized means the backend refused this station's identity:
+// it no longer knows the station id, or the station was revoked, or the
+// signature/HWID did not match. The server answers all of those with one
+// opaque code on purpose -- an unauthenticated endpoint must not reveal
+// whether a given station id exists -- so the agent cannot tell them apart
+// either, and must not "recover" by silently enrolling again: that would
+// undo an admin's revoke and spend a fresh seat. Callers surface it to
+// whoever is standing at the PC instead.
+var ErrStationUnauthorized = errors.New("station authentication failed")
+
+// APIError carries the backend's error envelope so callers can match on the
+// code rather than on message text.
+type APIError struct {
+	Path    string
+	Code    string
+	Message string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%s: %s (%s)", e.Path, e.Message, e.Code)
+}
+
+// Is lets errors.Is(err, ErrStationUnauthorized) work without callers
+// knowing the wire code.
+func (e *APIError) Is(target error) bool {
+	return target == ErrStationUnauthorized && e.Code == "station_unauthorized"
+}
+
+// ResetEnrollment discards this PC's station identity -- the saved station id
+// and the sealed private key -- so the next start enrolls as a brand new
+// station. Deliberately not automatic: see ErrStationUnauthorized.
+func (a *Agent) ResetEnrollment() error {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	a.state = State{}
+	a.loaded = true
+	a.token = ""
+	a.tokenTill = time.Time{}
+
+	for _, path := range []string{a.statePath(), keystore.KeyPath(a.StateDir)} {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("reset enrollment: %w", err)
+		}
+	}
+	return nil
+}
+
 func (a *Agent) client() *http.Client {
 	if a.HTTP != nil {
 		return a.HTTP
@@ -113,7 +161,7 @@ func (a *Agent) post(ctx context.Context, path string, in, out any) error {
 	}
 	if resp.StatusCode != http.StatusOK {
 		if env.Error != nil {
-			return fmt.Errorf("%s: %s (%s)", path, env.Error.Message, env.Error.Code)
+			return &APIError{Path: path, Code: env.Error.Code, Message: env.Error.Message}
 		}
 		return fmt.Errorf("%s: status %d", path, resp.StatusCode)
 	}

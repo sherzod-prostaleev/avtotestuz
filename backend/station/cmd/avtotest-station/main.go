@@ -116,6 +116,7 @@ func main() {
 		selfTest       = flag.Bool("selftest", false, "run hwid/keystore checks in a scratch directory and print a pass/fail verdict, then exit; does not touch the real enrollment")
 		selfTestImport = flag.String("selftest-import", "", "path to a station.key copied from another machine; try to unseal it here and report whether the machine binding held, then exit")
 		uninstall      = flag.Bool("uninstall", false, "remove the installed copy and autostart entry, then exit (does not free this station's seat -- revoke it in the admin panel too)")
+		reenroll       = flag.Bool("reenroll", false, "discard this PC's station identity and enrol again as a new station; use when the backend no longer recognises it (the school was deleted and recreated). Spends a seat, so revoke the dead station in the admin panel too")
 	)
 	flag.Parse()
 
@@ -180,6 +181,16 @@ func main() {
 	a := &agent.Agent{APIBase: cfg.API, StateDir: *stateDir, Keys: keys, HWID: id, Version: version}
 	ctx := context.Background()
 
+	if *reenroll {
+		if cfg.Code == "" {
+			log.Fatal("-reenroll needs an installer key: run the .exe downloaded for this school, or pass -code AVTO-XXXX-XXXX")
+		}
+		if err := a.ResetEnrollment(); err != nil {
+			log.Fatalf("reenroll: %v", err)
+		}
+		log.Print("discarded the previous station identity; enrolling as a new station")
+	}
+
 	if _, err := a.Token(ctx); err != nil {
 		if errors.Is(err, agent.ErrNotEnrolled) {
 			if cfg.Code == "" {
@@ -212,7 +223,22 @@ func main() {
 			// to notice. Serving on and retrying in the background is safe in
 			// both cases — the kiosk visibly shows "station offline" instead
 			// of nothing running at all.
-			log.Printf("station token unavailable at startup, will keep retrying in the background: %v", err)
+			if errors.Is(err, agent.ErrStationUnauthorized) {
+				// The backend answers "unknown station", "revoked station"
+				// and "bad signature" with one opaque code, so the agent
+				// cannot tell a school that was deleted and recreated from a
+				// PC an admin deliberately switched off. Enrolling again
+				// would spend a seat and quietly undo a revoke, so it stays a
+				// human decision -- but the console has to say which decision
+				// it is, instead of repeating "authentication failed" until
+				// someone gives up.
+				log.Print("the backend does not recognise this PC's enrollment.")
+				log.Print("  - if this school was deleted and recreated, or the station was removed: re-run this .exe with -reenroll")
+				log.Print("  - if an admin revoked this PC on purpose: leave it; re-enrolling would undo that and spend a seat")
+				log.Printf("  (retrying in the background in case this is temporary: %v)", err)
+			} else {
+				log.Printf("station token unavailable at startup, will keep retrying in the background: %v", err)
+			}
 		}
 	}
 	go keepTokenWarm(ctx, a, defaultTokenRetry)
@@ -313,7 +339,13 @@ func keepTokenWarm(ctx context.Context, a *agent.Agent, sched tokenSchedule) {
 	backoff := sched.initial
 	for {
 		if _, err := a.Token(ctx); err != nil {
-			log.Printf("station token unavailable, retrying in %s: %v", backoff, err)
+			if errors.Is(err, agent.ErrStationUnauthorized) {
+				// Repeating the full diagnosis every few seconds buries it.
+				// The startup path already printed what to do about this one.
+				log.Printf("station rejected by the backend, retrying in %s (see -reenroll above)", backoff)
+			} else {
+				log.Printf("station token unavailable, retrying in %s: %v", backoff, err)
+			}
 			select {
 			case <-time.After(backoff):
 			case <-ctx.Done():
