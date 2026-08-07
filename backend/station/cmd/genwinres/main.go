@@ -27,7 +27,8 @@ import (
 func main() {
 	var (
 		icon    = flag.String("icon", "build/drivergo.ico", "icon to embed")
-		out     = flag.String("out", "cmd/avtotest-station/rsrc_windows_amd64.syso", "resource object to write")
+		out     = flag.String("out", "cmd/avtotest-station/rsrc_windows_386.syso", "resource object to write")
+		arch    = flag.String("arch", "386", "target architecture: 386 or amd64")
 		ver     = flag.String("version", "1.0.0", "product version, x.y.z")
 		product = flag.String("product", "DriverGo Station", "product name shown in file properties")
 		company = flag.String("company", "DriverGo", "publisher shown in file properties")
@@ -65,7 +66,16 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	if err := rs.WriteObject(w, winres.ArchAMD64); err != nil {
+	// The resource object is architecture-tagged and the linker refuses one
+	// built for the wrong target, so this has to follow whatever GOARCH the
+	// build uses -- 386 by default, because that binary runs on both 32-bit
+	// and 64-bit Windows and old classroom PCs are exactly where a 64-bit-only
+	// build fails with "this app can't run on your PC".
+	target := winres.ArchI386
+	if *arch == "amd64" {
+		target = winres.ArchAMD64
+	}
+	if err := rs.WriteObject(w, target); err != nil {
 		_ = w.Close()
 		fail(err)
 	}

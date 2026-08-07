@@ -120,6 +120,13 @@ func Remove(stateDir string) error {
 	if err := unregisterAutostart(); err != nil {
 		return fmt.Errorf("selfinstall: unregister autostart: %w", err)
 	}
+	// station.log is written beside the key (see cmd/avtotest-station/diag.go)
+	// and is part of "this station's local state" the doc comment promises to
+	// clear, so a decommissioned PC does not keep a log of a school it no
+	// longer belongs to.
+	if err := os.Remove(filepath.Join(stateDir, "station.log")); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("selfinstall: remove log: %w", err)
+	}
 	if err := removeShortcut(); err != nil {
 		return fmt.Errorf("selfinstall: remove desktop shortcut: %w", err)
 	}

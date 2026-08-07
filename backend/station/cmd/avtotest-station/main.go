@@ -120,6 +120,8 @@ func main() {
 	)
 	flag.Parse()
 
+	startLogging(*stateDir)
+
 	if *selfTestImport != "" {
 		os.Exit(runSelfTestImport(*selfTestImport))
 	}
@@ -129,7 +131,7 @@ func main() {
 
 	if *uninstall {
 		if err := selfinstall.Remove(*stateDir); err != nil {
-			log.Fatalf("uninstall: %v", err)
+			fatal("uninstall: %v", err)
 		}
 		fmt.Printf("Uninstalled: removed the autostart entry and deleted %s plus this station's saved key and state\n", selfinstall.Target(*stateDir))
 		fmt.Println("This only removes local files -- it does not free this station's seat.")
@@ -153,7 +155,7 @@ func main() {
 		set["api"], set["frontend"], set["locale"])
 
 	if !validLocale(cfg.Locale) {
-		log.Fatalf("invalid -locale %q: must be one of %s", cfg.Locale, strings.Join(stationLocales, ", "))
+		fatal("invalid -locale %q: must be one of %s", cfg.Locale, strings.Join(stationLocales, ", "))
 	}
 
 	if embedded.Code != "" {
@@ -177,11 +179,11 @@ func main() {
 
 	id, err := hwid.Collect()
 	if err != nil {
-		log.Fatalf("hardware id: %v", err)
+		fatal("hardware id: %v", err)
 	}
 	keys, err := keystore.Open(*stateDir)
 	if err != nil {
-		log.Fatalf("keystore: %v", err)
+		fatal("keystore: %v", err)
 	}
 	name := *label
 	if name == "" {
@@ -193,10 +195,10 @@ func main() {
 
 	if *reenroll {
 		if cfg.Code == "" {
-			log.Fatal("-reenroll needs an installer key: run the .exe downloaded for this school, or pass -code AVTO-XXXX-XXXX")
+			fatal("-reenroll needs an installer key: run the .exe downloaded for this school, or pass -code AVTO-XXXX-XXXX")
 		}
 		if err := a.ResetEnrollment(); err != nil {
-			log.Fatalf("reenroll: %v", err)
+			fatal("reenroll: %v", err)
 		}
 		log.Print("discarded the previous station identity; enrolling as a new station")
 	}
@@ -204,7 +206,7 @@ func main() {
 	if _, err := a.Token(ctx); err != nil {
 		if errors.Is(err, agent.ErrNotEnrolled) {
 			if cfg.Code == "" {
-				log.Fatal("this PC is not enrolled yet: run again with -code AVTO-XXXX-XXXX")
+				fatal("this PC is not enrolled yet: run again with -code AVTO-XXXX-XXXX")
 			}
 			// A first-boot GPO rollout runs this exe in the same cold-network
 			// window as every later boot, so one failed attempt must not be
@@ -212,7 +214,7 @@ func main() {
 			// unbounded retry either, so this gives up loudly after a few
 			// tries — there is nothing left to do automatically at that point.
 			if err := enrollWithRetry(ctx, a, cfg.Code, name, defaultEnrollRetry); err != nil {
-				log.Fatalf("enrollment failed: %v", err)
+				fatal("enrollment failed: %v", err)
 			}
 			log.Printf("enrolled as %q", name)
 			if _, err := a.Token(ctx); err != nil {
@@ -262,7 +264,12 @@ func main() {
 		}
 	}
 	log.Printf("avtotest-station %s serving %s", version, url)
-	log.Fatal(http.ListenAndServe(*addr, handler))
+	// The listener is the one failure a running classroom hits most:
+	// another copy of the agent already holds the port. Say so plainly and
+	// keep the window open, rather than vanishing.
+	if err := http.ListenAndServe(*addr, handler); err != nil {
+		fatal("cannot serve on %s: %v (is the agent already running? check the tray/Task Manager for avtotest-station.exe)", *addr, err)
+	}
 }
 
 // defaultStateDir keeps the key beside the program data, not in a user

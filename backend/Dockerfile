@@ -34,9 +34,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # Authenticode signature, but an unsigned binary that also has no publisher,
 # no product name and no version is the exact shape SmartScreen treats as
 # anonymous.
+# GOARCH=386, not amd64. A 386 binary runs on 32-bit AND 64-bit Windows
+# (WOW64), while a 64-bit one fails outright on an older PC with "this app
+# can't run on your PC" -- which is exactly the fleet a driving school has.
+# One universal download beats making a school pick the right architecture,
+# and the agent is a tiny local proxy, so nothing here needs 64-bit.
 RUN cd station \
- && go run ./cmd/genwinres -version "${STATION_VERSION:-1.0.0}" \
- && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
+ && go run ./cmd/genwinres -arch 386 -version "${STATION_VERSION:-1.0.0}" \
+ && CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -trimpath \
       -ldflags="-s -w -X main.version=${STATION_VERSION:-1.0.0}" \
       -o /out/avtotest-station.exe ./cmd/avtotest-station
 
