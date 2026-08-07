@@ -57,34 +57,34 @@ describe("StationPage", () => {
     apiGet.mockRejectedValue(new Error("network error"));
     render(<StationPage />);
 
-    await waitFor(() => expect(screen.getByText("notStation")).toBeInTheDocument());
-    expect(screen.queryByText("practice")).not.toBeInTheDocument();
-    expect(screen.queryByText("exam")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Station.notStation")).toBeInTheDocument());
+    expect(screen.queryByText("Station.practice")).not.toBeInTheDocument();
+    expect(screen.queryByText("Station.exam")).not.toBeInTheDocument();
   });
 
   it("renders the refusal, with no entry points, for a learner session", async () => {
     apiGet.mockResolvedValue(meResponse("user"));
     render(<StationPage />);
 
-    await waitFor(() => expect(screen.getByText("notStation")).toBeInTheDocument());
-    expect(screen.queryByText("practice")).not.toBeInTheDocument();
-    expect(screen.queryByText("exam")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Station.notStation")).toBeInTheDocument());
+    expect(screen.queryByText("Station.practice")).not.toBeInTheDocument();
+    expect(screen.queryByText("Station.exam")).not.toBeInTheDocument();
   });
 
   it("renders the practice and tickets entry points for a station session", async () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    await waitFor(() => expect(screen.getByText("practice")).toBeInTheDocument());
-    expect(screen.getByText("exam")).toBeInTheDocument();
-    expect(screen.queryByText("notStation")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("Station.practice")).toBeInTheDocument());
+    expect(screen.getByText("Station.exam")).toBeInTheDocument();
+    expect(screen.queryByText("Station.notStation")).not.toBeInTheDocument();
   });
 
   it("offers the exam simulation", async () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    const link = await screen.findByRole("link", { name: "exam" });
+    const link = await screen.findByRole("link", { name: /Station\.exam/ });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/session/start?mode=exam");
   });
 
@@ -92,7 +92,7 @@ describe("StationPage", () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    const link = await screen.findByRole("link", { name: "signs" });
+    const link = await screen.findByRole("link", { name: /Station\.signs/ });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/signs");
   });
 
@@ -100,7 +100,7 @@ describe("StationPage", () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    const link = await screen.findByRole("link", { name: "stats" });
+    const link = await screen.findByRole("link", { name: /Station\.stats/ });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/stats");
   });
 
@@ -108,7 +108,7 @@ describe("StationPage", () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    const link = await screen.findByRole("link", { name: "saved" });
+    const link = await screen.findByRole("link", { name: /Station\.saved/ });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/saved");
   });
 
@@ -116,7 +116,50 @@ describe("StationPage", () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
-    const link = await screen.findByRole("link", { name: "leaderboard" });
+    const link = await screen.findByRole("link", { name: /Station\.leaderboard/ });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/leaderboard");
+  });
+
+  // A station is excluded from the rankings on purpose, so the card must say
+  // the board is read-only here rather than reuse Leaderboard.subtitle, which
+  // invites the reader to compete for points they can never earn.
+  it("says the leaderboard is read-only for this PC", async () => {
+    apiGet.mockResolvedValue(meResponse("station"));
+    render(<StationPage />);
+
+    expect(await screen.findByText("Station.leaderboardNote")).toBeInTheDocument();
+    expect(screen.queryByText("Leaderboard.subtitle")).not.toBeInTheDocument();
+  });
+
+  // "Next student" reset nothing a shared PC actually keeps -- it only
+  // remounted the screen the student was already looking at -- so it was one
+  // more thing on a classroom wall to explain.
+  it("offers no next-student button", async () => {
+    apiGet.mockResolvedValue(meResponse("station"));
+    render(<StationPage />);
+
+    await screen.findByText("Station.title");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByText(/newStudent/)).not.toBeInTheDocument();
+  });
+
+  // The kiosk names the PC so a teacher can tell which machine they are
+  // standing at without opening the admin panel.
+  it("shows the station's own name", async () => {
+    apiGet.mockResolvedValue(meResponse("station"));
+    render(<StationPage />);
+
+    expect(await screen.findByText("PC-1")).toBeInTheDocument();
+  });
+
+  // Every excluded surface stays excluded after the redesign.
+  it("offers no route into mistakes, arena, premium, checkout, profile or dashboard", async () => {
+    apiGet.mockResolvedValue(meResponse("station"));
+    render(<StationPage />);
+
+    await screen.findByText("Station.title");
+    for (const href of screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "")) {
+      expect(href).toMatch(/^\/uz-Latn\/station(\/|$|\?)/);
+    }
   });
 });

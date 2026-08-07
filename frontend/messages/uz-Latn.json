@@ -1930,7 +1930,7 @@
     "multiPcStepSession": "PC almashtirilsa yoki endi kerak bo'lmasa, admin uning ulanishini shu paneldan bekor qiladi — bo'shagan o'rin yangi kompyuter uchun ishlatiladi.",
     "deleteZoneTitle": "Xavfli zona",
     "deleteTitle": "Avtomaktabni butunlay o‘chirish",
-    "deleteHint": "Avtomaktab, litsenziyalar, installer kaliti, ulangan PClar va maktab chegirma kodlari o‘chadi. Foydalanuvchi profillari saqlanadi.",
+    "deleteHint": "Avtomaktab, litsenziyalar, installer kaliti, ulangan PClar va maktab chegirma kodlari o‘chadi. Foydalanuvchi profillari saqlanadi. DIQQAT: o‘rnatilgan har bir sinfxona kompyuteri ishlamay qoladi va o‘zi tiklanmaydi — har biriga borib .exe ni -reenroll bilan qayta ishga tushirish kerak bo‘ladi. Vaqtincha to‘xtatish uchun o‘chirish emas, to‘xtatib turish yoki installer kalitini almashtirishdan foydalaning.",
     "deleteButton": "Avtomaktabni butunlay o‘chirish",
     "deleteConfirmTitle": "Avtomaktabni qaytarib bo‘lmas tarzda o‘chirish",
     "deletePhrase": "Tasdiqlash uchun avtomaktab nomini aynan yozing:",
@@ -2030,8 +2030,8 @@
     "stats": "Statistika",
     "saved": "Saqlanganlar",
     "leaderboard": "Reyting",
-    "newStudent": "Yangi o'quvchi",
-    "notStation": "Bu sahifa faqat sinfxona kompyuteri uchun"
+    "notStation": "Bu sahifa faqat sinfxona kompyuteri uchun",
+    "leaderboardNote": "Reytingni kuzatib boring — sinfxona kompyuteri ro'yxatga yozilmaydi"
   },
   "MaintenanceBanner": {
     "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."
