@@ -78,4 +78,12 @@ describe("StationPage", () => {
     const link = await screen.findByRole("link", { name: "stats" });
     expect(link).toHaveAttribute("href", "/uz-Latn/station/stats");
   });
+
+  it("offers saved questions", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "saved" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/saved");
+  });
 });
