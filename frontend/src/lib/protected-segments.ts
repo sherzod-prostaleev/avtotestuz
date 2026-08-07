@@ -19,7 +19,6 @@ export const PROTECTED_SEGMENTS = [
   "saved",
   "session",
   "checkout",
-  "teacher",
 ];
 
 export function matchesAny(pathname: string, segments: string[]): boolean {

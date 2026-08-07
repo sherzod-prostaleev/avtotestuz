@@ -16,18 +16,32 @@ import { useSignDetail, useSigns, type SignItem } from "@/hooks/use-signs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-function practiceHref(locale: string, code: string, count: number): string {
+function practiceHref(sessionStartBase: string, code: string, count: number): string {
   const params = new URLSearchParams({
     mode: "practice",
     sign_id: code,
     count: String(Math.max(count, 1)),
   });
-  return `/${locale}/session/start?${params.toString()}`;
+  return `${sessionStartBase}?${params.toString()}`;
 }
 
-export default function SignsPage() {
+export interface SignsPageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/signs/page.tsx):
+  // this page has no dashboard or VIP surface to suppress — signs are pure
+  // reference content — only two navigation targets (the back link and the
+  // practice-session push) that must stay inside /station instead of the
+  // learner app's gated /practice and /session/start routes.
+  kiosk?: boolean;
+}
+
+export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
   const t = useTranslations("Signs");
   const locale = useLocale();
+  const backHref = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
+  // /station/session/start (not /session/start): keeps the proxy.ts kiosk
+  // exemption scoped to the /station/... namespace — see practice/page.tsx
+  // for the same pattern.
+  const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
   const [activeGroup, setActiveGroup] = useState("all");
   const [search, setSearch] = useState("");
   const [activeModalSign, setActiveModalSign] = useState<SignItem | null>(null);
@@ -70,7 +84,7 @@ export default function SignsPage() {
     <main className="page-shell space-y-5 sm:space-y-6">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={`/${locale}/practice`} className="back-link">
+          <Link href={backHref} className="back-link">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             {t("backToPractice")}
           </Link>
@@ -172,7 +186,7 @@ export default function SignsPage() {
               <Card key={sign.code} className="surface-interactive relative overflow-hidden p-0 hover:border-accent">
                 {hasQuestions ? (
                   <Link
-                    href={practiceHref(locale, sign.code, sign.question_count)}
+                    href={practiceHref(sessionStartBase, sign.code, sign.question_count)}
                     className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     aria-label={`${sign.code}. ${sign.name}. ${t("questionCountLabel", { count: sign.question_count })}`}
                   >
@@ -275,7 +289,7 @@ export default function SignsPage() {
               </Button>
               {modalCount > 0 && (
                 <Link
-                  href={practiceHref(locale, activeModalSign.code, modalCount)}
+                  href={practiceHref(sessionStartBase, activeModalSign.code, modalCount)}
                   className="inline-flex h-9 items-center justify-center rounded-xl bg-accent px-4 text-sm font-extrabold text-accent-foreground"
                 >
                   <Play className="mr-2 h-4 w-4" aria-hidden="true" />

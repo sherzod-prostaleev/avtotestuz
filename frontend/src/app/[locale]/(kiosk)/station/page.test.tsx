@@ -54,4 +54,44 @@ describe("StationPage", () => {
     expect(screen.getByText("exam")).toBeInTheDocument();
     expect(screen.queryByText("notStation")).not.toBeInTheDocument();
   });
+
+  it("offers the exam simulation", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "exam" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/session/start?mode=exam");
+  });
+
+  it("offers road signs", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "signs" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/signs");
+  });
+
+  it("offers stats", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "stats" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/stats");
+  });
+
+  it("offers saved questions", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "saved" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/saved");
+  });
+
+  it("offers the leaderboard", async () => {
+    apiGet.mockResolvedValue({ kind: "station", name: "PC-1" });
+    render(<StationPage />);
+
+    const link = await screen.findByRole("link", { name: "leaderboard" });
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/leaderboard");
+  });
 });

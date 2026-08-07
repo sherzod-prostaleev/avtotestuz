@@ -7,6 +7,13 @@
 
 FROM golang:1.26-alpine@sha256:0178a641fbb4858c5f1b48e34bdaabe0350a330a1b1149aabd498d0699ff5fb2 AS build
 WORKDIR /src
+# Declared so the station build's ${STATION_VERSION:-1.0.0} below has
+# something to expand: without an ARG of the same name, the shell sees an
+# unset variable and always falls through to the default, so every agent
+# ever built by this image reported 1.0.0 regardless of --build-arg
+# STATION_VERSION=... -- the one column (b2b_station.agent_version) that
+# would tell ops which build a classroom PC is running.
+ARG STATION_VERSION=1.0.0
 RUN apk add --no-cache ca-certificates git
 COPY go.mod go.sum ./
 RUN go mod download
@@ -15,11 +22,22 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/encryptpan ./cmd/encryptpan \
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/healthcheck ./cmd/healthcheck
 
+# The classroom agent ships to school PCs from the admin panel, so the API image
+# carries a ready-to-serve Windows build. Cross-compiled here rather than
+# committed as a binary or copied onto the server by hand: either of those
+# drifts from the source, which is exactly how deploy/nginx-drivergo.uz.conf
+# ended up describing an architecture production never ran.
+RUN cd station \
+ && CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
+      -ldflags="-s -w -X main.version=${STATION_VERSION:-1.0.0}" \
+      -o /out/avtotest-station.exe ./cmd/avtotest-station
+
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35
 WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=build /out/encryptpan /encryptpan
 COPY --from=build /out/healthcheck /healthcheck
+COPY --from=build /out/avtotest-station.exe /station/avtotest-station.exe
 ENV PORT=8080
 EXPOSE 8080
 USER nonroot:nonroot

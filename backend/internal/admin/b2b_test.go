@@ -26,20 +26,13 @@ func TestAdminB2B(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	profileID := uuid.New()
-	if _, err := pool.Exec(context.Background(),
-		`INSERT INTO profile (id, phone, name) VALUES ($1, $2, $3)`,
-		profileID, "+998903334455", "Student"); err != nil {
-		t.Fatal(err)
-	}
-
 	h := &Handler{Svc: Service{Store: store, Secret: secret}, Pool: pool, Secret: secret}
 	r := chi.NewRouter()
 	r.Route("/admin/v1", h.Routes)
 	access := loginAccess(t, r, "ops@example.uz", "password123")
 
 	var orgID uuid.UUID
-	t.Run("create org license member grant", func(t *testing.T) {
+	t.Run("create org license and station", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs",
 			bytes.NewBufferString(`{"name":"Avtomaktab Demo"}`))
 		req.Header.Set("Authorization", "Bearer "+access)
@@ -58,44 +51,13 @@ func TestAdminB2B(t *testing.T) {
 		orgID = orgEnv.Data.ID
 
 		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/licenses",
-			bytes.NewBufferString(`{"seats":2,"home_seats":2,"days":30,"note":"pilot"}`))
+			bytes.NewBufferString(`{"seats":2,"days":30,"note":"pilot"}`))
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
 			t.Fatalf("license status=%d body=%s", w.Code, w.Body.String())
-		}
-
-		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/members",
-			bytes.NewBufferString(`{"profile_id":"`+profileID.String()+`","role":"student"}`))
-		req.Header.Set("Authorization", "Bearer "+access)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("member status=%d body=%s", w.Code, w.Body.String())
-		}
-
-		req = httptest.NewRequest(http.MethodPost,
-			"/admin/v1/b2b/orgs/"+orgID.String()+"/members/"+profileID.String()+"/grant",
-			bytes.NewBufferString(`{"days":14,"note":"class A"}`))
-		req.Header.Set("Authorization", "Bearer "+access)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("grant status=%d body=%s", w.Code, w.Body.String())
-		}
-
-		var source string
-		if err := pool.QueryRow(context.Background(),
-			`SELECT source FROM entitlement WHERE profile_id=$1 ORDER BY created_at DESC LIMIT 1`,
-			profileID).Scan(&source); err != nil {
-			t.Fatal(err)
-		}
-		if source != "b2b" {
-			t.Fatalf("source=%s", source)
 		}
 
 		if _, err := pool.Exec(context.Background(), `
@@ -118,7 +80,7 @@ func TestAdminB2B(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &detailEnv); err != nil {
 			t.Fatal(err)
 		}
-		if len(detailEnv.Data.Members) != 1 || detailEnv.Data.Org.Seats < 2 || detailEnv.Data.HomeSeatsUsed < 1 {
+		if detailEnv.Data.Org.Seats < 2 {
 			t.Fatalf("detail=%+v", detailEnv.Data)
 		}
 		if detailEnv.Data.SeatsUsed < 1 {
@@ -132,43 +94,24 @@ func TestAdminB2B(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("stats status=%d body=%s", w.Code, w.Body.String())
 		}
-
-		req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/export.csv", nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("csv status=%d", w.Code)
+		var statsEnv struct {
+			Data b2b.OrgStats `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &statsEnv); err != nil {
+			t.Fatal(err)
+		}
+		if statsEnv.Data.ActiveSeats < 2 || statsEnv.Data.SeatsUsed < 1 {
+			t.Fatalf("stats=%+v", statsEnv.Data)
 		}
 
-		req = httptest.NewRequest(http.MethodPatch,
-			"/admin/v1/b2b/orgs/"+orgID.String()+"/members/"+profileID.String(),
-			bytes.NewBufferString(`{"role":"teacher"}`))
+		req = httptest.NewRequest(http.MethodPatch, "/admin/v1/b2b/orgs/"+orgID.String(),
+			bytes.NewBufferString(`{"status":"suspended"}`))
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusOK {
-			t.Fatalf("role status=%d body=%s", w.Code, w.Body.String())
-		}
-
-		req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/invites",
-			bytes.NewBufferString(`{"phone":"+998909998877","role":"student"}`))
-		req.Header.Set("Authorization", "Bearer "+access)
-		req.Header.Set("Content-Type", "application/json")
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("invite status=%d body=%s", w.Code, w.Body.String())
-		}
-
-		req = httptest.NewRequest(http.MethodDelete,
-			"/admin/v1/b2b/orgs/"+orgID.String()+"/members/"+profileID.String(), nil)
-		req.Header.Set("Authorization", "Bearer "+access)
-		w = httptest.NewRecorder()
-		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("remove status=%d body=%s", w.Code, w.Body.String())
+			t.Fatalf("status status=%d body=%s", w.Code, w.Body.String())
 		}
 	})
 }
@@ -197,15 +140,7 @@ func TestAdminB2BHardDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := store.AddB2BMember(ctx, org.ID, memberID, "student"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.CreateB2BLicense(ctx, org.ID, 2, 30, 1, "delete test", "test"); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO b2b_invite (token, org_id, phone, role, expires_at, created_by)
-		VALUES ('delete-org-invite', $1, '+998907770002', 'student', now()+interval '7 days', $2)`, org.ID, memberID); err != nil {
+	if _, err := store.CreateB2BLicense(ctx, org.ID, 2, 30, "delete test", "test"); err != nil {
 		t.Fatal(err)
 	}
 	b2bStore := b2b.Store{Pool: pool}
@@ -219,6 +154,9 @@ func TestAdminB2BHardDelete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// A historical home-VIP-style grant tied to this org's note pattern, to
+	// prove HardDeleteB2BOrg still revokes it even though nothing mints this
+	// shape of grant anymore.
 	if _, err := pool.Exec(ctx, `
 		INSERT INTO entitlement (profile_id, source, starts_at, ends_at, note)
 		VALUES
@@ -319,9 +257,7 @@ func TestAdminB2BHardDelete(t *testing.T) {
 
 	for table, query := range map[string]string{
 		"org":           `SELECT COUNT(*)::int FROM b2b_org WHERE id=$1`,
-		"member":        `SELECT COUNT(*)::int FROM b2b_org_member WHERE org_id=$1`,
 		"license":       `SELECT COUNT(*)::int FROM b2b_org_license WHERE org_id=$1`,
-		"invite":        `SELECT COUNT(*)::int FROM b2b_invite WHERE org_id=$1`,
 		"station":       `SELECT COUNT(*)::int FROM b2b_station WHERE org_id=$1`,
 		"partner_promo": `SELECT COUNT(*)::int FROM promo_code WHERE partner_org_id=$1`,
 	} {

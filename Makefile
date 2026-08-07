@@ -4,7 +4,7 @@ TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?s
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
 	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
-	backup-pg backup-restore-drill tg-digest tg-digest-send
+	backup-pg backup-restore-drill tg-digest tg-digest-send station-check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -114,7 +114,16 @@ tg-digest:
 tg-digest-send:
 	cd backend && go run ./cmd/tgdigest -send
 
-check: lint test
+# The backend/station module is a separate Go module (avtotest.uz/station) that
+# Go's ./... wildcard does not descend into. Without this target, station tests,
+# vet checks, and Windows-only builds (//go:build windows files) never run,
+# despite being in the repo. This ensures they stay in sync with the main backend.
+station-check:
+	cd backend/station && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... -count=1
+	cd backend/station && go vet ./...
+	cd backend/station && GOOS=windows GOARCH=amd64 go build ./...
+
+check: lint test station-check
 
 # Frontend (Next.js) — mirrors CI `frontend` / `e2e` jobs. Prefer these over
 # ad-hoc `cd frontend && npm …` so local + docs stay aligned.

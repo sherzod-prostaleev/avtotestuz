@@ -335,10 +335,6 @@ func TestAdminUserHardDelete(t *testing.T) {
 		VALUES ($1, 'admin', now(), now() + interval '40 days', $2, 'unrelated keep')`, otherID, targetID); err != nil {
 		t.Fatal(err)
 	}
-	privacyOrg, err := store.CreateB2BOrg(ctx, "Privacy fixture school")
-	if err != nil {
-		t.Fatal(err)
-	}
 	for _, fixture := range []struct {
 		query string
 		args  []any
@@ -347,11 +343,6 @@ func TestAdminUserHardDelete(t *testing.T) {
 			`INSERT INTO otp_challenge (phone, code_hash, channel, expires_at)
 			 VALUES ($1, 'delete-otp', 'sandbox', now()+interval '10 minutes')`,
 			[]any{targetPhone},
-		},
-		{
-			`INSERT INTO b2b_invite (token, org_id, phone, role, expires_at)
-			 VALUES ('delete-user-invite', $1, $2, 'student', now()+interval '7 days')`,
-			[]any{privacyOrg.ID, targetPhone},
 		},
 		{
 			`INSERT INTO support_ticket (profile_id, contact_phone, subject, body)
@@ -478,7 +469,6 @@ func TestAdminUserHardDelete(t *testing.T) {
 		"payment":       {`SELECT COUNT(*)::int FROM payment WHERE profile_id=$1`, []any{targetID}},
 		"event":         {`SELECT COUNT(*)::int FROM event WHERE profile_id=$1`, []any{targetID}},
 		"otp_challenge": {`SELECT COUNT(*)::int FROM otp_challenge WHERE phone=$1`, []any{targetPhone}},
-		"b2b_invite":    {`SELECT COUNT(*)::int FROM b2b_invite WHERE phone=$1`, []any{targetPhone}},
 		"support_ticket": {
 			`SELECT COUNT(*)::int FROM support_ticket WHERE profile_id=$1 OR contact_phone=$2`,
 			[]any{targetID, targetPhone},

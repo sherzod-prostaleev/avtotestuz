@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -15,7 +14,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
-	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/httpx"
 )
 
@@ -40,20 +38,23 @@ func (h *Handler) stationAuth() StationAuth {
 // configured `allow` skips the IP dimension entirely rather than collapsing
 // every caller on the platform into one shared bucket (see allow's doc
 // comment for why). It activates automatically, with no code change, the
-// moment nginx starts sending the assertion.
+// moment nginx starts sending the assertion. Each constant below carries its
+// own sizing rationale; the one thing they don't repeat per-constant is what
+// the identity dimension *is* for each action, so it's worth stating once
+// here: enroll's identity is the enrollment code (shared by every PC in a
+// school), while challenge's and token's identity is the station id (unique
+// per PC) — that difference is why raising one for fleet size does not
+// automatically mean raising the others the same way.
 //
 // challenge issues a bearer-less nonce that proves nothing about the
 // caller — every syntactically valid station id "succeeds" whether or not
 // that station exists — so there is no failed/successful split to key on;
 // its identity ceiling only has to bound raw resource use, not act as a
-// per-station lockout. A live station needs roughly 5 challenge+token pairs
-// an hour (the access token's TTL is 15 minutes); challengeIdentityLimit
-// gives ~40x that for clock drift, retries and reconnects, which is still
-// far too low to be a meaningful DoS budget for an attacker.
+// per-station lockout.
 //
 // token verifies a real signature, so unlike challenge a wrong guess is
 // distinguishable from the station's own traffic. tokenIdentityLimit is a
-// coarse pre-work volume cap only — raised the same way as challenge's, and
+// coarse pre-work volume cap only — sized the same way as challenge's, and
 // it still counts every attempt including a station's own successful ones,
 // so it must never be the sole gate or the same lockout challenge had would
 // just move here. tokenFailedIdentityLimit is the control that actually
@@ -61,15 +62,57 @@ func (h *Handler) stationAuth() StationAuth {
 // station's own successful traffic can never push it over the edge, while
 // an attacker who cannot produce a valid signature for a station id it does
 // not own (a station id is not a credential — it sits in agent config and
-// teacher-facing station lists) is bounded to a small number of guesses per
+// admin-facing station lists) is bounded to a small number of guesses per
 // hour.
 const (
-	enrollIdentityLimit = 20
-	enrollIPLimit       = 60
+	// enrollIdentityLimit bounds attempts per enrollment code, not per PC:
+	// every classroom PC in a school posts to /enroll with the same code, so
+	// this bucket has to cover the whole rollout, not one machine. It used
+	// to be sized at 20 back when a code was a disposable 2-hour window a
+	// teacher reopened at will -- exhausting it just meant asking for a new
+	// one. OpenInstallerKey changed that: the code is now idempotent and
+	// licence-lived, so the bucket can no longer be reset by fetching again,
+	// and rotating it to reset the bucket kills the copies already handed
+	// out to the rest of the classroom. A school with 100 PCs (the rollout
+	// size the enroll-code design itself was sized against -- see
+	// enroll_code.go's EnrollCodeRow doc comment) each retrying up to
+	// enrollSchedule's 4 attempts during a cold-boot install is 400 requests
+	// against this one bucket in the worst case. 500 comfortably clears
+	// that with room to spare, and it costs nothing in security: the tight
+	// bound on *successful* enrolments is max_uses, sized to free seats and
+	// enforced under the org row lock in EnrollStation, not this request
+	// counter. A request-rate cap only needs to bound abuse volume, and 500
+	// failed/successful attempts an hour against a single code is nowhere
+	// near a meaningful DoS budget.
+	enrollIdentityLimit = 500
+	// enrollIPLimit is enroll's secondary dimension, sharing one NAT'd IP
+	// with the whole rollout in the common case (a school's classroom PCs
+	// sit behind one gateway). Since it sees roughly the same traffic as
+	// enrollIdentityLimit's bucket for a single-school rollout, it is kept
+	// at the same 1:3 identity:IP headroom ratio already used by
+	// challenge/token below (20:60 before this change), scaled up with
+	// enrollIdentityLimit so a big rollout does not trip the IP bucket the
+	// moment the identity bucket was widened to let it through.
+	enrollIPLimit = 1500
 
+	// challengeIdentityLimit is keyed per station id, not per school, so
+	// raising enrollIdentityLimit for fleet size does not change its math: a
+	// live station needs roughly 5 challenge+token pairs an hour (see below),
+	// and 200 is still ~40x that regardless of how many other stations exist.
 	challengeIdentityLimit = 200
-	challengeIPLimit       = 600
+	// challengeIPLimit, unlike challengeIdentityLimit, is shared across every
+	// station behind one NAT'd IP, so it does scale with fleet size. At ~5
+	// challenge calls/hour/station (TTL 15 minutes, renewed with margin --
+	// see keepTokenWarm in the station agent), a 100-PC school -- the size
+	// the enroll-code design itself targets -- puts ~500/hour on this
+	// bucket in steady state alone, before counting retries or a rollout's
+	// extra initial-auth traffic. The old 600 left only ~100 of headroom
+	// across the whole fleet for that. Raised to 1500 so one bad network
+	// spell across many machines at once does not 429 an entire school.
+	challengeIPLimit = 1500
 
+	// tokenIdentityLimit, like challengeIdentityLimit, is keyed per station
+	// id and unaffected by fleet size: ~5 needed/hour, 200 gives ~40x that.
 	tokenIdentityLimit = 200
 	// tokenFailedIdentityLimit gates how many failed signature checks a
 	// single station id can accumulate in an hour before token issuance
@@ -81,7 +124,7 @@ const (
 	// stationToken), so nothing legitimate accumulates here anymore -- only
 	// sustained failure does. What is left to size for is purely how
 	// expensive it is for someone who merely knows a station's id (not a
-	// secret -- it sits in agent config and teacher-facing station lists)
+	// secret -- it sits in agent config and admin-facing station lists)
 	// to lock that station out of obtaining tokens for the rest of the
 	// window. Raised to 100: still small enough to fail closed quickly
 	// against a sustained attacker (an attacker without the station's
@@ -90,7 +133,11 @@ const (
 	// wasted requests), while making a deliberate lockout cost 5x what it
 	// did before.
 	tokenFailedIdentityLimit = 100
-	tokenIPLimit             = 600
+	// tokenIPLimit shares challengeIPLimit's fleet-size arithmetic (~5
+	// token calls/hour/station, ~500/hour steady-state for a 100-PC school
+	// behind one NAT'd IP) and is raised the same way and for the same
+	// reason.
+	tokenIPLimit = 1500
 )
 
 // hashIdentity turns a caller-supplied rate-limit identity (an enrollment
@@ -353,79 +400,4 @@ func (h *Handler) recordTokenFailure(r *http.Request, failKey string) {
 		return
 	}
 	_, _ = h.Lim.Allow(r.Context(), failKey, tokenFailedIdentityLimit, time.Hour)
-}
-
-type enrollWindowBody struct {
-	TTLMinutes int `json:"ttl_minutes"`
-}
-
-func (h *Handler) openEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	var body enrollWindowBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
-		// An empty body keeps meaning "use the default": Decode returns EOF
-		// when there is nothing to read. Any other error (malformed JSON, a
-		// string ttl_minutes) must not silently fall back to the 2-hour
-		// default with no signal to the teacher who asked for something else.
-		httpx.Error(w, http.StatusBadRequest, "invalid_body", "invalid json")
-		return
-	}
-	ttl := time.Duration(body.TTLMinutes) * time.Minute
-	out, err := h.store().OpenEnrollWindowAsTeacher(r.Context(), claims.ProfileID, orgID, ttl)
-	if err != nil {
-		writeStoreErr(w, err, "open enroll window failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
-func (h *Handler) getEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	out, err := h.store().ActiveEnrollCodeAsTeacher(r.Context(), claims.ProfileID, orgID)
-	if err != nil {
-		writeStoreErr(w, err, "enroll window query failed")
-		return
-	}
-	httpx.Data(w, http.StatusOK, out)
-}
-
-func (h *Handler) closeEnrollWindow(w http.ResponseWriter, r *http.Request) {
-	claims, ok := auth.FromContext(r.Context())
-	if !ok {
-		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing claims")
-		return
-	}
-	orgID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid org id")
-		return
-	}
-	codeID, err := uuid.Parse(chi.URLParam(r, "codeID"))
-	if err != nil {
-		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid code id")
-		return
-	}
-	if err := h.store().CloseEnrollWindowAsTeacher(r.Context(), claims.ProfileID, orgID, codeID); err != nil {
-		writeStoreErr(w, err, "close enroll window failed")
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
 }

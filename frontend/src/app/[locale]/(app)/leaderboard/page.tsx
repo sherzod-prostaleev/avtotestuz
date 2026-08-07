@@ -73,9 +73,20 @@ function EntryRow({ entry, highlighted, youBadge }: { entry: LeaderboardEntry; h
   );
 }
 
-export default function LeaderboardPage() {
+export interface LeaderboardPageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/leaderboard/page.tsx):
+  // a station never appears in the rankings (leaderboard.Service.RecordPoint
+  // returns early for a kind='station' profile), so this page has no
+  // dashboard, premium, checkout or profile surface of its own to worry
+  // about — the only navigation is the back link, which must stay inside
+  // /station instead of the learner app's gated /dashboard.
+  kiosk?: boolean;
+}
+
+export default function LeaderboardPage({ kiosk = false }: LeaderboardPageProps = {}) {
   const t = useTranslations("Leaderboard");
   const locale = useLocale();
+  const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
 
   const [period, setPeriod] = useState<LeaderboardPeriod>("weekly");
   const [data, setData] = useState<LeaderboardResponse | null>(null);
@@ -102,7 +113,7 @@ export default function LeaderboardPage() {
   return (
     <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={`/${locale}/dashboard`} className="back-link">
+        <Link href={backHref} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">

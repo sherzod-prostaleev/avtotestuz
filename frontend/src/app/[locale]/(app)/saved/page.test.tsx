@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import SavedPage from "./page";
 import * as apiClient from "@/lib/api-client";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -17,6 +18,15 @@ function renderWithIntl() {
       <SavedPage />
     </NextIntlClientProvider>
   );
+}
+
+/** True once the locale prefix is stripped and every segment is checked
+ * against the cookie gate — the same check src/proxy.ts runs on every
+ * request from the login-free kiosk browser. */
+function isKioskReachable(hrefOrPush: string): boolean {
+  const withoutLocale = hrefOrPush.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
 }
 
 const questionId = "11111111-1111-4111-8111-111111111111";
@@ -104,5 +114,71 @@ describe("SavedPage", () => {
     expect(apiClient.apiDelete).toHaveBeenCalledTimes(2);
     expect(apiClient.apiDelete).toHaveBeenNthCalledWith(1, `me/saved/${questionId}`);
     expect(apiClient.apiDelete).toHaveBeenNthCalledWith(2, `me/saved/${questionId}`);
+  });
+});
+
+// Walks every navigation this page can perform for a cookie-less classroom
+// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/saved/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces — a kiosk browser
+// carries no auth cookie, so a gated destination is a dead end at /login.
+describe("SavedPage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderKiosk() {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <SavedPage kiosk />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps the back link under /station", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValueOnce([]);
+    renderKiosk();
+
+    const backLink = await screen.findByRole("link", { name: "Bosh sahifaga qaytish" });
+    expect(backLink.getAttribute("href")).toBe("/uz-Latn/station");
+    expect(isKioskReachable(backLink.getAttribute("href")!)).toBe(true);
+  });
+
+  it("sends the browse-tickets CTA (summary card and empty state) to a kiosk-reachable route", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValueOnce([]);
+    renderKiosk();
+
+    const ticketLinks = await screen.findAllByRole("link", { name: "Biletlarga o'tish" });
+    expect(ticketLinks.length).toBeGreaterThanOrEqual(1);
+    for (const link of ticketLinks) {
+      const href = link.getAttribute("href") ?? "";
+      expect(href).toBe("/uz-Latn/station/tickets");
+      expect(isKioskReachable(href)).toBe(true);
+    }
+  });
+
+  it("never renders a link into a protected segment, in any state", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValueOnce([]);
+    renderKiosk();
+
+    await screen.findByRole("link", { name: "Bosh sahifaga qaytish" });
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(isKioskReachable(href)).toBe(true);
+    }
+    const withoutLocale = hrefs.map((h) => h.replace(/^\/[a-zA-Z-]+/, ""));
+    expect(withoutLocale.some((h) => /^\/(dashboard|premium|checkout|profile)(\/|$|\?)/.test(h))).toBe(false);
+  });
+
+  it("offers no premium, checkout, profile or dashboard surface", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValueOnce([]);
+    renderKiosk();
+
+    await screen.findByRole("link", { name: "Bosh sahifaga qaytish" });
+    expect(screen.queryByRole("link", { name: /premium/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /checkout/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /profile/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
   });
 });

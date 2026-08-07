@@ -59,6 +59,12 @@ jobs:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
           TEST_REDIS_URL: redis://localhost:6379/0
         run: go test -p 1 ./... -count=1
+      - name: Station module (separate Go module — backend's ./... does not descend into it)
+        env:
+          TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          make station-check
 
   frontend:
     runs-on: ubuntu-latest

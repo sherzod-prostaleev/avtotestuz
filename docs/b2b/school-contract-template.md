@@ -8,7 +8,6 @@ Ijrochi Buyurtmachiga **School Classroom** stansiya litsenziyasini beradi:
 
 - Stansiyalar soni: _____ ta
 - Muddat: _____ dan _____ gacha
-- Home seat (ixtiyoriy): _____ ta
 
 ## 2. Foydalanish qoidalari
 
@@ -21,9 +20,9 @@ Ijrochi Buyurtmachiga **School Classroom** stansiya litsenziyasini beradi:
 
 Summa: ___________ so‘m. To‘lov usuli: bank o‘tkazmasi / invoice. Litsenziya to‘lov tasdiqlangach admin panelda ochiladi.
 
-## 4. Maxfiylik va akkauntlar
+## 4. Maxfiylik
 
-O‘quvchi shaxsiy akkauntlari AvtoTest platformasida saqlanadi. Sinfxona VIP shaxsiy entitlement emas (stansiya konteksti), agar alohida Home seat berilmasa.
+Sinfxona stansiyasida o‘quvchi shaxsiy akkaunti bo‘lmaydi va login talab qilinmaydi. VIP o‘quvchi loginidan emas, stansiyaning maktab litsenziyasiga bog‘langanidan keladi.
 
 ## 5. Imzolar
 

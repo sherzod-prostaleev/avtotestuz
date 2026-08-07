@@ -34,9 +34,20 @@ function formatSavedDate(value: string): string {
   return formatDateShort(value);
 }
 
-export default function SavedPage() {
+export interface SavedPageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/saved/page.tsx):
+  // this page has no premium, checkout or profile surface of its own — the
+  // only navigation is the back link and the browse-tickets CTAs, both of
+  // which must stay inside /station instead of the learner app's gated
+  // /dashboard and /tickets routes.
+  kiosk?: boolean;
+}
+
+export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
   const locale = useLocale();
   const t = useTranslations("Saved");
+  const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
+  const ticketsHref = kiosk ? `/${locale}/station/tickets` : `/${locale}/tickets`;
   const [items, setItems] = useState<SavedQuestion[]>([]);
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [deleting, setDeleting] = useState<Set<string>>(new Set());
@@ -94,7 +105,7 @@ export default function SavedPage() {
   return (
     <main className="page-shell-tight space-y-6 sm:space-y-8">
       <header>
-        <Link href={`/${locale}/dashboard`} className="back-link">
+        <Link href={backHref} className="back-link">
           <ArrowLeft className="h-4 w-4" /> {t("backToDashboard")}
         </Link>
         <div className="flex items-center gap-3">
@@ -146,7 +157,7 @@ export default function SavedPage() {
             </div>
           </div>
           <div className="sticky-cta-bar mt-5">
-            <Link href={`/${locale}/tickets`} className="block w-full">
+            <Link href={ticketsHref} className="block w-full">
               <Button as="span" variant="game" size="sm" className="w-full">
                 {t("browseTickets")}
               </Button>
@@ -177,7 +188,7 @@ export default function SavedPage() {
             <h2 className="font-display text-xl font-bold">{t("emptyTitle")}</h2>
             <p className="mt-1 text-sm text-muted-foreground">{t("emptyDescription")}</p>
           </div>
-          <Link href={`/${locale}/tickets`}>
+          <Link href={ticketsHref}>
             <Button as="span" variant="game" size="sm">
               {t("browseTickets")}
             </Button>

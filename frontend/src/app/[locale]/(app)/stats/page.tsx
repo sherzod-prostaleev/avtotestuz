@@ -11,9 +11,23 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Flame, RefreshCw } from "lucide-react";
 
-export default function StatsPage() {
+export interface StatsPageProps {
+  // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/stats/page.tsx):
+  // this page has no premium, checkout or profile surface of its own — the
+  // only navigation is the back link and the due-repeat CTA, both of which
+  // must stay inside /station instead of the learner app's gated /dashboard
+  // and /session/start routes.
+  kiosk?: boolean;
+}
+
+export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
   const t = useTranslations("Stats");
   const locale = useLocale();
+  const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
+  // /station/session/start (not /session/start): keeps the proxy.ts kiosk
+  // exemption scoped to the /station/... namespace — see practice/page.tsx
+  // for the same pattern.
+  const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
   const { streak, stats, loading, error, refetch } = useUserStats();
   const {
     sessions,
@@ -47,7 +61,7 @@ export default function StatsPage() {
   return (
     <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={`/${locale}/dashboard`} className="back-link">
+        <Link href={backHref} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
@@ -198,7 +212,7 @@ export default function StatsPage() {
         {dueCount > 0 && (
           <div className="sticky-cta-bar">
             <Link
-              href={`/${locale}/session/start?mode=review&count=${Math.min(dueCount, 20)}`}
+              href={`${sessionStartBase}?mode=review&count=${Math.min(dueCount, 20)}`}
               className="inline-flex h-12 min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {t("startRepeat")}

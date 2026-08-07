@@ -167,6 +167,13 @@ describe("TicketsPage kiosk mode", () => {
   });
 
   it("never pushes to /premium for a VIP-locked ticket — shows the kiosk notice instead", () => {
+    // Closes the loop on the kiosk-safe marker at
+    // router.push(`/${locale}/premium`) in page.tsx: that line only runs
+    // when the `if (kiosk) { ...; return; }` guard above it does NOT fire,
+    // so exercising the VIP-locked path here with kiosk=true is what makes
+    // the marker's claim checkable — if that guard were ever removed,
+    // pushMock would be called with a /premium target and the assertion
+    // below would fail.
     vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
       tickets: [
         {
@@ -188,5 +195,31 @@ describe("TicketsPage kiosk mode", () => {
     fireEvent.click(screen.getByRole("button", { name: "1-biletni ochish" }));
     expect(pushMock).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("VIP kerak");
+  });
+
+  it("never renders a link into a protected segment, in any state", () => {
+    // The targeted checks above cover the links/pushes most likely to
+    // regress (back/practice links, the VIP-lock push). This sweeps every
+    // link this render can produce as a backstop against a new one showing
+    // up without a matching targeted test.
+    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+      tickets: [
+        { number: 1, best_correct: 19, attempts: 1, unlocked: true },
+        { number: 2, best_correct: 0, attempts: 0, unlocked: false, lock_reason: "vip_required", status: "locked" },
+      ] as any,
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderKiosk();
+
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(isKioskReachable(href)).toBe(true);
+    }
+    const withoutLocale = hrefs.map((h) => h.replace(/^\/[a-zA-Z-]+/, ""));
+    expect(withoutLocale.some((h) => /^\/(dashboard|premium|checkout|profile)(\/|$|\?)/.test(h))).toBe(false);
   });
 });

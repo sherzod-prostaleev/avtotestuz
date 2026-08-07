@@ -31,6 +31,13 @@ type Handler struct {
 	Billing         billing.Service
 	MetricsSnapshot MetricsSnapshot
 	Push            *push.Service
+
+	// StationBinaryPath is the Windows agent binary served by
+	// GET /b2b/orgs/{id}/installer.exe. See config.Config.StationBinaryPath.
+	StationBinaryPath string
+	// PublicBaseURL is embedded in every downloaded installer as both the API
+	// and frontend origin the station agent talks to.
+	PublicBaseURL string
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -232,22 +239,27 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Get("/b2b/orgs", h.listB2BOrgs)
 			br.Get("/b2b/orgs/{id}", h.getB2BOrg)
 			br.Get("/b2b/orgs/{id}/stats", h.getB2BOrgStats)
-			br.Get("/b2b/orgs/{id}/export.csv", h.exportB2BOrgCSV)
 			br.Get("/b2b/orgs/{id}/stations", h.listB2BStations)
 			br.Get("/b2b/orgs/{id}/partner-promos", h.listB2BPartnerPromos)
 		})
 		pr.Group(func(br chi.Router) {
+			// The installer key is a bearer credential -- GET /installer
+			// returns it in plaintext and GET /installer.exe returns a
+			// working pre-armed binary that spends a paying school's seats.
+			// That belongs behind the same permission as minting or rotating
+			// it (users.entitlements.grant), not the broader users.read a
+			// support agent also holds: reading a credential you aren't
+			// trusted to create is the same asymmetry as writing one.
 			br.Use(RequirePermission("users.entitlements.grant"))
+			br.Get("/b2b/orgs/{id}/installer", h.getB2BInstaller)
+			br.Get("/b2b/orgs/{id}/installer.exe", h.downloadB2BInstaller)
 			br.Post("/b2b/orgs", h.createB2BOrg)
 			br.Patch("/b2b/orgs/{id}", h.patchB2BOrg)
-			br.Post("/b2b/orgs/{id}/members", h.addB2BMember)
-			br.Post("/b2b/orgs/{id}/invites", h.inviteB2BMember)
 			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
 			br.Post("/b2b/orgs/{id}/partner-promos", h.createB2BPartnerPromo)
 			br.Delete("/b2b/orgs/{id}/stations/{stationID}", h.revokeB2BStation)
-			br.Post("/b2b/orgs/{id}/members/{profileID}/grant", h.grantB2BMember)
-			br.Delete("/b2b/orgs/{id}/members/{profileID}", h.removeB2BMember)
-			br.Patch("/b2b/orgs/{id}/members/{profileID}", h.changeB2BMemberRole)
+			br.Post("/b2b/orgs/{id}/installer", h.openB2BInstaller)
+			br.Post("/b2b/orgs/{id}/installer/rotate", h.rotateB2BInstaller)
 		})
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("b2b.orgs.hard_delete"))

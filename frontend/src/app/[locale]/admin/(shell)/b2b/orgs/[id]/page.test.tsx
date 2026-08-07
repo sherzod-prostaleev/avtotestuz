@@ -19,12 +19,9 @@ const detail = {
     status: "active",
     active_seats: 30,
   },
-  members: [],
   licenses: [],
   stations: [],
   seats_used: 0,
-  home_seats: 0,
-  home_seats_used: 0,
 };
 
 function json(body: unknown, status = 200): Response {
@@ -66,12 +63,8 @@ describe("Admin B2B organization detail", () => {
         return Promise.resolve(
           json({
             data: {
-              members_total: 0,
               active_seats: 30,
               seats_used: 0,
-              avg_readiness_pct: 0,
-              sessions_finished_7d: 0,
-              pending_invites: 0,
             },
           }),
         );

@@ -434,9 +434,6 @@ func (s Store) HardDeleteLearner(ctx context.Context, id uuid.UUID, confirm stri
 	if _, err := tx.Exec(ctx, `DELETE FROM otp_challenge WHERE phone = $1`, phone); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `DELETE FROM b2b_invite WHERE phone = $1`, phone); err != nil {
-		return err
-	}
 	// Telegram quiz tables intentionally use Telegram ids rather than a profile
 	// FK. Remove sessions started by this account and its participation elsewhere
 	// before telegram_account itself cascades with profile.

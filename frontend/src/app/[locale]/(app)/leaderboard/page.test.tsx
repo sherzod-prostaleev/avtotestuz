@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import LeaderboardPage, { type LeaderboardResponse } from "./page";
 import * as apiClient from "@/lib/api-client";
+import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
@@ -115,5 +116,76 @@ describe("LeaderboardPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Qayta urinib ko'ring" }));
 
     expect(await screen.findByText("Aziz Karimov")).toBeInTheDocument();
+  });
+});
+
+/** True once the locale prefix is stripped and every segment is checked
+ * against the cookie gate — the same check src/proxy.ts runs on every
+ * request from the login-free kiosk browser. */
+function isKioskReachable(hrefOrPush: string): boolean {
+  const withoutLocale = hrefOrPush.replace(/^\/[a-zA-Z-]+/, "");
+  const pathname = withoutLocale.split("?")[0] || "/";
+  return !matchesAny(pathname, PROTECTED_SEGMENTS);
+}
+
+// Walks every navigation this page can perform for a cookie-less classroom
+// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/leaderboard/page.tsx
+// reuses this component with kiosk=true) and checks each destination against
+// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces — a kiosk browser
+// carries no auth cookie, so a gated destination is a dead end at /login.
+describe("LeaderboardPage kiosk mode", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  function renderKiosk(overrides: Partial<LeaderboardResponse> = {}) {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue(makeResponse(overrides));
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <LeaderboardPage kiosk />
+      </NextIntlClientProvider>
+    );
+  }
+
+  it("keeps the back link under /station", async () => {
+    renderKiosk();
+
+    const backLink = await screen.findByRole("link", { name: /Bosh sahifaga qaytish/ });
+    expect(backLink.getAttribute("href")).toBe("/uz-Latn/station");
+    expect(isKioskReachable(backLink.getAttribute("href")!)).toBe(true);
+  });
+
+  it("never renders a link into a protected segment, in any state", async () => {
+    renderKiosk();
+
+    await screen.findByText("Aziz Karimov");
+    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(isKioskReachable(href)).toBe(true);
+    }
+  });
+
+  it("offers no premium, checkout, profile or dashboard surface", async () => {
+    renderKiosk();
+
+    await screen.findByText("Aziz Karimov");
+    expect(screen.queryByRole("link", { name: /premium/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /checkout/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /profile/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /dashboard/i })).not.toBeInTheDocument();
+  });
+
+  // A station never accumulates points (leaderboard.Service.RecordPoint
+  // returns early for a kind='station' profile), so a kiosk caller always
+  // has you.rank === null. The board itself must still render cleanly.
+  it("renders without error when the caller has no rank", async () => {
+    renderKiosk({ you: { rank: null, score: 0, name: "PC-1" } });
+
+    expect(await screen.findByText("Aziz Karimov")).toBeInTheDocument();
+    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(
+      screen.getByText("Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!")
+    ).toBeInTheDocument();
   });
 });
