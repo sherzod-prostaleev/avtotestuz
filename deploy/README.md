@@ -107,6 +107,25 @@ will return `network_error`.
 Auth OTP sandbox round-trip is intentionally **not** required here (needs
 seeded content + proxy headers); use API-level checks once the host is ready.
 
+## Classroom station agent (B2B)
+
+The API image cross-compiles the Windows agent and serves it from the admin
+panel, so **any change under `backend/station/` ships only when `api` is
+rebuilt** — rebuilding `web` alone leaves schools downloading the old binary.
+
+Stamp the version on every such build, otherwise `b2b_station.agent_version`
+reports `1.0.0` for every PC and a school on a known-broken build is
+indistinguishable from one on the fix:
+
+```bash
+cd /opt/drivergo/deploy && STATION_VERSION=1.0.1 \
+  docker compose -f docker-compose.prod.yml --env-file app.env build api
+```
+
+A school that already installed an older agent must download the `.exe` again
+from the admin panel and run it once; it reuses the existing `station.key`, so
+no seat is consumed and no re-enrolment is needed.
+
 ## CI implications
 
 - Image builds are not yet a required CI job (keep PRs light). Operators build

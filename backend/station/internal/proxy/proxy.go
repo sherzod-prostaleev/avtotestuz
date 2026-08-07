@@ -30,7 +30,18 @@ func New(frontendBase, apiBase string, token func(context.Context) (string, erro
 		panic("proxy: bad api base: " + err.Error())
 	}
 
+	// NewSingleHostReverseProxy's director rewrites URL.Scheme and URL.Host but
+	// deliberately leaves Request.Host alone, so the outgoing request would
+	// still announce Host: 127.0.0.1:<agent port>. Both upstreams sit behind
+	// Cloudflare, which routes on that header and answers 403 for a host
+	// outside the zone -- the classroom would get a Cloudflare error page
+	// instead of the kiosk. Wrap the director to name the real upstream.
 	frontProxy := httputil.NewSingleHostReverseProxy(frontURL)
+	frontDirector := frontProxy.Director
+	frontProxy.Director = func(r *http.Request) {
+		frontDirector(r)
+		r.Host = frontURL.Host
+	}
 
 	apiProxy := &httputil.ReverseProxy{
 		Director: func(r *http.Request) {
