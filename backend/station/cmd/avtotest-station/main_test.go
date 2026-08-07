@@ -46,6 +46,23 @@ func TestStationURLUsesARealFrontendLocale(t *testing.T) {
 	}
 }
 
+// An empty locale is the normal case, not a bug. The kiosk carries its own
+// language switcher, and next-intl redirects a prefix-less path to whatever
+// NEXT_LOCALE the student last chose -- so opening "/station" is what makes
+// that choice survive a reboot. Baking a prefix in would reset every morning
+// to whatever the admin picked at download time, which is the thing the
+// switcher exists to stop.
+func TestStationURLOmitsThePrefixWhenNoLocaleIsForced(t *testing.T) {
+	got := stationURL("127.0.0.1:17817", "")
+	want := "http://127.0.0.1:17817/station"
+	if got != want {
+		t.Fatalf("stationURL(%q, \"\") = %q, want %q", "127.0.0.1:17817", got, want)
+	}
+	if !validLocale("") {
+		t.Fatal(`validLocale("") = false, want true: an unset locale means "let the browser decide"`)
+	}
+}
+
 // TestEmbeddedConfigBeatsFlagDefaults proves a downloaded installer needs no
 // arguments: the appended config supplies the code and the URLs, and a flag
 // left at its compiled-in default must not silently win over it. Every field

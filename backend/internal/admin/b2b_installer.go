@@ -131,11 +131,15 @@ func (h *Handler) downloadB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Empty is the normal case and is embedded as-is: the agent then opens the
+	// kiosk without a locale prefix, so next-intl serves whatever language the
+	// student last chose in the kiosk's own switcher. Defaulting to uz-Latn
+	// here would put the choice back in the admin's hands at download time --
+	// on a screen that has no settings page for the student to correct it. The
+	// parameter is still honoured when a school deliberately wants a specific
+	// first-run language.
 	locale := r.URL.Query().Get("locale")
-	if locale == "" {
-		locale = "uz-Latn"
-	}
-	if !allowedInstallerLocales[locale] {
+	if locale != "" && !allowedInstallerLocales[locale] {
 		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be uz-Latn, uz-Cyrl or ru")
 		return
 	}

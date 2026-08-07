@@ -36,7 +36,12 @@ var version = "dev"
 var stationLocales = []string{"uz-Latn", "uz-Cyrl", "ru"}
 
 // validLocale reports whether locale is one the frontend actually serves.
+// The empty string passes: it means "no locale forced", which is the default
+// and the case that lets the student's own choice stick (see stationURL).
 func validLocale(locale string) bool {
+	if locale == "" {
+		return true
+	}
 	for _, l := range stationLocales {
 		if l == locale {
 			return true
@@ -45,8 +50,21 @@ func validLocale(locale string) bool {
 	return false
 }
 
-// stationURL builds the kiosk landing page URL served at addr for locale.
+// stationURL builds the kiosk landing page URL served at addr.
+//
+// With locale empty -- the default -- the path carries no locale prefix and
+// next-intl redirects it to whatever NEXT_LOCALE the student last picked in
+// the kiosk's own language switcher, falling back to uz-Latn on a PC nobody
+// has chosen on yet. That is what makes the choice survive a reboot: baking a
+// prefix in would reset the classroom every morning to whatever was selected
+// at download time, which is exactly the admin-decides-for-the-student
+// behaviour the switcher replaced. A non-empty locale (only ever set by an
+// explicit -locale flag) still forces one, for a school that wants a specific
+// language on first run.
 func stationURL(addr, locale string) string {
+	if locale == "" {
+		return fmt.Sprintf("http://%s/station", addr)
+	}
 	return fmt.Sprintf("http://%s/%s/station", addr, locale)
 }
 
@@ -93,7 +111,7 @@ func main() {
 		addr     = flag.String("addr", "127.0.0.1:17817", "local listen address")
 		stateDir = flag.String("state", defaultStateDir(), "directory for the station key and state")
 		noKiosk  = flag.Bool("no-kiosk", false, "serve only; do not launch a browser")
-		locale   = flag.String("locale", "uz-Latn", "frontend locale the kiosk page opens in (uz-Latn, uz-Cyrl, ru)")
+		locale   = flag.String("locale", "", "force the locale the kiosk opens in (uz-Latn, uz-Cyrl, ru); empty means the student's own choice in the kiosk decides")
 
 		selfTest       = flag.Bool("selftest", false, "run hwid/keystore checks in a scratch directory and print a pass/fail verdict, then exit; does not touch the real enrollment")
 		selfTestImport = flag.String("selftest-import", "", "path to a station.key copied from another machine; try to unseal it here and report whether the machine binding held, then exit")

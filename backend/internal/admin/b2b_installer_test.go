@@ -269,6 +269,38 @@ func TestInstallerExeCarriesTheConfig(t *testing.T) {
 	if cfg != want {
 		t.Fatalf("trailer config = %+v, want %+v", cfg, want)
 	}
+
+	// Without the parameter -- what the admin panel now sends, since the kiosk
+	// owns the language choice -- the embedded locale must stay empty. The
+	// agent then opens the kiosk with no locale prefix and next-intl serves
+	// whatever the student last picked. Defaulting to uz-Latn here would hand
+	// the choice back to whoever clicked download and reset every classroom PC
+	// to it on each boot.
+	req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer.exe", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("download installer without locale status=%d body=%s", w.Code, w.Body.String())
+	}
+	body = w.Body.Bytes()
+	n = binary.BigEndian.Uint32(body[len(body)-20 : len(body)-16])
+	var plain b2b.InstallerConfig
+	if err := json.Unmarshal(body[len(body)-20-int(n):len(body)-20], &plain); err != nil {
+		t.Fatalf("trailer json did not parse: %v", err)
+	}
+	if plain.Locale != "" {
+		t.Fatalf("embedded locale = %q, want empty so the kiosk's own switcher decides", plain.Locale)
+	}
+
+	// An unknown value is still rejected rather than shipped to a school.
+	req = httptest.NewRequest(http.MethodGet, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer.exe?locale=uz", nil)
+	req.Header.Set("Authorization", "Bearer "+access)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("download with locale=uz status=%d, want 400", w.Code)
+	}
 }
 
 // TestInstallerExeWithoutAKey asserts the download refuses rather than minting

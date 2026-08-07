@@ -155,27 +155,23 @@ describe("InstallerPanel", () => {
     confirmSpy.mockRestore();
   });
 
-  it("points the download link at installer.exe with the selected locale and updates it when the locale changes", async () => {
+  // The kiosk owns the language choice now (see (kiosk)/kiosk-chrome.tsx), so
+  // this panel must not offer one: an admin picking a locale at download time
+  // decided it for every student who would ever sit at that PC, on a screen
+  // with no settings page to correct it.
+  it("points the download link at installer.exe and offers no locale choice", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(json({ data: key })));
     vi.stubGlobal("fetch", fetchMock);
-    const user = userEvent.setup();
     renderPanel();
 
     await screen.findByText(key.code);
 
     const link = screen.getByRole("link", { name: messages.AdminB2B.installerDownload });
-    expect(link).toHaveAttribute(
-      "href",
-      `/api/admin/b2b/orgs/${ORG_ID}/installer.exe?locale=uz-Latn`,
-    );
+    expect(link).toHaveAttribute("href", `/api/admin/b2b/orgs/${ORG_ID}/installer.exe`);
     expect(link).toHaveAttribute("download");
 
-    await user.selectOptions(screen.getByLabelText(messages.AdminB2B.installerLocale), "ru");
-
-    expect(screen.getByRole("link", { name: messages.AdminB2B.installerDownload })).toHaveAttribute(
-      "href",
-      `/api/admin/b2b/orgs/${ORG_ID}/installer.exe?locale=ru`,
-    );
+    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+    expect(screen.queryByText(/kiosk tili/i)).not.toBeInTheDocument();
   });
 
   it("shows the no-seats message and stops rendering the code when rotate returns 409 rotated_no_seats", async () => {

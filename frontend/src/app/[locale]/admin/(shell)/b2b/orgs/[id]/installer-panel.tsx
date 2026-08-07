@@ -11,8 +11,6 @@ type InstallerKey = {
   expires_at: string;
 };
 
-const KIOSK_LOCALES = ["uz-Latn", "uz-Cyrl", "ru"] as const;
-
 // Domain error codes the backend's b2b installer endpoints can return (see
 // writeInstallerErr in backend/internal/admin/b2b_installer.go). Each gets its
 // own message so an operator knows what actually happened instead of a
@@ -37,7 +35,6 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [dlLocale, setDlLocale] = useState<string>(locale);
 
   const errorMessage = useCallback(
     (code: unknown) => {
@@ -111,7 +108,13 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
     }
   }
 
-  const downloadHref = `/api/admin/b2b/orgs/${orgId}/installer.exe?locale=${dlLocale}`;
+  // No locale on this URL on purpose. The kiosk carries its own language
+  // switcher (see (kiosk)/kiosk-chrome.tsx), so the student at the PC picks
+  // the language -- an admin choosing it here would strand anyone whose
+  // language differs from whatever was selected at download time, on a screen
+  // with no settings page to correct it. The agent's embedded locale is only
+  // the first URL it opens.
+  const downloadHref = `/api/admin/b2b/orgs/${orgId}/installer.exe`;
 
   return (
     <section className="space-y-2 rounded-xl border border-border bg-card p-4">
@@ -136,21 +139,6 @@ export default function InstallerPanel({ orgId }: { orgId: string }) {
       ) : (
         <p className="text-sm text-muted-foreground">{t("installerNone")}</p>
       )}
-
-      <label className="block space-y-1 text-xs font-semibold text-muted-foreground">
-        <span>{t("installerLocale")}</span>
-        <select
-          value={dlLocale}
-          onChange={(e) => setDlLocale(e.target.value)}
-          className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
-        >
-          {KIOSK_LOCALES.map((l) => (
-            <option key={l} value={l}>
-              {l}
-            </option>
-          ))}
-        </select>
-      </label>
 
       <p className="text-xs text-muted-foreground">{t("installerHint")}</p>
 

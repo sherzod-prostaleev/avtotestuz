@@ -1896,7 +1896,6 @@
     "installerDownload": "O'rnatish faylini yuklab olish",
     "installerUsed": "{used} / {max} PC ulangan",
     "installerExpires": "{date} gacha amal qiladi",
-    "installerLocale": "Kiosk tili",
     "installerRotateConfirm": "Kalit almashtiriladi. Tarqatilgan eski fayllar ishlamay qoladi, ulangan PClar esa ishlashda davom etadi. Davom etamizmi?",
     "installerHint": "Faylni har bir kompyuterda ishga tushiring. Kod fayl ichida — hech narsa kiritilmaydi.",
     "installerError": "Amal bajarilmadi",
