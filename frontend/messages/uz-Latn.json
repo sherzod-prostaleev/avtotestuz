@@ -1937,7 +1937,10 @@
     "deleteWarnStations": "{count} ta ulangan PC yozuvi o‘chadi.",
     "deleteWarnRelated": "Litsenziya va chegirma kodlari ham o‘chadi. Amalni qaytarib bo‘lmaydi.",
     "deleteError": "Avtomaktabni butunlay o‘chirib bo‘lmadi.",
-    "cancel": "Bekor qilish"
+    "cancel": "Bekor qilish",
+    "deleteStation": "Butunlay o‘chirish",
+    "deleteStationConfirm": "“{label}” butunlay o‘chirilsinmi? Bu PC ro‘yxatdan yo‘qoladi va uning barcha mashq tarixi (sessiyalar, saqlangan savollar, statistika) ham o‘chadi. Qaytarib bo‘lmaydi. Faqat vaqtincha uzish uchun “Uzish” dan foydalaning.",
+    "errorDeleteStation": "PC ni o‘chirib bo‘lmadi"
   },
   "AdminRecon": {
     "title": "To‘lovlarni solishtirish",

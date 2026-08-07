@@ -1,0 +1,12 @@
+-- Open the whole bilet catalogue on classroom PCs.
+--
+-- A learner unlocks bilet N+1 by finishing bilet N. That works because the
+-- progress belongs to one person. A classroom PC has one shadow profile and
+-- thirty students, so the first student's progress decided which bilets the
+-- next twenty-nine could open -- and a school that paid for the whole
+-- catalogue found most of it shut.
+--
+-- Stations enrolled from here on get the flag at insert time (see
+-- internal/b2b/enroll.go); this backfills the ones already in the field.
+-- Scoped to kind = 'station' so no learner's progression is touched.
+UPDATE profile SET bypass_variant_progress = TRUE WHERE kind = 'station';

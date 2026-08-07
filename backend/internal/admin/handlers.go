@@ -264,6 +264,10 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(br chi.Router) {
 			br.Use(RequirePermission("b2b.orgs.hard_delete"))
 			br.Delete("/b2b/orgs/{id}", h.hardDeleteB2BOrg)
+			// Deleting a station erases the practice history of the PC's
+			// shadow profile, so it sits behind the destructive permission
+			// rather than the seat-management one that owns revoke.
+			br.Delete("/b2b/orgs/{id}/stations/{stationID}/purge", h.deleteB2BStation)
 		})
 	})
 }

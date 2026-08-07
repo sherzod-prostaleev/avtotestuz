@@ -201,10 +201,21 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		return EnrollResult{}, ErrSeatsExhausted
 	}
 
+	// bypass_variant_progress is true for every station.
+	//
+	// A learner unlocks bilet N+1 by finishing bilet N, which works because
+	// the progress belongs to one person. A classroom PC has one profile and
+	// thirty students: the first student's progress would decide which bilets
+	// the next twenty-nine are allowed to open, and a school that has paid for
+	// the whole catalogue would find most of it shut. The flag already exists
+	// for exactly this "progress gating does not apply to this account" case
+	// (QA/ops), and IsVariantUnlocked still requires an active entitlement, so
+	// this opens the catalogue to licensed classrooms only -- not to anyone
+	// who points an agent at the API.
 	var profileID uuid.UUID
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO profile (phone, name, kind)
-		VALUES ('st:' || gen_random_uuid(), $1, 'station')
+		INSERT INTO profile (phone, name, kind, bypass_variant_progress)
+		VALUES ('st:' || gen_random_uuid(), $1, 'station', TRUE)
 		RETURNING id`, label).Scan(&profileID); err != nil {
 		return EnrollResult{}, fmt.Errorf("create shadow profile: %w", err)
 	}

@@ -118,6 +118,59 @@ func (s Store) RevokeStation(ctx context.Context, orgID, stationID uuid.UUID) er
 	return nil
 }
 
+// DeleteStation removes a station row outright, together with the shadow
+// profile it practised under.
+//
+// Revoking is the reversible half: the row stays, the seat is freed, and the
+// PC's history stays queryable. Deleting is for a machine that is gone --
+// sold, reimaged, or a test PC nobody wants in the list forever -- so it also
+// takes the profile, and with it every session, saved question, memory row,
+// mastery row and streak that belongs to that PC (all of those cascade from
+// profile). Leaving the profile behind would leave a row no admin screen ever
+// shows, holding practice history for a machine that no longer exists.
+//
+// The delete is scoped by org_id for the same reason RevokeStation is: without
+// it any school's admin call could reach into another school's station by id.
+//
+// The profile delete is guarded on kind = 'station'. b2b_station.station_profile_id
+// is ON DELETE SET NULL and nothing today can point it at a learner, but this
+// query is the one place in the codebase that deletes a profile as a side
+// effect of deleting something else, and a learner's account is not something
+// to lose to a column that turned out to be wrong.
+func (s Store) DeleteStation(ctx context.Context, orgID, stationID uuid.UUID) (label string, err error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var profileID *uuid.UUID
+	if err := tx.QueryRow(ctx, `
+		SELECT label, station_profile_id FROM b2b_station
+		WHERE id = $1 AND org_id = $2
+		FOR UPDATE`, stationID, orgID,
+	).Scan(&label, &profileID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", ErrNotFound
+		}
+		return "", err
+	}
+
+	if _, err := tx.Exec(ctx, `DELETE FROM b2b_station WHERE id = $1 AND org_id = $2`, stationID, orgID); err != nil {
+		return "", err
+	}
+	if profileID != nil {
+		if _, err := tx.Exec(ctx,
+			`DELETE FROM profile WHERE id = $1 AND kind = 'station'`, *profileID); err != nil {
+			return "", err
+		}
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return "", err
+	}
+	return label, nil
+}
+
 // SetOrgStatus updates org status (admin).
 func (s Store) SetOrgStatus(ctx context.Context, orgID uuid.UUID, status string) error {
 	status = strings.TrimSpace(status)

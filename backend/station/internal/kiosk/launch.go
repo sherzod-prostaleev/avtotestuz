@@ -1,4 +1,4 @@
-// Package kiosk starts the local browser in full-screen kiosk mode.
+// Package kiosk starts the local browser on the classroom station page.
 package kiosk
 
 import (
@@ -22,7 +22,15 @@ func candidates() []string {
 	return []string{"google-chrome", "chromium", "chromium-browser"}
 }
 
-// Launch opens url in kiosk mode and returns the running process.
+// Launch opens url in an app window and returns the running process.
+//
+// --app without --kiosk on purpose. Full-screen kiosk mode covers the whole
+// screen with no title bar, so a student cannot minimise, resize or close the
+// window -- on a shared classroom PC that reads as the machine being stuck
+// rather than as a focused exam, and there is no way back to Windows without
+// knowing a keyboard shortcut. --app still drops the tabs, the address bar and
+// the bookmarks, so there is nowhere else to browse, but keeps the ordinary
+// minimise / maximise / close controls.
 func Launch(url string) (*exec.Cmd, error) {
 	for _, bin := range candidates() {
 		path, err := exec.LookPath(bin)
@@ -30,8 +38,8 @@ func Launch(url string) (*exec.Cmd, error) {
 			continue
 		}
 		cmd := exec.Command(path,
-			"--kiosk",
 			"--app="+url,
+			"--window-size=1280,860",
 			"--no-first-run",
 			"--disable-session-crashed-bubble",
 			"--disable-features=TranslateUI",

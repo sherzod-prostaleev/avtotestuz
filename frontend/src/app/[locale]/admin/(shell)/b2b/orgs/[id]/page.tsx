@@ -110,6 +110,22 @@ export default function AdminB2BOrgDetailPage() {
     await load();
   }
 
+  // Separate from revokeStation on purpose: revoke frees the seat and leaves
+  // the PC in the list, purge erases the row and the shadow profile it
+  // practised under. A confirm() because there is nothing to undo it with.
+  async function deleteStation(stationId: string, label: string) {
+    setError(null);
+    if (!window.confirm(t("deleteStationConfirm", { label }))) return;
+    const res = await fetch(`/api/admin/b2b/orgs/${params.id}/stations/${stationId}/purge`, {
+      method: "DELETE",
+    });
+    if (!res.ok) {
+      setError(t("errorDeleteStation"));
+      return;
+    }
+    await load();
+  }
+
   async function setStatus(status: string) {
     setError(null);
     const res = await fetch(`/api/admin/b2b/orgs/${params.id}/status`, {
@@ -290,11 +306,21 @@ export default function AdminB2BOrgDetailPage() {
                       {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
                     </p>
                   </div>
-                  {s.status === "active" ? (
-                    <Button type="button" size="sm" variant="outline" onClick={() => void revokeStation(s.id)}>
-                      {t("revokeStation")}
+                  <div className="flex flex-wrap gap-2">
+                    {s.status === "active" ? (
+                      <Button type="button" size="sm" variant="outline" onClick={() => void revokeStation(s.id)}>
+                        {t("revokeStation")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => void deleteStation(s.id, s.label)}
+                    >
+                      {t("deleteStation")}
                     </Button>
-                  ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

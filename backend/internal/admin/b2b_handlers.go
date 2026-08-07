@@ -252,6 +252,34 @@ func (h *Handler) revokeB2BStation(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]any{"revoked": true})
 }
 
+// deleteB2BStation is the irreversible counterpart to revoke: the row and the
+// PC's shadow profile go away entirely. Kept as its own route rather than a
+// flag on the revoke call so the destructive action needs its own click in the
+// panel and its own audit entry -- "disconnect this PC for now" and "erase
+// this PC and everything it practised" should never be one button.
+func (h *Handler) deleteB2BStation(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	stationID, ok := parseUUIDParam(w, r, "stationID")
+	if !ok {
+		return
+	}
+	label, err := h.b2bStore().DeleteStation(r.Context(), orgID, stationID)
+	if err != nil {
+		writeB2BStoreErr(w, err, "delete station failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.stations.delete", "b2b_station", stationID.String(),
+		map[string]any{"org_id": orgID.String(), "label": label}, map[string]any{"deleted": true},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"deleted": true})
+}
+
 type partnerPromoBody struct {
 	Code      string `json:"code"`
 	Kind      string `json:"kind"`
