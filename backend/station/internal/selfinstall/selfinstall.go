@@ -9,6 +9,8 @@
 package selfinstall
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -83,9 +85,29 @@ func Ensure(stateDir string) (string, bool, error) {
 	// autostart -- silently and permanently defeating the one guarantee
 	// this package exists to provide. Writing the same registry value again
 	// is harmless, so it is retried unconditionally below instead.
+	// A stale .old from a previous upgrade, if the delete below could not run
+	// because the replaced image was still mapped. Harmless to leave, so a
+	// failure here is ignored.
+	_ = os.Remove(target + ".old")
+
 	didInstall := false
 	if _, err := os.Stat(target); err == nil {
-		// Already installed -- fall through to (re-)register autostart.
+		// Already installed -- but not necessarily the same build. Ensure used
+		// to stop here, which meant the copy that autostart launches every
+		// morning stayed whatever version was installed first: a school that
+		// downloaded a fixed .exe ran the fix once, from Downloads, and went
+		// back to the broken build on the next reboot. Compare the bytes and
+		// replace when they differ.
+		same, cmpErr := sameContent(exePath, target)
+		if cmpErr != nil {
+			return "", false, fmt.Errorf("selfinstall: compare installed copy: %w", cmpErr)
+		}
+		if !same {
+			if err := replaceExecutable(exePath, target); err != nil {
+				return "", false, fmt.Errorf("selfinstall: replace installed copy: %w", err)
+			}
+			didInstall = true
+		}
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return "", false, fmt.Errorf("selfinstall: stat target: %w", err)
 	} else {
@@ -162,6 +184,59 @@ func samePath(a, b string) bool {
 		return false
 	}
 	return os.SameFile(fa, fb)
+}
+
+// sameContent reports whether two files hold identical bytes.
+//
+// Content, not version string or mtime: the version is a linker flag that a
+// rebuild at the same version would not change, and mtime says nothing about
+// what is inside a file that rsync or a download touched.
+func sameContent(a, b string) (bool, error) {
+	ha, err := fileSHA256(a)
+	if err != nil {
+		return false, err
+	}
+	hb, err := fileSHA256(b)
+	if err != nil {
+		return false, err
+	}
+	return ha == hb, nil
+}
+
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = f.Close() }()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
+}
+
+// replaceExecutable swaps a new build over an installed one.
+//
+// Rename first, then write. Windows refuses to open a running image for
+// writing but will happily rename it, so this works even when the copy being
+// replaced is the one autostart launched at boot: the running process keeps
+// executing from the renamed file until it exits, and the next start picks up
+// the new binary. Deleting the renamed file usually fails while it is still
+// mapped, which is why Ensure sweeps it on the following run.
+func replaceExecutable(src, dst string) error {
+	old := dst + ".old"
+	_ = os.Remove(old)
+	if err := os.Rename(dst, old); err != nil {
+		return err
+	}
+	if err := copyExecutable(src, dst); err != nil {
+		// Put the working binary back rather than leave the PC with none.
+		_ = os.Rename(old, dst)
+		return err
+	}
+	_ = os.Remove(old)
+	return nil
 }
 
 // copyExecutable copies src to dst with mode 0o755 via a temp file in dst's

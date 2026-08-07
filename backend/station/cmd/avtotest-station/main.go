@@ -163,7 +163,7 @@ func main() {
 		if err != nil {
 			log.Printf("self-install: %v (continuing from the current location)", err)
 		} else if didInstall {
-			log.Printf("installed to %s and registered autostart", installed)
+			log.Printf("installed %s to %s and registered autostart", version, installed)
 		}
 		// Cosmetic, so a failure is logged and stepped over: a locked-down
 		// classroom profile may refuse to write to the desktop, and the kiosk
