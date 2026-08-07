@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
@@ -12,6 +12,7 @@ import {
   Bookmark,
   BookOpen,
   ChevronRight,
+  LoaderCircle,
   Signpost,
   Target,
   Trophy,
@@ -96,33 +97,74 @@ const SECONDARY = [
   },
 ] as const;
 
+// Phases of the station check.
+//
+// "waiting" exists because a classroom PC boots faster than its network. The
+// agent autostarts, cannot reach the backend yet, and its proxy fails closed
+// with 503 station_offline; it then keeps retrying in the background and
+// succeeds a moment later. This page used to ask once, catch that 503, and
+// show the "classroom computers only" refusal for the rest of the day even
+// though the PC was a perfectly good station -- someone had to notice and
+// press F5. A refusal is only correct when the backend actually answered and
+// said this is not a station.
+type Phase = "checking" | "waiting" | "station" | "refused";
+
+// Backoff for the retry, in milliseconds. Fast at first because the usual wait
+// is a few seconds of network coming up, then slower so a PC left on a dead
+// network is not hammering its own agent all day.
+const RETRY_MS = [1000, 2000, 3000, 5000, 8000, 10000];
+
 export default function StationPage() {
   const t = useTranslations();
   const locale = useLocale();
   const [me, setMe] = useState<Me | null>(null);
-  const [checked, setChecked] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setMe(await apiGet<Me>("me"));
-    } catch {
-      setMe(null);
-    } finally {
-      setChecked(true);
-    }
-  }, []);
+  const [phase, setPhase] = useState<Phase>("checking");
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
 
-  if (!checked) return null;
+    const attempt = async (n: number) => {
+      try {
+        const data = await apiGet<Me>("me");
+        if (cancelled) return;
+        setMe(data);
+        // A real answer: trust it either way. Only a station passes; anything
+        // else is a genuine refusal and must not keep retrying.
+        setPhase(data?.profile?.kind === "station" ? "station" : "refused");
+      } catch {
+        if (cancelled) return;
+        // No answer at all -- the agent has no token yet, or the network is
+        // still coming up. Keep asking; the agent is doing the same.
+        setPhase("waiting");
+        timer = setTimeout(() => void attempt(n + 1), RETRY_MS[Math.min(n, RETRY_MS.length - 1)]);
+      }
+    };
 
-  if (me?.profile?.kind !== "station") {
+    void attempt(0);
+    return () => {
+      cancelled = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
+  if (phase === "checking") return null;
+
+  if (phase === "waiting") {
+    return (
+      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
+        <LoaderCircle aria-hidden="true" className="h-8 w-8 animate-spin text-accent" />
+        <p className="text-lg font-semibold">{t("Station.connecting")}</p>
+        <p className="max-w-md text-sm text-muted-foreground">{t("Station.connectingHint")}</p>
+      </main>
+    );
+  }
+
+  if (phase === "refused") {
     return <p className="p-8 text-center text-lg">{t("Station.notStation")}</p>;
   }
 
-  const stationName = me.profile.name ?? "";
+  const stationName = me?.profile?.name ?? "";
 
   return (
     // pt-16 clears the fixed language/theme controls in the top-right corner

@@ -2034,7 +2034,9 @@
     "saved": "Saqlanganlar",
     "leaderboard": "Reyting",
     "notStation": "Bu sahifa faqat sinfxona kompyuteri uchun",
-    "leaderboardNote": "Reytingni kuzatib boring — sinfxona kompyuteri ro'yxatga yozilmaydi"
+    "leaderboardNote": "Reytingni kuzatib boring — sinfxona kompyuteri ro'yxatga yozilmaydi",
+    "connecting": "Ulanmoqda…",
+    "connectingHint": "Kompyuter maktab serveriga ulanmoqda. Bu odatda bir necha soniya oladi — sahifani yopmang."
   },
   "MaintenanceBanner": {
     "message": "Texnik ishlar: ba’zi funksiyalar vaqtincha cheklangan bo‘lishi mumkin."

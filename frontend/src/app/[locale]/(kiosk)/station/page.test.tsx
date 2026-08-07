@@ -53,22 +53,49 @@ describe("StationPage", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders the refusal, with no entry points, when GET /me throws", async () => {
+  // A classroom PC boots faster than its network: the agent autostarts, its
+  // proxy fails closed with 503 station_offline, and it retries in the
+  // background. The page used to ask once, catch that, and show the refusal
+  // for the rest of the day on a perfectly good station.
+  it("waits and retries when GET /me throws, instead of refusing", async () => {
     apiGet.mockRejectedValue(new Error("network error"));
     render(<StationPage />);
 
-    await waitFor(() => expect(screen.getByText("Station.notStation")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Station.connecting")).toBeInTheDocument());
+    expect(screen.queryByText("Station.notStation")).not.toBeInTheDocument();
     expect(screen.queryByText("Station.practice")).not.toBeInTheDocument();
-    expect(screen.queryByText("Station.exam")).not.toBeInTheDocument();
+
+    // And it must actually ask again, not merely display a nicer message.
+    await waitFor(() => expect(apiGet.mock.calls.length).toBeGreaterThan(1), { timeout: 4000 });
   });
 
-  it("renders the refusal, with no entry points, for a learner session", async () => {
+  it("recovers on its own once the agent has a token", async () => {
+    apiGet
+      .mockRejectedValueOnce(new Error("station token unavailable"))
+      .mockResolvedValue(meResponse("station"));
+    render(<StationPage />);
+
+    await waitFor(() => expect(screen.getByText("Station.connecting")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Station.practice")).toBeInTheDocument(), {
+      timeout: 4000,
+    });
+    expect(screen.queryByText("Station.connecting")).not.toBeInTheDocument();
+    expect(screen.queryByText("Station.notStation")).not.toBeInTheDocument();
+  });
+
+  // A real answer that says "not a station" is final -- retrying it would spin
+  // forever on a machine that is genuinely not a classroom PC.
+  it("refuses a learner session without retrying", async () => {
     apiGet.mockResolvedValue(meResponse("user"));
     render(<StationPage />);
 
     await waitFor(() => expect(screen.getByText("Station.notStation")).toBeInTheDocument());
     expect(screen.queryByText("Station.practice")).not.toBeInTheDocument();
     expect(screen.queryByText("Station.exam")).not.toBeInTheDocument();
+
+    const callsAfterRefusal = apiGet.mock.calls.length;
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(apiGet.mock.calls.length).toBe(callsAfterRefusal);
   });
 
   it("renders the practice and tickets entry points for a station session", async () => {
