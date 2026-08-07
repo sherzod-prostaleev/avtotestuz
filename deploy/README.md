@@ -113,6 +113,13 @@ The API image cross-compiles the Windows agent and serves it from the admin
 panel, so **any change under `backend/station/` ships only when `api` is
 rebuilt** — rebuilding `web` alone leaves schools downloading the old binary.
 
+The agent is built by its own `station` stage on **Go 1.20** and **GOARCH=386**
+— Go 1.21 dropped Windows 7/8/Server 2008/2012, and driving-school classrooms
+still run Windows 7, while a 64-bit binary refuses to start on a 32-bit PC.
+That one build covers Windows 7 through 11 and both architectures. Do not
+"upgrade" that stage to match the server toolchain without a Windows 7 PC to
+test on: the failure is silent at build time and total at the school.
+
 Stamp the version on every such build, otherwise `b2b_station.agent_version`
 reports `1.0.0` for every PC and a school on a known-broken build is
 indistinguishable from one on the fix:

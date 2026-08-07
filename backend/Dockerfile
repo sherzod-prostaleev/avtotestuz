@@ -22,25 +22,39 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/encryptpan ./cmd/encryptpan \
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/healthcheck ./cmd/healthcheck
 
-# The classroom agent ships to school PCs from the admin panel, so the API image
-# carries a ready-to-serve Windows build. Cross-compiled here rather than
+# The classroom agent ships to school PCs from the admin panel, so the API
+# image carries a ready-to-serve Windows build. Cross-compiled here rather than
 # committed as a binary or copied onto the server by hand: either of those
 # drifts from the source, which is exactly how deploy/nginx-drivergo.uz.conf
 # ended up describing an architecture production never ran.
-# genwinres first: it writes cmd/avtotest-station/rsrc_windows_amd64.syso,
-# which the Windows build below links in automatically. That carries the
-# DriverGo icon (so the desktop shortcut and Explorer show the emblem instead
-# of a blank executable) and the version block. Neither replaces an
-# Authenticode signature, but an unsigned binary that also has no publisher,
-# no product name and no version is the exact shape SmartScreen treats as
-# anonymous.
-# GOARCH=386, not amd64. A 386 binary runs on 32-bit AND 64-bit Windows
-# (WOW64), while a 64-bit one fails outright on an older PC with "this app
-# can't run on your PC" -- which is exactly the fleet a driving school has.
-# One universal download beats making a school pick the right architecture,
-# and the agent is a tiny local proxy, so nothing here needs 64-bit.
-RUN cd station \
- && go run ./cmd/genwinres -arch 386 -version "${STATION_VERSION:-1.0.0}" \
+#
+# Its own stage on Go 1.20, and this is the whole reason for the split: Go 1.21
+# dropped Windows 7 / 8 / Server 2008 / 2012, and a driving school's classroom
+# is exactly where those machines are still in service -- a binary built with
+# the toolchain above simply refuses to start there. 1.20 is the last release
+# that runs on them, and its output is equally happy on Windows 10 and 11, so
+# one build covers the whole fleet. The server binaries above stay on the
+# current toolchain; only this agent is pinned back.
+#
+# GOARCH=386 for the same reason in the other dimension: a 386 binary runs on
+# 32-bit and 64-bit Windows alike through WOW64, while a 64-bit one fails
+# outright on an older PC with "this app can't run on your PC". One universal
+# download beats making a school pick an architecture, and the agent is a small
+# local proxy that needs neither 64-bit nor a modern toolchain.
+#
+# genwinres runs first: it writes cmd/avtotest-station/rsrc_windows_386.syso,
+# which the build links in automatically. That carries the DriverGo icon (so
+# the desktop shortcut and Explorer show the emblem instead of a blank
+# executable) and the version block. Neither replaces an Authenticode
+# signature, but an unsigned binary that also has no publisher, no product name
+# and no version is the exact shape SmartScreen treats as anonymous.
+FROM golang:1.20-alpine AS station
+WORKDIR /src
+ARG STATION_VERSION=1.0.0
+RUN apk add --no-cache git
+COPY station/ ./
+RUN go mod download
+RUN go run ./cmd/genwinres -arch 386 -version "${STATION_VERSION:-1.0.0}" \
  && CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -trimpath \
       -ldflags="-s -w -X main.version=${STATION_VERSION:-1.0.0}" \
       -o /out/avtotest-station.exe ./cmd/avtotest-station
@@ -50,7 +64,7 @@ WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=build /out/encryptpan /encryptpan
 COPY --from=build /out/healthcheck /healthcheck
-COPY --from=build /out/avtotest-station.exe /station/avtotest-station.exe
+COPY --from=station /out/avtotest-station.exe /station/avtotest-station.exe
 ENV PORT=8080
 EXPOSE 8080
 USER nonroot:nonroot
