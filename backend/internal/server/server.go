@@ -195,7 +195,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}
 				dh.Routes(api)
 
-				learnerAuth := api.With(auth.Required([]byte(cfg.JWTSecret)), auth.RejectBanned(deps.Queries))
+				learnerAuth := api.With(
+					auth.Required([]byte(cfg.JWTSecret)),
+					auth.RejectBanned(deps.Queries),
+					auth.RequirePasswordChanged(deps.Queries),
+				)
 
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)

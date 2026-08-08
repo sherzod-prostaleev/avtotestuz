@@ -44,6 +44,7 @@ type UserDetail = {
   vip_active: boolean;
   vip_ends_at?: string;
   has_password: boolean;
+  must_change_password?: boolean;
   streak: number;
   bypass_variant_progress: boolean;
   created_at: string;
@@ -108,6 +109,8 @@ export default function AdminUserDetailPage() {
   const [tab, setTab] = useState<Tab>("profile");
   const [blockOpen, setBlockOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [tempPassword, setTempPassword] = useState<string | null>(null);
+  const [tempCopied, setTempCopied] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -192,6 +195,35 @@ export default function AdminUserDetailPage() {
         return;
       }
       setOkMsg(t("forceReloginDone"));
+      await load();
+    } catch {
+      setError(t("errorAction"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function issueTemporaryPassword() {
+    if (!window.confirm(t("tempPasswordHint"))) return;
+    setBusy(true);
+    setError(null);
+    setOkMsg(null);
+    setTempCopied(false);
+    try {
+      const res = await fetch(`/api/admin/users/${id}/temporary-password`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) {
+        setError(t("errorAction"));
+        return;
+      }
+      const plain = json?.data?.temporary_password;
+      if (typeof plain !== "string" || !plain) {
+        setError(t("errorAction"));
+        return;
+      }
+      setTempPassword(plain);
+      if (json?.data?.user) setUser(json.data.user as UserDetail);
+      setOkMsg(t("tempPasswordDone"));
       await load();
     } catch {
       setError(t("errorAction"));
@@ -584,7 +616,11 @@ export default function AdminUserDetailPage() {
                 </dt>
                 <dd className="flex items-center gap-1.5">
                   <KeyRound aria-hidden className="h-3.5 w-3.5 text-muted-foreground" />
-                  {user.has_password ? t("passwordSet") : t("passwordUnset")}
+                  {user.has_password
+                    ? user.must_change_password
+                      ? t("passwordMustChange")
+                      : t("passwordSet")
+                    : t("passwordUnset")}
                 </dd>
               </div>
               <div>
@@ -620,9 +656,48 @@ export default function AdminUserDetailPage() {
         {tab === "security" ? (
           <section className="space-y-3 rounded-2xl border border-border/80 bg-card/70 p-4">
             <p className="text-xs text-muted-foreground">{t("forceReloginHint")}</p>
-            <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void revokeAll()}>
-              {t("revokeAll")}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => void revokeAll()}>
+                {t("revokeAll")}
+              </Button>
+              <PermissionGate permission="users.write" mode="hide">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="game"
+                  disabled={busy}
+                  onClick={() => void issueTemporaryPassword()}
+                >
+                  {t("tempPasswordCreate")}
+                </Button>
+              </PermissionGate>
+            </div>
+            {tempPassword ? (
+              <div className="space-y-2 rounded-xl border border-border bg-background p-3">
+                <p className="text-xs font-semibold text-foreground">{t("tempPasswordTitle")}</p>
+                <p className="text-xs text-muted-foreground">{t("tempPasswordOnce")}</p>
+                <code className="block break-all rounded-lg bg-muted px-3 py-2 font-mono text-sm">{tempPassword}</code>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(tempPassword).then(() => {
+                        setTempCopied(true);
+                        setTimeout(() => setTempCopied(false), 2000);
+                      });
+                    }}
+                  >
+                    <Copy aria-hidden className="mr-1 h-3.5 w-3.5" />
+                    {tempCopied ? t("tempPasswordCopied") : t("tempPasswordCopy")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setTempPassword(null)}>
+                    {t("tempPasswordClose")}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               {t("sessionsTab")}
             </h3>

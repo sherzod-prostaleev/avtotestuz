@@ -146,7 +146,7 @@ func TestRegisterPasswordOnlyAndSetPasswordRouteIsAbsent(t *testing.T) {
 	if toks.AccessToken == "" || toks.RefreshToken == "" {
 		t.Fatal("expected tokens on register")
 	}
-	if strings.Contains(string(env.Data), "secret123") || strings.Contains(string(env.Data), "password") {
+	if strings.Contains(string(env.Data), "secret123") || strings.Contains(string(env.Data), "password_hash") {
 		t.Fatal("response must not include password material")
 	}
 

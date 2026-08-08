@@ -43,7 +43,7 @@ export default function LoginPage() {
     capturePendingReferralCodeFromUrl();
   }, []);
 
-  async function finishAuth() {
+  async function finishAuth(mustChangePassword: boolean) {
     // Side-effects must never block a successful login — cookies are already set.
     try {
       await applyPendingReferralCode();
@@ -54,6 +54,10 @@ export default function LoginPage() {
       await migrateDemoProgressOnLogin();
     } catch {
       /* best-effort */
+    }
+    if (mustChangePassword) {
+      router.push(`/${locale}/change-password`);
+      return;
     }
     router.push(`/${locale}/dashboard`);
   }
@@ -85,9 +89,14 @@ export default function LoginPage() {
       }
 
       let code = "unknown";
+      let mustChangePassword = false;
       try {
-        const json = (await res.json()) as { error?: { code?: string } };
+        const json = (await res.json()) as {
+          error?: { code?: string };
+          data?: { must_change_password?: boolean };
+        };
         code = json.error?.code ?? "unknown";
+        mustChangePassword = json.data?.must_change_password === true;
       } catch {
         if (!res.ok) {
           setError("network_error");
@@ -99,7 +108,7 @@ export default function LoginPage() {
         setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
         return;
       }
-      await finishAuth();
+      await finishAuth(mustChangePassword);
     } finally {
       setSubmitting(false);
     }

@@ -43,7 +43,13 @@ export async function POST(request: Request) {
     return unavailableResponse();
   }
 
-  const response = NextResponse.json({ data: { ok: true } }, { status: 200 });
+  const payload = (data as { data?: { must_change_password?: unknown } }).data;
+  const mustChangePassword = payload?.must_change_password === true;
+
+  const response = NextResponse.json(
+    { data: { ok: true, must_change_password: mustChangePassword } },
+    { status: 200 },
+  );
   setAuthCookies(response, tokens);
   return response;
 }

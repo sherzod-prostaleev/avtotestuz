@@ -100,7 +100,7 @@ func (q *Queries) CreateOTPChallenge(ctx context.Context, arg CreateOTPChallenge
 
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profile (phone, referral_code, password_hash, name)
-VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind
+VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password
 `
 
 type CreateProfileParams struct {
@@ -136,6 +136,7 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.ReferralCommissionPercent,
 		&i.BypassVariantProgress,
 		&i.Kind,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
@@ -215,7 +216,7 @@ func (q *Queries) GetLatestPurchaseEntitlement(ctx context.Context, profileID uu
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind FROM profile WHERE id = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password FROM profile WHERE id = $1
 `
 
 func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error) {
@@ -239,28 +240,13 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.ReferralCommissionPercent,
 		&i.BypassVariantProgress,
 		&i.Kind,
+		&i.MustChangePassword,
 	)
 	return i, err
 }
 
-const getProfileKind = `-- name: GetProfileKind :one
-SELECT kind FROM profile WHERE id = $1
-`
-
-// Used by leaderboard.Service.RecordPoint to keep station shadow profiles
-// (kind = 'station') out of the live leaderboard write path before it ever
-// touches Billing.Status or Redis. Selecting just the column, rather than
-// reusing GetProfileByID, keeps the hot answer-submission path from paying
-// for columns it doesn't need.
-func (q *Queries) GetProfileKind(ctx context.Context, id uuid.UUID) (string, error) {
-	row := q.db.QueryRow(ctx, getProfileKind, id)
-	var kind string
-	err := row.Scan(&kind)
-	return kind, err
-}
-
 const getProfileByPhone = `-- name: GetProfileByPhone :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind FROM profile WHERE phone = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password FROM profile WHERE phone = $1
 `
 
 func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile, error) {
@@ -284,8 +270,25 @@ func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile,
 		&i.ReferralCommissionPercent,
 		&i.BypassVariantProgress,
 		&i.Kind,
+		&i.MustChangePassword,
 	)
 	return i, err
+}
+
+const getProfileKind = `-- name: GetProfileKind :one
+SELECT kind FROM profile WHERE id = $1
+`
+
+// Used by leaderboard.Service.RecordPoint to keep station shadow profiles
+// (kind = 'station') out of the live leaderboard write path before it ever
+// touches Billing.Status or Redis. Selecting just the column, rather than
+// reusing GetProfileByID, keeps the hot answer-submission path from paying
+// for columns it doesn't need.
+func (q *Queries) GetProfileKind(ctx context.Context, id uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getProfileKind, id)
+	var kind string
+	err := row.Scan(&kind)
+	return kind, err
 }
 
 const getRefreshToken = `-- name: GetRefreshToken :one
@@ -418,11 +421,53 @@ func (q *Queries) SetPasswordHashIfNull(ctx context.Context, arg SetPasswordHash
 	return result.RowsAffected(), nil
 }
 
+const setProfilePassword = `-- name: SetProfilePassword :one
+UPDATE profile
+SET password_hash = $2,
+    must_change_password = $3
+WHERE id = $1
+RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password
+`
+
+type SetProfilePasswordParams struct {
+	ID                 uuid.UUID   `json:"id"`
+	PasswordHash       pgtype.Text `json:"password_hash"`
+	MustChangePassword bool        `json:"must_change_password"`
+}
+
+// Replaces password_hash and clears/sets the must-change flag.
+// Never stores plaintext; callers pass a bcrypt hash only.
+func (q *Queries) SetProfilePassword(ctx context.Context, arg SetProfilePasswordParams) (Profile, error) {
+	row := q.db.QueryRow(ctx, setProfilePassword, arg.ID, arg.PasswordHash, arg.MustChangePassword)
+	var i Profile
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.Name,
+		&i.Region,
+		&i.District,
+		&i.BirthDate,
+		&i.LocalePref,
+		&i.ThemePref,
+		&i.Role,
+		&i.ReferralCode,
+		&i.ReferredBy,
+		&i.Status,
+		&i.CreatedAt,
+		&i.PasswordHash,
+		&i.ReferralCommissionPercent,
+		&i.BypassVariantProgress,
+		&i.Kind,
+		&i.MustChangePassword,
+	)
+	return i, err
+}
+
 const updateProfileMe = `-- name: UpdateProfileMe :one
 UPDATE profile SET
   name = $2, region = $3, district = $4, birth_date = $5,
   locale_pref = $6, theme_pref = $7
-WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind
+WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password
 `
 
 type UpdateProfileMeParams struct {
@@ -464,6 +509,7 @@ func (q *Queries) UpdateProfileMe(ctx context.Context, arg UpdateProfileMeParams
 		&i.ReferralCommissionPercent,
 		&i.BypassVariantProgress,
 		&i.Kind,
+		&i.MustChangePassword,
 	)
 	return i, err
 }

@@ -14,6 +14,7 @@ import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
 import { WebPushCard } from "@/components/profile/web-push-card";
 import { SupportTicketCard } from "@/components/profile/support-ticket-card";
+import { ChangePasswordForm } from "@/components/profile/change-password-form";
 
 interface UserProfileData {
   id: string;
@@ -26,6 +27,7 @@ interface UserProfileData {
   theme_pref: string;
   referral_code: string;
   role: string;
+  must_change_password?: boolean;
   created_at: string;
 }
 
@@ -197,6 +199,8 @@ export default function ProfilePage() {
             </div>
           </form>
         </Card>
+
+        <ChangePasswordForm />
 
         <Card className="p-5 sm:p-6">
           <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
