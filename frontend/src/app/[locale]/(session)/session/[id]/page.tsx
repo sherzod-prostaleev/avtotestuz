@@ -45,16 +45,6 @@ function isExamLikeMode(mode: SessionMode): boolean {
   return mode === "exam" || mode === "grand_mock" || mode === "placement";
 }
 
-/** Practice-style modes defer FSRS to /learn/review after reveal. */
-function usesDeferredFsrs(mode: SessionMode): boolean {
-  return mode === "practice" || mode === "review" || mode === "variant" || mode === "mistakes";
-}
-
-const FSRS_AGAIN = 1;
-const FSRS_HARD = 2;
-const FSRS_GOOD = 3;
-const FSRS_EASY = 4;
-
 interface SavedItemDTO {
   question_id: string;
 }
@@ -118,7 +108,6 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   const [certificateOpen, setCertificateOpen] = useState(false);
   const [examPassOpen, setExamPassOpen] = useState(false);
   const [biletPraiseOpen, setBiletPraiseOpen] = useState(false);
-  const [pendingFsrsQuestionId, setPendingFsrsQuestionId] = useState<string | null>(null);
   const initializedSessionRef = useRef<string | null>(null);
   const viewedQuestionsRef = useRef<Set<string>>(new Set());
   const certificateShownForRef = useRef<string | null>(null);
@@ -126,7 +115,6 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   const biletPraiseShownForRef = useRef<string | null>(null);
   const autoFinishAttemptedRef = useRef<string | null>(null);
   const questionShownAtRef = useRef(Date.now());
-  const fsrsSubmittedRef = useRef<Set<string>>(new Set());
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
@@ -222,43 +210,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
-  const postLearnReview = useCallback(async (questionId: string, rating: number) => {
-    if (fsrsSubmittedRef.current.has(questionId)) return;
-    fsrsSubmittedRef.current.add(questionId);
-    setPendingFsrsQuestionId((current) => (current === questionId ? null : current));
-    try {
-      await apiPost("learn/review", { question_id: questionId, rating });
-    } catch {
-      // Session answer is already saved; allow retry only for correct-answer grades.
-      fsrsSubmittedRef.current.delete(questionId);
-      if (rating !== FSRS_AGAIN) {
-        setPendingFsrsQuestionId((current) => current ?? questionId);
-      }
-    }
+  const goToQuestion = useCallback((index: number) => {
+    setCurrentIndex(index);
   }, []);
-
-  const flushPendingFsrs = useCallback(
-    async (rating = FSRS_GOOD) => {
-      if (!pendingFsrsQuestionId) return;
-      await postLearnReview(pendingFsrsQuestionId, rating);
-    },
-    [pendingFsrsQuestionId, postLearnReview]
-  );
-
-  const goToQuestion = useCallback(
-    (index: number) => {
-      // Keep navigation synchronous when there is nothing to grade so existing
-      // UI (and tests) update on the same tick.
-      if (!pendingFsrsQuestionId) {
-        setCurrentIndex(index);
-        return;
-      }
-      void postLearnReview(pendingFsrsQuestionId, FSRS_GOOD).finally(() => {
-        setCurrentIndex(index);
-      });
-    },
-    [pendingFsrsQuestionId, postLearnReview]
-  );
 
   const handleSelectAnswer = useCallback(
     async (questionId: string, answerId: string) => {
@@ -268,11 +222,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       }
 
       const latencyMs = Math.max(0, Date.now() - questionShownAtRef.current);
-      const deferFsrs = usesDeferredFsrs(session.mode);
       setPendingAnswer({ questionId, answerId });
       const response = await submitAnswer(sessionId, questionId, answerId, {
         latencyMs,
-        ...(deferFsrs ? { skipFsrs: true } : {}),
       });
       if (!response) {
         // Keep pending for retry UI when the network/API call fails.
@@ -280,13 +232,6 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       }
 
       setPendingAnswer(null);
-      if (deferFsrs && response.recorded) {
-        if (response.correct === false) {
-          void postLearnReview(questionId, FSRS_AGAIN);
-        } else if (response.correct === true) {
-          setPendingFsrsQuestionId(questionId);
-        }
-      }
       const answerProps: SafeAnalyticsProps = {
         session_id: session.id,
         question_id: questionId,
@@ -306,7 +251,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         });
       }
     },
-    [postLearnReview, session, sessionId, submitAnswer, submitting]
+    [session, sessionId, submitAnswer, submitting]
   );
 
   const handleFinish = useCallback(async () => {
@@ -314,7 +259,6 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     setFinishing(true);
     setPendingAnswer(null);
     try {
-      await flushPendingFsrs(FSRS_GOOD);
       const completed = await finishSession(sessionId);
       if (completed) {
         trackEvent("session_finish", {
@@ -334,7 +278,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     } finally {
       setFinishing(false);
     }
-  }, [finishSession, finishing, flushPendingFsrs, session, sessionId, submitting]);
+  }, [finishSession, finishing, session, sessionId, submitting]);
 
   // Exam-like modes had no reachable finish control after the last answer, so
   // a clean pass could sit on the active UI until the timer expired. Auto-finish
@@ -751,7 +695,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     <main
       className="session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
     >
-      <header className="flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-1.5 py-1 sm:gap-3 sm:rounded-2xl sm:p-3">
+      <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-1.5 py-1 sm:gap-3 sm:rounded-2xl sm:p-3">
         <div className="flex min-w-0 items-center gap-1.5">
           <Button
             variant="ghost"
@@ -852,7 +796,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       )}
 
       <nav
-        className="chip-scroll shrink-0 rounded-xl border border-border bg-card p-1 sm:rounded-2xl sm:p-2"
+        className="session-navigator chip-scroll shrink-0 rounded-xl border border-border bg-card p-1 sm:rounded-2xl sm:p-2"
         aria-label={t("questionNavigator")}
       >
         {questions.map((question, index) => {
@@ -903,7 +847,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       </nav>
 
       {currentQuestion && (
-        <Card className="flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
+        <Card className="session-content-card flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
           <div className="min-h-0 flex-1 overflow-hidden">
             <QuestionStage
               question={currentQuestion}
@@ -924,50 +868,10 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
               {t("answerAccepted")}
             </p>
           )}
-
-          {session &&
-            usesDeferredFsrs(session.mode) &&
-            currentAnswered &&
-            currentQuestion.correct === true && (
-              <div className="shrink-0 space-y-1 rounded-lg border border-border bg-muted/40 p-1.5 sm:space-y-2 sm:rounded-xl sm:p-2.5">
-                <p className="text-[10px] text-muted-foreground sm:text-sm">{t("fsrsHint")}</p>
-                {pendingFsrsQuestionId === currentQuestion.id ? (
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2" role="group" aria-label={t("fsrsRatingLabel")}>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-8 flex-1 text-xs sm:min-h-10"
-                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_HARD)}
-                    >
-                      {t("fsrsHard")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-8 flex-1 text-xs sm:min-h-10"
-                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_GOOD)}
-                    >
-                      {t("fsrsGood")}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="min-h-8 flex-1 text-xs sm:min-h-10"
-                      onClick={() => void postLearnReview(currentQuestion.id, FSRS_EASY)}
-                    >
-                      {t("fsrsEasy")}
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            )}
         </Card>
       )}
 
-      <footer className="flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1 sm:justify-between sm:gap-3 sm:rounded-2xl sm:p-2.5">
+      <footer className="session-actions flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1 sm:justify-between sm:gap-3 sm:rounded-2xl sm:p-2.5">
         <Button
           variant="outline"
           className="h-10 min-h-10 flex-1 sm:h-12 sm:min-h-12 sm:flex-none"

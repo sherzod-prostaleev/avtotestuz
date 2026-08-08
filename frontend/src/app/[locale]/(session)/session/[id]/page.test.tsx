@@ -202,7 +202,7 @@ describe("SessionPage secure session flow", () => {
     expect(chosen.className).not.toMatch(/border-blue-400/);
   });
 
-  it("submits a dynamic fifth answer through F5 without client grading", async () => {
+  it("submits a dynamic fifth answer through F5 with latency for backend grading", async () => {
     const answers = Array.from({ length: 5 }, (_, index) => ({
       id: `a-${index + 1}`,
       text: `${index + 1}-javob`,
@@ -218,9 +218,11 @@ describe("SessionPage secure session flow", () => {
         "sess-123",
         "q-1",
         "a-5",
-        expect.objectContaining({ latencyMs: expect.any(Number), skipFsrs: true })
+        expect.objectContaining({ latencyMs: expect.any(Number) })
       )
     );
+    const opts = submitAnswer.mock.calls[0]?.[3] as { skipFsrs?: boolean } | undefined;
+    expect(opts).not.toHaveProperty("skipFsrs");
     expect(trackEvent).toHaveBeenCalledWith(
       "answer",
       expect.objectContaining({ session_id: "sess-123", question_id: "q-1", status: "recorded" })
@@ -231,7 +233,7 @@ describe("SessionPage secure session flow", () => {
     let resolveSubmit: (value: { recorded: boolean; correct: boolean; correct_answer_id: string }) => void =
       () => undefined;
     const submitAnswer = vi.fn(
-      () =>
+      (_sessionId: string, _questionId: string, _answerId: string, _options?: unknown) =>
         new Promise<{ recorded: boolean; correct: boolean; correct_answer_id: string }>((resolve) => {
           resolveSubmit = resolve;
         })
@@ -246,9 +248,11 @@ describe("SessionPage secure session flow", () => {
         "sess-123",
         "q-1",
         "a-2",
-        expect.objectContaining({ latencyMs: expect.any(Number), skipFsrs: true })
+        expect.objectContaining({ latencyMs: expect.any(Number) })
       )
     );
+    const opts = submitAnswer.mock.calls[0]?.[3] as { skipFsrs?: boolean } | undefined;
+    expect(opts).not.toHaveProperty("skipFsrs");
     // Pending selection must paint immediately — no neutral→dim→wrong flash.
     expect(screen.getByRole("button", { name: /3.28 belgisi/ }).className).toMatch(/border-accent/);
     expect(screen.queryByTestId("answer-incorrect-icon")).not.toBeInTheDocument();
@@ -256,7 +260,7 @@ describe("SessionPage secure session flow", () => {
     resolveSubmit({ recorded: true, correct: false, correct_answer_id: "a-1" });
   });
 
-  it("posts Again to learn/review immediately on incorrect deferred-FSRS answer", async () => {
+  it("delegates an incorrect review answer to SubmitAnswer without posting learn/review", async () => {
     const submitAnswer = vi.fn().mockResolvedValue({
       recorded: true,
       correct: false,
@@ -268,18 +272,16 @@ describe("SessionPage secure session flow", () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /3.28 belgisi/ }));
 
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 1 })
-    );
-    expect(submitAnswer).toHaveBeenCalledWith(
-      "sess-123",
-      "q-1",
-      "a-2",
-      expect.objectContaining({ skipFsrs: true })
-    );
+    await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+    const opts = submitAnswer.mock.calls[0]?.[3] as
+      | { latencyMs?: number; skipFsrs?: boolean }
+      | undefined;
+    expect(opts?.latencyMs).toEqual(expect.any(Number));
+    expect(opts).not.toHaveProperty("skipFsrs");
+    expect(post).not.toHaveBeenCalledWith("learn/review", expect.anything());
   });
 
-  it("shows Hard/Good/Easy after a correct deferred answer and posts the pick", async () => {
+  it("does not show or post a self-rating after a correct practice-style answer", async () => {
     let graded = false;
     const gradedSession = () =>
       activeSession({
@@ -328,14 +330,14 @@ describe("SessionPage secure session flow", () => {
       </NextIntlClientProvider>
     );
 
-    expect(screen.getByText("Takrorlash: tez javob → oson; sekin → qiyin")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Oson" }));
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 4 })
-    );
+    expect(screen.queryByText("Takrorlash: tez javob → oson; sekin → qiyin")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Qiyin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yaxshi" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Oson" })).not.toBeInTheDocument();
+    expect(post).not.toHaveBeenCalledWith("learn/review", expect.anything());
   });
 
-  it("defaults pending FSRS to Good when advancing with Keyingisi", async () => {
+  it("advances immediately without posting a default self-rating", async () => {
     let graded = false;
     const gradedSession = () =>
       activeSession({
@@ -382,9 +384,24 @@ describe("SessionPage secure session flow", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Keyingisi" }));
-    await waitFor(() =>
-      expect(post).toHaveBeenCalledWith("learn/review", { question_id: "q-1", rating: 3 })
-    );
+    expect(screen.getByText("Ikkinchi savol")).toBeInTheDocument();
+    expect(post).not.toHaveBeenCalledWith("learn/review", expect.anything());
+  });
+
+  it("keeps the fixed session shell while only the answer list may scroll", () => {
+    mockEngine(activeSession());
+
+    renderPage();
+
+    const stage = screen.getByTestId("question-stage");
+    const shell = stage.closest(".session-shell");
+    const contentCard = stage.closest(".session-content-card");
+    const answerList = screen.getByTestId("answer-list");
+
+    expect(shell).toHaveClass("overflow-hidden");
+    expect(contentCard).toHaveClass("min-h-0", "overflow-hidden");
+    expect(answerList).toHaveClass("session-answer-list", "lg:overflow-y-auto");
+    expect(stage.querySelector(".session-question-copy")).not.toHaveClass("overflow-y-auto");
   });
 
   it("exam mode submits without skip_fsrs", async () => {
@@ -575,6 +592,29 @@ describe("SessionPage kiosk mode", () => {
     const target = navigation.push.mock.calls[0][0] as string;
     expect(target).toBe("/uz-Latn/station");
     expect(isKioskReachable(target)).toBe(true);
+  });
+
+  it("inherits the practice self-rating removal", () => {
+    mockEngine(
+      activeSession({
+        mode: "practice",
+        questions: [
+          question({
+            answered: true,
+            user_answer_id: "a-1",
+            correct: true,
+            correct_answer_id: "a-1",
+          }),
+        ],
+      })
+    );
+
+    renderKioskPage();
+
+    expect(screen.queryByText("Takrorlash: tez javob → oson; sekin → qiyin")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Qiyin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Yaxshi" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Oson" })).not.toBeInTheDocument();
   });
 
   it("sends the not-found error card's back button to a kiosk-reachable route", () => {

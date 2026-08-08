@@ -100,7 +100,7 @@ export function QuestionStage({
 
       <div
         data-testid="answer-list"
-        className="flex flex-col gap-1 sm:gap-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
+        className="session-answer-list flex flex-col gap-1 sm:gap-2.5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:overscroll-contain"
       >
         {question.answers.map((answer, index) => (
           <AnswerOption
@@ -143,7 +143,7 @@ export function QuestionStage({
       <div
         ref={contentRef}
         style={contentStyle}
-        className="flex flex-col gap-1 sm:gap-3 lg:grid lg:h-full lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4"
+        className="session-stage-grid flex flex-col gap-1 sm:gap-3 lg:grid lg:h-full lg:grid-cols-[minmax(320px,0.85fr)_minmax(0,1.15fr)] lg:grid-rows-1 lg:gap-4"
       >
         <button
           type="button"
