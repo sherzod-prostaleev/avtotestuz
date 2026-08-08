@@ -14,6 +14,7 @@ import (
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/bot"
+	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/db"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -67,7 +68,7 @@ func main() {
 	}
 	defer func() { _ = redisClient.Close() }()
 
-	h, arenaSvc := server.New(cfg, server.Deps{
+	h, arenaSvc, broadcastSvc := server.New(cfg, server.Deps{
 		Queries: sqlc.New(pool),
 		Pool:    pool,
 		Redis:   redisClient,
@@ -86,6 +87,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go maintainEventPartitions(ctx, pool, logger)
+	if broadcastSvc != nil {
+		go broadcast.RunWorker(ctx, broadcastSvc, logger)
+	}
 
 	// Long-poll is the dev-only alternative to the webhook route server.New
 	// registers — see docs/superpowers/specs/2026-07-25-m4-06-telegram-bot-design.md

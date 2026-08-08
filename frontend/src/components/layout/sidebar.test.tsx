@@ -31,6 +31,13 @@ vi.mock("@/lib/support-chat-client", () => ({
   getMySupportUnread: vi.fn().mockResolvedValue({ unread: 0 }),
 }));
 
+vi.mock("@/lib/notifications-client", () => ({
+  getNotificationUnreadCount: vi.fn().mockResolvedValue(0),
+  listNotifications: vi.fn().mockResolvedValue([]),
+  markNotificationRead: vi.fn(),
+  markAllNotificationsRead: vi.fn(),
+}));
+
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
 
 const localeCases = [

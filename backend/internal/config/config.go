@@ -124,6 +124,10 @@ type Config struct {
 	VAPIDPrivateKey string
 	VAPIDSubject    string // mailto: or https: contact for push services
 
+	// Broadcast safety rails (notification center campaigns).
+	BroadcastMaxRecipients int
+	BroadcastImageHosts    []string
+
 	// SentryDSN enables optional sentry-go init (U-41). Empty = disabled no-op.
 	// No pager / tracing product — operators set a real DSN when they have one.
 	SentryDSN string
@@ -240,7 +244,11 @@ func Load() (Config, error) {
 		VAPIDPublicKey:  getenv("VAPID_PUBLIC_KEY", ""),
 		VAPIDPrivateKey: getenv("VAPID_PRIVATE_KEY", ""),
 		VAPIDSubject:    getenv("VAPID_SUBJECT", "mailto:ops@avtotest.uz"),
-		SentryDSN:       strings.TrimSpace(getenv("SENTRY_DSN", "")),
+
+		BroadcastMaxRecipients: getenvInt("BROADCAST_MAX_RECIPIENTS", 100000),
+		BroadcastImageHosts:    splitCSV(getenv("BROADCAST_IMAGE_HOSTS", "")),
+
+		SentryDSN: strings.TrimSpace(getenv("SENTRY_DSN", "")),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -374,6 +382,18 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func getenvInt(key string, def int) int {
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return def
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
 }
 
 func splitCSV(raw string) []string {

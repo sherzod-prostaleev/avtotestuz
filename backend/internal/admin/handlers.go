@@ -18,6 +18,7 @@ import (
 	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/recon"
+	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/push"
@@ -32,6 +33,7 @@ type Handler struct {
 	Billing         billing.Service
 	MetricsSnapshot MetricsSnapshot
 	Push            *push.Service
+	Broadcast       *broadcast.Service
 
 	// StationBinaryPath is the Windows agent binary served by
 	// GET /b2b/orgs/{id}/installer.exe. See config.Config.StationBinaryPath.
@@ -252,7 +254,11 @@ func (h *Handler) Routes(r chi.Router) {
 			sr.Use(RequirePermission("support.broadcast"))
 			sr.Get("/support/banner", h.getSupportBanner)
 			sr.Put("/support/banner", h.putSupportBanner)
-			sr.Post("/support/broadcasts/webpush", h.postWebPushBroadcast)
+			sr.Get("/support/broadcasts", h.listBroadcastCampaigns)
+			sr.Post("/support/broadcasts", h.createBroadcastCampaign)
+			sr.Post("/support/broadcasts/dry-run", h.dryRunBroadcast)
+			sr.Get("/support/broadcasts/{id}", h.getBroadcastCampaign)
+			sr.Post("/support/broadcasts/{id}/cancel", h.cancelBroadcastCampaign)
 		})
 
 		pr.Group(func(br chi.Router) {

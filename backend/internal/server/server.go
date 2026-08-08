@@ -23,6 +23,7 @@ import (
 	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
 	"avtotest.uz/backend/internal/bot"
+	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -51,7 +52,8 @@ type Deps struct {
 
 // New wires HTTP routes. The optional *arena.Service is non-nil when Redis+DB
 // are configured; callers should Drain it before http.Server.Shutdown.
-func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
+// The optional *broadcast.Service is returned so cmd/api can run the outbox worker.
+func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast.Service) {
 	r := chi.NewRouter()
 	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
 	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
@@ -63,7 +65,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: cfg.CORSOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token", "Idempotency-Key"},
 	}))
 
 	// U-41: process-local request counters (not Prometheus). Must wrap before
@@ -88,12 +90,23 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 	// M3 Super Admin — separate mount from learner /api/v1 (blast-radius isolation).
 	var pushSvc *push.Service
+	var broadcastSvc *broadcast.Service
 	if deps.Pool != nil && deps.Queries != nil {
 		pushSvc = push.NewService(deps.Pool, deps.Queries, push.Config{
 			PublicKey:  cfg.VAPIDPublicKey,
 			PrivateKey: cfg.VAPIDPrivateKey,
 			Subject:    cfg.VAPIDSubject,
 		}, nil)
+		broadcastSvc = &broadcast.Service{
+			Pool: deps.Pool,
+			Q:    deps.Queries,
+			Push: pushSvc,
+			Cfg: broadcast.Config{
+				MaxRecipients: cfg.BroadcastMaxRecipients,
+				ImageHosts:    cfg.BroadcastImageHosts,
+			},
+			Lim: auth.Limiter{R: deps.Redis},
+		}
 	}
 	var supportChatH *supportchat.Handler
 	if deps.Pool != nil && deps.Redis != nil {
@@ -127,6 +140,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret), DataSecret: dataKey},
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
+			Broadcast:       broadcastSvc,
 
 			StationBinaryPath: cfg.StationBinaryPath,
 			PublicBaseURL:     cfg.PublicBaseURL,
@@ -294,6 +308,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				phPush := &push.Handler{Svc: pushSvc}
 				phPush.AuthedRoutes(learnerAuth)
 
+				notifH := &broadcast.LearnerHandler{Q: deps.Queries}
+				notifH.AuthedRoutes(learnerAuth)
+
 				// Chat replaces learner ticket create UI; keep ticket AuthedRoutes
 				// so existing API clients can still open archive tickets.
 				sup.AuthedRoutes(learnerAuth)
@@ -331,7 +348,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 		})
 	}
 
-	return r, arenaSvc
+	return r, arenaSvc, broadcastSvc
 }
 
 const readinessProbeTimeout = 2 * time.Second

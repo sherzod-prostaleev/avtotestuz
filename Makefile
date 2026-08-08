@@ -114,6 +114,12 @@ tg-digest:
 tg-digest-send:
 	cd backend && go run ./cmd/tgdigest -send
 
+broadcast-worker:
+	cd backend && go run ./cmd/broadcastworker
+
+broadcast-worker-once:
+	cd backend && go run ./cmd/broadcastworker -once
+
 # The backend/station module is a separate Go module (avtotest.uz/station) that
 # Go's ./... wildcard does not descend into. Without this target, station tests,
 # vet checks, and Windows-only builds (//go:build windows files) never run,

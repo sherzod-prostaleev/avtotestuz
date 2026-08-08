@@ -9,7 +9,7 @@ import (
 )
 
 func TestHealthz(t *testing.T) {
-	h, _ := New(config.Config{Env: "dev"}, Deps{})
+	h, _, _ := New(config.Config{Env: "dev"}, Deps{})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/healthz", nil)
 	h.ServeHTTP(rec, req)
@@ -19,7 +19,7 @@ func TestHealthz(t *testing.T) {
 }
 
 func TestReadyzSkippedDeps(t *testing.T) {
-	h, _ := New(config.Config{Env: "dev"}, Deps{})
+	h, _, _ := New(config.Config{Env: "dev"}, Deps{})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/readyz", nil)
 	h.ServeHTTP(rec, req)

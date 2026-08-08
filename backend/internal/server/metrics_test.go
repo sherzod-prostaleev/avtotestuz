@@ -11,7 +11,7 @@ import (
 )
 
 func TestMetricsCountsNonProbeRequests(t *testing.T) {
-	h, _ := New(config.Config{Env: "dev"}, Deps{})
+	h, _, _ := New(config.Config{Env: "dev"}, Deps{})
 
 	// Probe paths must not inflate counters.
 	for _, path := range []string{"/healthz", "/readyz", "/metrics"} {
@@ -59,7 +59,7 @@ func TestMetricsCountsNonProbeRequests(t *testing.T) {
 }
 
 func TestMetricsPrometheusDefault(t *testing.T) {
-	h, _ := New(config.Config{Env: "dev"}, Deps{})
+	h, _, _ := New(config.Config{Env: "dev"}, Deps{})
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/does-not-exist", nil))
@@ -90,7 +90,7 @@ func TestMetricsPrometheusDefault(t *testing.T) {
 }
 
 func TestMetricsJSONViaFormatQuery(t *testing.T) {
-	h, _ := New(config.Config{Env: "dev"}, Deps{})
+	h, _, _ := New(config.Config{Env: "dev"}, Deps{})
 	mrec := httptest.NewRecorder()
 	h.ServeHTTP(mrec, httptest.NewRequest(http.MethodGet, "/metrics?format=json", nil))
 	if mrec.Code != http.StatusOK {

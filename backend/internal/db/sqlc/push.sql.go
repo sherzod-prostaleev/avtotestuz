@@ -59,7 +59,7 @@ func (q *Queries) DeletePushSubscriptionByEndpoint(ctx context.Context, endpoint
 const insertNotification = `-- name: InsertNotification :one
 INSERT INTO notification (profile_id, kind, payload, channel)
 VALUES ($1, $2, $3, $4)
-RETURNING id, profile_id, kind, payload, channel, sent_at, read_at, created_at
+RETURNING id, profile_id, kind, payload, channel, sent_at, read_at, created_at, campaign_id
 `
 
 type InsertNotificationParams struct {
@@ -86,6 +86,7 @@ func (q *Queries) InsertNotification(ctx context.Context, arg InsertNotification
 		&i.SentAt,
 		&i.ReadAt,
 		&i.CreatedAt,
+		&i.CampaignID,
 	)
 	return i, err
 }

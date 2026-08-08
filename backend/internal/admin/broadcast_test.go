@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/push"
 	"avtotest.uz/backend/internal/site"
@@ -32,12 +34,19 @@ func TestAdminSupportBroadcast(t *testing.T) {
 	pushSvc := push.NewService(pool, q, push.Config{
 		PublicKey: "BPtest", PrivateKey: "priv", Subject: "mailto:t@example.com",
 	}, fake)
+	bcast := &broadcast.Service{
+		Pool: pool,
+		Q:    q,
+		Push: pushSvc,
+		Cfg:  broadcast.Config{MaxRecipients: 10000},
+	}
 
 	h := &Handler{
-		Svc:    Service{Store: store, Secret: secret},
-		Pool:   pool,
-		Secret: secret,
-		Push:   pushSvc,
+		Svc:       Service{Store: store, Secret: secret},
+		Pool:      pool,
+		Secret:    secret,
+		Push:      pushSvc,
+		Broadcast: bcast,
 	}
 	r := chi.NewRouter()
 	r.Route("/admin/v1", h.Routes)
@@ -81,19 +90,13 @@ func TestAdminSupportBroadcast(t *testing.T) {
 		}
 	})
 
-	t.Run("webpush dry_run + send", func(t *testing.T) {
-		profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998901170001"})
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := pushSvc.Subscribe(context.Background(), profile.ID, push.SubscribeInput{
-			Endpoint: "https://push.example/bc1", P256dh: "p", Auth: "a",
-		}); err != nil {
+	t.Run("dry_run + create + process", func(t *testing.T) {
+		if _, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998901170001"}); err != nil {
 			t.Fatal(err)
 		}
 
-		req := httptest.NewRequest(http.MethodPost, "/admin/v1/support/broadcasts/webpush",
-			bytes.NewBufferString(`{"title":"Go","body":"Hello","dry_run":true}`))
+		req := httptest.NewRequest(http.MethodPost, "/admin/v1/support/broadcasts/dry-run",
+			bytes.NewBufferString(`{"audience":"all_active","channels":"both"}`))
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -102,31 +105,58 @@ func TestAdminSupportBroadcast(t *testing.T) {
 			t.Fatalf("dry status=%d body=%s", w.Code, w.Body.String())
 		}
 		var dryEnv struct {
-			Data push.BroadcastResult `json:"data"`
+			Data broadcast.DryRunCounts `json:"data"`
 		}
 		if err := json.Unmarshal(w.Body.Bytes(), &dryEnv); err != nil {
 			t.Fatal(err)
 		}
-		if dryEnv.Data.Recipients < 1 || !dryEnv.Data.DryRun {
+		if dryEnv.Data.Recipients < 1 {
 			t.Fatalf("dry=%+v", dryEnv.Data)
 		}
 
-		req = httptest.NewRequest(http.MethodPost, "/admin/v1/support/broadcasts/webpush",
-			bytes.NewBufferString(`{"title":"Go","body":"Hello","url":"/uz-Latn/dashboard","dry_run":false}`))
+		req = httptest.NewRequest(http.MethodPost, "/admin/v1/support/broadcasts",
+			bytes.NewBufferString(`{"title":"Go","body":"Hello","audience":"all_active","channels":"inapp","confirm":true}`))
 		req.Header.Set("Authorization", "Bearer "+access)
 		req.Header.Set("Content-Type", "application/json")
 		w = httptest.NewRecorder()
 		r.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Fatalf("send status=%d body=%s", w.Code, w.Body.String())
+		if w.Code != http.StatusAccepted {
+			t.Fatalf("create status=%d body=%s", w.Code, w.Body.String())
 		}
-		var n int
-		if err := pool.QueryRow(context.Background(),
-			`SELECT COUNT(*) FROM admin_audit_log WHERE action='support.broadcast.webpush'`).Scan(&n); err != nil {
+		var createEnv struct {
+			Data map[string]any `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &createEnv); err != nil {
 			t.Fatal(err)
 		}
-		if n < 2 {
-			t.Fatalf("webpush audit count=%d", n)
+		idStr, _ := createEnv.Data["id"].(string)
+		campID, err := uuid.Parse(idStr)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			if err := bcast.ProcessOnce(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+			got, err := bcast.Get(context.Background(), campID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got.Status == "completed" || got.Status == "completed_with_errors" {
+				break
+			}
+			time.Sleep(40 * time.Millisecond)
+		}
+
+		var n int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT COUNT(*) FROM admin_audit_log WHERE action='support.broadcast.create'`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		if n < 1 {
+			t.Fatalf("create audit count=%d", n)
 		}
 	})
 

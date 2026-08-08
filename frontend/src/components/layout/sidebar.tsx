@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
+import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useVariantCount } from "@/hooks/use-variant-count";
 import { getMySupportUnread } from "@/lib/support-chat-client";
@@ -208,6 +209,7 @@ export function Sidebar() {
         </Link>
 
         <div className="flex shrink-0 items-center gap-1.5">
+          <NotificationBell variant="mobile" />
           <div className="flex min-h-10 items-center gap-1 rounded-xl border border-streak/30 bg-streak/10 px-2.5 text-sm font-bold text-streak">
             <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
             <span className="tabular-nums">{currentStreak}</span>
@@ -260,14 +262,19 @@ export function Sidebar() {
               <span className="truncate">{t("brandName")}</span>
             </Link>
 
-            <button
-              type="button"
-              aria-label={t("closeMenu")}
-              onClick={() => setMobileOpen(false)}
-              className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
-            >
-              <X aria-hidden="true" className="h-4 w-4" />
-            </button>
+            <div className="flex items-center gap-1">
+              <div className="hidden md:block">
+                <NotificationBell variant="desktop" />
+              </div>
+              <button
+                type="button"
+                aria-label={t("closeMenu")}
+                onClick={() => setMobileOpen(false)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+              >
+                <X aria-hidden="true" className="h-4 w-4" />
+              </button>
+            </div>
           </div>
 
           {/* Streak lives in the mobile top bar — keep the panel for desktop only. */}

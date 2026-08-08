@@ -80,6 +80,14 @@ func monitoringJobCatalog() []JobCatalogRow {
 			Invoke:      "go run ./cmd/pushdigest [-send] [-limit N]",
 		},
 		{
+			ID:          "broadcastworker",
+			Name:        "Broadcast outbox drain",
+			Kind:        "cli",
+			Status:      "manual",
+			Description: "Drain queued broadcast campaigns (in-app + optional web push). API also runs an in-process worker.",
+			Invoke:      "go run ./cmd/broadcastworker [-once]",
+		},
+		{
 			ID:          "rebuildleaderboard",
 			Name:        "Leaderboard rebuild",
 			Kind:        "cli",

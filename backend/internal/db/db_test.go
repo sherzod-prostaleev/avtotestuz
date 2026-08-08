@@ -29,7 +29,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"exam_session", "session_question", "session_answer", "variant_progress", "question_memory",
 		"category_mastery", "saved_question", "streak",
 		// system
-		"audit_log", "event", "notification", "push_subscription", "grand_mock_certificate",
+		"audit_log", "event", "notification", "push_subscription", "broadcast_campaign", "broadcast_recipient", "grand_mock_certificate",
 		"support_ticket", "support_conversation", "support_message", "alert_rule",
 	} {
 		var reg *string
