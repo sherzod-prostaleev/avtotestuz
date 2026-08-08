@@ -215,6 +215,32 @@ func (h *Handler) cancelBroadcastCampaign(w http.ResponseWriter, r *http.Request
 	httpx.Data(w, http.StatusOK, campaignDTO(camp))
 }
 
+func (h *Handler) retractBroadcastCampaign(w http.ResponseWriter, r *http.Request) {
+	if h.Broadcast == nil {
+		httpx.Error(w, http.StatusServiceUnavailable, "unavailable", "broadcast service not wired")
+		return
+	}
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_id", "invalid campaign id")
+		return
+	}
+	camp, err := h.Broadcast.Retract(r.Context(), id)
+	if errors.Is(err, broadcast.ErrNotFound) {
+		httpx.Error(w, http.StatusNotFound, "not_found", "broadcast not found")
+		return
+	}
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "retract failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "support.broadcast.retract", "broadcast_campaign", camp.ID.String(),
+		nil, campaignDTO(camp), clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()))
+	httpx.Data(w, http.StatusOK, campaignDTO(camp))
+}
+
 func campaignDTO(c sqlc.BroadcastCampaign) map[string]any {
 	out := map[string]any{
 		"id":                c.ID.String(),

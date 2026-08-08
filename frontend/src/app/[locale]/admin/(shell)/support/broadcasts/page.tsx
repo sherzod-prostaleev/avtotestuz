@@ -200,6 +200,25 @@ export default function AdminSupportBroadcastsPage() {
     }
   }
 
+  async function retractCampaign(id: string) {
+    const ok = window.confirm(t("confirmRetract"));
+    if (!ok) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/support/broadcasts/${id}/retract`, { method: "POST" });
+      if (!res.ok) {
+        setError(t("errorPush"));
+        return;
+      }
+      await load();
+    } catch {
+      setError(t("errorPush"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <PermissionGate permission="support.broadcast">
       <main className="mx-auto max-w-2xl space-y-5">
@@ -244,8 +263,8 @@ export default function AdminSupportBroadcastsPage() {
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder={t("pushBody")}
-            rows={3}
-            className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm"
+            rows={12}
+            className="w-full whitespace-pre-wrap rounded-xl border border-border bg-background px-3 py-2 font-sans text-sm leading-relaxed"
           />
           <input
             value={imageURL}
@@ -317,7 +336,7 @@ export default function AdminSupportBroadcastsPage() {
                     <span className="font-semibold">{c.title}</span>
                     <span className="rounded-full bg-muted px-2 py-0.5 font-medium">{c.status}</span>
                   </div>
-                  <p className="mt-1 text-muted-foreground line-clamp-2">{c.body}</p>
+                  <p className="mt-1 whitespace-pre-wrap text-muted-foreground line-clamp-6">{c.body}</p>
                   <p className="mt-1 text-muted-foreground">
                     {t("campaignStats", {
                       total: c.recipient_total,
@@ -328,18 +347,30 @@ export default function AdminSupportBroadcastsPage() {
                       pushFailed: c.push_failed_count,
                     })}
                   </p>
-                  {["queued", "expanding", "sending"].includes(c.status) ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="mt-2"
-                      disabled={busy}
-                      onClick={() => void cancelCampaign(c.id)}
-                    >
-                      {t("cancel")}
-                    </Button>
-                  ) : null}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {["queued", "expanding", "sending"].includes(c.status) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => void cancelCampaign(c.id)}
+                      >
+                        {t("cancel")}
+                      </Button>
+                    ) : null}
+                    {c.status !== "cancelled" || c.sent_count > 0 ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="destructive"
+                        disabled={busy}
+                        onClick={() => void retractCampaign(c.id)}
+                      >
+                        {t("retract")}
+                      </Button>
+                    ) : null}
+                  </div>
                 </li>
               ))}
             </ul>

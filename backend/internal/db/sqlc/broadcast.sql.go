@@ -78,6 +78,38 @@ func (q *Queries) CountUnreadInappNotifications(ctx context.Context, profileID u
 	return count, err
 }
 
+const deleteInappNotificationsByCampaign = `-- name: DeleteInappNotificationsByCampaign :execrows
+DELETE FROM notification
+WHERE campaign_id = $1
+  AND channel = 'inapp'
+`
+
+func (q *Queries) DeleteInappNotificationsByCampaign(ctx context.Context, campaignID uuid.NullUUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteInappNotificationsByCampaign, campaignID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const failPendingRecipientsForCampaign = `-- name: FailPendingRecipientsForCampaign :execrows
+UPDATE broadcast_recipient
+SET status = 'failed',
+    last_error = 'campaign retracted',
+    updated_at = now(),
+    processed_at = COALESCE(processed_at, now())
+WHERE campaign_id = $1
+  AND status IN ('pending', 'processing', 'failed')
+`
+
+func (q *Queries) FailPendingRecipientsForCampaign(ctx context.Context, campaignID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, failPendingRecipientsForCampaign, campaignID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getBroadcastCampaignByID = `-- name: GetBroadcastCampaignByID :one
 SELECT id, created_by_admin, title, body, image_url, action_url, audience, channels, status, idempotency_key, recipient_total, pending_count, sent_count, failed_count, push_sent_count, push_failed_count, error_summary, created_at, queued_at, started_at, finished_at
 FROM broadcast_campaign
@@ -418,6 +450,47 @@ func (q *Queries) MarkInappNotificationRead(ctx context.Context, arg MarkInappNo
 		&i.ReadAt,
 		&i.CreatedAt,
 		&i.CampaignID,
+	)
+	return i, err
+}
+
+const retractBroadcastCampaign = `-- name: RetractBroadcastCampaign :one
+UPDATE broadcast_campaign
+SET status = 'cancelled',
+    error_summary = 'retracted: in-app notifications removed',
+    finished_at = COALESCE(finished_at, now())
+WHERE id = $1
+  AND status IN ('queued', 'expanding', 'sending', 'completed', 'completed_with_errors', 'failed', 'cancelled')
+RETURNING id, created_by_admin, title, body, image_url, action_url, audience, channels, status, idempotency_key, recipient_total, pending_count, sent_count, failed_count, push_sent_count, push_failed_count, error_summary, created_at, queued_at, started_at, finished_at
+`
+
+// Marks campaign cancelled after inbox rows are deleted by the service.
+// Already-delivered OS web-push cannot be recalled.
+func (q *Queries) RetractBroadcastCampaign(ctx context.Context, id uuid.UUID) (BroadcastCampaign, error) {
+	row := q.db.QueryRow(ctx, retractBroadcastCampaign, id)
+	var i BroadcastCampaign
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedByAdmin,
+		&i.Title,
+		&i.Body,
+		&i.ImageUrl,
+		&i.ActionUrl,
+		&i.Audience,
+		&i.Channels,
+		&i.Status,
+		&i.IdempotencyKey,
+		&i.RecipientTotal,
+		&i.PendingCount,
+		&i.SentCount,
+		&i.FailedCount,
+		&i.PushSentCount,
+		&i.PushFailedCount,
+		&i.ErrorSummary,
+		&i.CreatedAt,
+		&i.QueuedAt,
+		&i.StartedAt,
+		&i.FinishedAt,
 	)
 	return i, err
 }

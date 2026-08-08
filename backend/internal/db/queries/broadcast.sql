@@ -35,6 +35,31 @@ WHERE id = $1
   AND status IN ('queued', 'expanding', 'sending')
 RETURNING *;
 
+-- name: RetractBroadcastCampaign :one
+-- Marks campaign cancelled after inbox rows are deleted by the service.
+-- Already-delivered OS web-push cannot be recalled.
+UPDATE broadcast_campaign
+SET status = 'cancelled',
+    error_summary = 'retracted: in-app notifications removed',
+    finished_at = COALESCE(finished_at, now())
+WHERE id = $1
+  AND status IN ('queued', 'expanding', 'sending', 'completed', 'completed_with_errors', 'failed', 'cancelled')
+RETURNING *;
+
+-- name: DeleteInappNotificationsByCampaign :execrows
+DELETE FROM notification
+WHERE campaign_id = $1
+  AND channel = 'inapp';
+
+-- name: FailPendingRecipientsForCampaign :execrows
+UPDATE broadcast_recipient
+SET status = 'failed',
+    last_error = 'campaign retracted',
+    updated_at = now(),
+    processed_at = COALESCE(processed_at, now())
+WHERE campaign_id = $1
+  AND status IN ('pending', 'processing', 'failed');
+
 -- name: InsertInappNotification :one
 INSERT INTO notification (profile_id, kind, payload, channel, campaign_id, sent_at)
 VALUES ($1, $2, $3, 'inapp', $4, now())

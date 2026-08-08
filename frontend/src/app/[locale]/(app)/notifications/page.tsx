@@ -144,7 +144,9 @@ export default function NotificationsPage() {
                   <span className={`block text-sm ${unread ? "font-bold" : "font-medium"}`}>
                     {item.title}
                   </span>
-                  <span className="mt-0.5 block text-sm text-muted-foreground">{item.body}</span>
+                  <span className="mt-0.5 block whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground">
+                    {item.body}
+                  </span>
                   <span className="mt-1 block text-xs text-muted-foreground">
                     {formatWhen(item.created_at, locale)}
                   </span>

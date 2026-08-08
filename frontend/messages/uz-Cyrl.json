@@ -2031,7 +2031,7 @@
     "bannerSave": "Banner сақлаш",
     "pushTitle": "Янги broadcast campaign",
     "pushTitleField": "Сарлавҳа",
-    "pushBody": "Хабар мати",
+    "pushBody": "Хабар мати (Enter билан янги қатор сақланади)",
     "imageUrl": "Ихтиёрий https расм URL",
     "pushUrl": "Relative action URL",
     "audience": "Аудитория",
@@ -2048,6 +2048,8 @@
     "campaignEmpty": "Ҳали campaign йўқ.",
     "campaignStats": "жами={total} · кутмоқда={pending} · юборилди={sent} · хато={failed} · push OK={pushSent} · push хато={pushFailed}",
     "cancel": "Бекор қилиш",
+    "retract": "In-app дан ўчириш",
+    "confirmRetract": "Бу campaignнинг барча in-app билдиришномалари ўчирилсинми? Қурилмадаги web-push билдиришномаларини қайтариб бўлмайди.",
     "errorLoad": "Юклаб бўлмади.",
     "errorForbidden": "support.broadcast рухсати йўқ.",
     "errorBanner": "Banner сақланмади.",
@@ -2056,8 +2058,8 @@
     "pushTipLabel": "Campaign ҳақида",
     "pushTipWhat": "In-app notification + ихтиёрий web-push (outbox worker).",
     "pushTipWhy": "Offline userлар ҳам notification centerда кўради.",
-    "pushTipRisks": "Mass sendни қайтариб бўлмайди; аввал dry-run қилинг.",
-    "pushTipRecommend": "Аввал dry-run; матн, URL ва аудиторияни текширинг."
+    "pushTipRisks": "Web-push OS да қолиши мумкин; in-app ни retract билан ўчириш мумкин.",
+    "pushTipRecommend": "Аввал dry-run; матнда Enter билан қаторларни сақланг."
   },
   "Notifications": {
     "title": "Билдиришномалар",

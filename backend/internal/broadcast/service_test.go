@@ -148,6 +148,41 @@ func TestCreateExpandDeliverInapp(t *testing.T) {
 	if camp2.ID != camp3.ID {
 		t.Fatalf("idempotency failed: %s vs %s", camp2.ID, camp3.ID)
 	}
+
+	retracted, err := svc.Retract(context.Background(), camp.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if retracted.Status != "cancelled" {
+		t.Fatalf("retract status=%s", retracted.Status)
+	}
+	unreadAfter, err := q.CountUnreadInappNotifications(context.Background(), p1.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if unreadAfter != 0 {
+		t.Fatalf("after retract unread=%d want 0", unreadAfter)
+	}
+	var left int
+	if err := pool.QueryRow(context.Background(), `
+		SELECT count(*) FROM notification WHERE campaign_id=$1 AND channel='inapp'`,
+		camp.ID).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
+	if left != 0 {
+		t.Fatalf("inapp rows left=%d", left)
+	}
+}
+
+func TestValidateContentKeepsNewlines(t *testing.T) {
+	body := "Salom!\n\n• bir\n• ikki\n\nJamoa"
+	title, got, err := ValidateContent("T", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if title != "T" || got != body {
+		t.Fatalf("newlines lost: %q", got)
+	}
 }
 
 func insertAdmin(t *testing.T, pool *pgxpool.Pool) uuid.UUID {

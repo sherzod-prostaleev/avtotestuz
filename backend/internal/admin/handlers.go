@@ -259,6 +259,7 @@ func (h *Handler) Routes(r chi.Router) {
 			sr.Post("/support/broadcasts/dry-run", h.dryRunBroadcast)
 			sr.Get("/support/broadcasts/{id}", h.getBroadcastCampaign)
 			sr.Post("/support/broadcasts/{id}/cancel", h.cancelBroadcastCampaign)
+			sr.Post("/support/broadcasts/{id}/retract", h.retractBroadcastCampaign)
 		})
 
 		pr.Group(func(br chi.Router) {

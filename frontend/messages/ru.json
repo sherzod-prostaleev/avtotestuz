@@ -2031,7 +2031,7 @@
     "bannerSave": "Сохранить баннер",
     "pushTitle": "Новая broadcast-кампания",
     "pushTitleField": "Заголовок",
-    "pushBody": "Текст сообщения",
+    "pushBody": "Текст сообщения (Enter сохраняет новую строку)",
     "imageUrl": "Опциональный https URL картинки",
     "pushUrl": "Relative action URL",
     "audience": "Аудитория",
@@ -2048,6 +2048,8 @@
     "campaignEmpty": "Кампаний пока нет.",
     "campaignStats": "всего={total} · ожидает={pending} · отправлено={sent} · ошибки={failed} · push OK={pushSent} · push fail={pushFailed}",
     "cancel": "Отменить",
+    "retract": "Удалить из in-app",
+    "confirmRetract": "Удалить все in-app уведомления этой кампании? Уже показанный web-push на устройстве отозвать нельзя.",
     "errorLoad": "Не удалось загрузить.",
     "errorForbidden": "Нет права support.broadcast.",
     "errorBanner": "Баннер не сохранён.",
@@ -2056,8 +2058,8 @@
     "pushTipLabel": "О кампании",
     "pushTipWhat": "In-app notification + опциональный web-push (outbox worker).",
     "pushTipWhy": "Офлайн-пользователи увидят сообщение в центре уведомлений.",
-    "pushTipRisks": "Mass send нельзя отозвать; сначала dry-run.",
-    "pushTipRecommend": "Сначала dry-run; проверьте текст, URL и аудиторию."
+    "pushTipRisks": "Web-push может остаться в ОС; in-app можно удалить через retract.",
+    "pushTipRecommend": "Сначала dry-run; сохраняйте переносы строк через Enter."
   },
   "Notifications": {
     "title": "Уведомления",

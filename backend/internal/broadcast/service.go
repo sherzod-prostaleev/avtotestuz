@@ -203,6 +203,41 @@ func (s *Service) Cancel(ctx context.Context, id uuid.UUID) (sqlc.BroadcastCampa
 	return camp, err
 }
 
+// Retract removes in-app notifications for a campaign and stops further delivery.
+// Web push already shown by the OS cannot be recalled.
+func (s *Service) Retract(ctx context.Context, id uuid.UUID) (sqlc.BroadcastCampaign, error) {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return sqlc.BroadcastCampaign{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := s.Q.WithTx(tx)
+
+	if _, err := qtx.GetBroadcastCampaignByID(ctx, id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sqlc.BroadcastCampaign{}, ErrNotFound
+		}
+		return sqlc.BroadcastCampaign{}, err
+	}
+	if _, err := qtx.DeleteInappNotificationsByCampaign(ctx, uuid.NullUUID{UUID: id, Valid: true}); err != nil {
+		return sqlc.BroadcastCampaign{}, err
+	}
+	if _, err := qtx.FailPendingRecipientsForCampaign(ctx, id); err != nil {
+		return sqlc.BroadcastCampaign{}, err
+	}
+	camp, err := qtx.RetractBroadcastCampaign(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return sqlc.BroadcastCampaign{}, ErrNotFound
+		}
+		return sqlc.BroadcastCampaign{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return sqlc.BroadcastCampaign{}, err
+	}
+	return camp, nil
+}
+
 // ProcessOnce runs one reclaim/expand/claim cycle (used by in-API worker and CLI).
 func (s *Service) ProcessOnce(ctx context.Context) error {
 	if err := s.reclaimStaleProcessing(ctx); err != nil {

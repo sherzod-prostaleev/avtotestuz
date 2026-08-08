@@ -212,7 +212,7 @@ export function NotificationPanel({
                     <span className={`block text-sm leading-snug ${unread ? "font-bold" : "font-medium"}`}>
                       {item.title}
                     </span>
-                    <span className="mt-1 line-clamp-2 block text-xs leading-relaxed text-muted-foreground">
+                    <span className="mt-1 line-clamp-6 whitespace-pre-wrap break-words block text-xs leading-relaxed text-muted-foreground">
                       {item.body}
                     </span>
                     <span className="mt-1.5 block text-[11px] tabular-nums text-muted-foreground/80">

@@ -2031,7 +2031,7 @@
     "bannerSave": "Banner saqlash",
     "pushTitle": "Yangi broadcast campaign",
     "pushTitleField": "Sarlavha",
-    "pushBody": "Xabar matni",
+    "pushBody": "Xabar matni (Enter bilan yangi qator saqlanadi)",
     "imageUrl": "Ixtiyoriy https rasm URL",
     "pushUrl": "Relative action URL",
     "audience": "Auditoriya",
@@ -2048,6 +2048,8 @@
     "campaignEmpty": "Hali campaign yo‘q.",
     "campaignStats": "jami={total} · kutmoqda={pending} · yuborildi={sent} · xato={failed} · push OK={pushSent} · push xato={pushFailed}",
     "cancel": "Bekor qilish",
+    "retract": "In-app dan o‘chirish",
+    "confirmRetract": "Bu campaignning barcha in-app bildirishnomalari o‘chirilsinmi? Qurilmadagi web-push bildirishnomalarini qaytarib bo‘lmaydi.",
     "errorLoad": "Yuklab bo‘lmadi.",
     "errorForbidden": "support.broadcast ruxsati yo‘q.",
     "errorBanner": "Banner saqlanmadi.",
@@ -2056,8 +2058,8 @@
     "pushTipLabel": "Campaign haqida",
     "pushTipWhat": "In-app notification + ixtiyoriy web-push (outbox worker).",
     "pushTipWhy": "Offline userlar ham notification centerda ko‘radi.",
-    "pushTipRisks": "Mass sendni qaytarib bo‘lmaydi; avval dry-run qiling.",
-    "pushTipRecommend": "Avval dry-run; matn, URL va auditoriyani tekshiring."
+    "pushTipRisks": "Web-push OS da qolishi mumkin; in-app ni retract bilan o‘chirish mumkin.",
+    "pushTipRecommend": "Avval dry-run; matnda Enter bilan qatorlarni saqlang."
   },
   "Notifications": {
     "title": "Bildirishnomalar",
