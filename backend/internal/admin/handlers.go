@@ -15,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/recon"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -79,6 +80,7 @@ func (h *Handler) Routes(r chi.Router) {
 		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.write"))
 			ur.Post("/users/{id}/bypass-variant-progress", h.setUserBypassVariantProgress)
+			ur.Post("/users/{id}/temporary-password", h.issueTemporaryPassword)
 		})
 		pr.Group(func(ur chi.Router) {
 			ur.Use(RequirePermission("users.hard_delete"))
@@ -733,6 +735,77 @@ func (h *Handler) setUserBypassVariantProgress(w http.ResponseWriter, r *http.Re
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]any{"user": detail})
+}
+
+// issueTemporaryPassword generates a one-time temporary password for a learner.
+// Only the bcrypt hash is persisted; plaintext is returned once in this response
+// and is never written to audit logs or the database.
+func (h *Handler) issueTemporaryPassword(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	exists, err := h.Svc.Store.LearnerExists(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
+		return
+	}
+	if !exists {
+		httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+		return
+	}
+
+	plain, err := auth.RandomTempPassword()
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "temporary password generation failed")
+		return
+	}
+	hash, err := auth.HashPassword(plain)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "temporary password generation failed")
+		return
+	}
+	if err := h.Svc.Store.SetLearnerPasswordHash(r.Context(), id, hash, true); err != nil {
+		if IsNoRows(err) {
+			httpx.Error(w, http.StatusNotFound, "not_found", "user not found")
+			return
+		}
+		httpx.Error(w, http.StatusInternalServerError, "internal", "password update failed")
+		return
+	}
+	revoked, err := h.Svc.Store.RevokeAllLearnerSessions(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "session revoke failed")
+		return
+	}
+
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "users.temporary_password", "profile", id.String(),
+		nil,
+		map[string]any{
+			"must_change_password": true,
+			"sessions_revoked":     revoked,
+			// Intentionally omit plaintext/hash — audit must never retain secrets.
+		},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+
+	detail, err := h.Svc.Store.GetLearner(r.Context(), id)
+	if err != nil {
+		httpx.Data(w, http.StatusOK, map[string]any{
+			"temporary_password":   plain,
+			"must_change_password": true,
+			"sessions_revoked":     revoked,
+		})
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{
+		"temporary_password":   plain,
+		"must_change_password": true,
+		"sessions_revoked":     revoked,
+		"user":                 detail,
+	})
 }
 
 func (h *Handler) setUserBlocked(w http.ResponseWriter, r *http.Request, block bool) {

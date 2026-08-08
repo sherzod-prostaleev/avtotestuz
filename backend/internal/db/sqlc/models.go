@@ -521,6 +521,7 @@ type Profile struct {
 	ReferralCommissionPercent int32              `json:"referral_commission_percent"`
 	BypassVariantProgress     bool               `json:"bypass_variant_progress"`
 	Kind                      string             `json:"kind"`
+	MustChangePassword        bool               `json:"must_change_password"`
 }
 
 type PromoCode struct {

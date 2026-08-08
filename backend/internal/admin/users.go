@@ -51,6 +51,7 @@ type LearnerDetail struct {
 	VIPActive             bool                 `json:"vip_active"`
 	VIPEndsAt             *time.Time           `json:"vip_ends_at,omitempty"`
 	HasPassword           bool                 `json:"has_password"`
+	MustChangePassword    bool                 `json:"must_change_password"`
 	Streak                int                  `json:"streak"`
 	BypassVariantProgress bool                 `json:"bypass_variant_progress"`
 	CreatedAt             time.Time            `json:"created_at"`
@@ -224,6 +225,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		         ORDER BY e.ends_at DESC LIMIT 1
 		       ),
 		       (p.password_hash IS NOT NULL AND length(p.password_hash) > 0),
+		       p.must_change_password,
 		       COALESCE(st.current, 0),
 		       p.bypass_variant_progress,
 		       (
@@ -235,7 +237,7 @@ func (s Store) GetLearner(ctx context.Context, id uuid.UUID) (LearnerDetail, err
 		&d.ID, &phone, &d.Name, &d.Region, &d.District,
 		&d.LocalePref, &d.ThemePref, &d.Role, &status,
 		&ref, &referredBy, &d.CreatedAt,
-		&d.VIPActive, &vipEnds, &d.HasPassword, &d.Streak, &d.BypassVariantProgress, &lastSeen,
+		&d.VIPActive, &vipEnds, &d.HasPassword, &d.MustChangePassword, &d.Streak, &d.BypassVariantProgress, &lastSeen,
 	)
 	if err != nil {
 		return LearnerDetail{}, err
@@ -381,6 +383,23 @@ func (s Store) RevokeAllLearnerSessions(ctx context.Context, profileID uuid.UUID
 		return 0, err
 	}
 	return tag.RowsAffected(), nil
+}
+
+// SetLearnerPasswordHash replaces the learner password hash and must-change flag.
+// passwordHash must already be a bcrypt digest — plaintext is never persisted.
+func (s Store) SetLearnerPasswordHash(ctx context.Context, id uuid.UUID, passwordHash string, mustChange bool) error {
+	tag, err := s.Pool.Exec(ctx, `
+		UPDATE profile
+		SET password_hash = $2,
+		    must_change_password = $3
+		WHERE id = $1`, id, passwordHash, mustChange)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return pgx.ErrNoRows
+	}
+	return nil
 }
 
 // LearnerExists reports whether profile id is present.

@@ -36,6 +36,7 @@ var testDBByPackage = map[string]int{
 	// Admin login throttling is Redis-backed, so its tests need a slot too.
 	"internal_admin":   7,
 	"internal_support": 8,
+	"internal_account": 9,
 }
 
 // baseRedisURL is the connection string whose database index gets replaced with
