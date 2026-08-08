@@ -9,6 +9,8 @@ import (
 
 type Store interface {
 	Put(ctx context.Context, key, contentType string, data []byte) error
+	// Get returns object bytes. contentType may be empty when unknown (local dir).
+	Get(ctx context.Context, key string) (data []byte, contentType string, err error)
 }
 
 type LocalDir struct{ root string }
@@ -21,4 +23,13 @@ func (l *LocalDir) Put(_ context.Context, key, _ string, data []byte) error {
 		return err
 	}
 	return os.WriteFile(path, data, 0o644)
+}
+
+func (l *LocalDir) Get(_ context.Context, key string) ([]byte, string, error) {
+	path := filepath.Join(l.root, filepath.FromSlash(key))
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, "", nil
 }

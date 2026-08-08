@@ -275,7 +275,8 @@
     "languageSwitcher": "Tilni tanlash",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru"
+    "languageRu": "Ru",
+    "navSupport": "Texnik yordam"
   },
   "Header": {
     "brandName": "Driver Go",
@@ -1480,7 +1481,12 @@
     "deleteWarnProfile": "Profil va barcha login sessiyalari o‘chadi; qayta kirib bo‘lmaydi.",
     "deleteWarnRelated": "VIP, o‘qish progressi, referral va bog‘liq to‘lov yozuvlari o‘chadi.",
     "deleteWarnPermanent": "Bu amalni qaytarib bo‘lmaydi. Audit jurnalida kim va qaysi profilni o‘chirganligi saqlanadi.",
-    "deleteError": "Foydalanuvchini butunlay o‘chirib bo‘lmadi."
+    "deleteError": "Foydalanuvchini butunlay o‘chirib bo‘lmadi.",
+    "password": "Parol",
+    "copy": "Nusxalash",
+    "copied": "Nusxalandi",
+    "issueTempPassword": "Vaqtinchalik parol yaratish",
+    "tempPasswordError": "Parol yaratib bo‘lmadi"
   },
   "AdminContent": {
     "questionsTitle": "Savollar",
@@ -2289,5 +2295,45 @@
     "ctaContact": "Hamkorlik uchun yozish",
     "ctaOferta": "Oferta",
     "ctaHome": "Bosh sahifa"
+  },
+  "SupportChat": {
+    "title": "Texnik yordam",
+    "subtitle": "Admin bilan jonli chat",
+    "statusOpen": "Ochiq",
+    "statusClosed": "Yopiq",
+    "loading": "Yuklanmoqda…",
+    "loadError": "Chatni yuklab bo‘lmadi",
+    "empty": "Salom! Savolingizni yozing — admin tez orada javob beradi.",
+    "placeholder": "Xabar yozing…",
+    "send": "Yuborish",
+    "attach": "Fayl biriktirish"
+  },
+  "AdminSupport": {
+    "title": "Texnik yordam",
+    "search": "Qidiruv",
+    "statusAll": "Hammasi",
+    "statusOpen": "Ochiq",
+    "statusClosed": "Yopiq",
+    "emptyList": "Suhbatlar yo‘q",
+    "selectConversation": "Suhbatni tanlang",
+    "userDetails": "Foydalanuvchi",
+    "close": "Yopish",
+    "reopen": "Qayta ochish",
+    "passwordHelp": "Parol yordami",
+    "issueTempPassword": "Vaqtinchalik parol yaratish",
+    "tempPasswordHint": "Faqat bir marta ko‘rsatiladi — chat orqali yuboring. DB da saqlanmaydi.",
+    "tempPasswordError": "Parol yaratib bo‘lmadi",
+    "copy": "Nusxalash",
+    "copied": "Nusxalandi",
+    "phone": "Telefon",
+    "name": "Ism",
+    "vip": "VIP",
+    "streak": "Streak",
+    "status": "Status",
+    "placeholder": "Xabar yozing…",
+    "send": "Yuborish",
+    "attach": "Fayl biriktirish",
+    "emptyChat": "Salom! Savolingizni yozing — admin tez orada javob beradi.",
+    "loading": "Yuklanmoqda…"
   }
 }

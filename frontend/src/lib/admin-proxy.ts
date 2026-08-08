@@ -49,7 +49,13 @@ async function forwardResponse(
     response = new NextResponse(null, { status: backendRes.status });
   } else if (
     contentType.includes("text/csv") ||
-    contentType.includes("application/octet-stream")
+    contentType.includes("application/octet-stream") ||
+    contentType.startsWith("image/") ||
+    contentType.startsWith("application/pdf") ||
+    contentType.startsWith("application/zip") ||
+    contentType.startsWith("application/msword") ||
+    contentType.includes("officedocument") ||
+    contentType.startsWith("text/plain")
   ) {
     response = new NextResponse(await backendRes.arrayBuffer(), { status: backendRes.status });
   } else {

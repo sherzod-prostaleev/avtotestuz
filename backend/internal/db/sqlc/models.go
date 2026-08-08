@@ -705,6 +705,31 @@ type Streak struct {
 	TodayDone      int32       `json:"today_done"`
 }
 
+type SupportConversation struct {
+	ID            uuid.UUID          `json:"id"`
+	ProfileID     uuid.UUID          `json:"profile_id"`
+	Status        string             `json:"status"`
+	UnreadAdmin   int32              `json:"unread_admin"`
+	UnreadUser    int32              `json:"unread_user"`
+	LastMessageAt pgtype.Timestamptz `json:"last_message_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupportMessage struct {
+	ID              uuid.UUID          `json:"id"`
+	ConversationID  uuid.UUID          `json:"conversation_id"`
+	SenderKind      string             `json:"sender_kind"`
+	SenderProfileID uuid.NullUUID      `json:"sender_profile_id"`
+	SenderAdminID   uuid.NullUUID      `json:"sender_admin_id"`
+	Body            string             `json:"body"`
+	AttachmentKey   string             `json:"attachment_key"`
+	AttachmentName  string             `json:"attachment_name"`
+	AttachmentMime  string             `json:"attachment_mime"`
+	AttachmentSize  int64              `json:"attachment_size"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type SupportTicket struct {
 	ID           uuid.UUID          `json:"id"`
 	ProfileID    uuid.NullUUID      `json:"profile_id"`

@@ -275,7 +275,8 @@
     "languageSwitcher": "Выбор языка",
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
-    "languageRu": "Ru"
+    "languageRu": "Ru",
+    "navSupport": "Техподдержка"
   },
   "Header": {
     "brandName": "Driver Go",
@@ -1480,7 +1481,12 @@
     "deleteWarnProfile": "Профиль и все сеансы входа будут удалены; войти снова будет невозможно.",
     "deleteWarnRelated": "VIP, учебный прогресс, реферальные и связанные платёжные записи будут удалены.",
     "deleteWarnPermanent": "Действие необратимо. В журнале аудита сохранится, кто и какой профиль удалил.",
-    "deleteError": "Не удалось удалить пользователя безвозвратно."
+    "deleteError": "Не удалось удалить пользователя безвозвратно.",
+    "password": "Пароль",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "issueTempPassword": "Создать временный пароль",
+    "tempPasswordError": "Не удалось создать пароль"
   },
   "AdminContent": {
     "questionsTitle": "Вопросы",
@@ -2289,5 +2295,45 @@
     "ctaContact": "Написать о партнёрстве",
     "ctaOferta": "Оферта",
     "ctaHome": "На главную"
+  },
+  "SupportChat": {
+    "title": "Техподдержка",
+    "subtitle": "Живой чат с администратором",
+    "statusOpen": "Открыт",
+    "statusClosed": "Закрыт",
+    "loading": "Загрузка…",
+    "loadError": "Не удалось загрузить чат",
+    "empty": "Здравствуйте! Напишите вопрос — админ скоро ответит.",
+    "placeholder": "Напишите сообщение…",
+    "send": "Отправить",
+    "attach": "Прикрепить файл"
+  },
+  "AdminSupport": {
+    "title": "Техподдержка",
+    "search": "Поиск",
+    "statusAll": "Все",
+    "statusOpen": "Открыт",
+    "statusClosed": "Закрыт",
+    "emptyList": "Нет диалогов",
+    "selectConversation": "Выберите диалог",
+    "userDetails": "Пользователь",
+    "close": "Закрыть",
+    "reopen": "Открыть снова",
+    "passwordHelp": "Помощь с паролем",
+    "issueTempPassword": "Создать временный пароль",
+    "tempPasswordHint": "Показывается один раз — отправьте в чат. В БД не сохраняется.",
+    "tempPasswordError": "Не удалось создать пароль",
+    "copy": "Копировать",
+    "copied": "Скопировано",
+    "phone": "Телефон",
+    "name": "Имя",
+    "vip": "VIP",
+    "streak": "Серия",
+    "status": "Статус",
+    "placeholder": "Напишите сообщение…",
+    "send": "Отправить",
+    "attach": "Прикрепить файл",
+    "emptyChat": "Здравствуйте! Напишите вопрос — админ скоро ответит.",
+    "loading": "Загрузка…"
   }
 }

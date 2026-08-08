@@ -27,6 +27,10 @@ vi.mock("@/hooks/use-user-stats", () => ({ useUserStats: vi.fn() }));
 
 vi.mock("@/hooks/use-variant-count", () => ({ useVariantCount: () => 63 }));
 
+vi.mock("@/lib/support-chat-client", () => ({
+  getMySupportUnread: vi.fn().mockResolvedValue({ unread: 0 }),
+}));
+
 vi.mock("@/components/theme-toggle", () => ({ ThemeToggle: () => null }));
 
 const localeCases = [

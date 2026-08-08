@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
@@ -29,4 +30,21 @@ func (s *S3) Put(ctx context.Context, key, contentType string, data []byte) erro
 	_, err := s.client.PutObject(ctx, s.bucket, key, bytes.NewReader(data),
 		int64(len(data)), minio.PutObjectOptions{ContentType: contentType})
 	return err
+}
+
+func (s *S3) Get(ctx context.Context, key string) ([]byte, string, error) {
+	obj, err := s.client.GetObject(ctx, s.bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, "", err
+	}
+	defer obj.Close()
+	info, err := obj.Stat()
+	if err != nil {
+		return nil, "", err
+	}
+	data, err := io.ReadAll(obj)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, info.ContentType, nil
 }

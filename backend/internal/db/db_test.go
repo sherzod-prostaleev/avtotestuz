@@ -30,7 +30,7 @@ func TestMigrateCreatesAllTables(t *testing.T) {
 		"category_mastery", "saved_question", "streak",
 		// system
 		"audit_log", "event", "notification", "push_subscription", "grand_mock_certificate",
-		"support_ticket", "alert_rule",
+		"support_ticket", "support_conversation", "support_message", "alert_rule",
 	} {
 		var reg *string
 		err := pool.QueryRow(context.Background(),
@@ -76,7 +76,6 @@ func TestAtomicAuditFallbackRollsBackMutationAndRedactsSecrets(t *testing.T) {
 	if _, exists := snapshot["password_hash"]; exists {
 		t.Fatal("atomic audit snapshot must redact password_hash")
 	}
-
 	if _, err := pool.Exec(ctx, `
 		CREATE FUNCTION test_reject_atomic_audit() RETURNS trigger LANGUAGE plpgsql AS $$
 		BEGIN

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -38,6 +39,7 @@ import (
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/site"
 	"avtotest.uz/backend/internal/support"
+	"avtotest.uz/backend/internal/supportchat"
 )
 
 type Deps struct {
@@ -93,6 +95,28 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Subject:    cfg.VAPIDSubject,
 		}, nil)
 	}
+	var supportChatH *supportchat.Handler
+	if deps.Pool != nil && deps.Redis != nil {
+		blobs, err := supportchat.OpenBlobStore("")
+		if err != nil {
+			// LocalDir fallback keeps chat text working if MinIO is down in dev.
+			blobs = nil
+			if deps.Log != nil {
+				deps.Log.Warn("supportchat blob store unavailable; attachments disabled")
+			}
+		}
+		supportSvc := supportchat.NewService(deps.Pool, deps.Redis, blobs, cfg.PublicBaseURL)
+		supportChatH = &supportchat.Handler{
+			Svc: supportSvc,
+			AdminIDFromContext: func(ctx context.Context) (uuid.UUID, bool) {
+				claims, ok := admin.FromContext(ctx)
+				if !ok {
+					return uuid.Nil, false
+				}
+				return claims.AdminUserID, true
+			},
+		}
+	}
 	if deps.Pool != nil {
 		adminStore := admin.Store{Pool: deps.Pool}
 		adminH := &admin.Handler{
@@ -106,6 +130,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 			StationBinaryPath: cfg.StationBinaryPath,
 			PublicBaseURL:     cfg.PublicBaseURL,
+			SupportChat:       supportChatH,
 		}
 		r.Route("/admin/v1", adminH.Routes)
 	}
@@ -155,12 +180,17 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)
 
+			// Legacy public ticket create kept for historical clients; learner UI uses chat.
 			sup := &support.Handler{
 				Pool:      deps.Pool,
 				Lim:       auth.Limiter{R: deps.Redis},
 				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 			}
 			sup.PublicRoutes(api)
+
+			if supportChatH != nil {
+				supportChatH.LearnerPublicRoutes(api)
+			}
 
 			fh := &flags.Handler{Pool: deps.Pool}
 			fh.PublicRoutes(api)
@@ -264,7 +294,12 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				phPush := &push.Handler{Svc: pushSvc}
 				phPush.AuthedRoutes(learnerAuth)
 
+				// Chat replaces learner ticket create UI; keep ticket AuthedRoutes
+				// so existing API clients can still open archive tickets.
 				sup.AuthedRoutes(learnerAuth)
+				if supportChatH != nil {
+					supportChatH.LearnerRoutes(learnerAuth)
+				}
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)

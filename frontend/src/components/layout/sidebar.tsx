@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useVariantCount } from "@/hooks/use-variant-count";
+import { getMySupportUnread } from "@/lib/support-chat-client";
 import {
   LayoutDashboard,
   BookOpen,
@@ -27,6 +28,7 @@ import {
   Trophy,
   ChevronDown,
   Swords,
+  LifeBuoy,
 } from "lucide-react";
 
 type NavLink = {
@@ -34,6 +36,7 @@ type NavLink = {
   label: string;
   icon: typeof LayoutDashboard;
   isGold?: boolean;
+  badge?: number;
 };
 
 export function Sidebar() {
@@ -41,6 +44,7 @@ export function Sidebar() {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [supportUnread, setSupportUnread] = useState(0);
 
   const { streak, entitlement, user, loading } = useUserStats();
   const ticketCount = useVariantCount();
@@ -48,6 +52,20 @@ export function Sidebar() {
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
   const userName = user?.name || t("userFallback");
+
+  useEffect(() => {
+    let cancelled = false;
+    getMySupportUnread()
+      .then((r) => {
+        if (!cancelled) setSupportUnread(r.unread ?? 0);
+      })
+      .catch(() => {
+        /* ignore — badge is best-effort */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
 
   const primaryLinks: NavLink[] = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
@@ -57,6 +75,12 @@ export function Sidebar() {
     { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
+    {
+      href: `/${currentLocale}/support`,
+      label: t("navSupport"),
+      icon: LifeBuoy,
+      badge: supportUnread,
+    },
     { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
   ];
 
@@ -65,6 +89,12 @@ export function Sidebar() {
     { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
+    {
+      href: `/${currentLocale}/support`,
+      label: t("navSupport"),
+      icon: LifeBuoy,
+      badge: supportUnread,
+    },
     { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
   ];
 
@@ -131,7 +161,12 @@ export function Sidebar() {
         }`}
       >
         <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-90" />
-        <span className="leading-snug">{link.label}</span>
+        <span className="min-w-0 flex-1 leading-snug">{link.label}</span>
+        {link.badge && link.badge > 0 ? (
+          <span className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+            {link.badge > 99 ? "99+" : link.badge}
+          </span>
+        ) : null}
       </Link>
     );
   };

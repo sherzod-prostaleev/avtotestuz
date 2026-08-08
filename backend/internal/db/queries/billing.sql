@@ -55,7 +55,7 @@ WHERE p.id = $1;
 SELECT id FROM profile WHERE id = $1 FOR UPDATE;
 
 -- name: GetPromoCodeByCode :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE LOWER(code) = LOWER($1) AND active = true;
 
@@ -64,13 +64,13 @@ WHERE LOWER(code) = LOWER($1) AND active = true;
 -- StartCheckout): locks the promo_code row for the duration of the
 -- validate+redeem transaction so concurrent redemptions of the same code
 -- serialize instead of all reading a stale max_uses/per_user_limit count.
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE LOWER(code) = LOWER($1) AND active = true
 FOR UPDATE;
 
 -- name: GetPromoCodeByID :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE id = $1;
 
@@ -84,7 +84,7 @@ WHERE id = $1;
 -- and complete them all. Deliberately does NOT filter on active = true: an
 -- admin deactivating a code mid-flight must be visible to the caller as
 -- "no longer redeemable", not as a missing row.
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE id = $1
 FOR UPDATE;

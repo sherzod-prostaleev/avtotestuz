@@ -39,6 +39,16 @@ type Handler struct {
 	// PublicBaseURL is embedded in every downloaded installer as both the API
 	// and frontend origin the station agent talks to.
 	PublicBaseURL string
+
+	// SupportChat mounts realtime support inbox routes (optional).
+	// Set from server wiring; nil keeps historical ticket endpoints only.
+	SupportChat SupportChatRoutes
+}
+
+// SupportChatRoutes is the admin-facing surface of the support chat package.
+type SupportChatRoutes interface {
+	AdminRoutes(r chi.Router)
+	AdminPublicRoutes(r chi.Router)
 }
 
 // Routes mounts public auth + protected admin routes under the given router
@@ -49,6 +59,11 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/totp/verify", h.verifyTOTPLogin)
 	r.Post("/auth/refresh", h.refresh)
 	r.Post("/auth/logout", h.logout)
+
+	// Support WS uses a short-lived ticket (not the admin JWT), same pattern as Arena.
+	if h.SupportChat != nil {
+		h.SupportChat.AdminPublicRoutes(r)
+	}
 
 	// TOTP enrollment is the one thing an admin locked out by
 	// ADMIN_TOTP_ENFORCE must still be able to do, so it accepts the scoped
@@ -224,9 +239,13 @@ func (h *Handler) Routes(r chi.Router) {
 
 		pr.Group(func(sr chi.Router) {
 			sr.Use(RequirePermission("support.inbox"))
+			// Historical ticket archive (support_ticket table is retained).
 			sr.Get("/support/tickets", h.listSupportTickets)
 			sr.Get("/support/tickets/{id}", h.getSupportTicket)
 			sr.Patch("/support/tickets/{id}", h.patchSupportTicket)
+			if h.SupportChat != nil {
+				h.SupportChat.AdminRoutes(sr)
+			}
 		})
 
 		pr.Group(func(sr chi.Router) {
