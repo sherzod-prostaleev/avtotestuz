@@ -1,0 +1,13 @@
+[Unit]
+Description=Schedule Driver Go interim encrypted backups (home PC off-host pull)
+Documentation=file:///opt/drivergo/scripts/backup/README.md
+Conflicts=drivergo-backup.timer
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+RandomizedDelaySec=15min
+Unit=drivergo-backup-homepc.service
+
+[Install]
+WantedBy=timers.target

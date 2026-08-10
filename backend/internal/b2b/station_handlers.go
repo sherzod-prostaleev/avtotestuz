@@ -161,7 +161,7 @@ func hashIdentity(identity string) string {
 // peer address for every request until nginx is configured to send the
 // assertion, so writing it as-is would populate b2b_station.last_ip with
 // the same wrong value for every station on every login. The result is
-// written through a ::inet cast via NULLIF($3,'')::inet, and a malformed
+// written through a ::inet cast via NULLIF($3,”)::inet, and a malformed
 // value there fails that cast, which silently drops the rest of the
 // telemetry UPDATE (last_seen_at, agent_version) along with it, so an
 // unasserted or otherwise-unparseable IP yields an empty string -- turned

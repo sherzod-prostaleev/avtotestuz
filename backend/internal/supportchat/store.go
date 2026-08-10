@@ -50,8 +50,8 @@ type Message struct {
 	AttachmentMime  string     `json:"attachment_mime,omitempty"`
 	AttachmentSize  int64      `json:"attachment_size,omitempty"`
 	// AttachmentURL is an authenticated API path (not a public MinIO URL).
-	AttachmentURL   string     `json:"attachment_url,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
+	AttachmentURL string    `json:"attachment_url,omitempty"`
+	CreatedAt     time.Time `json:"created_at"`
 }
 
 // LearnerSummary is embedded in admin conversation detail.

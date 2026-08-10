@@ -5,7 +5,8 @@ services:
       POSTGRES_USER: avtotest
       POSTGRES_PASSWORD: avtotest
       POSTGRES_DB: avtotest
-    ports: ["5432:5432"]
+    # Host-run development tools need this port; never expose it beyond loopback.
+    ports: ["127.0.0.1:5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ./compose/postgres-init:/docker-entrypoint-initdb.d:ro
@@ -14,26 +15,63 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+    networks: [data]
   redis:
     image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-    ports: ["6379:6379"]
+    ports: ["127.0.0.1:6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [data]
   minio:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: avtotest
       MINIO_ROOT_PASSWORD: avtotest123
-    ports: ["9000:9000", "9001:9001"]
+    ports: ["127.0.0.1:9000:9000", "127.0.0.1:9001:9001"]
     volumes: [minio-data:/data]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks: [data]
   minio-init:
     image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
-    depends_on: [minio]
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 avtotest avtotest123; do sleep 1; done;
-      mc mb -p local/media || true;
-      mc anonymous set download local/media;
-      exit 0"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        until mc alias set local http://minio:9000 avtotest avtotest123; do sleep 1; done
+        mc mb --ignore-existing -p local/media
+        mc mb --ignore-existing -p local/support-attachments
+        mc version enable local/support-attachments
+        cat > /tmp/media-public-policy.json <<'POLICY'
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"AWS": ["*"]},
+              "Action": ["s3:GetObject"],
+              "Resource": ["arn:aws:s3:::media/images/*"]
+            }
+          ]
+        }
+        POLICY
+        mc anonymous set-json /tmp/media-public-policy.json local/media
+        rm -f /tmp/media-public-policy.json
+        mc anonymous set none local/support-attachments
+    networks: [data]
 volumes:
   pgdata:
   minio-data:
+
+networks:
+  data:

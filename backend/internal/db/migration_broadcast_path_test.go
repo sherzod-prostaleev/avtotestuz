@@ -68,14 +68,14 @@ func TestMigrationPath0059To0062PreservesCoreData(t *testing.T) {
 	defer pool.Close()
 
 	var (
-		profileID  uuid.UUID
-		tariffID   uuid.UUID
-		paymentID  uuid.UUID
+		profileID     uuid.UUID
+		tariffID      uuid.UUID
+		paymentID     uuid.UUID
 		entitlementID uuid.UUID
-		ticketID   uuid.UUID
-		ledgerID   uuid.UUID
-		paymeID    = "payme-mig-path-1"
-		clickID    uuid.UUID
+		ticketID      uuid.UUID
+		ledgerID      uuid.UUID
+		paymeID       = "payme-mig-path-1"
+		clickID       uuid.UUID
 	)
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO profile (phone, name, password_hash)

@@ -32,6 +32,9 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
+      args:
+        STATION_VERSION: ${STATION_VERSION:-1.0.0}
+        VCS_REF: ${VCS_REF:-unknown}
     # Override after registry push, e.g. API_IMAGE=ghcr.io/org/avtotest-api:sha
     image: ${API_IMAGE:-avtotest-api:local}
     # Bind to loopback only: /api/v1/internal/* returns decrypted Telethon
@@ -54,6 +57,13 @@ services:
       PORT: "8080"
       DATABASE_URL: ${DATABASE_URL:-postgres://avtotest:avtotest@postgres:5432/avtotest?sslmode=disable}
       REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-avtotest}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-avtotest123}
+      MINIO_SUPPORT_BUCKET: ${MINIO_SUPPORT_BUCKET:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_LEGACY_SUPPORT_BUCKET: ${MINIO_LEGACY_SUPPORT_BUCKET:-media}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MEDIA_BASE_URL: ${MEDIA_BASE_URL:-http://localhost:9000/media}
       # Frontend origin users browse (referral invite links, payment return URLs).
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-http://localhost:3000}
@@ -80,50 +90,82 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
-    # Distroless API image has no shell/curl — use ./deploy/smoke.sh externally.
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8080/readyz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app, data]
 
   humo-watcher:
     build:
       context: ../services/humo-watcher
       dockerfile: Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
     image: ${HUMO_WATCHER_IMAGE:-avtotest-humo-watcher:local}
     environment:
       API_BASE_URL: ${API_BASE_URL:-http://api:8080/api/v1}
       MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
       HUMO_CREDS_POLL_SEC: ${HUMO_CREDS_POLL_SEC:-30}
       HUMO_QUEUE_DB: /data/humo-queue.sqlite3
+      HUMO_HEALTH_PORT: "8088"
     volumes:
       - avtotest_humo_queue:/data
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app]
 
   web:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
     image: ${WEB_IMAGE:-avtotest-web:local}
     # Bind to loopback only, same reasoning as the api service above — this
     # overlay has no nginx/TLS terminator of its own; a real deploy fronts
     # both with a reverse proxy (see deploy/nginx-drivergo.uz.conf).
     ports:
       - "127.0.0.1:${WEB_HOST_PORT:-3000}:3000"
-    env_file:
-      - path: app.env
-        required: false
     environment:
       # Server-side BFF → API (compose DNS name, not localhost).
       BACKEND_URL: ${BACKEND_URL:-http://api:8080}
@@ -133,8 +175,17 @@ services:
       # front proxy in real staging and set hops accordingly (see runbook).
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,size=128m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 30s
     # Node 20 alpine includes wget — cheap liveness for orchestration.
     healthcheck:
       test:
@@ -153,6 +204,11 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app]
 
 volumes:
   avtotest_humo_queue:
+
+networks:
+  app:
+  data:

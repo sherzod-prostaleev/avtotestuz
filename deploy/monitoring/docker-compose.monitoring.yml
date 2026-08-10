@@ -1,0 +1,166 @@
+name: drivergo-monitoring
+
+services:
+  prometheus:
+    image: ${PROMETHEUS_IMAGE:?Set PROMETHEUS_IMAGE to an immutable digest reference}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=35d
+      - --storage.tsdb.retention.size=5GB
+      - --web.enable-lifecycle=false
+    ports:
+      - "127.0.0.1:${PROMETHEUS_HOST_PORT:-9091}:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    depends_on:
+      alertmanager:
+        condition: service_healthy
+    networks:
+      - monitoring
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 128
+    mem_limit: 768m
+    cpus: 1.0
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9090/-/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE:?Set ALERTMANAGER_IMAGE to an immutable digest reference}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --web.listen-address=:9093
+    ports:
+      - "127.0.0.1:${ALERTMANAGER_HOST_PORT:-9094}:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ${ALERT_WEBHOOK_URL_FILE:?Set ALERT_WEBHOOK_URL_FILE to a protected file}:/run/secrets/alert_webhook_url:ro
+      - alertmanager_data:/alertmanager
+    group_add:
+      - "${ALERT_WEBHOOK_GID:?Set ALERT_WEBHOOK_GID to the protected file group id}"
+    networks:
+      - monitoring
+      # Dedicated outbound-only bridge: the internal monitoring network cannot
+      # reach the external HTTPS receiver, while the app network is unnecessary.
+      - alert-egress
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9093/-/ready || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  blackbox-exporter:
+    image: ${BLACKBOX_EXPORTER_IMAGE:?Set BLACKBOX_EXPORTER_IMAGE to an immutable digest reference}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/blackbox_exporter/blackbox.yml
+    volumes:
+      - ./blackbox.yml:/etc/blackbox_exporter/blackbox.yml:ro
+    networks:
+      - monitoring
+      - app
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 128m
+    cpus: 0.25
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9115/-/healthy || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  node-exporter:
+    image: ${NODE_EXPORTER_IMAGE:?Set NODE_EXPORTER_IMAGE to an immutable digest reference}
+    restart: unless-stopped
+    command:
+      - --collector.disable-defaults
+      - --collector.textfile
+      - --collector.textfile.directory=/var/lib/node_exporter/textfile
+      - --web.listen-address=:9100
+    volumes:
+      - /var/lib/drivergo-monitoring/textfile:/var/lib/node_exporter/textfile:ro
+    networks:
+      - monitoring
+    read_only: true
+    tmpfs:
+      - /tmp:size=8m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    pids_limit: 64
+    mem_limit: 96m
+    cpus: 0.20
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:9100/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  monitoring:
+    internal: true
+  alert-egress:
+    driver: bridge
+  app:
+    external: true
+    name: drivergo_app
+
+volumes:
+  prometheus_data:
+  alertmanager_data:

@@ -15,12 +15,12 @@ import (
 const maxUploadBytes = 12 << 20 // 12 MiB
 
 var allowedMIME = map[string]string{
-	"image/jpeg":      ".jpg",
-	"image/png":       ".png",
-	"image/webp":      ".webp",
-	"image/gif":       ".gif",
-	"application/pdf": ".pdf",
-	"text/plain":      ".txt",
+	"image/jpeg":         ".jpg",
+	"image/png":          ".png",
+	"image/webp":         ".webp",
+	"image/gif":          ".gif",
+	"application/pdf":    ".pdf",
+	"text/plain":         ".txt",
 	"application/msword": ".doc",
 	"application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
 	"application/vnd.ms-excel": ".xls",

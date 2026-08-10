@@ -48,7 +48,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # executable) and the version block. Neither replaces an Authenticode
 # signature, but an unsigned binary that also has no publisher, no product name
 # and no version is the exact shape SmartScreen treats as anonymous.
-FROM golang:1.20-alpine AS station
+FROM golang:1.20-alpine@sha256:e47f121850f4e276b2b210c56df3fda9191278dd84a3a442bfe0b09934462a8f AS station
 WORKDIR /src
 ARG STATION_VERSION=1.0.0
 RUN apk add --no-cache git
@@ -60,6 +60,9 @@ RUN go run ./cmd/genwinres -arch 386 -version "${STATION_VERSION:-1.0.0}" \
       -o /out/avtotest-station.exe ./cmd/avtotest-station
 
 FROM gcr.io/distroless/static-debian12:nonroot@sha256:f5b485ea962d9bd1186b2f6b3a061191539b905b82ec395de78cbfae51f20e35
+ARG VCS_REF=unknown
+LABEL org.opencontainers.image.source="https://github.com/sherzod-prostaleev/avtotestuz" \
+      org.opencontainers.image.revision="$VCS_REF"
 WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=build /out/encryptpan /encryptpan

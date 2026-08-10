@@ -22,6 +22,7 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
+	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/bot"
 	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/config"
@@ -55,6 +56,12 @@ type Deps struct {
 // The optional *broadcast.Service is returned so cmd/api can run the outbox worker.
 func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast.Service) {
 	r := chi.NewRouter()
+	var supportBlobs blob.Store
+	var supportBlobErr error
+	supportBlobsRequired := deps.Pool != nil && deps.Redis != nil
+	if supportBlobsRequired {
+		supportBlobs, supportBlobErr = supportchat.OpenBlobStore("")
+	}
 	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
 	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
 	r.Use(middleware.RequestID, middleware.Recoverer)
@@ -76,9 +83,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	// /readyz = process can serve traffic (Postgres + Redis when wired).
+	// /readyz = process can serve traffic (Postgres + Redis + private support
+	// object storage when the full application dependencies are wired).
 	// /healthz stays a cheap liveness probe that does not touch dependencies.
-	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
+	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis, supportBlobs, supportBlobErr, supportBlobsRequired))
 	r.Get("/metrics", metrics.Handler())
 
 	// dataKey seals data at rest (admin TOTP secrets, stored card PANs, the
@@ -110,15 +118,14 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 	}
 	var supportChatH *supportchat.Handler
 	if deps.Pool != nil && deps.Redis != nil {
-		blobs, err := supportchat.OpenBlobStore("")
-		if err != nil {
+		if supportBlobErr != nil {
 			// LocalDir fallback keeps chat text working if MinIO is down in dev.
-			blobs = nil
+			supportBlobs = nil
 			if deps.Log != nil {
-				deps.Log.Warn("supportchat blob store unavailable; attachments disabled")
+				deps.Log.Warn("supportchat blob store unavailable; attachments disabled", zap.Error(supportBlobErr))
 			}
 		}
-		supportSvc := supportchat.NewService(deps.Pool, deps.Redis, blobs, cfg.PublicBaseURL)
+		supportSvc := supportchat.NewService(deps.Pool, deps.Redis, supportBlobs, cfg.PublicBaseURL)
 		supportChatH = &supportchat.Handler{
 			Svc: supportSvc,
 			AdminIDFromContext: func(ctx context.Context) (uuid.UUID, bool) {
@@ -353,7 +360,13 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 
 const readinessProbeTimeout = 2 * time.Second
 
-func readinessHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
+func readinessHandler(
+	pool *pgxpool.Pool,
+	rdb *redis.Client,
+	objectStore blob.Store,
+	objectStoreInitErr error,
+	objectStoreRequired bool,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		checks := map[string]string{}
 		ready := true
@@ -377,6 +390,18 @@ func readinessHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
 			ready = false
 		} else {
 			checks["redis"] = "ok"
+		}
+
+		if !objectStoreRequired {
+			checks["object_storage"] = "skipped"
+		} else if objectStoreInitErr != nil || objectStore == nil {
+			checks["object_storage"] = "fail"
+			ready = false
+		} else if err := objectStore.Health(ctx); err != nil {
+			checks["object_storage"] = "fail"
+			ready = false
+		} else {
+			checks["object_storage"] = "ok"
 		}
 
 		status := "ok"

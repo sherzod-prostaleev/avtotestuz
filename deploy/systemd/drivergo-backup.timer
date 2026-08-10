@@ -2,8 +2,9 @@
 Description=Run Driver Go encrypted backup every day
 
 [Timer]
-OnCalendar=*-*-* 02:15:00
+OnCalendar=*-*-* 02:15:00 UTC
 RandomizedDelaySec=15m
+AccuracySec=1m
 Persistent=true
 Unit=drivergo-backup.service
 

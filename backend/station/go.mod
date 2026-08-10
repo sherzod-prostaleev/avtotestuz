@@ -9,7 +9,7 @@ go 1.20
 
 require (
 	github.com/tc-hib/winres v0.2.1
-	golang.org/x/sys v0.15.0
+	golang.org/x/sys v0.30.0
 )
 
 require (

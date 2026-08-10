@@ -19,10 +19,10 @@ import (
 const TicketTTL = 30 * time.Second
 
 var (
-	ErrTicketInvalid   = errors.New("ticket_invalid")
-	ErrForbidden       = errors.New("forbidden")
-	ErrNotFound        = errors.New("not_found")
-	ErrBadAttachment   = errors.New("invalid attachment_key")
+	ErrTicketInvalid = errors.New("ticket_invalid")
+	ErrForbidden     = errors.New("forbidden")
+	ErrNotFound      = errors.New("not_found")
+	ErrBadAttachment = errors.New("invalid attachment_key")
 )
 
 // Service owns persistence, tickets, uploads, and hub fanout.

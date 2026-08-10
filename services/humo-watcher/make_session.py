@@ -3,7 +3,7 @@
 
 Usage (fish/bash — do not use system pip):
   python -m venv .venv
-  .venv/bin/pip install -r requirements.txt
+  .venv/bin/pip install --require-hashes -r requirements.lock
   .venv/bin/python make_session.py
 
 Paste the printed session into Admin → Manual Humo → session string.

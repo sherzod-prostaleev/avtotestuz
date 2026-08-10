@@ -1,0 +1,95 @@
+# App-only green/blue validation stack. It never starts Postgres, Redis, MinIO,
+# minio-init, or Humo watcher. Images must already exist under repository
+# digests or local content-addressed sha256 image IDs.
+name: drivergo-candidate
+
+services:
+  api-candidate:
+    image: ${CANDIDATE_API_IMAGE:?CANDIDATE_API_IMAGE digest or sha256 image ID is required}
+    pull_policy: never
+    ports:
+      - "127.0.0.1:${CANDIDATE_API_PORT:-18081}:8080"
+    env_file:
+      - path: app.env
+        required: true
+    environment:
+      ENV: ${ENV:?ENV is required}
+      PORT: "8080"
+      DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
+      REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_SUPPORT_BUCKET: ${MINIO_SUPPORT_BUCKET:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_LEGACY_SUPPORT_BUCKET: ${MINIO_LEGACY_SUPPORT_BUCKET:-media}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
+      OPS_ADMIN_TOKEN: ""
+    # Candidate may become the active nginx slot. It must survive a process,
+    # Docker daemon, or host restart until the operator switches back/stops it.
+    restart: unless-stopped
+    cpus: "1.50"
+    mem_limit: 1024m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "/healthcheck", "http://127.0.0.1:8080/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [candidate, data]
+
+  web-candidate:
+    image: ${CANDIDATE_WEB_IMAGE:?CANDIDATE_WEB_IMAGE digest or sha256 image ID is required}
+    pull_policy: never
+    ports:
+      - "127.0.0.1:${CANDIDATE_WEB_PORT:-13010}:3000"
+    environment:
+      BACKEND_URL: http://api-candidate:8080
+      CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET:?CLIENT_IP_ASSERTION_SECRET is required}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}
+    depends_on:
+      api-candidate:
+        condition: service_healthy
+    restart: unless-stopped
+    cpus: "1.50"
+    mem_limit: 1024m
+    pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,size=128m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/uz-Latn"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks: [candidate]
+
+networks:
+  candidate:
+    name: drivergo_candidate
+  data:
+    external: true
+    name: drivergo_default

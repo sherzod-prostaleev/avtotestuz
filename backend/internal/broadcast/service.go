@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	KindSupportBroadcast = "support_broadcast"
-	defaultMaxRecipients = 100_000
-	expandPageSize       = 500
-	claimBatchSize       = 50
-	maxAttempts          = 5
-	workerPollInterval   = 2 * time.Second
+	KindSupportBroadcast   = "support_broadcast"
+	defaultMaxRecipients   = 100_000
+	expandPageSize         = 500
+	claimBatchSize         = 50
+	maxAttempts            = 5
+	workerPollInterval     = 2 * time.Second
 	defaultProcessingLease = 2 * time.Minute
 )
 
@@ -60,11 +60,11 @@ func (c Config) processingLease() time.Duration {
 
 // Service owns campaign create/list and outbox processing.
 type Service struct {
-	Pool   *pgxpool.Pool
-	Q      *sqlc.Queries
-	Push   *push.Service
-	Cfg    Config
-	Lim    interface {
+	Pool *pgxpool.Pool
+	Q    *sqlc.Queries
+	Push *push.Service
+	Cfg  Config
+	Lim  interface {
 		Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error)
 	}
 }

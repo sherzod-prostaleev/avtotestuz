@@ -1,71 +1,131 @@
 #!/usr/bin/env bash
-# U-44 — Restore DRILL into a disposable database (never the live app DB).
-#
-# Default target: avtotest_restore_drill on the local compose Postgres.
-# This is intentionally destructive ONLY to that drill DB.
-#
-# Usage:
-#   ./scripts/backup/pg_restore_drill.sh [.run/backups/avtotest-latest.dump]
-#   DRILL_DB=avtotest_restore_drill ./scripts/backup/pg_restore_drill.sh path/to.dump
+# PostgreSQL restore DRILL. The only permitted target is the hard-coded scratch
+# database avtotest_restore_drill; live/application database names are rejected.
 set -euo pipefail
 umask 077
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./lib.sh
+source "$SCRIPT_DIR/lib.sh"
+
+ROOT="$(repo_root)"
 cd "$ROOT"
 
-COMPOSE="${COMPOSE:-docker compose}"
-COMPOSE_SERVICE="${COMPOSE_SERVICE:-postgres}"
+POSTGRES_SERVICE="${POSTGRES_SERVICE:-postgres}"
 PGUSER="${PGUSER:-avtotest}"
 PGDATABASE="${PGDATABASE:-avtotest}"
 DRILL_DB="${DRILL_DB:-avtotest_restore_drill}"
 DUMP="${1:-$ROOT/.run/backups/avtotest-latest.dump}"
+RESTORE_DRILL_ACK="${RESTORE_DRILL_ACK:-}"
+KEEP_DRILL_DB="${KEEP_DRILL_DB:-0}"
+AGE_IDENTITY_FILE="${AGE_IDENTITY_FILE:-}"
 
-if [[ "$DRILL_DB" == "$PGDATABASE" ]]; then
-  echo "refusing to restore-drill into live database name '${PGDATABASE}'" >&2
-  exit 1
+require_bool KEEP_DRILL_DB "$KEEP_DRILL_DB"
+validate_service_name "$POSTGRES_SERVICE"
+[[ "$PGUSER" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || backup_die "unsafe PGUSER: ${PGUSER}"
+[[ "$PGDATABASE" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || backup_die "unsafe PGDATABASE: ${PGDATABASE}"
+
+# This allowlist is intentionally not configurable through environment. A typo
+# or hostile env file therefore cannot turn the drill into a live restore.
+[[ "$DRILL_DB" == "avtotest_restore_drill" ]] || \
+  backup_die "DRILL_DB is not the hard-coded scratch database: ${DRILL_DB}"
+case "$DRILL_DB" in
+  avtotest|postgres|template0|template1|"$PGDATABASE")
+    backup_die "refusing protected PostgreSQL database name: ${DRILL_DB}"
+    ;;
+esac
+[[ "$RESTORE_DRILL_ACK" == "avtotest_restore_drill" ]] || \
+  backup_die "set RESTORE_DRILL_ACK=avtotest_restore_drill to acknowledge scratch-only restore"
+[[ -f "$DUMP" && ! -L "$DUMP" && -s "$DUMP" ]] || \
+  backup_die "dump missing, empty, or unsafe: ${DUMP}"
+
+if [[ -f "${DUMP}.sha256" ]]; then
+  require_command sha256sum
+  expected_hash="$(awk 'NR == 1 { print $1 } NR > 1 { extra=1 } END { if (extra) exit 1 }' "${DUMP}.sha256")" || \
+    backup_die "checksum sidecar must contain exactly one line"
+  [[ "$expected_hash" =~ ^[0-9a-fA-F]{64}$ ]] || backup_die "checksum sidecar contains an invalid digest"
+  actual_hash="$(sha256sum -- "$DUMP" | awk '{ print $1 }')"
+  [[ "${actual_hash,,}" == "${expected_hash,,}" ]] || backup_die "dump checksum mismatch"
 fi
-if [[ ! -f "$DUMP" ]]; then
-  echo "dump not found: ${DUMP}" >&2
-  echo "run ./scripts/backup/pg_dump.sh first" >&2
-  exit 1
+
+if [[ "$DUMP" == *.age ]]; then
+  require_command age
+  [[ -n "$AGE_IDENTITY_FILE" && -f "$AGE_IDENTITY_FILE" && ! -L "$AGE_IDENTITY_FILE" ]] || \
+    backup_die "AGE_IDENTITY_FILE must be a regular, non-symlink file for an encrypted dump"
 fi
 
-echo "==> restore drill: ${DUMP} → ${DRILL_DB} (via ${COMPOSE_SERVICE})"
-echo "    live DB '${PGDATABASE}' will NOT be modified"
-
-$COMPOSE exec -T "$COMPOSE_SERVICE" psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 <<SQL
+drop_drill_database() {
+  compose_cmd exec -T "$POSTGRES_SERVICE" \
+    psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
+      -v drill_db="$DRILL_DB" <<'SQL'
 SELECT pg_terminate_backend(pid)
   FROM pg_stat_activity
- WHERE datname = '${DRILL_DB}' AND pid <> pg_backend_pid();
-DROP DATABASE IF EXISTS ${DRILL_DB};
-CREATE DATABASE ${DRILL_DB} OWNER ${PGUSER};
+ WHERE datname = :'drill_db' AND pid <> pg_backend_pid();
+SELECT format('DROP DATABASE IF EXISTS %I', :'drill_db') \gexec
 SQL
+}
 
-# Feed dump on stdin to pg_restore inside the container. Encrypted backups are
-# decrypted only as a stream; no plaintext dump is written to disk.
-if [[ "$DUMP" == *.age ]]; then
-  if [[ -z "${AGE_IDENTITY_FILE:-}" || ! -f "${AGE_IDENTITY_FILE}" ]]; then
-    echo "AGE_IDENTITY_FILE is required to restore an encrypted backup" >&2
-    exit 1
+create_drill_database() {
+  compose_cmd exec -T "$POSTGRES_SERVICE" \
+    psql -U "$PGUSER" -d postgres -v ON_ERROR_STOP=1 \
+      -v drill_db="$DRILL_DB" -v drill_owner="$PGUSER" <<'SQL'
+SELECT format('CREATE DATABASE %I OWNER %I', :'drill_db', :'drill_owner') \gexec
+SQL
+}
+
+cleanup() {
+  if [[ "$KEEP_DRILL_DB" != "1" && "$DRILL_DB_CREATED" == "1" ]]; then
+    if ! drop_drill_database; then
+      echo "ERROR: failed to remove scratch database ${DRILL_DB}" >&2
+      return 1
+    fi
+    DRILL_DB_CREATED=0
   fi
+}
+
+echo "==> PostgreSQL restore drill: ${DUMP} -> ${DRILL_DB}"
+echo "    protected live DB: ${PGDATABASE}"
+DRILL_DB_CREATED=1
+trap cleanup EXIT INT TERM
+drop_drill_database
+create_drill_database
+
+if [[ "$DUMP" == *.age ]]; then
   age --decrypt --identity "$AGE_IDENTITY_FILE" "$DUMP" | \
-    $COMPOSE exec -T "$COMPOSE_SERVICE" \
-      pg_restore -U "$PGUSER" -d "$DRILL_DB" --no-owner --no-acl --exit-on-error
+    compose_cmd exec -T "$POSTGRES_SERVICE" \
+      pg_restore -U "$PGUSER" -d "$DRILL_DB" \
+        --no-owner --no-acl --exit-on-error
 else
-  $COMPOSE exec -T "$COMPOSE_SERVICE" \
-    pg_restore -U "$PGUSER" -d "$DRILL_DB" --no-owner --no-acl --exit-on-error \
-    <"$DUMP"
+  compose_cmd exec -T "$POSTGRES_SERVICE" \
+    pg_restore -U "$PGUSER" -d "$DRILL_DB" \
+      --no-owner --no-acl --exit-on-error <"$DUMP"
 fi
 
-# Sanity: migrations table or a core relation exists.
-TABLES="$($COMPOSE exec -T "$COMPOSE_SERVICE" \
-  psql -U "$PGUSER" -d "$DRILL_DB" -Atc \
-  "SELECT count(*) FROM information_schema.tables WHERE table_schema='public'")"
-echo "restore drill: public tables=${TABLES}"
-if [[ "${TABLES}" -lt 1 ]]; then
-  echo "restore drill produced zero public tables" >&2
-  exit 1
+read -r TABLES CORE_TABLES PROFILE_ROWS QUESTION_ROWS < <(
+  compose_cmd exec -T "$POSTGRES_SERVICE" \
+    psql -U "$PGUSER" -d "$DRILL_DB" -At -F ' ' -v ON_ERROR_STOP=1 <<'SQL'
+SELECT
+  (SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'),
+  (SELECT count(*) FROM (VALUES
+     (to_regclass('public.schema_migrations')),
+     (to_regclass('public.profile')),
+     (to_regclass('public.question'))
+   ) AS required(rel) WHERE rel IS NOT NULL),
+  (SELECT count(*) FROM profile),
+  (SELECT count(*) FROM question);
+SQL
+)
+
+[[ "$TABLES" =~ ^[0-9]+$ && "$TABLES" -gt 0 ]] || backup_die "restore produced no public tables"
+[[ "$CORE_TABLES" == "3" ]] || backup_die "restore is missing schema_migrations/profile/question"
+
+if [[ "$KEEP_DRILL_DB" != "1" ]]; then
+  drop_drill_database
+  DRILL_DB_CREATED=0
+  trap - EXIT INT TERM
 fi
 
-echo "restore drill: ok (database ${DRILL_DB})"
-echo "drop when done: ${COMPOSE} exec -T ${COMPOSE_SERVICE} psql -U ${PGUSER} -d postgres -c 'DROP DATABASE IF EXISTS ${DRILL_DB};'"
+echo "postgres drill: ok (tables=${TABLES}, profiles=${PROFILE_ROWS}, questions=${QUESTION_ROWS})"
+if [[ "$KEEP_DRILL_DB" == "1" ]]; then
+  echo "postgres drill scratch retained: ${DRILL_DB}"
+fi

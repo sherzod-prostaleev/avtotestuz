@@ -1,0 +1,13 @@
+[Unit]
+Description=Pull Driver Go encrypted backups onto this PC when online
+Documentation=file:///opt/drivergo/scripts/backup/README.md
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=30min
+Persistent=true
+RandomizedDelaySec=3min
+Unit=drivergo-offhost-pull.service
+
+[Install]
+WantedBy=timers.target

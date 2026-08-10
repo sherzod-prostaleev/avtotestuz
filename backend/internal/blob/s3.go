@@ -40,6 +40,10 @@ func (s *S3) Get(ctx context.Context, key string) ([]byte, string, error) {
 	defer obj.Close()
 	info, err := obj.Stat()
 	if err != nil {
+		resp := minio.ToErrorResponse(err)
+		if resp.Code == "NoSuchKey" || resp.Code == "NoSuchObject" {
+			return nil, "", ErrNotFound
+		}
 		return nil, "", err
 	}
 	data, err := io.ReadAll(obj)
@@ -47,4 +51,15 @@ func (s *S3) Get(ctx context.Context, key string) ([]byte, string, error) {
 		return nil, "", err
 	}
 	return data, info.ContentType, nil
+}
+
+func (s *S3) Health(ctx context.Context) error {
+	exists, err := s.client.BucketExists(ctx, s.bucket)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return fmt.Errorf("blob bucket %q does not exist", s.bucket)
+	}
+	return nil
 }

@@ -3,16 +3,24 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "17 2 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
   backend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:16-alpine@sha256:57c72fd2a128e416c7fcc499958864df5301e940bca0a56f58fddf30ffc07777
         env:
           POSTGRES_USER: avtotest
           POSTGRES_PASSWORD: avtotest
@@ -27,7 +35,7 @@ jobs:
       # session, server) FlushDB a per-package logical DB. Without Redis the
       # job either skips reality or fails loudly — keep CI honest.
       redis:
-        image: redis:7-alpine
+        image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
         ports: ["6379:6379"]
         options: >-
           --health-cmd "redis-cli ping"
@@ -41,7 +49,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: stable
+          go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: Lint
         uses: golangci/golangci-lint-action@4afd733a84b1f43292c63897423277bb7f4313a9 # v8
@@ -59,6 +67,11 @@ jobs:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
           TEST_REDIS_URL: redis://localhost:6379/0
         run: go test -p 1 ./... -count=1
+      - name: Select production station toolchain
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/station/go.mod
+          cache-dependency-path: backend/station/go.sum
       - name: Station module (separate Go module — backend's ./... does not descend into it)
         env:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
@@ -67,7 +80,8 @@ jobs:
           make station-check
 
   frontend:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: frontend
@@ -75,7 +89,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -95,7 +109,8 @@ jobs:
   # Absent secret → those tests skip; job stays green. Do not commit tokens.
   # Full-stack API journeys still need staging/compose (inventory U-14).
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         working-directory: frontend
@@ -103,7 +118,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install dependencies
@@ -119,29 +134,119 @@ jobs:
           # Empty when the secret is unset → auth-gated specs skip.
           E2E_AUTH_TOKEN: ${{ secrets.E2E_AUTH_TOKEN }}
           E2E_REFRESH_TOKEN: ${{ secrets.E2E_REFRESH_TOKEN }}
+      - name: Upload secret-safe Playwright failure screenshots
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-failure-screenshots
+          # Never upload trace.zip: it can contain Cookie headers from the
+          # optional authenticated E2E path. Screenshots contain no tokens.
+          path: frontend/test-results/**/test-failed-*.png
+          if-no-files-found: ignore
+          retention-days: 14
 
-  # Standing dependency vulnerability scan (inventory U-43).
-  # Go: govulncheck is a hard gate (symbol-reachable vulns fail the job).
-  # npm: high/critical advisories are a hard gate and the JSON is retained as
-  # an artifact for review.
-  dependency-scan:
-    runs-on: ubuntu-latest
+  humo-watcher:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: services/humo-watcher
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Verify direct pins match the hashed lock
+        run: python3 verify_lock.py
+      - name: Install isolated dependencies
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --disable-pip-version-check --require-hashes -r requirements.lock
+      - name: Compile and test durable payment spool
+        run: |
+          .venv/bin/python -m compileall -q watcher.py healthcheck.py
+          .venv/bin/python -W error::ResourceWarning -m unittest -v test_watcher.py
 
+  ops-contracts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Shell syntax
+        run: bash -n deploy/*.sh deploy/tests/*.sh scripts/backup/*.sh
+      - name: Deployment safety contracts
+        run: |
+          deploy/tests/sync-to-vps_test.sh
+          python3 deploy/tests/compose_contract_test.py
+      - name: Backup and restore safety contracts
+        run: make backup-static-check
+      - name: Monitoring and alerting safety contracts
+        run: deploy/monitoring/tests/monitoring_contract_test.sh
+
+  # Keep ecosystems independent: one advisory must not hide the other reports.
+  go-vulnerability-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
-          go-version: stable
+          go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
-      - name: govulncheck
+      - name: Scan backend
         working-directory: backend
         run: govulncheck ./...
 
+  station-vulnerability-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          # Build the shipped station artifact with the Win7-compatible
+          # toolchain, not the maintained server toolchain.
+          go-version-file: backend/station/go.mod
+          cache-dependency-path: backend/station/go.sum
+      - name: Build exact Windows 7 artifact
+        working-directory: backend/station
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -trimpath -o "$RUNNER_TEMP/avtotest-station.exe" ./cmd/avtotest-station
+      - name: Select maintained scanner toolchain
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.6.0
+      - name: Scan exact binary and enforce Win7 exception gate
+        run: |
+          go version -m "$RUNNER_TEMP/avtotest-station.exe" | tee "$RUNNER_TEMP/station-build-info.txt"
+          grep -Eq 'go1\.20\.[0-9]+' "$RUNNER_TEMP/station-build-info.txt"
+          grep -Fq $'build\tGOOS=windows' "$RUNNER_TEMP/station-build-info.txt"
+          grep -Fq $'build\tGOARCH=386' "$RUNNER_TEMP/station-build-info.txt"
+          grep -Fq $'build\tCGO_ENABLED=0' "$RUNNER_TEMP/station-build-info.txt"
+          govulncheck -mode=binary -format=json "$RUNNER_TEMP/avtotest-station.exe" > "$RUNNER_TEMP/station-govulncheck.json"
+          python3 backend/station/security/verify_binary_govuln.py \
+            "$RUNNER_TEMP/station-govulncheck.json" \
+            backend/station/security/win7-govuln-allowlist.txt
+      - name: Upload Win7 binary evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: station-win7-govuln-evidence
+          path: |
+            ${{ runner.temp }}/station-govulncheck.json
+            ${{ runner.temp }}/station-build-info.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  npm-vulnerability-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend deps
@@ -152,11 +257,6 @@ jobs:
         run: |
           set -o pipefail
           npm audit --audit-level=high --json | tee "${GITHUB_WORKSPACE}/npm-audit.json"
-
-      - name: Python dependency audit
-        run: |
-          python3 -m pip install --disable-pip-version-check pip-audit==2.10.1
-          python3 -m pip_audit -r services/humo-watcher/requirements.txt --strict
       - name: Upload npm audit JSON
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -165,8 +265,43 @@ jobs:
           path: npm-audit.json
           if-no-files-found: ignore
 
+  python-vulnerability-scan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Python dependency audit
+        run: |
+          python3 -m pip install --disable-pip-version-check pip-audit==2.10.1
+          python3 -m pip_audit -r services/humo-watcher/requirements.lock \
+            --require-hashes --disable-pip --strict
+
+  # Stable aggregate check name for branch-protection rules.
+  dependency-scan:
+    if: always()
+    needs:
+      - go-vulnerability-scan
+      - station-vulnerability-scan
+      - npm-vulnerability-scan
+      - python-vulnerability-scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every ecosystem scan
+        env:
+          GO_RESULT: ${{ needs.go-vulnerability-scan.result }}
+          STATION_RESULT: ${{ needs.station-vulnerability-scan.result }}
+          NPM_RESULT: ${{ needs.npm-vulnerability-scan.result }}
+          PYTHON_RESULT: ${{ needs.python-vulnerability-scan.result }}
+        run: |
+          test "$GO_RESULT" = success
+          test "$STATION_RESULT" = success
+          test "$NPM_RESULT" = success
+          test "$PYTHON_RESULT" = success
+
   container-build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Validate production Compose
@@ -177,8 +312,45 @@ jobs:
           install -m 600 deploy/app.prod.env.example deploy/app.env
           docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.prod.env.example config >/dev/null
       - name: Build API image
-        run: docker build --pull=false -t drivergo-api:ci -f backend/Dockerfile backend
+        run: docker build --pull=false --build-arg VCS_REF="$GITHUB_SHA" -t drivergo-api:ci -f backend/Dockerfile backend
       - name: Build web image
-        run: docker build --pull=false -t drivergo-web:ci -f frontend/Dockerfile frontend
+        run: docker build --pull=false --build-arg VCS_REF="$GITHUB_SHA" -t drivergo-web:ci -f frontend/Dockerfile frontend
       - name: Build Humo watcher image
-        run: docker build --pull=false -t drivergo-humo-watcher:ci -f services/humo-watcher/Dockerfile services/humo-watcher
+        run: docker build --pull=false --build-arg VCS_REF="$GITHUB_SHA" -t drivergo-humo-watcher:ci -f services/humo-watcher/Dockerfile services/humo-watcher
+      - name: Record Windows 7 station compatibility risk
+        run: |
+          # The station intentionally stays on Go 1.20 (last Win7-compatible
+          # family). Preserve the complete scanner evidence instead of hiding
+          # its EOL stdlib findings; reachable govulncheck remains a separate
+          # hard gate in station-vulnerability-scan.
+          docker run --rm \
+            --volume /var/run/docker.sock:/var/run/docker.sock \
+            --volume drivergo-trivy-cache:/root/.cache/ \
+            --volume "$GITHUB_WORKSPACE:/work" \
+            aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
+            image --scanners vuln --severity HIGH,CRITICAL --exit-code 0 \
+            --no-progress --format json --output /work/station-compatibility-trivy.json \
+            drivergo-api:ci
+      - name: Gate runtime images on high and critical CVEs
+        run: |
+          trivy() {
+            docker run --rm \
+              --volume /var/run/docker.sock:/var/run/docker.sock \
+              --volume drivergo-trivy-cache:/root/.cache/ \
+              aquasec/trivy@sha256:7cced7cae583819fc7806d4cbc0dbbc7cad18b99f7d3e235192e6da8c091045c \
+              image --scanners vuln --severity HIGH,CRITICAL --exit-code 1 --no-progress "$@"
+          }
+          # The API process/runtime is gated independently from the explicitly
+          # documented Win7 station binary embedded only for authenticated
+          # installer download.
+          trivy --skip-files /station/avtotest-station.exe drivergo-api:ci
+          trivy drivergo-web:ci
+          trivy drivergo-humo-watcher:ci
+      - name: Upload station compatibility scanner evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: station-win7-trivy-evidence
+          path: station-compatibility-trivy.json
+          if-no-files-found: error
+          retention-days: 30

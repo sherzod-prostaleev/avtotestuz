@@ -1,0 +1,306 @@
+groups:
+  - name: drivergo-availability
+    rules:
+      - alert: PrometheusScrapeTargetDown
+        expr: up{job=~"drivergo-api|node-textfile|blackbox-.+"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Prometheus cannot scrape {{ $labels.job }}"
+          description: "Target {{ $labels.instance }} has been unreachable for more than three minutes."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#prometheusscrapetargetdown"
+
+      - alert: APIHealthProbeFailed
+        expr: probe_success{job="blackbox-api-liveness"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "API liveness probe is failing"
+          description: "The internal /healthz probe has failed for more than two minutes."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#apihealthprobefailed"
+
+      - alert: APIReadinessProbeFailed
+        expr: probe_success{job="blackbox-api-readiness"} == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "API readiness probe is failing"
+          description: "The internal /readyz response is non-2xx or does not report status ok."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#apireadinessprobefailed"
+
+      - alert: WebProbeFailed
+        expr: probe_success{job="blackbox-web"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Internal web probe is failing"
+          description: "The web container did not return a successful response for the Uzbek landing page."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#webprobefailed"
+
+      - alert: PublicTLSProbeFailed
+        expr: probe_success{job="blackbox-public-tls"} == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: availability
+        annotations:
+          summary: "Public HTTPS health probe is failing"
+          description: "The public health endpoint failed DNS, TCP, TLS validation, or HTTP checks."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#publictlsprobefailed"
+
+      - alert: APIMetricsContractMissing
+        expr: |
+          (up{job="drivergo-api"} == 1)
+          and on() (
+            absent(avtotest_http_requests_total)
+            or absent(avtotest_http_requests_by_status_class_total{class="5xx"})
+            or absent(avtotest_http_request_duration_seconds_count)
+          )
+        for: 10m
+        labels:
+          severity: warning
+          category: monitoring
+        annotations:
+          summary: "API scrape is up but required request metrics are missing"
+          description: "The deployed API does not expose the counter/histogram contract used by reliability alerts."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#apimetricscontractmissing"
+
+      - alert: APIHighErrorRatio
+        expr: |
+          (
+            rate(avtotest_http_requests_by_status_class_total{class="5xx"}[5m])
+            /
+            rate(avtotest_http_requests_total[5m])
+          ) > 0.05
+          and rate(avtotest_http_requests_total[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: reliability
+        annotations:
+          summary: "API 5xx ratio is above 5%"
+          description: "The process-local five-minute 5xx ratio exceeded 5% with at least 0.1 requests/second."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#apihigherrorratio"
+
+      - alert: APIHighP95Latency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(avtotest_http_request_duration_seconds_bucket[5m]))
+          ) > 1.5
+          and rate(avtotest_http_request_duration_seconds_count[5m]) > 0.1
+        for: 10m
+        labels:
+          severity: warning
+          category: latency
+        annotations:
+          summary: "API p95 latency is above 1.5 seconds"
+          description: "The process-local five-minute p95 exceeded 1.5 seconds with at least 0.1 requests/second."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#apihighp95latency"
+
+  - name: drivergo-host-and-containers
+    rules:
+      - alert: OpsCollectorMetricsMissing
+        expr: absent(drivergo_ops_collector_timestamp_seconds)
+        for: 10m
+        labels:
+          severity: critical
+          category: monitoring
+        annotations:
+          summary: "Host operations metrics are missing"
+          description: "The node textfile scrape has not exposed the Driver Go collector timestamp."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#opscollectormetricsmissing"
+
+      - alert: OpsCollectorFailed
+        expr: drivergo_ops_collector_success == 0
+        for: 2m
+        labels:
+          severity: critical
+          category: monitoring
+        annotations:
+          summary: "Host operations collector failed"
+          description: "The last collector run could not read one or more required operational sources."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#opscollectorfailed"
+
+      - alert: OpsCollectorStale
+        expr: abs(time() - drivergo_ops_collector_timestamp_seconds) > 180
+        for: 2m
+        labels:
+          severity: critical
+          category: monitoring
+        annotations:
+          summary: "Host operations collector is stale or host time is skewed"
+          description: "The collector timestamp differs from Prometheus time by more than three minutes."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#opscollectorstale"
+
+      - alert: HostDiskUsageHigh
+        expr: (drivergo_disk_used_ratio > 0.85) and (drivergo_disk_used_ratio <= 0.95)
+        for: 15m
+        labels:
+          severity: warning
+          category: capacity
+        annotations:
+          summary: "Disk usage on {{ $labels.target }} is above 85%"
+          description: "Free capacity is approaching the operational limit."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#hostdiskusagehigh"
+
+      - alert: HostDiskUsageCritical
+        expr: drivergo_disk_used_ratio > 0.95
+        for: 5m
+        labels:
+          severity: critical
+          category: capacity
+        annotations:
+          summary: "Disk usage on {{ $labels.target }} is above 95%"
+          description: "Writes, backups, or container operation may fail imminently."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#hostdiskusagecritical"
+
+      - alert: MonitoredDiskPathMissing
+        expr: drivergo_disk_path_present == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: capacity
+        annotations:
+          summary: "Monitored disk path {{ $labels.target }} is missing"
+          description: "The configured filesystem path does not exist or is not a directory."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#monitoreddiskpathmissing"
+
+      - alert: ContainerNotRunning
+        expr: drivergo_container_running == 0
+        for: 3m
+        labels:
+          severity: critical
+          category: containers
+        annotations:
+          summary: "Container {{ $labels.service }} is not running"
+          description: "The allowlisted Compose service has no single running container."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#containernotrunning"
+
+      - alert: ContainerUnhealthy
+        expr: drivergo_container_healthy == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: containers
+        annotations:
+          summary: "Container {{ $labels.service }} is unhealthy"
+          description: "The allowlisted Compose service health check is not healthy."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#containerunhealthy"
+
+      - alert: ContainerRestarting
+        expr: increase(drivergo_container_restarts_total[15m]) >= 3
+        for: 5m
+        labels:
+          severity: warning
+          category: containers
+        annotations:
+          summary: "Container {{ $labels.service }} restarted repeatedly"
+          description: "At least three restarts were observed during the last 15 minutes."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#containerrestarting"
+
+  - name: drivergo-backup-and-tls
+    rules:
+      - alert: BackupTimerInactive
+        expr: drivergo_backup_timer_active == 0
+        for: 10m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "Backup timer is inactive"
+          description: "drivergo-backup.timer is not active."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#backuptimerinactive"
+
+      - alert: BackupLastAttemptFailed
+        expr: drivergo_backup_last_attempt_success == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "The last backup service attempt failed"
+          description: "drivergo-backup.service does not report a successful last result."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#backuplastattemptfailed"
+
+      - alert: BackupSnapshotMissing
+        expr: drivergo_backup_snapshot_present == 0
+        for: 10m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "No complete local backup snapshot was found"
+          description: "No allowlisted snapshot with manifest.txt and SHA256SUMS is available."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#backupsnapshotmissing"
+
+      - alert: BackupSnapshotInvalid
+        expr: drivergo_backup_snapshot_invalid > 0
+        for: 5m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "A local backup snapshot failed integrity verification"
+          description: "At least one allowlisted snapshot failed strict manifest, size, or SHA-256 verification and must not count toward retention."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#backupsnapshotinvalid"
+
+      - alert: BackupSnapshotStale
+        expr: drivergo_backup_snapshot_age_seconds > 108000
+        for: 15m
+        labels:
+          severity: critical
+          category: backup
+        annotations:
+          summary: "Latest local backup is older than 30 hours"
+          description: "The latest complete snapshot is outside the 24h15m scheduled interval plus operational margin."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#backupsnapshotstale"
+
+      - alert: PublicTLSCertificateExpiring
+        expr: (probe_ssl_earliest_cert_expiry{job="blackbox-public-tls"} - time()) < 1209600
+        for: 30m
+        labels:
+          severity: warning
+          category: tls
+        annotations:
+          summary: "Public TLS certificate expires within 14 days"
+          description: "Validated public certificate lifetime is below the renewal safety window."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#publictlscertificateexpiring"
+
+      - alert: OriginTLSCertificateMissingOrInvalid
+        expr: |
+          (drivergo_tls_certificate_monitoring_enabled == 1)
+          and on() (
+            (drivergo_tls_certificate_present == 0)
+            or (drivergo_tls_certificate_valid == 0)
+          )
+        for: 10m
+        labels:
+          severity: critical
+          category: tls
+        annotations:
+          summary: "Configured origin TLS certificate is missing or invalid"
+          description: "The optional host certificate check is enabled but its file cannot be validated."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#origintlscertificatemissingorinvalid"
+
+      - alert: OriginTLSCertificateExpiring
+        expr: |
+          (drivergo_tls_certificate_monitoring_enabled == 1)
+          and on() (drivergo_tls_certificate_expiry_seconds < 1209600)
+          and on() (drivergo_tls_certificate_valid == 1)
+        for: 30m
+        labels:
+          severity: warning
+          category: tls
+        annotations:
+          summary: "Configured origin TLS certificate expires within 14 days"
+          description: "Renew and verify the configured local certificate before expiry."
+          runbook_url: "deploy/monitoring/RUNBOOK.md#origintlscertificateexpiring"

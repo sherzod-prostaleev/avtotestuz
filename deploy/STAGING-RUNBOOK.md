@@ -147,6 +147,10 @@ Production Next auth routes that build client-IP assertions return
 `restart: unless-stopped` is set on both app services. Resource ceilings are
 documented as comments in the overlay (uncomment when the host size is known).
 
+Root infra ports are published only on `127.0.0.1`; Postgres, Redis, and MinIO
+must never be widened to a public host interface. In the merged stack, web is
+on the app network and cannot directly reach the data services.
+
 ---
 
 ## 5. Health checks & rollback
@@ -156,15 +160,15 @@ documented as comments in the overlay (uncomment when the host size is known).
 | Check | Expect |
 |-------|--------|
 | `GET {API}/healthz` | JSON envelope with `"status":"ok"` (liveness — no DB/Redis) |
-| `GET {API}/readyz` | `"status":"ok"` and `checks.postgres` / `checks.redis` = `"ok"` (readiness) |
+| `GET {API}/readyz` | `"status":"ok"` and `checks.postgres` / `checks.redis` / `checks.object_storage` = `"ok"` (readiness) |
 | `GET {API}/metrics` | Process-local counters (`requests_total`, status classes, `uptime_seconds`) — not Prometheus |
 | `GET {WEB}/{locale}` e.g. `/uz-Latn` | HTTP 200 |
 | Compose | `api` / `web` `running` (`restart: unless-stopped`) |
 
-`deploy/smoke.sh` covers healthz + readyz + optional web. In-container Docker
-`HEALTHCHECK` for the API image is omitted (distroless has no curl/shell);
-rely on smoke + process restart policy. Orchestrators should probe **/readyz**
-before sending traffic; use **/healthz** only for process liveness.
+`deploy/smoke.sh` covers healthz + readyz + optional web. The distroless API
+uses its compiled `/healthcheck` binary, so no shell/curl is required inside
+the image. Orchestrators should probe **/readyz** before sending traffic; use
+**/healthz** only for process liveness.
 
 ### Ops kill-switch (optional)
 
@@ -224,9 +228,8 @@ docker compose -f docker-compose.yml -f deploy/docker-compose.app.yml \
 
 ## 7. CI implications
 
-- Image build/push and SSH deploy are **not** required CI jobs yet (keeps PRs
-  light). Prefer `workflow_dispatch` once `STAGING_HOST` / registry secrets
-  exist.
+- CI validates production Compose and builds all three images, but registry
+  push and SSH deploy remain manual until environment credentials exist.
 - Do not store staging secrets in the workflow YAML — use GitHub Environments /
   Actions secrets only after D18.
 - Playwright CI (`E2E_AUTH_TOKEN`) is independent of this host; see
@@ -267,39 +270,56 @@ See `deploy/load-test/README.md`. Optional CI: `.github/workflows/load-test.yml`
 
 ## Backup / DR (U-44)
 
-**Honest scope:** local compose `pg_dump` + restore **drill** into a disposable
-database. No fake remote host, no claimed off-site replication, no WAL/PITR yet.
+Repository automation now captures PostgreSQL, Redis, MinIO, and the Humo
+SQLite queue into one checksummed snapshot. The production systemd unit fails
+closed unless age encryption and a dedicated rclone off-site prefix are
+configured. This is implementation evidence only: it is not evidence that a
+timer or remote is active on a particular host.
 
 ### Scripts
 
 ```bash
-make up
-make backup-pg                 # → .run/backups/avtotest-*.dump (gitignored)
-make backup-restore-drill      # restores into avtotest_restore_drill ONLY
+COMPOSE_FILE="$PWD/docker-compose.yml" \
+COMPOSE_EXTRA_FILE="$PWD/deploy/docker-compose.app.yml" \
+COMPOSE_ENV_FILE="$PWD/deploy/app.env" \
+  ALLOW_PLAINTEXT_BACKUP=1 make backup-full     # local exercise only
+SNAPSHOT=.run/backups/full/drivergo-... make backup-verify
+RESTORE_DRILL_ACK=avtotest_restore_drill \
+  SNAPSHOT=.run/backups/full/drivergo-... make backup-full-restore-drill
 ```
 
-Details: `scripts/backup/README.md`.
+The full drill restores PostgreSQL only into hard-coded
+`avtotest_restore_drill` and removes it; Redis is checked offline, MinIO is
+extracted below a guarded scratch root, and SQLite is opened read-only. Details,
+production installation, recovery order, retention, and secret-escrow needs:
+`scripts/backup/README.md`.
 
-### RPO / RTO placeholders (fill when host exists)
+### RPO / RTO evidence
 
-| Env | RPO target (placeholder) | RTO target (placeholder) | Notes |
-|-----|--------------------------|--------------------------|-------|
-| Local/dev | best-effort | best-effort | Compose volume + optional dump before risky work |
-| Staging | **TBD** (e.g. ≤24h) | **TBD** (e.g. ≤4h) | Needs U-02 host + off-box retention |
-| Prod | **TBD** (e.g. ≤1h) | **TBD** (e.g. ≤1h) | Needs WAL/PITR or frequent dumps + tested restore |
+| Evidence | Current value | Limitation |
+|-----|-----|-----|
+| Committed schedule | Daily 02:15 UTC + up to 15m jitter | At most 24h15m only while the host/timer/backup/off-site upload all succeed |
+| Database PITR | None | No WAL archive; sub-daily RPO is unsupported |
+| Restore duration | Written by `full_restore_drill.sh` after a successful run | No report means no measured RTO; this excludes host/DNS/secrets/cutover |
+| Business RPO/RTO | **TBD / owner approval required** | Approve only after timed isolated-host recovery |
 
-Until D18 (staging host) ships, treat dumps as **operator laptop / volume**
-artifacts. Schedule, encryption-at-rest, and off-site copy are **open**.
+MinIO's live-volume tar is crash-style coverage and the four components are
+captured sequentially, not as one distributed transaction. Add MinIO
+versioning/replication and PostgreSQL WAL/PITR for stronger recovery guarantees.
 
 ### Drill checklist
 
-- [ ] `make backup-pg` produces a non-empty `.dump`
-- [ ] `make backup-restore-drill` creates `avtotest_restore_drill` with public tables
-- [ ] Confirm live DB name was **not** dropped
-- [ ] Drop drill DB when finished
-- [ ] (Later) Copy latest dump off-box; record checksum + timestamp
+- [ ] `systemctl is-enabled --quiet drivergo-backup.timer`
+- [ ] Latest service run succeeded and snapshot age is within the approved RPO
+- [ ] `verify_snapshot.sh` passes for both local and downloaded off-site copies
+- [ ] Full drill report shows all four components succeeded
+- [ ] `avtotest_restore_drill` was removed; live database/storage were unchanged
+- [ ] Age private identity and exact `DATA_ENCRYPTION_KEY`/legacy fallback were recovered from off-host escrow
+- [ ] Actual download, restore, smoke-test, and cutover times were recorded
 
-### Out of scope here
+### Still external / open
 
-Redis AOF/RDB, MinIO/media bucket replication, automated cron on VPS, Grafana
-alerting on backup failure — track separately once a real host exists.
+Provisioning the rclone provider and credentials, object lock, alert delivery,
+capacity monitoring, installing/enabling the systemd timer, secret escrow, and
+an isolated recovery host remain operator/infrastructure work. Do not mark DR
+ready until those controls are evidenced.

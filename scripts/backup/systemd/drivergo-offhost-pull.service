@@ -1,0 +1,21 @@
+[Unit]
+Description=Driver Go home PC off-host backup pull
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Required in ~/.config/drivergo/offhost-pull.env (quote paths with spaces):
+#   OFFHOST_PULL_SCRIPT="/absolute/path/to/repo/scripts/backup/pull_offhost.sh"
+EnvironmentFile=%h/.config/drivergo/offhost-pull.env
+Environment=OFFHOST_ENV_FILE=%h/.config/drivergo/offhost-pull.env
+ExecStart=/bin/bash -c 'exec "$${OFFHOST_PULL_SCRIPT:?set OFFHOST_PULL_SCRIPT in offhost-pull.env}"'
+# Keep this unit close to a normal user login SSH client. Hardening that
+# breaks OpenSSH's system Include fragments causes empty remote listings.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+UMask=0077
+
+[Install]
+WantedBy=default.target

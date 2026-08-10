@@ -91,7 +91,8 @@ Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
   **7 guruh / 285 belgi** (`backend/seed/signs/`). Yangi savollarga
   `question_signs` link hali qo‘yilmagan (ixtiyoriy keyingi qadam).
 - **Rasmlar**: `backend/seed/avtoimtihon/images/` **gitignore** (blob).
-  Prod’ga `./deploy/sync-to-vps.sh` orqali rsync qilinadi (exclude
+  Prod’ga `./deploy/sync-to-vps.sh` orqali avval dry-run, keyin explicit
+  `--apply` bilan rsync qilinadi (exclude
   qilinmagan). `make seed-verify` images/ bor bo‘lsa fayllarni tekshiradi.
 - Import Report (tipik): `categories=13 images≈738 · questions valid=1260
   quarantined=0 · variants stored=63` (+ keyin signs import).
@@ -100,7 +101,8 @@ Foydalanuvchining o'ziga tegishli, litsenziyalangan haqiqiy imtihon kontenti
 
 ```bash
 # 1) backup  2) rsync (JSON + images/)  3) upsert import — HECH QACHON seed-dev
-./deploy/sync-to-vps.sh
+./deploy/sync-to-vps.sh          # preflight + dry-run, remote write yo‘q
+./deploy/sync-to-vps.sh --apply  # faqat diff tekshirilgandan keyin
 # VPS: pg_dump → go run ./cmd/importer -data seed/avtoimtihon -verified
 # (importer answer qatorlarini DELETE qilmaydi — session_answer FK saqlanadi)
 ```
@@ -140,7 +142,7 @@ faqat unit/smoke; to‘liq lokal muhit uchun `make seed-dev`.
 - `GET /readyz` — readiness (`checks.postgres` / `checks.redis`; wired bo'lsa ping, aks holda `skipped`; fail → 503)
 - `GET /metrics` — process-local counters; **Prometheus text** by default, JSON via `Accept: application/json` or `?format=json`; optional Sentry SDK when `SENTRY_DSN` / `NEXT_PUBLIC_SENTRY_DSN` set (empty = no-op; no pager); probes excluded from counts
 - **U-42 load-test smoke:** `make load-test` (k6; `deploy/load-test/`) — lokal/staging API smoke, **not** prod soak
-- **U-44 backup/DR drill:** `make backup-pg` / `make backup-restore-drill` (`scripts/backup/`) — local compose only; RPO/RTO placeholders in runbook
+- **U-44 backup/DR:** `make backup-full` / `make backup-verify` / `make backup-full-restore-drill` (`scripts/backup/`) — four-component encrypted/off-site-capable snapshots; measured RTO evidence and remaining limits are in the runbook
 - **Admin OpenAPI stub:** `docs/openapi/admin-v1.stub.yaml` (route catalog for `/admin/v1`, no schemas)
 - `GET /api/v1/categories?locale=`
 - `GET /api/v1/variants` · `GET /api/v1/variants/{n}?locale=`
