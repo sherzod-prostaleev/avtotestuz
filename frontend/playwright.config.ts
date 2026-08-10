@@ -2,6 +2,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 const PORT = Number(process.env.PORT) || 3000;
 const BASE_URL = `http://localhost:${PORT}`;
+const AUTH_SECRETS_PRESENT = Boolean(
+  process.env.E2E_AUTH_TOKEN || process.env.E2E_REFRESH_TOKEN,
+);
 
 // Optional auth-gated specs (see e2e/helpers/auth.ts):
 //   E2E_AUTH_TOKEN     → sets httpOnly `at` cookie (session-gate smoke)
@@ -17,7 +20,9 @@ export default defineConfig({
   reporter: "list",
   use: {
     baseURL: BASE_URL,
-    trace: "on-first-retry",
+    // Playwright traces retain network headers/cookies. Never record one when
+    // CI supplied a real access or refresh token.
+    trace: AUTH_SECRETS_PRESENT ? "off" : "on-first-retry",
     screenshot: "only-on-failure",
   },
   projects: [

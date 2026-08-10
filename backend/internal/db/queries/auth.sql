@@ -39,6 +39,15 @@ UPDATE profile
 SET password_hash = $2
 WHERE phone = $1 AND password_hash IS NULL;
 
+-- name: SetProfilePassword :one
+-- Replaces password_hash and clears/sets the must-change flag.
+-- Never stores plaintext; callers pass a bcrypt hash only.
+UPDATE profile
+SET password_hash = $2,
+    must_change_password = $3
+WHERE id = $1
+RETURNING *;
+
 -- name: UpdateProfileMe :one
 UPDATE profile SET
   name = $2, region = $3, district = $4, birth_date = $5,

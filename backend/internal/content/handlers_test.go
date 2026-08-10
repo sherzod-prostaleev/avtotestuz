@@ -24,7 +24,7 @@ func setup(t *testing.T) *httptest.Server {
 		importer.StoreOptions{MarkVerified: true, Images: images, Source: "fixture"}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
-	h, _ := server.New(config.Config{Env: "test", MediaBaseURL: "http://media.test"},
+	h, _, _ := server.New(config.Config{Env: "test", MediaBaseURL: "http://media.test"},
 		server.Deps{Queries: sqlc.New(pool)})
 	ts := httptest.NewServer(h)
 	t.Cleanup(ts.Close)

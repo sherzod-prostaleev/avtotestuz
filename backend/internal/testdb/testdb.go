@@ -204,6 +204,7 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 	for attempts := 0; attempts < 10; attempts++ {
 		_, err = pool.Exec(context.Background(), `
 			TRUNCATE TABLE
+				broadcast_recipient, broadcast_campaign,
 				notification, event_batch, event, audit_log, push_subscription, grand_mock_certificate,
 				streak, saved_question, category_mastery, question_memory,
 				variant_progress, session_answer, exam_session,
@@ -218,7 +219,7 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				sign_translation, sign, sign_group_translation, sign_group,
 				variant_question, variant, answer_translation, question_translation,
 				answer, question, image, category_translation, category,
-				site_settings, support_ticket,
+				site_settings, support_ticket, support_message, support_conversation,
 				admin_audit_log, admin_session, admin_user_role, admin_user,
 				b2b_station, b2b_org_enroll_code,
 				b2b_org_license, b2b_org

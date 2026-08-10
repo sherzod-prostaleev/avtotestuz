@@ -116,24 +116,36 @@ export const ADMIN_ROW_FIXTURES: Record<string, unknown> = {
     total: 137,
   },
 
-  "/api/admin/support/tickets": {
+  "/api/admin/support/conversations": {
     items: Array.from({ length: 12 }, (_, i) => ({
       id: `s-${i}-aaaabbbb-cccc-dddd-eeee-ffff00001111`,
       profile_id: `u-${i}-99998888-7777-6666-5555-444433332222`,
-      contact_email: "musharrafxon.abdurahmonova.2007@example-mail-provider.uz",
-      contact_phone: "+998901234567",
-      subject: LONG_SUBJECT,
-      body: LONG_QUESTION,
+      profile_name: "Musharrafxon Abdurahmonova",
+      profile_phone: "+998901234567",
       status: "open",
-      locale: "uz-Latn",
-      source: "web_contact_form",
-      admin_note: "",
+      unread_admin: i % 3,
+      unread_user: 0,
+      preview: LONG_SUBJECT,
+      last_message_at: "2026-07-28T15:22:40Z",
       created_at: "2026-07-28T14:03:11Z",
       updated_at: "2026-07-28T15:22:40Z",
     })),
     page: 1,
     limit: 20,
     total: 302,
+  },
+
+  // The manual-payment page reads `data` as arrays directly rather than the
+  // paginated `{items: []}` envelope used by admin directories.
+  "/api/admin/payments/manual/cards": [],
+  "/api/admin/payments/manual/queue": [],
+  "/api/admin/payments/manual/events": [],
+  "/api/admin/payments/manual/telegram": {
+    configured: false,
+    has_api_id: false,
+    has_api_hash: false,
+    has_session: false,
+    humo_bot_username: "HUMOcardbot",
   },
 
   "/api/admin/users": {

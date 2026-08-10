@@ -1,0 +1,29 @@
+modules:
+  http_2xx:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+
+  http_ready:
+    prober: http
+    timeout: 8s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: false
+      fail_if_body_not_matches_regexp:
+        - '"status"[[:space:]]*:[[:space:]]*"ok"'
+
+  https_2xx:
+    prober: http
+    timeout: 10s
+    http:
+      method: GET
+      preferred_ip_protocol: ip4
+      follow_redirects: true
+      fail_if_not_ssl: true
+      tls_config:
+        insecure_skip_verify: false

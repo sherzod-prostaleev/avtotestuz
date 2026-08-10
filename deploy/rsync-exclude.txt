@@ -3,6 +3,8 @@
 
 .git/
 .deployed-commit
+.deploy-rollbacks/
+.rsync-partial/
 .agents/
 .codex/
 .github/

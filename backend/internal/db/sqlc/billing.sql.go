@@ -411,7 +411,7 @@ func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaym
 }
 
 const getPromoCodeByCode = `-- name: GetPromoCodeByCode :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE LOWER(code) = LOWER($1) AND active = true
 `
@@ -430,12 +430,13 @@ func (q *Queries) GetPromoCodeByCode(ctx context.Context, lower string) (PromoCo
 		&i.ValidTo,
 		&i.Active,
 		&i.CreatedBy,
+		&i.PartnerOrgID,
 	)
 	return i, err
 }
 
 const getPromoCodeByCodeForUpdate = `-- name: GetPromoCodeByCodeForUpdate :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE LOWER(code) = LOWER($1) AND active = true
 FOR UPDATE
@@ -459,12 +460,13 @@ func (q *Queries) GetPromoCodeByCodeForUpdate(ctx context.Context, lower string)
 		&i.ValidTo,
 		&i.Active,
 		&i.CreatedBy,
+		&i.PartnerOrgID,
 	)
 	return i, err
 }
 
 const getPromoCodeByID = `-- name: GetPromoCodeByID :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE id = $1
 `
@@ -483,12 +485,13 @@ func (q *Queries) GetPromoCodeByID(ctx context.Context, id uuid.UUID) (PromoCode
 		&i.ValidTo,
 		&i.Active,
 		&i.CreatedBy,
+		&i.PartnerOrgID,
 	)
 	return i, err
 }
 
 const getPromoCodeByIDForUpdate = `-- name: GetPromoCodeByIDForUpdate :one
-SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by
+SELECT id, code, kind, value, max_uses, per_user_limit, valid_from, valid_to, active, created_by, partner_org_id
 FROM promo_code
 WHERE id = $1
 FOR UPDATE
@@ -517,6 +520,7 @@ func (q *Queries) GetPromoCodeByIDForUpdate(ctx context.Context, id uuid.UUID) (
 		&i.ValidTo,
 		&i.Active,
 		&i.CreatedBy,
+		&i.PartnerOrgID,
 	)
 	return i, err
 }

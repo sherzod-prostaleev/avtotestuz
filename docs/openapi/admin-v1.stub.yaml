@@ -82,11 +82,19 @@ paths:
     patch: { summary: Patch limit config, description: "permission: settings.config" }
   /security/audit:
     get: { summary: Admin audit log, description: "permission: security.audit.read" }
-  /support/tickets:
-    get: { summary: Support tickets, description: "permission: support.inbox" }
-  /support/tickets/{id}:
-    get: { summary: Ticket detail, description: "permission: support.inbox" }
-    patch: { summary: Triage ticket, description: "permission: support.inbox" }
+  /support/conversations:
+    get: { summary: Support conversations inbox, description: "permission: support.inbox" }
+  /support/conversations/{id}:
+    get: { summary: Conversation detail + learner, description: "permission: support.inbox" }
+    patch: { summary: Open/close conversation, description: "permission: support.inbox" }
+  /support/conversations/{id}/messages:
+    post: { summary: Admin reply (text/attachment), description: "permission: support.inbox" }
+  /support/conversations/{id}/attachments:
+    post: { summary: Admin attachment upload, description: "permission: support.inbox" }
+  /support/ws-ticket:
+    post: { summary: Mint admin support WS ticket, description: "permission: support.inbox" }
+  /support/ws:
+    get: { summary: Admin support WebSocket, description: "permission: support.inbox (ticket)" }
   /support/banner:
     get: { summary: Support banner, description: "permission: support.broadcast" }
     put: { summary: Put support banner, description: "permission: support.broadcast" }

@@ -9,6 +9,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
@@ -21,7 +22,9 @@ import (
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
 	"avtotest.uz/backend/internal/billing/payme"
+	"avtotest.uz/backend/internal/blob"
 	"avtotest.uz/backend/internal/bot"
+	"avtotest.uz/backend/internal/broadcast"
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/content"
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -38,6 +41,7 @@ import (
 	"avtotest.uz/backend/internal/session"
 	"avtotest.uz/backend/internal/site"
 	"avtotest.uz/backend/internal/support"
+	"avtotest.uz/backend/internal/supportchat"
 )
 
 type Deps struct {
@@ -49,8 +53,15 @@ type Deps struct {
 
 // New wires HTTP routes. The optional *arena.Service is non-nil when Redis+DB
 // are configured; callers should Drain it before http.Server.Shutdown.
-func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
+// The optional *broadcast.Service is returned so cmd/api can run the outbox worker.
+func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast.Service) {
 	r := chi.NewRouter()
+	var supportBlobs blob.Store
+	var supportBlobErr error
+	supportBlobsRequired := deps.Pool != nil && deps.Redis != nil
+	if supportBlobsRequired {
+		supportBlobs, supportBlobErr = supportchat.OpenBlobStore("")
+	}
 	// NOTE: no middleware.RealIP — it trusts spoofable headers (GHSA-3fxj-6jh8-hvhx).
 	// Real client IP extraction will be added with trusted-proxy config in Plan 02.
 	r.Use(middleware.RequestID, middleware.Recoverer)
@@ -61,7 +72,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins: cfg.CORSOrigins,
 		AllowedMethods: []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
-		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token"},
+		AllowedHeaders: []string{"Authorization", "Content-Type", "X-Ops-Token", "Idempotency-Key"},
 	}))
 
 	// U-41: process-local request counters (not Prometheus). Must wrap before
@@ -72,9 +83,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.Data(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
-	// /readyz = process can serve traffic (Postgres + Redis when wired).
+	// /readyz = process can serve traffic (Postgres + Redis + private support
+	// object storage when the full application dependencies are wired).
 	// /healthz stays a cheap liveness probe that does not touch dependencies.
-	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis))
+	r.Get("/readyz", readinessHandler(deps.Pool, deps.Redis, supportBlobs, supportBlobErr, supportBlobsRequired))
 	r.Get("/metrics", metrics.Handler())
 
 	// dataKey seals data at rest (admin TOTP secrets, stored card PANs, the
@@ -86,12 +98,44 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 
 	// M3 Super Admin — separate mount from learner /api/v1 (blast-radius isolation).
 	var pushSvc *push.Service
+	var broadcastSvc *broadcast.Service
 	if deps.Pool != nil && deps.Queries != nil {
 		pushSvc = push.NewService(deps.Pool, deps.Queries, push.Config{
 			PublicKey:  cfg.VAPIDPublicKey,
 			PrivateKey: cfg.VAPIDPrivateKey,
 			Subject:    cfg.VAPIDSubject,
 		}, nil)
+		broadcastSvc = &broadcast.Service{
+			Pool: deps.Pool,
+			Q:    deps.Queries,
+			Push: pushSvc,
+			Cfg: broadcast.Config{
+				MaxRecipients: cfg.BroadcastMaxRecipients,
+				ImageHosts:    cfg.BroadcastImageHosts,
+			},
+			Lim: auth.Limiter{R: deps.Redis},
+		}
+	}
+	var supportChatH *supportchat.Handler
+	if deps.Pool != nil && deps.Redis != nil {
+		if supportBlobErr != nil {
+			// LocalDir fallback keeps chat text working if MinIO is down in dev.
+			supportBlobs = nil
+			if deps.Log != nil {
+				deps.Log.Warn("supportchat blob store unavailable; attachments disabled", zap.Error(supportBlobErr))
+			}
+		}
+		supportSvc := supportchat.NewService(deps.Pool, deps.Redis, supportBlobs, cfg.PublicBaseURL)
+		supportChatH = &supportchat.Handler{
+			Svc: supportSvc,
+			AdminIDFromContext: func(ctx context.Context) (uuid.UUID, bool) {
+				claims, ok := admin.FromContext(ctx)
+				if !ok {
+					return uuid.Nil, false
+				}
+				return claims.AdminUserID, true
+			},
+		}
 	}
 	if deps.Pool != nil {
 		adminStore := admin.Store{Pool: deps.Pool}
@@ -103,9 +147,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			Billing:         billing.Service{Q: deps.Queries, Pool: deps.Pool, PublicBaseURL: cfg.PublicBaseURL, Secret: []byte(cfg.JWTSecret), DataSecret: dataKey},
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
+			Broadcast:       broadcastSvc,
 
 			StationBinaryPath: cfg.StationBinaryPath,
 			PublicBaseURL:     cfg.PublicBaseURL,
+			SupportChat:       supportChatH,
 		}
 		r.Route("/admin/v1", adminH.Routes)
 	}
@@ -155,12 +201,17 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 			sh := &site.Handler{Pool: deps.Pool}
 			sh.PublicRoutes(api)
 
+			// Legacy public ticket create kept for historical clients; learner UI uses chat.
 			sup := &support.Handler{
 				Pool:      deps.Pool,
 				Lim:       auth.Limiter{R: deps.Redis},
 				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 			}
 			sup.PublicRoutes(api)
+
+			if supportChatH != nil {
+				supportChatH.LearnerPublicRoutes(api)
+			}
 
 			fh := &flags.Handler{Pool: deps.Pool}
 			fh.PublicRoutes(api)
@@ -195,7 +246,11 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				dh := &demo.Handler{Svc: demo.NewService(deps.Queries, ch, auth.Limiter{R: deps.Redis})}
 				dh.Routes(api)
 
-				learnerAuth := api.With(auth.Required([]byte(cfg.JWTSecret)), auth.RejectBanned(deps.Queries))
+				learnerAuth := api.With(
+					auth.Required([]byte(cfg.JWTSecret)),
+					auth.RejectBanned(deps.Queries),
+					auth.RequirePasswordChanged(deps.Queries),
+				)
 
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)
@@ -260,7 +315,15 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 				phPush := &push.Handler{Svc: pushSvc}
 				phPush.AuthedRoutes(learnerAuth)
 
+				notifH := &broadcast.LearnerHandler{Q: deps.Queries}
+				notifH.AuthedRoutes(learnerAuth)
+
+				// Chat replaces learner ticket create UI; keep ticket AuthedRoutes
+				// so existing API clients can still open archive tickets.
 				sup.AuthedRoutes(learnerAuth)
+				if supportChatH != nil {
+					supportChatH.LearnerRoutes(learnerAuth)
+				}
 
 				if cfg.TelegramBotMode == "webhook" {
 					tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
@@ -292,12 +355,18 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service) {
 		})
 	}
 
-	return r, arenaSvc
+	return r, arenaSvc, broadcastSvc
 }
 
 const readinessProbeTimeout = 2 * time.Second
 
-func readinessHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
+func readinessHandler(
+	pool *pgxpool.Pool,
+	rdb *redis.Client,
+	objectStore blob.Store,
+	objectStoreInitErr error,
+	objectStoreRequired bool,
+) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		checks := map[string]string{}
 		ready := true
@@ -321,6 +390,18 @@ func readinessHandler(pool *pgxpool.Pool, rdb *redis.Client) http.HandlerFunc {
 			ready = false
 		} else {
 			checks["redis"] = "ok"
+		}
+
+		if !objectStoreRequired {
+			checks["object_storage"] = "skipped"
+		} else if objectStoreInitErr != nil || objectStore == nil {
+			checks["object_storage"] = "fail"
+			ready = false
+		} else if err := objectStore.Health(ctx); err != nil {
+			checks["object_storage"] = "fail"
+			ready = false
+		} else {
+			checks["object_storage"] = "ok"
 		}
 
 		status := "ok"

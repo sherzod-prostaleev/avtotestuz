@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"avtotest.uz/station/internal/keystore"
+	"avtotest.uz/station/internal/netclient"
 )
 
 // tokenRenewMargin renews before expiry so a lesson never stalls on a
@@ -101,7 +102,7 @@ func (a *Agent) client() *http.Client {
 	if a.HTTP != nil {
 		return a.HTTP
 	}
-	return &http.Client{Timeout: 15 * time.Second}
+	return netclient.New(15 * time.Second)
 }
 
 func (a *Agent) statePath() string { return filepath.Join(a.StateDir, "station.json") }

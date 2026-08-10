@@ -34,6 +34,51 @@ updates:
           - "minor"
           - "patch"
 
+  - package-ecosystem: gomod
+    directory: /backend/station
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+
+  - package-ecosystem: pip
+    directory: /services/humo-watcher
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directory: /backend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directory: /services/humo-watcher
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels:
+      - dependencies
+
   - package-ecosystem: github-actions
     directory: /
     schedule:

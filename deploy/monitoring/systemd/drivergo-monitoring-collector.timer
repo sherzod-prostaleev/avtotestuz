@@ -1,0 +1,14 @@
+[Unit]
+Description=Refresh Driver Go host operations metrics every minute
+
+[Timer]
+OnBootSec=2m
+OnUnitActiveSec=60s
+RandomizedDelaySec=10s
+AccuracySec=5s
+Persistent=true
+Unit=drivergo-monitoring-collector.service
+
+[Install]
+WantedBy=timers.target
+

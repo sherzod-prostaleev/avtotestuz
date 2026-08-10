@@ -28,7 +28,7 @@ func baseTestConfig() config.Config {
 func TestBotRoutes_ModeOffMountsLinkButNotWebhook(t *testing.T) {
 	pool := testdb.New(t)
 	rdb := redisx.NewTest(t)
-	h, _ := New(baseTestConfig(), Deps{Queries: sqlc.New(pool), Pool: pool, Redis: rdb})
+	h, _, _ := New(baseTestConfig(), Deps{Queries: sqlc.New(pool), Pool: pool, Redis: rdb})
 
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("POST", "/api/v1/telegram/webhook", nil)
@@ -63,7 +63,7 @@ func TestBotRoutes_WebhookModeMountsBothRoutes(t *testing.T) {
 	cfg.TelegramBotAPIBaseURL = "http://127.0.0.1:0" // never actually dialed in this test
 	cfg.TelegramBotUsername = "AvtoTestBot"
 	q := sqlc.New(pool)
-	h, _ := New(cfg, Deps{Queries: q, Pool: pool, Redis: rdb})
+	h, _, _ := New(cfg, Deps{Queries: q, Pool: pool, Redis: rdb})
 
 	// Webhook route exists and enforces the secret header.
 	rec := httptest.NewRecorder()

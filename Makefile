@@ -4,7 +4,8 @@ TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?s
 .PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
 	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
-	backup-pg backup-restore-drill tg-digest tg-digest-send station-check
+	backup-pg backup-restore-drill backup-full backup-verify backup-full-restore-drill backup-static-check \
+	tg-digest tg-digest-send station-check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -114,6 +115,12 @@ tg-digest:
 tg-digest-send:
 	cd backend && go run ./cmd/tgdigest -send
 
+broadcast-worker:
+	cd backend && go run ./cmd/broadcastworker
+
+broadcast-worker-once:
+	cd backend && go run ./cmd/broadcastworker -once
+
 # The backend/station module is a separate Go module (avtotest.uz/station) that
 # Go's ./... wildcard does not descend into. Without this target, station tests,
 # vet checks, and Windows-only builds (//go:build windows files) never run,
@@ -121,7 +128,7 @@ tg-digest-send:
 station-check:
 	cd backend/station && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... -count=1
 	cd backend/station && go vet ./...
-	cd backend/station && GOOS=windows GOARCH=amd64 go build ./...
+	cd backend/station && CGO_ENABLED=0 GOOS=windows GOARCH=386 go build ./...
 
 check: lint test station-check
 
@@ -149,12 +156,15 @@ fe-e2e:
 
 fe-check: fe-lint fe-typecheck fe-test fe-build
 
-# Dependency vulnerability scan (mirrors CI `dependency-scan` job / U-43).
-# Go: hard fail on reachable vulns. npm: prints report; exit 0 locally so
-# deferred Next/next-intl majors do not block day-to-day checks.
+# Dependency vulnerability scan (mirrors CI's four independent ecosystem
+# scans). Every high/critical advisory is a hard failure; callers must never
+# mistake a partial report for a green supply-chain gate. Requires
+# govulncheck and pip-audit on PATH/in the active Python environment.
 dep-scan:
 	cd backend && govulncheck ./...
-	cd frontend && (npm audit --audit-level=high || true)
+	cd backend/station && govulncheck ./...
+	cd frontend && npm audit --audit-level=high
+	python3 -m pip_audit -r services/humo-watcher/requirements.lock --require-hashes --disable-pip --strict
 
 # U-42 — k6 smoke against a running API (not a prod soak). Requires k6 on PATH.
 # Defaults match ./run.sh API port; override API_BASE / VUS / DURATION as needed.
@@ -166,9 +176,29 @@ load-test:
 	@command -v k6 >/dev/null || { echo "k6 not found — install from https://k6.io/docs/get-started/installation/" >&2; exit 1; }
 	API_BASE="$(API_BASE)" VUS="$(VUS)" DURATION="$(DURATION)" k6 run -e API_BASE="$(API_BASE)" -e VUS="$(VUS)" -e DURATION="$(DURATION)" deploy/load-test/smoke.js
 
-# U-44 — Postgres logical dump + restore drill (local compose; no fake host).
+# U-44 — backup/DR. backup-pg remains a local PostgreSQL-only helper;
+# production scheduling uses the encrypted four-component backup-full path.
 backup-pg:
 	./scripts/backup/pg_dump.sh
 
 backup-restore-drill:
 	./scripts/backup/pg_restore_drill.sh
+
+backup-full:
+	./scripts/backup/backup_all.sh
+
+backup-verify:
+	@test -n "$(SNAPSHOT)" || { echo "SNAPSHOT=/absolute/or/repo/snapshot is required" >&2; exit 2; }
+	./scripts/backup/verify_snapshot.sh "$(SNAPSHOT)"
+
+backup-full-restore-drill:
+	@test -n "$(SNAPSHOT)" || { echo "SNAPSHOT=/absolute/or/repo/snapshot is required" >&2; exit 2; }
+	@test "$(RESTORE_DRILL_ACK)" = "avtotest_restore_drill" || { echo "RESTORE_DRILL_ACK=avtotest_restore_drill is required" >&2; exit 2; }
+	RESTORE_DRILL_ACK="$(RESTORE_DRILL_ACK)" ./scripts/backup/full_restore_drill.sh "$(SNAPSHOT)"
+
+backup-static-check:
+	./scripts/backup/test_backup_scripts.sh
+
+# Interim home PC pull (requires ~/.config/drivergo/offhost-pull.env).
+backup-offhost-pull:
+	OFFHOST_ENV_FILE="$(HOME)/.config/drivergo/offhost-pull.env" ./scripts/backup/pull_offhost.sh

@@ -44,6 +44,16 @@ export async function apiPost<T, B = unknown>(path: string, body?: B): Promise<T
   return handleResponse<T>(res);
 }
 
+/** Multipart upload (no JSON Content-Type — browser sets the boundary). */
+export async function apiPostForm<T>(path: string, form: FormData): Promise<T> {
+  const cleanPath = path.startsWith("/") ? path.slice(1) : path;
+  const res = await fetch(`/api/proxy/${cleanPath}`, {
+    method: "POST",
+    body: form,
+  });
+  return handleResponse<T>(res);
+}
+
 export async function apiPatch<T, B = unknown>(path: string, body?: B): Promise<T> {
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {

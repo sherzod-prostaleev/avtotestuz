@@ -25,24 +25,26 @@ type Handler struct {
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me", h.getMe)
+	r.Post("/me/password", h.changePassword)
 	r.Patch("/me", h.patchMe)
 	r.Get("/me/entitlement", h.getEntitlement)
 	r.Get("/me/payments", h.listMyPayments)
 }
 
 type profileDTO struct {
-	ID           string  `json:"id"`
-	Phone        string  `json:"phone"`
-	Name         string  `json:"name"`
-	Region       string  `json:"region"`
-	District     string  `json:"district"`
-	BirthDate    *string `json:"birth_date"`
-	LocalePref   string  `json:"locale_pref"`
-	ThemePref    string  `json:"theme_pref"`
-	ReferralCode string  `json:"referral_code"`
-	Role         string  `json:"role"`
-	Kind         string  `json:"kind"`
-	CreatedAt    string  `json:"created_at"`
+	ID                 string  `json:"id"`
+	Phone              string  `json:"phone"`
+	Name               string  `json:"name"`
+	Region             string  `json:"region"`
+	District           string  `json:"district"`
+	BirthDate          *string `json:"birth_date"`
+	LocalePref         string  `json:"locale_pref"`
+	ThemePref          string  `json:"theme_pref"`
+	ReferralCode       string  `json:"referral_code"`
+	Role               string  `json:"role"`
+	Kind               string  `json:"kind"`
+	MustChangePassword bool    `json:"must_change_password"`
+	CreatedAt          string  `json:"created_at"`
 }
 
 func toProfileDTO(p sqlc.Profile) profileDTO {
@@ -52,18 +54,19 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 		bd = &s
 	}
 	return profileDTO{
-		ID:           p.ID.String(),
-		Phone:        p.Phone,
-		Name:         p.Name,
-		Region:       p.Region,
-		District:     p.District,
-		BirthDate:    bd,
-		LocalePref:   p.LocalePref,
-		ThemePref:    p.ThemePref,
-		ReferralCode: p.ReferralCode.String,
-		Role:         p.Role,
-		Kind:         p.Kind,
-		CreatedAt:    p.CreatedAt.Time.Format(time.RFC3339),
+		ID:                 p.ID.String(),
+		Phone:              p.Phone,
+		Name:               p.Name,
+		Region:             p.Region,
+		District:           p.District,
+		BirthDate:          bd,
+		LocalePref:         p.LocalePref,
+		ThemePref:          p.ThemePref,
+		ReferralCode:       p.ReferralCode.String,
+		Role:               p.Role,
+		Kind:               p.Kind,
+		MustChangePassword: p.MustChangePassword,
+		CreatedAt:          p.CreatedAt.Time.Format(time.RFC3339),
 	}
 }
 

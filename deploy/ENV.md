@@ -48,6 +48,23 @@ re-enroll TOTP, stored PANs could never be revealed again, and the Telegram
 userbot session would have to be created from scratch. Treat a change to this
 value the same way you would treat `DROP COLUMN`.
 
+## Service-level secret scope
+
+`deploy/app.env` is the operator's single protected source, but Compose does
+not inject it into every container. The API receives backend secrets; Humo gets
+only its API URL/ingest token; web receives only `BACKEND_URL`,
+`CLIENT_IP_ASSERTION_SECRET`, `TRUSTED_PROXY_HOPS`, and its public telemetry
+setting. Do not restore `web.env_file: app.env`: that would expose DB, JWT,
+payment, Telegram, and data-encryption secrets to the frontend process.
+
+Support attachments use `MINIO_SUPPORT_BUCKET=support-attachments`. If that
+new variable is absent, the API honors the previous `MINIO_BUCKET` value before
+using `support-attachments`, so an existing private bucket is never orphaned. Public course
+images remain under `media/images/*`; the bucket policy does not anonymously
+serve `media/support/*`. `MINIO_LEGACY_SUPPORT_BUCKET=media` is an authenticated
+read fallback until the copy migration is verified. Afterwards it may be set
+equal to `MINIO_SUPPORT_BUCKET` to disable fallback.
+
 **Empty means "use `JWT_SECRET`"** — that is exactly how every row already in
 the database was encrypted, which is why this change needs no migration.
 

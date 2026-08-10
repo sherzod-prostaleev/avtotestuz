@@ -40,6 +40,10 @@ if ! printf '%s' "${ready_body}" | grep -q '"redis"[[:space:]]*:[[:space:]]*"ok"
   echo "readyz: redis check not ok" >&2
   exit 1
 fi
+if ! printf '%s' "${ready_body}" | grep -q '"object_storage"[[:space:]]*:[[:space:]]*"ok"'; then
+  echo "readyz: private object storage check not ok" >&2
+  exit 1
+fi
 
 if [[ -n "${WEB_BASE}" ]]; then
   echo "==> web shell @ ${WEB_BASE}/uz-Latn"

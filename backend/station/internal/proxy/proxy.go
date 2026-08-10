@@ -12,6 +12,8 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+
+	"avtotest.uz/station/internal/netclient"
 )
 
 // apiPrefix is the path the Next.js client already calls; keeping it means the
@@ -37,6 +39,8 @@ func New(frontendBase, apiBase string, token func(context.Context) (string, erro
 	// outside the zone -- the classroom would get a Cloudflare error page
 	// instead of the kiosk. Wrap the director to name the real upstream.
 	frontProxy := httputil.NewSingleHostReverseProxy(frontURL)
+	transport := netclient.NewTransport()
+	frontProxy.Transport = transport
 	frontDirector := frontProxy.Director
 	frontProxy.Director = func(r *http.Request) {
 		frontDirector(r)
@@ -44,6 +48,7 @@ func New(frontendBase, apiBase string, token func(context.Context) (string, erro
 	}
 
 	apiProxy := &httputil.ReverseProxy{
+		Transport: transport,
 		Director: func(r *http.Request) {
 			r.URL.Scheme = apiURL.Scheme
 			r.URL.Host = apiURL.Host

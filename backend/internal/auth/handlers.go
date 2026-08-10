@@ -59,8 +59,9 @@ type otpVerifyBody struct {
 }
 
 type tokensResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken        string `json:"access_token"`
+	RefreshToken       string `json:"refresh_token"`
+	MustChangePassword bool   `json:"must_change_password"`
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
@@ -78,7 +79,11 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusCreated, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
+	httpx.Data(w, http.StatusCreated, tokensResponse{
+		AccessToken:        res.Access,
+		RefreshToken:       res.Refresh,
+		MustChangePassword: res.Profile.MustChangePassword,
+	})
 }
 
 func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +100,11 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
+	httpx.Data(w, http.StatusOK, tokensResponse{
+		AccessToken:        res.Access,
+		RefreshToken:       res.Refresh,
+		MustChangePassword: res.Profile.MustChangePassword,
+	})
 }
 
 func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {
@@ -121,7 +130,11 @@ func (h *Handler) verifyOTP(w http.ResponseWriter, r *http.Request) {
 		writeAuthError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, tokensResponse{AccessToken: res.Access, RefreshToken: res.Refresh})
+	httpx.Data(w, http.StatusOK, tokensResponse{
+		AccessToken:        res.Access,
+		RefreshToken:       res.Refresh,
+		MustChangePassword: res.Profile.MustChangePassword,
+	})
 }
 
 type refreshBody struct {

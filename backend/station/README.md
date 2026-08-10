@@ -149,9 +149,33 @@ installer and no runtime dependency (no .NET, no VC++ redistributable, no Go
 install on the target machine). Build it from `backend/station/` with:
 
 ```
-GOOS=windows GOARCH=amd64 go build -ldflags "-s -w -X main.version=1.0.0" -o avtotest-station.exe ./cmd/avtotest-station
+CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "-s -w -X main.version=1.0.0" -o avtotest-station.exe ./cmd/avtotest-station
 ```
 
+- Go 1.20 is intentional: it is the final Go family supporting Windows 7.
+  `GOARCH=386` keeps the same executable usable on 32-bit and 64-bit Windows
+  7 machines. Do not raise this module/toolchain independently of the Win7 VM
+  compatibility gate.
+
+### Security exception for Windows 7
+
+Go 1.20 is end-of-life and its standard library has published high/critical
+advisories that cannot be patched without moving to a Go family that drops
+Windows 7. This is a deliberate compatibility exception, not a clean security
+scan. CI therefore does both of the following:
+
+- hard-fails `govulncheck` when a known vulnerable symbol is reachable from
+  the station module; and
+- uploads the complete Trivy high/critical report for the embedded `.exe`
+  while the maintained API/web/Humo runtime images remain hard-gated at zero.
+
+Keep station traffic outbound to the owned HTTPS origin, the local listener on
+`127.0.0.1`, response/time limits bounded, and the station module isolated from
+the server toolchain. Review this exception at every station release and at
+least quarterly. The long-term exit is retiring Windows 7 (or supplying a
+separately supported compatibility client), then rebuilding on a maintained Go
+release; silently raising `go 1.20` is not acceptable because it strands the
+installed classroom fleet.
 - `-X main.version=1.0.0` stamps the version `main.go` logs on startup and
   prints in `-selftest`; bump it per release.
 - `-s -w` strips debug symbols and the DWARF table — smaller binary, no
@@ -193,10 +217,16 @@ working station on it. It checks, in order:
 It prints one `PASS`/`FAIL` line per check, then a summary line, and exits
 with a non-zero code if anything failed — so it can be scripted (e.g. an IT
 rollout step that refuses to proceed on `FAIL`). **A passing run on Windows
-prints `SELFTEST RESULT: PASS` and all five lines say `PASS`.** Running the
+prints `SELFTEST RESULT: PASS` and all seven lines say `PASS`.** Running the
 same command on a Linux dev build is expected to print `FAIL` on check 3 (and
 usually 4) — that build stores the key in the clear on purpose, so seeing it
 fail there is confirmation the check is real, not a rubber stamp.
+
+For a release, this single-machine check is insufficient. Follow
+[`security/win7_smoke_checklist.md`](security/win7_smoke_checklist.md) on two
+real Windows 7 machines, then validate the collected evidence bundle with
+`security/run_win7_smoke.sh`. That compatibility gate does not make any
+long-term Windows 7 security claim.
 
 One property genuinely needs two machines and `-selftest` says so at the
 end of its own output: that a key sealed on PC A cannot be unsealed on PC B.

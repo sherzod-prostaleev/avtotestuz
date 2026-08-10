@@ -26,7 +26,7 @@ describe("POST /api/auth/login", () => {
     const response = await POST(request);
     const json = await response.json();
 
-    expect(json).toEqual({ data: { ok: true } });
+    expect(json).toEqual({ data: { ok: true, must_change_password: false } });
     expect(JSON.stringify(json)).not.toContain("abc.def");
     expect(JSON.stringify(json)).not.toContain("secret123");
 

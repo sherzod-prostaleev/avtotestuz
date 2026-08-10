@@ -208,6 +208,45 @@ type B2bStation struct {
 	StationProfileID uuid.NullUUID      `json:"station_profile_id"`
 }
 
+type BroadcastCampaign struct {
+	ID              uuid.UUID          `json:"id"`
+	CreatedByAdmin  uuid.UUID          `json:"created_by_admin"`
+	Title           string             `json:"title"`
+	Body            string             `json:"body"`
+	ImageUrl        string             `json:"image_url"`
+	ActionUrl       string             `json:"action_url"`
+	Audience        string             `json:"audience"`
+	Channels        string             `json:"channels"`
+	Status          string             `json:"status"`
+	IdempotencyKey  pgtype.Text        `json:"idempotency_key"`
+	RecipientTotal  int32              `json:"recipient_total"`
+	PendingCount    int32              `json:"pending_count"`
+	SentCount       int32              `json:"sent_count"`
+	FailedCount     int32              `json:"failed_count"`
+	PushSentCount   int32              `json:"push_sent_count"`
+	PushFailedCount int32              `json:"push_failed_count"`
+	ErrorSummary    string             `json:"error_summary"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	QueuedAt        pgtype.Timestamptz `json:"queued_at"`
+	StartedAt       pgtype.Timestamptz `json:"started_at"`
+	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
+}
+
+type BroadcastRecipient struct {
+	ID             uuid.UUID          `json:"id"`
+	CampaignID     uuid.UUID          `json:"campaign_id"`
+	ProfileID      uuid.UUID          `json:"profile_id"`
+	Status         string             `json:"status"`
+	AttemptCount   int32              `json:"attempt_count"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	LastError      string             `json:"last_error"`
+	NotificationID uuid.NullUUID      `json:"notification_id"`
+	PushStatus     string             `json:"push_status"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ProcessedAt    pgtype.Timestamptz `json:"processed_at"`
+}
+
 type Category struct {
 	ID        uuid.UUID          `json:"id"`
 	Code      string             `json:"code"`
@@ -438,14 +477,15 @@ type ManualTgSetting struct {
 }
 
 type Notification struct {
-	ID        uuid.UUID          `json:"id"`
-	ProfileID uuid.UUID          `json:"profile_id"`
-	Kind      string             `json:"kind"`
-	Payload   json.RawMessage    `json:"payload"`
-	Channel   string             `json:"channel"`
-	SentAt    pgtype.Timestamptz `json:"sent_at"`
-	ReadAt    pgtype.Timestamptz `json:"read_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID         uuid.UUID          `json:"id"`
+	ProfileID  uuid.UUID          `json:"profile_id"`
+	Kind       string             `json:"kind"`
+	Payload    json.RawMessage    `json:"payload"`
+	Channel    string             `json:"channel"`
+	SentAt     pgtype.Timestamptz `json:"sent_at"`
+	ReadAt     pgtype.Timestamptz `json:"read_at"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+	CampaignID uuid.NullUUID      `json:"campaign_id"`
 }
 
 type OtpChallenge struct {
@@ -521,6 +561,7 @@ type Profile struct {
 	ReferralCommissionPercent int32              `json:"referral_commission_percent"`
 	BypassVariantProgress     bool               `json:"bypass_variant_progress"`
 	Kind                      string             `json:"kind"`
+	MustChangePassword        bool               `json:"must_change_password"`
 }
 
 type PromoCode struct {
@@ -702,6 +743,31 @@ type Streak struct {
 	LastActiveDate pgtype.Date `json:"last_active_date"`
 	DailyGoal      int32       `json:"daily_goal"`
 	TodayDone      int32       `json:"today_done"`
+}
+
+type SupportConversation struct {
+	ID            uuid.UUID          `json:"id"`
+	ProfileID     uuid.UUID          `json:"profile_id"`
+	Status        string             `json:"status"`
+	UnreadAdmin   int32              `json:"unread_admin"`
+	UnreadUser    int32              `json:"unread_user"`
+	LastMessageAt pgtype.Timestamptz `json:"last_message_at"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SupportMessage struct {
+	ID              uuid.UUID          `json:"id"`
+	ConversationID  uuid.UUID          `json:"conversation_id"`
+	SenderKind      string             `json:"sender_kind"`
+	SenderProfileID uuid.NullUUID      `json:"sender_profile_id"`
+	SenderAdminID   uuid.NullUUID      `json:"sender_admin_id"`
+	Body            string             `json:"body"`
+	AttachmentKey   string             `json:"attachment_key"`
+	AttachmentName  string             `json:"attachment_name"`
+	AttachmentMime  string             `json:"attachment_mime"`
+	AttachmentSize  int64              `json:"attachment_size"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 }
 
 type SupportTicket struct {

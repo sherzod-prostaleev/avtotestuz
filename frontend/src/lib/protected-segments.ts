@@ -10,15 +10,18 @@ export const PROTECTED_SEGMENTS = [
   "tickets",
   "practice",
   "mistakes",
+  "notifications",
   "signs",
   "leaderboard",
   "arena",
   "stats",
+  "support",
   "profile",
   "premium",
   "saved",
   "session",
   "checkout",
+  "change-password",
 ];
 
 export function matchesAny(pathname: string, segments: string[]): boolean {

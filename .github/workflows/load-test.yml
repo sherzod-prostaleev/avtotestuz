@@ -5,11 +5,15 @@ name: load-test
 permissions:
   contents: read
 
+concurrency:
+  group: load-test-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   workflow_dispatch:
     inputs:
       api_base:
-        description: "Reachable API base URL (e.g. http://127.0.0.1:8090 or staging)"
+        description: "Allowlisted HTTPS staging API origin (no path or query)"
         required: true
         type: string
       vus:
@@ -25,22 +29,37 @@ on:
 
 jobs:
   k6-smoke:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: load-test
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - name: Install k6
-        run: |
-          sudo gpg -k
-          sudo gpg --no-default-keyring --keyring /usr/share/keyrings/k6-archive-keyring.gpg \
-            --keyserver hkp://keyserver.ubuntu.com:80 \
-            --recv-keys C5B11709182BEA89
-          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" \
-            | sudo tee /etc/apt/sources.list.d/k6.list
-          sudo apt-get update
-          sudo apt-get install -y k6
       - name: Run smoke
         env:
           API_BASE: ${{ inputs.api_base }}
           VUS: ${{ inputs.vus }}
           DURATION: ${{ inputs.duration }}
-        run: k6 run -e API_BASE="$API_BASE" -e VUS="$VUS" -e DURATION="$DURATION" deploy/load-test/smoke.js
+          ALLOWED_ORIGINS: ${{ vars.LOAD_TEST_ALLOWED_ORIGINS }}
+        run: |
+          [[ "$API_BASE" =~ ^https://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || {
+            echo "api_base must be an HTTPS origin without path/query" >&2
+            exit 2
+          }
+          allowed=" ${ALLOWED_ORIGINS//,/ } "
+          [[ -n "$ALLOWED_ORIGINS" && "$allowed" == *" $API_BASE "* ]] || {
+            echo "api_base is not in repository variable LOAD_TEST_ALLOWED_ORIGINS" >&2
+            exit 2
+          }
+          [[ "$VUS" =~ ^([1-9]|10)$ ]] || { echo "vus must be 1..10" >&2; exit 2; }
+          [[ "$DURATION" =~ ^([1-9]|[1-9][0-9]|1[01][0-9]|120)s$ ]] || {
+            echo "duration must be 1s..120s" >&2
+            exit 2
+          }
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/work:ro" \
+            --workdir /work \
+            --env API_BASE \
+            --env VUS \
+            --env DURATION \
+            grafana/k6:1.8.0@sha256:b992f241070f3f3a7d78096fa6020db1edcda49297ee8ed9eb0ab847ef3dcb32 \
+            run deploy/load-test/smoke.js

@@ -2,7 +2,11 @@
 
 **Secrets map:** see [`ENV.md`](./ENV.md) — prod secrets live only in
 `deploy/app.env` (gitignored). VPS sync without junk:
-`./deploy/sync-to-vps.sh` (+ `rsync-exclude.txt`).
+`./deploy/sync-to-vps.sh` (+ `rsync-exclude.txt`). It defaults to a remote
+preflight and rsync dry-run; only reviewed `--apply` writes. The script validates
+an exact allowlisted `/opt/...` target, rejects symlink/realpath drift, requires
+a clean worktree, preserves `deploy/app.env`, creates a code-only rollback
+snapshot, writes commit provenance, and never restarts containers.
 
 Minimal path to run the **API + Next.js** images against the existing
 postgres / redis / minio stack from the repo-root `docker-compose.yml`.
@@ -31,6 +35,8 @@ docker build -t avtotest-web:local -f frontend/Dockerfile frontend/
   includes `/healthcheck` plus the one-shot, data-preserving `/encryptpan` tool.
 - Frontend uses Next.js `output: "standalone"`.
 - **No secrets are baked into either image** — inject via env / `deploy/app.env`.
+- The protected env file is backend-only. Web receives an explicit four-variable
+  allowlist rather than all API/database/payment secrets.
 
 ## Key URLs / env
 
@@ -81,10 +87,61 @@ Prod content refresh = Postgres backup → rsync → **upsert**
 
 - `restart: unless-stopped` on `api` and `web`.
 - Log rotation (`json-file`, 10m × 3) on both app services.
-- `api` and `web` both have HTTP healthchecks; `smoke.sh` remains the external
-  end-to-end check.
+- `api`, `web`, MinIO, and Humo watcher have healthchecks; API readiness and
+  `smoke.sh` require Postgres, Redis, and private object storage.
 - Optional CPU/memory limits are commented in the overlay — enable after VPS sizing.
 - Secrets only via `app.env` / shell — never in YAML or images.
+- App containers drop Linux capabilities, use `no-new-privileges`, read-only
+  root filesystems plus bounded tmpfs, and separate app/data networks.
+
+## Private support attachment migration
+
+MinIO initialization uses `MINIO_SUPPORT_BUCKET`, the legacy `MINIO_BUCKET`, or
+`support-attachments` in that order; it removes anonymous access
+from the whole `media` bucket, and grants anonymous download only to
+`media/images/*`. Existing `media/support/*` objects therefore become private
+immediately but remain readable by the authenticated API fallback.
+
+After backing up the MinIO volume and deploying the new policy/API contract:
+
+```bash
+./deploy/migrate-support-bucket.sh          # inventory only
+./deploy/migrate-support-bucket.sh --apply  # copy only; never deletes legacy
+```
+
+Verify old and new messages through learner/admin authenticated download routes.
+The copy is idempotent for immutable UUID attachment keys: existing target keys
+are skipped, never overwritten, and no remove operation exists. It intentionally
+retains the legacy copy for rollback. Delete it only
+in a separately approved maintenance window after object counts and downloads
+are verified; then set `MINIO_LEGACY_SUPPORT_BUCKET=support-attachments`.
+
+## App-only green/blue validation
+
+`docker-compose.candidate.yml` starts one API and one web candidate on
+`127.0.0.1:18081/13010`, reusing the existing `drivergo_default` data network.
+It never starts a second Humo watcher or stateful service. Refs must be a digest
+or a local content-addressed image ID already present on the host. Both app
+containers use `restart: unless-stopped`, because either slot may temporarily
+carry production traffic across a process, Docker-daemon, or host restart:
+
+```bash
+export CANDIDATE_API_IMAGE='registry.example/drivergo-api@sha256:<64-hex-digest>'
+export CANDIDATE_WEB_IMAGE='registry.example/drivergo-web@sha256:<64-hex-digest>'
+./deploy/candidate-app.sh up                 # validation only
+CANDIDATE_EXPAND_CONTRACT_ACK=1 ./deploy/candidate-app.sh up --apply
+./deploy/switch-app-slot.sh --to candidate   # health + diff only
+./deploy/switch-app-slot.sh --to candidate --apply
+# instant upstream rollback (containers stay running):
+./deploy/switch-app-slot.sh --to stable --apply
+```
+
+The API self-migrates on startup. Candidate validation is safe only when every
+schema change follows expand/contract and both current and candidate binaries
+work against the expanded schema. Destructive/contract migrations require a
+separate maintenance release. The candidate script pins the API to one replica
+and never runs a separate migration command; only that process's normal startup
+migration path executes.
 
 ## Real staging notes (`ENV=staging`)
 

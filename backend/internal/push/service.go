@@ -196,6 +196,31 @@ func (s *Service) Notify(ctx context.Context, profileID uuid.UUID, kind string, 
 		return 0, err
 	}
 
+	sent, err = s.deliverRaw(ctx, profileID, raw)
+	if sent > 0 {
+		_ = s.Q.MarkNotificationSent(ctx, row.ID)
+	}
+	return sent, err
+}
+
+// DeliverToProfile sends a web-push payload to a profile's subscriptions without
+// writing a notification row (in-app inbox is the source of truth elsewhere).
+func (s *Service) DeliverToProfile(ctx context.Context, profileID uuid.UUID, payload NotifyPayload) (int, error) {
+	if !s.Cfg.Configured() {
+		return 0, ErrUnconfigured
+	}
+	if s.Sender == nil {
+		return 0, ErrUnconfigured
+	}
+	payload = sanitizePayload(payload)
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return 0, err
+	}
+	return s.deliverRaw(ctx, profileID, raw)
+}
+
+func (s *Service) deliverRaw(ctx context.Context, profileID uuid.UUID, raw []byte) (sent int, err error) {
 	subs, err := s.Q.ListPushSubscriptions(ctx, profileID)
 	if err != nil {
 		return 0, err
@@ -219,9 +244,6 @@ func (s *Service) Notify(ctx context.Context, profileID uuid.UUID, kind string, 
 			continue
 		}
 		sent++
-	}
-	if sent > 0 {
-		_ = s.Q.MarkNotificationSent(ctx, row.ID)
 	}
 	if sent == 0 && lastErr != nil {
 		return 0, fmt.Errorf("web push delivery failed: %w", lastErr)

@@ -41,6 +41,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [default]
 
   redis:
     image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
@@ -62,6 +63,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [default]
 
   minio:
     image: minio/minio@sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
@@ -74,6 +76,11 @@ services:
       - "127.0.0.1:9010:9000"
     volumes:
       - drivergo_minio:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     restart: unless-stopped
     cpus: "0.75"
     mem_limit: 1024m
@@ -83,22 +90,52 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [default]
 
   minio-init:
     image: minio/mc@sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
-    depends_on: [minio]
-    entrypoint: >
-      /bin/sh -c "
-      until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done;
-      mc mb -p local/media || true;
-      mc anonymous set download local/media;
-      exit 0"
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done
+        mc mb --ignore-existing -p local/media
+        support_bucket="$${MINIO_SUPPORT_BUCKET:-$${MINIO_BUCKET:-support-attachments}}"
+        case "$$support_bucket" in ''|*[!a-z0-9.-]*) echo "invalid support bucket" >&2; exit 2;; esac
+        mc mb --ignore-existing -p "local/$$support_bucket"
+        # Preserve versions only in the dedicated support bucket.  Do not
+        # turn on unbounded versioning for the legacy/public media bucket.
+        if [ "$$support_bucket" != media ]; then mc version enable "local/$$support_bucket"; fi
+        cat > /tmp/media-public-policy.json <<'POLICY'
+        {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Principal": {"AWS": ["*"]},
+              "Action": ["s3:GetObject"],
+              "Resource": ["arn:aws:s3:::media/images/*"]
+            }
+          ]
+        }
+        POLICY
+        # One PutBucketPolicy replaces the previous policy atomically. A
+        # failed command leaves the prior public-media policy in place.
+        mc anonymous set-json /tmp/media-public-policy.json local/media
+        rm -f /tmp/media-public-policy.json
+        if [ "$$support_bucket" != media ]; then mc anonymous set none "local/$$support_bucket"; fi
     environment:
       MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      MINIO_SUPPORT_BUCKET: ${MINIO_SUPPORT_BUCKET:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
     cpus: "0.25"
     mem_limit: 256m
     pids_limit: 64
+    networks: [default]
 
   api:
     build:
@@ -111,6 +148,7 @@ services:
       # the same commit as any change under backend/station/.
       args:
         STATION_VERSION: ${STATION_VERSION:-1.0.0}
+        VCS_REF: ${VCS_REF:-unknown}
     image: ${API_IMAGE:-drivergo-api:local}
     ports:
       - "127.0.0.1:${API_HOST_PORT:-8081}:8080"
@@ -122,6 +160,15 @@ services:
       PORT: "8080"
       DATABASE_URL: ${DATABASE_URL:?DATABASE_URL is required}
       REDIS_URL: ${REDIS_URL:?REDIS_URL is required}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER is required}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD is required}
+      # Empty preserves compatibility: backend falls back to legacy
+      # MINIO_BUCKET, then to support-attachments.
+      MINIO_SUPPORT_BUCKET: ${MINIO_SUPPORT_BUCKET:-}
+      MINIO_BUCKET: ${MINIO_BUCKET:-}
+      MINIO_LEGACY_SUPPORT_BUCKET: ${MINIO_LEGACY_SUPPORT_BUCKET:-media}
+      MINIO_USE_SSL: ${MINIO_USE_SSL:-false}
       MEDIA_BASE_URL: ${MEDIA_BASE_URL:?MEDIA_BASE_URL is required}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?PUBLIC_BASE_URL is required}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
@@ -151,6 +198,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     cpus: "1.50"
     mem_limit: 1024m
@@ -161,22 +212,32 @@ services:
       timeout: 5s
       retries: 5
       start_period: 45s
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    stop_grace_period: 30s
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app, default]
 
   humo-watcher:
     build:
       context: ../services/humo-watcher
       dockerfile: Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
     image: ${HUMO_WATCHER_IMAGE:-drivergo-humo-watcher:local}
     environment:
       API_BASE_URL: ${API_BASE_URL:-http://api:8080/api/v1}
       MANUAL_PAY_INGEST_TOKEN: ${MANUAL_PAY_INGEST_TOKEN:-}
       HUMO_CREDS_POLL_SEC: ${HUMO_CREDS_POLL_SEC:-30}
       HUMO_QUEUE_DB: /data/humo-queue.sqlite3
+      HUMO_HEALTH_PORT: "8088"
     volumes:
       - drivergo_humo_queue:/data
     depends_on:
@@ -186,22 +247,35 @@ services:
     cpus: "0.50"
     mem_limit: 512m
     pids_limit: 128
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=32m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 30s
+    healthcheck:
+      test: ["CMD", "python", "/app/healthcheck.py"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 20s
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app]
 
   web:
     build:
       context: ../frontend
       dockerfile: Dockerfile
+      args:
+        VCS_REF: ${VCS_REF:-unknown}
     image: ${WEB_IMAGE:-drivergo-web:local}
     ports:
       - "127.0.0.1:${WEB_HOST_PORT:-3010}:3000"
-    env_file:
-      - path: app.env
-        required: true
     environment:
       BACKEND_URL: ${BACKEND_URL:-http://api:8080}
       CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
@@ -214,6 +288,14 @@ services:
     cpus: "1.50"
     mem_limit: 1024m
     pids_limit: 256
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/.next/cache:rw,noexec,nosuid,size=128m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    init: true
+    stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/uz-Latn"]
       interval: 15s
@@ -225,9 +307,19 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    networks: [app]
 
 volumes:
   drivergo_humo_queue:
   drivergo_pgdata:
   drivergo_redisdata:
   drivergo_minio:
+
+networks:
+  app:
+    name: drivergo_app
+  default:
+    # Keep the original Compose network key and name. Existing production
+    # networks carry com.docker.compose.network=default; renaming this key
+    # would fail label validation during an in-place upgrade.
+    name: drivergo_default

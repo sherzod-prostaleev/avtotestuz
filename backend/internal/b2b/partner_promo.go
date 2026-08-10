@@ -14,13 +14,13 @@ import (
 
 // PartnerPromo is a B2C promo tied to a school partner (not resale).
 type PartnerPromo struct {
-	ID            uuid.UUID  `json:"id"`
-	Code          string     `json:"code"`
-	Kind          string     `json:"kind"`
-	Value         int        `json:"value"`
-	PartnerOrgID  uuid.UUID  `json:"partner_org_id"`
-	Active        bool       `json:"active"`
-	ValidTo       *time.Time `json:"valid_to,omitempty"`
+	ID           uuid.UUID  `json:"id"`
+	Code         string     `json:"code"`
+	Kind         string     `json:"kind"`
+	Value        int        `json:"value"`
+	PartnerOrgID uuid.UUID  `json:"partner_org_id"`
+	Active       bool       `json:"active"`
+	ValidTo      *time.Time `json:"valid_to,omitempty"`
 }
 
 // CreatePartnerPromo creates a percent/fixed/days promo linked to a school org.

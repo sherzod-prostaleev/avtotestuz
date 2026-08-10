@@ -34,8 +34,10 @@ var testDBByPackage = map[string]int{
 	// Spec asked for slot 5; that is already taken by internal_server.
 	"internal_arena": 6,
 	// Admin login throttling is Redis-backed, so its tests need a slot too.
-	"internal_admin":   7,
-	"internal_support": 8,
+	"internal_admin":       7,
+	"internal_support":     8,
+	"internal_account":     9,
+	"internal_supportchat": 10,
 }
 
 // baseRedisURL is the connection string whose database index gets replaced with
