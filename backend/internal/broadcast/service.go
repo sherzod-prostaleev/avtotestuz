@@ -182,19 +182,22 @@ func (s *Service) List(ctx context.Context, page, limit int) ([]sqlc.BroadcastCa
 	if page < 1 {
 		page = 1
 	}
-	if limit < 1 || limit > 100 {
-		limit = 20
+	// Bound before narrowing to int32 so CodeQL sees an explicit upper check
+	// on values that may originate from strconv.Atoi at the HTTP edge.
+	limit32 := int32(20)
+	if limit >= 1 && limit <= 100 {
+		limit32 = int32(limit)
+	}
+	offset64 := int64(page-1) * int64(limit32)
+	if offset64 < 0 || offset64 > math.MaxInt32 {
+		return nil, 0, fmt.Errorf("page out of range")
 	}
 	total, err := s.Q.CountBroadcastCampaigns(ctx)
 	if err != nil {
 		return nil, 0, err
 	}
-	offset64 := int64(page-1) * int64(limit)
-	if offset64 > math.MaxInt32 {
-		return nil, 0, fmt.Errorf("page out of range")
-	}
 	items, err := s.Q.ListBroadcastCampaigns(ctx, sqlc.ListBroadcastCampaignsParams{
-		Limit:  int32(limit),
+		Limit:  limit32,
 		Offset: int32(offset64),
 	})
 	return items, int(total), err
