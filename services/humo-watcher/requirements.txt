@@ -1,4 +1,4 @@
 # Direct dependency inputs. Runtime/CI install the generated, hash-pinned
 # requirements.lock; regenerate it with Python 3.12 + pip-tools after changes.
-telethon==1.36.0
+telethon==1.44.0
 aiohttp==3.14.3
