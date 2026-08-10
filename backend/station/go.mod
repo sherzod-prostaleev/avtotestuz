@@ -5,11 +5,11 @@ module avtotest.uz/station
 // built with a newer toolchain refuses to start there. Its output runs fine on
 // Windows 10 and 11 too, so one build covers the whole fleet. Only this module
 // is pinned; the server stays on the current toolchain.
-go 1.20
+go 1.25.0
 
 require (
 	github.com/tc-hib/winres v0.2.1
-	golang.org/x/sys v0.30.0
+	golang.org/x/sys v0.47.0
 )
 
 require (
