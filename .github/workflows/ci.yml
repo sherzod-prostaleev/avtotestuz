@@ -47,7 +47,7 @@ jobs:
         working-directory: backend
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -68,7 +68,7 @@ jobs:
           TEST_REDIS_URL: redis://localhost:6379/0
         run: go test -p 1 ./... -count=1
       - name: Select production station toolchain
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/station/go.mod
           cache-dependency-path: backend/station/go.sum
@@ -188,7 +188,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
@@ -203,7 +203,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           # Build the shipped station artifact with the Win7-compatible
           # toolchain, not the maintained server toolchain.
@@ -213,7 +213,7 @@ jobs:
         working-directory: backend/station
         run: CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -trimpath -o "$RUNNER_TEMP/avtotest-station.exe" ./cmd/avtotest-station
       - name: Select maintained scanner toolchain
-        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version-file: backend/go.mod
           cache-dependency-path: backend/go.sum
