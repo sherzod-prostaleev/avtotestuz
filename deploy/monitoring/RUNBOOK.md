@@ -72,6 +72,7 @@ install -m 0644 deploy/monitoring/systemd/drivergo-monitoring-collector.timer \
   /etc/systemd/system/
 
 deploy/monitoring/validate_env.sh /etc/drivergo/monitoring-compose.env
+deploy/monitoring/verify_images.sh /etc/drivergo/monitoring-compose.env
 docker compose --env-file /etc/drivergo/monitoring-compose.env \
   -f deploy/monitoring/docker-compose.monitoring.yml config --quiet
 # With the already-pulled, digest-pinned Prometheus image selected above:
@@ -91,11 +92,15 @@ docker compose --env-file /etc/drivergo/monitoring-compose.env \
 ```
 
 These commands are documentation, not actions performed by the repository
-tests. The example environment intentionally fails validation while image
-references are empty. Missing provider credentials do not cause outbound
-delivery attempts because no delivery component is configured. When promtool
-is not installed on the host, run the same checks in an isolated validation
-job before deployment; a successful Compose parse does not validate PromQL.
+tests. `verify_images.sh` first validates the protected receiver file, then
+pulls and Trivy-scans the exact `linux/amd64` digest references; it exits
+non-zero for every HIGH or CRITICAL finding. Do not run `docker compose up`
+unless this preflight succeeds immediately beforehand. The example environment
+intentionally fails validation while image references are empty. Missing
+provider credentials do not cause outbound delivery attempts because no
+delivery component is configured. When promtool is not installed on the host,
+run the same checks in an isolated validation job before deployment; a
+successful Compose parse does not validate PromQL.
 
 Validate after installation:
 

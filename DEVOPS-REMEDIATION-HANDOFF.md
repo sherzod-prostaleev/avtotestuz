@@ -32,8 +32,9 @@ Operational progress since the original handoff write-up:
 - MinIO/prod digest Trivy (2026-08-10): **HIGH/CRITICAL present** (incl.
   CRITICAL CVE-2026-33322). `minio/minio:latest` resolves to the **same**
   digest — no safer upstream digest available to pin yet.
-- Monitoring candidate tags still show HIGH/CRITICAL; no webhook configured;
-  do **not** deploy the monitoring bundle.
+- Monitoring candidate digests have a fresh zero-HIGH/CRITICAL `linux/amd64`
+  Trivy result, but no owned webhook is configured; do **not** deploy the
+  monitoring bundle.
 
 Still true:
 
@@ -108,35 +109,58 @@ Still true:
 Honest claim: operator-PC off-host copy when online — **not** provider-backed
 off-site. Cloud rclone path remains open below.
 
-External input still required for the real P1-A close-out: choose
-S3/R2/B2/SFTP-compatible provider and securely provision endpoint/remote,
-bucket/path, access ID/secret, and `age` recipient/identity policy. Then:
+**Prep-ready in source (2026-08-10); no provider is configured:** the operator
+runbook is `deploy/backup-offsite-setup.md`, and
+`scripts/backup/offsite_preflight.sh` performs non-secret local checks for
+`AGE_RECIPIENT`, an allowlisted `RCLONE_REMOTE` prefix, and mode-0600 rclone
+configuration. Its live provider listing is explicit and may be skipped only
+for a dry configuration check. These additions do not provision an account,
+write a credential, contact a real remote from CI, or enable a production
+timer.
 
-1. Configure rclone outside Git and create root-owned `/etc/drivergo/backup.env` mode 0600.
-2. Run a dry-run/preflight; take a fresh encrypted four-component snapshot.
-3. Verify remote `REMOTE_COMPLETE`, checksum manifest, and full downloaded hashes.
-4. Run a new real restore drill from the provider copy.
-5. Disable `drivergo-backup-homepc.timer`; install/enable `drivergo-backup.service`
-   and timer only after the above passes.
-6. Observe at least one scheduled success and test a controlled failure alert.
+External input remains required for real P1-A close-out: choose an
+S3/R2/B2/SFTP-compatible provider and securely provision the endpoint/remote,
+bucket/path, access ID/secret, and age recipient/identity policy. Follow the
+runbook in order: configure root-owned mode-0600
+`/etc/drivergo/rclone.conf`, extend root-owned mode-0600 `backup.env` with
+`RCLONE_CONFIG` and `RCLONE_REMOTE`, run dry then live preflight, produce a
+fresh encrypted four-component snapshot, verify the remote `REMOTE_COMPLETE`
+and checksum manifest, and complete a remote-download restore drill. Only
+then disable `drivergo-backup-homepc.timer` and enable
+`drivergo-backup.timer`; its `drivergo-backup.service` invokes committed
+`backup_all.sh --production`. Observe a scheduled success and test a
+controlled failure alert before claiming automatic provider-backed off-site
+backup.
 
 Never substitute a second directory on the same VPS and call it off-site.
 Home PC pull is allowed as an interim second host only.
 
 ### P1-B — Activate real alert delivery
 
-**Blocked on external input + clean images.** Operator-owned HTTPS webhook still
-required. Re-scan 2026-08-10 of candidate tags still fails the zero-HIGH/CRITICAL
-gate (evidence under ignored `.run/security-scans/monitoring-candidates-trivy.txt`):
+**Still blocked on external webhook input; image gate now has clean candidate
+digests.** A fresh 2026-08-10 Trivy vulnerability scan of locally pulled
+`linux/amd64` upstream release images found **0 HIGH / 0 CRITICAL** in each
+exact immutable reference:
 
-- prometheus:v3.5.0 → Total 38 (HIGH 36 / CRITICAL 2)
-- alertmanager:v0.28.1 → Total 32 (HIGH 31 / CRITICAL 1)
-- blackbox-exporter:v0.26.0 → Total 34 (HIGH 32 / CRITICAL 2)
-- node-exporter:v1.9.1 → Total 31 (HIGH 30 / CRITICAL 1)
+- `quay.io/prometheus/prometheus@sha256:63805ebb8d2b3920190daf1cb14a60871b16fd38bed42b857a3182bc621f4996` (`v3.5.0`)
+- `quay.io/prometheus/alertmanager@sha256:27c475db5fb156cab31d5c18a4251ac7ed567746a2483ff264516437a39b15ba` (`v0.28.1`)
+- `quay.io/prometheus/blackbox-exporter@sha256:92e05d5fe0df01d3980518dc42f07b778a8997048b57392ebc7f7391ebd7bb06` (`v0.26.0`)
+- `quay.io/prometheus/node-exporter@sha256:d00a542e409ee618a4edc67da14dd48c5da66726bbd5537ab2af9c1dfc442c8a` (`v1.9.1`)
 
-Do not deploy those digests. Next: rebuild from reviewed upstream commits with
-SBOM/provenance, or wait for clean published digests; then webhook file +
-synthetic fire/resolve proof.
+The older candidate report was superseded by this exact local-digest scan.
+Re-scan the exact selected digests immediately before deployment with a current
+Trivy database via `deploy/monitoring/verify_images.sh`; the preflight also
+requires the protected webhook file and rejects a non-`linux/amd64` image,
+every HIGH, and every CRITICAL finding. Never substitute a mutable tag or a
+scan of another platform. The committed environment remains empty, so
+validation fails closed until all four exact digests are inserted into a
+root-owned host environment.
+
+Operator action still required: choose and configure an owned HTTPS receiver
+outside Git using `deploy/monitoring/webhook.env.example` as the path/GID-only
+contract; then validate receiver-file permissions and prove a labelled
+synthetic firing and resolved notification. Do not create a placeholder URL or
+deploy the monitoring stack before this evidence exists.
 
 ### P1-C — Govern the Win7 binary vulnerability exceptions
 
@@ -171,8 +195,17 @@ Still open (external/hardware):
 
 ### P1-E — Reduce true data-loss window
 
-**Design captured**, implementation deferred to a separate reviewed change:
-`docs/superpowers/specs/2026-08-10-postgres-pitr-design.md`.
+**Fail-closed scaffolding landed (2026-08-10), production enablement is not
+approved:** `pitr_archive_wal.sh`, `pitr_verify_wal.sh`, and
+`pitr_restore_to_time_drill.sh` provide an explicit opt-in archive helper,
+archive integrity verification, and a network-isolated scratch-only recovery
+drill. No live PostgreSQL configuration, VPS service, systemd unit, or app
+rollout was changed.
+
+The operator must separately approve/configure the archive setting, immutable
+helper runtime, encrypted off-host WAL/base-backup storage, and run a timed
+isolated-host drill. Until then the honest RPO remains the existing snapshot
+interval; do not claim WAL/PITR coverage.
 
 Still open: WAL/PITR, provider object lock, storage-native MinIO consistency,
 business RPO/RTO sign-off after timed isolated-host recovery.

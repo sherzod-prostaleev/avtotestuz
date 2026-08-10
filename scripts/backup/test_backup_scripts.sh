@@ -488,6 +488,63 @@ fi
 MOCK
 chmod 0700 "$MOCK_BIN/docker" "$MOCK_BIN/age" "$MOCK_BIN/rclone"
 
+OFFSITE_PREFLIGHT="$SCRIPT_DIR/offsite_preflight.sh"
+OFFSITE_RCLONE_CONFIG="$TEST_ROOT/offsite-rclone.conf"
+printf '[fixture]\ntype = s3\n' >"$OFFSITE_RCLONE_CONFIG"
+chmod 0600 "$OFFSITE_RCLONE_CONFIG"
+OFFSITE_PREFLIGHT_LOG="$TEST_ROOT/offsite-preflight-rclone.log"
+: >"$OFFSITE_PREFLIGHT_LOG"
+PATH="$MOCK_BIN:$PATH" \
+MOCK_RCLONE_LOG="$OFFSITE_PREFLIGHT_LOG" \
+AGE_RECIPIENT=age1fixture \
+RCLONE_REMOTE=fixture:drivergo/full \
+RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT" >"$TEST_ROOT/offsite-preflight.out"
+grep -Fq 'off-site preflight passed' "$TEST_ROOT/offsite-preflight.out"
+grep -Fq 'lsd fixture:drivergo/full' "$OFFSITE_PREFLIGHT_LOG"
+if grep -Fq 'age1fixture' "$TEST_ROOT/offsite-preflight.out" || \
+   grep -Fq 'fixture:drivergo/full' "$TEST_ROOT/offsite-preflight.out"; then
+  echo "not ok - off-site preflight printed configuration values" >&2
+  exit 1
+fi
+pass "off-site preflight validates a protected config without printing values"
+
+expect_failure "off-site preflight rejects a missing age recipient" env \
+  OFFSITE_PREFLIGHT_SKIP_REMOTE=1 \
+  RCLONE_REMOTE=fixture:drivergo/full \
+  RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT"
+expect_failure "off-site preflight rejects a blank age recipient" env \
+  OFFSITE_PREFLIGHT_SKIP_REMOTE=1 \
+  AGE_RECIPIENT='   ' \
+  RCLONE_REMOTE=fixture:drivergo/full \
+  RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT"
+expect_failure "off-site preflight rejects an unsafe remote prefix" env \
+  OFFSITE_PREFLIGHT_SKIP_REMOTE=1 \
+  AGE_RECIPIENT=age1fixture \
+  RCLONE_REMOTE=fixture:../unsafe \
+  RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT"
+chmod 0640 "$OFFSITE_RCLONE_CONFIG"
+expect_failure "off-site preflight requires mode 0600 rclone config" env \
+  OFFSITE_PREFLIGHT_SKIP_REMOTE=1 \
+  AGE_RECIPIENT=age1fixture \
+  RCLONE_REMOTE=fixture:drivergo/full \
+  RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT"
+chmod 0600 "$OFFSITE_RCLONE_CONFIG"
+: >"$OFFSITE_PREFLIGHT_LOG"
+PATH="$MOCK_BIN:$PATH" \
+MOCK_RCLONE_LOG="$OFFSITE_PREFLIGHT_LOG" \
+OFFSITE_PREFLIGHT_SKIP_REMOTE=1 \
+AGE_RECIPIENT=age1fixture \
+RCLONE_REMOTE=fixture:drivergo/full \
+RCLONE_CONFIG="$OFFSITE_RCLONE_CONFIG" \
+  "$OFFSITE_PREFLIGHT" >/dev/null
+[[ ! -s "$OFFSITE_PREFLIGHT_LOG" ]]
+pass "off-site preflight dry mode does not contact rclone"
+
 REDIS_RUNTIME_IMAGE="redis:7-alpine@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
 MINIO_RUNTIME_IMAGE="minio/minio@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 MINIO_MC_RUNTIME_IMAGE="minio/mc@sha256:abababababababababababababababababababababababababababababababab"
@@ -1019,5 +1076,61 @@ expect_failure "pull_offhost rejects relative remote root" \
   LOCAL_OFFHOST_ROOT="$PULL_LOCAL" \
   OFFHOST_LOCK_FILE="$TEST_ROOT/pull-bad2.lock" \
   "$SCRIPT_DIR/pull_offhost.sh"
+
+PITR_ARCHIVE_SCRIPT="$SCRIPT_DIR/pitr_archive_wal.sh"
+PITR_VERIFY_SCRIPT="$SCRIPT_DIR/pitr_verify_wal.sh"
+PITR_DRILL_SCRIPT="$SCRIPT_DIR/pitr_restore_to_time_drill.sh"
+for script in "$PITR_ARCHIVE_SCRIPT" "$PITR_VERIFY_SCRIPT" "$PITR_DRILL_SCRIPT"; do
+  [[ -x "$script" ]]
+  bash -n "$script"
+done
+grep -Fq 'PITR_ARCHIVE_ENABLED="${PITR_ARCHIVE_ENABLED:-0}"' "$PITR_ARCHIVE_SCRIPT"
+grep -Fq 'PITR_ARCHIVE_ENABLED=1' "$PITR_ARCHIVE_SCRIPT"
+grep -Fq 'PITR_WAL_ALLOW_PLAINTEXT="${PITR_WAL_ALLOW_PLAINTEXT:-0}"' "$PITR_ARCHIVE_SCRIPT"
+grep -Fq 'PITR_RESTORE_DRILL_ACK=drivergo_pitr_restore_drill' "$PITR_DRILL_SCRIPT"
+grep -Fq 'drivergo-pitr-restore-drill' "$PITR_DRILL_SCRIPT"
+if grep -Eq '(docker compose|archive_mode[[:space:]]*=|postgresql\.conf)' \
+  "$PITR_ARCHIVE_SCRIPT" "$PITR_VERIFY_SCRIPT" "$PITR_DRILL_SCRIPT"; then
+  echo "not ok - PITR scripts must not edit PostgreSQL config or invoke Compose" >&2
+  exit 1
+fi
+grep -Fq 'PITR scaffolding exists, but it is **OFF by default**.' "$BACKUP_RUNBOOK"
+grep -Fq 'No live PostgreSQL configuration, VPS service, systemd unit, or app' \
+  "$ROOT/DEVOPS-REMEDIATION-HANDOFF.md"
+pass "PITR scaffolding is opt-in, scratch-only, and leaves live configuration untouched"
+
+WAL_SOURCE="$TEST_ROOT/000000010000000000000001"
+WAL_ARCHIVE="$TEST_ROOT/drivergo-pitr-wal"
+printf 'WAL-fixture\n' >"$WAL_SOURCE"
+expect_failure "WAL archive helper is disabled by default" \
+  env PITR_WAL_ARCHIVE_ROOT="$WAL_ARCHIVE" \
+  "$PITR_ARCHIVE_SCRIPT" "$WAL_SOURCE" 000000010000000000000001
+expect_failure "WAL archive requires encryption unless plaintext is explicitly approved" env \
+  PITR_ARCHIVE_ENABLED=1 \
+  PITR_WAL_ARCHIVE_ROOT="$WAL_ARCHIVE" \
+  "$PITR_ARCHIVE_SCRIPT" "$WAL_SOURCE" 000000010000000000000001
+PITR_ARCHIVE_ENABLED=1 \
+PITR_WAL_ALLOW_PLAINTEXT=1 \
+PITR_WAL_ARCHIVE_ROOT="$WAL_ARCHIVE" \
+  "$PITR_ARCHIVE_SCRIPT" "$WAL_SOURCE" 000000010000000000000001 >/dev/null
+"$PITR_VERIFY_SCRIPT" "$WAL_ARCHIVE" >/dev/null
+printf 'WAL-encrypted-fixture\n' >"$TEST_ROOT/000000010000000000000002"
+PATH="$MOCK_BIN:$PATH" \
+PITR_ARCHIVE_ENABLED=1 \
+PITR_WAL_ARCHIVE_ROOT="$WAL_ARCHIVE" \
+AGE_RECIPIENT=age1fixture \
+  "$PITR_ARCHIVE_SCRIPT" "$TEST_ROOT/000000010000000000000002" \
+  000000010000000000000002 >/dev/null
+"$PITR_VERIFY_SCRIPT" "$WAL_ARCHIVE" 000000010000000000000002 >/dev/null
+pass "WAL archive fixture is sealed, optionally encrypted, and verified without Docker"
+printf 'tamper\n' >>"$WAL_ARCHIVE/000000010000000000000001"
+expect_failure "WAL verifier rejects tampered archive data" \
+  "$PITR_VERIFY_SCRIPT" "$WAL_ARCHIVE"
+
+expect_failure "PITR drill requires its scratch-only acknowledgement" \
+  "$PITR_DRILL_SCRIPT" "$TEST_ROOT/missing-base" 2026-08-10T00:00:00Z
+expect_failure "PITR drill rejects an arbitrary target timestamp before Docker" env \
+  PITR_RESTORE_DRILL_ACK=drivergo_pitr_restore_drill \
+  "$PITR_DRILL_SCRIPT" "$TEST_ROOT/missing-base" '2026-08-10 00:00:00'
 
 echo "1..${pass_count}"

@@ -12,6 +12,60 @@ The scripts never contain credentials. Keep `/opt/drivergo/deploy/app.env`,
 secret manager. The age private identity must not be stored on the VPS that
 creates backups.
 
+## PostgreSQL PITR scaffolding (operator approval required)
+
+PITR scaffolding exists, but it is **OFF by default**. These scripts do not
+change a running PostgreSQL instance, do not edit its configuration, do not
+invoke Compose, and are not installed by any systemd unit. Do not claim a
+sub-daily RPO until the isolated drill below has passed and business RPO/RTO
+approval is recorded.
+
+The archive helper requires all of the following explicit operator actions in
+a separately reviewed production change:
+
+1. Provision a root-owned mode-0700 dedicated directory such as
+   `/var/backups/drivergo/drivergo-pitr-wal`; never point it at `/`, a shared
+   backup root, or a Docker volume.
+2. Provision a root-only environment file outside Git with
+   `PITR_ARCHIVE_ENABLED=1`, `PITR_WAL_ARCHIVE_ROOT=...`, and an `AGE_RECIPIENT`.
+   Plaintext WAL is rejected unless the operator also sets
+   `PITR_WAL_ALLOW_PLAINTEXT=1`; that exception is for an isolated exercise,
+   not production.
+3. Build/provision an immutable PostgreSQL extension image (or an equivalent
+   read-only helper mount) containing `pitr_archive_wal.sh`, `lib.sh`, Bash,
+   and age. Give only the dedicated archive directory writable access. Set
+   PostgreSQL's archive command to call the helper with its source-path and
+   segment-name placeholders. Changing the PostgreSQL setting is deliberately
+   outside this repository change and requires explicit rollout approval.
+4. Create a physical base backup into a separate absolute, mode-0700 directory
+   named exactly `drivergo-pitr-basebackup`. A logical `pg_dump` cannot be
+   replayed with WAL. Record the base backup's completion time/LSN with the
+   drill evidence, then copy both base backup and WAL archive to the approved
+   encrypted off-host store.
+5. Verify archive artifacts and run an isolated, timed recovery before enabling
+   any production schedule:
+
+```bash
+./scripts/backup/pitr_verify_wal.sh /var/backups/drivergo/drivergo-pitr-wal
+
+PITR_RESTORE_DRILL_ACK=drivergo_pitr_restore_drill \
+PITR_WAL_ARCHIVE_ROOT=/var/backups/drivergo/drivergo-pitr-wal \
+PITR_DRILL_ROOT=/tmp/drivergo-pitr-restore-drill \
+AGE_IDENTITY_FILE=/secure/off-host/drivergo-age-identity.txt \
+  ./scripts/backup/pitr_restore_to_time_drill.sh \
+  /secure/recovery/drivergo-pitr-basebackup \
+  2026-08-10T00:00:00Z
+```
+
+`pitr_restore_to_time_drill.sh` only accepts the acknowledgement above, a
+base-backup directory with that exact basename, a dedicated WAL archive root,
+and an RFC3339 UTC target. It creates a separate, network-isolated,
+digest-pinned PostgreSQL container named `drivergo-postgres-pitr-drill-*`;
+it never calls a production Compose service, exposes a port, or uses a
+production volume. It removes its verified container and scratch directory on
+success or failure. Run it only on an isolated recovery host with a local copy
+of the pinned image (`--pull never` is intentional).
+
 ## What is captured
 
 | Component | Capture method | Restore-drill behavior |
@@ -300,7 +354,9 @@ tooling changes.
 
 Open controls before a high-assurance claim:
 
-- PostgreSQL WAL archiving/PITR for sub-daily recovery points;
+- PostgreSQL WAL archiving/PITR production approval and timed isolated-host
+  evidence (the fail-closed helper/verification/drill scaffolding is present,
+  but it is not enabled);
 - MinIO versioning or independent object-level replication;
 - an externally monitored backup-age/failure alert and capacity alert;
 - off-site immutability/object lock enforced by the storage provider;

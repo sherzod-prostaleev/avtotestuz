@@ -45,6 +45,14 @@ bash -n \
   "$MONITORING_DIR/tests/monitoring_contract_test.sh"
 pass "monitoring shell syntax"
 
+[[ -f "$MONITORING_DIR/verify_images.sh" && -x "$MONITORING_DIR/verify_images.sh" ]] ||
+  fail "exact-image Trivy preflight script is missing or not executable"
+bash -n "$MONITORING_DIR/verify_images.sh"
+assert_contains "$MONITORING_DIR/verify_images.sh" 'TARGET_PLATFORM:-linux/amd64'
+assert_contains "$MONITORING_DIR/verify_images.sh" '--exit-code 1'
+assert_contains "$MONITORING_DIR/verify_images.sh" 'validate_env.sh'
+pass "exact-image Trivy preflight script exists"
+
 DIGEST_A="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 DIGEST_B="bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 DIGEST_C="cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
@@ -71,6 +79,14 @@ if "$MONITORING_DIR/validate_env.sh" "$MONITORING_DIR/monitoring.env.example" >/
   fail "empty example environment must fail closed"
 fi
 pass "empty example environment fails closed"
+
+EMPTY_IMAGE_ENV="$TEST_ROOT/empty-image.env"
+sed 's#^PROMETHEUS_IMAGE=.*#PROMETHEUS_IMAGE=#' "$VALID_ENV" >"$EMPTY_IMAGE_ENV"
+if "$MONITORING_DIR/validate_env.sh" "$EMPTY_IMAGE_ENV" >"$TEST_ROOT/empty-image.out" 2>&1; then
+  fail "an empty individual image digest must fail closed"
+fi
+assert_contains "$TEST_ROOT/empty-image.out" 'PROMETHEUS_IMAGE must be an immutable registry/repository@sha256 reference'
+pass "each empty image digest fails closed"
 
 TAG_ENV="$TEST_ROOT/tag.env"
 cat >"$TAG_ENV" <<EOF
@@ -128,6 +144,9 @@ pass "Compose renders with loopback UI and bounded host mounts"
 assert_contains "$MONITORING_DIR/prometheus.yml" 'alertmanagers:'
 assert_contains "$MONITORING_DIR/prometheus.yml" 'alertmanager:9093'
 assert_contains "$MONITORING_DIR/alertmanager.yml" 'url_file: /run/secrets/alert_webhook_url'
+assert_contains "$MONITORING_DIR/webhook.env.example" 'ALERT_WEBHOOK_URL_FILE=/etc/drivergo/alert-webhook.url'
+assert_contains "$MONITORING_DIR/webhook.env.example" 'ALERT_WEBHOOK_GID=65534'
+assert_not_contains "$MONITORING_DIR/webhook.env.example" 'https://'
 for job in drivergo-api node-textfile blackbox-api-liveness blackbox-api-readiness blackbox-web blackbox-public-tls; do
   assert_contains "$MONITORING_DIR/prometheus.yml" "job_name: $job"
 done
@@ -135,7 +154,7 @@ assert_contains "$MONITORING_DIR/prometheus.yml" 'api:8080'
 assert_contains "$MONITORING_DIR/prometheus.yml" 'https://drivergo.uz/healthz'
 assert_contains "$MONITORING_DIR/blackbox.yml" 'fail_if_body_not_matches_regexp:'
 assert_contains "$MONITORING_DIR/blackbox.yml" 'insecure_skip_verify: false'
-pass "scrape and blackbox probe contract"
+pass "scrape, webhook-template, and blackbox probe contract"
 
 if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
   python3 - "$MONITORING_DIR/prometheus.yml" "$MONITORING_DIR/alerts.yml" \

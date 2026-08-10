@@ -33,6 +33,10 @@ Files:
   output.
 - `systemd/`: oneshot and one-minute timer.
 - `validate_env.sh`: non-evaluating immutable image-reference validation.
+- `verify_images.sh`: mandatory exact-image Trivy preflight; rejects any
+  `linux/amd64` image with a HIGH or CRITICAL finding.
+- `webhook.env.example`: host-only path/GID contract for the protected
+  webhook file; it intentionally contains no receiver URL.
 - `RUNBOOK.md`: install, validation, incident triage, SLO/RPO/RTO limits.
 - `tests/monitoring_contract_test.sh`: offline/static contract and mocked
   collector tests.

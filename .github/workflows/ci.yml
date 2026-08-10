@@ -170,7 +170,9 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Shell syntax
-        run: bash -n deploy/*.sh deploy/tests/*.sh scripts/backup/*.sh
+        run: bash -n deploy/*.sh deploy/tests/*.sh scripts/backup/*.sh backend/station/security/*.sh
+      - name: Windows 7 smoke evidence harness contract
+        run: backend/station/security/test_win7_smoke.sh
       - name: Deployment safety contracts
         run: |
           deploy/tests/sync-to-vps_test.sh

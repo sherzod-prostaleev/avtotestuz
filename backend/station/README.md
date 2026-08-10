@@ -217,10 +217,16 @@ working station on it. It checks, in order:
 It prints one `PASS`/`FAIL` line per check, then a summary line, and exits
 with a non-zero code if anything failed — so it can be scripted (e.g. an IT
 rollout step that refuses to proceed on `FAIL`). **A passing run on Windows
-prints `SELFTEST RESULT: PASS` and all five lines say `PASS`.** Running the
+prints `SELFTEST RESULT: PASS` and all seven lines say `PASS`.** Running the
 same command on a Linux dev build is expected to print `FAIL` on check 3 (and
 usually 4) — that build stores the key in the clear on purpose, so seeing it
 fail there is confirmation the check is real, not a rubber stamp.
+
+For a release, this single-machine check is insufficient. Follow
+[`security/win7_smoke_checklist.md`](security/win7_smoke_checklist.md) on two
+real Windows 7 machines, then validate the collected evidence bundle with
+`security/run_win7_smoke.sh`. That compatibility gate does not make any
+long-term Windows 7 security claim.
 
 One property genuinely needs two machines and `-selftest` says so at the
 end of its own output: that a key sealed on PC A cannot be unsealed on PC B.

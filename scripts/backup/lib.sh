@@ -116,6 +116,34 @@ validate_quarantine_root() {
     backup_die "BACKUP_QUARANTINE_ROOT must not be accessible by group/other"
 }
 
+validate_pitr_wal_archive_root() {
+  local root="$1"
+  local mode owner
+  [[ "$root" = /* && "${root%/}" != "/" ]] || \
+    backup_die "PITR_WAL_ARCHIVE_ROOT must be an absolute non-root path: ${root}"
+  [[ "$(basename "${root%/}")" == "drivergo-pitr-wal" ]] || \
+    backup_die "PITR_WAL_ARCHIVE_ROOT basename must be drivergo-pitr-wal: ${root}"
+  if [[ -e "$root" ]]; then
+    [[ -d "$root" && ! -L "$root" ]] || \
+      backup_die "PITR_WAL_ARCHIVE_ROOT must be a non-symlink directory: ${root}"
+  else
+    mkdir -p -m 0700 "$root"
+  fi
+  mode="$(stat -c '%a' "$root")"
+  owner="$(stat -c '%u' "$root")"
+  [[ "$owner" == "$EUID" ]] || backup_die "PITR_WAL_ARCHIVE_ROOT must be owned by uid ${EUID}: ${root}"
+  (( 10#$mode % 100 == 0 )) || \
+    backup_die "PITR_WAL_ARCHIVE_ROOT must not be accessible by group/other (mode ${mode})"
+}
+
+is_pitr_wal_name() {
+  [[ "$1" =~ ^[0-9A-F]{24}(\.partial)?$ || "$1" =~ ^[0-9A-F]{8}\.history$ ]]
+}
+
+validate_pitr_wal_name() {
+  is_pitr_wal_name "$1" || backup_die "unsafe PostgreSQL WAL archive name: $1"
+}
+
 # Restore-drill scripts may create and remove children only below a directory
 # whose basename is exactly drivergo-restore-drill. This deliberately rejects
 # broad paths such as /tmp, /var/tmp, /opt, or /.
@@ -229,6 +257,7 @@ is_runtime_drill_container_name() {
     redis) [[ "$name" =~ ^drivergo-redis-drill-[a-z0-9]{6,32}$ ]] ;;
     minio-server) [[ "$name" =~ ^drivergo-minio-server-drill-[a-z0-9]{6,32}$ ]] ;;
     minio-client) [[ "$name" =~ ^drivergo-minio-client-drill-[a-z0-9]{6,32}$ ]] ;;
+    pitr) [[ "$name" =~ ^drivergo-postgres-pitr-drill-[a-z0-9]{6,32}$ ]] ;;
     *) return 1 ;;
   esac
 }
