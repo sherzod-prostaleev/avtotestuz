@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
@@ -188,9 +189,13 @@ func (s *Service) List(ctx context.Context, page, limit int) ([]sqlc.BroadcastCa
 	if err != nil {
 		return nil, 0, err
 	}
+	offset64 := int64(page-1) * int64(limit)
+	if offset64 > math.MaxInt32 {
+		return nil, 0, fmt.Errorf("page out of range")
+	}
 	items, err := s.Q.ListBroadcastCampaigns(ctx, sqlc.ListBroadcastCampaignsParams{
 		Limit:  int32(limit),
-		Offset: int32((page - 1) * limit),
+		Offset: int32(offset64),
 	})
 	return items, int(total), err
 }
@@ -565,10 +570,7 @@ func (s *Service) ensureInapp(ctx context.Context, campaignID, profileID uuid.UU
 func (s *Service) failRecipient(ctx context.Context, c claimRow, deliverErr error) error {
 	delay := backoff(c.Attempts)
 	nextStatus := "failed"
-	finished := false
-	if c.Attempts >= maxAttempts {
-		finished = true
-	}
+	finished := c.Attempts >= maxAttempts
 	_, err := s.Pool.Exec(ctx, `
 		UPDATE broadcast_recipient
 		SET status = $2,

@@ -37,7 +37,7 @@ func (s *S3) Get(ctx context.Context, key string) ([]byte, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	defer obj.Close()
+	defer func() { _ = obj.Close() }()
 	info, err := obj.Stat()
 	if err != nil {
 		resp := minio.ToErrorResponse(err)
