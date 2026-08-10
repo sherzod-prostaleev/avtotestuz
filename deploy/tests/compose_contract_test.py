@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import unittest
 
@@ -22,7 +23,22 @@ def compose_config(files: list[str], env_file: str, extra_env: dict[str, str] | 
     )
     env = os.environ.copy()
     env.update(extra_env or {})
-    output = subprocess.check_output(command, cwd=ROOT, env=env, text=True)
+    # Compose services pin env_file: app.env (required). CI has no host secrets
+    # file; materialize a throwaway copy from the example used for --env-file.
+    app_env = ROOT / "deploy" / "app.env"
+    created_app_env = False
+    if not app_env.exists():
+        source = Path(env_file)
+        if not source.is_absolute():
+            source = ROOT / source
+        shutil.copyfile(source, app_env)
+        os.chmod(app_env, 0o600)
+        created_app_env = True
+    try:
+        output = subprocess.check_output(command, cwd=ROOT, env=env, text=True)
+    finally:
+        if created_app_env and app_env.exists():
+            app_env.unlink()
     return json.loads(output)
 
 
