@@ -29,6 +29,9 @@ backend/*.log
 backend/api
 **/__pycache__/
 **/*.pyc
+**/.venv/
+.venv/
+services/humo-watcher/.venv/
 .env
 .env.*
 !.env.example

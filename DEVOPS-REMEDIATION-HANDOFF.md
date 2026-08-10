@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10 (Asia/Tashkent)  
 Branch: `cursor/integrate-support-chat`  
-Baseline/live deploy marker: `aed74d02f7c570ae2db7c4b55bd14b138c85c487`
+Baseline/live deploy marker: `a0c51f61e20c9cabe737b87e0f65e79f34ced2ef` (PR #19 merge; deployed 2026-08-10)
 
 ## Non-negotiable scope
 
