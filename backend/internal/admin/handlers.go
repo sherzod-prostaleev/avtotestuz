@@ -1176,6 +1176,7 @@ func (h *Handler) listPayments(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_date", "from/to must be RFC3339 or YYYY-MM-DD")
 		return
 	}
+	_, _ = h.Billing.ExpireStaleManualPayments(r.Context())
 	out, err := h.Svc.Store.ListPayments(r.Context(), PaymentListFilter{
 		Status:   r.URL.Query().Get("status"),
 		Provider: r.URL.Query().Get("provider"),

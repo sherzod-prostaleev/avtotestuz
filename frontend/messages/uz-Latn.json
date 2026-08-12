@@ -1604,7 +1604,7 @@
   },
   "AdminPayments": {
     "transactionsTitle": "To‘lovlar",
-    "transactionsSubtitle": "Tranzaksiyalar: status, provayder, sana filtri va tafsilot.",
+    "transactionsSubtitle": "Odatiy: to‘langanlar. To‘lanmagan Humo arizalari 4 soatdan keyin canceled (qator o‘chmaydi). Hammasi filtri barcha statuslarni ko‘rsatadi.",
     "detailTitle": "To‘lov tafsiloti",
     "providersTitle": "Provayderlar",
     "providersSubtitle": "Payme/Click kill-switch (admin auth). Ops token shart emas.",

@@ -87,6 +87,7 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go maintainEventPartitions(ctx, pool, logger)
+	go billing.RunManualExpireWorker(ctx, billing.Service{Q: sqlc.New(pool)}, logger)
 	if broadcastSvc != nil {
 		go broadcast.RunWorker(ctx, broadcastSvc, logger)
 	}

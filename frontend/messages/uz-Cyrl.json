@@ -1604,7 +1604,7 @@
   },
   "AdminPayments": {
     "transactionsTitle": "Тўловлар",
-    "transactionsSubtitle": "Транзакциялар: статус, провайдер, сана фильтри ва detail.",
+    "transactionsSubtitle": "Оддий: тўланганлар. Тўланмаган Humo аризалари 4 соатдан кейин canceled (қатор ўчмайди). Ҳаммаси фильтри барча статусларни кўрсатади.",
     "detailTitle": "Тўлов detail",
     "providersTitle": "Провайдерлар",
     "providersSubtitle": "Payme/Click kill-switch (admin auth). Ops token шарт эмас.",

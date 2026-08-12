@@ -1604,7 +1604,7 @@
   },
   "AdminPayments": {
     "transactionsTitle": "Платежи",
-    "transactionsSubtitle": "Транзакции: фильтр по статусу, провайдеру, дате и деталь.",
+    "transactionsSubtitle": "По умолчанию: оплаченные. Неоплаченные Humo-заявки через 4 часа становятся canceled (строка не удаляется). Фильтр «Все» показывает все статусы.",
     "detailTitle": "Деталь платежа",
     "providersTitle": "Провайдеры",
     "providersSubtitle": "Kill-switch Payme/Click (admin auth). Ops-токен не нужен.",

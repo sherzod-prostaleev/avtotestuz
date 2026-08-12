@@ -19,6 +19,12 @@ import (
 
 const ManualHoldDuration = 10 * time.Minute
 
+// ManualUnpaidTTL is how long an unpaid Humo/manual checkout stays open.
+// After this, ExpireStaleManualPayments sets status=canceled (row kept).
+const ManualUnpaidTTL = 4 * time.Hour
+
+const expireWorkerInterval = 5 * time.Minute
+
 // manualAmountSlots is how many distinct som suffixes an assignment may add
 // to the tariff price so that every open assignment on a card is identified
 // by its exact sum. 100 slots x 4 cards is far beyond real concurrency, and
@@ -109,6 +115,9 @@ func (s Service) StartManualCheckout(ctx context.Context, profileID uuid.UUID, t
 
 	if err := q.ReleaseExpiredManualHolds(ctx); err != nil {
 		return ManualCheckoutInfo{}, fmt.Errorf("release holds: %w", err)
+	}
+	if _, err := q.ExpireStaleManualPayments(ctx); err != nil {
+		return ManualCheckoutInfo{}, fmt.Errorf("expire stale manual: %w", err)
 	}
 	card, err := q.LockFreeManualPayCard(ctx)
 	if err != nil {
@@ -290,8 +299,19 @@ func (s Service) ConfirmManualPayment(ctx context.Context, paymentID uuid.UUID, 
 		return false, ErrManualAlreadyDone
 	}
 
-	if err := q.MarkPaymentPaid(ctx, paymentID); err != nil {
+	n, err := q.MarkPaymentPaidIfOpen(ctx, paymentID)
+	if err != nil {
 		return false, err
+	}
+	if n == 0 {
+		paid, rerr := q.GetPaymentForPayme(ctx, paymentID)
+		if rerr != nil {
+			return false, rerr
+		}
+		if paid.Status == "paid" {
+			return true, dbtx.Commit(ctx)
+		}
+		return false, ErrManualAlreadyDone
 	}
 	txSvc := Service{Q: q}
 	if err := txSvc.ProcessPaymentGrant(ctx, paymentID); err != nil {
@@ -409,6 +429,9 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 	}
 
 	_ = s.Q.ReleaseExpiredManualHolds(ctx)
+	if _, err := s.Q.ExpireStaleManualPayments(ctx); err != nil {
+		return nil, err
+	}
 	cand, err := s.Q.FindManualPayMatchCandidate(ctx, sqlc.FindManualPayMatchCandidateParams{
 		PanLast4:   parsed.PanLast4,
 		AmountUzs:  parsed.AmountUzs,

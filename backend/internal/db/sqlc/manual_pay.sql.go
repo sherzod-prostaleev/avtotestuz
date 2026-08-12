@@ -37,6 +37,50 @@ func (q *Queries) DeleteManualPayCard(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const expireStaleManualPayments = `-- name: ExpireStaleManualPayments :many
+WITH expired AS (
+  UPDATE payment p
+  SET status = 'canceled'
+  WHERE p.provider = 'manual'
+    AND p.status IN ('created', 'pending')
+    AND p.paid_at IS NULL
+    AND p.created_at < now() - interval '4 hours'
+  RETURNING p.id
+), _closed AS (
+  UPDATE manual_pay_assignment a
+  SET manual_state = 'rejected',
+      confirmed_by = 'system',
+      confirmed_at = now(),
+      released_at = COALESCE(released_at, now()),
+      admin_note = COALESCE(NULLIF(btrim(a.admin_note), ''), 'auto-expired: unpaid after 4 hours')
+  WHERE a.payment_id IN (SELECT id FROM expired)
+    AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
+)
+SELECT id FROM expired
+`
+
+// Keep the row: abandoned Humo/manual checkouts become canceled, never deleted.
+// Data-modifying CTEs always run to completion in PostgreSQL.
+func (q *Queries) ExpireStaleManualPayments(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, expireStaleManualPayments)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const findManualPayMatchCandidate = `-- name: FindManualPayMatchCandidate :one
 SELECT a.payment_id, a.id AS assignment_id, a.assigned_at, a.amount_uzs, a.manual_state
 FROM manual_pay_assignment a
@@ -46,9 +90,10 @@ WHERE c.pan_last4 = $1
   AND a.amount_uzs = $2
   AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
   AND p.status IN ('created', 'pending')
+  AND p.created_at >= now() - interval '4 hours'
   AND $3::timestamptz
       BETWEEN a.assigned_at - interval '90 seconds'
-          AND a.hold_until + interval '24 hours'
+          AND a.assigned_at + interval '4 hours'
 ORDER BY a.assigned_at DESC
 LIMIT 1
 `
@@ -79,10 +124,9 @@ type FindManualPayMatchCandidateRow struct {
 // The window is bounded at both ends. Lower: the bank push carries only
 // HH:MM, so transfer_at has its seconds zeroed and can legitimately read up
 // to 59s before assigned_at — without the tolerance, anyone paying in the
-// same minute they checked out failed to auto-confirm. Upper: hold_until
-// plus a day of grace keeps genuinely late transfers working while stopping
-// an abandoned assignment from staying claimable forever and capturing an
-// unrelated future credit.
+// same minute they checked out failed to auto-confirm. Upper: unpaid Humo
+// checkouts auto-cancel after 4 hours (see ExpireStaleManualPayments); the
+// same bound stops an abandoned assignment from capturing a later credit.
 func (q *Queries) FindManualPayMatchCandidate(ctx context.Context, arg FindManualPayMatchCandidateParams) (FindManualPayMatchCandidateRow, error) {
 	row := q.db.QueryRow(ctx, findManualPayMatchCandidate, arg.PanLast4, arg.AmountUzs, arg.TransferAt)
 	var i FindManualPayMatchCandidateRow
@@ -467,6 +511,7 @@ JOIN payment p ON p.id = a.payment_id
 WHERE a.card_id = $1
   AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
   AND p.status IN ('created', 'pending')
+  AND p.created_at >= now() - interval '4 hours'
 `
 
 // Amounts currently claimable on one card. StartManualCheckout picks an
@@ -691,6 +736,20 @@ type MarkManualPayEventMatchedParams struct {
 func (q *Queries) MarkManualPayEventMatched(ctx context.Context, arg MarkManualPayEventMatchedParams) error {
 	_, err := q.db.Exec(ctx, markManualPayEventMatched, arg.ID, arg.MatchedPaymentID)
 	return err
+}
+
+const markPaymentPaidIfOpen = `-- name: MarkPaymentPaidIfOpen :execrows
+UPDATE payment
+SET status = 'paid', paid_at = now()
+WHERE id = $1 AND status IN ('created', 'pending')
+`
+
+func (q *Queries) MarkPaymentPaidIfOpen(ctx context.Context, id uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, markPaymentPaidIfOpen, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const rejectManualPayAssignment = `-- name: RejectManualPayAssignment :exec

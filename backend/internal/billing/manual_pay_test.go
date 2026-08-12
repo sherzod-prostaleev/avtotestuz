@@ -286,7 +286,8 @@ func TestManualPay_SameMinuteTransferMatches(t *testing.T) {
 
 	// Pin assigned_at to a known instant mid-minute, then have the push
 	// report that same minute — i.e. a transfer_at 30s "before" it.
-	assigned := time.Date(2026, 7, 28, 12, 0, 30, 0, time.UTC)
+	// Must stay inside ManualUnpaidTTL or the 4h match window rejects it.
+	assigned := time.Now().UTC().Truncate(time.Minute).Add(30 * time.Second)
 	if _, err := pool.Exec(ctx,
 		`UPDATE manual_pay_assignment
 		 SET assigned_at = $2::timestamptz, hold_until = $2::timestamptz + interval '10 minutes'

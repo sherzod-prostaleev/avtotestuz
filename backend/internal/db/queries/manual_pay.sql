@@ -120,7 +120,8 @@ FROM manual_pay_assignment a
 JOIN payment p ON p.id = a.payment_id
 WHERE a.card_id = $1
   AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
-  AND p.status IN ('created', 'pending');
+  AND p.status IN ('created', 'pending')
+  AND p.created_at >= now() - interval '4 hours';
 
 -- name: FindManualPayMatchCandidate :one
 -- Match an open assignment by (last4, exact amount) inside a bounded window.
@@ -135,10 +136,9 @@ WHERE a.card_id = $1
 -- The window is bounded at both ends. Lower: the bank push carries only
 -- HH:MM, so transfer_at has its seconds zeroed and can legitimately read up
 -- to 59s before assigned_at — without the tolerance, anyone paying in the
--- same minute they checked out failed to auto-confirm. Upper: hold_until
--- plus a day of grace keeps genuinely late transfers working while stopping
--- an abandoned assignment from staying claimable forever and capturing an
--- unrelated future credit.
+-- same minute they checked out failed to auto-confirm. Upper: unpaid Humo
+-- checkouts auto-cancel after 4 hours (see ExpireStaleManualPayments); the
+-- same bound stops an abandoned assignment from capturing a later credit.
 SELECT a.payment_id, a.id AS assignment_id, a.assigned_at, a.amount_uzs, a.manual_state
 FROM manual_pay_assignment a
 JOIN manual_pay_card c ON c.id = a.card_id
@@ -147,9 +147,10 @@ WHERE c.pan_last4 = $1
   AND a.amount_uzs = $2
   AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
   AND p.status IN ('created', 'pending')
+  AND p.created_at >= now() - interval '4 hours'
   AND sqlc.arg(transfer_at)::timestamptz
       BETWEEN a.assigned_at - interval '90 seconds'
-          AND a.hold_until + interval '24 hours'
+          AND a.assigned_at + interval '4 hours'
 ORDER BY a.assigned_at DESC
 LIMIT 1;
 
@@ -228,3 +229,31 @@ UPDATE payment SET status = 'pending' WHERE id = $1 AND status = 'created';
 
 -- name: SetPaymentCanceled :exec
 UPDATE payment SET status = 'canceled' WHERE id = $1 AND status IN ('created', 'pending');
+
+-- name: ExpireStaleManualPayments :many
+-- Keep the row: abandoned Humo/manual checkouts become canceled, never deleted.
+-- Data-modifying CTEs always run to completion in PostgreSQL.
+WITH expired AS (
+  UPDATE payment p
+  SET status = 'canceled'
+  WHERE p.provider = 'manual'
+    AND p.status IN ('created', 'pending')
+    AND p.paid_at IS NULL
+    AND p.created_at < now() - interval '4 hours'
+  RETURNING p.id
+), _closed AS (
+  UPDATE manual_pay_assignment a
+  SET manual_state = 'rejected',
+      confirmed_by = 'system',
+      confirmed_at = now(),
+      released_at = COALESCE(released_at, now()),
+      admin_note = COALESCE(NULLIF(btrim(a.admin_note), ''), 'auto-expired: unpaid after 4 hours')
+  WHERE a.payment_id IN (SELECT id FROM expired)
+    AND a.manual_state IN ('awaiting_transfer', 'claimed', 'awaiting_review')
+)
+SELECT id FROM expired;
+
+-- name: MarkPaymentPaidIfOpen :execrows
+UPDATE payment
+SET status = 'paid', paid_at = now()
+WHERE id = $1 AND status IN ('created', 'pending');

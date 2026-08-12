@@ -16,6 +16,10 @@ import {
   AdminDataTable,
   type AdminColumnMeta,
 } from "@/components/admin/admin-data-table";
+import {
+  ADMIN_PAYMENTS_DEFAULT_STATUS,
+  isAdminPaymentVoidable,
+} from "@/lib/admin-payment-voidable";
 
 type PaymentRow = {
   id: string;
@@ -46,7 +50,7 @@ export default function AdminPaymentsTransactionsPage() {
   const me = useAdminMeOptional();
   const canVoid = hasPermission(me?.permissions, "payments.void");
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState(() => searchParams.get("status") ?? "");
+  const [status, setStatus] = useState(() => searchParams.get("status") ?? ADMIN_PAYMENTS_DEFAULT_STATUS);
   const [provider, setProvider] = useState(() => searchParams.get("provider") ?? "");
   const [from, setFrom] = useState(() => searchParams.get("from") ?? "");
   const [to, setTo] = useState(() => searchParams.get("to") ?? "");
@@ -189,10 +193,7 @@ export default function AdminPaymentsTransactionsPage() {
             {
               id: "actions",
               header: t("colActions"),
-              cell: ({ row }) => row.original.status === "failed" ||
-                row.original.status === "canceled" ||
-                (row.original.provider === "manual" &&
-                  (row.original.status === "created" || row.original.status === "pending")) ? (
+              cell: ({ row }) => isAdminPaymentVoidable(row.original) ? (
                 <Button
                   type="button"
                   size="sm"
