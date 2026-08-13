@@ -31,6 +31,8 @@ grep -Fq -- '--exclude-from="$dest/deploy/rsync-exclude.txt"' "$ROOT/deploy/sync
 grep -Fq -- '--exclude-from="$exclude_file"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq -- '--exclude-from="$current_exclude"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq -- 'StrictHostKeyChecking=yes' "$ROOT/deploy/sync-to-vps.sh"
+grep -Fq 'assets/' "$ROOT/deploy/rsync-exclude.txt"
+grep -Fq 'rsrc_windows_386.syso' "$ROOT/deploy/rsync-exclude.txt"
 grep -Fq 'readlink -f -- "$dest"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'partial_root="$rollback_root/.partial-$snapshot_id"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'mv -- "$partial_root" "$snapshot_root"' "$ROOT/deploy/sync-to-vps.sh"

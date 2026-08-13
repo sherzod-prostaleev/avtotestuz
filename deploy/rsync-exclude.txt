@@ -46,5 +46,12 @@ photo_*_2026-*.jpg
 AVTOTEST-MASTER-PROMPT.txt
 HANDOFF-*.txt
 repository-audit-report.txt
+# Local store-size brand masters and generated Windows resource objects.
+# Chrome/PWA icons live under frontend/public; the station .syso is rebuilt
+# inside backend/Dockerfile via genwinres.
+assets/
+backend/station/cmd/avtotest-station/rsrc_windows_386.syso
+backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
+
 docs/
 *.canvas.tsx
