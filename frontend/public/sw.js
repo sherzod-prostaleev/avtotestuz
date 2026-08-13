@@ -3,7 +3,7 @@
  * Plus network-first cache for recently opened ticket (variant) question payloads.
  * No full offline exam / session create / answer grading — that gap remains large (U-39).
  */
-const SHELL_CACHE = "dg-shell-v4";
+const SHELL_CACHE = "dg-shell-v5";
 const RUNTIME_CACHE = "dg-runtime-v4";
 const META_CACHE = "dg-meta-v4";
 const VARIANT_CACHE = "dg-variant-v2";
@@ -12,10 +12,11 @@ const OFFLINE_URL = "/offline.html";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/manifest.webmanifest",
-  "/logo.svg",
   "/logo-512.png",
   "/apple-touch-icon.png",
   "/favicon.ico",
+  "/favicon-32.png",
+  "/favicon-16.png",
 ];
 
 /** Public / shell paths worth keeping after a successful visit (locale-aware). */

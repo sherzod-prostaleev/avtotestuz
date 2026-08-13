@@ -10,9 +10,9 @@ type BrandLogoProps = {
 };
 
 /**
- * Chrome mark is the compressed 3D PNG (`/logo-512.png`). Favicon / tab icon
- * stays the small vector at `/logo.svg` so every page does not download a
- * raster just to paint 16px.
+ * Chrome mark is the compressed 3D PNG (`/logo-512.png`). Tab icons are
+ * raster slices of the same render (`favicon.ico` / `favicon-32.png`), not a
+ * simplified vector that browsers would prefer over the real mark.
  */
 export function BrandLogo({
   size = 36,

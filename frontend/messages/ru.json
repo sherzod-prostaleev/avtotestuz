@@ -20,7 +20,8 @@
     "notFoundTitle": "Страница не найдена",
     "notFoundMessage": "Этого адреса не существует или страница была перемещена.",
     "backHome": "Вернуться на главную",
-    "backToStation": "Вернуться на страницу класса"
+    "backToStation": "Вернуться на страницу класса",
+    "checkingSession": "Проверяем сессию..."
   },
   "Landing": {
     "brandName": "Driver Go",

@@ -20,7 +20,8 @@
     "notFoundTitle": "Sahifa topilmadi",
     "notFoundMessage": "Bu manzil mavjud emas yoki sahifa ko'chirilgan.",
     "backHome": "Bosh sahifaga qaytish",
-    "backToStation": "Sinfxona sahifasiga qaytish"
+    "backToStation": "Sinfxona sahifasiga qaytish",
+    "checkingSession": "Sessiya tekshirilmoqda..."
   },
   "Landing": {
     "brandName": "Driver Go",

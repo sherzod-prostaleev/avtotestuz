@@ -19,6 +19,20 @@ describe("api-client", () => {
     expect(global.fetch).toHaveBeenCalledWith("/api/proxy/me/stats", expect.objectContaining({ method: "GET" }));
   });
 
+  it("apiGet forwards an abort signal", async () => {
+    const controller = new AbortController();
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { ok: true } }),
+    } as Response);
+    await apiGet("me", { signal: controller.signal });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/proxy/me",
+      expect.objectContaining({ method: "GET", signal: controller.signal }),
+    );
+  });
+
   it("apiPost sends JSON payload and returns response", async () => {
     const mockResponse = { data: { id: "sess-123" } };
     global.fetch = vi.fn().mockResolvedValue({

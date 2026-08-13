@@ -20,20 +20,32 @@ describe("PWA manifest", () => {
     expect(manifest.icons.some((i) => i.src === "/logo-512.png" && i.type === "image/png")).toBe(
       true,
     );
+    expect(manifest.icons.some((i) => i.type === "image/svg+xml")).toBe(false);
     expect(existsSync(join(process.cwd(), "public/logo-512.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/apple-touch-icon.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/favicon.ico"))).toBe(true);
-    expect(existsSync(join(process.cwd(), "public/logo.svg"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/favicon-32.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/favicon-16.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "src/app/icon.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "src/app/icon.svg"))).toBe(false);
     const svg = readFileSync(join(process.cwd(), "public/logo.svg"), "utf8");
     expect(svg).toMatch(/<svg[\s>]/);
-    expect(svg).not.toMatch(/image\/png|data:image|base64,/);
+    expect(svg).toContain("/logo-512.png");
+    expect(svg).not.toMatch(/data:image|base64,/);
     expect(statSync(join(process.cwd(), "public/logo.svg")).size).toBeLessThan(8_000);
     expect(statSync(join(process.cwd(), "public/logo-512.png")).size).toBeLessThan(120_000);
     expect(statSync(join(process.cwd(), "public/apple-touch-icon.png")).size).toBeLessThan(80_000);
     expect(statSync(join(process.cwd(), "public/favicon.ico")).size).toBeLessThan(40_000);
-    expect(readFileSync(join(process.cwd(), "src/app/icon.svg"), "utf8")).toBe(svg);
+    expect(statSync(join(process.cwd(), "public/favicon-32.png")).size).toBeLessThan(8_000);
     for (const icon of manifest.icons) {
       expect(existsSync(join(process.cwd(), "public", icon.src.replace(/^\//, "")))).toBe(true);
     }
+  });
+
+  it("does not advertise an SVG tab icon that browsers would prefer over the 3D raster", () => {
+    const layout = readFileSync(join(process.cwd(), "src/app/[locale]/layout.tsx"), "utf8");
+    expect(layout).not.toMatch(/image\/svg\+xml/);
+    expect(layout).toContain("/favicon-32.png");
+    expect(layout).toContain("/favicon.ico");
   });
 });

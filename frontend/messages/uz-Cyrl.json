@@ -20,7 +20,8 @@
     "notFoundTitle": "Саҳифа топилмади",
     "notFoundMessage": "Бу манзил мавжуд эмас ёки саҳифа кўчирилган.",
     "backHome": "Бош саҳифага қайтиш",
-    "backToStation": "Синфхона саҳифасига қайтиш"
+    "backToStation": "Синфхона саҳифасига қайтиш",
+    "checkingSession": "Сессия текширилмоқда..."
   },
   "Landing": {
     "brandName": "Driver Go",

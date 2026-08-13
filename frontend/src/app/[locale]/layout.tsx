@@ -49,7 +49,8 @@ export async function generateMetadata({ params }: {
     icons: {
       icon: [
         { url: "/favicon.ico", sizes: "48x48" },
-        { url: "/logo.svg", type: "image/svg+xml" },
+        { url: "/favicon-32.png", type: "image/png", sizes: "32x32" },
+        { url: "/favicon-16.png", type: "image/png", sizes: "16x16" },
       ],
       shortcut: "/favicon.ico",
       apple: "/apple-touch-icon.png",
@@ -78,7 +79,8 @@ export default async function LocaleLayout({
           }}
         />
         <link rel="icon" href="/favicon.ico" sizes="48x48" />
-        <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">

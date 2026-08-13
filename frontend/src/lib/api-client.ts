@@ -25,11 +25,12 @@ async function handleResponse<T>(res: Response): Promise<T> {
   return data.data !== undefined ? data.data : data;
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
+export async function apiGet<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {
   const cleanPath = path.startsWith("/") ? path.slice(1) : path;
   const res = await fetch(`/api/proxy/${cleanPath}`, {
     method: "GET",
     headers: deviceHeaders(),
+    signal: init?.signal,
   });
   return handleResponse<T>(res);
 }

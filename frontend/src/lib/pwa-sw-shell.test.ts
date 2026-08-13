@@ -7,7 +7,7 @@ describe("PWA offline shell service worker", () => {
   const offline = readFileSync(join(process.cwd(), "public/offline.html"), "utf8");
 
   it("precaches shell assets and offline fallback", () => {
-    expect(sw).toContain('SHELL_CACHE = "dg-shell-v4"');
+    expect(sw).toContain('SHELL_CACHE = "dg-shell-v5"');
     expect(sw).toContain('OFFLINE_URL = "/offline.html"');
     expect(sw).toContain("/manifest.webmanifest");
     expect(sw).toContain("cache.addAll(PRECACHE_URLS)");
