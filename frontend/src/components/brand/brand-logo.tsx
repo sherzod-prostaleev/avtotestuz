@@ -10,9 +10,9 @@ type BrandLogoProps = {
 };
 
 /**
- * Static Driver Go mark from `/public/logo.svg`.
- * Uses next/image (unoptimized SVG) so chrome logos clear `no-img-element`
- * without touching dynamic MinIO/CDN question media.
+ * Chrome mark is the compressed 3D PNG (`/logo-512.png`). Favicon / tab icon
+ * stays the small vector at `/logo.svg` so every page does not download a
+ * raster just to paint 16px.
  */
 export function BrandLogo({
   size = 36,
@@ -22,12 +22,11 @@ export function BrandLogo({
 }: BrandLogoProps) {
   return (
     <Image
-      src="/logo.svg"
+      src="/logo-512.png"
       alt={alt}
       width={size}
       height={size}
       className={className}
-      unoptimized
       priority={priority}
     />
   );

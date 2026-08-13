@@ -6,7 +6,7 @@ describe("BrandLogo", () => {
   it("renders the static logo via next/image", () => {
     render(<BrandLogo alt="Driver Go" size={40} />);
     const img = screen.getByAltText("Driver Go");
-    expect(img).toHaveAttribute("src", expect.stringContaining("/logo.svg"));
+    expect(img.getAttribute("src")).toMatch(/logo-512\.png/);
     expect(img).toHaveAttribute("width", "40");
     expect(img).toHaveAttribute("height", "40");
   });

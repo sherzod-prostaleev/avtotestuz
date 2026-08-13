@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
+import { BrandLogo } from "@/components/brand/brand-logo";
 import { apiGet } from "@/lib/api-client";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -171,12 +171,9 @@ export default function StationPage() {
     // (see (kiosk)/kiosk-chrome.tsx), which would otherwise sit on the title.
     <main className="mx-auto max-w-6xl space-y-6 px-4 pb-10 pt-16 sm:space-y-8 sm:px-6 sm:pt-20">
       <header className="flex items-center gap-3 sm:gap-4">
-        <Image
-          src="/logo.svg"
-          alt=""
-          width={56}
-          height={56}
-          className="h-11 w-11 shrink-0 rounded-2xl sm:h-14 sm:w-14"
+        <BrandLogo
+          size={56}
+          className="h-11 w-11 shrink-0 rounded-2xl object-cover sm:h-14 sm:w-14"
           priority
         />
         <div className="min-w-0">

@@ -5,6 +5,10 @@ photo_*_2026-*.jpg
 # run.sh working files
 .run/
 
+# Local store-size brand masters (Play/Telegram/Instagram 1024s). Chrome
+# and PWA icons live under frontend/public; do not ship 1MB rasters in git.
+assets/branding/
+
 # Staging / Docker overlay secrets (template is deploy/app.env.example)
 deploy/app.env
 deploy/app.env.prod.generated

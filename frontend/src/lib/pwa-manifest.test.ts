@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -22,7 +22,16 @@ describe("PWA manifest", () => {
     );
     expect(existsSync(join(process.cwd(), "public/logo-512.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/apple-touch-icon.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/favicon.ico"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/logo.svg"))).toBe(true);
+    const svg = readFileSync(join(process.cwd(), "public/logo.svg"), "utf8");
+    expect(svg).toMatch(/<svg[\s>]/);
+    expect(svg).not.toMatch(/image\/png|data:image|base64,/);
+    expect(statSync(join(process.cwd(), "public/logo.svg")).size).toBeLessThan(8_000);
+    expect(statSync(join(process.cwd(), "public/logo-512.png")).size).toBeLessThan(120_000);
+    expect(statSync(join(process.cwd(), "public/apple-touch-icon.png")).size).toBeLessThan(80_000);
+    expect(statSync(join(process.cwd(), "public/favicon.ico")).size).toBeLessThan(40_000);
+    expect(readFileSync(join(process.cwd(), "src/app/icon.svg"), "utf8")).toBe(svg);
     for (const icon of manifest.icons) {
       expect(existsSync(join(process.cwd(), "public", icon.src.replace(/^\//, "")))).toBe(true);
     }

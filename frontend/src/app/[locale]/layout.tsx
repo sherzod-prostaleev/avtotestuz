@@ -47,8 +47,11 @@ export async function generateMetadata({ params }: {
       statusBarStyle: "black-translucent",
     },
     icons: {
-      icon: "/logo.svg",
-      shortcut: "/logo.svg",
+      icon: [
+        { url: "/favicon.ico", sizes: "48x48" },
+        { url: "/logo.svg", type: "image/svg+xml" },
+      ],
+      shortcut: "/favicon.ico",
       apple: "/apple-touch-icon.png",
     },
   };
@@ -74,8 +77,8 @@ export default async function LocaleLayout({
             __html: `(function(){try{var d=document.documentElement;var t=localStorage.getItem("theme");if(t==="light"){d.classList.add("light");d.classList.remove("dark");d.style.colorScheme="light";d.style.backgroundColor="hsl(220 16% 96%)";}else{d.classList.add("dark");d.classList.remove("light");d.style.colorScheme="dark";d.style.backgroundColor="hsl(220 22% 7%)";}}catch(e){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";document.documentElement.style.backgroundColor="hsl(220 22% 7%)";}})();`,
           }}
         />
+        <link rel="icon" href="/favicon.ico" sizes="48x48" />
         <link rel="icon" type="image/svg+xml" href="/logo.svg" />
-        <link rel="shortcut icon" href="/logo.svg" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">
