@@ -274,3 +274,81 @@ func (h *Handler) LoadQuestionDetail(ctx context.Context, id uuid.UUID, loc stri
 	}
 	return detail, q.FallbackUsed, nil
 }
+
+// LoadQuestionDetails loads the same public question payload as
+// LoadQuestionDetail, but in a handful of queries for the whole ID set
+// instead of four round-trips per question. Missing/invalid IDs are omitted
+// from the map (callers treat a hole as not found). An empty ID list is a
+// no-op. includeExplanations is false when every question is still sealed
+// so the batch path does not pull expert prose the handler would immediately
+// discard.
+func (h *Handler) LoadQuestionDetails(ctx context.Context, ids []uuid.UUID, loc string, includeExplanations bool) (map[uuid.UUID]QuestionDetailDTO, bool, error) {
+	out := make(map[uuid.UUID]QuestionDetailDTO, len(ids))
+	if len(ids) == 0 {
+		return out, false, nil
+	}
+
+	questions, err := h.Q.ListQuestionsByIDs(ctx, sqlc.ListQuestionsByIDsParams{Ids: ids, Locale: loc})
+	if err != nil {
+		return nil, false, err
+	}
+	answers, err := h.Q.ListAnswersByQuestionIDs(ctx, sqlc.ListAnswersByQuestionIDsParams{QuestionIds: ids, Locale: loc})
+	if err != nil {
+		return nil, false, err
+	}
+	signs, err := h.Q.ListQuestionSignsByQuestionIDs(ctx, sqlc.ListQuestionSignsByQuestionIDsParams{QuestionIds: ids, Locale: loc})
+	if err != nil {
+		return nil, false, err
+	}
+
+	var explanations []sqlc.ListVerifiedExplanationsByQuestionIDsRow
+	if includeExplanations {
+		explanations, err = h.Q.ListVerifiedExplanationsByQuestionIDs(ctx, sqlc.ListVerifiedExplanationsByQuestionIDsParams{QuestionIds: ids, Locale: loc})
+		if err != nil {
+			return nil, false, err
+		}
+	}
+
+	answersByQ := make(map[uuid.UUID][]AnswerDTO, len(questions))
+	for _, a := range answers {
+		answersByQ[a.QuestionID] = append(answersByQ[a.QuestionID], AnswerDTO{
+			ID: a.ID.String(), Position: a.Position, Text: a.Text, ImageURL: h.media(a.ImageKey),
+		})
+	}
+	signsByQ := make(map[uuid.UUID][]SignChipDTO, len(questions))
+	for _, s := range signs {
+		signsByQ[s.QuestionID] = append(signsByQ[s.QuestionID], SignChipDTO{
+			Code: s.Code, Name: s.Name, ImageURL: h.media(s.ImageKey),
+		})
+	}
+	explByQ := make(map[uuid.UUID]ExplanationDTO, len(explanations))
+	for _, e := range explanations {
+		explByQ[e.QuestionID] = ExplanationDTO{LegalRefs: e.LegalRefs, Blocks: e.Blocks}
+	}
+
+	fallback := false
+	for _, q := range questions {
+		fallback = fallback || q.FallbackUsed
+		ans := answersByQ[q.ID]
+		if ans == nil {
+			ans = []AnswerDTO{}
+		}
+		chips := signsByQ[q.ID]
+		if chips == nil {
+			chips = []SignChipDTO{}
+		}
+		detail := QuestionDetailDTO{
+			QuestionDTO: QuestionDTO{
+				ID: q.ID.String(), CategoryCode: q.CategoryCode, Text: q.Text,
+				ImageURL: h.media(q.ImageKey), Answers: ans,
+			},
+			Signs: chips,
+		}
+		if expl, ok := explByQ[q.ID]; ok {
+			copied := expl
+			detail.Explanation = &copied
+		}
+		out[q.ID] = detail
+	}
+	return out, fallback, nil
+}

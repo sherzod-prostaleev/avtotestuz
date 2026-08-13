@@ -252,6 +252,217 @@ func TestSessionQuestionDetailRequiresAuthAndMembership(t *testing.T) {
 	}
 }
 
+func compactJSON(t *testing.T, raw json.RawMessage) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	if err := json.Compact(&buf, raw); err != nil {
+		t.Fatalf("compact json: %v raw=%s", err, raw)
+	}
+	return buf.Bytes()
+}
+
+func TestSessionQuestionsBatchMatchesPerQuestion(t *testing.T) {
+	ts, tok, q := setupServer(t)
+	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "1", "locale": "uz-Latn"})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create session status=%d env=%+v", status, env)
+	}
+	var created struct {
+		ID          string   `json:"id"`
+		QuestionIDs []string `json:"question_ids"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	if len(created.QuestionIDs) < 2 {
+		t.Fatalf("fixture variant 1 should assign several questions, got %d", len(created.QuestionIDs))
+	}
+
+	batchPath := "/sessions/" + created.ID + "/questions?locale=uz-Latn"
+	status, _ = doReq(t, ts, http.MethodGet, batchPath, "", nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("batch questions without auth status=%d want 401", status)
+	}
+
+	other, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998907770100"})
+	if err != nil {
+		t.Fatalf("create other profile: %v", err)
+	}
+	otherToken, err := auth.IssueAccess([]byte(handlerSecret), other.ID, "user", time.Minute)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status, env = doReq(t, ts, http.MethodGet, batchPath, otherToken, nil)
+	if status != http.StatusNotFound || env.Error == nil || env.Error.Code != "not_found" {
+		t.Fatalf("another profile's batch status=%d env=%+v want 404 not_found", status, env)
+	}
+
+	status, env = doReq(t, ts, http.MethodGet, "/sessions/"+created.ID+"/questions?locale=nope", tok, nil)
+	if status != http.StatusBadRequest || env.Error == nil || env.Error.Code != "invalid_locale" {
+		t.Fatalf("invalid locale batch status=%d env=%+v want 400 invalid_locale", status, env)
+	}
+
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("batch questions status=%d env=%+v", status, env)
+	}
+	var batch []json.RawMessage
+	if err := json.Unmarshal(env.Data, &batch); err != nil {
+		t.Fatalf("batch json: %v data=%s", err, env.Data)
+	}
+	if len(batch) != len(created.QuestionIDs) {
+		t.Fatalf("batch len=%d want %d", len(batch), len(created.QuestionIDs))
+	}
+
+	for i, questionID := range created.QuestionIDs {
+		singlePath := "/sessions/" + created.ID + "/questions/" + questionID + "?locale=uz-Latn"
+		status, single := doReq(t, ts, http.MethodGet, singlePath, tok, nil)
+		if status != http.StatusOK {
+			t.Fatalf("single question %s status=%d env=%+v", questionID, status, single)
+		}
+		got := compactJSON(t, batch[i])
+		want := compactJSON(t, single.Data)
+		if !bytes.Equal(got, want) {
+			t.Fatalf("batch[%d] (id=%s) != per-question GET\nbatch=%s\nsingle=%s", i, questionID, got, want)
+		}
+		var item struct {
+			ID       string `json:"id"`
+			Position int    `json:"position"`
+			Answers  []struct {
+				ID string `json:"id"`
+			} `json:"answers"`
+		}
+		if err := json.Unmarshal(batch[i], &item); err != nil {
+			t.Fatal(err)
+		}
+		if item.ID != questionID {
+			t.Fatalf("batch[%d] id=%s want %s", i, item.ID, questionID)
+		}
+		if item.Position != i+1 {
+			t.Fatalf("batch[%d] position=%d want %d", i, item.Position, i+1)
+		}
+		if len(item.Answers) < 2 {
+			t.Fatalf("batch[%d] should keep shuffled answers, got %d", i, len(item.Answers))
+		}
+	}
+}
+
+func TestSessionQuestionsBatchRedactsUntilAnswered(t *testing.T) {
+	ts, tok, q := setupServer(t)
+	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "1", "locale": "ru"})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create session status=%d env=%+v", status, env)
+	}
+	var created struct {
+		ID          string   `json:"id"`
+		QuestionIDs []string `json:"question_ids"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	questionID := assignedQuestionWithExplanation(t, q, created.QuestionIDs)
+	const sentinel = "SESSION_BATCH_FEEDBACK_RU_SENTINEL"
+	installVerifiedExplanation(t, q, questionID, "ru", sentinel)
+	batchPath := "/sessions/" + created.ID + "/questions?locale=ru"
+
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("unanswered batch status=%d env=%+v", status, env)
+	}
+	var unanswered []json.RawMessage
+	if err := json.Unmarshal(env.Data, &unanswered); err != nil {
+		t.Fatalf("unanswered batch json: %v data=%s", err, env.Data)
+	}
+	for _, item := range unanswered {
+		assertNoFeedbackLeak(t, item, sentinel)
+	}
+
+	answerID := correctAnswerID(t, q, questionID)
+	answerBody, _ := json.Marshal(map[string]any{"question_id": questionID, "answer_id": answerID})
+	status, env = doReq(t, ts, http.MethodPost, "/sessions/"+created.ID+"/answers", tok, answerBody)
+	if status != http.StatusOK {
+		t.Fatalf("submit answer status=%d env=%+v", status, env)
+	}
+
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("answered batch status=%d env=%+v", status, env)
+	}
+	if !strings.Contains(string(env.Data), sentinel) {
+		t.Fatalf("answered batch lacks localized explanation: %s", env.Data)
+	}
+}
+
+func TestExamSessionQuestionsBatchSealsExplanationsUntilFinish(t *testing.T) {
+	ts, tok, q := setupServer(t)
+	profile, err := q.GetProfileByPhone(context.Background(), "+998901234567")
+	if err != nil {
+		t.Fatal(err)
+	}
+	grantVIP(t, q, profile.ID)
+	body, _ := json.Marshal(map[string]any{"mode": "exam", "locale": "uz-Latn"})
+	status, env := doReq(t, ts, http.MethodPost, "/sessions", tok, body)
+	if status != http.StatusCreated {
+		t.Fatalf("create exam status=%d env=%+v", status, env)
+	}
+	var created struct {
+		ID          string   `json:"id"`
+		QuestionIDs []string `json:"question_ids"`
+	}
+	if err := json.Unmarshal(env.Data, &created); err != nil {
+		t.Fatal(err)
+	}
+	questionID := uuid.MustParse(created.QuestionIDs[0])
+	const sentinel = "SESSION_BATCH_EXAM_SECRET_SENTINEL"
+	installVerifiedExplanation(t, q, questionID, "uz-Latn", sentinel)
+	batchPath := "/sessions/" + created.ID + "/questions?locale=uz-Latn"
+
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("active exam batch status=%d env=%+v", status, env)
+	}
+	var active []json.RawMessage
+	if err := json.Unmarshal(env.Data, &active); err != nil {
+		t.Fatalf("active exam batch json: %v data=%s", err, env.Data)
+	}
+	for _, item := range active {
+		assertNoFeedbackLeak(t, item, sentinel)
+	}
+
+	answerID := correctAnswerID(t, q, questionID)
+	answerBody, _ := json.Marshal(map[string]any{"question_id": questionID, "answer_id": answerID})
+	status, env = doReq(t, ts, http.MethodPost, "/sessions/"+created.ID+"/answers", tok, answerBody)
+	if status != http.StatusOK {
+		t.Fatalf("submit exam answer status=%d env=%+v", status, env)
+	}
+
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("answered active exam batch status=%d env=%+v", status, env)
+	}
+	var answeredBatch []json.RawMessage
+	if err := json.Unmarshal(env.Data, &answeredBatch); err != nil {
+		t.Fatalf("answered exam batch json: %v data=%s", err, env.Data)
+	}
+	for _, item := range answeredBatch {
+		assertNoExplanationLeak(t, item, sentinel)
+	}
+
+	status, env = doReq(t, ts, http.MethodPost, "/sessions/"+created.ID+"/finish", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("finish exam status=%d env=%+v", status, env)
+	}
+	status, env = doReq(t, ts, http.MethodGet, batchPath, tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("completed exam batch status=%d env=%+v", status, env)
+	}
+	if !strings.Contains(string(env.Data), sentinel) {
+		t.Fatalf("completed exam batch did not disclose explanation sentinel: %s", env.Data)
+	}
+}
+
 func TestFeedbackSessionQuestionDetailRedactsUntilAnswered(t *testing.T) {
 	ts, tok, q := setupServer(t)
 	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "1", "locale": "ru"})

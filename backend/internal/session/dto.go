@@ -74,6 +74,13 @@ type SessionQuestionAccess struct {
 	ExplanationAllowed bool
 }
 
+// SessionQuestionAccessItem is one assigned question's access decision, used
+// by the batch GET /sessions/{id}/questions payload.
+type SessionQuestionAccessItem struct {
+	QuestionID uuid.UUID
+	SessionQuestionAccess
+}
+
 // FinishResult is the full outcome of finishing an exam session: its final
 // pass/fail/abandoned status, why it stopped, and the score achieved.
 // CertificateShareCode is set when a Grand Mock pass persists a shareable credential.

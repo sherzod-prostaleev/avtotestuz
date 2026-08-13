@@ -291,6 +291,111 @@ func (q *Queries) ListQuestionSigns(ctx context.Context, arg ListQuestionSignsPa
 	return items, nil
 }
 
+const listQuestionSignsByQuestionIDs = `-- name: ListQuestionSignsByQuestionIDs :many
+SELECT qs.question_id, s.code, simg.storage_key AS image_key,
+       COALESCE(st.name, sft.name, '') AS name
+FROM question_sign qs
+JOIN sign s ON s.id = qs.sign_id
+LEFT JOIN image simg ON simg.id = s.image_id
+LEFT JOIN sign_translation st
+       ON st.sign_id = s.id AND st.locale = $1 AND st.status = 'verified'
+LEFT JOIN sign_translation sft
+       ON sft.sign_id = s.id AND sft.locale = 'uz-Latn' AND sft.status = 'verified'
+WHERE qs.question_id = ANY($2::uuid[])
+ORDER BY qs.question_id, s.code
+`
+
+type ListQuestionSignsByQuestionIDsParams struct {
+	Locale      string      `json:"locale"`
+	QuestionIds []uuid.UUID `json:"question_ids"`
+}
+
+type ListQuestionSignsByQuestionIDsRow struct {
+	QuestionID uuid.UUID   `json:"question_id"`
+	Code       string      `json:"code"`
+	ImageKey   pgtype.Text `json:"image_key"`
+	Name       string      `json:"name"`
+}
+
+func (q *Queries) ListQuestionSignsByQuestionIDs(ctx context.Context, arg ListQuestionSignsByQuestionIDsParams) ([]ListQuestionSignsByQuestionIDsRow, error) {
+	rows, err := q.db.Query(ctx, listQuestionSignsByQuestionIDs, arg.Locale, arg.QuestionIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListQuestionSignsByQuestionIDsRow
+	for rows.Next() {
+		var i ListQuestionSignsByQuestionIDsRow
+		if err := rows.Scan(
+			&i.QuestionID,
+			&i.Code,
+			&i.ImageKey,
+			&i.Name,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listQuestionsByIDs = `-- name: ListQuestionsByIDs :many
+SELECT q.id, c.code AS category_code,
+       img.storage_key AS image_key,
+       COALESCE(qt.text, qft.text, '') AS text,
+       (qt.text IS NULL)::bool AS fallback_used
+FROM question q
+JOIN category c ON c.id = q.category_id
+LEFT JOIN image img ON img.id = q.image_id
+LEFT JOIN question_translation qt
+       ON qt.question_id = q.id AND qt.locale = $1 AND qt.status = 'verified'
+LEFT JOIN question_translation qft
+       ON qft.question_id = q.id AND qft.locale = 'uz-Latn' AND qft.status = 'verified'
+WHERE q.id = ANY($2::uuid[]) AND q.validation_status = 'valid'
+`
+
+type ListQuestionsByIDsParams struct {
+	Locale string      `json:"locale"`
+	Ids    []uuid.UUID `json:"ids"`
+}
+
+type ListQuestionsByIDsRow struct {
+	ID           uuid.UUID   `json:"id"`
+	CategoryCode string      `json:"category_code"`
+	ImageKey     pgtype.Text `json:"image_key"`
+	Text         string      `json:"text"`
+	FallbackUsed bool        `json:"fallback_used"`
+}
+
+func (q *Queries) ListQuestionsByIDs(ctx context.Context, arg ListQuestionsByIDsParams) ([]ListQuestionsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, listQuestionsByIDs, arg.Locale, arg.Ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListQuestionsByIDsRow
+	for rows.Next() {
+		var i ListQuestionsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.CategoryCode,
+			&i.ImageKey,
+			&i.Text,
+			&i.FallbackUsed,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSignGroups = `-- name: ListSignGroups :many
 SELECT g.id, g.code, g.sort_order,
        COALESCE(t.name, ft.name, '') AS name
@@ -483,7 +588,7 @@ func (q *Queries) ListVariantQuestions(ctx context.Context, arg ListVariantQuest
 }
 
 const listVariants = `-- name: ListVariants :many
-SELECT v.number, count(vq.question_id)::int AS question_count
+SELECT v.id, v.number, count(vq.question_id)::int AS question_count
 FROM variant v
 LEFT JOIN variant_question vq ON vq.variant_id = v.id
 GROUP BY v.id, v.number
@@ -491,8 +596,9 @@ ORDER BY v.number
 `
 
 type ListVariantsRow struct {
-	Number        int32 `json:"number"`
-	QuestionCount int32 `json:"question_count"`
+	ID            uuid.UUID `json:"id"`
+	Number        int32     `json:"number"`
+	QuestionCount int32     `json:"question_count"`
 }
 
 func (q *Queries) ListVariants(ctx context.Context) ([]ListVariantsRow, error) {
@@ -504,7 +610,50 @@ func (q *Queries) ListVariants(ctx context.Context) ([]ListVariantsRow, error) {
 	var items []ListVariantsRow
 	for rows.Next() {
 		var i ListVariantsRow
-		if err := rows.Scan(&i.Number, &i.QuestionCount); err != nil {
+		if err := rows.Scan(&i.ID, &i.Number, &i.QuestionCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVerifiedExplanationsByQuestionIDs = `-- name: ListVerifiedExplanationsByQuestionIDs :many
+SELECT e.question_id, e.legal_refs,
+       COALESCE(et.blocks, eft.blocks) AS blocks
+FROM explanation e
+LEFT JOIN explanation_translation et
+       ON et.explanation_id = e.id AND et.locale = $1 AND et.status = 'verified'
+LEFT JOIN explanation_translation eft
+       ON eft.explanation_id = e.id AND eft.locale = 'uz-Latn' AND eft.status = 'verified'
+WHERE e.question_id = ANY($2::uuid[])
+  AND COALESCE(et.blocks, eft.blocks) IS NOT NULL
+`
+
+type ListVerifiedExplanationsByQuestionIDsParams struct {
+	Locale      string      `json:"locale"`
+	QuestionIds []uuid.UUID `json:"question_ids"`
+}
+
+type ListVerifiedExplanationsByQuestionIDsRow struct {
+	QuestionID uuid.UUID       `json:"question_id"`
+	LegalRefs  json.RawMessage `json:"legal_refs"`
+	Blocks     json.RawMessage `json:"blocks"`
+}
+
+func (q *Queries) ListVerifiedExplanationsByQuestionIDs(ctx context.Context, arg ListVerifiedExplanationsByQuestionIDsParams) ([]ListVerifiedExplanationsByQuestionIDsRow, error) {
+	rows, err := q.db.Query(ctx, listVerifiedExplanationsByQuestionIDs, arg.Locale, arg.QuestionIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVerifiedExplanationsByQuestionIDsRow
+	for rows.Next() {
+		var i ListVerifiedExplanationsByQuestionIDsRow
+		if err := rows.Scan(&i.QuestionID, &i.LegalRefs, &i.Blocks); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

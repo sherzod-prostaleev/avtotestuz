@@ -14,7 +14,7 @@ LEFT JOIN category_translation ft
 ORDER BY c.sort_order, c.code;
 
 -- name: ListVariants :many
-SELECT v.number, count(vq.question_id)::int AS question_count
+SELECT v.id, v.number, count(vq.question_id)::int AS question_count
 FROM variant v
 LEFT JOIN variant_question vq ON vq.variant_id = v.id
 GROUP BY v.id, v.number
@@ -67,6 +67,20 @@ LEFT JOIN question_translation qft
        ON qft.question_id = q.id AND qft.locale = 'uz-Latn' AND qft.status = 'verified'
 WHERE q.id = sqlc.arg(id) AND q.validation_status = 'valid';
 
+-- name: ListQuestionsByIDs :many
+SELECT q.id, c.code AS category_code,
+       img.storage_key AS image_key,
+       COALESCE(qt.text, qft.text, '') AS text,
+       (qt.text IS NULL)::bool AS fallback_used
+FROM question q
+JOIN category c ON c.id = q.category_id
+LEFT JOIN image img ON img.id = q.image_id
+LEFT JOIN question_translation qt
+       ON qt.question_id = q.id AND qt.locale = sqlc.arg(locale) AND qt.status = 'verified'
+LEFT JOIN question_translation qft
+       ON qft.question_id = q.id AND qft.locale = 'uz-Latn' AND qft.status = 'verified'
+WHERE q.id = ANY(sqlc.arg(ids)::uuid[]) AND q.validation_status = 'valid';
+
 -- name: ListQuestionSigns :many
 SELECT s.code, simg.storage_key AS image_key,
        COALESCE(st.name, sft.name, '') AS name
@@ -79,6 +93,19 @@ LEFT JOIN sign_translation sft
        ON sft.sign_id = s.id AND sft.locale = 'uz-Latn' AND sft.status = 'verified'
 WHERE qs.question_id = sqlc.arg(question_id)
 ORDER BY s.code;
+
+-- name: ListQuestionSignsByQuestionIDs :many
+SELECT qs.question_id, s.code, simg.storage_key AS image_key,
+       COALESCE(st.name, sft.name, '') AS name
+FROM question_sign qs
+JOIN sign s ON s.id = qs.sign_id
+LEFT JOIN image simg ON simg.id = s.image_id
+LEFT JOIN sign_translation st
+       ON st.sign_id = s.id AND st.locale = sqlc.arg(locale) AND st.status = 'verified'
+LEFT JOIN sign_translation sft
+       ON sft.sign_id = s.id AND sft.locale = 'uz-Latn' AND sft.status = 'verified'
+WHERE qs.question_id = ANY(sqlc.arg(question_ids)::uuid[])
+ORDER BY qs.question_id, s.code;
 
 -- name: ListSignGroups :many
 SELECT g.id, g.code, g.sort_order,
@@ -139,4 +166,15 @@ LEFT JOIN explanation_translation et
 LEFT JOIN explanation_translation eft
        ON eft.explanation_id = e.id AND eft.locale = 'uz-Latn' AND eft.status = 'verified'
 WHERE e.question_id = sqlc.arg(question_id)
+  AND COALESCE(et.blocks, eft.blocks) IS NOT NULL;
+
+-- name: ListVerifiedExplanationsByQuestionIDs :many
+SELECT e.question_id, e.legal_refs,
+       COALESCE(et.blocks, eft.blocks) AS blocks
+FROM explanation e
+LEFT JOIN explanation_translation et
+       ON et.explanation_id = e.id AND et.locale = sqlc.arg(locale) AND et.status = 'verified'
+LEFT JOIN explanation_translation eft
+       ON eft.explanation_id = e.id AND eft.locale = 'uz-Latn' AND eft.status = 'verified'
+WHERE e.question_id = ANY(sqlc.arg(question_ids)::uuid[])
   AND COALESCE(et.blocks, eft.blocks) IS NOT NULL;

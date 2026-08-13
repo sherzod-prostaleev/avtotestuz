@@ -70,28 +70,48 @@ async function mockSession(page: Page, scenario: LayoutScenario) {
       });
     }
 
-    if (url.pathname.endsWith(`/sessions/${SESSION_ID}/questions/${QUESTION_ID}`)) {
+    if (url.pathname.endsWith(`/sessions/${SESSION_ID}/questions`) || url.pathname.endsWith(`/sessions/${SESSION_ID}/questions/${QUESTION_ID}`)) {
       return route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          data: {
-            id: QUESTION_ID,
-            category_code: "layout",
-            text: scenario.question,
-            image_url: scenario.imageUrl,
-            answers: scenario.answers.map((text, index) => ({
-              id: `answer-${index + 1}`,
-              position: index + 1,
-              text,
-              image_url: null,
-            })),
-            signs: [],
-            explanation: null,
-            position: 1,
-            answered: false,
-            user_answer_id: null,
-          },
+          data: url.pathname.endsWith(`/sessions/${SESSION_ID}/questions`)
+            ? [
+                {
+                  id: QUESTION_ID,
+                  category_code: "layout",
+                  text: scenario.question,
+                  image_url: scenario.imageUrl,
+                  answers: scenario.answers.map((text, index) => ({
+                    id: `answer-${index + 1}`,
+                    position: index + 1,
+                    text,
+                    image_url: null,
+                  })),
+                  signs: [],
+                  explanation: null,
+                  position: 1,
+                  answered: false,
+                  user_answer_id: null,
+                },
+              ]
+            : {
+                id: QUESTION_ID,
+                category_code: "layout",
+                text: scenario.question,
+                image_url: scenario.imageUrl,
+                answers: scenario.answers.map((text, index) => ({
+                  id: `answer-${index + 1}`,
+                  position: index + 1,
+                  text,
+                  image_url: null,
+                })),
+                signs: [],
+                explanation: null,
+                position: 1,
+                answered: false,
+                user_answer_id: null,
+              },
         }),
       });
     }

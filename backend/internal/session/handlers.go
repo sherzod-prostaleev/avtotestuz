@@ -27,6 +27,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/sessions/{id}/answers", h.submitAnswer)
 	r.Post("/sessions/{id}/finish", h.finishSession)
 	r.Get("/sessions/{id}", h.getSession)
+	r.Get("/sessions/{id}/questions", h.listSessionQuestions)
 	r.Get("/sessions/{id}/questions/{questionID}", h.getSessionQuestion)
 	r.Get("/me/practice-allowance", h.practiceAllowance)
 	r.Get("/me/mock-eligibility", h.mockEligibility)
@@ -289,6 +290,29 @@ type sessionQuestionDetailResponse struct {
 	CorrectAnswerID *string `json:"correct_answer_id,omitempty"`
 }
 
+func decorateSessionQuestion(sessionID, questionID uuid.UUID, access SessionQuestionAccess, detail content.QuestionDetailDTO) sessionQuestionDetailResponse {
+	if !access.ExplanationAllowed {
+		detail.Explanation = nil
+	}
+	detail.Answers = shuffleSessionAnswers(detail.Answers, sessionID, questionID)
+
+	response := sessionQuestionDetailResponse{
+		QuestionDetailDTO: detail,
+		Position:          access.Position,
+		Answered:          access.Answered,
+		Correct:           access.Correct,
+	}
+	if access.UserAnswerID != nil {
+		value := access.UserAnswerID.String()
+		response.UserAnswerID = &value
+	}
+	if access.CorrectAnswerID != nil {
+		value := access.CorrectAnswerID.String()
+		response.CorrectAnswerID = &value
+	}
+	return response
+}
+
 func (h *Handler) getSessionQuestion(w http.ResponseWriter, r *http.Request) {
 	claims, ok := claimsOrUnauthorized(w, r)
 	if !ok {
@@ -326,26 +350,63 @@ func (h *Handler) getSessionQuestion(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
-	if !access.ExplanationAllowed {
-		detail.Explanation = nil
-	}
-	detail.Answers = shuffleSessionAnswers(detail.Answers, sessionID, questionID)
+	httpx.DataMeta(w, http.StatusOK, decorateSessionQuestion(sessionID, questionID, access, detail), content.LocaleMeta{Locale: loc, Fallback: fallback})
+}
 
-	response := sessionQuestionDetailResponse{
-		QuestionDetailDTO: detail,
-		Position:          access.Position,
-		Answered:          access.Answered,
-		Correct:           access.Correct,
+func (h *Handler) listSessionQuestions(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
 	}
-	if access.UserAnswerID != nil {
-		value := access.UserAnswerID.String()
-		response.UserAnswerID = &value
+	sessionID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
 	}
-	if access.CorrectAnswerID != nil {
-		value := access.CorrectAnswerID.String()
-		response.CorrectAnswerID = &value
+	loc, ok := i18n.Parse(r)
+	if !ok {
+		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
+		return
 	}
-	httpx.DataMeta(w, http.StatusOK, response, content.LocaleMeta{Locale: loc, Fallback: fallback})
+
+	accesses, err := h.Svc.ListSessionQuestionAccesses(r.Context(), claims.ProfileID, sessionID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	if h.Content == nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question content is unavailable")
+		return
+	}
+
+	ids := make([]uuid.UUID, len(accesses))
+	for i, item := range accesses {
+		ids[i] = item.QuestionID
+	}
+	details, fallback, err := h.Content.LoadQuestionDetails(r.Context(), ids, loc, needExplanations(accesses))
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
+		return
+	}
+
+	out := make([]sessionQuestionDetailResponse, 0, len(accesses))
+	for _, item := range accesses {
+		detail, ok := details[item.QuestionID]
+		if !ok {
+			httpx.Error(w, http.StatusNotFound, "not_found", "question not found")
+			return
+		}
+		out = append(out, decorateSessionQuestion(sessionID, item.QuestionID, item.SessionQuestionAccess, detail))
+	}
+	httpx.DataMeta(w, http.StatusOK, out, content.LocaleMeta{Locale: loc, Fallback: fallback})
+}
+
+func needExplanations(accesses []SessionQuestionAccessItem) bool {
+	for _, item := range accesses {
+		if item.ExplanationAllowed {
+			return true
+		}
+	}
+	return false
 }
 
 type finishSessionResponse struct {

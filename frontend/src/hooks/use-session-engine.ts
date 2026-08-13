@@ -295,20 +295,57 @@ function toQuestionItem(
   };
 }
 
-/** Promise.all preserves the canonical input order supplied by the session. */
+/** Load every assigned question in one request; map back onto session order. */
+function batchQuestionsPath(sessionId: string, locale: string): string {
+  return `sessions/${sessionId}/questions?locale=${encodeURIComponent(locale)}`;
+}
+
 async function fetchSessionQuestions(
   sessionId: string,
   orderedAnswers: SessionAnswerResponse[],
   locale: string
 ): Promise<SessionQuestionItem[]> {
-  const details = await Promise.all(
-    orderedAnswers.map((answer) =>
-      apiGet<QuestionDetailResponse>(
-        `sessions/${sessionId}/questions/${answer.question_id}?locale=${encodeURIComponent(locale)}`
-      )
-    )
-  );
-  return details.map((detail, index) => toQuestionItem(detail, orderedAnswers[index]));
+  const batch = await apiGet<QuestionDetailResponse[]>(batchQuestionsPath(sessionId, locale));
+  if (!Array.isArray(batch)) {
+    throw new Error("session questions batch is not an array");
+  }
+  const byId = new Map(batch.map((detail) => [detail.id, detail]));
+  return orderedAnswers.map((answer) => {
+    const detail = byId.get(answer.question_id);
+    if (!detail) {
+      throw new Error(`missing session question ${answer.question_id}`);
+    }
+    return toQuestionItem(detail, answer);
+  });
+}
+
+type WarmSessionBundle = {
+  locale: string;
+  startedAt: string;
+  state: SessionState;
+};
+
+let warmSessionBundle: WarmSessionBundle | null = null;
+
+/** Drops the start→session-page one-shot bundle. Tests must call this between cases. */
+export function clearSessionQuestionWarmCache(): void {
+  warmSessionBundle = null;
+}
+
+function stashWarmSession(state: SessionState, locale: string, startedAt: string): void {
+  warmSessionBundle = { locale, startedAt, state };
+}
+
+function takeWarmSession(sessionId: string, locale: string): SessionState | null {
+  const cached = warmSessionBundle;
+  if (!cached || cached.state.id !== sessionId || cached.locale !== locale) {
+    return null;
+  }
+  warmSessionBundle = null;
+  return {
+    ...cached.state,
+    remaining_sec: remainingSeconds(cached.startedAt, cached.state.time_limit_sec),
+  };
 }
 
 function orderedQuestionRefs(questionIds: string[]): SessionAnswerResponse[] {
@@ -431,6 +468,7 @@ export function useSessionEngine(_initialSessionId?: string) {
           passed: null,
           completed_at: null,
         };
+        stashWarmSession(state, locale, created.started_at);
         commitSession(state);
         return state;
       } catch (err: unknown) {
@@ -447,14 +485,21 @@ export function useSessionEngine(_initialSessionId?: string) {
     async (sessionId: string, locale?: string): Promise<SessionState | null> => {
       // Soft reload when the same session is already on screen (locale switch):
       // keep the painted UI instead of wiping to null → loading spinner → white flash.
+      const resolvedLocale = locale ?? defaultLocale;
+      localeRef.current = resolvedLocale;
       const soft = sessionRef.current?.id === sessionId;
+
       if (!soft) {
+        const warm = takeWarmSession(sessionId, resolvedLocale);
+        if (warm) {
+          setError(null);
+          commitSession(warm);
+          return warm;
+        }
         setLoading(true);
         commitSession(null);
       }
       setError(null);
-      const resolvedLocale = locale ?? defaultLocale;
-      localeRef.current = resolvedLocale;
 
       try {
         const state = await fetchSessionState(sessionId, resolvedLocale);

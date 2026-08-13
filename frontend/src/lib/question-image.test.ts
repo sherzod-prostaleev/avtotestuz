@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   QUESTION_IMAGE_PLACEHOLDER,
   hasQuestionImage,
+  prefetchQuestionImages,
   resolveQuestionImageUrl,
+  upcomingQuestionImageUrls,
 } from "./question-image";
 
 describe("question-image", () => {
@@ -23,5 +25,41 @@ describe("question-image", () => {
     expect(resolveQuestionImageUrl(null)).toBe(QUESTION_IMAGE_PLACEHOLDER);
     expect(resolveQuestionImageUrl("")).toBe(QUESTION_IMAGE_PLACEHOLDER);
     expect(resolveQuestionImageUrl("  ")).toBe(QUESTION_IMAGE_PLACEHOLDER);
+  });
+
+  it("collects the current and next two real media URLs", () => {
+    expect(
+      upcomingQuestionImageUrls(
+        [
+          { image_url: "https://media.example.test/a.webp" },
+          { image_url: null },
+          { image_url: "https://media.example.test/c.webp" },
+          { image_url: "https://media.example.test/d.webp" },
+        ],
+        0
+      )
+    ).toEqual(["https://media.example.test/a.webp", "https://media.example.test/c.webp"]);
+  });
+
+  it("prefetches unique real URLs and skips the placeholder", () => {
+    const sources: string[] = [];
+    class FakeImage {
+      set src(value: string) {
+        sources.push(value);
+      }
+    }
+    vi.stubGlobal("Image", FakeImage);
+    prefetchQuestionImages([
+      "https://media.example.test/a.webp",
+      null,
+      "https://media.example.test/a.webp",
+      QUESTION_IMAGE_PLACEHOLDER,
+      "  https://media.example.test/b.webp  ",
+    ]);
+    expect(sources).toEqual([
+      "https://media.example.test/a.webp",
+      "https://media.example.test/b.webp",
+    ]);
+    vi.unstubAllGlobals();
   });
 });

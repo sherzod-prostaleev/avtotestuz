@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 import * as apiClient from "@/lib/api-client";
-import { useSessionEngine } from "./use-session-engine";
+import { clearSessionQuestionWarmCache, useSessionEngine } from "./use-session-engine";
 
 const LOCALE = "uz-Latn";
 const STARTED_AT = "2026-07-22T10:00:00Z";
@@ -37,8 +37,8 @@ function startResponse(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function scopedQuestionPath(sessionId: string, questionId: string, locale = LOCALE) {
-  return `sessions/${sessionId}/questions/${questionId}?locale=${locale}`;
+function batchQuestionsPath(sessionId: string, locale = LOCALE) {
+  return `sessions/${sessionId}/questions?locale=${locale}`;
 }
 
 function mockOnlyScopedQuestions(
@@ -46,10 +46,11 @@ function mockOnlyScopedQuestions(
   details: Record<string, ReturnType<typeof questionDetail>> = {}
 ) {
   return vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-    const match = path.match(/^sessions\/([^/]+)\/questions\/([^?]+)\?locale=(.+)$/);
+    const match = path.match(/^sessions\/([^/]+)\/questions\?locale=(.+)$/);
     if (match && match[1] === sessionId) {
-      const id = match[2];
-      return (details[id] ?? questionDetail(id)) as never;
+      const items =
+        Object.keys(details).length > 0 ? Object.values(details) : [questionDetail("q-1")];
+      return items as never;
     }
     throw new Error(`unexpected apiGet path: ${path}`);
   });
@@ -69,10 +70,12 @@ describe("useSessionEngine", () => {
     vi.restoreAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-07-22T10:05:00Z"));
+    clearSessionQuestionWarmCache();
   });
 
   afterEach(() => {
     vi.useRealTimers();
+    clearSessionQuestionWarmCache();
   });
 
   it("starts with authenticated session-scoped questions in the server's question_ids order", async () => {
@@ -101,11 +104,41 @@ describe("useSessionEngine", () => {
     expect(result.current.session?.questions[0].correct).toBeUndefined();
     expect(result.current.session?.questions[0].correct_answer_id).toBeUndefined();
     expect(post).toHaveBeenCalledWith("sessions", { mode: "exam", locale: LOCALE });
-    expect(get.mock.calls.map(([path]) => path)).toEqual([
-      scopedQuestionPath("sess-99", "q-2"),
-      scopedQuestionPath("sess-99", "q-1"),
-    ]);
+    expect(get.mock.calls.map(([path]) => path)).toEqual([batchQuestionsPath("sess-99")]);
     expect(get.mock.calls.some(([path]) => String(path).startsWith("questions/"))).toBe(false);
+  });
+
+  it("reuses a one-shot warm bundle so the session page does not refetch after start", async () => {
+    vi.spyOn(apiClient, "apiPost").mockResolvedValue(
+      startResponse({
+        mode: "exam",
+        question_ids: ["q-2", "q-1"],
+        time_limit_sec: 1500,
+        total: 2,
+      }) as never
+    );
+    const get = mockOnlyScopedQuestions("sess-99", {
+      "q-1": questionDetail("q-1", { position: 1 }),
+      "q-2": questionDetail("q-2", { position: 2 }),
+    });
+    const { result, unmount } = renderHook(() => useSessionEngine());
+
+    await act(async () => {
+      await result.current.startSession("exam", { locale: LOCALE });
+    });
+    expect(get).toHaveBeenCalledTimes(1);
+    unmount();
+
+    vi.setSystemTime(new Date("2026-07-22T10:10:00Z"));
+    const { result: page } = renderHook(() => useSessionEngine());
+    await act(async () => {
+      await page.current.loadSession("sess-99", LOCALE);
+    });
+
+    expect(page.current.session?.questions.map((question) => question.id)).toEqual(["q-2", "q-1"]);
+    expect(page.current.session?.time_limit_sec).toBe(1500);
+    expect(page.current.session?.remaining_sec).toBe(900);
+    expect(get).toHaveBeenCalledTimes(1);
   });
 
   it("serializes human-readable selectors and count without changing the backend contract", async () => {
@@ -131,7 +164,7 @@ describe("useSessionEngine", () => {
       sign_id: "3.27",
       count: 20,
     });
-    expect(apiClient.apiGet).toHaveBeenCalledWith(scopedQuestionPath("sess-99", "q-1", "ru"));
+    expect(apiClient.apiGet).toHaveBeenCalledWith(batchQuestionsPath("sess-99", "ru"));
   });
 
   it("serializes practice bilet range selectors", async () => {
@@ -225,11 +258,11 @@ describe("useSessionEngine", () => {
           ],
         } as never;
       }
-      if (path === scopedQuestionPath("sess-7", "q-a")) {
-        return questionDetail("q-a", { position: 1, explanation: realExplanation }) as never;
-      }
-      if (path === scopedQuestionPath("sess-7", "q-b")) {
-        return questionDetail("q-b", { position: 2 }) as never;
+      if (path === batchQuestionsPath("sess-7")) {
+        return [
+          questionDetail("q-a", { position: 1, explanation: realExplanation }),
+          questionDetail("q-b", { position: 2 }),
+        ] as never;
       }
       throw new Error(`unexpected apiGet path: ${path}`);
     });
@@ -261,8 +294,7 @@ describe("useSessionEngine", () => {
     expect(result.current.session?.remaining_sec).not.toBe(1500);
     expect(get.mock.calls.map(([path]) => path)).toEqual([
       "sessions/sess-7",
-      scopedQuestionPath("sess-7", "q-a"),
-      scopedQuestionPath("sess-7", "q-b"),
+      batchQuestionsPath("sess-7"),
     ]);
   });
 
@@ -281,8 +313,8 @@ describe("useSessionEngine", () => {
           answers: [{ question_id: "q-1", position: 1, answered: false }],
         } as never;
       }
-      if (path === scopedQuestionPath("sess-expired", "q-1")) {
-        return questionDetail("q-1") as never;
+      if (path === batchQuestionsPath("sess-expired")) {
+        return [questionDetail("q-1")] as never;
       }
       throw new Error(`unexpected apiGet path: ${path}`);
     });
@@ -310,11 +342,11 @@ describe("useSessionEngine", () => {
           answers: [{ question_id: "q-1", position: 1, answered: false }],
         } as never;
       }
-      if (path === scopedQuestionPath("sess-soft", "q-1", "uz-Latn")) {
-        return questionDetail("q-1", { text: "Lotin savol" }) as never;
+      if (path === batchQuestionsPath("sess-soft", "uz-Latn")) {
+        return [questionDetail("q-1", { text: "Lotin savol" })] as never;
       }
-      if (path === scopedQuestionPath("sess-soft", "q-1", "ru")) {
-        return questionDetail("q-1", { text: "Русский вопрос" }) as never;
+      if (path === batchQuestionsPath("sess-soft", "ru")) {
+        return [questionDetail("q-1", { text: "Русский вопрос" })] as never;
       }
       throw new Error(`unexpected apiGet path: ${path}`);
     });
@@ -496,19 +528,21 @@ describe("useSessionEngine", () => {
           ],
         } as never;
       }
-      if (path === scopedQuestionPath("sess-99", "q-1")) {
-        return questionDetail("q-1", {
-          answered: stopped,
-          user_answer_id: stopped ? "q-1-a1" : undefined,
-          correct: stopped ? false : undefined,
-          correct_answer_id: stopped ? "q-1-a2" : undefined,
-          explanation: stopped
-            ? {
-                legal_refs: [],
-                blocks: [{ type: "muhim", text: "STOPPED_FEEDBACK_SENTINEL" }],
-              }
-            : null,
-        }) as never;
+      if (path === batchQuestionsPath("sess-99")) {
+        return [
+          questionDetail("q-1", {
+            answered: stopped,
+            user_answer_id: stopped ? "q-1-a1" : undefined,
+            correct: stopped ? false : undefined,
+            correct_answer_id: stopped ? "q-1-a2" : undefined,
+            explanation: stopped
+              ? {
+                  legal_refs: [],
+                  blocks: [{ type: "muhim", text: "STOPPED_FEEDBACK_SENTINEL" }],
+                }
+              : null,
+          }),
+        ] as never;
       }
       throw new Error(`unexpected apiGet path: ${path}`);
     });
@@ -529,9 +563,9 @@ describe("useSessionEngine", () => {
       "STOPPED_FEEDBACK_SENTINEL"
     );
     expect(get.mock.calls.map(([path]) => path)).toEqual([
-      scopedQuestionPath("sess-99", "q-1"),
+      batchQuestionsPath("sess-99"),
       "sessions/sess-99",
-      scopedQuestionPath("sess-99", "q-1"),
+      batchQuestionsPath("sess-99"),
     ]);
   });
 
@@ -576,19 +610,21 @@ describe("useSessionEngine", () => {
           ],
         } as never;
       }
-      if (path === scopedQuestionPath("sess-99", "q-1")) {
-        return questionDetail("q-1", {
-          answered: finished,
-          user_answer_id: finished ? "q-1-a1" : undefined,
-          correct: finished ? true : undefined,
-          correct_answer_id: finished ? "q-1-a1" : undefined,
-          explanation: finished
-            ? {
-                legal_refs: [],
-                blocks: [{ type: "muhim", text: "FINISH_FEEDBACK_SENTINEL" }],
-              }
-            : null,
-        }) as never;
+      if (path === batchQuestionsPath("sess-99")) {
+        return [
+          questionDetail("q-1", {
+            answered: finished,
+            user_answer_id: finished ? "q-1-a1" : undefined,
+            correct: finished ? true : undefined,
+            correct_answer_id: finished ? "q-1-a1" : undefined,
+            explanation: finished
+              ? {
+                  legal_refs: [],
+                  blocks: [{ type: "muhim", text: "FINISH_FEEDBACK_SENTINEL" }],
+                }
+              : null,
+          }),
+        ] as never;
       }
       throw new Error(`unexpected apiGet path: ${path}`);
     });
@@ -616,9 +652,9 @@ describe("useSessionEngine", () => {
       "FINISH_FEEDBACK_SENTINEL"
     );
     expect(get.mock.calls.map(([path]) => path)).toEqual([
-      scopedQuestionPath("sess-99", "q-1"),
+      batchQuestionsPath("sess-99"),
       "sessions/sess-99",
-      scopedQuestionPath("sess-99", "q-1"),
+      batchQuestionsPath("sess-99"),
     ]);
   });
 

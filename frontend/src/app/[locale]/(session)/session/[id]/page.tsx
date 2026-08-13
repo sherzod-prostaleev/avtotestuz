@@ -36,7 +36,11 @@ import { GrandMockCertificateDialog } from "@/components/mock/grand-mock-certifi
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { meetsExamPassThreshold } from "@/lib/celebration-confetti";
-import { resolveQuestionImageUrl } from "@/lib/question-image";
+import {
+  prefetchQuestionImages,
+  resolveQuestionImageUrl,
+  upcomingQuestionImageUrls,
+} from "@/lib/question-image";
 
 /** Modes that share the strict timed/anti-cheat exam pipeline — timer,
  * answer redaction until finish, F-key exam UI. Currently "exam",
@@ -155,6 +159,11 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       block: "nearest",
     });
   }, [currentIndex]);
+
+  useEffect(() => {
+    if (!session?.questions.length) return;
+    prefetchQuestionImages(upcomingQuestionImageUrls(session.questions, currentIndex));
+  }, [session, currentIndex]);
 
   // Grand Mock's reward theater (confetti + certificate) is additive on top
   // of the shared exam-like result screen — shown once per passed session,

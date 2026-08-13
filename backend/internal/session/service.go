@@ -3,6 +3,7 @@ package session
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -121,9 +122,8 @@ func (s *Service) ResolveSignID(ctx context.Context, raw string) (uuid.UUID, err
 // real client can only send `variant_id: "12"`, not a UUID it doesn't have.
 // A raw string that already parses as a UUID is trusted as-is (matching the
 // prior behavior of not re-validating a caller-supplied UUID); otherwise it
-// must parse as the variant's integer number, resolved to a UUID via the
-// existing GetVariantByNumber query (already used by ListVariantStatuses,
-// so no new sqlc query is needed here). Anything that is neither a valid
+// must parse as the variant's integer number, resolved to a UUID via
+// GetVariantByNumber. Anything that is neither a valid
 // UUID nor a valid integer, or a well-formed number with no matching
 // variant, surfaces as ErrNotFound (mirrored to "not_found" by
 // writeSessionError, same as ResolveCategoryID/ResolveSignID).
@@ -702,6 +702,62 @@ func (s *Service) GetSessionQuestionAccess(ctx context.Context, profileID, sessi
 	return access, nil
 }
 
+// ListSessionQuestionAccesses authorizes a session-scoped batch read and
+// returns every assigned question's disclosure decision in position order.
+// Ownership and missing sessions surface as ErrNotFound, matching
+// GetSessionQuestionAccess so the list endpoint cannot probe membership.
+func (s *Service) ListSessionQuestionAccesses(ctx context.Context, profileID, sessionID uuid.UUID) ([]SessionQuestionAccessItem, error) {
+	row, err := s.Q.GetExamSession(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	if row.ProfileID != profileID {
+		return nil, ErrNotFound
+	}
+
+	assigned, err := s.Q.ListSessionQuestionsWithAnswers(ctx, sessionID)
+	if err != nil {
+		return nil, err
+	}
+
+	finished := row.Status != "in_progress"
+	out := make([]SessionQuestionAccessItem, 0, len(assigned))
+	for _, a := range assigned {
+		item := SessionQuestionAccessItem{QuestionID: a.QuestionID}
+		item.Position = int(a.Position)
+		if a.UserAnswerID.Valid {
+			item.Answered = true
+			userAnswerID := a.UserAnswerID.UUID
+			item.UserAnswerID = &userAnswerID
+		}
+		if IsExamLike(row.Mode) {
+			item.ExplanationAllowed = finished
+		} else {
+			item.ExplanationAllowed = item.Answered
+		}
+
+		gradeAllowed := item.Answered || finished
+		if !gradeAllowed {
+			out = append(out, item)
+			continue
+		}
+		if !a.CorrectAnswerID.Valid {
+			return nil, fmt.Errorf("session %s question %s missing correct_answer_id", sessionID, a.QuestionID)
+		}
+		correctAnswerID := a.CorrectAnswerID.UUID
+		item.CorrectAnswerID = &correctAnswerID
+		if item.Answered && a.IsCorrect.Valid {
+			correct := a.IsCorrect.Bool
+			item.Correct = &correct
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
 // unlockThresholdConfigKey is the limit_config key holding the minimum
 // correct-answer count a variant-mode session must reach to mark the bilet
 // completed (completed_at). Completing a bilet unlocks the next one for VIP
@@ -1067,11 +1123,6 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 	statuses := make([]VariantStatus, 0, len(variants))
 	prevCompleted := true // unused for #1; seeded so the first step is clean
 	for _, v := range variants {
-		variant, err := s.Q.GetVariantByNumber(ctx, v.Number)
-		if err != nil {
-			return nil, err
-		}
-
 		gatePrev := prevCompleted || bypass
 		unlocked := IsVariantUnlocked(int(v.Number), active, gatePrev)
 		status := VariantStatus{
@@ -1082,7 +1133,7 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		}
 
 		completed := false
-		if p, ok := progressByVariant[variant.ID]; ok {
+		if p, ok := progressByVariant[v.ID]; ok {
 			status.BestCorrect = int(p.BestCorrect)
 			status.Attempts = int(p.Attempts)
 			if p.CompletedAt.Valid {

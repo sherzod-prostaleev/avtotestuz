@@ -59,7 +59,7 @@ func TestContentReadQueries(t *testing.T) {
 		t.Fatalf("kaa fallback: %+v err=%v", catsKaa, err)
 	}
 	vars, err := q.ListVariants(ctx)
-	if err != nil || len(vars) != 1 || vars[0].Number != 1 || vars[0].QuestionCount != 1 {
+	if err != nil || len(vars) != 1 || vars[0].Number != 1 || vars[0].QuestionCount != 1 || vars[0].ID != vID {
 		t.Fatalf("vars=%+v err=%v", vars, err)
 	}
 	vqs, err := q.ListVariantQuestions(ctx, sqlc.ListVariantQuestionsParams{VariantID: vID, Locale: "uz-Latn"})
