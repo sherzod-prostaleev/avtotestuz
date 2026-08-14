@@ -4,6 +4,23 @@
  */
 export const QUESTION_IMAGE_PLACEHOLDER = "/exam/placeholder-driver-go-cars.png";
 
+/**
+ * API MEDIA_BASE_URL is http://localhost:9000/media in local .env. That origin is
+ * not `'self'` on :3000, and CSP `img-src` only allows `'self' data: blob: https:`,
+ * so the browser blocks the real diagram even when MinIO returns 200.
+ * Production nginx already serves the bucket at same-origin `/media/...`.
+ */
+const LOCAL_MINIO_MEDIA =
+  /^https?:\/\/(?:localhost|127\.0\.0\.1|minio):9000\/media(\/.*)?$/i;
+
+/** Map a local MinIO absolute URL onto same-origin `/media/...`. Other URLs pass through. */
+export function toBrowserMediaUrl(imageUrl: string): string {
+  const trimmed = imageUrl.trim();
+  const match = LOCAL_MINIO_MEDIA.exec(trimmed);
+  if (!match) return trimmed;
+  return `/media${match[1] ?? ""}`;
+}
+
 /** True when the API provided a non-empty media URL (do not overwrite real diagrams). */
 export function hasQuestionImage(imageUrl?: string | null): boolean {
   return Boolean(imageUrl?.trim());
@@ -15,7 +32,7 @@ export function hasQuestionImage(imageUrl?: string | null): boolean {
  */
 export function resolveQuestionImageUrl(imageUrl?: string | null): string {
   const trimmed = imageUrl?.trim();
-  return trimmed || QUESTION_IMAGE_PLACEHOLDER;
+  return trimmed ? toBrowserMediaUrl(trimmed) : QUESTION_IMAGE_PLACEHOLDER;
 }
 
 /** Current question plus the next `ahead` items that actually have media. */
@@ -29,7 +46,7 @@ export function upcomingQuestionImageUrls(
   const urls: string[] = [];
   for (let i = currentIndex; i <= last; i += 1) {
     const raw = questions[i]?.image_url?.trim();
-    if (raw) urls.push(raw);
+    if (raw) urls.push(toBrowserMediaUrl(raw));
   }
   return urls;
 }
@@ -44,9 +61,11 @@ export function prefetchQuestionImages(urls: Array<string | null | undefined>): 
   const seen = new Set<string>();
   for (const url of urls) {
     const trimmed = url?.trim();
-    if (!trimmed || trimmed === QUESTION_IMAGE_PLACEHOLDER || seen.has(trimmed)) continue;
-    seen.add(trimmed);
+    if (!trimmed) continue;
+    const src = toBrowserMediaUrl(trimmed);
+    if (src === QUESTION_IMAGE_PLACEHOLDER || seen.has(src)) continue;
+    seen.add(src);
     const img = new Image();
-    img.src = trimmed;
+    img.src = src;
   }
 }

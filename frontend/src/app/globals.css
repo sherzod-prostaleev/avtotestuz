@@ -222,10 +222,17 @@
     padding-bottom: max(1rem, env(safe-area-inset-bottom));
   }
 
-  /* Sticky primary action — thumb zone on phones */
+  /* Sticky primary action — thumb zone on phones. Inside the app shell the
+     fixed tab bar owns the bottom edge, so pin above it. Session screens have
+     no tab bar and keep bottom: 0. */
   .sticky-cta-bar {
     @apply sticky bottom-0 z-30 -mx-4 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none;
     padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
+  @media (max-width: 767px) {
+    .app-shell-main .sticky-cta-bar {
+      bottom: calc(3.25rem + env(safe-area-inset-bottom));
+    }
   }
 
   .touch-target {

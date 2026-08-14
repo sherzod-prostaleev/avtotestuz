@@ -9,6 +9,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+vi.mock("@/i18n/navigation", () => ({
+  usePathname: () => "/login",
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 vi.mock("@/lib/referral-storage", () => ({
   capturePendingReferralCodeFromUrl: vi.fn(),
   applyPendingReferralCode: vi.fn().mockResolvedValue(undefined),
@@ -102,9 +107,21 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Kirish" }));
 
     await waitFor(() =>
-      expect(screen.getByText("Parol tiklash uchun support bilan bog'laning.")).toBeInTheDocument()
+      expect(screen.getByText("Parol o'rnatilmagan. Pastdagi parolni tiklash orqali yangi parol qo'ying.")).toBeInTheDocument()
     );
     expect(screen.getByRole("heading", { name: "Kirish" })).toBeInTheDocument();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows a full-size register CTA and a forgot-password link", () => {
+    renderWithIntl();
+    expect(screen.getByRole("link", { name: "Ro'yxatdan o'tish" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/register"
+    );
+    expect(screen.getByRole("link", { name: "Parolni unutdingizmi?" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/forgot-password"
+    );
   });
 });

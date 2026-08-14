@@ -213,7 +213,7 @@ func Truncate(t *testing.T, pool *pgxpool.Pool) {
 				manual_pay_assignment, manual_pay_event, manual_pay_card,
 				payment_void, promo_redemption, entitlement, payment,
 				promo_code, tariff_translation, tariff,
-				explanation_feedback, refresh_token, device, telegram_account, telegram_link_token,
+				explanation_feedback, refresh_token, device, telegram_account, telegram_link_token, password_reset_token,
 				otp_challenge, profile,
 				explanation_translation, explanation, question_sign,
 				sign_translation, sign, sign_group_translation, sign_group,

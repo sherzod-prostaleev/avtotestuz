@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
 import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 interface EntitlementDTO {
   active: boolean;
@@ -93,6 +95,19 @@ export default function CheckoutPendingPage() {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           {t("checkoutPendingSubtitle")}
         </p>
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t("checkoutPendingHelp")}</p>
+        <div className="mt-6 flex w-full flex-col gap-2">
+          <Link href={`/${locale}/premium`} className="w-full">
+            <Button as="span" variant="outline" size="lg" className="w-full">
+              {t("checkoutTryAgain")}
+            </Button>
+          </Link>
+          <Link href={`/${locale}/dashboard`} className="w-full">
+            <Button as="span" variant="ghost" size="lg" className="w-full">
+              {t("checkoutPendingExit")}
+            </Button>
+          </Link>
+        </div>
       </Card>
     </main>
   );

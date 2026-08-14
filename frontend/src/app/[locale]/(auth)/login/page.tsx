@@ -7,9 +7,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Lock, Phone, ShieldCheck } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
+import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -23,11 +25,7 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
 
 /** National 9-digit UZ mobile (strips optional 998 country code). */
 function normalizePhone(input: string): string {
-  let digits = input.replace(/\D/g, "");
-  if (digits.startsWith("998") && digits.length >= 12) {
-    digits = digits.slice(3);
-  }
-  return digits.slice(0, 9);
+  return normalizeNationalPhone(input);
 }
 
 export default function LoginPage() {
@@ -130,7 +128,10 @@ export default function LoginPage() {
           <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
           <span className="truncate">{t("brandName")}</span>
         </Link>
-        <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <LocaleSwitcher compact />
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="flex flex-1 items-center justify-center p-3 sm:p-4">
@@ -167,7 +168,7 @@ export default function LoginPage() {
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel-national"
-                  value={phone}
+                  value={formatNationalPhone(phone)}
                   onChange={(e) => setPhone(normalizePhone(e.target.value))}
                   placeholder="90 123 45 67"
                   className="w-full bg-transparent font-bold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"
@@ -198,6 +199,15 @@ export default function LoginPage() {
               </div>
             </div>
 
+            <div className="flex justify-end">
+              <Link
+                href={`/${locale}/forgot-password`}
+                className="min-h-11 text-sm font-extrabold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {t("forgotPassword")}
+              </Link>
+            </div>
+
             {error && (
               <div
                 role="alert"
@@ -218,15 +228,14 @@ export default function LoginPage() {
             </Button>
           </form>
 
-          <p className="text-center text-xs text-muted-foreground">
-            {t("noAccount")}{" "}
-            <Link
-              href={`/${locale}/register`}
-              className="font-bold text-foreground underline-offset-2 hover:underline"
-            >
-              {t("registerLink")}
+          <div className="space-y-3">
+            <p className="text-center text-sm font-semibold text-muted-foreground">{t("noAccount")}</p>
+            <Link href={`/${locale}/register`} className="block">
+              <Button as="span" variant="outline" size="lg" className="w-full text-sm font-extrabold">
+                {t("registerLink")}
+              </Button>
             </Link>
-          </p>
+          </div>
 
           <div className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
             <ShieldCheck aria-hidden="true" className="h-3.5 w-3.5 text-success" />

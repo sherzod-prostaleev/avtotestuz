@@ -47,7 +47,7 @@ export function ChatMessageList({
             key={m.id}
             className={`flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm shadow-sm ${
               mine
-                ? "ml-auto bg-primary text-primary-foreground"
+                ? "ml-auto bg-accent text-accent-foreground"
                 : "mr-auto bg-muted text-foreground"
             }`}
           >

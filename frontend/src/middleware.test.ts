@@ -47,6 +47,22 @@ describe("proxy auth guard", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/uz-Latn/dashboard");
   });
 
+  it("keeps reset-password public so Telegram round-trip can finish", () => {
+    expect(proxy(makeRequest("/uz-Latn/reset-password?token=abc")).headers.get("location")).toBeNull();
+    expect(
+      proxy(makeRequest("/uz-Latn/reset-password?token=abc", `${AUTH_COOKIE}=some-token`)).headers.get("location")
+    ).toBeNull();
+  });
+
+  it("redirects an already-logged-in user away from register and forgot-password", () => {
+    expect(proxy(makeRequest("/uz-Latn/register", `${AUTH_COOKIE}=some-token`)).headers.get("location")).toBe(
+      "http://localhost:3000/uz-Latn/dashboard"
+    );
+    expect(
+      proxy(makeRequest("/uz-Latn/forgot-password", `${AUTH_COOKIE}=some-token`)).headers.get("location")
+    ).toBe("http://localhost:3000/uz-Latn/dashboard");
+  });
+
   // An invite link (/r/{code} -> /login?ref=CODE) opened by someone who is
   // already signed in gets bounced off /login. Dropping the query here loses
   // the referral outright, since nothing downstream can recover the code.

@@ -82,12 +82,20 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 // SendMessage delivers plain text to a chat (a direct-message chat ID is
 // the same as the user's tg_user_id).
 func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) error {
-	_, err := c.SendText(ctx, chatID, text, nil)
+	_, err := c.SendChatText(ctx, chatID, text, nil)
 	return err
 }
 
 // SendText sends a text message and returns Telegram's message_id.
 func (c *Client) SendText(ctx context.Context, chatID int64, text string, markup *InlineKeyboardMarkup) (int64, error) {
+	var m any
+	if markup != nil {
+		m = markup
+	}
+	return c.SendChatText(ctx, chatID, text, m)
+}
+
+func (c *Client) SendChatText(ctx context.Context, chatID int64, text string, markup any) (int64, error) {
 	payload := map[string]any{
 		"chat_id":                  chatID,
 		"text":                     text,

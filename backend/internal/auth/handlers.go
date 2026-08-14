@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
@@ -11,8 +12,9 @@ import (
 )
 
 type Handler struct {
-	Svc       *Service
-	ClientIPs ClientIPResolver
+	Svc         *Service
+	ClientIPs   ClientIPResolver
+	BotUsername string
 }
 
 func (h *Handler) Routes(r chi.Router) {
@@ -23,6 +25,9 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/otp/verify", h.verifyOTP)
 	r.Post("/auth/refresh", h.refresh)
 	r.Post("/auth/logout", h.logout)
+	r.Post("/auth/password-reset/start", h.passwordResetStart)
+	r.Get("/auth/password-reset/status", h.passwordResetStatus)
+	r.Post("/auth/password-reset/complete", h.passwordResetComplete)
 }
 
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
@@ -166,6 +171,45 @@ func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
+type passwordResetStartBody struct {
+	Phone string `json:"phone"`
+}
+
+func (h *Handler) passwordResetStart(w http.ResponseWriter, r *http.Request) {
+	var body passwordResetStartBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	res, err := h.Svc.StartPasswordReset(r.Context(), body.Phone, h.ClientIPs.Resolve(r), h.BotUsername)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, res)
+}
+
+func (h *Handler) passwordResetStatus(w http.ResponseWriter, r *http.Request) {
+	token := strings.TrimSpace(r.URL.Query().Get("token"))
+	httpx.Data(w, http.StatusOK, h.Svc.PasswordResetStatus(r.Context(), token))
+}
+
+type passwordResetCompleteBody struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+}
+
+func (h *Handler) passwordResetComplete(w http.ResponseWriter, r *http.Request) {
+	var body passwordResetCompleteBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	if err := h.Svc.CompletePasswordReset(r.Context(), body.Token, body.Password, h.ClientIPs.Resolve(r)); err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
 func writeAuthError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrOTPDisabled):
@@ -197,6 +241,12 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusUnauthorized, "refresh_reused", "refresh token reuse detected, all sessions revoked")
 	case errors.Is(err, ErrInvalidRefresh):
 		httpx.Error(w, http.StatusUnauthorized, "invalid_refresh", "refresh token is invalid or expired")
+	case errors.Is(err, ErrTelegramBotUnconfigured):
+		httpx.Error(w, http.StatusServiceUnavailable, "telegram_bot_unconfigured", "telegram bot is not configured")
+	case errors.Is(err, ErrResetNotVerified):
+		httpx.Error(w, http.StatusBadRequest, "reset_not_verified", "confirm the reset in Telegram first")
+	case errors.Is(err, ErrResetInvalid):
+		httpx.Error(w, http.StatusBadRequest, "invalid_reset_token", "reset link is invalid or expired")
 	default:
 		httpx.Error(w, http.StatusInternalServerError, "internal", "unexpected error")
 	}

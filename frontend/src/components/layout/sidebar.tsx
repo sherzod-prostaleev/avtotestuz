@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -46,6 +46,7 @@ export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [supportUnread, setSupportUnread] = useState(0);
+  const drawerRef = useRef<HTMLElement>(null);
 
   const { streak, entitlement, user, loading } = useUserStats();
   const ticketCount = useVariantCount();
@@ -67,6 +68,17 @@ export function Sidebar() {
       cancelled = true;
     };
   }, [pathname]);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMobileOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    const first = drawerRef.current?.querySelector<HTMLElement>("a,button");
+    first?.focus();
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mobileOpen]);
 
   const primaryLinks: NavLink[] = [
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
@@ -153,7 +165,7 @@ export function Sidebar() {
         key={link.href}
         href={link.href}
         onClick={() => setMobileOpen(false)}
-        className={`sidebar-link focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`sidebar-link max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
             ? "sidebar-link-active"
             : link.isGold
@@ -240,6 +252,10 @@ export function Sidebar() {
       )}
 
       <aside
+        ref={drawerRef}
+        role={mobileOpen ? "dialog" : undefined}
+        aria-modal={mobileOpen ? true : undefined}
+        aria-label={t("brandName")}
         className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 md:w-64 md:translate-x-0 md:p-3 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}

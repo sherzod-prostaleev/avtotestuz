@@ -9,6 +9,11 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),
 }));
 
+vi.mock("@/i18n/navigation", () => ({
+  usePathname: () => "/register",
+  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+}));
+
 vi.mock("@/lib/referral-storage", () => ({
   capturePendingReferralCodeFromUrl: vi.fn(),
   applyPendingReferralCode: vi.fn().mockResolvedValue(undefined),

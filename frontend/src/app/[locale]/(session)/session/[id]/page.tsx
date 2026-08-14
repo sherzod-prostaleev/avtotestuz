@@ -693,6 +693,12 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         onSelectAnswer={(questionId, answerId) => void handleSelectAnswer(questionId, answerId)}
         onFinish={() => void handleFinish()}
         pendingAnswer={pendingAnswer}
+        submitError={error ? localizedError() : null}
+        onRetryAnswer={
+          pendingAnswer
+            ? () => void handleSelectAnswer(pendingAnswer.questionId, pendingAnswer.answerId)
+            : undefined
+        }
         submitting={submitting}
         finishing={finishing}
         exitHref={exitHref}
@@ -920,7 +926,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
           onClose={() => setExplanationOpen(false)}
           questionNumber={currentIndex + 1}
           questionText={currentQuestion.question}
-          imageUrl={currentQuestion.image_url}
+          imageUrl={resolveQuestionImageUrl(currentQuestion.image_url)}
           explanation={currentQuestion.explanation ?? null}
         />
       )}

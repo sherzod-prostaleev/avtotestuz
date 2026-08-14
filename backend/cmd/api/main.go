@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/bot"
 	"avtotest.uz/backend/internal/broadcast"
@@ -111,12 +112,18 @@ func main() {
 		quizSvc.Advance = bot.NewAdvanceScheduler(quizSvc, logger)
 		progressSvc := progress.NewService(q)
 		progressSvc.Billing = billing.Service{Q: q}
+		sender, err := auth.SenderFor(cfg, logger)
+		if err != nil {
+			logger.Fatal("otp sender", zap.Error(err))
+		}
+		authSvc := auth.NewService(q, pool, auth.Limiter{R: redisClient}, sender, []byte(cfg.JWTSecret), cfg.Env)
 		botSvc := &bot.Bot{
 			Link:          linkSvc,
 			Quiz:          quizSvc,
 			Billing:       billing.Service{Q: q},
 			Progress:      progressSvc,
 			TG:            tgClient,
+			Auth:          authSvc,
 			PublicBaseURL: cfg.PublicBaseURL,
 			Log:           logger,
 		}

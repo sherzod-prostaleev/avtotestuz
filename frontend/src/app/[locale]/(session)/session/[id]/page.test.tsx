@@ -11,6 +11,7 @@ import {
 } from "@/hooks/use-session-engine";
 import * as apiClient from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics-events";
+import { QUESTION_IMAGE_PLACEHOLDER } from "@/lib/question-image";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -175,6 +176,72 @@ describe("SessionPage secure session flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ekspert tahlili" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByText("YHQ 91-band bo'yicha tekshirilgan izoh.")).toBeVisible();
+  });
+
+  it("shows the Driver Go cars placeholder for a text-only exam question", () => {
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        time_limit_sec: 1500,
+        remaining_sec: 300,
+        questions: [question({ image_url: null })],
+      })
+    );
+
+    renderPage();
+
+    expect(screen.getByRole("img", { name: "Qaysi belgi to'xtashni taqiqlaydi?" })).toHaveAttribute(
+      "src",
+      QUESTION_IMAGE_PLACEHOLDER
+    );
+  });
+
+  it("keeps a real exam diagram when the API sent image_url", () => {
+    mockEngine(
+      activeSession({
+        mode: "exam",
+        time_limit_sec: 1500,
+        remaining_sec: 300,
+        questions: [question({ image_url: "https://media.example.test/3.27.webp" })],
+      })
+    );
+
+    renderPage();
+
+    expect(screen.getByRole("img", { name: "Qaysi belgi to'xtashni taqiqlaydi?" })).toHaveAttribute(
+      "src",
+      "https://media.example.test/3.27.webp"
+    );
+  });
+
+  it("loads a local MinIO diagram via same-origin /media instead of the cars placeholder", () => {
+    mockEngine(
+      activeSession({
+        questions: [
+          question({
+            image_url:
+              "http://localhost:9000/media/images/4567aa175f412cf4822198b6526e414cc38e34947a036e02fcc516bf82b81070.webp",
+          }),
+        ],
+      })
+    );
+
+    renderPage();
+
+    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toHaveAttribute(
+      "src",
+      "/media/images/4567aa175f412cf4822198b6526e414cc38e34947a036e02fcc516bf82b81070.webp"
+    );
+  });
+
+  it("shows the Driver Go cars placeholder in a bilet when image_url is null", () => {
+    mockEngine(activeSession({ questions: [question({ image_url: null })] }));
+    renderPage();
+
+    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toHaveAttribute(
+      "src",
+      QUESTION_IMAGE_PLACEHOLDER
+    );
   });
 
   it("paints a graded exam answer green and disables further choice", () => {
@@ -661,7 +728,14 @@ describe("SessionPage kiosk mode", () => {
     );
     renderKioskPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.getByRole("img", { name: "Qaysi belgi to'xtashni taqiqlaydi?" })).toHaveAttribute(
+      "src",
+      QUESTION_IMAGE_PLACEHOLDER
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Chiqish" }));
+    const dialog = screen.getByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Chiqish" }));
     const target = navigation.push.mock.calls[0][0] as string;
     expect(target).toBe("/uz-Latn/station");
     expect(isKioskReachable(target)).toBe(true);

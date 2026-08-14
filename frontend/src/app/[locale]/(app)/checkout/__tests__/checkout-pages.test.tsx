@@ -49,7 +49,7 @@ describe("Checkout Status Pages", () => {
   it("renders CheckoutPendingPage and polls entitlement status", async () => {
     vi.mocked(apiClient.apiGet).mockResolvedValueOnce({ active: true, until: "2026-08-24T00:00:00Z" });
     renderWithIntl(<CheckoutPendingPage />);
-    expect(screen.getByText("To me to'lov kutilmoqda...")).toBeInTheDocument();
+    expect(screen.getByText("To'lov kutilmoqda...")).toBeInTheDocument();
 
     await waitFor(() => {
       expect(apiClient.apiGet).toHaveBeenCalledWith("me/entitlement");

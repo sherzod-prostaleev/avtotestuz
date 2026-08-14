@@ -10,7 +10,7 @@ export { PROTECTED_SEGMENTS, matchesAny };
 
 const intlMiddleware = createMiddleware(routing);
 
-const AUTH_SEGMENTS = ["login"];
+const AUTH_SEGMENTS = ["login", "register", "forgot-password"];
 const LEGACY_OPS_REDIRECTS: Record<string, string> = {
   health: "monitoring/health",
   providers: "payments/providers",

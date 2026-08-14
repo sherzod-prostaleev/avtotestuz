@@ -316,6 +316,40 @@ export default function DashboardPage() {
                   <p className="mt-1 max-w-2xl text-xs leading-snug text-muted-foreground sm:mt-2 sm:text-base sm:leading-relaxed">
                     {t("welcomeSubtitle")}
                   </p>
+                  {!loading ? (
+                    <div className="mt-2 max-w-xs space-y-1.5">
+                      <div
+                        className="h-2 overflow-hidden rounded-full bg-border"
+                        role="progressbar"
+                        aria-valuemin={0}
+                        aria-valuemax={dailyTarget}
+                        aria-valuenow={Math.min(todayAnswered, dailyTarget)}
+                        aria-label={t("streakToday", { done: todayAnswered, goal: dailyTarget })}
+                      >
+                        <div
+                          className={`h-full rounded-full ${todayAnswered >= dailyTarget ? "bg-success" : "bg-accent"}`}
+                          style={{
+                            width: `${Math.min(100, dailyTarget > 0 ? (todayAnswered / dailyTarget) * 100 : 0)}%`,
+                          }}
+                        />
+                      </div>
+                      {todayAnswered < dailyTarget ? (
+                        <>
+                          <p className="text-xs font-bold text-accent sm:text-sm">
+                            {t("habitKeepStreak", { remaining: Math.max(0, dailyTarget - todayAnswered) })}
+                          </p>
+                          <Link
+                            href={nextAction.href}
+                            className="inline-flex min-h-11 items-center text-sm font-extrabold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          >
+                            {t("habitContinueCta")}
+                          </Link>
+                        </>
+                      ) : (
+                        <p className="text-xs font-bold text-success sm:text-sm">{t("habitGoalMet")}</p>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>

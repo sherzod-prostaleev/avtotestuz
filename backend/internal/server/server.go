@@ -238,8 +238,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 					sender, []byte(cfg.JWTSecret), cfg.Env)
 				svc.DebugEcho = cfg.OTPDebugEcho
 				ah := &auth.Handler{
-					Svc:       svc,
-					ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
+					Svc:         svc,
+					ClientIPs:   auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
+					BotUsername: cfg.TelegramBotUsername,
 				}
 				ah.Routes(api)
 
@@ -343,6 +344,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 						Billing:       learnerBilling,
 						Progress:      progressSvc,
 						TG:            tgClient,
+						Auth:          svc,
 						PublicBaseURL: cfg.PublicBaseURL,
 						Log:           log,
 					}

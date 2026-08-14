@@ -78,7 +78,7 @@ export function ChatComposer({
           aria-label={sendLabel}
           disabled={busy || disabled || (!text.trim() && !file)}
           onClick={() => void submit()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground disabled:opacity-40"
         >
           <Send className="h-4 w-4" aria-hidden />
         </button>

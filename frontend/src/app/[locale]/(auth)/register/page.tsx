@@ -7,9 +7,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Lock, Phone, User } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
+import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -22,11 +24,7 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
 
 /** National 9-digit UZ mobile (strips optional 998 country code). */
 function normalizePhone(input: string): string {
-  let digits = input.replace(/\D/g, "");
-  if (digits.startsWith("998") && digits.length >= 12) {
-    digits = digits.slice(3);
-  }
-  return digits.slice(0, 9);
+  return normalizeNationalPhone(input);
 }
 
 export default function RegisterPage() {
@@ -129,7 +127,10 @@ export default function RegisterPage() {
           <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
           <span className="truncate">{loginT("brandName")}</span>
         </Link>
-        <ThemeToggle />
+        <div className="flex shrink-0 items-center gap-1.5">
+          <LocaleSwitcher compact />
+          <ThemeToggle />
+        </div>
       </header>
 
       <main className="flex flex-1 items-center justify-center p-3 sm:p-4">
@@ -162,7 +163,7 @@ export default function RegisterPage() {
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel-national"
-                  value={phone}
+                  value={formatNationalPhone(phone)}
                   onChange={(e) => setPhone(normalizePhone(e.target.value))}
                   placeholder="90 123 45 67"
                   maxLength={9}

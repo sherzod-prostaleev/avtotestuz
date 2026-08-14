@@ -11,11 +11,21 @@ type Update struct {
 }
 
 type Message struct {
-	MessageID int64  `json:"message_id"`
-	Text      string `json:"text"`
-	Caption   string `json:"caption"`
-	From      *User  `json:"from,omitempty"`
-	Chat      Chat   `json:"chat"`
+	MessageID int64    `json:"message_id"`
+	Text      string   `json:"text"`
+	Caption   string   `json:"caption"`
+	From      *User    `json:"from,omitempty"`
+	Chat      Chat     `json:"chat"`
+	Contact   *Contact `json:"contact,omitempty"`
+}
+
+// Contact is a shared phone card. When the user taps our request_contact
+// button, UserID is the sender — a forwarded third-party contact has a
+// different UserID (or none).
+type Contact struct {
+	PhoneNumber string `json:"phone_number"`
+	FirstName   string `json:"first_name"`
+	UserID      int64  `json:"user_id"`
 }
 
 type User struct {
@@ -59,6 +69,21 @@ type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	CallbackData string `json:"callback_data,omitempty"`
 	URL          string `json:"url,omitempty"`
+}
+
+type ReplyKeyboardMarkup struct {
+	Keyboard        [][]KeyboardButton `json:"keyboard"`
+	ResizeKeyboard  bool               `json:"resize_keyboard,omitempty"`
+	OneTimeKeyboard bool               `json:"one_time_keyboard,omitempty"`
+}
+
+type KeyboardButton struct {
+	Text           string `json:"text"`
+	RequestContact bool   `json:"request_contact,omitempty"`
+}
+
+type ReplyKeyboardRemove struct {
+	RemoveKeyboard bool `json:"remove_keyboard"`
 }
 
 // PollAnswer is a vote in a non-anonymous poll the bot sent. Anonymous polls

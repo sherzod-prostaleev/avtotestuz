@@ -15,11 +15,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <ReferralCapture />
         <DemoProgressCapture />
         <Sidebar />
-        <main className="min-w-0 flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:ml-64 md:pb-0">
+        <div className="app-shell-main min-w-0 flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:ml-64 md:pb-0">
           <MaintenanceBanner />
           <SupportBanner />
           {children}
-        </main>
+        </div>
       </div>
     </MustChangePasswordGate>
   );

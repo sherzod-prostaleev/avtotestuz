@@ -49,6 +49,20 @@ describe("QuestionStage", () => {
     );
   });
 
+  it("points the img at same-origin /media for a local MinIO diagram URL", () => {
+    renderStage(
+      buildQuestion({
+        image_url:
+          "http://localhost:9000/media/images/4567aa175f412cf4822198b6526e414cc38e34947a036e02fcc516bf82b81070.webp",
+      })
+    );
+
+    expect(screen.getByRole("img", { name: "1-savol rasmi" })).toHaveAttribute(
+      "src",
+      "/media/images/4567aa175f412cf4822198b6526e414cc38e34947a036e02fcc516bf82b81070.webp"
+    );
+  });
+
   it("shows the Driver Go cars placeholder when there is no image", () => {
     renderStage(buildQuestion({ image_url: null }));
 

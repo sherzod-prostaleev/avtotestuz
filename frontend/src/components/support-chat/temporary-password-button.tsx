@@ -64,7 +64,7 @@ export function TemporaryPasswordButton({
         type="button"
         disabled={busy}
         onClick={() => void issue()}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground disabled:opacity-50"
+        className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-semibold text-accent-foreground disabled:opacity-50"
       >
         <KeyRound className="h-4 w-4" />
         {issueLabel}

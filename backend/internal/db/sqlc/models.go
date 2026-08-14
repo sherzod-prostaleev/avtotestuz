@@ -499,6 +499,17 @@ type OtpChallenge struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type PasswordResetToken struct {
+	ID              uuid.UUID          `json:"id"`
+	ProfileID       uuid.UUID          `json:"profile_id"`
+	TokenHash       string             `json:"token_hash"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	UsedAt          pgtype.Timestamptz `json:"used_at"`
+	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
+	PendingTgUserID pgtype.Int8        `json:"pending_tg_user_id"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+}
+
 type PaymeTransaction struct {
 	PaymeID     string             `json:"payme_id"`
 	PaymentID   uuid.UUID          `json:"payment_id"`

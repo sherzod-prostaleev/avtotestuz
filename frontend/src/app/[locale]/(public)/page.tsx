@@ -221,7 +221,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground">
+    <div className="flex min-h-screen flex-col bg-background text-foreground pb-[5.5rem] sm:pb-0">
       <header
         className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 shadow-[0_8px_24px_-18px_hsl(var(--elev-ambient)/0.55)] backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
@@ -486,8 +486,8 @@ export default function LandingPage() {
             <div className="relative">
               <h2 className="font-display text-3xl font-extrabold sm:text-4xl">{t("bottomCtaTitle")}</h2>
               <p className="mx-auto mt-3 max-w-md text-base text-muted-foreground">{t("bottomCtaText")}</p>
-              <Link href={`/${locale}/login`} className={`${heroPrimaryCta} mt-7`}>
-                {t("ctaStart")}
+              <Link href={heroCtaHref} className={`${heroPrimaryCta} mt-7`}>
+                {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
             </div>
@@ -591,6 +591,12 @@ export default function LandingPage() {
         </div>
       </footer>
 
+      <div className="landing-sticky-cta">
+        <Link href={heroCtaHref} className={`${heroPrimaryCta} w-full`}>
+          {heroCtaLabel}
+          <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0" />
+        </Link>
+      </div>
     </div>
   );
 }

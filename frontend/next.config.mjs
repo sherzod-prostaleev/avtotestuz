@@ -2,6 +2,15 @@ import createNextIntlPlugin from "next-intl/plugin";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+const isProd = process.env.NODE_ENV === "production";
+// Local `next dev` has no nginx /media proxy. Same-origin /media/... is rewritten
+// to MinIO so CSP img-src 'self' can load real question diagrams. Production nginx
+// already proxies /media before Next; set MEDIA_REWRITE_DESTINATION only if a
+// containerized Next must reach MinIO itself (e.g. http://minio:9000/media).
+const mediaRewriteDestination = (
+  process.env.MEDIA_REWRITE_DESTINATION || "http://127.0.0.1:9000/media"
+).replace(/\/$/, "");
+
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -10,16 +19,21 @@ const contentSecurityPolicy = [
   "form-action 'self' https://checkout.paycom.uz",
   // React Dev (and some Next.js HMR helpers) need eval() in development.
   // Keep production strict: never allow unsafe-eval there.
-  process.env.NODE_ENV === "production"
+  isProd
     ? "script-src 'self' 'unsafe-inline'"
     : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https:",
+  // Production: same-origin /media (nginx) + https CDNs.
+  // Development: also allow the raw MinIO ports for leftover absolute URLs
+  // (signs/saved/demo still pass API image_url through without the session resolver).
+  isProd
+    ? "img-src 'self' data: blob: https:"
+    : "img-src 'self' data: blob: https: http://localhost:9000 http://127.0.0.1:9000",
   "font-src 'self' data:",
   "connect-src 'self' https: wss:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",
-  ...(process.env.NODE_ENV === "production" ? ["upgrade-insecure-requests"] : []),
+  ...(isProd ? ["upgrade-insecure-requests"] : []),
 ].join("; ");
 
 const securityHeaders = [
@@ -29,7 +43,7 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   { key: "X-DNS-Prefetch-Control", value: "off" },
-  ...(process.env.NODE_ENV === "production"
+  ...(isProd
     ? [{ key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" }]
     : []),
 ];
@@ -42,6 +56,17 @@ const nextConfig = {
   reactStrictMode: true,
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
+  },
+  async rewrites() {
+    if (isProd && !process.env.MEDIA_REWRITE_DESTINATION) {
+      return [];
+    }
+    return [
+      {
+        source: "/media/:path*",
+        destination: `${mediaRewriteDestination}/:path*`,
+      },
+    ];
   },
 };
 

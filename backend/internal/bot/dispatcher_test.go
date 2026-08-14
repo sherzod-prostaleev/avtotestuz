@@ -12,10 +12,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/progress"
+	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/testdb"
 )
 
@@ -284,5 +287,83 @@ func TestHandleUpdate_IgnoresNonMessageUpdates(t *testing.T) {
 	}
 	if fake.lastMessage() != "" {
 		t.Errorf("expected no reply for a message-less update, got %q", fake.lastMessage())
+	}
+}
+
+func attachAuth(t *testing.T, b *Bot, q *sqlc.Queries) *auth.Service {
+	t.Helper()
+	c := redisx.NewTest(t)
+	svc := auth.NewService(q, b.Link.Pool, auth.Limiter{R: c}, auth.SandboxSender{Log: zap.NewNop()}, []byte("test-secret-at-least-32-bytes!!"), "test")
+	b.Auth = svc
+	return svc
+}
+
+func TestHandleUpdate_PasswordResetLinkedSkipsContact(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+
+	reg, err := svc.Register(ctx, auth.RegisterInput{Phone: "901000020", Password: "secret123", Name: "R"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok, err := b.Link.GenerateLinkToken(ctx, reg.Profile.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Link.RedeemLinkToken(ctx, tok.Token, 2020, "resetu"); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, "901000020", "10.0.0.1", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := start.BotURL[strings.Index(start.BotURL, "pwr_")+4:]
+
+	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), 2020, "resetu")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fake.lastMessage(), "Tasdiqlandi") {
+		t.Fatalf("reply=%q", fake.lastMessage())
+	}
+}
+
+func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+
+	if _, err := svc.Register(ctx, auth.RegisterInput{Phone: "901000021", Password: "secret123", Name: "R"}); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, "901000021", "10.0.0.2", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := start.BotURL[strings.Index(start.BotURL, "pwr_")+4:]
+
+	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), 2121, "reset2")); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fake.lastMessage(), "telefon") {
+		t.Fatalf("need-contact reply=%q", fake.lastMessage())
+	}
+
+	u := Update{
+		UpdateID: 2,
+		Message: &Message{
+			From: &User{ID: 2121, Username: "reset2"},
+			Chat: Chat{ID: 2121, Type: "private"},
+			Contact: &Contact{
+				PhoneNumber: "+998901000021",
+				UserID:      2121,
+			},
+		},
+	}
+	if err := b.HandleUpdate(ctx, u); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(fake.lastMessage(), "Tasdiqlandi") {
+		t.Fatalf("contact reply=%q", fake.lastMessage())
 	}
 }

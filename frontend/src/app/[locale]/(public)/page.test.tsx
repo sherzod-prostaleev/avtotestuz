@@ -178,8 +178,10 @@ describe("LandingPage i18n and accessibility", () => {
       }),
     );
     renderWithIntl(localeCases[0]);
-    const link = await screen.findByRole("link", { name: "CMS diagnostika" });
-
-    expect(link).toHaveAttribute("href", "/uz-Latn/diagnostic");
+    const diagnosticLinks = await screen.findAllByRole("link", { name: "CMS diagnostika" });
+    expect(diagnosticLinks.length).toBeGreaterThanOrEqual(2);
+    for (const item of diagnosticLinks) {
+      expect(item).toHaveAttribute("href", "/uz-Latn/diagnostic");
+    }
   });
 });

@@ -20,6 +20,8 @@ interface OfficialAvtotestExamViewProps {
   finishing: boolean;
   /** Optimistic selection while the grade request is in flight. */
   pendingAnswer?: { questionId: string; answerId: string } | null;
+  submitError?: string | null;
+  onRetryAnswer?: () => void;
   /**
    * Where the close (X) button exits to. Callers on the kiosk pass
    * `/${locale}/station` instead of the learner `/${locale}/dashboard` —
@@ -69,6 +71,8 @@ export function OfficialAvtotestExamView({
   submitting,
   finishing,
   pendingAnswer = null,
+  submitError = null,
+  onRetryAnswer,
   exitHref,
 }: OfficialAvtotestExamViewProps) {
   const locale = useLocale();
@@ -81,6 +85,7 @@ export function OfficialAvtotestExamView({
     ? resolveQuestionImageUrl(currentQuestion.image_url)
     : null;
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
+  const [exitConfirm, setExitConfirm] = useState(false);
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
   const allAnswered =
     questions.length > 0 &&
@@ -107,14 +112,28 @@ export function OfficialAvtotestExamView({
       : session.stopped_reason === "too_many_errors" || session.stopped_reason === "time_expired";
 
   const isCompleted = session.status === "completed";
+  const errorsAllowed = session.mode === "placement" ? 1 : 2;
+  const wrongCount = questions.filter((q) => q.correct === false).length;
+  const visualStatus: Record<ExamAnswerVisual, string> = {
+    correct: t("answerStateCorrect"),
+    wrong: t("answerStateWrong"),
+    selected: t("answerStateSelected"),
+    answered: t("answerStateAnswered"),
+    neutral: t("answerStateNeutral"),
+  };
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && zoomImageUrl) setZoomImageUrl(null);
+      if (e.key !== "Escape") return;
+      if (zoomImageUrl) {
+        setZoomImageUrl(null);
+        return;
+      }
+      if (exitConfirm) setExitConfirm(false);
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [zoomImageUrl]);
+  }, [zoomImageUrl, exitConfirm]);
 
   const switchLocale = (newLoc: string) => {
     if (newLoc === locale) return;
@@ -210,8 +229,8 @@ export function OfficialAvtotestExamView({
         {/* Right: X close */}
         <button
           type="button"
-          onClick={() => router.push(exitHref)}
-          aria-label="Close"
+          onClick={() => (isCompleted ? router.push(exitHref) : setExitConfirm(true))}
+          aria-label={t("exit")}
           className="text-slate-300 hover:text-white transition-colors p-1 max-lg:flex max-lg:h-8 max-lg:w-8 max-lg:items-center max-lg:justify-center"
         >
           <X className="w-6 h-6 max-lg:h-5 max-lg:w-5" />
@@ -260,6 +279,7 @@ export function OfficialAvtotestExamView({
                     type="button"
                     disabled={isAnswered || submitting || finishing || isCompleted}
                     onClick={() => onSelectAnswer(currentQuestion.id, answer.id)}
+                    aria-label={`${shortcutLabel}. ${answer.text}. ${visualStatus[visual]}`}
                     className={`group flex h-auto w-full shrink-0 items-stretch rounded-sm border transition-all text-left text-base font-semibold max-lg:min-h-8 ${btnStyles[visual]}`}
                   >
                     {/* F-key badge */}
@@ -349,6 +369,18 @@ export function OfficialAvtotestExamView({
                 ref={isCurrent ? activeChipRef : undefined}
                 type="button"
                 onClick={() => onSelectIndex(idx)}
+                aria-label={t("questionNavLabel", {
+                  number: idx + 1,
+                  status: isWrn
+                    ? t("statusWrong")
+                    : isCorr
+                      ? t("statusCorrect")
+                      : isAns
+                        ? t("statusAnswered")
+                        : isCurrent
+                          ? t("statusCurrent")
+                          : t("statusUnanswered"),
+                })}
                 className={`w-8 h-8 flex items-center justify-center text-base rounded-sm transition-all max-lg:h-8 max-lg:w-8 max-lg:shrink-0 max-lg:text-sm ${
                   isCurrent ? "ring-2 ring-white ring-offset-2 ring-offset-[#081320] scale-110 font-black z-10 shadow-lg max-lg:ring-offset-1 max-lg:scale-105" : ""
                 } ${bg}`}
@@ -359,8 +391,17 @@ export function OfficialAvtotestExamView({
           })}
         </div>
 
-        {/* Timer */}
-        <div className="flex items-center max-lg:shrink-0">
+        {/* Timer + live error budget (DTM: ≤2 wrong). Color grades stay as-is. */}
+        <div className="flex items-center gap-2 max-lg:shrink-0">
+          {!isCompleted && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="border border-[#2a4568] bg-[#050b12] px-2 py-1.5 rounded-sm font-mono text-xs font-bold tabular-nums text-white max-lg:h-8 max-lg:px-2 max-lg:py-0 max-lg:text-[11px] max-lg:flex max-lg:items-center"
+            >
+              {t("examErrorsHud", { wrong: wrongCount, max: errorsAllowed })}
+            </div>
+          )}
           {session.remaining_sec !== null && (
             <div className="bg-[#050b12] border border-[#2a4568] px-4 py-1.5 rounded-sm font-mono text-xl font-bold tracking-wider text-[#fbbf24] shadow-inner max-lg:flex max-lg:h-8 max-lg:items-center max-lg:px-2.5 max-lg:py-0 max-lg:text-sm">
               <CountdownTimer seconds={session.remaining_sec} onExpire={onFinish} />
@@ -368,6 +409,55 @@ export function OfficialAvtotestExamView({
           )}
         </div>
       </footer>
+
+      {submitError && !isCompleted && (
+        <div
+          role="alert"
+          className="relative z-20 flex shrink-0 items-center justify-between gap-3 border-t border-red-400/40 bg-[#421414] px-4 py-2 text-sm text-white max-lg:px-2"
+        >
+          <span>{submitError}</span>
+          {onRetryAnswer && (
+            <button
+              type="button"
+              onClick={onRetryAnswer}
+              className="shrink-0 rounded-sm border border-white/40 px-3 py-1 text-xs font-extrabold"
+            >
+              {t("retryAnswer")}
+            </button>
+          )}
+        </div>
+      )}
+
+      {exitConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="exam-exit-title"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-[#2a4568] bg-[#0d2e4d] p-5 text-white shadow-xl">
+            <p id="exam-exit-title" className="text-sm font-semibold leading-relaxed">
+              {t("examExitConfirm")}
+            </p>
+            <div className="mt-4 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setExitConfirm(false)}
+                className="flex-1 rounded-sm border border-[#5a8aaa] bg-[#183654] px-3 py-2 text-sm font-extrabold"
+              >
+                {t("examExitStay")}
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push(exitHref)}
+                className="flex-1 rounded-sm border border-red-400/50 bg-[#421414] px-3 py-2 text-sm font-extrabold"
+              >
+                {t("examExitLeave")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ZOOM MODAL */}
       {zoomImageUrl && (

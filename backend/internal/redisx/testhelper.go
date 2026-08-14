@@ -38,6 +38,7 @@ var testDBByPackage = map[string]int{
 	"internal_support":     8,
 	"internal_account":     9,
 	"internal_supportchat": 10,
+	"internal_bot":         11,
 }
 
 // baseRedisURL is the connection string whose database index gets replaced with

@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"go.uber.org/zap"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/progress"
@@ -23,19 +24,23 @@ const (
 	msgStartGroup     = "Driver Go quiz boti guruhda.\n\n" +
 		"Boshlash: /quiz\nKeyingi: /next\nTo'xtatish: /stop\n\n" +
 		"Rasmiy formatdagi savollar — bepul sinab ko'ring."
-	msgLinkUsage       = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
-	msgLinkSuccess     = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring. Mashq: /quiz"
-	msgLinkAlreadyOK   = "Bu Telegram hisobi allaqachon shu profilga ulangan."
-	msgLinkExpired     = "Havola muddati tugagan. Saytdan yangi havola oling."
-	msgLinkUsed        = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
-	msgLinkNotFound    = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
-	msgLinkElsewhere   = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing (/unlink) yoki qo'llab-quvvatlashga yozing."
-	msgLinkInternal    = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
-	msgStatusUnlinked  = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
-	msgUnlinkOK        = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
-	msgUnlinkNone      = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
-	msgUnknown         = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
-	msgQuizUnavailable = "Quiz hozircha ishlamayapti. Keyinroq qayta urinib ko'ring."
+	msgLinkUsage         = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
+	msgLinkSuccess       = "Hisobingiz muvaffaqiyatli ulandi! /status buyrug'i bilan tekshiring. Mashq: /quiz"
+	msgLinkAlreadyOK     = "Bu Telegram hisobi allaqachon shu profilga ulangan."
+	msgLinkExpired       = "Havola muddati tugagan. Saytdan yangi havola oling."
+	msgLinkUsed          = "Bu havola allaqachon ishlatilgan. Saytdan yangi havola oling."
+	msgLinkNotFound      = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi havola oling."
+	msgLinkElsewhere     = "Bu Telegram hisobi boshqa profilga ulangan. Avval o'sha profildan uzing (/unlink) yoki qo'llab-quvvatlashga yozing."
+	msgLinkInternal      = "Ulashda xatolik yuz berdi. Birozdan keyin qayta urinib ko'ring."
+	msgStatusUnlinked    = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
+	msgUnlinkOK          = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
+	msgUnlinkNone        = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
+	msgUnknown           = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
+	msgQuizUnavailable   = "Quiz hozircha ishlamayapti. Keyinroq qayta urinib ko'ring."
+	msgResetNeedContact  = "Parolni tiklash uchun shu Telegram akkauntning telefon raqamini yuboring. Raqam hisobdagi telefon bilan bir xil bo'lishi kerak."
+	msgResetShareContact = "Telefon raqamini yuborish"
+	msgResetVerified     = "Tasdiqlandi. Brauzerdagi Driver Go sahifasiga qayting va yangi parolni kiriting."
+	msgResetInvalid      = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi tiklash so'rang."
 )
 
 // Bot dispatches inbound Telegram updates. Link redeem stays in-process
@@ -46,6 +51,7 @@ type Bot struct {
 	Billing       billing.Service
 	Progress      *progress.Service
 	TG            *Client
+	Auth          *auth.Service
 	PublicBaseURL string
 	Log           *zap.Logger
 }
@@ -90,6 +96,13 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	tgUserID := u.Message.From.ID
 	username := u.Message.From.Username
 	chatType := u.Message.Chat.Type
+
+	if u.Message.Contact != nil {
+		if IsGroupChat(chatType) {
+			return nil
+		}
+		return b.handlePasswordResetContact(ctx, chatID, tgUserID, u.Message.Contact)
+	}
 
 	fields := strings.Fields(strings.TrimSpace(u.Message.Text))
 	if len(fields) == 0 {
@@ -143,6 +156,12 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			}
 			_, err := b.TG.SendText(ctx, chatID, msgStartGroup, markup)
 			return err
+		}
+		if raw, ok := auth.ParsePasswordResetStartPayload(arg); ok {
+			if IsGroupChat(chatType) {
+				return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+			}
+			return b.handlePasswordResetStart(ctx, chatID, tgUserID, raw)
 		}
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
@@ -304,4 +323,51 @@ func (b *Bot) handleStatus(ctx context.Context, tgUserID int64) (string, error) 
 // LinkToken. Shared with handlers.go's web endpoint.
 func deepLink(botUsername, token string) string {
 	return fmt.Sprintf("https://t.me/%s?start=%s", botUsername, token)
+}
+
+func contactRequestKeyboard() ReplyKeyboardMarkup {
+	return ReplyKeyboardMarkup{
+		Keyboard: [][]KeyboardButton{{
+			{Text: msgResetShareContact, RequestContact: true},
+		}},
+		ResizeKeyboard:  true,
+		OneTimeKeyboard: true,
+	}
+}
+
+func (b *Bot) handlePasswordResetStart(ctx context.Context, chatID, tgUserID int64, rawToken string) error {
+	if b.Auth == nil {
+		return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+	}
+	res, err := b.Auth.BeginTelegramPasswordReset(ctx, rawToken, tgUserID)
+	if err != nil {
+		b.logger().Error("bot: password reset begin failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
+		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+	}
+	switch res.Outcome {
+	case auth.TelegramResetNeedContact:
+		_, err := b.TG.SendChatText(ctx, chatID, msgResetNeedContact, contactRequestKeyboard())
+		return err
+	case auth.TelegramResetVerified:
+		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
+		return err
+	default:
+		return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+	}
+}
+
+func (b *Bot) handlePasswordResetContact(ctx context.Context, chatID, tgUserID int64, contact *Contact) error {
+	if contact == nil || b.Auth == nil {
+		return nil
+	}
+	res, err := b.Auth.ConfirmTelegramPasswordResetContact(ctx, tgUserID, contact.UserID, contact.PhoneNumber)
+	if err != nil {
+		b.logger().Error("bot: password reset contact failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
+		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+	}
+	if res.Outcome == auth.TelegramResetVerified {
+		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
+		return err
+	}
+	return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
 }
