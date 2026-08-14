@@ -1,8 +1,10 @@
 import { render, screen, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/uz-Latn.json";
 import { ApiError } from "@/lib/api-client";
+import { createQueryClient } from "@/lib/query-client";
 import { MustChangePasswordGate } from "./must-change-password-gate";
 
 const replaceMock = vi.fn();
@@ -23,11 +25,13 @@ vi.mock("@/lib/api-client", async (importOriginal) => {
 
 function renderGate() {
   return render(
-    <NextIntlClientProvider locale="uz-Latn" messages={messages}>
-      <MustChangePasswordGate>
-        <p>dashboard-ready</p>
-      </MustChangePasswordGate>
-    </NextIntlClientProvider>,
+    <QueryClientProvider client={createQueryClient()}>
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <MustChangePasswordGate>
+          <p>dashboard-ready</p>
+        </MustChangePasswordGate>
+      </NextIntlClientProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -37,13 +41,12 @@ describe("MustChangePasswordGate", () => {
     apiGet.mockReset();
   });
 
-  it("shows a readable loading status instead of a lone ellipsis while /me is in flight", () => {
+  it("paints the app shell immediately while /me is in flight", () => {
     apiGet.mockReturnValue(new Promise(() => {}));
     renderGate();
-    const status = screen.getByRole("status");
-    expect(status).toHaveTextContent("Sessiya tekshirilmoqda...");
-    expect(status.textContent).not.toBe("…");
-    expect(screen.queryByText("dashboard-ready")).not.toBeInTheDocument();
+    expect(screen.getByText("dashboard-ready")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 
   it("renders the app shell after /me says the password is fine", async () => {
@@ -59,7 +62,7 @@ describe("MustChangePasswordGate", () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/uz-Latn/change-password");
     });
-    expect(screen.queryByText("dashboard-ready")).not.toBeInTheDocument();
+    expect(screen.getByText("dashboard-ready")).toBeInTheDocument();
   });
 
   it("opens the shell when /me times out or fails without 401", async () => {
@@ -74,6 +77,6 @@ describe("MustChangePasswordGate", () => {
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith("/uz-Latn/login");
     });
-    expect(screen.queryByText("dashboard-ready")).not.toBeInTheDocument();
+    expect(screen.getByText("dashboard-ready")).toBeInTheDocument();
   });
 });

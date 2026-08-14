@@ -4,7 +4,7 @@
  * No full offline exam / session create / answer grading — that gap remains large (U-39).
  */
 const SHELL_CACHE = "dg-shell-v5";
-const RUNTIME_CACHE = "dg-runtime-v4";
+const RUNTIME_CACHE = "dg-runtime-v5";
 const META_CACHE = "dg-meta-v4";
 const VARIANT_CACHE = "dg-variant-v2";
 const VARIANT_CACHE_MAX = 20;
@@ -82,12 +82,31 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
+  if (url.pathname.startsWith("/_next/static/")) {
+    // Content-hashed filenames: cache-first is safe across deploys.
+    event.respondWith(cacheFirstHashedStatic(req));
+    return;
+  }
+
   if (isStaticAsset(url.pathname)) {
-    // Prefer network for Next hashed bundles so a new deploy never hydrates
-    // against a stale cached chunk; fall back to cache when offline.
     event.respondWith(networkFirstStatic(req));
   }
 });
+
+async function cacheFirstHashedStatic(req) {
+  const cache = await caches.open(RUNTIME_CACHE);
+  const cached = await cache.match(req);
+  if (cached) return cached;
+  try {
+    const fresh = await fetch(req);
+    if (fresh && fresh.ok) {
+      void cache.put(req, fresh.clone());
+    }
+    return fresh;
+  } catch {
+    throw new Error("offline");
+  }
+}
 
 async function networkFirstStatic(req) {
   const cache = await caches.open(RUNTIME_CACHE);

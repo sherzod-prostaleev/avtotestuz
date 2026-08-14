@@ -12,7 +12,10 @@ describe("PWA offline shell service worker", () => {
     expect(sw).toContain("/manifest.webmanifest");
     expect(sw).toContain("cache.addAll(PRECACHE_URLS)");
     expect(sw).toContain("networkFirstNavigation");
+    expect(sw).toContain("cacheFirstHashedStatic");
     expect(sw).toContain("networkFirstStatic");
+    expect(sw).toContain('RUNTIME_CACHE = "dg-runtime-v5"');
+    expect(sw).toContain('pathname.startsWith("/_next/static/")');
     expect(offline).toContain("Driver Go");
     expect(offline).toContain("Internet aloqasi");
   });

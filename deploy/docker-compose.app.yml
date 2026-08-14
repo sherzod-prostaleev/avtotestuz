@@ -186,14 +186,15 @@ services:
     security_opt: ["no-new-privileges:true"]
     init: true
     stop_grace_period: 30s
-    # Node 20 alpine includes wget — cheap liveness for orchestration.
+    # Node alpine includes wget — liveness must stay a cheap JSON/text probe,
+    # never a full locale document (that SSR competes with real users).
     healthcheck:
       test:
         [
           "CMD",
           "wget",
           "-qO-",
-          "http://127.0.0.1:3000/uz-Latn",
+          "http://127.0.0.1:3000/api/healthz",
         ]
       interval: 15s
       timeout: 5s

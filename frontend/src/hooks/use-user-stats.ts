@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocale } from "next-intl";
 import { apiGet, ApiError } from "@/lib/api-client";
+import { useMeQuery, type MeResponseDTO } from "@/hooks/use-me";
 
 export interface UserProfile {
   id: string;
@@ -62,26 +63,6 @@ export interface DashboardData {
   stats: UserStats | null;
 }
 
-interface MeResponseDTO {
-  profile: {
-    id: string;
-    phone: string;
-    name: string;
-    region: string;
-    district: string;
-    birth_date: string | null;
-    locale_pref: string;
-    theme_pref: string;
-    referral_code: string;
-    role: string;
-    created_at: string;
-  };
-  vip: {
-    active: boolean;
-    until: string | null;
-  };
-}
-
 interface StreakDTO {
   current: number;
   best: number;
@@ -112,85 +93,98 @@ interface CategoryDTO {
   sort_order: number;
 }
 
-export function useUserStats() {
-  const locale = useLocale();
-  const [data, setData] = useState<DashboardData>({
-    user: null,
-    entitlement: null,
-    streak: null,
-    stats: null,
-  });
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+type UserStatsRest = {
+  streak: UserStreak;
+  stats: UserStats;
+};
 
-  const fetchAll = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const [me, streakDTO, statsDTO, categories] = await Promise.all([
-        apiGet<MeResponseDTO>("me"),
-        apiGet<StreakDTO>("me/streak"),
-        apiGet<StatsResponseDTO>("me/stats"),
-        apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`),
-      ]);
+function queryErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) return err.message;
+  return "Failed to load user data";
+}
 
-      const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
-      const categoryMastery = statsDTO.categories.map((category) => {
-        const name = namesByCode.get(category.category_code);
-        if (!name) {
-          throw new Error(`Missing localized category: ${category.category_code}`);
-        }
-        return {
-          code: category.category_code,
-          name,
-          answered: category.seen,
-          correct: category.correct,
-          studied: category.studied ?? 0,
-          total: category.total ?? 0,
-          mastery_pct: Math.round(category.mastery * 100),
-        };
-      });
+function mapMe(me: MeResponseDTO): Pick<DashboardData, "user" | "entitlement"> {
+  return {
+    user: me.profile,
+    entitlement: {
+      is_vip: me.vip.active,
+      valid_until: me.vip.until,
+    },
+  };
+}
 
-      const entitlement: UserEntitlement = {
-        is_vip: me.vip.active,
-        valid_until: me.vip.until,
-      };
-      const streak: UserStreak = {
-        current_streak: streakDTO.current,
-        max_streak: streakDTO.best,
-        today_answered: streakDTO.today_done,
-        daily_target: streakDTO.daily_goal,
-        last_active_date: streakDTO.last_active_date,
-      };
-      const stats: UserStats = {
-        readiness_pct: statsDTO.readiness_pct,
-        due_questions_count: statsDTO.due_count,
-        total_answered: statsDTO.categories.reduce((sum, category) => sum + category.seen, 0),
-        total_correct: statsDTO.categories.reduce((sum, category) => sum + category.correct, 0),
-        category_mastery: categoryMastery,
-        pass_estimate: statsDTO.pass_estimate ?? null,
-      };
+async function fetchUserStatsRest(locale: string): Promise<UserStatsRest> {
+  const [streakDTO, statsDTO, categories] = await Promise.all([
+    apiGet<StreakDTO>("me/streak"),
+    apiGet<StatsResponseDTO>("me/stats"),
+    apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`),
+  ]);
 
-      setData({ user: me.profile, entitlement, streak, stats });
-    } catch (err: unknown) {
-      if (err instanceof ApiError) {
-        setError(err.message);
-      } else {
-        setError("Failed to load user data");
-      }
-    } finally {
-      setLoading(false);
+  const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
+  const categoryMastery = statsDTO.categories.map((category) => {
+    const name = namesByCode.get(category.category_code);
+    if (!name) {
+      throw new Error(`Missing localized category: ${category.category_code}`);
     }
-  }, [locale]);
-
-  useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    return {
+      code: category.category_code,
+      name,
+      answered: category.seen,
+      correct: category.correct,
+      studied: category.studied ?? 0,
+      total: category.total ?? 0,
+      mastery_pct: Math.round(category.mastery * 100),
+    };
+  });
 
   return {
-    ...data,
+    streak: {
+      current_streak: streakDTO.current,
+      max_streak: streakDTO.best,
+      today_answered: streakDTO.today_done,
+      daily_target: streakDTO.daily_goal,
+      last_active_date: streakDTO.last_active_date,
+    },
+    stats: {
+      readiness_pct: statsDTO.readiness_pct,
+      due_questions_count: statsDTO.due_count,
+      total_answered: statsDTO.categories.reduce((sum, category) => sum + category.seen, 0),
+      total_correct: statsDTO.categories.reduce((sum, category) => sum + category.correct, 0),
+      category_mastery: categoryMastery,
+      pass_estimate: statsDTO.pass_estimate ?? null,
+    },
+  };
+}
+
+export function useUserStats() {
+  const locale = useLocale();
+  const meQuery = useMeQuery();
+  const restQuery = useQuery({
+    queryKey: ["user-stats-rest", locale],
+    queryFn: () => fetchUserStatsRest(locale),
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const loading = meQuery.isPending || restQuery.isPending;
+  const error = meQuery.error
+    ? queryErrorMessage(meQuery.error)
+    : restQuery.error
+      ? queryErrorMessage(restQuery.error)
+      : null;
+
+  const mappedMe = meQuery.data ? mapMe(meQuery.data) : { user: null, entitlement: null };
+  const rest = restQuery.data;
+
+  return {
+    user: error ? null : mappedMe.user,
+    entitlement: error ? null : mappedMe.entitlement,
+    streak: error || !rest ? null : rest.streak,
+    stats: error || !rest ? null : rest.stats,
     loading,
     error,
-    refetch: fetchAll,
+    refetch: async () => {
+      await Promise.all([meQuery.refetch(), restQuery.refetch()]);
+    },
   };
 }

@@ -20,6 +20,21 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
 }));
 
+vi.mock("next/dynamic", async () => {
+  const { OfficialAvtotestExamView } = await import("@/components/exam/official-avtotest-exam-view");
+  const { ExamPassCelebration } = await import("@/components/exam/exam-pass-celebration");
+  const { GrandMockCertificateDialog } = await import("@/components/mock/grand-mock-certificate-dialog");
+  return {
+    default: (loader: () => Promise<{ default: unknown }>) => {
+      const src = loader.toString();
+      if (src.includes("official-avtotest-exam-view")) return OfficialAvtotestExamView;
+      if (src.includes("exam-pass-celebration")) return ExamPassCelebration;
+      if (src.includes("grand-mock-certificate-dialog")) return GrandMockCertificateDialog;
+      throw new Error(`unmocked next/dynamic loader: ${src}`);
+    },
+  };
+});
+
 vi.mock("@/hooks/use-session-engine", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/hooks/use-session-engine")>();
   return { ...actual, useSessionEngine: vi.fn() };

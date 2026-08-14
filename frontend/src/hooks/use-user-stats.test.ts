@@ -1,7 +1,17 @@
+import { createElement, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { useUserStats } from "./use-user-stats";
 import * as apiClient from "@/lib/api-client";
+import { createQueryClient } from "@/lib/query-client";
+
+function hookWrapper() {
+  const client = createQueryClient();
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return createElement(QueryClientProvider, { client }, children);
+  };
+}
 
 vi.mock("next-intl", () => ({
   useLocale: () => "ru",
@@ -63,7 +73,7 @@ describe("useUserStats", () => {
       throw new Error("Unknown path");
     });
 
-    const { result } = renderHook(() => useUserStats());
+    const { result } = renderHook(() => useUserStats(), { wrapper: hookWrapper() });
 
     expect(result.current.loading).toBe(true);
 
@@ -96,15 +106,79 @@ describe("useUserStats", () => {
     expect(apiClient.apiGet).not.toHaveBeenCalledWith("me/entitlement");
   });
 
+  it("shares a single /me fetch across two dashboard consumers", async () => {
+    const mockMe = {
+      profile: {
+        id: "u-1",
+        phone: "+998901234567",
+        name: "Alisher",
+        region: "Tashkent",
+        district: "Yunusobod",
+        birth_date: null,
+        locale_pref: "ru",
+        theme_pref: "system",
+        referral_code: "REF-1",
+        role: "student",
+        created_at: "2026-07-22T10:00:00Z",
+      },
+      vip: { active: false, until: null },
+    };
+    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "me") return mockMe as never;
+      if (path === "me/streak") {
+        return { current: 0, best: 0, today_done: 0, daily_goal: 10, last_active_date: null } as never;
+      }
+      if (path === "me/stats") {
+        return { categories: [], readiness_pct: 0, due_count: 0 } as never;
+      }
+      if (path === "categories?locale=ru") return [] as never;
+      throw new Error("Unknown path");
+    });
+
+    const wrapper = hookWrapper();
+    const first = renderHook(() => useUserStats(), { wrapper });
+    const second = renderHook(() => useUserStats(), { wrapper });
+
+    await waitFor(() => {
+      expect(first.result.current.loading).toBe(false);
+      expect(second.result.current.loading).toBe(false);
+    });
+
+    const meCalls = vi.mocked(apiClient.apiGet).mock.calls.filter((call) => call[0] === "me");
+    expect(meCalls).toHaveLength(1);
+  });
+
   it("reports an API failure instead of returning partial dashboard data", async () => {
     vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path === "me") {
+        return {
+          profile: {
+            id: "u-1",
+            phone: "+998901234567",
+            name: "Alisher",
+            region: "",
+            district: "",
+            birth_date: null,
+            locale_pref: "ru",
+            theme_pref: "system",
+            referral_code: "",
+            role: "student",
+            created_at: "2026-07-22T10:00:00Z",
+          },
+          vip: { active: false, until: null },
+        } as never;
+      }
       if (path === "me/stats") {
         throw new apiClient.ApiError("stats unavailable", "internal", 500);
       }
-      return [] as any;
+      if (path === "me/streak") {
+        return { current: 0, best: 0, today_done: 0, daily_goal: 10, last_active_date: null } as never;
+      }
+      if (path === "categories?locale=ru") return [] as never;
+      throw new Error("Unknown path");
     });
 
-    const { result } = renderHook(() => useUserStats());
+    const { result } = renderHook(() => useUserStats(), { wrapper: hookWrapper() });
 
     await waitFor(() => {
       expect(result.current.loading).toBe(false);

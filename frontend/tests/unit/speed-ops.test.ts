@@ -1,0 +1,60 @@
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+const frontendRoot = process.cwd();
+const repoRoot = join(frontendRoot, "..");
+
+describe("origin speed plan contracts", () => {
+  it("keeps landing Links from prefetching login/diagnostic RSC", () => {
+    const src = readFileSync(
+      join(frontendRoot, "src/app/[locale]/(public)/page.tsx"),
+      "utf8",
+    );
+    const linkCount = (src.match(/<Link\b/g) ?? []).length;
+    const prefetchOff = (src.match(/prefetch=\{false\}/g) ?? []).length;
+    expect(linkCount).toBeGreaterThan(0);
+    expect(prefetchOff).toBe(linkCount);
+  });
+
+  it("loads the official exam chrome as a client chunk", () => {
+    const src = readFileSync(
+      join(frontendRoot, "src/app/[locale]/(session)/session/[id]/page.tsx"),
+      "utf8",
+    );
+    expect(src).toContain('from "next/dynamic"');
+    expect(src).toContain("official-avtotest-exam-view");
+    expect(src).toContain("exam-pass-celebration");
+    expect(src).not.toMatch(
+      /import \{ OfficialAvtotestExamView \} from "@\/components\/exam\/official-avtotest-exam-view"/,
+    );
+  });
+
+  it("ships app and session loading shells", () => {
+    expect(existsSync(join(frontendRoot, "src/app/[locale]/(app)/loading.tsx"))).toBe(true);
+    expect(existsSync(join(frontendRoot, "src/app/[locale]/(session)/loading.tsx"))).toBe(true);
+    expect(readFileSync(join(frontendRoot, "src/app/[locale]/(app)/layout.tsx"), "utf8")).not.toMatch(
+      /^"use client";/m,
+    );
+  });
+
+  it("keeps the exam placeholder URL and a small chrome WebP", () => {
+    const placeholder = join(frontendRoot, "public/exam/placeholder-driver-go-cars.png");
+    expect(existsSync(placeholder)).toBe(true);
+    expect(statSync(join(frontendRoot, "public/logo-48.webp")).size).toBeLessThan(10_000);
+    const resolver = readFileSync(join(frontendRoot, "src/lib/question-image.ts"), "utf8");
+    expect(resolver).toContain("/exam/placeholder-driver-go-cars.png");
+  });
+
+  it("uses a cheap web liveness probe in compose", () => {
+    for (const rel of [
+      "deploy/docker-compose.prod.yml",
+      "deploy/docker-compose.app.yml",
+      "deploy/docker-compose.candidate.yml",
+    ]) {
+      const text = readFileSync(join(repoRoot, rel), "utf8");
+      expect(text).toContain("/api/healthz");
+      expect(text).not.toContain("127.0.0.1:3000/uz-Latn");
+    }
+  });
+});

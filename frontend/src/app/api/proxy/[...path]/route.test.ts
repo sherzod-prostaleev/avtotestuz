@@ -257,4 +257,37 @@ describe("proxy route", () => {
       expect.objectContaining({ method: "GET" })
     );
   });
+
+  it("copies backend Cache-Control on a public GET list", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: [] }), {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      new Request("http://localhost/api/proxy/variants"),
+      routeContext(["variants"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+  });
+
+  it("does not copy Cache-Control onto authenticated /me JSON", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ data: { id: "profile-1" } }), {
+        status: 200,
+        headers: { "Cache-Control": "public, max-age=300" },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=good-token"), routeContext(["me"]));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("cache-control")).not.toBe("public, max-age=300");
+  });
 });

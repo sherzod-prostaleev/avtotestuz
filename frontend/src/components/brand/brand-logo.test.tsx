@@ -3,10 +3,10 @@ import { describe, expect, it } from "vitest";
 import { BrandLogo } from "./brand-logo";
 
 describe("BrandLogo", () => {
-  it("renders the static logo via next/image", () => {
+  it("renders the static 48px WebP chrome mark", () => {
     render(<BrandLogo alt="Driver Go" size={40} />);
     const img = screen.getByAltText("Driver Go");
-    expect(img.getAttribute("src")).toMatch(/logo-512\.png/);
+    expect(img.getAttribute("src")).toBe("/logo-48.webp");
     expect(img).toHaveAttribute("width", "40");
     expect(img).toHaveAttribute("height", "40");
   });

@@ -15,4 +15,9 @@ describe("next.config media serving", () => {
     expect(config).toContain("/media/:path*");
     expect(config).toContain("9000/media");
   });
+
+  it("caches the chrome WebP as immutable", () => {
+    expect(config).toContain("/logo-48.webp");
+    expect(config).toContain("public, max-age=31536000, immutable");
+  });
 });

@@ -22,6 +22,8 @@ describe("PWA manifest", () => {
     );
     expect(manifest.icons.some((i) => i.type === "image/svg+xml")).toBe(false);
     expect(existsSync(join(process.cwd(), "public/logo-512.png"))).toBe(true);
+    expect(existsSync(join(process.cwd(), "public/logo-48.webp"))).toBe(true);
+    expect(statSync(join(process.cwd(), "public/logo-48.webp")).size).toBeLessThan(10_000);
     expect(existsSync(join(process.cwd(), "public/apple-touch-icon.png"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/favicon.ico"))).toBe(true);
     expect(existsSync(join(process.cwd(), "public/favicon-32.png"))).toBe(true);

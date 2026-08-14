@@ -114,7 +114,11 @@ compose=(docker compose -f deploy/docker-compose.prod.yml --env-file deploy/app.
 "${compose[@]}" config --quiet
 "${compose[@]}" ps --status running api web >/dev/null
 "${compose[@]}" exec -T api /healthcheck http://127.0.0.1:8080/readyz
-"${compose[@]}" exec -T web wget -qO- http://127.0.0.1:3000/uz-Latn >/dev/null
+# Prefer the cheap probe; fall back to a locale document on images that
+# predate /api/healthz so a code sync can land before the web recreate.
+if ! "${compose[@]}" exec -T web wget -qO- http://127.0.0.1:3000/api/healthz >/dev/null; then
+  "${compose[@]}" exec -T web wget -qO- http://127.0.0.1:3000/uz-Latn >/dev/null
+fi
 REMOTE
 }
 

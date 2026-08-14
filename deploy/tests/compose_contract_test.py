@@ -149,6 +149,26 @@ class ComposeContractTest(unittest.TestCase):
         )
         self.assertEqual(config["services"]["web"]["depends_on"]["api"]["condition"], "service_healthy")
 
+    def test_web_healthcheck_is_cheap_probe(self) -> None:
+        for rel in (
+            "deploy/docker-compose.prod.yml",
+            "deploy/docker-compose.app.yml",
+            "deploy/docker-compose.candidate.yml",
+        ):
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            self.assertIn("/api/healthz", text, rel)
+            self.assertNotIn("127.0.0.1:3000/uz-Latn", text, rel)
+            self.assertNotIn("127.0.0.1:3000/uz-Cyrl", text, rel)
+
+    def test_nginx_html_keepalive_and_closed_media_listing(self) -> None:
+        conf = (ROOT / "deploy/nginx-drivergo.uz.conf").read_text(encoding="utf-8")
+        self.assertIn("map $http_upgrade $drivergo_connection_upgrade", conf)
+        self.assertIn("proxy_set_header   Connection $drivergo_connection_upgrade", conf)
+        self.assertIn("location = /media/", conf)
+        self.assertIn("location /_next/static/", conf)
+        listing = conf.split("location = /media/", 1)[1].split("location ", 1)[0]
+        self.assertIn("return 404", listing)
+
 
 if __name__ == "__main__":
     unittest.main()

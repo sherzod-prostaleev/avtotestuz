@@ -208,12 +208,29 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     return unavailableResponse(newTokens);
   }
   const response = NextResponse.json(data, { status: backendRes.status });
+  applyPublicCacheHeaders(request, path, backendRes, response, newTokens);
 
   if (newTokens) {
     setAuthCookies(response, newTokens);
   }
 
   return response;
+}
+
+/** Honour Go Cache-Control on public GETs so CF/nginx can cache CMS lists. */
+function applyPublicCacheHeaders(
+  request: Request,
+  path: string[],
+  backendRes: Response,
+  response: NextResponse,
+  newTokens: TokenPair | null,
+) {
+  if (request.method !== "GET" || newTokens || !isPublicPath(path) || backendRes.status !== 200) {
+    return;
+  }
+  const cacheControl = backendRes.headers.get("cache-control");
+  if (!cacheControl) return;
+  response.headers.set("Cache-Control", cacheControl);
 }
 
 export const GET = handle;

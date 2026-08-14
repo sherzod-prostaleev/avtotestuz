@@ -228,6 +228,7 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
           <Link
+            prefetch={false}
             href={`/${locale}`}
             className="flex min-w-0 items-center gap-2 font-display text-lg font-black tracking-tight text-foreground sm:gap-2.5 sm:text-2xl"
           >
@@ -261,6 +262,7 @@ export default function LandingPage() {
             <LocaleSwitcher className="hidden sm:flex" />
             <ThemeToggle />
             <Link
+              prefetch={false}
               href={`/${locale}/login`}
               aria-label={t("login")}
               className={`${primaryCta} h-10 min-w-10 px-2.5 text-xs sm:h-9 sm:px-4`}
@@ -299,7 +301,7 @@ export default function LandingPage() {
               {heroSubtitle}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-              <Link href={heroCtaHref} className={heroPrimaryCta}>
+              <Link prefetch={false} href={heroCtaHref} className={heroPrimaryCta}>
                 {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
@@ -486,7 +488,7 @@ export default function LandingPage() {
             <div className="relative">
               <h2 className="font-display text-3xl font-extrabold sm:text-4xl">{t("bottomCtaTitle")}</h2>
               <p className="mx-auto mt-3 max-w-md text-base text-muted-foreground">{t("bottomCtaText")}</p>
-              <Link href={heroCtaHref} className={`${heroPrimaryCta} mt-7`}>
+              <Link prefetch={false} href={heroCtaHref} className={`${heroPrimaryCta} mt-7`}>
                 {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
@@ -515,7 +517,7 @@ export default function LandingPage() {
                       {item.label}
                     </a>
                   ) : (
-                    <Link href={item.href} className="text-foreground hover:text-accent">
+                    <Link prefetch={false} href={item.href} className="text-foreground hover:text-accent">
                       {item.label}
                     </Link>
                   )}
@@ -592,7 +594,7 @@ export default function LandingPage() {
       </footer>
 
       <div className="landing-sticky-cta">
-        <Link href={heroCtaHref} className={`${heroPrimaryCta} w-full`}>
+        <Link prefetch={false} href={heroCtaHref} className={`${heroPrimaryCta} w-full`}>
           {heroCtaLabel}
           <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0" />
         </Link>

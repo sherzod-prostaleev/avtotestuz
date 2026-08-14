@@ -5,6 +5,8 @@ import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { Providers } from "@/app/providers";
 import { locales, type Locale } from "@/i18n/config";
+import { COMMON_NAMESPACES } from "@/i18n/namespaces";
+import { pickMessages } from "@/i18n/pick-messages";
 import "../globals.css";
 
 /** Notch / home-indicator safe areas (landing sticky CTA + app chrome). */
@@ -84,7 +86,7 @@ export default async function LocaleLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">
-        <NextIntlClientProvider messages={messages}>
+        <NextIntlClientProvider messages={pickMessages(messages, COMMON_NAMESPACES)}>
           <Providers>
             {children}
           </Providers>

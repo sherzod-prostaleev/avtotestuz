@@ -1,6 +1,7 @@
 "use client";
 
 import { startTransition, useCallback, useEffect, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -29,10 +30,7 @@ import {
 import { type AnswerState } from "@/components/shared/answer-option";
 import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
-import { OfficialAvtotestExamView } from "@/components/exam/official-avtotest-exam-view";
-import { ExamPassCelebration } from "@/components/exam/exam-pass-celebration";
 import { BiletPraiseBanner } from "@/components/exam/bilet-praise-banner";
-import { GrandMockCertificateDialog } from "@/components/mock/grand-mock-certificate-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { meetsExamPassThreshold } from "@/lib/celebration-confetti";
@@ -41,6 +39,43 @@ import {
   resolveQuestionImageUrl,
   upcomingQuestionImageUrls,
 } from "@/lib/question-image";
+
+function ExamChunkFallback() {
+  return (
+    <div
+      className="flex min-h-[60vh] items-center justify-center"
+      role="status"
+      aria-live="polite"
+    >
+      <div
+        className="h-8 w-8 animate-spin rounded-full border-2 border-accent border-t-transparent"
+        aria-hidden="true"
+      />
+    </div>
+  );
+}
+
+const OfficialAvtotestExamView = dynamic(
+  () =>
+    import("@/components/exam/official-avtotest-exam-view").then((mod) => ({
+      default: mod.OfficialAvtotestExamView,
+    })),
+  { ssr: false, loading: ExamChunkFallback },
+);
+const ExamPassCelebration = dynamic(
+  () =>
+    import("@/components/exam/exam-pass-celebration").then((mod) => ({
+      default: mod.ExamPassCelebration,
+    })),
+  { ssr: false, loading: ExamChunkFallback },
+);
+const GrandMockCertificateDialog = dynamic(
+  () =>
+    import("@/components/mock/grand-mock-certificate-dialog").then((mod) => ({
+      default: mod.GrandMockCertificateDialog,
+    })),
+  { ssr: false },
+);
 
 /** Modes that share the strict timed/anti-cheat exam pipeline — timer,
  * answer redaction until finish, F-key exam UI. Currently "exam",

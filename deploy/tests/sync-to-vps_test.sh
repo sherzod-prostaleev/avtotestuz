@@ -38,6 +38,8 @@ grep -Fq 'partial_root="$rollback_root/.partial-$snapshot_id"' "$ROOT/deploy/syn
 grep -Fq 'mv -- "$partial_root" "$snapshot_root"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'complete="$snapshot_root/COMPLETE"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'rollback snapshot is incomplete' "$ROOT/deploy/sync-to-vps.sh"
+grep -Fq 'http://127.0.0.1:3000/api/healthz' "$ROOT/deploy/sync-to-vps.sh"
+grep -Fq 'http://127.0.0.1:3000/uz-Latn' "$ROOT/deploy/sync-to-vps.sh"
 
 test_root="$(mktemp -d)"
 trap 'rm -rf -- "$test_root"' EXIT
