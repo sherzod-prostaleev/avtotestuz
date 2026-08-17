@@ -11,7 +11,11 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Lock, Phone, User } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
-import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
+import {
+  NATIONAL_PHONE_INPUT_MAX_LENGTH,
+  formatNationalPhone,
+  normalizeNationalPhone,
+} from "@/lib/phone-format";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -166,7 +170,7 @@ export default function RegisterPage() {
                   value={formatNationalPhone(phone)}
                   onChange={(e) => setPhone(normalizePhone(e.target.value))}
                   placeholder="90 123 45 67"
-                  maxLength={9}
+                  maxLength={NATIONAL_PHONE_INPUT_MAX_LENGTH}
                   className="w-full bg-transparent font-bold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"
                   aria-label={t("phoneLabel")}
                 />

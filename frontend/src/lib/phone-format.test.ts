@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  NATIONAL_PHONE_INPUT_MAX_LENGTH,
   formatNationalPhone,
   normalizeNationalPhone,
   parsePasswordResetTokenFromBotURL,
@@ -18,6 +19,12 @@ describe("formatNationalPhone", () => {
     expect(formatNationalPhone("901234567")).toBe("90 123 45 67");
     expect(formatNationalPhone("90")).toBe("90");
     expect(formatNationalPhone("90123")).toBe("90 123");
+  });
+
+  it("fits 9 national digits plus grouping spaces in the input max length", () => {
+    expect(formatNationalPhone("901234567")).toBe("90 123 45 67");
+    expect(formatNationalPhone("901234567").length).toBe(NATIONAL_PHONE_INPUT_MAX_LENGTH);
+    expect(NATIONAL_PHONE_INPUT_MAX_LENGTH).toBeGreaterThan(9);
   });
 });
 

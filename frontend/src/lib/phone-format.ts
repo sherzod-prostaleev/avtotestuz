@@ -14,6 +14,13 @@ export function formatNationalPhone(digits: string): string {
   return parts.join(" ");
 }
 
+/**
+ * HTML maxLength for the national input after the +998 prefix.
+ * 9 digits grouped as "90 123 45 67" is 12 characters — not 9.
+ * A maxLength of 9 stops typing after 7 digits ("90 123 45").
+ */
+export const NATIONAL_PHONE_INPUT_MAX_LENGTH = formatNationalPhone("000000000").length;
+
 export function parsePasswordResetTokenFromBotURL(botURL: string): string | null {
   try {
     const url = new URL(botURL);

@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -75,6 +76,18 @@ describe("RegisterPage", () => {
     await waitFor(() => expect(screen.getByText("Parollar mos kelmadi")).toBeInTheDocument());
     expect(fetchMock).not.toHaveBeenCalled();
     expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  it("lets the user type all 9 national digits after +998 with grouping spaces", async () => {
+    const user = userEvent.setup();
+    renderWithIntl();
+
+    const input = screen.getByLabelText("Telefon raqam");
+    // Formatted value is "90 123 45 67" (12 chars). maxLength=9 would stop at 7 digits.
+    expect(Number(input.getAttribute("maxLength"))).toBeGreaterThanOrEqual("90 123 45 67".length);
+    await user.type(input, "901234567");
+
+    expect(input).toHaveValue("90 123 45 67");
   });
 
   it("keeps the submit button clickable and validates phone on submit", async () => {
