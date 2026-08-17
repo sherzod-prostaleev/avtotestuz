@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -41,6 +42,19 @@ describe("LoginPage", () => {
     const { container } = renderWithIntl();
     expect(screen.getByRole("heading", { name: "Kirish" })).toBeInTheDocument();
     expect(container.textContent).not.toContain("🚗");
+  });
+
+  it("lets the user type all 9 national digits after +998 with grouping spaces", async () => {
+    const user = userEvent.setup();
+    renderWithIntl();
+
+    const input = screen.getByLabelText("Telefon raqam");
+    const max = input.getAttribute("maxLength");
+    if (max !== null) {
+      expect(Number(max)).toBeGreaterThanOrEqual("90 123 45 67".length);
+    }
+    await user.type(input, "901234567");
+    expect(input).toHaveValue("90 123 45 67");
   });
 
   it("keeps submit enabled and validates phone on submit", async () => {

@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -28,6 +29,19 @@ function renderWithIntl() {
 }
 
 describe("ForgotPasswordPage", () => {
+  it("lets the user type all 9 national digits after +998 with grouping spaces", async () => {
+    const user = userEvent.setup();
+    renderWithIntl();
+
+    const input = screen.getByLabelText("Telefon raqam");
+    const max = input.getAttribute("maxLength");
+    if (max !== null) {
+      expect(Number(max)).toBeGreaterThanOrEqual("90 123 45 67".length);
+    }
+    await user.type(input, "901234567");
+    expect(input).toHaveValue("90 123 45 67");
+  });
+
   it("starts a telegram reset and navigates with token + bot url", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
