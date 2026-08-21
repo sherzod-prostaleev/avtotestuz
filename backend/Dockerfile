@@ -56,7 +56,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # tree cannot be forgotten at the command line, and CI enforces that it is
 # bumped whenever anything under backend/station/ changes. The build arg is
 # still honoured, for a one-off local or candidate build only.
-FROM golang:1.20-alpine@sha256:e47f121850f4e276b2b210c56df3fda9191278dd84a3a442bfe0b09934462a8f AS station
+FROM golang:1.24-alpine@sha256:8bee1901f1e530bfb4a7850aa7a479d17ae3a18beb6e09064ed54cfd245b7191 AS station
 WORKDIR /src
 ARG STATION_VERSION=
 RUN apk add --no-cache git
