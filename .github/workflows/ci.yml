@@ -237,6 +237,31 @@ jobs:
           fi
           echo "VERSION $before -> $after"
 
+      # Guards the one dependency bump that breaks a driving school silently.
+      #
+      # Go 1.21 dropped Windows 7 / 8 / Server 2008 / 2012, and classroom PCs in
+      # Uzbek driving schools are still on Windows 7. A binary built with a
+      # newer toolchain compiles perfectly, passes every test here, and then
+      # refuses to start at the school -- there is no build-time signal at all.
+      # Dependabot proposes exactly this bump on its own schedule (#31 bumped
+      # golang 1.20-alpine to 1.24-alpine; #22 bumped x/sys past the last
+      # release that compiles on 1.20), so the pin needs a gate rather than a
+      # comment. Retiring Windows 7 is a product decision with an evidence
+      # bundle attached: see backend/station/security/GOVERNANCE.md.
+      - name: Refuse a station toolchain that drops Windows 7
+        run: |
+          set -euo pipefail
+          fail=0
+          if ! grep -qE '^FROM golang:1\.20-alpine@sha256:[0-9a-f]+ AS station$' backend/Dockerfile; then
+            echo "::error file=backend/Dockerfile::the station build stage is no longer pinned to golang:1.20-alpine. Go 1.21+ binaries do not start on Windows 7, and nothing fails at build time — the failure is total and only visible at the school."
+            fail=1
+          fi
+          if ! grep -qE '^go 1\.20$' backend/station/go.mod; then
+            echo "::error file=backend/station/go.mod::the station module is no longer pinned to go 1.20."
+            fail=1
+          fi
+          exit "$fail"
+
   station-vulnerability-scan:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
