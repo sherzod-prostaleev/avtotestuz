@@ -177,18 +177,55 @@ That one build covers Windows 7 through 11 and both architectures. Do not
 "upgrade" that stage to match the server toolchain without a Windows 7 PC to
 test on: the failure is silent at build time and total at the school.
 
-Stamp the version on every such build, otherwise `b2b_station.agent_version`
-reports `1.0.0` for every PC and a school on a known-broken build is
-indistinguishable from one on the fix:
+The version stamped into the agent comes from **`backend/station/VERSION`** —
+nothing has to be typed at the command line, and there is no `STATION_VERSION`
+environment variable to forget:
 
 ```bash
-cd /opt/drivergo/deploy && STATION_VERSION=1.0.1 \
+cd /opt/drivergo/deploy && \
   docker compose -f docker-compose.prod.yml --env-file app.env build api
 ```
 
-A school that already installed an older agent must download the `.exe` again
-from the admin panel and run it once; it reuses the existing `station.key`, so
-no seat is consumed and no re-enrolment is needed.
+It used to be a shell variable the operator had to remember on every build.
+Nobody remembered it after 2026-08-07, so every rebuild shipped an agent that
+reported `1.0.0`, `b2b_station.agent_version` said `1.0.0` for the whole fleet,
+and a school on a known-broken build looked exactly like one on the fix. The
+build now fails outright rather than stamping a placeholder, and the station
+stage prints the version it is stamping:
+
+```
+station: building agent 1.0.9
+```
+
+Read that line out of the build output — it is the only place the version is
+decided. After a classroom PC renews its token, the same string appears in
+`b2b_station.agent_version` and in the admin panel's station list, which is how
+you confirm the fleet actually moved.
+
+### The fleet updates itself (agent 1.1.0 and later)
+
+Installed classroom PCs poll `GET /api/v1/b2b/stations/agent-manifest` every
+six hours, and install anything whose version differs from their own. So
+shipping a fix to every school is just:
+
+1. bump `backend/station/VERSION` in the same commit as the agent change
+   (CI's `station-version-gate` fails the PR otherwise);
+2. deploy with `build api` — **`build web` alone never updates the fleet**;
+3. watch `b2b_station.agent_version` in the admin panel converge.
+
+The swap is written to disk immediately but the running process is not killed
+mid-lesson: the new binary takes over at the PC's next start, or sooner if the
+kiosk has made no API call for 30 minutes. Expect a school to be fully migrated
+by the morning after a deploy.
+
+**Rolling back is the kill switch.** Any version difference triggers an update,
+in both directions, so restoring the previous `drivergo-api` image walks every
+classroom back to the agent inside it.
+
+**PCs installed before 1.1.0 do not have this.** They must download the `.exe`
+from the admin panel once more and run it; it reuses the existing
+`station.key`, so no seat is consumed and no re-enrolment happens. After that
+one manual step they keep themselves current.
 
 ## CI implications
 

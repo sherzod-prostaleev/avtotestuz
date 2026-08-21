@@ -149,8 +149,14 @@ installer and no runtime dependency (no .NET, no VC++ redistributable, no Go
 install on the target machine). Build it from `backend/station/` with:
 
 ```
-CGO_ENABLED=0 GOOS=windows GOARCH=386 go build -ldflags "-s -w -X main.version=1.0.0" -o avtotest-station.exe ./cmd/avtotest-station
+CGO_ENABLED=0 GOOS=windows GOARCH=386 go build \
+  -ldflags "-s -w -H windowsgui -X main.version=$(cat VERSION)" \
+  -o avtotest-station.exe ./cmd/avtotest-station
 ```
+
+In production this is done by `backend/Dockerfile`'s `station` stage, which
+reads the same `VERSION` file. Nothing has to be typed at build time; see
+"Versioning" below.
 
 - Go 1.20 is intentional: it is the final Go family supporting Windows 7.
   `GOARCH=386` keeps the same executable usable on 32-bit and 64-bit Windows
@@ -176,8 +182,14 @@ least quarterly. The long-term exit is retiring Windows 7 (or supplying a
 separately supported compatibility client), then rebuilding on a maintained Go
 release; silently raising `go 1.20` is not acceptable because it strands the
 installed classroom fleet.
-- `-X main.version=1.0.0` stamps the version `main.go` logs on startup and
-  prints in `-selftest`; bump it per release.
+- `-X main.version=...` stamps the version the agent logs on startup, reports
+  to the backend as `b2b_station.agent_version`, shows on the kiosk status
+  screen, and compares against the update manifest. It comes from
+  `backend/station/VERSION` — see "Versioning" below.
+- `-H windowsgui` links the binary as a GUI application, which is what stops a
+  classroom PC from showing a black console window. It costs a console for the
+  diagnostic modes, which `cmd/avtotest-station/console_windows.go` borrows
+  back with `AttachConsole` when the operator runs the agent from `cmd`.
 - `-s -w` strips debug symbols and the DWARF table — smaller binary, no
   effect on behavior.
 - The result is one `.exe` (around 7 MB as of this writing). This is the
@@ -248,6 +260,74 @@ Read the verdict as printed, not by whether the command "errored":
   machine it did not come from. That means the binding is broken; stop and
   report it — do not read this as a harmless pass.
 
+## Versioning
+
+`backend/station/VERSION` is the single source of truth. The Docker build reads
+it, stamps it into both the binary and the PE version resource, writes it
+beside the binary as `/station/agent-version` for the update manifest to serve,
+and **fails the build** if it is missing or malformed.
+
+It used to be a shell variable (`STATION_VERSION=1.0.9 docker compose build
+api`) that an operator had to remember on every build. Nobody did, so from
+2026-08-07 every deployed agent reported `1.0.0` while three different builds
+were in the field, and `b2b_station.agent_version` was useless for telling a
+school on a broken build from one on the fix. CI (`station-version-gate`) now
+fails any pull request that changes a shipped file under `backend/station/`
+without bumping `VERSION`.
+
+## Self-update
+
+An installed agent keeps itself current. Every six hours it reads
+`GET /api/v1/b2b/stations/agent-manifest` — `{version, sha256, size}` — and
+when the version differs from its own it:
+
+1. downloads the plain, school-agnostic agent from
+   `GET /api/v1/b2b/stations/agent?v=<version>`;
+2. checks the SHA-256 against the manifest **before** touching anything;
+3. appends the config trailer its own installed copy already carries
+   (`internal/embedcfg.RawTrailer` — the school's installer key, which
+   therefore never crosses the network again after the first install);
+4. verifies the assembled file reads back as a configured agent;
+5. renames the current binary to `avtotest-station.exe.prev` and moves the new
+   one into place.
+
+The running process is **not** killed mid-lesson. Windows refuses to overwrite
+a running image but allows renaming it, so the swap is safe while the current
+process keeps executing from the renamed file, and the new binary takes over at
+the next start — which on a classroom PC is the next morning. The agent will
+restart itself sooner, but only after the kiosk has made no API call for 30
+minutes, which is longer than any exam.
+
+Because any version difference triggers an update, reverting the API image is
+also the kill switch: the fleet follows the image back down.
+
+**PCs installed before 1.1.0 have no update client and will never pick this
+up.** They need one last manual download from the admin panel, run once per
+machine. After that they update themselves.
+
+The integrity story is a SHA-256 over TLS, not a code signature: whoever can
+serve the manifest can serve a matching binary. That closes truncated
+downloads, stale edge caches and rewriting proxies, and it does not close a
+compromised origin. Authenticode signing is the next step — see
+`security/GOVERNANCE.md`.
+
+## No console window
+
+The shipped binary is linked `-H windowsgui`, so nothing appears on screen when
+autostart runs it. Diagnosis moved to two places:
+
+- `station.log`, beside the key in `%ProgramData%\AvtoTest\station\`
+  (falling back to `%LOCALAPPDATA%\AvtoTest\station\` when that folder was
+  created by a different Windows account and is not writable). It rotates at
+  2 MB.
+- the kiosk page itself, which polls `http://127.0.0.1:17817/__station/status`
+  whenever it cannot reach the API and shows the agent's version, school,
+  station id, log path and — in Uzbek — what is wrong and what to do about it.
+
+A failure severe enough to stop the agent before it can serve anything raises a
+Windows message box, because a GUI process printing to a stream nobody is
+reading is a failure nobody sees.
+
 ## Offline is not supported
 
 The classroom needs a live internet connection at all times. Every question,
@@ -259,9 +339,14 @@ and no queued results to replay once connectivity returns.
 
 ## What this does not do yet
 
-This is the Faza 1 agent. Beyond having no offline story at all (above), it
-also has no clock-rollback protection and no auto-update — the agent needs a
-live connection to the backend to renew its token, the same connection the
-proxy depends on. There is also no MSI/GPO installer yet; deployment today is
-downloading the binary from the admin panel and running it once per PC, or
-copying it by hand. Those are planned for Faza 2 and Faza 3.
+Beyond having no offline story at all (above), it has no clock-rollback
+protection and no MSI/GPO installer; deployment today is downloading the binary
+from the admin panel and running it once per PC, or copying it by hand. After
+that first install the agent updates itself (see "Self-update").
+
+It also cannot roll back a bad release on its own. `avtotest-station.exe.prev`
+is kept so a person can restore one by hand, but an update that starts and then
+misbehaves is caught by nobody, and an update that will not start at all leaves
+no process able to react. The protections that exist are upstream: CI builds
+and vets the exact Windows/386 artifact, the digest is checked before the swap,
+and reverting the API image walks the whole fleet back.

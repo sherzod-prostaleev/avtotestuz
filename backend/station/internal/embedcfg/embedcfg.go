@@ -47,6 +47,49 @@ type Config struct {
 	Locale   string `json:"locale"`
 }
 
+// RawTrailer returns the exact bytes the admin panel appended to the file at
+// path -- the config JSON, its big-endian length and the magic -- ready to be
+// written onto the end of a different base binary.
+//
+// This is what makes self-update possible without the backend having to mint a
+// per-school binary for every upgrade. The updater downloads the plain,
+// school-agnostic agent, appends the trailer its own running copy is already
+// carrying, and the result is byte-for-byte the file the admin panel would
+// have produced. The trailer holds the school's installer key, so it never
+// travels over the network during an update: it is copied from one local file
+// to another.
+func RawTrailer(path string) ([]byte, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = f.Close() }()
+
+	size, err := f.Seek(0, io.SeekEnd)
+	if err != nil {
+		return nil, err
+	}
+	if size < int64(trailerLen) {
+		return nil, ErrNoConfig
+	}
+	trailer := make([]byte, trailerLen)
+	if _, err := f.ReadAt(trailer, size-int64(trailerLen)); err != nil {
+		return nil, err
+	}
+	if string(trailer[4:]) != magic {
+		return nil, ErrNoConfig
+	}
+	n := int64(binary.BigEndian.Uint32(trailer[:4]))
+	if n == 0 || n > maxConfigLen || n > size-int64(trailerLen) {
+		return nil, fmt.Errorf("embedded config length %d is not plausible for a %d-byte file", n, size)
+	}
+	out := make([]byte, n+int64(trailerLen))
+	if _, err := f.ReadAt(out, size-int64(trailerLen)-n); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Read returns the configuration appended to the file at path.
 func Read(path string) (Config, error) {
 	f, err := os.Open(path)

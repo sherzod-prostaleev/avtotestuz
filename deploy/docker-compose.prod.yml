@@ -141,13 +141,16 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-      # The version stamped into the Windows agent this image serves. Without
-      # it the Dockerfile's ARG kept its default and every classroom PC
-      # reported 1.0.0 in b2b_station.agent_version, so a school running a
-      # known-broken build looked identical to one running the fix. Bump it in
-      # the same commit as any change under backend/station/.
+      # The version stamped into the Windows agent this image serves. Empty by
+      # default and it must stay empty: the Dockerfile then reads
+      # backend/station/VERSION, which is the version of record. This used to
+      # default to 1.0.0, so every rebuild where the operator did not type
+      # STATION_VERSION=... on the command line -- which is every backend
+      # deploy since 2026-08-07 -- shipped an agent reporting 1.0.0, and
+      # b2b_station.agent_version said 1.0.0 for the whole fleet. Set the
+      # variable only for a deliberate one-off build.
       args:
-        STATION_VERSION: ${STATION_VERSION:-1.0.0}
+        STATION_VERSION: ${STATION_VERSION:-}
         VCS_REF: ${VCS_REF:-unknown}
     image: ${API_IMAGE:-drivergo-api:local}
     ports:

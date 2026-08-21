@@ -27,7 +27,7 @@ func TestProxyInjectsStationTokenOnAPICalls(t *testing.T) {
 
 	h := proxy.New(front.URL, api.URL, func(context.Context) (string, error) {
 		return "station-token-123", nil
-	})
+	}, nil)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 
@@ -80,7 +80,7 @@ func TestProxyRewritesHostForBothUpstreams(t *testing.T) {
 
 	h := proxy.New(front.URL, api.URL, func(context.Context) (string, error) {
 		return "station-token-123", nil
-	})
+	}, nil)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 
@@ -123,7 +123,7 @@ func TestProxyFailsClosedWithoutToken(t *testing.T) {
 
 	h := proxy.New("http://127.0.0.1:1", api.URL, func(context.Context) (string, error) {
 		return "", context.DeadlineExceeded
-	})
+	}, nil)
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 

@@ -26,6 +26,11 @@ func (h *Handler) PublicRoutes(r chi.Router) {
 	r.Post("/b2b/stations/enroll", h.enrollStation)
 	r.Post("/b2b/stations/challenge", h.stationChallenge)
 	r.Post("/b2b/stations/token", h.stationToken)
+	// Self-update. Public for the same reason and with the same protection as
+	// the three above -- see agent_artifact.go for why serving the plain agent
+	// to anyone leaks nothing, and for the nginx zone that bounds it.
+	r.Get("/b2b/stations/agent-manifest", h.agentManifest)
+	r.Get("/b2b/stations/agent", h.agentDownload)
 }
 
 func (h *Handler) stationAuth() StationAuth {

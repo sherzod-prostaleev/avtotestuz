@@ -103,6 +103,16 @@ func Ensure(stateDir string) (string, bool, error) {
 			return "", false, fmt.Errorf("selfinstall: compare installed copy: %w", cmpErr)
 		}
 		if !same {
+			// Bytes, in either direction: running an installer that is OLDER
+			// than the installed copy downgrades it. That is a real
+			// possibility now that the agent updates itself -- an admin
+			// double-clicking last month's download from a Downloads folder
+			// would undo it -- and it is left alone deliberately rather than
+			// guarded with a version comparison. internal/updater checks the
+			// manifest two minutes after every start, so a downgrade repairs
+			// itself within minutes, whereas refusing to install would break
+			// the one recovery path a school has when a build genuinely is
+			// bad: hand them a known-good .exe and tell them to run it.
 			if err := replaceExecutable(exePath, target); err != nil {
 				return "", false, fmt.Errorf("selfinstall: replace installed copy: %w", err)
 			}

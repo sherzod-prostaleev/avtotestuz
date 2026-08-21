@@ -5,7 +5,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -38,13 +41,61 @@ type Agent struct {
 	tokenTill time.Time
 	state     State
 	loaded    bool
+	clockOff  int64
+	clockSeen bool
+}
+
+// ClockOffset returns how many seconds this PC's clock is ahead of the
+// backend's, measured from the Date header of the last response, and whether
+// any measurement has been taken yet.
+//
+// It exists because the backend rejects a signature stamped more than two
+// minutes from its own clock (stationClockSkew) with the same opaque
+// station_unauthorized it uses for a revoked station. Without this the agent
+// tells a school with a dead CMOS battery to re-enrol, which spends a licence
+// seat and leaves the clock exactly as wrong as it was.
+func (a *Agent) ClockOffset() (seconds int64, known bool) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.clockOff, a.clockSeen
+}
+
+// State returns this PC's saved enrollment identity.
+func (a *Agent) State() State {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	_ = a.loadState()
+	return a.state
 }
 
 // State is what survives a restart.
+//
+// Org and CodeHash were added after a school ran a second school's installer
+// on a PC that was already enrolled: the agent kept the first school silently,
+// because nothing in the saved state described which school the running binary
+// had been built for. Both are optional -- state written by an older agent
+// simply leaves them empty and the comparison is skipped.
 type State struct {
 	StationID string `json:"station_id"`
 	OrgID     string `json:"org_id"`
 	Label     string `json:"label"`
+	// Org is the school name that was baked into the installer this PC
+	// enrolled with, for display only.
+	Org string `json:"org,omitempty"`
+	// CodeHash identifies the installer key without storing it: a key is a
+	// bearer credential that can enrol further PCs, and station.json is a
+	// plain file. Comparing hashes is enough to notice a different school's
+	// installer, which is all this is for.
+	CodeHash string `json:"code_hash,omitempty"`
+}
+
+// HashCode is the fingerprint stored in State.CodeHash.
+func HashCode(code string) string {
+	if code == "" {
+		return ""
+	}
+	sum := sha256.Sum256([]byte(strings.ToUpper(strings.TrimSpace(code))))
+	return hex.EncodeToString(sum[:8])
 }
 
 // ErrNotEnrolled means this PC has never been bound to a school.
@@ -150,6 +201,14 @@ func (a *Agent) post(ctx context.Context, path string, in, out any) error {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
+	// Every response carries the origin's clock. Recording it costs nothing
+	// and turns "station_unauthorized" from an unexplainable rejection into
+	// "this PC's clock is N minutes off". Callers already hold a.mu, so this
+	// writes the fields directly rather than re-locking.
+	if served, dErr := http.ParseTime(resp.Header.Get("Date")); dErr == nil {
+		a.clockOff = int64(time.Since(served).Seconds())
+		a.clockSeen = true
+	}
 	var env struct {
 		Data  json.RawMessage `json:"data"`
 		Error *struct {
@@ -172,8 +231,10 @@ func (a *Agent) post(ctx context.Context, path string, in, out any) error {
 	return json.Unmarshal(env.Data, out)
 }
 
-// Enroll binds this machine to a school using a one-time org code.
-func (a *Agent) Enroll(ctx context.Context, code, label string) error {
+// Enroll binds this machine to a school using the school's installer key.
+// org is the school name baked into this installer, stored only so a later run
+// can tell the operator which school this PC belongs to.
+func (a *Agent) Enroll(ctx context.Context, code, label, org string) error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -201,7 +262,10 @@ func (a *Agent) Enroll(ctx context.Context, code, label string) error {
 	if err != nil {
 		return err
 	}
-	a.state = State{StationID: out.StationID, OrgID: out.OrgID, Label: out.Label}
+	a.state = State{
+		StationID: out.StationID, OrgID: out.OrgID, Label: out.Label,
+		Org: org, CodeHash: HashCode(code),
+	}
 	a.loaded = true
 	return a.saveState()
 }

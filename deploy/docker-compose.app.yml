@@ -33,7 +33,9 @@ services:
       context: ../backend
       dockerfile: Dockerfile
       args:
-        STATION_VERSION: ${STATION_VERSION:-1.0.0}
+        # Empty on purpose -- backend/station/VERSION is the version of record.
+        # See the same block in docker-compose.prod.yml.
+        STATION_VERSION: ${STATION_VERSION:-}
         VCS_REF: ${VCS_REF:-unknown}
     # Override after registry push, e.g. API_IMAGE=ghcr.io/org/avtotest-api:sha
     image: ${API_IMAGE:-avtotest-api:local}
