@@ -63,7 +63,25 @@ test.describe("Landing page", () => {
     });
 
     await page.goto("/uz-Latn");
-    await page.getByRole("link", { name: "CMS diagnostika" }).click();
+
+    // The landing page renders this CTA three times -- hero, bottom section
+    // and the sticky mobile bar -- all bound to the same href, so a bare
+    // getByRole is a strict-mode violation. Asserting on every copy is the
+    // stronger test anyway: the bug this guards against is a CMS ctaHref of
+    // /login leaking into the CTA, and it would leak into all three.
+    const ctas = page.getByRole("link", { name: "CMS diagnostika" });
+    // evaluateAll does not auto-wait, and the label only appears once the
+    // mocked CMS response has been applied, so wait for the first copy first.
+    await ctas.first().waitFor();
+    const hrefs = await ctas.evaluateAll((links) =>
+      links.map((link) => link.getAttribute("href")),
+    );
+    expect(hrefs.length).toBeGreaterThan(0);
+    for (const href of hrefs) {
+      expect(href).toBe("/uz-Latn/diagnostic");
+    }
+
+    await ctas.first().click();
 
     await expect(page).toHaveURL(/\/uz-Latn\/diagnostic$/);
     await expect(page.getByText("Public diagnostika savoli")).toBeVisible();

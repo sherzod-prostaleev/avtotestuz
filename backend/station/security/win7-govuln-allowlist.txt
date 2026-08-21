@@ -61,3 +61,27 @@ GO-2026-5037
 GO-2026-5038
 GO-2026-5039
 GO-2026-5856
+# Reviewed 2026-08-22 (agent 1.1.0 release review). All seven are Go standard
+# library advisories whose only fixed releases are 1.25.13 / 1.26.6 / 1.27, i.e.
+# outside the Go 1.20 family that Windows 7 requires; none has a fix reachable
+# from this toolchain. Affected component and why the exposure is bounded:
+#   GO-2026-5026  net/http (x/net/idna punycode) - the agent dials exactly one
+#                 host, from its own embedded config; no attacker-supplied name.
+#   GO-2026-5972  encoding/asn1 - reached through crypto/x509 while validating
+#                 the certificate chain of our own origin.
+#   GO-2026-6088  encoding/xml - the agent parses no XML on any input path.
+#   GO-2026-6089  net/http unencrypted-HTTP/2 check - its listener is bound to
+#                 127.0.0.1, so the peer is always a local process.
+#   GO-2026-6090  crypto/tls post-handshake messages - peer is our own origin.
+#   GO-2026-6091  html/template - the agent renders no templates; it proxies bytes.
+#   GO-2026-6218  net/url resolvePath - request paths arrive only from the local
+#                 browser on loopback.
+# Standing mitigations (GOVERNANCE.md): outbound TLS to one owned origin, HTTP/2
+# disabled, bounded header size and per-phase timeouts, loopback-only listener.
+GO-2026-5026
+GO-2026-5972
+GO-2026-6088
+GO-2026-6089
+GO-2026-6090
+GO-2026-6091
+GO-2026-6218

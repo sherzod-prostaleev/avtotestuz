@@ -9,8 +9,8 @@ does not represent a long-term security claim.
 Every ID in `win7-govuln-allowlist.txt` is covered by this record:
 
 - **Owner:** Sherzod, station maintainer
-- **Last review:** 2026-08-10
-- **Next review:** 2026-11-10, and before every station release
+- **Last review:** 2026-08-22 (agent 1.1.0 release review)
+- **Next review:** 2026-11-22, and before every station release
 - **Evidence:** the CI `station-vulnerability-scan` job retains the exact
   Windows/386 binary build metadata and `govulncheck -mode=binary` report.
 
@@ -37,6 +37,28 @@ DPAPI rejection, and run the station's owned-HTTPS connection path. Follow
 only after `security/run_win7_smoke.sh EVIDENCE_DIRECTORY` accepts it. Linux
 tests and cross-compilation can validate the harness contract, but cannot prove
 the Windows behavior.
+
+## What the 2026-08-22 review added
+
+Seven standard-library IDs — `GO-2026-5026`, `GO-2026-5972`, `GO-2026-6088`,
+`GO-2026-6089`, `GO-2026-6090`, `GO-2026-6091`, `GO-2026-6218` — were disclosed
+between the previous review and the 1.1.0 release. Every one is fixed only in
+Go 1.25.13 / 1.26.6 / 1.27, so all seven fall under the first exception class
+above: no fix exists inside the Go 1.20 family that Windows 7 requires. The
+per-ID affected component and the reason each exposure is bounded are recorded
+inline in `win7-govuln-allowlist.txt`, next to the entries themselves.
+
+None of them is newly *reachable* because of 1.1.0. That release did add a
+local HTTP server that now starts before enrolment, and an update client that
+downloads over TLS — so `net/http`, `crypto/tls` and `net/url` findings deserve
+restating rather than assuming: the listener is bound to `127.0.0.1` and its
+only client is the browser on the same machine, and the update download goes to
+the same single owned origin the agent already used, over the same bounded
+transport, with a SHA-256 checked before anything is written into place.
+
+This is an accepted exception, not a remediation. The exit condition is
+unchanged: retire Windows 7 (or ship a separately supported Win7 client) and
+rebuild on a maintained Go release.
 
 Authenticode signing and reputation work remain required before any claim of
 long-term operational compatibility. This repository does not perform live
