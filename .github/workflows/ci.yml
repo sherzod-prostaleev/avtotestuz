@@ -198,6 +198,45 @@ jobs:
         working-directory: backend
         run: govulncheck ./...
 
+  # backend/station/VERSION is the single place the shipped agent's version is
+  # decided: backend/Dockerfile stamps it into the binary and into the PE
+  # version resource, and every classroom PC reports it back as
+  # b2b_station.agent_version. Shipping a changed agent under an unchanged
+  # version number is how the entire fleet came to report one string while
+  # running several different builds, which made "which schools have the fix?"
+  # unanswerable. So: touch the agent, bump the file.
+  station-version-gate:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - name: Require a version bump when the agent changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          # Docs, the version file itself and the security evidence harness do
+          # not change what runs on a school PC, so they do not force a bump.
+          changed="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" -- backend/station/ \
+            | grep -vE '^backend/station/(VERSION|README\.md|security/)' || true)"
+          if [ -z "$changed" ]; then
+            echo "No shipped agent files changed; no version bump required."
+            exit 0
+          fi
+          echo "Agent files changed:"
+          echo "$changed"
+          before="$(git show "$BASE_SHA:backend/station/VERSION" 2>/dev/null | tr -d '[:space:]' || true)"
+          after="$(tr -d '[:space:]' < backend/station/VERSION)"
+          if [ "$before" = "$after" ]; then
+            echo "::error file=backend/station/VERSION::backend/station/ changed but VERSION is still '$after'. Bump it — every classroom PC reports this string as its agent version, and ops has no other way to tell which build a school is running."
+            exit 1
+          fi
+          echo "VERSION $before -> $after"
+
   station-vulnerability-scan:
     runs-on: ubuntu-24.04
     timeout-minutes: 20

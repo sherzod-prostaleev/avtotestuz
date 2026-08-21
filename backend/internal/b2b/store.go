@@ -17,6 +17,17 @@ var (
 	ErrNotFound = errors.New("not found")
 	// ErrConflict covers already-bound and already-used cases.
 	ErrConflict = errors.New("conflict")
+	// ErrHWIDOtherOrg is one machine trying to enrol into a second school
+	// while it is still an active station of a first one.
+	//
+	// It used to share ErrConflict, which reaches the classroom as the single
+	// word "conflict" -- and since the block is keyed on a hash of the
+	// Windows MachineGuid, nothing the person at the PC can do clears it:
+	// deleting station.json, deleting station.key, re-downloading the
+	// installer all leave it exactly where it was. Only an admin, in the
+	// OTHER school's panel, can revoke that station. A message that does not
+	// say so is a message that cannot be acted on.
+	ErrHWIDOtherOrg = errors.New("hardware is bound to another org")
 	// ErrInvalid is bad input (code, key, hwid hash, status).
 	ErrInvalid = errors.New("invalid")
 )

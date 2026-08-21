@@ -31,8 +31,6 @@ grep -Fq -- '--exclude-from="$dest/deploy/rsync-exclude.txt"' "$ROOT/deploy/sync
 grep -Fq -- '--exclude-from="$exclude_file"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq -- '--exclude-from="$current_exclude"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq -- 'StrictHostKeyChecking=yes' "$ROOT/deploy/sync-to-vps.sh"
-grep -Fq 'assets/' "$ROOT/deploy/rsync-exclude.txt"
-grep -Fq 'rsrc_windows_386.syso' "$ROOT/deploy/rsync-exclude.txt"
 grep -Fq 'readlink -f -- "$dest"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'partial_root="$rollback_root/.partial-$snapshot_id"' "$ROOT/deploy/sync-to-vps.sh"
 grep -Fq 'mv -- "$partial_root" "$snapshot_root"' "$ROOT/deploy/sync-to-vps.sh"
@@ -59,5 +57,31 @@ rsync -a --delete \
 [[ -f "$test_root/target/backups/database.dump" ]]
 [[ -f "$test_root/target/future-runtime/state" ]]
 [[ ! -e "$test_root/target/stale.txt" ]]
+
+# What rsync-exclude.txt actually drops, not merely which strings it contains.
+# A grep for 'assets/' passes just as happily for an unanchored rule that also
+# eats frontend/src/assets -- rsync matches a slash-less pattern against the
+# END of a path at every depth -- and the VPS build would then fail on files
+# that are present locally. Likewise the station's icon must survive the sync
+# (genwinres reads it during the image build) while its generated .syso must
+# not (the build regenerates it, and a stale one would be linked instead).
+exclude_root="$(mktemp -d)"
+trap 'rm -rf -- "$test_root" "$exclude_root"' EXIT
+mkdir -p "$exclude_root/src"/{assets,docs,frontend/src/assets,backend/station/build,backend/station/cmd/avtotest-station}
+: >"$exclude_root/src/assets/brand-master.png"
+: >"$exclude_root/src/docs/plan.md"
+: >"$exclude_root/src/frontend/src/assets/nested.png"
+: >"$exclude_root/src/backend/station/build/drivergo.ico"
+: >"$exclude_root/src/backend/station/VERSION"
+: >"$exclude_root/src/backend/station/cmd/avtotest-station/rsrc_windows_386.syso"
+mkdir -p "$exclude_root/dst"
+rsync -a --exclude-from="$ROOT/deploy/rsync-exclude.txt" \
+  "$exclude_root/src/" "$exclude_root/dst/"
+[[ ! -e "$exclude_root/dst/assets" ]]
+[[ ! -e "$exclude_root/dst/docs" ]]
+[[ ! -e "$exclude_root/dst/backend/station/cmd/avtotest-station/rsrc_windows_386.syso" ]]
+[[ -f "$exclude_root/dst/frontend/src/assets/nested.png" ]]
+[[ -f "$exclude_root/dst/backend/station/build/drivergo.ico" ]]
+[[ -f "$exclude_root/dst/backend/station/VERSION" ]]
 
 printf 'sync-to-vps guards: ok\n'

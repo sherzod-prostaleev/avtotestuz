@@ -15,8 +15,10 @@ import {
   LoaderCircle,
   Signpost,
   Target,
+  TriangleAlert,
   Trophy,
 } from "lucide-react";
+import { StationDiagnostics, useStationStatus } from "./station-status";
 
 // GET /me answers {"data":{"profile":{...},"vip":{...}}} and apiGet unwraps
 // only "data", so the profile is one level down -- the same shape
@@ -119,6 +121,9 @@ export default function StationPage() {
   const locale = useLocale();
   const [me, setMe] = useState<Me | null>(null);
   const [phase, setPhase] = useState<Phase>("checking");
+  // Only polled while something is wrong: on a healthy PC this would be a
+  // request every three seconds forever, for information nobody is reading.
+  const agentStatus = useStationStatus(phase === "waiting" || phase === "refused");
 
   useEffect(() => {
     let cancelled = false;
@@ -151,17 +156,38 @@ export default function StationPage() {
   if (phase === "checking") return null;
 
   if (phase === "waiting") {
+    // The spinner alone was the whole screen for the first year, and it was
+    // shown identically for a three-second cold boot and for a PC that would
+    // never connect again. Whatever the agent knows goes underneath it now:
+    // a PC registered to another school, a clock two minutes out, a licence
+    // that expired. `blocked` means retrying cannot help, so the spinner --
+    // which promises that waiting will fix it -- comes off.
+    const blocked = agentStatus?.phase === "blocked";
     return (
-      <main className="flex min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
-        <LoaderCircle aria-hidden="true" className="h-8 w-8 animate-spin text-accent" />
-        <p className="text-lg font-semibold">{t("Station.connecting")}</p>
-        <p className="max-w-md text-sm text-muted-foreground">{t("Station.connectingHint")}</p>
+      <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 p-8 text-center">
+        {blocked ? (
+          <TriangleAlert aria-hidden="true" className="h-8 w-8 text-destructive" />
+        ) : (
+          <LoaderCircle aria-hidden="true" className="h-8 w-8 animate-spin text-accent" />
+        )}
+        {!blocked ? (
+          <>
+            <p className="text-lg font-semibold">{t("Station.connecting")}</p>
+            <p className="max-w-md text-sm text-muted-foreground">{t("Station.connectingHint")}</p>
+          </>
+        ) : null}
+        <StationDiagnostics status={agentStatus} />
       </main>
     );
   }
 
   if (phase === "refused") {
-    return <p className="p-8 text-center text-lg">{t("Station.notStation")}</p>;
+    return (
+      <main className="mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center gap-4 p-8 text-center">
+        <p className="text-lg">{t("Station.notStation")}</p>
+        <StationDiagnostics status={agentStatus} />
+      </main>
+    );
   }
 
   const stationName = me?.profile?.name ?? "";

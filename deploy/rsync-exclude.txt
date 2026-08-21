@@ -49,9 +49,17 @@ repository-audit-report.txt
 # Local store-size brand masters and generated Windows resource objects.
 # Chrome/PWA icons live under frontend/public; the station .syso is rebuilt
 # inside backend/Dockerfile via genwinres.
-assets/
+#
+# Leading slash on purpose: an rsync rule without one matches the END of a
+# path at EVERY depth, so a bare `assets/` would also drop a perfectly
+# ordinary frontend/src/assets/ the day someone creates one -- the web image
+# would then build locally and fail on the VPS, or worse, build without the
+# files. Anchored, these only mean the two directories at the repo root.
+# (backend/station/build/drivergo.ico is deliberately NOT excluded: genwinres
+# reads it inside the image build.)
+/assets/
 backend/station/cmd/avtotest-station/rsrc_windows_386.syso
 backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
 
-docs/
+/docs/
 *.canvas.tsx

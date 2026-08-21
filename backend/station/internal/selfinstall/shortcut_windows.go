@@ -3,9 +3,11 @@
 package selfinstall
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
+	"time"
 )
 
 // desktopScript is the PowerShell that finds every desktop folder and drops a
@@ -128,16 +130,32 @@ func removeShortcut() error {
 	return nil
 }
 
+// shortcutTimeout bounds the PowerShell call.
+//
+// It has to exist. `powershell -ExecutionPolicy Bypass` spawned by a freshly
+// downloaded, unsigned executable is a textbook malware signature, so an
+// antivirus or EDR product on a school PC may hold it for a long time --
+// and PowerShell 2.0 on Windows 7 can spend its first run compiling itself.
+// Without a deadline that stall is unbounded, and a purely decorative desktop
+// icon becomes the reason a classroom never comes up. Sixty seconds is far
+// longer than the call ever legitimately needs and still finite.
+const shortcutTimeout = 60 * time.Second
+
 // runPowerShell executes script and returns its combined output.
 //
 // -Version 2 is not passed: forcing a version fails on machines where that
 // engine is not installed, and the script is written to the 2.0 subset so the
 // default engine -- whatever it is -- can run it.
 func runPowerShell(script string) (string, error) {
-	cmd := exec.Command("powershell.exe", "-NoProfile", "-NonInteractive",
+	ctx, cancel := context.WithTimeout(context.Background(), shortcutTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "powershell.exe", "-NoProfile", "-NonInteractive",
 		"-ExecutionPolicy", "Bypass", "-Command", script)
 	out, err := cmd.CombinedOutput()
 	text := strings.TrimSpace(string(out))
+	if ctx.Err() != nil {
+		return text, fmt.Errorf("powershell: gave up after %s: %s", shortcutTimeout, text)
+	}
 	if err != nil {
 		return text, fmt.Errorf("powershell: %w: %s", err, text)
 	}

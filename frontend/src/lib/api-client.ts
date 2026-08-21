@@ -16,13 +16,39 @@ function deviceHeaders(): Record<string, string> {
 }
 
 async function handleResponse<T>(res: Response): Promise<T> {
-  const data = await res.json();
+  // Parsed defensively, not because the API misbehaves but because not every
+  // response comes from the API. A classroom PC reaches it through the local
+  // station agent, whose reverse proxy answers a plain-text "Bad Gateway" when
+  // the upstream is unreachable, and nginx and Cloudflare answer with HTML.
+  // Parsing unconditionally threw a SyntaxError on all three and destroyed the
+  // status code with it, so the kiosk could not tell "still starting up" from
+  // "this PC was revoked" and showed the same endless spinner for both.
+  let data: unknown = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = null;
+  }
+  const envelope = data as { error?: { code?: string; message?: string }; data?: unknown } | null;
   if (!res.ok) {
-    const errCode = data?.error?.code ?? "unknown_error";
-    const errMessage = data?.error?.message ?? "An error occurred";
+    const errCode = envelope?.error?.code ?? fallbackCode(res.status);
+    const errMessage = envelope?.error?.message ?? `HTTP ${res.status}`;
     throw new ApiError(errMessage, errCode, res.status);
   }
-  return data.data !== undefined ? data.data : data;
+  if (envelope === null) {
+    throw new ApiError("Unreadable response body", "bad_response", res.status);
+  }
+  return (envelope.data !== undefined ? envelope.data : envelope) as T;
+}
+
+// fallbackCode names the failures that arrive with no JSON envelope, so
+// callers can still branch on something more specific than "unknown_error".
+// 503 is the station agent failing closed while it has no token — see
+// backend/station/internal/proxy.
+function fallbackCode(status: number): string {
+  if (status === 503) return "station_offline";
+  if (status === 502 || status === 504) return "upstream_unreachable";
+  return "unknown_error";
 }
 
 export async function apiGet<T>(path: string, init?: { signal?: AbortSignal }): Promise<T> {

@@ -30,11 +30,17 @@ type Config struct {
 	DBPoolHealthCheck time.Duration
 	MediaBaseURL      string // public base for image storage keys
 
-	// StationBinaryPath is the Windows agent the admin panel serves. The API
+	// StationBinaryPath is the Windows agent the admin panel serves, and that
+	// already-installed classroom PCs poll to update themselves. The API
 	// image cross-compiles it at build time (see backend/Dockerfile);
 	// overriding this is only for local development, where no such build
 	// exists.
 	StationBinaryPath string
+
+	// StationVersionPath holds the version stamped into that binary. The same
+	// Docker stage writes both, so the number the fleet is told to upgrade to
+	// can never disagree with the bytes it is handed.
+	StationVersionPath string
 
 	// PublicBaseURL is the origin users actually browse — the frontend, not
 	// this API. Used to build shareable links (referral invite URLs). Without
@@ -199,19 +205,20 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	cfg := Config{
-		Env:               getenv("ENV", "dev"),
-		Port:              port,
-		DatabaseURL:       getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
-		RedisURL:          getenv("REDIS_URL", "redis://localhost:6379/0"),
-		DBPoolMaxConns:    poolMax,
-		DBPoolMinConns:    poolMin,
-		DBPoolMaxLifetime: poolLifetime,
-		DBPoolMaxIdleTime: poolIdle,
-		DBPoolHealthCheck: poolHealth,
-		MediaBaseURL:      getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
-		StationBinaryPath: getenv("STATION_BINARY_PATH", "/station/avtotest-station.exe"),
-		PublicBaseURL:     publicBaseURL,
-		CORSOrigins:       splitCSV(getenv("CORS_ALLOWED_ORIGINS", publicBaseURL)),
+		Env:                getenv("ENV", "dev"),
+		Port:               port,
+		DatabaseURL:        getenv("DATABASE_URL", "postgres://avtotest:avtotest@localhost:5432/avtotest?sslmode=disable"),
+		RedisURL:           getenv("REDIS_URL", "redis://localhost:6379/0"),
+		DBPoolMaxConns:     poolMax,
+		DBPoolMinConns:     poolMin,
+		DBPoolMaxLifetime:  poolLifetime,
+		DBPoolMaxIdleTime:  poolIdle,
+		DBPoolHealthCheck:  poolHealth,
+		MediaBaseURL:       getenv("MEDIA_BASE_URL", "http://localhost:9000/media"),
+		StationBinaryPath:  getenv("STATION_BINARY_PATH", "/station/avtotest-station.exe"),
+		StationVersionPath: getenv("STATION_VERSION_PATH", "/station/agent-version"),
+		PublicBaseURL:      publicBaseURL,
+		CORSOrigins:        splitCSV(getenv("CORS_ALLOWED_ORIGINS", publicBaseURL)),
 
 		JWTSecret:               getenv("JWT_SECRET", defaultJWTSecret),
 		DataEncryptionKey:       getenv("DATA_ENCRYPTION_KEY", ""),

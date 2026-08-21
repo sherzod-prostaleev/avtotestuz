@@ -169,6 +169,36 @@ class ComposeContractTest(unittest.TestCase):
         listing = conf.split("location = /media/", 1)[1].split("location ", 1)[0]
         self.assertIn("return 404", listing)
 
+    def test_station_agent_download_is_streamed_and_rate_limited(self) -> None:
+        """The self-update download must keep the station rate limit.
+
+        It is ~6 MB and it sits on a prefix that is otherwise all small JSON
+        control calls, so it gets its own exact-match block. The risk in
+        splitting a location out is dropping something the prefix block was
+        providing: without limit_req an attacker would have found a cheaper
+        route to 6 MB than to a token request, and with buffering left on
+        nginx would spool every classroom's download through a temp file.
+        """
+        conf = (ROOT / "deploy/nginx-drivergo.uz.conf").read_text(encoding="utf-8")
+        self.assertIn("location = /api/v1/b2b/stations/agent {", conf)
+        block = conf.split("location = /api/v1/b2b/stations/agent {", 1)[1].split("\n    }", 1)[0]
+        self.assertIn("limit_req          zone=station_ip", block)
+        self.assertIn("proxy_buffering    off", block)
+        self.assertIn("proxy_pass         http://drivergo_api", block)
+
+    def test_station_version_is_not_a_forgettable_build_arg(self) -> None:
+        """backend/station/VERSION is the version of record, not the shell.
+
+        A non-empty default here silently wins over the file, which is exactly
+        how every agent built after 2026-08-07 shipped reporting 1.0.0 while
+        three different builds were in the field.
+        """
+        for rel in ("deploy/docker-compose.prod.yml", "deploy/docker-compose.app.yml"):
+            text = (ROOT / rel).read_text(encoding="utf-8")
+            self.assertIn("STATION_VERSION: ${STATION_VERSION:-}", text, rel)
+        version = (ROOT / "backend/station/VERSION").read_text(encoding="utf-8").strip()
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+
 
 if __name__ == "__main__":
     unittest.main()

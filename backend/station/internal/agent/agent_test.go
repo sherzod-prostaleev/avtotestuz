@@ -83,7 +83,7 @@ func TestEnrollThenTokenSignsTheChallenge(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	if err := a.Enroll(ctx, "AVTO-TEST-CODE", "PC-1"); err != nil {
+	if err := a.Enroll(ctx, "AVTO-TEST-CODE", "PC-1", "Test Avtomaktab"); err != nil {
 		t.Fatal(err)
 	}
 	tok, err := a.Token(ctx)

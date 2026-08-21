@@ -22,6 +22,11 @@ type Handler struct {
 	Secret    []byte
 	Lim       auth.Limiter
 	ClientIPs auth.ClientIPResolver
+	// StationBinaryPath and StationVersionPath describe the Windows agent
+	// baked into this image, which installed classroom PCs poll to update
+	// themselves. Both are written by backend/Dockerfile's station stage.
+	StationBinaryPath  string
+	StationVersionPath string
 }
 
 func (h *Handler) store() Store { return Store{Pool: h.Pool} }
@@ -42,6 +47,9 @@ func writeStoreErr(w http.ResponseWriter, err error, fallback string) {
 		httpx.Error(w, http.StatusBadRequest, "no_license", "org has no active license seats")
 	case errors.Is(err, ErrStationAuth):
 		httpx.Error(w, http.StatusUnauthorized, "station_unauthorized", "station authentication failed")
+	case errors.Is(err, ErrHWIDOtherOrg):
+		httpx.Error(w, http.StatusConflict, "hwid_other_org",
+			"this computer is already registered to a different driving school; revoke it there first")
 	case errors.Is(err, ErrConflict):
 		msg := "conflict"
 		if strings.Contains(err.Error(), "already used") {

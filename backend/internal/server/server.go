@@ -169,6 +169,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				Secret:    []byte(cfg.JWTSecret),
 				Lim:       auth.Limiter{R: deps.Redis},
 				ClientIPs: auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
+
+				StationBinaryPath:  cfg.StationBinaryPath,
+				StationVersionPath: cfg.StationVersionPath,
 			}
 			if deps.Pool != nil && deps.Redis != nil {
 				b2bH.PublicRoutes(api)

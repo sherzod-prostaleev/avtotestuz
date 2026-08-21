@@ -1,6 +1,15 @@
 // Command avtotest-station runs one classroom PC: it holds the station key,
 // keeps an access token live, serves the browser from localhost and opens the
 // kiosk.
+//
+// Startup order matters more than anything else in this file. The listener is
+// bound and serving BEFORE the browser is launched and before the first
+// network call, and nothing after that point is allowed to end the process.
+// The previous order -- enrol, then launch the browser, then bind -- meant a
+// school whose PC could not enrol saw four retries, then a console that sat
+// for two more minutes on "Press Enter to close", and never got a page at all.
+// Now the kiosk always opens, and whatever is wrong is on the screen in Uzbek
+// instead of in a window nobody was looking at.
 package main
 
 import (
@@ -9,22 +18,28 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"avtotest.uz/station/internal/agent"
+	"avtotest.uz/station/internal/diagnose"
 	"avtotest.uz/station/internal/embedcfg"
-	"avtotest.uz/station/internal/hwid"
-	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/kiosk"
 	"avtotest.uz/station/internal/proxy"
 	"avtotest.uz/station/internal/selfinstall"
+	"avtotest.uz/station/internal/status"
+	"avtotest.uz/station/internal/updater"
 )
 
-// version is stamped at build time: go build -ldflags "-X main.version=1.0.0"
+// version is stamped at build time from backend/station/VERSION; see
+// backend/Dockerfile. "dev" means someone built this with a plain go build.
 var version = "dev"
 
 // stationLocales mirrors frontend/src/i18n/config.ts's `locales` export.
@@ -117,10 +132,25 @@ func main() {
 		selfTestImport = flag.String("selftest-import", "", "path to a station.key copied from another machine; try to unseal it here and report whether the machine binding held, then exit")
 		uninstall      = flag.Bool("uninstall", false, "remove the installed copy and autostart entry, then exit (does not free this station's seat -- revoke it in the admin panel too)")
 		reenroll       = flag.Bool("reenroll", false, "discard this PC's station identity and enrol again as a new station; use when the backend no longer recognises it (the school was deleted and recreated). Spends a seat, so revoke the dead station in the admin panel too")
+		showVersion    = flag.Bool("version", false, "print the agent version and exit")
+		noUpdate       = flag.Bool("no-update", false, "do not check for or install new agent builds")
 	)
 	flag.Parse()
 
-	startLogging(*stateDir)
+	// Every mode below that talks to a human needs a console, and this binary
+	// is linked as a GUI application so that a classroom PC shows no black
+	// window. attachConsole gets one back when the operator started us from
+	// cmd; it is a no-op off Windows.
+	if *showVersion || *selfTest || *selfTestImport != "" || *uninstall {
+		attachConsole()
+	}
+
+	if *showVersion {
+		fmt.Printf("avtotest-station %s\n", version)
+		return
+	}
+
+	logPath := startLogging(*stateDir)
 
 	if *selfTestImport != "" {
 		os.Exit(runSelfTestImport(*selfTestImport))
@@ -140,9 +170,10 @@ func main() {
 	}
 
 	embedded := embedcfg.Config{}
-	if exe, err := os.Executable(); err == nil {
-		if cfg, err := embedcfg.Read(exe); err == nil {
-			embedded = cfg
+	exePath, _ := os.Executable()
+	if exePath != "" {
+		if c, err := embedcfg.Read(exePath); err == nil {
+			embedded = c
 		} else if !errors.Is(err, embedcfg.ErrNoConfig) {
 			log.Printf("embedded config: %v (falling back to flags)", err)
 		}
@@ -158,118 +189,233 @@ func main() {
 		fatal("invalid -locale %q: must be one of %s", cfg.Locale, strings.Join(stationLocales, ", "))
 	}
 
-	if embedded.Code != "" {
-		installed, didInstall, err := selfinstall.Ensure(*stateDir)
-		if err != nil {
-			log.Printf("self-install: %v (continuing from the current location)", err)
-		} else if didInstall {
-			log.Printf("installed %s to %s and registered autostart", version, installed)
-		}
-		// Cosmetic, so a failure is logged and stepped over: a locked-down
-		// classroom profile may refuse to write to the desktop, and the kiosk
-		// works perfectly well without an icon.
-		if err == nil {
-			if path, created, sErr := selfinstall.EnsureShortcut(installed); sErr != nil {
-				log.Printf("desktop shortcut: %v (continuing without one)", sErr)
-			} else if created {
-				log.Printf("placed a DriverGo shortcut at %s", path)
-			}
-		}
-	}
-
-	id, err := hwid.Collect()
+	// Bind before anything else can fail. From here on the kiosk has
+	// somewhere to connect to no matter what the network, the backend or the
+	// school's licence turn out to be doing.
+	ln, listenAddr, err := listen(*addr)
 	if err != nil {
-		fatal("hardware id: %v", err)
+		// Only reachable when every candidate port is taken by something
+		// that is not one of us -- there is genuinely nothing left to serve
+		// from, so this is the one startup failure that still ends the
+		// process.
+		fatal("cannot serve on %s: %v", *addr, err)
 	}
-	keys, err := keystore.Open(*stateDir)
-	if err != nil {
-		fatal("keystore: %v", err)
-	}
-	name := *label
-	if name == "" {
-		name, _ = os.Hostname()
-	}
-
-	a := &agent.Agent{APIBase: cfg.API, StateDir: *stateDir, Keys: keys, HWID: id, Version: version}
-	ctx := context.Background()
-
-	if *reenroll {
-		if cfg.Code == "" {
-			fatal("-reenroll needs an installer key: run the .exe downloaded for this school, or pass -code AVTO-XXXX-XXXX")
+	if ln == nil {
+		// Another copy of the agent already holds the port and is answering.
+		// Opening the browser at it is exactly what the operator wanted when
+		// they double-clicked, so do that instead of dying with a port
+		// conflict the way this used to.
+		url := stationURL(listenAddr, cfg.Locale)
+		log.Printf("an agent is already running on %s; opening the kiosk there", listenAddr)
+		if !*noKiosk {
+			openKiosk(url)
 		}
-		if err := a.ResetEnrollment(); err != nil {
-			fatal("reenroll: %v", err)
-		}
-		log.Print("discarded the previous station identity; enrolling as a new station")
+		return
 	}
+	st := status.New(version, logPath, listenAddr)
+	rt := &agentRuntime{}
 
-	if _, err := a.Token(ctx); err != nil {
-		if errors.Is(err, agent.ErrNotEnrolled) {
-			if cfg.Code == "" {
-				fatal("this PC is not enrolled yet: run again with -code AVTO-XXXX-XXXX")
-			}
-			// A first-boot GPO rollout runs this exe in the same cold-network
-			// window as every later boot, so one failed attempt must not be
-			// read as "the code is wrong". A one-time code doesn't deserve an
-			// unbounded retry either, so this gives up loudly after a few
-			// tries — there is nothing left to do automatically at that point.
-			if err := enrollWithRetry(ctx, a, cfg.Code, name, defaultEnrollRetry); err != nil {
-				fatal("enrollment failed: %v", err)
-			}
-			log.Printf("enrolled as %q", name)
-			if _, err := a.Token(ctx); err != nil {
-				log.Printf("first token fetch failed, will keep retrying in the background: %v", err)
-			}
-		} else {
-			// Already enrolled — this machine has proved itself before, so an
-			// unreachable backend right now (the classic cold-boot case: the
-			// network adapter is not up yet when a startup program runs) is
-			// not a reason to die. Serving is started below regardless; the
-			// proxy already fails closed until keepTokenWarm lands a token,
-			// and API calls start working the moment it does, with no
-			// restart. This is deliberately not narrowed to "unreachable"
-			// specifically: the backend's error envelope gives no reliable,
-			// stable signal here to tell a network blip apart from a
-			// server-side rejection (e.g. a revoked station), and exiting on
-			// either one leaves the PC silently idle with no operator present
-			// to notice. Serving on and retrying in the background is safe in
-			// both cases — the kiosk visibly shows "station offline" instead
-			// of nothing running at all.
-			if errors.Is(err, agent.ErrStationUnauthorized) {
-				// The backend answers "unknown station", "revoked station"
-				// and "bad signature" with one opaque code, so the agent
-				// cannot tell a school that was deleted and recreated from a
-				// PC an admin deliberately switched off. Enrolling again
-				// would spend a seat and quietly undo a revoke, so it stays a
-				// human decision -- but the console has to say which decision
-				// it is, instead of repeating "authentication failed" until
-				// someone gives up.
-				log.Print("the backend does not recognise this PC's enrollment.")
-				log.Print("  - if this school was deleted and recreated, or the station was removed: re-run this .exe with -reenroll")
-				log.Print("  - if an admin revoked this PC on purpose: leave it; re-enrolling would undo that and spend a seat")
-				log.Printf("  (retrying in the background in case this is temporary: %v)", err)
-			} else {
-				log.Printf("station token unavailable at startup, will keep retrying in the background: %v", err)
-			}
+	handler := proxy.New(cfg.Frontend, cfg.API, rt.token, st)
+	srv := &http.Server{Handler: rt.trackIdle(handler)}
+	go func() {
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Printf("serving stopped: %v", err)
 		}
-	}
-	go keepTokenWarm(ctx, a, defaultTokenRetry)
+	}()
+	log.Printf("avtotest-station %s serving %s (log: %s)", version, listenAddr, logPath)
 
-	handler := proxy.New(cfg.Frontend, cfg.API, a.Token)
-	url := stationURL(*addr, cfg.Locale)
-
+	url := stationURL(listenAddr, cfg.Locale)
 	if !*noKiosk {
-		if _, err := kiosk.Launch(url); err != nil {
-			log.Printf("kiosk launch: %v (open %s manually)", err, url)
+		openKiosk(url)
+	}
+
+	// Cosmetic and known to block: createShortcut shells out to PowerShell,
+	// which on a fresh school PC can sit for a long time behind an antivirus
+	// inspecting a freshly-downloaded unsigned binary that spawned
+	// `powershell -ExecutionPolicy Bypass`. It used to run inline, ahead of
+	// everything, so that stall took the whole agent with it.
+	if embedded.Code != "" {
+		go install(*stateDir)
+	}
+
+	ctx := context.Background()
+	go connect(ctx, connectConfig{
+		rt:       rt,
+		st:       st,
+		cfg:      cfg,
+		stateDir: *stateDir,
+		label:    *label,
+		reenroll: *reenroll,
+	})
+
+	if !*noUpdate && embedded.Code != "" {
+		go updater.Run(ctx, updater.Config{
+			APIBase:  cfg.API,
+			Version:  version,
+			Target:   selfinstall.Target(*stateDir),
+			StateDir: *stateDir,
+			Report:   st.SetUpdateState,
+			Idle:     rt.idleFor,
+			Restart:  func() { restart(selfinstall.Target(*stateDir), srv) },
+		})
+	}
+
+	select {}
+}
+
+// agentRuntime is the mutable state the HTTP handler shares with the
+// background worker that owns the network side.
+type agentRuntime struct {
+	mu sync.RWMutex
+	ag *agent.Agent
+
+	// lastCall is the Unix nano of the most recent proxied API request. The
+	// updater reads it to decide whether restarting could interrupt a student
+	// mid-exam.
+	lastCall int64
+}
+
+// errNotReady is what the proxy sees before enrollment has produced an agent.
+// The proxy already fails closed on any token error, so this only changes the
+// wording in the log, never the behaviour.
+var errNotReady = errors.New("station is still starting up")
+
+func (r *agentRuntime) token(ctx context.Context) (string, error) {
+	r.mu.RLock()
+	a := r.ag
+	r.mu.RUnlock()
+	if a == nil {
+		return "", errNotReady
+	}
+	return a.Token(ctx)
+}
+
+func (r *agentRuntime) setAgent(a *agent.Agent) {
+	r.mu.Lock()
+	r.ag = a
+	r.mu.Unlock()
+}
+
+// trackIdle stamps every proxied API call so the updater can tell an empty
+// classroom from one in the middle of an exam. Only /api/proxy/ counts: the
+// browser fetches static assets on its own schedule and would keep the PC
+// looking busy forever.
+func (r *agentRuntime) trackIdle(next http.Handler) http.Handler {
+	atomic.StoreInt64(&r.lastCall, time.Now().UnixNano())
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if strings.HasPrefix(req.URL.Path, "/api/proxy/") {
+			atomic.StoreInt64(&r.lastCall, time.Now().UnixNano())
+		}
+		next.ServeHTTP(w, req)
+	})
+}
+
+func (r *agentRuntime) idleFor() time.Duration {
+	return time.Since(time.Unix(0, atomic.LoadInt64(&r.lastCall)))
+}
+
+// listen binds want, falling back to the next few ports when it is taken.
+//
+// Three outcomes. A bound listener means we are the agent for this PC. A nil
+// listener with no error means another agent already answers on want and the
+// caller should just open the browser at it. An error means every candidate
+// port is held by something else entirely.
+func listen(want string) (net.Listener, string, error) {
+	ln, err := net.Listen("tcp", want)
+	if err == nil {
+		return ln, want, nil
+	}
+	if agentAnswersOn(want) {
+		return nil, want, nil
+	}
+
+	host, portStr, splitErr := net.SplitHostPort(want)
+	if splitErr != nil {
+		return nil, "", err
+	}
+	var port int
+	if _, sErr := fmt.Sscanf(portStr, "%d", &port); sErr != nil {
+		return nil, "", err
+	}
+	for next := port + 1; next <= port+9; next++ {
+		cand := net.JoinHostPort(host, fmt.Sprintf("%d", next))
+		if ln, lErr := net.Listen("tcp", cand); lErr == nil {
+			log.Printf("%s was taken; serving on %s instead", want, cand)
+			return ln, cand, nil
 		}
 	}
-	log.Printf("avtotest-station %s serving %s", version, url)
-	// The listener is the one failure a running classroom hits most:
-	// another copy of the agent already holds the port. Say so plainly and
-	// keep the window open, rather than vanishing.
-	if err := http.ListenAndServe(*addr, handler); err != nil {
-		fatal("cannot serve on %s: %v (is the agent already running? check the tray/Task Manager for avtotest-station.exe)", *addr, err)
+	return nil, "", err
+}
+
+// agentAnswersOn reports whether the process holding addr is one of ours,
+// identified by the status route only this program serves.
+func agentAnswersOn(addr string) bool {
+	c := &http.Client{Timeout: 2 * time.Second}
+	resp, err := c.Get("http://" + addr + proxy.StatusPath)
+	if err != nil {
+		return false
 	}
+	defer func() { _ = resp.Body.Close() }()
+	return resp.StatusCode == http.StatusOK &&
+		strings.HasPrefix(resp.Header.Get("Content-Type"), "application/json")
+}
+
+func openKiosk(url string) {
+	if _, err := kiosk.Launch(url); err != nil {
+		log.Printf("kiosk launch: %v", err)
+		log.Printf("open this address in a browser by hand: %s", url)
+	}
+}
+
+// install copies this binary into the state directory and registers autostart,
+// then places a desktop shortcut. Runs in its own goroutine: none of it is
+// required for the kiosk to work, and all of it can block.
+func install(stateDir string) {
+	installed, didInstall, err := selfinstall.Ensure(stateDir)
+	if err != nil {
+		log.Printf("self-install: %v (continuing from the current location)", err)
+		return
+	}
+	if didInstall {
+		log.Printf("installed %s to %s and registered autostart", version, installed)
+	}
+	// A locked-down classroom profile may refuse to write to the desktop, and
+	// the kiosk works perfectly well without an icon.
+	if path, created, sErr := selfinstall.EnsureShortcut(installed); sErr != nil {
+		log.Printf("desktop shortcut: %v (continuing without one)", sErr)
+	} else if created {
+		log.Printf("placed a DriverGo shortcut at %s", path)
+	}
+}
+
+// restart hands over to the binary at target and exits.
+//
+// Order matters and is not the obvious one. The listener must be released
+// BEFORE the replacement starts: a new agent that finds the port still held
+// probes it, recognises the answer as one of ours, decides an agent is already
+// running and exits after opening the browser (see listen). Starting the child
+// first would therefore end with the child gone, this process exiting a moment
+// later, and the classroom left with no agent at all.
+//
+// The kiosk page in the browser retries on its own, so a student sees at most a
+// moment of the "Ulanmoqda…" screen -- and maybeRestart only calls this when
+// nobody has touched the API for half an hour anyway.
+func restart(target string, srv *http.Server) {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = srv.Shutdown(shutdownCtx)
+
+	cmd := exec.Command(target)
+	cmd.Dir = filepath.Dir(target)
+	if err := cmd.Start(); err != nil {
+		// The port is already released and this process is about to be
+		// useless, so staying alive would just hold the state directory. The
+		// autostart entry brings the new binary up at the next logon.
+		log.Printf("restart into %s failed: %v (the update lands at the next boot)", target, err)
+		os.Exit(1)
+	}
+	log.Printf("handed over to the updated agent, exiting")
+	os.Exit(0)
 }
 
 // defaultStateDir keeps the key beside the program data, not in a user
@@ -292,42 +438,18 @@ type enrollSchedule struct {
 	max      time.Duration
 }
 
-// defaultEnrollRetry rides out a cold-boot network window without blocking a
-// headless install for long. Four attempts doubling from 3s (3+6+12s between
-// tries, capped at 30s) cover roughly the first minute after the process
-// starts — generous compared to how quickly a NIC normally comes up via
-// DHCP, but still short enough that an operator watching a first install
-// isn't left staring at a hung terminal.
-var defaultEnrollRetry = enrollSchedule{attempts: 4, initial: 3 * time.Second, max: 30 * time.Second}
-
-// enrollWithRetry calls Agent.Enroll up to sched.attempts times with
-// exponential backoff, so a transient network failure during the first-boot
-// enrollment window is not mistaken for a bad one-time code. It gives up and
-// returns the last error once the schedule is exhausted — there is no
-// automatic recovery from a genuinely wrong code, and main treats that as
-// fatal.
-func enrollWithRetry(ctx context.Context, a *agent.Agent, code, label string, sched enrollSchedule) error {
-	backoff := sched.initial
-	var err error
-	for attempt := 1; attempt <= sched.attempts; attempt++ {
-		if err = a.Enroll(ctx, code, label); err == nil {
-			return nil
-		}
-		if attempt == sched.attempts {
-			break
-		}
-		log.Printf("enrollment attempt %d/%d failed, retrying in %s: %v", attempt, sched.attempts, backoff, err)
-		select {
-		case <-time.After(backoff):
-		case <-ctx.Done():
-			return ctx.Err()
-		}
-		if backoff *= 2; backoff > sched.max {
-			backoff = sched.max
-		}
-	}
-	return err
-}
+// defaultEnrollRetry rides out a cold-boot network window. A classroom PC
+// starts the agent from autostart while the network adapter is still coming
+// up, so the first attempts routinely fail on a machine that is perfectly
+// healthy. Twelve attempts doubling from 3s to a 60s ceiling covers roughly
+// the first ten minutes; unlike the four attempts this used to make, that
+// outlasts a slow DHCP lease, a school router rebooting and a teacher
+// switching the Wi-Fi on after the PCs.
+//
+// Nothing here rides out a permanent error, though: diagnose.Enroll marks
+// those non-retryable and the loop stops on the first one, which is what
+// turned "conflict, four times, then a dead console" into one clear sentence.
+var defaultEnrollRetry = enrollSchedule{attempts: 12, initial: 3 * time.Second, max: 60 * time.Second}
 
 // tokenSchedule bounds keepTokenWarm's backoff while the backend cannot be
 // reached, and its poll interval once a token is live.
@@ -345,6 +467,39 @@ type tokenSchedule struct {
 // tokenRenewMargin (2 minutes), so renewal never gets a chance to lapse.
 var defaultTokenRetry = tokenSchedule{initial: 5 * time.Second, max: 2 * time.Minute, steady: 30 * time.Second}
 
+// enrollWithRetry calls Agent.Enroll until it succeeds, the schedule is
+// exhausted, or the failure is one that retrying cannot fix. It reports every
+// state it passes through to st, because with no console that store is the
+// only way the school finds out what is happening.
+func enrollWithRetry(ctx context.Context, a *agent.Agent, st *status.Store, code, label, org string, sched enrollSchedule) error {
+	backoff := sched.initial
+	var err error
+	for attempt := 1; attempt <= sched.attempts; attempt++ {
+		if err = a.Enroll(ctx, code, label, org); err == nil {
+			return nil
+		}
+		d := diagnose.Enroll(err)
+		st.SetProblem(d.Phase, d.Code, d.Problem, d.Action, d.Detail)
+		if !d.Retryable {
+			log.Printf("enrollment refused: %s | %s", d.Problem, d.Detail)
+			return err
+		}
+		if attempt == sched.attempts {
+			break
+		}
+		log.Printf("enrollment attempt %d/%d failed, retrying in %s: %v", attempt, sched.attempts, backoff, err)
+		select {
+		case <-time.After(backoff):
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+		if backoff *= 2; backoff > sched.max {
+			backoff = sched.max
+		}
+	}
+	return err
+}
+
 // keepTokenWarm runs for the life of the process, keeping a's token fresh.
 // Agent.Token already no-ops when the cached token is not close to expiry,
 // so the steady-state poll costs nothing extra; while the backend cannot be
@@ -352,16 +507,22 @@ var defaultTokenRetry = tokenSchedule{initial: 5 * time.Second, max: 2 * time.Mi
 // never calls the process fatal: the proxy fails closed on its own until a
 // token lands, which is what makes leaving this to retry, rather than
 // exiting, safe on an unattended machine.
-func keepTokenWarm(ctx context.Context, a *agent.Agent, sched tokenSchedule) {
+func keepTokenWarm(ctx context.Context, a *agent.Agent, st *status.Store, sched tokenSchedule) {
 	backoff := sched.initial
+	var lastCode string
 	for {
 		if _, err := a.Token(ctx); err != nil {
-			if errors.Is(err, agent.ErrStationUnauthorized) {
-				// Repeating the full diagnosis every few seconds buries it.
-				// The startup path already printed what to do about this one.
-				log.Printf("station rejected by the backend, retrying in %s (see -reenroll above)", backoff)
-			} else {
-				log.Printf("station token unavailable, retrying in %s: %v", backoff, err)
+			off, known := a.ClockOffset()
+			if !known {
+				off = 0
+			}
+			d := diagnose.Token(err, off)
+			st.SetProblem(d.Phase, d.Code, d.Problem, d.Action, d.Detail)
+			// Repeating the full diagnosis every few seconds buries it; the
+			// state is on the kiosk screen either way.
+			if d.Code != lastCode {
+				log.Printf("station offline: %s | %s | %s", d.Problem, d.Action, d.Detail)
+				lastCode = d.Code
 			}
 			select {
 			case <-time.After(backoff):
@@ -373,6 +534,11 @@ func keepTokenWarm(ctx context.Context, a *agent.Agent, sched tokenSchedule) {
 			}
 			continue
 		}
+		if lastCode != "" {
+			log.Print("station is online again")
+			lastCode = ""
+		}
+		st.SetReady()
 		backoff = sched.initial
 		select {
 		case <-time.After(sched.steady):

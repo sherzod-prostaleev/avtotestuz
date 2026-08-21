@@ -13,6 +13,7 @@ import (
 	"avtotest.uz/station/internal/embedcfg"
 	"avtotest.uz/station/internal/keystore"
 	"avtotest.uz/station/internal/proxy"
+	"avtotest.uz/station/internal/status"
 )
 
 // fastEnrollRetry and fastTokenRetry mirror the shape of the production
@@ -179,7 +180,7 @@ func TestEnrollWithRetrySucceedsAfterTransientFailures(t *testing.T) {
 	}
 	a := &agent.Agent{APIBase: srv.URL, StateDir: dir, Keys: ks, HWID: "hwid", Version: "test"}
 
-	if err := enrollWithRetry(context.Background(), a, "AVTO-TEST-CODE", "PC-1", fastEnrollRetry); err != nil {
+	if err := enrollWithRetry(context.Background(), a, status.New("test", "", ""), "AVTO-TEST-CODE", "PC-1", "Org", fastEnrollRetry); err != nil {
 		t.Fatalf("enrollWithRetry() = %v, want success after transient failures", err)
 	}
 	if got := atomic.LoadInt32(&attempts); got != 3 {
@@ -204,7 +205,7 @@ func TestEnrollWithRetryGivesUpAfterScheduleExhausted(t *testing.T) {
 	}
 	a := &agent.Agent{APIBase: srv.URL, StateDir: dir, Keys: ks, HWID: "hwid", Version: "test"}
 
-	if err := enrollWithRetry(context.Background(), a, "AVTO-TEST-CODE", "PC-1", fastEnrollRetry); err == nil {
+	if err := enrollWithRetry(context.Background(), a, status.New("test", "", ""), "AVTO-TEST-CODE", "PC-1", "Org", fastEnrollRetry); err == nil {
 		t.Fatal("enrollWithRetry() = nil, want an error once the schedule is exhausted")
 	}
 }
@@ -257,15 +258,15 @@ func TestKeepTokenWarmRecoversAndServesProxyTraffic(t *testing.T) {
 	a := &agent.Agent{APIBase: api.URL, StateDir: dir, Keys: ks, HWID: "hwid", Version: "test"}
 	// Enroll first so this test targets the "already enrolled" path (the
 	// review finding), not the enrollment flow covered by the tests above.
-	if err := a.Enroll(context.Background(), "AVTO-TEST-CODE", "PC-1"); err != nil {
+	if err := a.Enroll(context.Background(), "AVTO-TEST-CODE", "PC-1", "Org"); err != nil {
 		t.Fatal(err)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
-	go keepTokenWarm(ctx, a, fastTokenRetry)
+	go keepTokenWarm(ctx, a, status.New("test", "", ""), fastTokenRetry)
 
-	handler := proxy.New(front.URL, api.URL, a.Token)
+	handler := proxy.New(front.URL, api.URL, a.Token, nil)
 	srv := httptest.NewServer(handler)
 	t.Cleanup(srv.Close)
 
