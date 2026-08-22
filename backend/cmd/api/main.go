@@ -19,6 +19,7 @@ import (
 	"avtotest.uz/backend/internal/config"
 	"avtotest.uz/backend/internal/db"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/events"
 	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/sentryx"
@@ -88,6 +89,12 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	go maintainEventPartitions(ctx, pool, logger)
+	// event_batch holds one row per accepted telemetry batch purely to make a
+	// client retry idempotent, and nothing ever removed them -- the table grew
+	// for the life of the database remembering keys no client will present
+	// again. The partition maintainer above is deliberately separate: it never
+	// drops an event, and this never touches one.
+	go events.RunRetentionWorker(ctx, events.NewService(sqlc.New(pool), pool), logger)
 	go billing.RunManualExpireWorker(ctx, billing.Service{Q: sqlc.New(pool)}, logger)
 	if broadcastSvc != nil {
 		go broadcast.RunWorker(ctx, broadcastSvc, logger)

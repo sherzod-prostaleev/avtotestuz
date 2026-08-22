@@ -43,11 +43,24 @@ async function handleResponse<T>(res: Response): Promise<T> {
 
 // fallbackCode names the failures that arrive with no JSON envelope, so
 // callers can still branch on something more specific than "unknown_error".
-// 503 is the station agent failing closed while it has no token — see
-// backend/station/internal/proxy.
+//
+// 502/504 report `network_error` — the same code the BFF returns when it cannot
+// reach Go — because they are the same thing to the person looking at the
+// screen: the chain between them and the server is broken, their work is saved,
+// retrying is the answer. They used to report `upstream_unreachable`, a second
+// code for that one condition, and nothing anywhere consumed it: every screen
+// branches on `network_error`, so a 502 from nginx or Cloudflare fell through to
+// the generic "something went wrong" instead of the message that tells the
+// learner their session survived. One condition, one code, so the two cannot
+// drift apart again. Anything that needs to tell a bad gateway from a BFF-level
+// failure reads ApiError.status, which is unchanged.
+//
+// 503 stays its own code: that is the station agent failing closed while it has
+// no token — see backend/station/internal/proxy — and the kiosk screen shows a
+// genuinely different thing for it.
 function fallbackCode(status: number): string {
   if (status === 503) return "station_offline";
-  if (status === 502 || status === 504) return "upstream_unreachable";
+  if (status === 502 || status === 504) return "network_error";
   return "unknown_error";
 }
 
