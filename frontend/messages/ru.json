@@ -670,6 +670,20 @@
     "legalRefsTitle": "Ссылки на ПДД / правила",
     "closeExplanation": "Закрыть"
   },
+  "ExamPicker": {
+    "title": "Симуляция экзамена",
+    "subtitle": "Какой экзамен вы сдаёте?",
+    "standardTitle": "Обычный экзамен",
+    "standardAudience": "Для тех, кто получает права впервые",
+    "restoreTitle": "Пересдача",
+    "restoreAudience": "Для лишённых прав и проходящих переобучение",
+    "questionsMeta": "{count} вопросов · {minutes} минут",
+    "errorsMeta": "До {count} ошибок",
+    "stopMeta": "Остановка на {n}-й ошибке",
+    "start": "Начать",
+    "vipLocked": "Нужна VIP-подписка",
+    "keyboardHint": "Нажмите 1 или 2 на клавиатуре"
+  },
   "GrandMock": {
     "title": "ГЕНЕРАЛЬНЫЙ ЭКЗАМЕН",
     "subtitle": "Полная симуляция официального экзамена ГУБДД",

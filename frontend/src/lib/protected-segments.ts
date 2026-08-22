@@ -6,6 +6,9 @@
 // /login the moment it matches one of these.
 export const PROTECTED_SEGMENTS = [
   "dashboard",
+  // The exam chooser, not the kiosk's /station/exam — matchesAny only covers
+  // "/exam" and "/exam/...", so the station route stays login-free.
+  "exam",
   "exam-mockup",
   "tickets",
   "practice",

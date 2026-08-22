@@ -670,6 +670,20 @@
     "legalRefsTitle": "ЙҲҚ / қоида ҳаволалари",
     "closeExplanation": "Ёпиш"
   },
+  "ExamPicker": {
+    "title": "Имтиҳон симуляцияси",
+    "subtitle": "Қайси имтиҳонни топширасиз?",
+    "standardTitle": "Оддий имтиҳон",
+    "standardAudience": "Биринчи марта права олаётганлар учун",
+    "restoreTitle": "Қайта топшириш",
+    "restoreAudience": "Правадан маҳрум бўлиб қайта ўқиётганлар учун",
+    "questionsMeta": "{count} савол · {minutes} дақиқа",
+    "errorsMeta": "{count} хатогача рухсат",
+    "stopMeta": "{n}-хатода тўхтайди",
+    "start": "Бошлаш",
+    "vipLocked": "VIP обуна керак",
+    "keyboardHint": "Клавиатурада 1 ёки 2 тугмасини босинг"
+  },
   "GrandMock": {
     "title": "БОШ ИМТИҲОН",
     "subtitle": "Расмий ДЙХХ имтиҳонининг тўлиқ симуляцияси",

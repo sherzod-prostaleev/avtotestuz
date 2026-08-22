@@ -670,6 +670,20 @@
     "legalRefsTitle": "YHQ / qoida havolalari",
     "closeExplanation": "Yopish"
   },
+  "ExamPicker": {
+    "title": "Imtihon simulyatsiyasi",
+    "subtitle": "Qaysi imtihonni topshirasiz?",
+    "standardTitle": "Oddiy imtihon",
+    "standardAudience": "Birinchi marta prava olayotganlar uchun",
+    "restoreTitle": "Qayta topshirish",
+    "restoreAudience": "Pravadan mahrum bo'lib qayta o'qiyotganlar uchun",
+    "questionsMeta": "{count} savol · {minutes} daqiqa",
+    "errorsMeta": "{count} xatogacha ruxsat",
+    "stopMeta": "{n}-xatoda to'xtaydi",
+    "start": "Boshlash",
+    "vipLocked": "VIP obuna kerak",
+    "keyboardHint": "Klaviaturada 1 yoki 2 tugmasini bosing"
+  },
   "GrandMock": {
     "title": "BOSH IMTIHON",
     "subtitle": "Rasmiy DYXX imtihonining to'liq simulyatsiyasi",
