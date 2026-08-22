@@ -11,6 +11,14 @@ const (
 	ExamTimeLimitSec  = 25 * 60
 	ExamErrorsAllowed = 2
 
+	// The restore exam is what a driver who lost their licence re-sits: 50
+	// questions in 50 minutes, passing at 46/50. It runs through the same exam
+	// pipeline as the standard one, only with a different rule set — see
+	// ExamConfigFor.
+	ExamRestoreQuestionCount = 50
+	ExamRestoreTimeLimitSec  = 50 * 60
+	ExamRestoreErrorsAllowed = 4
+
 	PlacementQuestionCount = 10
 	PlacementTimeLimitSec  = 12 * 60
 	PlacementErrorsAllowed = 1
@@ -35,6 +43,40 @@ const (
 // EvaluatePlacement scoring) — "exam", "grand_mock", and "placement".
 func IsExamLike(mode string) bool {
 	return mode == "exam" || mode == "grand_mock" || mode == "placement"
+}
+
+// ExamConfig is one exam variety's complete rule set: how many questions are
+// drawn, how long the candidate has, and how many mistakes are survivable.
+type ExamConfig struct {
+	QuestionCount int
+	TimeLimitSec  int
+	ErrorsAllowed int
+}
+
+// ExamConfigFor maps a requested exam size onto its official rule set.
+//
+// Only 20 (standard) and 50 (restore) are real exams. 0 means "unspecified"
+// and yields the standard exam, which is what keeps every pre-existing
+// ?mode=exam link working. Every other size is refused: the count arrives from
+// the client, so an open-ended value would let a caller request a 3-question
+// "exam" and pass it trivially.
+func ExamConfigFor(count int) (ExamConfig, bool) {
+	switch count {
+	case 0, ExamQuestionCount:
+		return ExamConfig{
+			QuestionCount: ExamQuestionCount,
+			TimeLimitSec:  ExamTimeLimitSec,
+			ErrorsAllowed: ExamErrorsAllowed,
+		}, true
+	case ExamRestoreQuestionCount:
+		return ExamConfig{
+			QuestionCount: ExamRestoreQuestionCount,
+			TimeLimitSec:  ExamRestoreTimeLimitSec,
+			ErrorsAllowed: ExamRestoreErrorsAllowed,
+		}, true
+	default:
+		return ExamConfig{}, false
+	}
 }
 
 // Lock-reason codes returned on VariantStatus when Unlocked is false.
@@ -75,9 +117,15 @@ type ExamOutcome struct {
 }
 
 // EvaluateExam computes the final status of an exam-mode session. Passing
-// requires correct >= total-ExamErrorsAllowed (i.e. >=18/20) AND
-// wrong <= ExamErrorsAllowed — matching the real exam's "≤2 xato" rule.
-func EvaluateExam(correct, wrong, total int, timedOut, tooManyErrors bool) ExamOutcome {
+// requires correct >= total-errorsAllowed AND wrong <= errorsAllowed — i.e.
+// >=18/20 on the standard exam and >=46/50 on the restore exam.
+//
+// errorsAllowed is a parameter rather than the ExamErrorsAllowed constant
+// because the two exam varieties have different budgets and the session row
+// carries its own errors_allowed. Reading the constant here while
+// ShouldStopForErrors read the column would let a session stop under one rule
+// and be graded under another.
+func EvaluateExam(correct, wrong, total, errorsAllowed int, timedOut, tooManyErrors bool) ExamOutcome {
 	if tooManyErrors {
 		return ExamOutcome{Status: "failed", StoppedReason: "too_many_errors"}
 	}
@@ -85,7 +133,7 @@ func EvaluateExam(correct, wrong, total int, timedOut, tooManyErrors bool) ExamO
 	if timedOut {
 		reason = "time_up"
 	}
-	if correct >= total-ExamErrorsAllowed && wrong <= ExamErrorsAllowed {
+	if correct >= total-errorsAllowed && wrong <= errorsAllowed {
 		return ExamOutcome{Status: "passed", StoppedReason: reason}
 	}
 	return ExamOutcome{Status: "failed", StoppedReason: reason}

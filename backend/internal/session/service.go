@@ -841,7 +841,13 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 	switch row.Mode {
 	case "exam", "grand_mock":
 		wrong := totalAnswered - correctCount
-		outcome := EvaluateExam(correctCount, wrong, int(row.Total), timedOut, tooManyErrors)
+		// Same fallback SubmitAnswer uses: sessions created before
+		// errors_allowed existed carry NULL and are graded as standard exams.
+		errorsAllowed := ExamErrorsAllowed
+		if row.ErrorsAllowed.Valid {
+			errorsAllowed = int(row.ErrorsAllowed.Int32)
+		}
+		outcome := EvaluateExam(correctCount, wrong, int(row.Total), errorsAllowed, timedOut, tooManyErrors)
 		status = outcome.Status
 		reason = outcome.StoppedReason
 	case "placement":
