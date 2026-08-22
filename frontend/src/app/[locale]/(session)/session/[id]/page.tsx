@@ -39,6 +39,7 @@ import {
   resolveQuestionImageUrl,
   upcomingQuestionImageUrls,
 } from "@/lib/question-image";
+import { AUTO_ADVANCE_MS, hasAnswer, nextUnansweredIndex } from "@/lib/session-navigation";
 
 function ExamChunkFallback() {
   return (
@@ -91,10 +92,6 @@ interface SavedItemDTO {
 interface PendingAnswer {
   questionId: string;
   answerId: string;
-}
-
-function hasAnswer(question: SessionQuestionItem): boolean {
-  return question.answered === true || Boolean(question.user_answer_id);
 }
 
 function answerState(
@@ -155,6 +152,17 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   const autoFinishAttemptedRef = useRef<string | null>(null);
   const questionShownAtRef = useRef(Date.now());
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
+  const autoAdvanceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const cancelAutoAdvance = useCallback(() => {
+    if (autoAdvanceRef.current !== null) {
+      clearTimeout(autoAdvanceRef.current);
+      autoAdvanceRef.current = null;
+    }
+  }, []);
+
+  // A pending hop must never outlive the screen that scheduled it.
+  useEffect(() => cancelAutoAdvance, [cancelAutoAdvance]);
 
   useEffect(() => {
     if (sessionId) void loadSession(sessionId, locale);
@@ -254,9 +262,15 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
   }, []);
 
-  const goToQuestion = useCallback((index: number) => {
-    setCurrentIndex(index);
-  }, []);
+  // Any deliberate navigation wins over a scheduled auto-advance: the learner
+  // asked for this question, so nothing may pull them off it a moment later.
+  const goToQuestion = useCallback(
+    (index: number) => {
+      cancelAutoAdvance();
+      setCurrentIndex(index);
+    },
+    [cancelAutoAdvance]
+  );
 
   const handleSelectAnswer = useCallback(
     async (questionId: string, answerId: string) => {
@@ -285,6 +299,26 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       };
       if (response.correct !== undefined) answerProps.correct = response.correct;
       trackEvent("answer", answerProps);
+
+      // Auto-advance: hold the graded answer on screen briefly, then move to
+      // the next gap. Skipped when this answer ended the session — that screen
+      // is the result, not another question. When no gap is left the runner
+      // stays put and the auto-finish effect closes the session instead.
+      if (response.recorded && !response.stopped) {
+        const target = nextUnansweredIndex(
+          session.questions,
+          session.questions.findIndex((item) => item.id === questionId),
+          questionId
+        );
+        if (target >= 0) {
+          cancelAutoAdvance();
+          autoAdvanceRef.current = setTimeout(() => {
+            autoAdvanceRef.current = null;
+            setCurrentIndex(target);
+          }, AUTO_ADVANCE_MS);
+        }
+      }
+
       if (response.stopped) {
         trackEvent("session_finish", {
           session_id: session.id,
@@ -295,11 +329,12 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         });
       }
     },
-    [session, sessionId, submitAnswer, submitting]
+    [cancelAutoAdvance, session, sessionId, submitAnswer, submitting]
   );
 
   const handleFinish = useCallback(async () => {
     if (!session || session.status !== "active" || finishing || submitting) return null;
+    cancelAutoAdvance();
     setFinishing(true);
     setPendingAnswer(null);
     try {
@@ -322,7 +357,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     } finally {
       setFinishing(false);
     }
-  }, [finishSession, finishing, session, sessionId, submitting]);
+  }, [cancelAutoAdvance, finishSession, finishing, session, sessionId, submitting]);
 
   // Exam-like modes had no reachable finish control after the last answer, so
   // a clean pass could sit on the active UI until the timer expired. Auto-finish
@@ -908,7 +943,12 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
               answerStateFor={(answerId) => answerState(currentQuestion, answerId, pendingAnswer)}
               onSelectAnswer={(answerId) => void handleSelectAnswer(currentQuestion.id, answerId)}
               onZoomImage={() => setZoomImageUrl(resolveQuestionImageUrl(currentQuestion.image_url))}
-              onOpenExplanation={() => setExplanationOpen(true)}
+              // Reading an explanation must not be interrupted by a hop the
+              // answer scheduled a moment earlier.
+              onOpenExplanation={() => {
+                cancelAutoAdvance();
+                setExplanationOpen(true);
+              }}
             />
           </div>
 

@@ -795,3 +795,109 @@ describe("SessionPage kiosk mode", () => {
     expect(isKioskReachable(navigation.replace.mock.calls[0][0])).toBe(true);
   });
 });
+
+describe("SessionPage auto-advance", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    navigation.push.mockReset();
+    navigation.replace.mockReset();
+    vi.mocked(useSessionEngine).mockReset();
+    vi.mocked(trackEvent).mockReset();
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue([] as never);
+    vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+    vi.spyOn(apiClient, "apiDelete").mockResolvedValue({ ok: true } as never);
+  });
+
+  it("moves to the next unanswered question after the grading pause", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const submitAnswer = vi.fn().mockResolvedValue({ recorded: true, correct: true });
+      mockEngine(
+        activeSession({
+          questions: [question(), question({ id: "q-2", question: "Ikkinchi savol" })],
+          total: 2,
+        }),
+        { submitAnswer }
+      );
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /3\.27 belgisi/ }));
+      await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+      expect(screen.getByRole("button", { name: "1-savol: joriy" })).toBeInTheDocument();
+
+      await vi.advanceTimersByTimeAsync(900);
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "2-savol: joriy" })).toHaveAttribute(
+          "aria-current",
+          "step"
+        )
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not advance when the answer stopped the session", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const submitAnswer = vi.fn().mockResolvedValue({
+        recorded: true,
+        correct: false,
+        stopped: true,
+        stop_reason: "too_many_errors",
+      });
+      mockEngine(
+        activeSession({
+          questions: [question(), question({ id: "q-2", question: "Ikkinchi savol" })],
+          total: 2,
+        }),
+        { submitAnswer }
+      );
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /3\.27 belgisi/ }));
+      await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+      await vi.advanceTimersByTimeAsync(2000);
+
+      expect(screen.getByRole("button", { name: "1-savol: joriy" })).toHaveAttribute(
+        "aria-current",
+        "step"
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("cancels the hop when the learner navigates first", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const submitAnswer = vi.fn().mockResolvedValue({ recorded: true, correct: true });
+      mockEngine(
+        activeSession({
+          questions: [
+            question(),
+            question({ id: "q-2", question: "Ikkinchi savol" }),
+            question({ id: "q-3", question: "Uchinchi savol" }),
+          ],
+          total: 3,
+        }),
+        { submitAnswer }
+      );
+      renderPage();
+
+      fireEvent.click(screen.getByRole("button", { name: /3\.27 belgisi/ }));
+      await waitFor(() => expect(submitAnswer).toHaveBeenCalled());
+
+      fireEvent.click(screen.getByRole("button", { name: "3-savol: javob berilmagan" }));
+      await vi.advanceTimersByTimeAsync(2000);
+
+      expect(screen.getByRole("button", { name: "3-savol: joriy" })).toHaveAttribute(
+        "aria-current",
+        "step"
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
