@@ -85,7 +85,7 @@ export function Sidebar() {
     { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: ticketCount }), icon: BookOpen },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
     { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
-    { href: `/${currentLocale}/session/start?mode=exam`, label: t("navExam"), icon: Award },
+    { href: `/${currentLocale}/exam`, label: t("navExam"), icon: Award },
     { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
     {
@@ -138,7 +138,7 @@ export function Sidebar() {
       match: (path: string) => path.includes("/practice"),
     },
     {
-      href: `/${currentLocale}/session/start?mode=exam`,
+      href: `/${currentLocale}/exam`,
       label: t("navTabExam"),
       icon: Award,
       match: (path: string) => path.includes("/session"),

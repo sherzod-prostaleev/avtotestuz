@@ -197,7 +197,7 @@ export default function DashboardPage() {
             title: t("nextActionExamTitle"),
             description: t("nextActionExamDesc"),
             cta: t("nextActionExamCta"),
-            href: `/${locale}/session/start?mode=exam`,
+            href: `/${locale}/exam`,
             tone: "success" as const,
           }
         : weakest
@@ -560,7 +560,7 @@ export default function DashboardPage() {
           </Link>
 
           {/* 2. Imtihon Simulation */}
-          <Link href={`/${locale}/session/start?mode=exam`} className="block min-w-0">
+          <Link href={`/${locale}/exam`} className="block min-w-0">
             <Card className="glass-card group flex h-full flex-col justify-between border-accent/30 p-3 sm:p-5 md:p-6">
               <div>
                 <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-xl bg-accent/15 text-accent transition-transform group-hover:scale-105 sm:mb-3 sm:h-12 sm:w-12 sm:rounded-2xl">

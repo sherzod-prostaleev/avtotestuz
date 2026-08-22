@@ -127,10 +127,25 @@ describe("Sidebar i18n and accessibility", () => {
 
     expect(screen.queryByText(localeCase.imageQuestions)).not.toBeInTheDocument();
     expect(screen.queryByText(localeCase.textQuestions)).not.toBeInTheDocument();
-    // One exam entry in the desktop sidebar list + one in the thumb-zone tabs.
+    // No nav entry points there any more: both exam entries land on the
+    // chooser at /exam, which starts nothing until a variety is picked.
     expect(
       screen.queryAllByRole("link").filter((link) => link.getAttribute("href")?.includes("session/start"))
-    ).toHaveLength(2);
+    ).toHaveLength(0);
+  });
+
+  it.each(localeCases)("routes the exam entry to the variety chooser for $locale", (localeCase) => {
+    renderWithIntl(localeCase);
+
+    const examLinks = screen
+      .queryAllByRole("link")
+      .filter((link) => link.getAttribute("href")?.endsWith("/exam"));
+
+    // One entry in the desktop sidebar list + one in the thumb-zone tabs.
+    expect(examLinks).toHaveLength(2);
+    for (const link of examLinks) {
+      expect(link).toHaveAttribute("href", `/${localeCase.locale}/exam`);
+    }
   });
 
   it.each(localeCases.slice(1))("does not leak Latin Uzbek chrome into $locale", (localeCase) => {

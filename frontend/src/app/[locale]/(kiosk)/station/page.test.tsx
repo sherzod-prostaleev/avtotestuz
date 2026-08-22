@@ -107,12 +107,15 @@ describe("StationPage", () => {
     expect(screen.queryByText("Station.notStation")).not.toBeInTheDocument();
   });
 
-  it("offers the exam simulation", async () => {
+  // The kiosk lands on the chooser rather than starting a session outright:
+  // a classroom holds both first-time candidates and drivers re-sitting the
+  // 50-question restore exam, and the station cannot know which is at the PC.
+  it("offers the exam simulation through the variety chooser", async () => {
     apiGet.mockResolvedValue(meResponse("station"));
     render(<StationPage />);
 
     const link = await screen.findByRole("link", { name: /Station\.exam/ });
-    expect(link).toHaveAttribute("href", "/uz-Latn/station/session/start?mode=exam");
+    expect(link).toHaveAttribute("href", "/uz-Latn/station/exam");
   });
 
   it("offers road signs", async () => {

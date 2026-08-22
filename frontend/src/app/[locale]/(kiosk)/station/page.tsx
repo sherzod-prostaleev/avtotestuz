@@ -48,7 +48,7 @@ const PRIMARY = [
   },
   {
     key: "exam",
-    href: "station/session/start?mode=exam",
+    href: "station/exam",
     icon: Award,
     titleKey: "Station.exam",
     descKey: "Dashboard.navExamDesc",
