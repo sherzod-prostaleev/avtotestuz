@@ -46,6 +46,10 @@ RUN rm -rf \
 COPY --from=build /app/public ./public
 COPY --from=build --chown=nextjs:nextjs /app/.next/standalone ./
 COPY --from=build --chown=nextjs:nextjs /app/.next/static ./.next/static
+# Multi-process entrypoint. Must land after the standalone copy, which is what
+# puts the server.js it wraps at /app/server.js. WEB_WORKERS=1 makes it delegate
+# straight to that file, so this is a no-op unless the count is raised.
+COPY --from=build --chown=nextjs:nextjs /app/cluster.js ./cluster.js
 USER nextjs
 EXPOSE 3000
-CMD ["node", "server.js"]
+CMD ["node", "cluster.js"]

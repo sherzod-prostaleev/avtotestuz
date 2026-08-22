@@ -293,11 +293,20 @@ services:
       # Must stay strictly above drivergo_web's keepalive_timeout in
       # deploy/nginx/upstreams-*.conf; the contract test enforces it.
       KEEP_ALIVE_TIMEOUT: ${WEB_KEEP_ALIVE_TIMEOUT_MS:-70000}
+      # JS runs on one thread, and every authenticated call plus every SSR
+      # render goes through this process. Measured at cpus 1.50 with a single
+      # worker, while the Go API idled at 35%: BFF ~195 rps, SSR ~45 rps, versus
+      # ~1500 rps for the same JSON straight from Go. cluster.js forks this many
+      # workers behind the one listening socket. 1 = previous behaviour exactly.
+      WEB_WORKERS: ${WEB_WORKERS:-2}
     depends_on:
       api:
         condition: service_healthy
     restart: unless-stopped
-    cpus: "1.50"
+    # Raised with WEB_WORKERS: two saturated JS threads need more than 1.5. The
+    # box has 4 vCPU and these limits are caps, not reservations -- api measured
+    # 0.35 while web was pegged, so the contention window is small.
+    cpus: "${WEB_CPUS:-2.50}"
     mem_limit: 1024m
     pids_limit: 256
     read_only: true

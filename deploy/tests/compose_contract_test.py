@@ -64,6 +64,7 @@ class ComposeContractTest(unittest.TestCase):
                 "KEEP_ALIVE_TIMEOUT",
                 "NEXT_PUBLIC_SENTRY_DSN",
                 "TRUSTED_PROXY_HOPS",
+                "WEB_WORKERS",
             },
         )
         api = config["services"]["api"]
