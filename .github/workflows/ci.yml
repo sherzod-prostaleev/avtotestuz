@@ -77,6 +77,11 @@ jobs:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
         run: |
           cd "$GITHUB_WORKSPACE"
+          # station-check now also runs the suite under GOARCH=386, the
+          # architecture every classroom PC actually executes. See the comment
+          # on that target: an alignment bug that only exists on 32-bit shipped
+          # to a school because building for 386 is not the same as running on
+          # it, and the runner is x86-64, so it can do both.
           make station-check
 
   frontend:

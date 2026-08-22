@@ -129,6 +129,15 @@ station-check:
 	cd backend/station && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test -p 1 ./... -count=1
 	cd backend/station && go vet ./...
 	cd backend/station && CGO_ENABLED=0 GOOS=windows GOARCH=386 go build ./...
+# The shipped agent is GOARCH=386, and building it is not the same as running
+# it. A plain int64 struct field is 4-byte aligned on 386 and 8-byte aligned on
+# amd64, so agentRuntime.lastCall passed every test here and then panicked with
+# "unaligned 64-bit atomic operation" on the first line of every classroom PC --
+# invisibly, because the binary is linked -H windowsgui and the panic went to a
+# stderr handle that does not exist. An x86-64 host runs 386 binaries natively,
+# so running the suite a second time under that GOARCH costs seconds and closes
+# the entire class of word-size and alignment bugs.
+	cd backend/station && GOARCH=386 go test ./... -count=1
 
 check: lint test station-check
 

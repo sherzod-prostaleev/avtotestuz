@@ -279,7 +279,17 @@ type agentRuntime struct {
 	// lastCall is the Unix nano of the most recent proxied API request. The
 	// updater reads it to decide whether restarting could interrupt a student
 	// mid-exam.
-	lastCall int64
+	//
+	// atomic.Int64, not a plain int64 read through atomic.StoreInt64. On 386 --
+	// which is what every classroom PC runs, because a 386 binary is the one
+	// build that works on both 32- and 64-bit Windows -- the compiler aligns an
+	// int64 struct field to 4 bytes, while a 64-bit atomic operation requires 8.
+	// Behind a sync.RWMutex and a pointer this field landed at offset 28, and
+	// the very first atomic.StoreInt64 panicked with "unaligned 64-bit atomic
+	// operation". On amd64 the same field sits at offset 32 and every test
+	// passed. atomic.Int64 carries its own alignment guarantee, so no future
+	// reordering of the fields above can put this back.
+	lastCall atomic.Int64
 }
 
 // errNotReady is what the proxy sees before enrollment has produced an agent.
@@ -315,17 +325,17 @@ func (r *agentRuntime) setAgent(a *agent.Agent) {
 // browser fetches static assets on its own schedule and would keep the PC
 // looking busy forever.
 func (r *agentRuntime) trackIdle(next http.Handler) http.Handler {
-	atomic.StoreInt64(&r.lastCall, time.Now().UnixNano())
+	r.lastCall.Store(time.Now().UnixNano())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if strings.HasPrefix(req.URL.Path, "/api/proxy/") {
-			atomic.StoreInt64(&r.lastCall, time.Now().UnixNano())
+			r.lastCall.Store(time.Now().UnixNano())
 		}
 		next.ServeHTTP(w, req)
 	})
 }
 
 func (r *agentRuntime) idleFor() time.Duration {
-	return time.Since(time.Unix(0, atomic.LoadInt64(&r.lastCall)))
+	return time.Since(time.Unix(0, r.lastCall.Load()))
 }
 
 // listen binds want, falling back to the next few ports when it is taken.
