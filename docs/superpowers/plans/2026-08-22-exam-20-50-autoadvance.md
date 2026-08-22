@@ -1529,7 +1529,42 @@ export const PROTECTED_SEGMENTS = [
 
 `matchesAny` faqat `/exam` va `/exam/...` ga mos keladi, ya'ni kioskning `/station/exam` manzili qamrab olinmaydi.
 
-- [ ] **Step 8: Kiosk marshrut testi avtomatik o'tishini tasdiqla**
+- [ ] **Step 8: `ExamPicker` ni klient namespace ro'yxatiga qo'sh**
+
+Bu **majburiy** — komponent testlari uni ushlamaydi, chunki ular
+`NextIntlClientProvider` ga to'liq messages faylini uzatadi. Ro'yxatda
+bo'lmasa, ishlab turgan sahifa xom kalitlar ekraniga aylanadi.
+
+`frontend/src/i18n/namespaces.ts` da `APP_EXTRA` ichiga `"ExamMockup"` dan
+keyin qo'sh (`KIOSK_NAMESPACES` uni `APP_NAMESPACES` dan meros oladi):
+
+```ts
+  // The 20/50 exam chooser at /exam; KIOSK_NAMESPACES inherits it for
+  // /station/exam, which renders the same component.
+  "ExamPicker",
+```
+
+`frontend/src/i18n/pick-messages.test.ts` dagi `describe("pickMessages")`
+ichiga regressiya testi:
+
+```ts
+  // /exam and /station/exam render the same ExamModePicker. A namespace left
+  // out here does not fail a component test — those wrap the full message file
+  // — it ships a screen of raw keys, which is how this was nearly missed.
+  it("ships the exam chooser strings to both shells that render it", () => {
+    expect(APP_NAMESPACES).toContain("ExamPicker");
+    expect(KIOSK_NAMESPACES).toContain("ExamPicker");
+    expect(pickMessages(uzLatn, APP_NAMESPACES).ExamPicker).toEqual(uzLatn.ExamPicker);
+  });
+```
+
+```bash
+cd "/home/sher/Рабочий стол/avtotest/frontend" && npx vitest run src/i18n/ 2>&1 | tail -10
+```
+
+Kutilgan: 5 test PASS.
+
+- [ ] **Step 9: Kiosk marshrut testi avtomatik o'tishini tasdiqla**
 
 `kiosk-path.test.tsx` fayl tizimini o'zi aylanib chiqadi, ya'ni yangi `station/exam/page.tsx` unga qo'lda qo'shilmaydi.
 
@@ -1539,7 +1574,7 @@ cd "/home/sher/Рабочий стол/avtotest/frontend" && npx vitest run "src
 
 Kutilgan: barcha kiosk testlari PASS — `/station/exam` `PROTECTED_SEGMENTS` dan tashqarida.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
 cd "/home/sher/Рабочий стол/avtotest" && git add frontend/src/components/exam/exam-mode-picker.tsx frontend/src/components/exam/exam-mode-picker.test.tsx "frontend/src/app/[locale]/(app)/exam" "frontend/src/app/[locale]/(kiosk)/station/exam" frontend/src/lib/protected-segments.ts frontend/messages && git commit -m "feat(exam): let the learner pick which official exam they are sitting
@@ -1728,5 +1763,9 @@ Kutilgan: topilma yo'q. (`v2.6-alpine` tegini ishlatmang — Go versiya mos kelm
 
 - **Spec qamrovi:** 1.1→Task 2; 1.2→Task 1; 1.3→Task 3; 1.4→Task 5+6; 1.5→Task 4; spec §3.5→Task 2 Step 7; §4.5→Task 5 Step 7; §6→Task 5 Step 1 va Task 6 Step 4; §8.3→Task 3 Step 5.
 - **Turlar izchilligi:** `ExamConfigFor` Task 1'da e'lon qilinib Task 2'da ishlatiladi; `hasAnswer`/`nextUnansweredIndex`/`AUTO_ADVANCE_MS` Task 4'da bir joyda e'lon qilinadi; `errors_allowed` Task 2'da (Go) va Task 3'da (TS) bir xil nomda.
+- **Namespace tuzog'i (implementatsiyada topildi):** Task 5 Step 8 — `ExamPicker` ni
+  `APP_NAMESPACES` ga qo'shmasa, sahifa xom kalitlar bilan chiqadi va **hech bir
+  komponent testi buni ushlamaydi**. Shu sababli tekshiruv namespace ro'yxatining
+  o'ziga yozildi.
 - **Mavjud testga majburiy o'zgarish:** `sidebar.test.tsx:125-134` `session/start` havolalari sonini aynan 2 deb qotirib qo'ygan; Task 6 uni 0 ga o'zgartiradi. Bu yagona "eskisi yashil bo'lgani uchun yiqiladigan" joy — Task 6 Step 1'da aniq ko'rsatilgan.
 - **Test selektorlari** mavjud fayllardan o'qib olindi va rejaga aynan ko'chirildi: pill'lar `"{number}-savol: {status}"` (`joriy` / `javob berilmagan` / …), javob tugmalari `3.27 belgisi`, `mockEngine(session, overrides)`.
