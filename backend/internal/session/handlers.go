@@ -91,12 +91,13 @@ type startSessionBody struct {
 }
 
 type startSessionResponse struct {
-	ID           string    `json:"id"`
-	Mode         string    `json:"mode"`
-	QuestionIDs  []string  `json:"question_ids"`
-	TimeLimitSec *int      `json:"time_limit_sec"`
-	Total        int       `json:"total"`
-	StartedAt    time.Time `json:"started_at"`
+	ID            string    `json:"id"`
+	Mode          string    `json:"mode"`
+	QuestionIDs   []string  `json:"question_ids"`
+	TimeLimitSec  *int      `json:"time_limit_sec"`
+	ErrorsAllowed *int      `json:"errors_allowed"`
+	Total         int       `json:"total"`
+	StartedAt     time.Time `json:"started_at"`
 }
 
 func toStartSessionResponse(v SessionView) startSessionResponse {
@@ -105,12 +106,13 @@ func toStartSessionResponse(v SessionView) startSessionResponse {
 		ids[i] = id.String()
 	}
 	return startSessionResponse{
-		ID:           v.ID.String(),
-		Mode:         v.Mode,
-		QuestionIDs:  ids,
-		TimeLimitSec: v.TimeLimitSec,
-		Total:        v.Total,
-		StartedAt:    v.StartedAt,
+		ID:            v.ID.String(),
+		Mode:          v.Mode,
+		QuestionIDs:   ids,
+		TimeLimitSec:  v.TimeLimitSec,
+		ErrorsAllowed: v.ErrorsAllowed,
+		Total:         v.Total,
+		StartedAt:     v.StartedAt,
 	}
 }
 
@@ -451,6 +453,7 @@ type sessionDetailResponse struct {
 	StoppedReason        string                `json:"stopped_reason"`
 	Score                *int                  `json:"score,omitempty"`
 	TimeLimitSec         *int                  `json:"time_limit_sec,omitempty"`
+	ErrorsAllowed        *int                  `json:"errors_allowed,omitempty"`
 	StartedAt            time.Time             `json:"started_at"`
 	FinishedAt           *time.Time            `json:"finished_at,omitempty"`
 	Answers              []answeredQuestionDTO `json:"answers"`
@@ -484,6 +487,7 @@ func toSessionDetailResponse(d SessionDetail) sessionDetailResponse {
 		StoppedReason:        d.StoppedReason,
 		Score:                d.Score,
 		TimeLimitSec:         d.TimeLimitSec,
+		ErrorsAllowed:        d.ErrorsAllowed,
 		StartedAt:            d.StartedAt,
 		FinishedAt:           d.FinishedAt,
 		Answers:              answers,

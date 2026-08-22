@@ -209,6 +209,13 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
 
 	case "exam":
+		// The size decides the whole rule set (questions, minutes, mistake
+		// budget) and is whitelisted here, before any work: an open-ended
+		// count would let a client request a 3-question "exam" and pass it.
+		cfg, ok := ExamConfigFor(req.Count)
+		if !ok {
+			return SessionView{}, ErrInvalidRequest
+		}
 		active, _, statusErr := s.Billing.Status(ctx, profileID)
 		if statusErr != nil {
 			return SessionView{}, statusErr
@@ -216,12 +223,12 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		if !active {
 			return SessionView{}, ErrRequiresVIP
 		}
-		ids, err = s.Q.RandomQuestionIDs(ctx, int32(ExamQuestionCount))
-		if err == nil && len(ids) < ExamQuestionCount {
+		ids, err = s.Q.RandomQuestionIDs(ctx, int32(cfg.QuestionCount))
+		if err == nil && len(ids) < cfg.QuestionCount {
 			return SessionView{}, ErrInvalidRequest
 		}
-		timeLimit = pgtype.Int4{Int32: ExamTimeLimitSec, Valid: true}
-		errorsAllowed = pgtype.Int4{Int32: ExamErrorsAllowed, Valid: true}
+		timeLimit = pgtype.Int4{Int32: int32(cfg.TimeLimitSec), Valid: true}
+		errorsAllowed = pgtype.Int4{Int32: int32(cfg.ErrorsAllowed), Valid: true}
 
 	case "grand_mock":
 		// Delegating to MockEligibility rather than repeating its checks is
@@ -371,6 +378,10 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 	if timeLimit.Valid {
 		v := int(timeLimit.Int32)
 		view.TimeLimitSec = &v
+	}
+	if errorsAllowed.Valid {
+		v := int(errorsAllowed.Int32)
+		view.ErrorsAllowed = &v
 	}
 	return view, nil
 }
@@ -1002,6 +1013,10 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 	if row.TimeLimitSec.Valid {
 		v := int(row.TimeLimitSec.Int32)
 		detail.TimeLimitSec = &v
+	}
+	if row.ErrorsAllowed.Valid {
+		v := int(row.ErrorsAllowed.Int32)
+		detail.ErrorsAllowed = &v
 	}
 	if row.Score.Valid {
 		v := int(row.Score.Int32)

@@ -42,6 +42,29 @@ func seed(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
 	return q, svc, profile.ID
 }
 
+// seedBig is seed with a question bank large enough to draw a 50-question
+// restore exam from. fixture.Sample only carries 40 questions, and
+// importer/store_test.go asserts that exact number, so the bank is widened
+// here instead of there.
+func seedBig(t *testing.T) (*sqlc.Queries, *session.Service, uuid.UUID) {
+	t.Helper()
+	pool := testdb.New(t)
+	ds, images := fixture.SampleSized(60)
+	if _, err := importer.Store(context.Background(), pool, blob.NewLocalDir(t.TempDir()), ds,
+		importer.StoreOptions{MarkVerified: true, Images: images, Source: "fixture"}); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	q := sqlc.New(pool)
+	svc := session.NewService(q, pool, billing.Service{Q: q}, learning.NewService(q), progress.NewService(q))
+	profile, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{
+		Phone: "+998901234567",
+	})
+	if err != nil {
+		t.Fatalf("create profile: %v", err)
+	}
+	return q, svc, profile.ID
+}
+
 // grantVIP grants profileID an active entitlement so VIP-gated modes (exam,
 // mistakes, variant 2+) can be exercised by tests that aren't specifically
 // testing the free-tier gate itself.
@@ -148,6 +171,57 @@ func TestStartSessionExamMode(t *testing.T) {
 	}
 	if view.TimeLimitSec == nil || *view.TimeLimitSec != session.ExamTimeLimitSec {
 		t.Fatalf("expected time limit %d, got %v", session.ExamTimeLimitSec, view.TimeLimitSec)
+	}
+}
+
+func TestStartSessionRestoreExamMode(t *testing.T) {
+	q, svc, profileID := seedBig(t)
+	grantVIP(t, q, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "uz-Latn", Count: session.ExamRestoreQuestionCount,
+	})
+	if err != nil {
+		t.Fatalf("StartSession restore exam: %v", err)
+	}
+	if view.Total != session.ExamRestoreQuestionCount || len(view.QuestionIDs) != session.ExamRestoreQuestionCount {
+		t.Fatalf("expected %d questions, got total=%d ids=%d",
+			session.ExamRestoreQuestionCount, view.Total, len(view.QuestionIDs))
+	}
+	if view.TimeLimitSec == nil || *view.TimeLimitSec != session.ExamRestoreTimeLimitSec {
+		t.Fatalf("expected time limit %d, got %v", session.ExamRestoreTimeLimitSec, view.TimeLimitSec)
+	}
+	if view.ErrorsAllowed == nil || *view.ErrorsAllowed != session.ExamRestoreErrorsAllowed {
+		t.Fatalf("expected errors allowed %d, got %v", session.ExamRestoreErrorsAllowed, view.ErrorsAllowed)
+	}
+}
+
+// The standard exam must keep reporting its own budget, so the client HUD
+// stops guessing it from the mode name.
+func TestStartSessionStandardExamReportsErrorBudget(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if view.ErrorsAllowed == nil || *view.ErrorsAllowed != session.ExamErrorsAllowed {
+		t.Fatalf("expected errors allowed %d, got %v", session.ExamErrorsAllowed, view.ErrorsAllowed)
+	}
+}
+
+// A count the official exam does not have must be refused, not rounded or
+// honoured — otherwise a client picks its own difficulty.
+func TestStartSessionExamRejectsUnofficialCount(t *testing.T) {
+	q, svc, profileID := seedBig(t)
+	grantVIP(t, q, profileID)
+	for _, count := range []int{3, 30, 49, 51} {
+		if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+			Mode: "exam", Locale: "uz-Latn", Count: count,
+		}); err != session.ErrInvalidRequest {
+			t.Fatalf("count=%d err=%v want ErrInvalidRequest", count, err)
+		}
 	}
 }
 

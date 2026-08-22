@@ -24,6 +24,15 @@ func tr(latn, cyrl, ru string) map[string]string {
 // Sample returns 40 questions (2 variants × 20), 4 categories, 2 sign groups,
 // 4 signs, 1 explanation, with tiny PNG images for signs and every 4th question.
 func Sample() (importer.Dataset, importer.MapSource) {
+	return SampleSized(40)
+}
+
+// SampleSized is Sample with a caller-chosen question count, for tests that
+// need a bank bigger than one exam draw — the 50-question restore exam cannot
+// be started against Sample's 40. Variants are built in blocks of 20, so
+// questionCount/20 bilets are produced and any remainder stays variant-less
+// (valid: importer.Validate checks questions individually).
+func SampleSized(questionCount int) (importer.Dataset, importer.MapSource) {
 	images := importer.MapSource{}
 	ds := importer.Dataset{
 		Categories: []importer.CanonCategory{
@@ -50,7 +59,7 @@ func Sample() (importer.Dataset, importer.MapSource) {
 		})
 	}
 	cats := []string{"signs", "rules", "priority", "safety"}
-	for n := 1; n <= 40; n++ {
+	for n := 1; n <= questionCount; n++ {
 		ext := fmt.Sprintf("nmn-%04d", n)
 		q := importer.CanonQuestion{
 			ExtID:    ext,
@@ -81,7 +90,7 @@ func Sample() (importer.Dataset, importer.MapSource) {
 		}
 		ds.Questions = append(ds.Questions, q)
 	}
-	for v := 1; v <= 2; v++ {
+	for v := 1; v <= questionCount/20; v++ {
 		var ids []string
 		for n := (v-1)*20 + 1; n <= v*20; n++ {
 			ids = append(ids, fmt.Sprintf("nmn-%04d", n))

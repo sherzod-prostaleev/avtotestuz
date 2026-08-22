@@ -29,8 +29,12 @@ type SessionView struct {
 	Mode         string
 	QuestionIDs  []uuid.UUID
 	TimeLimitSec *int
-	Total        int
-	StartedAt    time.Time
+	// ErrorsAllowed is the session's own mistake budget (2 on the standard
+	// exam, 4 on the restore exam, 1 on placement). nil for untimed modes.
+	// The client HUD reads this instead of inferring a budget from the mode.
+	ErrorsAllowed *int
+	Total         int
+	StartedAt     time.Time
 }
 
 // SubmitAnswerOpts carries optional FSRS grading hints for SubmitAnswer.
