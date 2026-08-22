@@ -27,6 +27,15 @@ describe("pickMessages", () => {
     expect(APP_NAMESPACES).toContain("Session");
   });
 
+  // /exam and /station/exam render the same ExamModePicker. A namespace left
+  // out here does not fail a component test — those wrap the full message file
+  // — it ships a screen of raw keys, which is how this was nearly missed.
+  it("ships the exam chooser strings to both shells that render it", () => {
+    expect(APP_NAMESPACES).toContain("ExamPicker");
+    expect(KIOSK_NAMESPACES).toContain("ExamPicker");
+    expect(pickMessages(uzLatn, APP_NAMESPACES).ExamPicker).toEqual(uzLatn.ExamPicker);
+  });
+
   it("covers chrome namespaces on every route group", () => {
     for (const group of [PUBLIC_NAMESPACES, AUTH_NAMESPACES, APP_NAMESPACES, SESSION_NAMESPACES, ADMIN_NAMESPACES, KIOSK_NAMESPACES]) {
       for (const name of COMMON_NAMESPACES) {

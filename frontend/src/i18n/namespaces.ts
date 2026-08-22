@@ -19,6 +19,9 @@ const APP_EXTRA = [
   "Sidebar",
   "Header",
   "ExamMockup",
+  // The 20/50 exam chooser at /exam; KIOSK_NAMESPACES inherits it for
+  // /station/exam, which renders the same component.
+  "ExamPicker",
   "Tickets",
   "Signs",
   "Practice",
