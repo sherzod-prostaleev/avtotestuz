@@ -284,6 +284,15 @@ services:
       CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}
       NEXT_PUBLIC_SENTRY_DSN: ${NEXT_PUBLIC_SENTRY_DSN:-}
+      # Read by .next/standalone/server.js and assigned to Node's
+      # server.keepAliveTimeout. Node's 5s default is SHORTER than the 60s
+      # nginx reuses a pooled socket for, and nginx ignores the
+      # `Keep-Alive: timeout=` header Next sends, so the default left a 55s
+      # window where nginx wrote requests into sockets Next had already
+      # closed -- 502 on every POST that landed in it (answers, events).
+      # Must stay strictly above drivergo_web's keepalive_timeout in
+      # deploy/nginx/upstreams-*.conf; the contract test enforces it.
+      KEEP_ALIVE_TIMEOUT: ${WEB_KEEP_ALIVE_TIMEOUT_MS:-70000}
     depends_on:
       api:
         condition: service_healthy

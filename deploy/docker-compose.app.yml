@@ -176,6 +176,9 @@ services:
       # Direct browser→Next (no reverse proxy in this overlay) → use a
       # front proxy in real staging and set hops accordingly (see runbook).
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      # Kept identical to prod so staging reproduces prod's keep-alive
+      # behaviour once a reverse proxy is put in front of this overlay.
+      KEEP_ALIVE_TIMEOUT: ${WEB_KEEP_ALIVE_TIMEOUT_MS:-70000}
     depends_on:
       api:
         condition: service_healthy

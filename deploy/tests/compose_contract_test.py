@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import unittest
@@ -60,6 +61,7 @@ class ComposeContractTest(unittest.TestCase):
             {
                 "BACKEND_URL",
                 "CLIENT_IP_ASSERTION_SECRET",
+                "KEEP_ALIVE_TIMEOUT",
                 "NEXT_PUBLIC_SENTRY_DSN",
                 "TRUSTED_PROXY_HOPS",
             },
@@ -168,6 +170,71 @@ class ComposeContractTest(unittest.TestCase):
         self.assertIn("location /_next/static/", conf)
         listing = conf.split("location = /media/", 1)[1].split("location ", 1)[0]
         self.assertIn("return 404", listing)
+
+    def test_next_outlives_nginx_upstream_keepalive(self) -> None:
+        """Node must close a pooled connection LATER than nginx does.
+
+        nginx ignores the upstream's `Keep-Alive: timeout=` header entirely and
+        recycles a pooled socket for up to its own `keepalive_timeout`. Node's
+        default is 5s. Enabling `keepalive 16` on drivergo_web (c1b5754,
+        2026-08-15) therefore handed nginx a 55s window in which every pooled
+        socket had already been closed by Next: nginx wrote the request into a
+        dead socket and logged "upstream prematurely closed connection". GET was
+        retried and healed silently, but POST is non-idempotent, so nginx never
+        retried it and the browser got a bare 502 -- which is why the failures
+        landed on POST /api/proxy/sessions/{id}/answers (answering a question)
+        and not on page loads.
+
+        The invariant is one-directional: whoever nginx talks to must hold the
+        socket open longer than nginx will reuse it, so nginx is always the side
+        that closes. Equal values are not enough -- the loser of that tie is
+        decided by clock skew and scheduling latency.
+        """
+        upstreams = (ROOT / "deploy/nginx/upstreams-stable.conf").read_text(encoding="utf-8")
+        web_block = upstreams.split("upstream drivergo_web", 1)[1].split("}", 1)[0]
+        nginx_match = re.search(r"keepalive_timeout\s+(\d+)s", web_block)
+        self.assertIsNotNone(
+            nginx_match,
+            "drivergo_web must pin keepalive_timeout explicitly; the 60s default "
+            "is invisible at the call site and cannot be reasoned about here",
+        )
+        nginx_ms = int(nginx_match.group(1)) * 1000
+
+        compose = (ROOT / "deploy/docker-compose.prod.yml").read_text(encoding="utf-8")
+        node_match = re.search(r"KEEP_ALIVE_TIMEOUT:\s*\$\{[A-Z_]+:-(\d+)\}", compose)
+        self.assertIsNotNone(
+            node_match,
+            "web must set KEEP_ALIVE_TIMEOUT (ms); without it Next.js keeps "
+            "Node's 5s default and races nginx's pooled sockets",
+        )
+        node_ms = int(node_match.group(1))
+
+        self.assertGreater(
+            node_ms,
+            nginx_ms,
+            f"Next.js closes pooled sockets at {node_ms}ms but nginx reuses them "
+            f"for up to {nginx_ms}ms -- POSTs will 502 in that window",
+        )
+
+    def test_access_log_records_upstream_timings(self) -> None:
+        """A 502 must be attributable to an upstream, and slow must be visible.
+
+        Under the inherited `combined` format the only evidence of the
+        2026-08-14 keep-alive regression was error.log; access.log could not say
+        which upstream lost the request, nor whether it was slow or instant.
+        """
+        conf = (ROOT / "deploy/nginx-drivergo.uz.conf").read_text(encoding="utf-8")
+        self.assertIn("log_format drivergo_timed", conf)
+        for field in (
+            "$request_time",
+            "$upstream_response_time",
+            "$upstream_status",
+            "$upstream_addr",
+        ):
+            self.assertIn(field, conf, field)
+        self.assertIn(
+            "access_log /var/log/nginx/drivergo-access.log drivergo_timed", conf
+        )
 
     def test_station_agent_download_is_streamed_and_rate_limited(self) -> None:
         """The self-update download must keep the station rate limit.
