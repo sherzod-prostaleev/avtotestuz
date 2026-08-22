@@ -72,6 +72,13 @@ export interface SessionState {
   id: string;
   mode: SessionMode;
   time_limit_sec: number | null;
+  /**
+   * The session's own mistake budget (2 standard exam, 4 restore exam,
+   * 1 placement). null for untimed modes and for sessions created before the
+   * backend reported it. The exam HUD reads this instead of inferring a
+   * budget from the mode name.
+   */
+  errors_allowed: number | null;
   remaining_sec: number | null;
   status: "active" | "completed" | "result_pending";
   questions: SessionQuestionItem[];
@@ -108,6 +115,7 @@ interface StartSessionResponse {
   mode: SessionMode;
   question_ids: string[];
   time_limit_sec: number | null;
+  errors_allowed?: number | null;
   total: number;
   started_at: string;
 }
@@ -172,6 +180,7 @@ interface SessionDetailResponse {
   stopped_reason: string;
   score?: number;
   time_limit_sec?: number | null;
+  errors_allowed?: number | null;
   started_at: string;
   finished_at?: string;
   answers: SessionAnswerResponse[];
@@ -387,6 +396,7 @@ async function fetchSessionState(sessionId: string, locale: string): Promise<Ses
     id: detail.id,
     mode: detail.mode,
     time_limit_sec: timeLimitSec,
+    errors_allowed: detail.errors_allowed ?? null,
     remaining_sec: remainingSeconds(detail.started_at, timeLimitSec),
     status: completed ? "completed" : "active",
     questions,
@@ -459,6 +469,7 @@ export function useSessionEngine(_initialSessionId?: string) {
           id: created.id,
           mode: created.mode,
           time_limit_sec: created.time_limit_sec,
+          errors_allowed: created.errors_allowed ?? null,
           remaining_sec: remainingSeconds(created.started_at, created.time_limit_sec),
           status: "active",
           questions,

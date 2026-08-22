@@ -64,6 +64,7 @@ function activeSession(overrides: Partial<SessionState> = {}): SessionState {
     id: "sess-123",
     mode: "variant",
     time_limit_sec: null,
+    errors_allowed: null,
     remaining_sec: null,
     status: "active",
     questions: [question()],

@@ -112,7 +112,10 @@ export function OfficialAvtotestExamView({
       : session.stopped_reason === "too_many_errors" || session.stopped_reason === "time_expired";
 
   const isCompleted = session.status === "completed";
-  const errorsAllowed = session.mode === "placement" ? 1 : 2;
+  // The server sends the session's real budget (2 standard exam, 4 restore
+  // exam, 1 placement); the mode-name guess is only a fallback for sessions
+  // created before it did.
+  const errorsAllowed = session.errors_allowed ?? (session.mode === "placement" ? 1 : 2);
   const wrongCount = questions.filter((q) => q.correct === false).length;
   const visualStatus: Record<ExamAnswerVisual, string> = {
     correct: t("answerStateCorrect"),
@@ -347,8 +350,10 @@ export function OfficialAvtotestExamView({
           )}
         </div>
 
-        {/* Question number pills */}
-        <div className="flex items-center gap-1.5 max-lg:min-w-0 max-lg:flex-1 max-lg:gap-1 max-lg:overflow-x-auto max-lg:scrollbar-none">
+        {/* Question number pills — 50 of them overflow even a 1920px row
+            (50 × 38px ≈ 1900px before the finish button, HUD and timer), so
+            the track scrolls at every size; 20 still fit and show no scrollbar. */}
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto scrollbar-none max-lg:gap-1">
           {questions.map((q, idx) => {
             const isCurrent = idx === currentIndex;
             const isAns = q.answered || Boolean(q.user_answer_id);
