@@ -230,6 +230,46 @@ func (h *Handler) listB2BStations(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, out)
 }
 
+// stationDiagnostics returns what one classroom PC has reported about itself.
+//
+// Scoped by org id in the query, not merely by the URL: an admin who can read
+// one school's stations must not be able to read another's by guessing a
+// station id.
+func (h *Handler) stationDiagnostics(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	stationID, ok := parseUUIDParam(w, r, "stationID")
+	if !ok {
+		return
+	}
+	out, err := h.b2bStore().StationDiagnostics(r.Context(), orgID, stationID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "diagnostics query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
+// orgEnrollFailures returns reports from machines that could not enrol at all.
+//
+// These carry no station id, which is the point: a PC blocked at enrolment
+// cannot hold a station token, so this is the only channel it has. It is also
+// the list a school actually phones about.
+func (h *Handler) orgEnrollFailures(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	out, err := h.b2bStore().OrgEnrollFailures(r.Context(), orgID, 50)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "diagnostics query failed")
+		return
+	}
+	httpx.Data(w, http.StatusOK, out)
+}
+
 func (h *Handler) revokeB2BStation(w http.ResponseWriter, r *http.Request) {
 	orgID, ok := parseUUIDParam(w, r, "id")
 	if !ok {

@@ -311,6 +311,37 @@ downloads, stale edge caches and rewriting proxies, and it does not close a
 compromised origin. Authenticode signing is the next step — see
 `security/GOVERNANCE.md`.
 
+## The school's PCs report themselves
+
+An installed agent tells the admin panel what it is doing, so nobody has to
+walk to thirty machines and open a log file. Two routes, because the failures
+worth seeing most are the ones that leave a PC without a token:
+
+- `POST /api/v1/b2b/stations/diag` — an enrolled station, authenticated with
+  its own JWT. Files under the station and refreshes the summary the station
+  list shows (`last_phase`, `last_code`, `last_problem`, `clock_offset_seconds`,
+  `agent_version`).
+- `POST /api/v1/b2b/stations/enroll-failure` — a PC that could not enrol at
+  all, and therefore has no token. It sends the school's installer key instead,
+  which is the only thing that says which school to file against, and the row
+  is stored with a null `station_id`. **This is the important half.** A machine
+  already registered to another school, a school with no seats left, an
+  expired key — every one of those used to fail in total silence.
+
+Each report carries the phase, the error code, the Uzbek sentence the kiosk
+would show, the measured clock offset and the last ~28 KB of `station.log`.
+The server caps the tail at 32 KB and keeps the five newest reports per
+machine, swept in the same transaction as the insert.
+
+Timing: once about 90 seconds after start, again whenever the phase or cause
+changes, and a heartbeat every six hours, with a five-minute debounce so a
+flapping PC cannot become a flood. Every failure to report is swallowed — a PC
+that cannot file is usually a PC that cannot reach the backend at all, which is
+the thing being reported, and the kiosk screen still shows it locally.
+
+Nothing here is student data. A station has no learner identity; the agent logs
+its own lifecycle only.
+
 ## No console window
 
 The shipped binary is linked `-H windowsgui`, so nothing appears on screen when

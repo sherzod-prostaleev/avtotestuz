@@ -44,6 +44,19 @@ func connect(ctx context.Context, c connectConfig) {
 		log.Printf("hardware id: %v", err)
 		return
 	}
+	name := c.label
+	if name == "" {
+		name, _ = os.Hostname()
+	}
+
+	// Published before the keystore is opened, and deliberately so. Everything
+	// below can fail, and a PC that fails here is exactly the one whose report
+	// is worth having -- but the reporter can only file through an Agent. With
+	// the hardware id in hand this one can already reach the enrol-failure
+	// route, which needs no key and no token.
+	a := &agent.Agent{APIBase: c.cfg.API, StateDir: c.stateDir, HWID: id, Version: version}
+	c.rt.setAgent(a)
+
 	keys, err := keystore.Open(c.stateDir)
 	if err != nil {
 		c.st.SetProblem(status.PhaseBlocked, "keystore",
@@ -53,14 +66,7 @@ func connect(ctx context.Context, c connectConfig) {
 		log.Printf("keystore: %v", err)
 		return
 	}
-
-	name := c.label
-	if name == "" {
-		name, _ = os.Hostname()
-	}
-
-	a := &agent.Agent{APIBase: c.cfg.API, StateDir: c.stateDir, Keys: keys, HWID: id, Version: version}
-	c.rt.setAgent(a)
+	a.Keys = keys
 
 	if c.reenroll {
 		if c.cfg.Code == "" {

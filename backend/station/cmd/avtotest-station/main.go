@@ -248,6 +248,13 @@ func main() {
 		reenroll: *reenroll,
 	})
 
+	// Reports what this PC is doing to the school's admin panel. Gated on an
+	// embedded key for the same reason self-install is: a plain development
+	// build belongs to no school and has nothing to file under.
+	if embedded.Code != "" {
+		go runReporter(ctx, rt, st, cfg, logPath, defaultReportSchedule)
+	}
+
 	if !*noUpdate && embedded.Code != "" {
 		go updater.Run(ctx, updater.Config{
 			APIBase:  cfg.API,
@@ -288,6 +295,13 @@ func (r *agentRuntime) token(ctx context.Context) (string, error) {
 		return "", errNotReady
 	}
 	return a.Token(ctx)
+}
+
+// agent returns the live agent, or nil before enrolment has produced one.
+func (r *agentRuntime) agent() *agent.Agent {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.ag
 }
 
 func (r *agentRuntime) setAgent(a *agent.Agent) {

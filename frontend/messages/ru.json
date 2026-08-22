@@ -2016,7 +2016,18 @@
     "cancel": "Отмена",
     "deleteStation": "Удалить полностью",
     "deleteStationConfirm": "Удалить «{label}» полностью? Этот ПК исчезнет из списка вместе со всей историей занятий (сессии, сохранённые вопросы, статистика). Отменить нельзя. Чтобы просто отключить его на время, используйте «Отключить».",
-    "errorDeleteStation": "Не удалось удалить ПК"
+    "errorDeleteStation": "Не удалось удалить ПК",
+    "stationNoReport": "Отчёт ещё не отправлен",
+    "stationPhase_ready": "Работает",
+    "stationPhase_waiting": "Подключается…",
+    "stationPhase_blocked": "Остановлен — нужно вмешательство",
+    "stationPhase_starting": "Запускается",
+    "stationClockSkew": "Часы расходятся на {minutes} мин — токен не выдаётся, исправьте дату",
+    "stationUnnamed": "Компьютер без имени",
+    "enrollFailuresTitle": "Компьютеры, которые не подключились",
+    "enrollFailuresHint": "Эти компьютеры не смогли зарегистрироваться, поэтому их нет в списке. Причина и журнал ниже.",
+    "showLog": "Показать журнал",
+    "hideLog": "Скрыть журнал"
   },
   "AdminRecon": {
     "title": "Payment recon",

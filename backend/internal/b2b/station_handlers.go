@@ -31,6 +31,9 @@ func (h *Handler) PublicRoutes(r chi.Router) {
 	// to anyone leaks nothing, and for the nginx zone that bounds it.
 	r.Get("/b2b/stations/agent-manifest", h.agentManifest)
 	r.Get("/b2b/stations/agent", h.agentDownload)
+	// Why a PC could not enrol. Unauthenticated because a PC that could not
+	// enrol has no token -- see postEnrollFailure.
+	r.Post("/b2b/stations/enroll-failure", h.postEnrollFailure)
 }
 
 func (h *Handler) stationAuth() StationAuth {

@@ -202,6 +202,18 @@ decided. After a classroom PC renews its token, the same string appears in
 `b2b_station.agent_version` and in the admin panel's station list, which is how
 you confirm the fleet actually moved.
 
+### Where to look when a school says it does not work
+
+Open the school in the admin panel. Every classroom PC shows what it last
+reported — running, connecting, or **stopped and needing a human**, with the
+reason in Uzbek and its agent version. Below the station list, "Ulanolmagan
+kompyuterlar" lists machines that never became stations at all, with the tail
+of their `station.log`; that section is empty when everything connected.
+
+That is usually the whole investigation. If it is not, the same log is still at
+`C:\ProgramData\AvtoTest\station\station.log` on the machine itself, and the
+kiosk page shows the same state at `http://127.0.0.1:17817/station`.
+
 ### The fleet updates itself (agent 1.1.0 and later)
 
 Installed classroom PCs poll `GET /api/v1/b2b/stations/agent-manifest` every

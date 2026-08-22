@@ -13,6 +13,12 @@ import (
 )
 
 // StationRow is a bound classroom PC.
+//
+// The last* fields are what the PC itself last reported (see diag.go). They
+// are what turns this list from "thirty rows that all say active" into an
+// answer to the only question an operator actually has: which machines are
+// stuck, and on what. AgentVersion belongs to the same job -- a school running
+// a known-broken build used to be indistinguishable from one running the fix.
 type StationRow struct {
 	ID          uuid.UUID `json:"id"`
 	OrgID       uuid.UUID `json:"org_id"`
@@ -21,6 +27,13 @@ type StationRow struct {
 	ActivatedAt time.Time `json:"activated_at"`
 	LastSeenAt  time.Time `json:"last_seen_at"`
 	ActivatedBy string    `json:"activated_by"`
+
+	AgentVersion       string     `json:"agent_version"`
+	LastPhase          string     `json:"last_phase"`
+	LastCode           string     `json:"last_code"`
+	LastProblem        string     `json:"last_problem"`
+	ClockOffsetSeconds *int       `json:"clock_offset_seconds,omitempty"`
+	LastDiagAt         *time.Time `json:"last_diag_at,omitempty"`
 }
 
 // ErrSeatsExhausted means active stations already fill license seats. This is
@@ -81,10 +94,15 @@ func (s Store) LicenseEndsAt(ctx context.Context, orgID uuid.UUID) (*time.Time, 
 // ListStations returns stations for an org.
 func (s Store) ListStations(ctx context.Context, orgID uuid.UUID) ([]StationRow, error) {
 	rows, err := s.Pool.Query(ctx, `
-		SELECT id, org_id, label, status, activated_at, last_seen_at, activated_by
+		SELECT id, org_id, label, status, activated_at, last_seen_at, activated_by,
+		       agent_version, last_phase, last_code, last_problem,
+		       clock_offset_seconds, last_diag_at
 		FROM b2b_station WHERE org_id = $1
 		ORDER BY
 		  CASE status WHEN 'active' THEN 0 ELSE 1 END,
+		  -- A PC that needs a human comes first: that is the whole reason
+		  -- this list is read at all.
+		  CASE last_phase WHEN 'blocked' THEN 0 WHEN 'waiting' THEN 1 ELSE 2 END,
 		  activated_at DESC`, orgID)
 	if err != nil {
 		return nil, err
@@ -94,11 +112,17 @@ func (s Store) ListStations(ctx context.Context, orgID uuid.UUID) ([]StationRow,
 	for rows.Next() {
 		var row StationRow
 		if err := rows.Scan(&row.ID, &row.OrgID, &row.Label, &row.Status,
-			&row.ActivatedAt, &row.LastSeenAt, &row.ActivatedBy); err != nil {
+			&row.ActivatedAt, &row.LastSeenAt, &row.ActivatedBy,
+			&row.AgentVersion, &row.LastPhase, &row.LastCode, &row.LastProblem,
+			&row.ClockOffsetSeconds, &row.LastDiagAt); err != nil {
 			return nil, err
 		}
 		row.ActivatedAt = row.ActivatedAt.UTC()
 		row.LastSeenAt = row.LastSeenAt.UTC()
+		if row.LastDiagAt != nil {
+			t := row.LastDiagAt.UTC()
+			row.LastDiagAt = &t
+		}
 		out = append(out, row)
 	}
 	return out, rows.Err()
