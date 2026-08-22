@@ -63,3 +63,8 @@ backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
 
 /docs/
 *.canvas.tsx
+
+# A school's station.log gets copied into the working tree to diagnose a
+# classroom PC. rsync copies the working tree, not git, so .gitignore does not
+# stop it -- and a driving school's log has no business on the production VPS.
+station*.log

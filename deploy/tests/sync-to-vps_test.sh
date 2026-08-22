@@ -69,6 +69,7 @@ exclude_root="$(mktemp -d)"
 trap 'rm -rf -- "$test_root" "$exclude_root"' EXIT
 mkdir -p "$exclude_root/src"/{assets,docs,frontend/src/assets,backend/station/build,backend/station/cmd/avtotest-station}
 : >"$exclude_root/src/assets/brand-master.png"
+: >"$exclude_root/src/station.log"
 : >"$exclude_root/src/docs/plan.md"
 : >"$exclude_root/src/frontend/src/assets/nested.png"
 : >"$exclude_root/src/backend/station/build/drivergo.ico"
@@ -78,6 +79,7 @@ mkdir -p "$exclude_root/dst"
 rsync -a --exclude-from="$ROOT/deploy/rsync-exclude.txt" \
   "$exclude_root/src/" "$exclude_root/dst/"
 [[ ! -e "$exclude_root/dst/assets" ]]
+[[ ! -e "$exclude_root/dst/station.log" ]]
 [[ ! -e "$exclude_root/dst/docs" ]]
 [[ ! -e "$exclude_root/dst/backend/station/cmd/avtotest-station/rsrc_windows_386.syso" ]]
 [[ -f "$exclude_root/dst/frontend/src/assets/nested.png" ]]
