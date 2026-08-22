@@ -2016,7 +2016,18 @@
     "cancel": "Бекор қилиш",
     "deleteStation": "Бутунлай ўчириш",
     "deleteStationConfirm": "“{label}” бутунлай ўчирилсинми? Бу PC рўйхатдан йўқолади ва унинг барча машқ тарихи (сессиялар, сақланган саволлар, статистика) ҳам ўчади. Қайтариб бўлмайди. Фақат вақтинча узиш учун “Узиш” дан фойдаланинг.",
-    "errorDeleteStation": "PC ни ўчириб бўлмади"
+    "errorDeleteStation": "PC ни ўчириб бўлмади",
+    "stationNoReport": "Ҳали ҳисобот юбормаган",
+    "stationPhase_ready": "Ишлаяпти",
+    "stationPhase_waiting": "Уланмоқда…",
+    "stationPhase_blocked": "Тўхтаб қолган — аралашув керак",
+    "stationPhase_starting": "Ишга тушмоқда",
+    "stationClockSkew": "Соати {minutes} дақиқага фарқ қиляпти — токен олинмайди, санани тўғриланг",
+    "stationUnnamed": "Номсиз компьютер",
+    "enrollFailuresTitle": "Уланолмаган компьютерлар",
+    "enrollFailuresHint": "Бу компьютерлар рўйхатдан ўта олмади, шунинг учун рўйхатда кўринмайди. Сабаби ва журнал қуйида.",
+    "showLog": "Журнални кўрсатиш",
+    "hideLog": "Журнални яшириш"
   },
   "AdminRecon": {
     "title": "Payment recon",

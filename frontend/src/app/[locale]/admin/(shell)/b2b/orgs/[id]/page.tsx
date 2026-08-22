@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DangerConfirm } from "@/components/admin/danger-confirm";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import InstallerPanel from "./installer-panel";
+import { EnrollFailures, StationHealth } from "./station-health";
 
 type Station = {
   id: string;
@@ -15,6 +16,14 @@ type Station = {
   status: string;
   activated_at: string;
   last_seen_at: string;
+  // What the PC itself last reported. Before this existed, thirty rows all
+  // said "active" and a school with a broken machine had no way to say which.
+  agent_version?: string;
+  last_phase?: string;
+  last_code?: string;
+  last_problem?: string;
+  clock_offset_seconds?: number;
+  last_diag_at?: string;
 };
 
 type Detail = {
@@ -300,11 +309,17 @@ export default function AdminB2BOrgDetailPage() {
             </p>
             <ul className="space-y-2">
               {stations.map((s) => (
-                <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <div>
+                <li key={s.id} className="flex flex-wrap items-start justify-between gap-2 text-sm">
+                  <div className="min-w-0 space-y-1">
                     <p className="font-semibold">
                       {s.label} · {s.status === "active" ? t("stationActive") : t("stationRevoked")}
+                      {s.agent_version ? (
+                        <span className="ml-2 font-mono text-xs text-muted-foreground">
+                          v{s.agent_version}
+                        </span>
+                      ) : null}
                     </p>
+                    <StationHealth station={s} />
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {s.status === "active" ? (
@@ -325,6 +340,8 @@ export default function AdminB2BOrgDetailPage() {
               ))}
             </ul>
           </section>
+
+          <EnrollFailures orgId={params.id} />
 
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("partnerPromoTitle")}</h2>

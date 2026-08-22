@@ -268,6 +268,8 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Get("/b2b/orgs/{id}", h.getB2BOrg)
 			br.Get("/b2b/orgs/{id}/stats", h.getB2BOrgStats)
 			br.Get("/b2b/orgs/{id}/stations", h.listB2BStations)
+			br.Get("/b2b/orgs/{id}/stations/{stationID}/diag", h.stationDiagnostics)
+			br.Get("/b2b/orgs/{id}/enroll-failures", h.orgEnrollFailures)
 			br.Get("/b2b/orgs/{id}/partner-promos", h.listB2BPartnerPromos)
 		})
 		pr.Group(func(br chi.Router) {

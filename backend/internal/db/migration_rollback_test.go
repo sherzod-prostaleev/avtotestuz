@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -75,7 +76,44 @@ func TestEveryMigrationDownAndUp(t *testing.T) {
 	if err := pool.QueryRow(ctx, `SELECT version, dirty FROM schema_migrations`).Scan(&version, &dirty); err != nil {
 		t.Fatal(err)
 	}
-	if version != 64 || dirty {
-		t.Fatalf("schema version=%d dirty=%v, want 64/false", version, dirty)
+	// Derived from the embedded files, not hardcoded. A literal here has to be
+	// bumped by hand in the same commit as every new migration, and the one
+	// time it is forgotten this test fails for a reason that has nothing to do
+	// with whether the migration actually rolls back -- which is the only
+	// thing it is here to prove.
+	want := latestMigrationVersion(t)
+	if version != want || dirty {
+		t.Fatalf("schema version=%d dirty=%v, want %d/false", version, dirty, want)
 	}
+}
+
+// latestMigrationVersion is the highest NNNN prefix under migrations/.
+func latestMigrationVersion(t *testing.T) int {
+	t.Helper()
+	entries, err := migrationsFS.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	highest := 0
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasSuffix(name, ".up.sql") {
+			continue
+		}
+		idx := strings.IndexByte(name, '_')
+		if idx <= 0 {
+			continue
+		}
+		n, err := strconv.Atoi(name[:idx])
+		if err != nil {
+			continue
+		}
+		if n > highest {
+			highest = n
+		}
+	}
+	if highest == 0 {
+		t.Fatal("no migrations found in the embedded filesystem")
+	}
+	return highest
 }

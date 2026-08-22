@@ -175,6 +175,12 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 			}
 			if deps.Pool != nil && deps.Redis != nil {
 				b2bH.PublicRoutes(api)
+				// Diagnostics are posted with the station's own JWT, so this
+				// needs auth.Required but none of the learner gates below: a
+				// station has no password to change and no ban to check, and a
+				// PC in trouble is exactly the one whose report must get
+				// through.
+				b2bH.StationRoutes(api.With(auth.Required([]byte(cfg.JWTSecret))))
 			}
 			learnerBilling := billing.Service{
 				Q:             deps.Queries,
