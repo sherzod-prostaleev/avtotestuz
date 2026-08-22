@@ -586,41 +586,74 @@ func (s *Service) failRecipient(ctx context.Context, c claimRow, deliverErr erro
 	return err
 }
 
+// refreshCampaignStats recomputes the denormalised counters on campaigns that
+// are still delivering, and finalises one the moment it drains.
+//
+// It runs on every worker tick -- every 2 seconds, forever, whether or not
+// anything is being sent -- so its cost has to be proportional to live work
+// rather than to history. It was not: the aggregate had no WHERE at all and the
+// campaign filter sat in the outer join, which Postgres cannot push through a
+// GROUP BY. EXPLAIN on 410k recipient rows showed a Parallel Seq Scan feeding a
+// HashAggregate: every recipient row ever created, re-counted 43,200 times a
+// day, to rewrite counters that stopped changing when their campaign finished.
+//
+// Narrowing the aggregate with `campaign_id IN (SELECT ...)` is not enough --
+// measured, not assumed: the planner turns it into a hash join and still reads
+// the whole table (7092 buffers, unchanged). The shape that works is a LATERAL
+// aggregate per live campaign, which gives the planner one indexed lookup per
+// campaign on broadcast_recipient_campaign_status_idx: 3659 buffers on the same
+// data, and flat as completed campaigns pile up.
+//
+// The LATERAL has to live in a CTE rather than directly in UPDATE ... FROM,
+// because a lateral subquery there may not reference the UPDATE target.
+//
+// Restricting to status='sending' keeps the same set the outer filter did:
+// 'completed'/'completed_with_errors' have pending = 0 by definition, and
+// nothing can hand work back to them -- reclaim only moves 'processing' rows,
+// which a drained campaign has none of. A campaign is still 'sending' on the
+// tick where its last recipient lands, so it is this query that finalises it;
+// only the tick after that skips it.
 func (s *Service) refreshCampaignStats(ctx context.Context) error {
 	_, err := s.Pool.Exec(ctx, `
+		WITH live AS (
+		  SELECT c.id,
+		         agg.pending, agg.sent, agg.failed_final,
+		         agg.push_sent, agg.push_failed
+		  FROM broadcast_campaign c
+		  CROSS JOIN LATERAL (
+		    SELECT
+		      count(*) FILTER (
+		        WHERE r.status IN ('pending', 'processing')
+		           OR (r.status = 'failed' AND r.attempt_count < $1)
+		      )::int AS pending,
+		      count(*) FILTER (WHERE r.status = 'sent')::int AS sent,
+		      count(*) FILTER (WHERE r.status = 'failed' AND r.attempt_count >= $1)::int AS failed_final,
+		      count(*) FILTER (WHERE r.push_status = 'sent')::int AS push_sent,
+		      count(*) FILTER (WHERE r.push_status = 'failed')::int AS push_failed
+		    FROM broadcast_recipient r
+		    WHERE r.campaign_id = c.id
+		  ) agg
+		  WHERE c.status = 'sending'
+		)
 		UPDATE broadcast_campaign c
-		SET pending_count = COALESCE(r.pending, 0),
-		    sent_count = COALESCE(r.sent, 0),
-		    failed_count = COALESCE(r.failed_final, 0),
-		    push_sent_count = COALESCE(r.push_sent, 0),
-		    push_failed_count = COALESCE(r.push_failed, 0),
+		SET pending_count = live.pending,
+		    sent_count = live.sent,
+		    failed_count = live.failed_final,
+		    push_sent_count = live.push_sent,
+		    push_failed_count = live.push_failed,
 		    status = CASE
 		      WHEN c.status = 'cancelled' THEN 'cancelled'
-		      WHEN COALESCE(r.pending, 0) > 0 THEN 'sending'
-		      WHEN COALESCE(r.failed_final, 0) > 0 THEN 'completed_with_errors'
+		      WHEN live.pending > 0 THEN 'sending'
+		      WHEN live.failed_final > 0 THEN 'completed_with_errors'
 		      ELSE 'completed'
 		    END,
 		    finished_at = CASE
 		      WHEN c.status = 'cancelled' THEN COALESCE(c.finished_at, now())
-		      WHEN COALESCE(r.pending, 0) = 0 THEN COALESCE(c.finished_at, now())
+		      WHEN live.pending = 0 THEN COALESCE(c.finished_at, now())
 		      ELSE NULL
 		    END
-		FROM (
-		  SELECT
-		    campaign_id,
-		    count(*) FILTER (
-		      WHERE status IN ('pending', 'processing')
-		         OR (status = 'failed' AND attempt_count < $1)
-		    )::int AS pending,
-		    count(*) FILTER (WHERE status = 'sent')::int AS sent,
-		    count(*) FILTER (WHERE status = 'failed' AND attempt_count >= $1)::int AS failed_final,
-		    count(*) FILTER (WHERE push_status = 'sent')::int AS push_sent,
-		    count(*) FILTER (WHERE push_status = 'failed')::int AS push_failed
-		  FROM broadcast_recipient
-		  GROUP BY campaign_id
-		) r
-		WHERE c.id = r.campaign_id
-		  AND c.status IN ('sending', 'completed', 'completed_with_errors')`,
+		FROM live
+		WHERE c.id = live.id`,
 		maxAttempts)
 	return err
 }

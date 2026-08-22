@@ -154,21 +154,30 @@ func (m *Match) AbortShutdown(ctx context.Context) error {
 
 func (m *Match) Run() {
 	defer close(m.done)
-	ctx := context.Background()
 	next := time.NewTimer(m.countdown)
 	defer next.Stop()
+
+	// The loop itself must outlive every operation in it -- a match runs for
+	// minutes -- so it keeps no context of its own. Each step takes a bounded
+	// one instead (opContext), which is the granularity that actually matters:
+	// a wedged query can cost this match one step, not the goroutine.
+	step := func(fn func(context.Context)) {
+		ctx, cancel := opContext()
+		defer cancel()
+		fn(ctx)
+	}
 
 	for m.phase != "finished" {
 		select {
 		case ev := <-m.inbox:
-			m.handle(ctx, ev)
+			step(func(ctx context.Context) { m.handle(ctx, ev) })
 			if m.phase == "finished" {
 				return
 			}
 		case <-m.retimer:
 			m.resetTimer(next)
 		case <-next.C:
-			m.onTimer(ctx)
+			step(m.onTimer)
 			if m.phase == "finished" {
 				return
 			}

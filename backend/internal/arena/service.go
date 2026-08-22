@@ -399,7 +399,8 @@ func (s *Service) watchQueueTimeout(profileID uuid.UUID, bucket int, queuedAt in
 	timer := time.NewTimer(time.Until(deadline))
 	defer timer.Stop()
 	<-timer.C
-	ctx := context.Background()
+	ctx, cancel := opContext()
+	defer cancel()
 	still, _ := s.R.Get(ctx, "arena:queued:"+profileID.String()).Result()
 	if still == "" {
 		return
@@ -480,7 +481,8 @@ func (s *Service) startMatch(ctx context.Context, a, b uuid.UUID) error {
 }
 
 func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
-	ctx := context.Background()
+	ctx, cancel := opContext()
+	defer cancel()
 	switch env.T {
 	case "queue.join":
 		locale := "uz-Latn"
@@ -541,7 +543,8 @@ func (s *Service) HandleClient(profileID uuid.UUID, env Envelope) {
 }
 
 func (s *Service) OnDisconnect(profileID uuid.UUID) {
-	ctx := context.Background()
+	ctx, cancel := opContext()
+	defer cancel()
 	_ = s.LeaveQueue(ctx, profileID)
 	if mid, ok := s.Hub.MatchOf(profileID); ok {
 		s.mu.Lock()
