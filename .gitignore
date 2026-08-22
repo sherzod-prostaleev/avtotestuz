@@ -51,3 +51,7 @@ backend/api
 # review in a diff, so it is built, not committed.
 backend/station/cmd/avtotest-station/rsrc_windows_386.syso
 backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
+
+# Station logs dropped in for support triage — evidence from a school PC,
+# never repo content.
+station*.log
