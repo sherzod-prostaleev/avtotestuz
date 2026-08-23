@@ -79,11 +79,30 @@ updates:
     labels:
       - dependencies
 
+  # The workflows pin six distinct actions by SHA, so a cap of 3 could not
+  # cover them: on 2026-08-10 Dependabot filled the cap with setup-go,
+  # setup-node and golangci-lint-action, which left it unable to say anything
+  # about checkout and upload-artifact -- the two with the most call sites (13
+  # and 4). They went four majors behind and only surfaced as a Node 20
+  # deprecation warning in the run log. A cap that silently stops proposals is
+  # worse than a noisy one.
+  #
+  # Grouping is what makes the higher cap safe rather than just louder, and
+  # follows the npm/gomod blocks above: minor and patch arrive as one PR, while
+  # majors stay individual because those are the ones that change action inputs
+  # and need reading before merge.
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
       day: monday
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 8
     labels:
       - dependencies
+    groups:
+      actions-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
