@@ -5,7 +5,7 @@
 # Build:  docker build -t avtotest-api:local -f backend/Dockerfile backend/
 # Run:    see deploy/README.md
 
-FROM golang:1.26-alpine@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS build
+FROM golang:1.27-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS build
 WORKDIR /src
 # Declared so the station build's ${STATION_VERSION} below has something to
 # expand: without an ARG of the same name the shell sees an unset variable.
@@ -56,7 +56,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./c
 # tree cannot be forgotten at the command line, and CI enforces that it is
 # bumped whenever anything under backend/station/ changes. The build arg is
 # still honoured, for a one-off local or candidate build only.
-FROM golang:1.20-alpine@sha256:e47f121850f4e276b2b210c56df3fda9191278dd84a3a442bfe0b09934462a8f AS station
+FROM golang:1.27-alpine@sha256:4c9fe60190a2a3350ddc51de80d0224b8a6698d12bdfc999fee45ea9d6c46dbc AS station
 WORKDIR /src
 ARG STATION_VERSION=
 RUN apk add --no-cache git
