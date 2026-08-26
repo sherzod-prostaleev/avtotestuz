@@ -130,6 +130,25 @@ func (h *Handler) agentDownload(w http.ResponseWriter, r *http.Request) {
 	} else {
 		w.Header().Set("Cache-Control", "no-cache")
 	}
+	// The server's WriteTimeout is 30 seconds, sized for JSON. This response is
+	// ~6 MB, so honouring that would demand a sustained 1.6 Mbit/s from every
+	// PC -- and a classroom updates as one, because the agent's first update
+	// check is a fixed two minutes after start with no jitter (updater.Run), so
+	// a whole lab arrives here together and splits one uplink between them. A
+	// school on a modest connection would have every download cut off just shy
+	// of finishing. The agent fails safe on a short read (it refuses to stage a
+	// binary whose length does not match the manifest), so the visible symptom
+	// is not a broken kiosk -- it is a fleet that re-downloads 6 MB each, every
+	// six hours, forever, and never actually updates.
+	//
+	// Ten minutes is generous enough for a slow shared link and still bounded;
+	// SetWriteDeadline replaces the deadline for this response only. If the
+	// server ever stops supporting deadline control, the download simply keeps
+	// the 30-second budget it has today, which is why this does not fail the
+	// request.
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetWriteDeadline(time.Now().Add(10 * time.Minute))
+	}
 	// ServeContent handles Range and If-None-Match, so a download interrupted
 	// by a classroom's flaky connection can resume instead of starting over.
 	http.ServeContent(w, r, "avtotest-station.exe", time.Time{}, f)

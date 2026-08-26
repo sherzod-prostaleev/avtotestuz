@@ -38,6 +38,41 @@ type EnrollResult struct {
 // maxLabelLen keeps operator-supplied PC names from bloating list responses.
 const maxLabelLen = 64
 
+// staleSeatAfter is how long a station must have been silent before a new
+// enrollment on the same machine may take its seat.
+//
+// A running classroom PC renews its token every 15 minutes at the outside
+// (stationTokenTTL less keepTokenWarm's margin) and touches last_seen_at on
+// every renewal, so a gap this long means the row describes a PC that is off,
+// gone, or re-imaged -- never one with a student sitting at it. That is the
+// whole point: seat reclamation must be unable to interrupt a lesson, which
+// is exactly what the old unconditional revoke did.
+const staleSeatAfter = 30 * time.Minute
+
+// reclaimStaleSeat frees one seat by revoking the least recently seen station
+// in this org that shares hwid and has been silent for staleSeatAfter. It
+// reports whether a seat was actually freed.
+//
+// Scoped to a single hwid on purpose: a full licence is not a licence to
+// revoke whichever PC happens to look idlest, only to let a machine that is
+// being re-imaged step back into the seat it already had. The caller holds
+// the org row lock, so the count it read stays true through this update.
+func reclaimStaleSeat(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, hwid string) (bool, error) {
+	tag, err := tx.Exec(ctx, `
+		UPDATE b2b_station SET status = 'revoked'
+		WHERE id = (
+			SELECT id FROM b2b_station
+			WHERE org_id = $1 AND hwid_hash = $2 AND status = 'active'
+			  AND last_seen_at < now() - make_interval(secs => $3)
+			ORDER BY last_seen_at ASC
+			LIMIT 1
+		)`, orgID, hwid, staleSeatAfter.Seconds())
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
 // maxAgentVersionLen bounds the attacker-controlled agent_version string
 // (accepted on both /b2b/stations/enroll and /b2b/stations/token) before it
 // reaches the otherwise-unbounded text column. A future version string
@@ -164,41 +199,49 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		return EnrollResult{}, ErrNoLicense
 	}
 
-	// Re-imaging the same machine reuses its seat instead of burning a new
-	// one -- but only within the enrolling org. hwid_hash is not a secret
-	// (every agent transmits it), so a valid code for org A must never let
-	// it silently revoke and take over a PC bound to org B: that's a
-	// cross-tenant denial-of-service with no audit trail.
-	revokeTag, err := tx.Exec(ctx, `
-		UPDATE b2b_station SET status = 'revoked'
-		WHERE hwid_hash = $1 AND status = 'active' AND org_id = $2`, hwid, orgID)
-	if err != nil {
-		return EnrollResult{}, err
-	}
-	if revokeTag.RowsAffected() == 0 {
-		// No active binding in this org. If the hwid is actively bound to a
-		// DIFFERENT org, refuse rather than silently transferring it --
-		// a deliberate cross-org rebind is a support action, not something
-		// any code-holder can trigger.
-		var crossOrgActive bool
-		if err := tx.QueryRow(ctx, `
-			SELECT EXISTS (
-				SELECT 1 FROM b2b_station WHERE hwid_hash = $1 AND status = 'active'
-			)`, hwid).Scan(&crossOrgActive); err != nil {
-			return EnrollResult{}, err
-		}
-		if crossOrgActive {
-			return EnrollResult{}, ErrConflict
-		}
-	}
-
+	// Enrollment revokes nothing outright, and an hwid already bound to
+	// another org is no reason to refuse.
+	//
+	// It used to do both. The theory was that one hwid_hash meant one physical
+	// machine, so an hwid arriving again had to be that machine being
+	// re-imaged: revoke the old row, reuse its seat, and treat the same hwid
+	// under a different org as a cross-tenant takeover attempt. Windows does
+	// not cooperate. hwid_hash is sha256 of MachineGuid, which sysprep
+	// regenerates but a raw disk clone does not -- and a raw disk clone is
+	// how a room of fifty identical PCs is actually built. On 2026-08-26 a
+	// 55-seat school enrolled 43 stations presenting six hwids between them:
+	// every install silently revoked the PC installed before it, and a revoked
+	// station loses VIP the instant it loses status = 'active' (ActiveStationVIP
+	// requires it), dropping a whole classroom to the 30-question free tier.
+	// Six PCs survived -- one per master image.
+	//
+	// Dropping the revoke also removes the reason the cross-org check existed:
+	// that check protected org B from having its PC revoked out from under it
+	// by anyone holding org A's code, and nothing here revokes across orgs
+	// anymore. Two schools that bought from the same shop now enrol the same
+	// image without one of them being refused.
+	//
+	// What still cannot happen is one machine quietly eating a licence: seats
+	// are counted below, and a seat is only ever reclaimed from a station that
+	// has stopped talking to us.
 	var active int64
 	if err := tx.QueryRow(ctx,
 		`SELECT COUNT(*) FROM b2b_station WHERE org_id = $1 AND status = 'active'`, orgID).Scan(&active); err != nil {
 		return EnrollResult{}, err
 	}
 	if active >= seats {
-		return EnrollResult{}, ErrSeatsExhausted
+		// Full. Before refusing, try to reclaim the seat of a station that
+		// shares this machine's hwid and has gone quiet -- the genuine
+		// re-image, where the old row describes a PC that no longer exists.
+		// A classroom PC that is switched on renews its token every 15
+		// minutes (keepTokenWarm), so a live one can never be picked.
+		reclaimed, err := reclaimStaleSeat(ctx, tx, orgID, hwid)
+		if err != nil {
+			return EnrollResult{}, err
+		}
+		if !reclaimed {
+			return EnrollResult{}, ErrSeatsExhausted
+		}
 	}
 
 	// bypass_variant_progress is true for every station.
@@ -228,12 +271,14 @@ func (s Store) EnrollStation(ctx context.Context, in EnrollInput) (EnrollResult,
 		RETURNING id`,
 		orgID, []byte(in.PublicKey), hwid, label, agentVersion, profileID).Scan(&stationID); err != nil {
 		if isUniqueViolation(err) {
-			// A concurrent enrollment of the same hwid_hash under a
-			// different org isn't serialized by the org lock (different
-			// orgs, different lock rows) and can race past the cross-org
-			// check above; the global partial unique index is the last
-			// line of defense. Map it to the same conflict the check above
-			// returns instead of leaking a raw pgx 23505 as a 500.
+			// b2b_station_active_hwid_key_uidx: this exact installation --
+			// same machine, same keypair -- already holds an active row.
+			// Unreachable in normal operation, because the agent only
+			// enrolls when it has no saved station id (see connect.go), and
+			// a keypair is generated per installation. It survives as the
+			// last line of defence against a concurrent double-enroll, which
+			// the org lock does not serialize when the two calls arrive under
+			// different orgs. Map it rather than leak a raw pgx 23505 as a 500.
 			return EnrollResult{}, ErrConflict
 		}
 		return EnrollResult{}, err

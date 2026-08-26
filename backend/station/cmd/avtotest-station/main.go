@@ -535,7 +535,9 @@ func keepTokenWarm(ctx context.Context, a *agent.Agent, st *status.Store, sched 
 	backoff := sched.initial
 	var lastCode string
 	for {
-		if _, err := a.Token(ctx); err != nil {
+		// Renew, not Token: this loop is the paced caller the failure cache is
+		// meant to protect, not one of the callers it is meant to restrain.
+		if _, err := a.Renew(ctx); err != nil {
 			off, known := a.ClockOffset()
 			if !known {
 				off = 0

@@ -246,11 +246,20 @@ class ComposeContractTest(unittest.TestCase):
         providing: without limit_req an attacker would have found a cheaper
         route to 6 MB than to a token request, and with buffering left on
         nginx would spool every classroom's download through a temp file.
+
+        It now needs its OWN zone rather than the control calls' one. When the
+        control zone was raised to 600r/m for NAT'd schools (the 2026-08-26
+        incident), sharing it would have authorised 10 x 6 MB/s per IP off a
+        VPS running four other sites -- the rate rise was earned by what a
+        nonce insert costs, and a binary download shares none of that
+        arithmetic. So this asserts a station zone that is not the control
+        one, which is the property that actually protects egress.
         """
         conf = (ROOT / "deploy/nginx-drivergo.uz.conf").read_text(encoding="utf-8")
         self.assertIn("location = /api/v1/b2b/stations/agent {", conf)
         block = conf.split("location = /api/v1/b2b/stations/agent {", 1)[1].split("\n    }", 1)[0]
-        self.assertIn("limit_req          zone=station_ip", block)
+        self.assertIn("limit_req          zone=station_agent_ip", block)
+        self.assertIn("limit_req_zone $binary_remote_addr zone=station_agent_ip:", conf)
         self.assertIn("proxy_buffering    off", block)
         self.assertIn("proxy_pass         http://drivergo_api", block)
 

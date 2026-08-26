@@ -103,17 +103,15 @@ func TestEnrollStationBindsAndCapsSeats(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Third machine: the code itself is spent. OpenEnrollWindow sizes
-	// max_uses to the org's free seats at mint time, so with 2 seats and 2
-	// enrollments already done, used_count == max_uses here -- this hits the
-	// code-exhausted branch, not the org seat-cap branch (see
-	// TestEnrollStationConcurrentStampedeRespectsSeats for that one, where
-	// the two counters are made to diverge on purpose).
+	// Third machine: both seats are taken. The licence is what stops it --
+	// max_uses now carries headroom over the seat count precisely so that it
+	// is not the thing a school runs into first, and neither of the two live
+	// stations may be evicted to make room (they were seen just now).
 	_, err = store.EnrollStation(ctx, b2b.EnrollInput{
 		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-3"), Label: "PC-3",
 	})
-	if !errors.Is(err, b2b.ErrCodeExhausted) {
-		t.Fatalf("err=%v, want ErrCodeExhausted", err)
+	if !errors.Is(err, b2b.ErrSeatsExhausted) {
+		t.Fatalf("err=%v, want ErrSeatsExhausted", err)
 	}
 }
 
@@ -190,37 +188,155 @@ func TestEnrollStationRejectsMalformedHWIDHash(t *testing.T) {
 	}
 }
 
-func TestEnrollStationRebindsSameMachine(t *testing.T) {
+// TestEnrollStationKeepsClonedMachinesOnTheSameLicence is the regression for
+// Avtomotohavaskorlar BUXORO, 2026-08-26.
+//
+// A lab is built by cloning one master disk, and a raw clone carries the
+// master's MachineGuid, so every PC in the room reports the same hwid_hash.
+// Enrollment used to read that as "the same machine, re-imaged" and revoke the
+// previous row, which meant installing PC n silently knocked PC n-1 off the
+// licence -- and off VIP with it, since ActiveStationVIP requires
+// status = 'active'. The school ended the day with 43 enrolled stations, six
+// of them active: one per master image.
+//
+// Each PC does generate its own keypair on first run, which is what tells two
+// clones apart here.
+func TestEnrollStationKeepsClonedMachinesOnTheSameLicence(t *testing.T) {
 	pool := testdb.New(t)
 	testdb.Truncate(t, pool)
 	store := b2b.Store{Pool: pool}
 	ctx := context.Background()
 
-	orgID := seatedOrg(t, pool, 2)
+	const lab = 20
+	orgID := seatedOrg(t, pool, 55)
 	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	cloned := testHWID("one-master-image")
+	ids := make(map[uuid.UUID]bool, lab)
+	for i := 0; i < lab; i++ {
+		res, err := store.EnrollStation(ctx, b2b.EnrollInput{
+			Code: code.Code, PublicKey: newPub(t), HWIDHash: cloned, Label: "HPStoreBukhara",
+		})
+		if err != nil {
+			t.Fatalf("PC %d of %d could not enroll: %v", i+1, lab, err)
+		}
+		ids[res.StationID] = true
+	}
+	if len(ids) != lab {
+		t.Fatalf("got %d distinct station ids, want %d", len(ids), lab)
+	}
+
+	used, err := store.CountActiveStations(ctx, orgID)
+	if err != nil || used != lab {
+		t.Fatalf("used=%d err=%v, want %d active stations", used, err, lab)
+	}
+
+	// The point of staying active is VIP: a revoked station falls back to the
+	// free tier's 30 questions a day for the whole classroom.
+	var revoked int
+	if err := pool.QueryRow(ctx,
+		`SELECT COUNT(*) FROM b2b_station WHERE org_id = $1 AND status = 'revoked'`,
+		orgID).Scan(&revoked); err != nil {
+		t.Fatal(err)
+	}
+	if revoked != 0 {
+		t.Fatalf("revoked=%d, want 0: no PC may be evicted by a classmate", revoked)
+	}
+}
+
+// TestEnrollStationReclaimsASeatOnlyFromAMachineThatWentQuiet covers the one
+// case where a seat is still taken back: the licence is full and this hwid
+// already holds a seat whose station stopped reporting, i.e. a genuine
+// re-image. Without this a school that re-images its lab would have to have an
+// admin revoke every row by hand before a single PC could come back.
+func TestEnrollStationReclaimsASeatOnlyFromAMachineThatWentQuiet(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	orgID := seatedOrg(t, pool, 1)
+	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwid := testHWID("re-imaged")
 	first, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-same"), Label: "PC-1",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-1",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Re-imaged machine, same hardware, fresh key: the old bind is revoked and
-	// the seat is reused rather than double-spent.
+
+	// Silent for longer than staleSeatAfter: this PC is gone, not busy.
+	if _, err := pool.Exec(ctx,
+		`UPDATE b2b_station SET last_seen_at = now() - interval '2 hours' WHERE id = $1`,
+		first.StationID); err != nil {
+		t.Fatal(err)
+	}
+
 	second, err := store.EnrollStation(ctx, b2b.EnrollInput{
-		Code: code.Code, PublicKey: newPub(t), HWIDHash: testHWID("hw-same"), Label: "PC-1",
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-1",
 	})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("re-imaged machine must reclaim its own seat: %v", err)
 	}
 	if second.StationID == first.StationID {
 		t.Fatal("re-enroll must create a new station row")
 	}
 	used, err := store.CountActiveStations(ctx, orgID)
 	if err != nil || used != 1 {
-		t.Fatalf("used=%d err=%v, want 1 active station", used, err)
+		t.Fatalf("used=%d err=%v, want the one seat reused, not double-spent", used, err)
+	}
+	var firstStatus string
+	if err := pool.QueryRow(ctx,
+		`SELECT status FROM b2b_station WHERE id = $1`, first.StationID).Scan(&firstStatus); err != nil {
+		t.Fatal(err)
+	}
+	if firstStatus != "revoked" {
+		t.Fatalf("first station status=%q, want revoked", firstStatus)
+	}
+}
+
+// TestEnrollStationRefusesRatherThanEvictALivePC is the other half of seat
+// reclamation, and the more important half: a full licence must fail the new
+// PC, never interrupt one that is mid-lesson. A station that renewed its token
+// recently is by definition switched on.
+func TestEnrollStationRefusesRatherThanEvictALivePC(t *testing.T) {
+	pool := testdb.New(t)
+	testdb.Truncate(t, pool)
+	store := b2b.Store{Pool: pool}
+	ctx := context.Background()
+
+	orgID := seatedOrg(t, pool, 1)
+	code, err := store.OpenEnrollWindow(ctx, orgID, time.Hour, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	hwid := testHWID("busy-classroom")
+	live, err := store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
+		Code: code.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-2",
+	}); !errors.Is(err, b2b.ErrSeatsExhausted) {
+		t.Fatalf("err=%v, want ErrSeatsExhausted", err)
+	}
+
+	var status string
+	if err := pool.QueryRow(ctx,
+		`SELECT status FROM b2b_station WHERE id = $1`, live.StationID).Scan(&status); err != nil {
+		t.Fatal(err)
+	}
+	if status != "active" {
+		t.Fatalf("live station status=%q, want it left alone", status)
 	}
 }
 
@@ -375,7 +491,18 @@ func TestEnrollStationRejectsCodeRevokedWhileQueuedBehindLock(t *testing.T) {
 // behavior, see TestEnrollStationRebindsSameMachine), and a different org
 // presenting the same hwid_hash is refused rather than silently stealing the
 // machine out from under the first school.
-func TestEnrollStationRefusesCrossOrgHWIDTakeover(t *testing.T) {
+// TestEnrollStationLetsTwoSchoolsRunTheSameImage is the cross-org half of the
+// clone problem. Two schools that bought their PCs from the same shop get the
+// same factory image and therefore the same hwid_hash, and neither of them may
+// be refused because the other enrolled first.
+//
+// This used to answer ErrConflict, which reached the classroom as "this
+// computer is already registered to ANOTHER driving school" -- an instruction
+// to go find an admin at a school that has nothing to do with this one. The
+// refusal existed to stop org A's code revoking org B's PC; enrollment no
+// longer revokes anything across orgs, so there is nothing left to protect
+// against. Each school still pays for, and is capped by, its own seats.
+func TestEnrollStationLetsTwoSchoolsRunTheSameImage(t *testing.T) {
 	pool := testdb.New(t)
 	testdb.Truncate(t, pool)
 	store := b2b.Store{Pool: pool}
@@ -387,9 +514,10 @@ func TestEnrollStationRefusesCrossOrgHWIDTakeover(t *testing.T) {
 		t.Fatal(err)
 	}
 	hwid := testHWID("shared-hw")
-	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
+	stationA, err := store.EnrollStation(ctx, b2b.EnrollInput{
 		Code: codeA.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-A",
-	}); err != nil {
+	})
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -400,18 +528,26 @@ func TestEnrollStationRefusesCrossOrgHWIDTakeover(t *testing.T) {
 	}
 	if _, err := store.EnrollStation(ctx, b2b.EnrollInput{
 		Code: codeB.Code, PublicKey: newPub(t), HWIDHash: hwid, Label: "PC-B",
-	}); !errors.Is(err, b2b.ErrConflict) {
-		t.Fatalf("err=%v, want ErrConflict", err)
+	}); err != nil {
+		t.Fatalf("second school with the same factory image was refused: %v", err)
 	}
 
-	// Org A's binding must be untouched: still exactly one active station.
+	// Neither school's seat count may be disturbed by the other.
 	usedA, err := store.CountActiveStations(ctx, orgA)
 	if err != nil || usedA != 1 {
 		t.Fatalf("orgA used=%d err=%v, want 1 active station", usedA, err)
 	}
 	usedB, err := store.CountActiveStations(ctx, orgB)
-	if err != nil || usedB != 0 {
-		t.Fatalf("orgB used=%d err=%v, want 0 active stations", usedB, err)
+	if err != nil || usedB != 1 {
+		t.Fatalf("orgB used=%d err=%v, want 1 active station", usedB, err)
+	}
+	var statusA string
+	if err := pool.QueryRow(ctx,
+		`SELECT status FROM b2b_station WHERE id = $1`, stationA.StationID).Scan(&statusA); err != nil {
+		t.Fatal(err)
+	}
+	if statusA != "active" {
+		t.Fatalf("orgA station status=%q, want active", statusA)
 	}
 }
 

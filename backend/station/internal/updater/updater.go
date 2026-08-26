@@ -33,6 +33,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -123,6 +124,26 @@ func (c Config) normalize() Config {
 	return c
 }
 
+// firstCheckMin and firstCheckSpread bound when the first update check
+// happens: no sooner than two minutes after start (the network and enrollment
+// come first), and spread over the eight minutes after that so a lab switched
+// on together does not fetch one 6 MB binary fifty-five times at once.
+const (
+	firstCheckMin    = 2 * time.Minute
+	firstCheckSpread = 8 * time.Minute
+)
+
+// firstCheckDelay picks this PC's slot in that window.
+//
+// math/rand, not crypto/rand: this is load spreading, and nothing about it
+// needs to be unpredictable to an attacker. Go seeds the global source
+// randomly per process since 1.20, so two PCs booting from the same disk image
+// -- which is exactly how these machines are built -- still land on different
+// slots.
+func firstCheckDelay() time.Duration {
+	return firstCheckMin + time.Duration(rand.Int63n(int64(firstCheckSpread)))
+}
+
 // Run polls for a new build until ctx is done. It never returns an error: an
 // agent that cannot update is still an agent that works, and a school must
 // never lose its kiosk because a download failed.
@@ -132,7 +153,14 @@ func Run(ctx context.Context, cfg Config) {
 
 	// First check shortly after boot rather than immediately: the network is
 	// often not up yet, and enrollment deserves the first round trip.
-	timer := time.NewTimer(2 * time.Minute)
+	//
+	// Spread across a window rather than exactly two minutes. A classroom is
+	// switched on by one bell, so a fixed delay had every PC in the building
+	// ask for the same 6 MB binary within the same second, over the one uplink
+	// they share -- which is also the second the kiosks are doing their own
+	// first round trips. Jitter costs nothing (nobody is waiting on an update)
+	// and turns a stampede into a trickle.
+	timer := time.NewTimer(firstCheckDelay())
 	defer timer.Stop()
 	for {
 		select {
