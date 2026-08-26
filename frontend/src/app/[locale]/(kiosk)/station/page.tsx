@@ -111,10 +111,38 @@ const SECONDARY = [
 // said this is not a station.
 type Phase = "checking" | "waiting" | "station" | "refused";
 
-// Backoff for the retry, in milliseconds. Fast at first because the usual wait
-// is a few seconds of network coming up, then slower so a PC left on a dead
-// network is not hammering its own agent all day.
-const RETRY_MS = [1000, 2000, 3000, 5000, 8000, 10000];
+// Backoff for the retry, in milliseconds; the last entry is what repeats once
+// the schedule runs out.
+//
+// The front stays fast on purpose. The usual wait really is a few seconds of
+// network coming up (see the "waiting" phase above), so a PC whose DHCP lease
+// lands at t+3s is back on the lesson by t+6s. Do not slow that prefix down to
+// buy quiet: it is the difference between a kiosk that fixes itself before the
+// student sits down and one a teacher has to press F5 on.
+//
+// The tail is the 2026-08-26 fix. This array used to stop at 10000 and repeat
+// it, so a PC that never recovered probed /me six times a minute for the rest
+// of the school day. That day a driving school ran 55 of these behind a single
+// NAT address, and nginx rate-limits the station auth endpoints per client IP,
+// so all 55 shared one budget. Every probe leaves through the local agent
+// proxy, which asks for a token per proxied call and (until agent.go stops
+// caching only successes) re-fetches upstream after each failure -- roughly
+// two upstream auth hits per probe. 55 PCs x 6 probes/min was ~330 probes and
+// ~660 auth requests a minute from one address, indefinitely. The school
+// produced 7030 HTTP 429s in about two hours and could never drain the
+// limiter while class was in session: the retry loop refilled the bucket
+// faster than it emptied, so being throttled was self-sustaining.
+//
+// Hence the stretch to a 60000 ceiling. A stuck PC reaches it after 11 probes
+// (t+2m19s) and from then on costs one probe a minute -- 55/min school-wide
+// instead of 330/min, which leaves the per-IP budget headroom to recover on
+// its own. The price is that a PC whose network returns after lunch takes up
+// to a minute to notice, which is the right trade: by then nobody is watching
+// the spinner, and a reload still forces an immediate retry.
+//
+// page.test.tsx pins both halves -- the fast front and the growing tail -- so
+// a future "simplify the backoff" cannot quietly restore the 10s ceiling.
+const RETRY_MS = [1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 30000, 45000, 60000];
 
 export default function StationPage() {
   const t = useTranslations();

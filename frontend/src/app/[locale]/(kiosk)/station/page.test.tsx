@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 
 const apiGet = vi.fn();
 
@@ -81,6 +81,88 @@ describe("StationPage", () => {
     });
     expect(screen.queryByText("Station.connecting")).not.toBeInTheDocument();
     expect(screen.queryByText("Station.notStation")).not.toBeInTheDocument();
+  });
+
+  // The shape of the backoff, pinned at both ends.
+  //
+  // On 2026-08-26 a driving school ran 55 kiosks behind one NAT address. The
+  // schedule then stopped at 10s and repeated it, so every stuck PC probed
+  // /me six times a minute forever; nginx rate-limits the station auth
+  // endpoints per client IP, all 55 shared one budget, and the school produced
+  // 7030 HTTP 429s in about two hours without ever being able to drain the
+  // limiter during class. Both ends of the schedule are load-bearing, so both
+  // get a test: a PC that is merely waiting for its network must recover in
+  // seconds, and a PC that is genuinely stuck must fall away to about one
+  // probe a minute instead of flattening out at 10s.
+  //
+  // Both drive the clock by hand: at real speed the second one would take
+  // seven minutes.
+  //
+  // Times come from Date.now() inside the mock, which vi.useFakeTimers() moves
+  // with the fake clock, so these measure the gaps the page actually asked for
+  // rather than counting calls against a window and hoping about phase.
+  function recordProbeTimes() {
+    const times: number[] = [];
+    apiGet.mockImplementation(() => {
+      times.push(Date.now());
+      return Promise.reject(new Error("station_offline"));
+    });
+    return times;
+  }
+
+  it("retries within seconds while the network is merely still coming up", async () => {
+    vi.useFakeTimers();
+    const times = recordProbeTimes();
+    const { unmount } = render(<StationPage />);
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(6_000);
+      });
+
+      // A classroom PC boots faster than its network; the whole point of the
+      // "waiting" phase is that it is over before anyone notices it started.
+      expect(times.length).toBeGreaterThanOrEqual(4);
+      expect(times[1] - times[0]).toBeLessThanOrEqual(1_500);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
+  it("keeps stretching the retry past the old 10s ceiling instead of flattening there", async () => {
+    vi.useFakeTimers();
+    const times = recordProbeTimes();
+    const { unmount } = render(<StationPage />);
+    try {
+      // Long enough that the schedule has run out of entries and is repeating
+      // its last one.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(400_000);
+      });
+
+      const gaps = times.slice(1).map((t, i) => t - times[i]);
+      expect(gaps.length).toBeGreaterThan(6);
+
+      // The regression this exists to catch: the schedule used to top out at
+      // 10s, so every gap here was <= 10000 and a stuck PC never got quieter.
+      expect(gaps[gaps.length - 1]).toBeGreaterThanOrEqual(60_000);
+
+      // ...reached by growing, not by jumping straight to a minute, which
+      // would cost the fast recovery above.
+      expect(gaps).toEqual([...gaps].sort((a, b) => a - b));
+
+      // Same thing counted as load: the old schedule fired ~44 probes in this
+      // window, and 55 PCs behind one NAT address made that 2400 requests
+      // against a per-IP budget none of them could see.
+      expect(times.length).toBeLessThanOrEqual(20);
+
+      // But it must still be retrying -- a PC whose network comes back at
+      // lunchtime has to notice without a teacher pressing F5.
+      expect(times[times.length - 1]).toBeGreaterThan(times[0] + 300_000);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
   });
 
   // A real answer that says "not a station" is final -- retrying it would spin

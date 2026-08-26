@@ -83,16 +83,24 @@ const (
 	// and rotating it to reset the bucket kills the copies already handed
 	// out to the rest of the classroom. A school with 100 PCs (the rollout
 	// size the enroll-code design itself was sized against -- see
-	// enroll_code.go's EnrollCodeRow doc comment) each retrying up to
-	// enrollSchedule's 4 attempts during a cold-boot install is 400 requests
-	// against this one bucket in the worst case. 500 comfortably clears
-	// that with room to spare, and it costs nothing in security: the tight
-	// bound on *successful* enrolments is max_uses, sized to free seats and
-	// enforced under the org row lock in EnrollStation, not this request
-	// counter. A request-rate cap only needs to bound abuse volume, and 500
-	// failed/successful attempts an hour against a single code is nowhere
-	// near a meaningful DoS budget.
-	enrollIdentityLimit = 500
+	// enroll_code.go's EnrollCodeRow doc comment) each retrying the full
+	// enrollSchedule during a cold-boot install is what this has to clear in
+	// the worst case. Clearing it generously costs nothing in security: the
+	// tight bound on *successful* enrolments is max_uses and the seat count,
+	// both enforced under the org row lock in EnrollStation, not this request
+	// counter. A request-rate cap only needs to bound abuse volume.
+	//
+	// The figure was 500, and the comment justifying it said "4 attempts …
+	// 400 requests". defaultEnrollRetry (main.go, in the agent) has carried
+	// attempts: 12 since before that was written, so the real worst case is
+	// 1200 and this bucket was sized at less than half of what its own
+	// reasoning asked for. Running out is not a soft failure: enrollWithRetry
+	// gives up, connect returns without ever starting keepTokenWarm, and that
+	// PC is dead until someone reboots it -- while this is a fixed one-hour
+	// Redis window an admin has no way to clear. 2000 covers 100 PCs
+	// exhausting the whole schedule, and a second run at the rollout in the
+	// same hour.
+	enrollIdentityLimit = 2000
 	// enrollIPLimit is enroll's secondary dimension, sharing one NAT'd IP
 	// with the whole rollout in the common case (a school's classroom PCs
 	// sit behind one gateway). Since it sees roughly the same traffic as

@@ -20,12 +20,41 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 
 	"avtotest.uz/station/internal/agent"
 	"avtotest.uz/station/internal/status"
 )
+
+// throttled recognises "you are going too fast", from either of the two layers
+// that can say it.
+//
+// The Go API says it in an envelope, as code rate_limited. nginx limits the
+// same endpoints one layer earlier and says it as a bare 429 with an HTML body
+// it wrote itself, so there is no envelope and no code to match on -- which is
+// why a school being throttled was told, on both the enrollment and the token
+// path, that the server had sent something unintelligible. That was the single
+// most common thing 55 classroom PCs saw on 2026-08-26, and the one message
+// that could have told the school it was not their fault and not their
+// network.
+func throttled(err error) (Result, bool) {
+	var apiErr *agent.APIError
+	if !errors.As(err, &apiErr) {
+		return Result{}, false
+	}
+	if apiErr.Code != "rate_limited" && apiErr.Status != http.StatusTooManyRequests {
+		return Result{}, false
+	}
+	return Result{
+		Phase: status.PhaseWaiting, Retryable: true, Code: "rate_limited",
+		Problem: "Serverga bir vaqtning o'zida juda ko'p so'rov yuborildi.",
+		Action: "Hech narsa qilish shart emas — kompyuter bir necha daqiqadan so'ng o'zi davom etadi. " +
+			"Sinfxonadagi hamma kompyuterda bir vaqtda takrorlansa, station.log faylini yuboring.",
+		Detail: apiErr.Error(),
+	}, true
+}
 
 // Result is a classified failure.
 type Result struct {
@@ -51,6 +80,9 @@ func Enroll(err error) Result {
 		return Result{Phase: status.PhaseReady, Retryable: false}
 	}
 	if r, ok := transport(err); ok {
+		return r
+	}
+	if r, ok := throttled(err); ok {
 		return r
 	}
 
@@ -118,13 +150,9 @@ func Enroll(err error) Result {
 			Action:  "station.log faylini yuboring — bu dasturdagi xato, maktab tomonida tuzatib bo'lmaydi.",
 			Detail:  apiErr.Error(),
 		}
-	case "rate_limited":
-		return Result{
-			Phase: status.PhaseWaiting, Retryable: true, Code: apiErr.Code,
-			Problem: "Serverga juda ko'p so'rov yuborildi.",
-			Action:  "Hech narsa qilish shart emas — bir necha daqiqadan so'ng o'zi davom etadi.",
-			Detail:  apiErr.Error(),
-		}
+	// "rate_limited" is not listed here: throttled() above claims it first,
+	// together with the bare 429 nginx answers with, so that both layers of
+	// rate limiting reach the classroom as the same sentence.
 	default:
 		return Result{
 			Phase: status.PhaseWaiting, Retryable: true, Code: apiErr.Code,
@@ -155,6 +183,9 @@ func Token(err error, clockOffSeconds int64) Result {
 		}
 	}
 	if r, ok := transport(err); ok {
+		return r
+	}
+	if r, ok := throttled(err); ok {
 		return r
 	}
 

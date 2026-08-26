@@ -203,8 +203,8 @@ func TestEnrollRateLimitAllowsAFullLicenceRollout(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code.MaxUses != seats {
-		t.Fatalf("max_uses=%d, want %d (every seat must be free for this test to exercise all %d enrolments)", code.MaxUses, seats, seats)
+	if code.MaxUses < seats {
+		t.Fatalf("max_uses=%d, want at least %d so the code cannot be what stops the %d-PC rollout", code.MaxUses, seats, seats)
 	}
 
 	h := &b2b.Handler{Pool: pool, Redis: rdb, Secret: secret, Lim: auth.Limiter{R: rdb}}

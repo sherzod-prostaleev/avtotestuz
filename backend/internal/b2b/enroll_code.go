@@ -107,7 +107,7 @@ func (s Store) OpenEnrollWindow(ctx context.Context, orgID uuid.UUID, ttl time.D
 	if err != nil {
 		return EnrollCodeRow{}, err
 	}
-	row, err := insertEnrollCode(ctx, tx, orgID, code, int(free), time.Now().UTC().Add(ttl), createdBy)
+	row, err := insertEnrollCode(ctx, tx, orgID, code, enrollUsesFor(seats), time.Now().UTC().Add(ttl), createdBy)
 	if err != nil {
 		return EnrollCodeRow{}, err
 	}
@@ -115,6 +115,29 @@ func (s Store) OpenEnrollWindow(ctx context.Context, orgID uuid.UUID, ttl time.D
 		return EnrollCodeRow{}, err
 	}
 	return row, nil
+}
+
+// enrollUsesPerSeat sizes a key's max_uses against the seats it covers.
+//
+// max_uses is not the licence, and sizing it to the free-seat count made it
+// look like one. Seats are the licence: EnrollStation counts active stations
+// under the org row lock on every single enrollment, so a key with uses to
+// spare still cannot put more PCs on a licence than were paid for. What
+// max_uses bounds is how many times a key can be *presented* -- churn, not
+// occupancy.
+//
+// Sized to free seats, it bounded the wrong thing. Every install spends a use,
+// including a reinstall that reclaims a seat it already had, and a key cannot
+// be topped up: minting a replacement revokes the .exe already copied onto
+// every PC in the building (see mintEnrollCode). A 55-seat school that had
+// installed 43 PCs was left holding 12 uses for its remaining 12 machines,
+// with nothing left over for a retry or a single re-image. Four per seat
+// covers re-imaging the whole lab and still leaves a leaked key bounded by
+// the seat count, which is the bound that was ever doing the work.
+const enrollUsesPerSeat = 4
+
+func enrollUsesFor(seats int64) int {
+	return int(seats) * enrollUsesPerSeat
 }
 
 func insertEnrollCode(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, code string, maxUses int, expires time.Time, createdBy string) (EnrollCodeRow, error) {
@@ -249,7 +272,7 @@ func (s Store) installerKeyTx(ctx context.Context, orgID uuid.UUID, createdBy st
 		return EnrollCodeRow{}, ErrInstallerKeyRotatedNoSeats
 	}
 
-	row, err := mintEnrollCode(ctx, tx, orgID, licenseEnds.UTC(), int(free), createdBy)
+	row, err := mintEnrollCode(ctx, tx, orgID, licenseEnds.UTC(), enrollUsesFor(seats), createdBy)
 	if err != nil {
 		return EnrollCodeRow{}, err
 	}

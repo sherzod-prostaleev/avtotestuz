@@ -104,7 +104,12 @@ func TestInstallerKeyEndpoints(t *testing.T) {
 		t.Fatalf("expected data == null before any key is opened, got %+v", env.Data)
 	}
 
-	// 2. POST /installer -> 200, code non-empty, max_uses == 30
+	// 2. POST /installer -> 200, code non-empty, max_uses sized to the licence
+	//    with reinstall headroom (enrollUsesPerSeat in b2b/enroll_code.go).
+	//    It used to equal the free-seat count exactly, which left a school no
+	//    uses at all for reinstalling PCs it had already installed -- and a key
+	//    cannot be topped up, only replaced, which kills the .exe already
+	//    copied onto every machine.
 	req = httptest.NewRequest(http.MethodPost, "/admin/v1/b2b/orgs/"+orgID.String()+"/installer", nil)
 	req.Header.Set("Authorization", "Bearer "+access)
 	w = httptest.NewRecorder()
@@ -118,8 +123,8 @@ func TestInstallerKeyEndpoints(t *testing.T) {
 	if env.Data == nil || env.Data.Code == "" {
 		t.Fatalf("expected a minted code, got %+v", env.Data)
 	}
-	if env.Data.MaxUses != 30 {
-		t.Fatalf("max_uses=%d, want 30", env.Data.MaxUses)
+	if env.Data.MaxUses != 30*4 {
+		t.Fatalf("max_uses=%d, want %d", env.Data.MaxUses, 30*4)
 	}
 	firstCode := env.Data.Code
 

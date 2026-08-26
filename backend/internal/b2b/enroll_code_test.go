@@ -35,8 +35,12 @@ func TestOpenEnrollWindowSizesToFreeSeats(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if code.MaxUses != 30 {
-		t.Fatalf("max_uses=%d, want 30 (all seats free)", code.MaxUses)
+	// max_uses carries headroom over the seat count (enrollUsesPerSeat) rather
+	// than matching it. Seats are the licence and are enforced per enrollment
+	// under the org lock; max_uses only has to survive the school reinstalling
+	// its own PCs, which sizing it to the seat count did not.
+	if code.MaxUses != 30*4 {
+		t.Fatalf("max_uses=%d, want %d (30 seats with reinstall headroom)", code.MaxUses, 30*4)
 	}
 	if !strings.HasPrefix(code.Code, "AVTO-") {
 		t.Fatalf("code=%q, want AVTO- prefix", code.Code)
@@ -166,8 +170,12 @@ func TestOpenEnrollWindowOpensAtSeatsBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected the window to open with exactly one free seat: %v", err)
 	}
-	if code.MaxUses != 1 {
-		t.Fatalf("max_uses=%d, want 1 (exactly one free seat)", code.MaxUses)
+	// The boundary this test guards is that the window opens at all with one
+	// seat left. max_uses is sized from the licence, not from what happens to
+	// be free right now, so that a school one seat short of full can still
+	// reinstall the PCs it already owns.
+	if code.MaxUses != 3*4 {
+		t.Fatalf("max_uses=%d, want %d (3 seats with reinstall headroom)", code.MaxUses, 3*4)
 	}
 }
 
@@ -192,8 +200,8 @@ func TestOpenInstallerKeyIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first.MaxUses != 30 {
-		t.Fatalf("max_uses=%d, want 30", first.MaxUses)
+	if first.MaxUses != 30*4 {
+		t.Fatalf("max_uses=%d, want %d", first.MaxUses, 30*4)
 	}
 	// Expiry tracks the licence, not a fixed TTL: a 365-day licence must not
 	// yield a code that dies before a 30-PC rollout finishes.
