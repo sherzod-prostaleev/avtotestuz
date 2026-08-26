@@ -12,6 +12,66 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const advancePracticeCursor = `-- name: AdvancePracticeCursor :exec
+WITH prefix AS (
+  SELECT COALESCE(MAX(position), 0)::int AS done
+  FROM (
+    SELECT position, position - (ROW_NUMBER() OVER (ORDER BY position))::int AS gap
+    FROM session_answer WHERE session_id = $4
+  ) runs
+  WHERE gap = 0
+), current AS (
+  SELECT COALESCE((SELECT next_index FROM practice_cursor
+                    WHERE profile_id = $1
+                      AND category_id = $2), 0)::int AS at
+)
+INSERT INTO practice_cursor AS pc (profile_id, category_id, next_index)
+SELECT $1, $2, $3::int + prefix.done
+FROM prefix, current
+WHERE $3::int <= current.at
+ON CONFLICT (profile_id, category_id) DO UPDATE
+SET next_index = GREATEST(pc.next_index, EXCLUDED.next_index),
+    updated_at = now()
+`
+
+type AdvancePracticeCursorParams struct {
+	ProfileID   uuid.UUID `json:"profile_id"`
+	CategoryID  uuid.UUID `json:"category_id"`
+	OrderedFrom int32     `json:"ordered_from"`
+	SessionID   uuid.UUID `json:"session_id"`
+}
+
+// Moves a profile's place in a topic to the end of what it has actually worked
+// through, which is not the same as the furthest question it has touched.
+//
+// `prefix` is the contiguous run of positions answered from the start of this
+// session. position - row_number() is 0 for exactly that run: the first gap
+// makes it positive and it never returns to 0. This is what stops a student who
+// scrolls the question navigator to the end and answers the last chip from
+// marking a 337-question topic complete -- which would wrap the walk and
+// discard the class's real position -- and stops any forward jump from silently
+// burying the questions it skipped over.
+//
+// The ordered_from <= current guard drops answers that belong to a walk the
+// class has already left behind. Practice sessions are left open routinely and
+// the history makes them reopenable, so without it one answer in a month-old
+// session would write that old walk's position over today's and skip
+// everything in between. A session of the current walk always satisfies it:
+// ordered_from is the cursor as it stood when the session was drawn, and the
+// cursor only ever moves forward from there.
+//
+// GREATEST keeps the write monotone, so answering out of order within the
+// current session, or two answers racing, can never rewind the class.
+func (q *Queries) AdvancePracticeCursor(ctx context.Context, arg AdvancePracticeCursorParams) error {
+	_, err := q.db.Exec(ctx, advancePracticeCursor,
+		arg.ProfileID,
+		arg.CategoryID,
+		arg.OrderedFrom,
+		arg.SessionID,
+	)
+	return err
+}
+
 const countPracticeAnswersToday = `-- name: CountPracticeAnswersToday :one
 SELECT count(*)::int FROM session_answer sa
 JOIN exam_session es ON es.id = sa.session_id
@@ -50,10 +110,27 @@ func (q *Queries) CountSessionAnswers(ctx context.Context, sessionID uuid.UUID) 
 	return i, err
 }
 
+const countValidQuestionsInCategory = `-- name: CountValidQuestionsInCategory :one
+SELECT count(*)::int FROM question
+WHERE category_id = $1 AND validation_status = 'valid'
+`
+
+// Named "InCategory", not "ByCategory": learning.sql already owns
+// CountValidQuestionsByCategory, which counts every category at once for the
+// practice screen. This one answers about a single topic, which is what the
+// ordered draw needs to know before it can decide whether the cursor has run
+// off the end and should wrap.
+func (q *Queries) CountValidQuestionsInCategory(ctx context.Context, categoryID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countValidQuestionsInCategory, categoryID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createExamSession = `-- name: CreateExamSession :one
 WITH created AS (
   INSERT INTO exam_session
-    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
+    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total, ordered_from)
   VALUES (
     $1,
     $2,
@@ -63,9 +140,10 @@ WITH created AS (
     $6,
     $7,
     $8,
-    COALESCE(cardinality($9::uuid[]), 0)
+    COALESCE(cardinality($9::uuid[]), 0),
+    $10
   )
-  RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish
+  RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish, ordered_from
 ), assigned AS (
   INSERT INTO session_question (session_id, question_id, position)
   SELECT created.id, questions.question_id, questions.position::smallint
@@ -74,7 +152,7 @@ WITH created AS (
     WITH ORDINALITY AS questions(question_id, position)
   RETURNING session_id
 )
-SELECT created.id, created.profile_id, created.mode, created.variant_id, created.category_id, created.sign_id, created.locale, created.time_limit_sec, created.errors_allowed, created.started_at, created.finished_at, created.status, created.score, created.total, created.stopped_reason, created.readiness_pct_at_finish
+SELECT created.id, created.profile_id, created.mode, created.variant_id, created.category_id, created.sign_id, created.locale, created.time_limit_sec, created.errors_allowed, created.started_at, created.finished_at, created.status, created.score, created.total, created.stopped_reason, created.readiness_pct_at_finish, created.ordered_from
 FROM created
 CROSS JOIN (SELECT count(*) FROM assigned) persisted
 `
@@ -89,6 +167,7 @@ type CreateExamSessionParams struct {
 	TimeLimitSec  pgtype.Int4   `json:"time_limit_sec"`
 	ErrorsAllowed pgtype.Int4   `json:"errors_allowed"`
 	QuestionIds   []uuid.UUID   `json:"question_ids"`
+	OrderedFrom   pgtype.Int4   `json:"ordered_from"`
 }
 
 type CreateExamSessionRow struct {
@@ -108,6 +187,7 @@ type CreateExamSessionRow struct {
 	Total                int32              `json:"total"`
 	StoppedReason        pgtype.Text        `json:"stopped_reason"`
 	ReadinessPctAtFinish pgtype.Int4        `json:"readiness_pct_at_finish"`
+	OrderedFrom          pgtype.Int4        `json:"ordered_from"`
 }
 
 func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionParams) (CreateExamSessionRow, error) {
@@ -121,6 +201,7 @@ func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionPa
 		arg.TimeLimitSec,
 		arg.ErrorsAllowed,
 		arg.QuestionIds,
+		arg.OrderedFrom,
 	)
 	var i CreateExamSessionRow
 	err := row.Scan(
@@ -140,6 +221,7 @@ func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionPa
 		&i.Total,
 		&i.StoppedReason,
 		&i.ReadinessPctAtFinish,
+		&i.OrderedFrom,
 	)
 	return i, err
 }
@@ -152,7 +234,7 @@ SET finished_at = now(),
     stopped_reason = $4,
     readiness_pct_at_finish = COALESCE($5, readiness_pct_at_finish)
 WHERE id = $1
-RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish
+RETURNING id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish, ordered_from
 `
 
 type FinishExamSessionParams struct {
@@ -189,6 +271,7 @@ func (q *Queries) FinishExamSession(ctx context.Context, arg FinishExamSessionPa
 		&i.Total,
 		&i.StoppedReason,
 		&i.ReadinessPctAtFinish,
+		&i.OrderedFrom,
 	)
 	return i, err
 }
@@ -240,7 +323,7 @@ func (q *Queries) GetCorrectAnswerID(ctx context.Context, questionID uuid.UUID) 
 }
 
 const getExamSession = `-- name: GetExamSession :one
-SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish FROM exam_session WHERE id = $1
+SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish, ordered_from FROM exam_session WHERE id = $1
 `
 
 func (q *Queries) GetExamSession(ctx context.Context, id uuid.UUID) (ExamSession, error) {
@@ -263,6 +346,7 @@ func (q *Queries) GetExamSession(ctx context.Context, id uuid.UUID) (ExamSession
 		&i.Total,
 		&i.StoppedReason,
 		&i.ReadinessPctAtFinish,
+		&i.OrderedFrom,
 	)
 	return i, err
 }
@@ -282,6 +366,23 @@ func (q *Queries) GetLimitConfig(ctx context.Context, key string) (LimitConfig, 
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const getPracticeCursor = `-- name: GetPracticeCursor :one
+SELECT next_index FROM practice_cursor
+WHERE profile_id = $1 AND category_id = $2
+`
+
+type GetPracticeCursorParams struct {
+	ProfileID  uuid.UUID `json:"profile_id"`
+	CategoryID uuid.UUID `json:"category_id"`
+}
+
+func (q *Queries) GetPracticeCursor(ctx context.Context, arg GetPracticeCursorParams) (int32, error) {
+	row := q.db.QueryRow(ctx, getPracticeCursor, arg.ProfileID, arg.CategoryID)
+	var next_index int32
+	err := row.Scan(&next_index)
+	return next_index, err
 }
 
 const getSessionAnswer = `-- name: GetSessionAnswer :one
@@ -439,7 +540,7 @@ func (q *Queries) ListMistakeBankQuestionIDs(ctx context.Context, arg ListMistak
 }
 
 const listMySessions = `-- name: ListMySessions :many
-SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish FROM exam_session
+SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish, ordered_from FROM exam_session
 WHERE profile_id = $1
 ORDER BY started_at DESC LIMIT $2
 `
@@ -475,6 +576,56 @@ func (q *Queries) ListMySessions(ctx context.Context, arg ListMySessionsParams) 
 			&i.Total,
 			&i.StoppedReason,
 			&i.ReadinessPctAtFinish,
+			&i.OrderedFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPracticeProgress = `-- name: ListPracticeProgress :many
+SELECT pc.category_id,
+       c.code AS category_code,
+       pc.next_index,
+       (SELECT count(*) FROM question q
+         WHERE q.category_id = pc.category_id AND q.validation_status = 'valid')::int AS total
+FROM practice_cursor pc
+JOIN category c ON c.id = pc.category_id
+WHERE pc.profile_id = $1
+ORDER BY c.sort_order, c.code
+`
+
+type ListPracticeProgressRow struct {
+	CategoryID   uuid.UUID `json:"category_id"`
+	CategoryCode string    `json:"category_code"`
+	NextIndex    int32     `json:"next_index"`
+	Total        int32     `json:"total"`
+}
+
+// Returns the category's code as well as its id, because the code is the only
+// identifier the practice screen holds: GET /categories answers with code,
+// name, sort_order and question_count and no uuid at all (content.CategoryDTO).
+// A progress list keyed only by uuid would be unmatchable by the one screen
+// that needs it.
+func (q *Queries) ListPracticeProgress(ctx context.Context, profileID uuid.UUID) ([]ListPracticeProgressRow, error) {
+	rows, err := q.db.Query(ctx, listPracticeProgress, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPracticeProgressRow
+	for rows.Next() {
+		var i ListPracticeProgressRow
+		if err := rows.Scan(
+			&i.CategoryID,
+			&i.CategoryCode,
+			&i.NextIndex,
+			&i.Total,
 		); err != nil {
 			return nil, err
 		}
@@ -617,6 +768,53 @@ func (q *Queries) ListVariantQuestionIDsOrdered(ctx context.Context, variantID u
 			return nil, err
 		}
 		items = append(items, question_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const orderedQuestionIDsByCategory = `-- name: OrderedQuestionIDsByCategory :many
+SELECT q.id
+FROM question q
+WHERE q.validation_status = 'valid'
+  AND q.category_id = $1
+ORDER BY NULLIF(regexp_replace(q.source_ext_id, '\D', '', 'g'), '')::bigint NULLS LAST,
+         q.source_ext_id,
+         q.id
+OFFSET $2
+LIMIT $3
+`
+
+type OrderedQuestionIDsByCategoryParams struct {
+	CategoryID uuid.UUID `json:"category_id"`
+	Skip       int32     `json:"skip"`
+	LimitCount int32     `json:"limit_count"`
+}
+
+// The topic in its source order, so "all questions of one topic" is the same
+// walk every time and can be resumed from an offset.
+//
+// source_ext_id is 'avtoimtihon-<N>' for all 1260 questions in the bank and
+// every N is distinct, which makes the numeric suffix a total, unique ordering
+// -- and the same numbering the source material itself uses, so it means
+// something to the teacher reading it. NULLIF guards an id with no digits: it
+// sorts last instead of failing the cast, and source_ext_id then id keep the
+// order total even then. No index: the whole bank is 1260 rows.
+func (q *Queries) OrderedQuestionIDsByCategory(ctx context.Context, arg OrderedQuestionIDsByCategoryParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, orderedQuestionIDsByCategory, arg.CategoryID, arg.Skip, arg.LimitCount)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -888,6 +1086,24 @@ func (q *Queries) RandomQuestionIDsByVariantRange(ctx context.Context, arg Rando
 		return nil, err
 	}
 	return items, nil
+}
+
+const resetPracticeCursor = `-- name: ResetPracticeCursor :exec
+DELETE FROM practice_cursor
+WHERE profile_id = $1 AND category_id = $2
+`
+
+type ResetPracticeCursorParams struct {
+	ProfileID  uuid.UUID `json:"profile_id"`
+	CategoryID uuid.UUID `json:"category_id"`
+}
+
+// Deleting rather than zeroing: no row IS the start, so this keeps the table
+// free of rows that say nothing and makes ListPracticeProgress omit them
+// without a filter.
+func (q *Queries) ResetPracticeCursor(ctx context.Context, arg ResetPracticeCursorParams) error {
+	_, err := q.db.Exec(ctx, resetPracticeCursor, arg.ProfileID, arg.CategoryID)
+	return err
 }
 
 const upsertVariantProgress = `-- name: UpsertVariantProgress :one

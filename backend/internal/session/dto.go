@@ -22,6 +22,19 @@ type StartRequest struct {
 	VariantTo   int
 	Locale      string
 	Count       int
+	// Ordered turns a category practice draw into a walk through the topic in
+	// its source order, resumed where this profile last stopped, instead of a
+	// fresh random draw. It is what the "Hammasi" button means for a topic: a
+	// teacher taking a class through all 337 road-sign questions needs the same
+	// sequence every lesson and needs to continue at 124, not start again at a
+	// random question.
+	//
+	// Honoured only for mode "practice" with a category selector. Anywhere else
+	// it is ignored rather than rejected -- a client that sends it alongside a
+	// sign or a ticket range is asking for something that has no meaning, and
+	// failing the whole session start over it would be worse than drawing the
+	// random set it would have drawn anyway.
+	Ordered bool
 }
 
 type SessionView struct {

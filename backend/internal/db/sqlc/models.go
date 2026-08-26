@@ -193,19 +193,41 @@ type B2bOrgLicense struct {
 }
 
 type B2bStation struct {
-	ID               uuid.UUID          `json:"id"`
-	OrgID            uuid.UUID          `json:"org_id"`
-	Label            string             `json:"label"`
-	Status           string             `json:"status"`
-	ActivatedAt      pgtype.Timestamptz `json:"activated_at"`
-	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
-	ActivatedBy      string             `json:"activated_by"`
-	CreatedAt        pgtype.Timestamptz `json:"created_at"`
-	PublicKey        []byte             `json:"public_key"`
-	HwidHash         string             `json:"hwid_hash"`
-	AgentVersion     string             `json:"agent_version"`
-	LastIp           *netip.Addr        `json:"last_ip"`
-	StationProfileID uuid.NullUUID      `json:"station_profile_id"`
+	ID                 uuid.UUID          `json:"id"`
+	OrgID              uuid.UUID          `json:"org_id"`
+	Label              string             `json:"label"`
+	Status             string             `json:"status"`
+	ActivatedAt        pgtype.Timestamptz `json:"activated_at"`
+	LastSeenAt         pgtype.Timestamptz `json:"last_seen_at"`
+	ActivatedBy        string             `json:"activated_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	PublicKey          []byte             `json:"public_key"`
+	HwidHash           string             `json:"hwid_hash"`
+	AgentVersion       string             `json:"agent_version"`
+	LastIp             *netip.Addr        `json:"last_ip"`
+	StationProfileID   uuid.NullUUID      `json:"station_profile_id"`
+	LastPhase          string             `json:"last_phase"`
+	LastCode           string             `json:"last_code"`
+	LastProblem        string             `json:"last_problem"`
+	ClockOffsetSeconds pgtype.Int4        `json:"clock_offset_seconds"`
+	LastDiagAt         pgtype.Timestamptz `json:"last_diag_at"`
+}
+
+type B2bStationDiag struct {
+	ID                 uuid.UUID          `json:"id"`
+	OrgID              uuid.UUID          `json:"org_id"`
+	StationID          uuid.NullUUID      `json:"station_id"`
+	HwidHash           string             `json:"hwid_hash"`
+	Label              string             `json:"label"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	AgentVersion       string             `json:"agent_version"`
+	Phase              string             `json:"phase"`
+	Code               string             `json:"code"`
+	Problem            string             `json:"problem"`
+	Detail             string             `json:"detail"`
+	ClockOffsetSeconds pgtype.Int4        `json:"clock_offset_seconds"`
+	Os                 string             `json:"os"`
+	LogTail            string             `json:"log_tail"`
 }
 
 type BroadcastCampaign struct {
@@ -356,6 +378,7 @@ type ExamSession struct {
 	StoppedReason pgtype.Text        `json:"stopped_reason"`
 	// Bank-honest readiness_pct captured at FinishSession for exam/grand_mock/placement calibration.
 	ReadinessPctAtFinish pgtype.Int4 `json:"readiness_pct_at_finish"`
+	OrderedFrom          pgtype.Int4 `json:"ordered_from"`
 }
 
 type Explanation struct {
@@ -552,6 +575,13 @@ type PaymentVoid struct {
 	Reason         string             `json:"reason"`
 	RequestedBy    uuid.UUID          `json:"requested_by"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type PracticeCursor struct {
+	ProfileID  uuid.UUID          `json:"profile_id"`
+	CategoryID uuid.UUID          `json:"category_id"`
+	NextIndex  int32              `json:"next_index"`
+	UpdatedAt  pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Profile struct {

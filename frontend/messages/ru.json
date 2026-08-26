@@ -554,6 +554,8 @@
     "imageWithoutCount": "{count} вопросов",
     "countLabel": "Количество вопросов",
     "countAll": "Все",
+    "orderedResume": "Продолжит с вопроса {next} · осталось {remaining}",
+    "orderedReset": "Начать сначала",
     "countCustom": "Своё число",
     "countCustomPlaceholder": "Например 40",
     "allowanceRemaining": "Сегодня осталось {count} вопросов",

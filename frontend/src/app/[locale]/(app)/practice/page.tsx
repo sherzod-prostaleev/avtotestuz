@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { usePracticeAllowance } from "@/hooks/use-practice-allowance";
 import { useSigns } from "@/hooks/use-signs";
 import { SignPracticeGrid } from "@/components/practice/sign-practice-grid";
@@ -22,6 +22,7 @@ import {
   Layers,
   Play,
   RefreshCw,
+  RotateCcw,
   Signpost,
   BrainCircuit,
 } from "lucide-react";
@@ -52,6 +53,33 @@ interface MistakesDTO {
   due_count: number;
   total_bank_count: number;
   next_due_at: string | null;
+}
+
+/** One row of `me/practice-progress`: how far this profile has walked one topic. */
+interface PracticeProgressDTO {
+  category_id: string;
+  // The design spec keys the row by uuid, but this picker has no uuid to key
+  // it back to: `GET /categories` returns `code` and nothing else
+  // (backend/internal/content/dto.go CategoryDTO), so the whole page — the
+  // selector, the start URL, the reset body — speaks category codes. Both
+  // fields are read so the row lands whichever identifier the backend puts on
+  // it; a uuid-only row simply never matches a code and the hint stays hidden.
+  category_code?: string;
+  next_index: number;
+  total: number;
+}
+
+// Keyed by every identifier the row carries rather than by a single field, so
+// one lookup by category code works without the page knowing which of the two
+// the backend filled in.
+function indexProgress(rows: PracticeProgressDTO[]): Record<string, PracticeProgressDTO> {
+  const byKey: Record<string, PracticeProgressDTO> = {};
+  for (const row of rows) {
+    if (!row || !Number.isInteger(row.next_index)) continue;
+    if (typeof row.category_code === "string" && row.category_code) byKey[row.category_code] = row;
+    if (typeof row.category_id === "string" && row.category_id) byKey[row.category_id] = row;
+  }
+  return byKey;
 }
 
 export interface PracticePageProps {
@@ -88,10 +116,25 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const [dueCount, setDueCount] = useState<number>(0);
   const [bankCount, setBankCount] = useState<number>(0);
   const [nextDueAt, setNextDueAt] = useState<string | null>(null);
+  const [progress, setProgress] = useState<Record<string, PracticeProgressDTO>>({});
+  const [resetting, setResetting] = useState<boolean>(false);
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
   const signsAvailable = signs.length > 0;
+
+  // One call covers all 13 topics, so the picker can label the selected one
+  // without a request per topic. Swallowing the failure the way `me/stats` does
+  // is deliberate: the position is a convenience on top of an ordered walk that
+  // works without it, so losing it must cost the hint and nothing else.
+  const loadProgress = useCallback(async () => {
+    try {
+      const rows = await apiGet<PracticeProgressDTO[]>("me/practice-progress");
+      setProgress(indexProgress(Array.isArray(rows) ? rows : []));
+    } catch {
+      setProgress({});
+    }
+  }, []);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
@@ -106,6 +149,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
           total_bank_count: 0,
           next_due_at: null,
         })),
+        loadProgress(),
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       setCategories(ordered);
@@ -131,11 +175,12 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       setDueCount(0);
       setBankCount(0);
       setNextDueAt(null);
+      setProgress({});
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [locale]);
+  }, [locale, loadProgress]);
 
   useEffect(() => {
     void loadContent();
@@ -167,6 +212,24 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const exhausted = Boolean(allowance && !allowance.unlimited && allowance.remaining <= 0);
   const clamped = Boolean(allowance && !allowance.unlimited && !exhausted && effectiveCount < count);
 
+  // "Ordered" is a property of "all questions of one topic" and nothing else:
+  // the 20/50/100 presets, a typed count, signs, ticket ranges and the
+  // with-image selector all stay random draws, so this is the single gate every
+  // ordered behaviour on the page hangs off.
+  const orderedRun = source === "category" && allQuestions && Boolean(selectedCategory);
+  const resume = orderedRun ? progress[selectedCategory] : undefined;
+  // next_index is 0-based and counts questions worked through, so 123 means the
+  // next one is the 124th. 0 means nothing to resume, and a hint that says
+  // "continues from question 1" is noise, so it is not rendered at all.
+  const resumeAt = resume && resume.next_index > 0 ? resume.next_index : 0;
+  // total travels with the row, but fall back to the picker's own count for the
+  // topic: they are the same number, and a row without it would otherwise claim
+  // "0 ta qoldi" on a topic with 214 left.
+  const resumeTotal =
+    resume && Number.isInteger(resume.total) && resume.total > 0
+      ? resume.total
+      : (categories.find((cat) => cat.code === selectedCategory)?.question_count ?? 0);
+
   const canStart = (() => {
     if (loading) return false;
     if (source === "due") return dueCount > 0;
@@ -186,7 +249,13 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     }
     const base = `${sessionStartBase}?mode=practice&count=${count}`;
     if (source === "category") {
-      router.push(`${base}&category_id=${encodeURIComponent(selectedCategory)}`);
+      // `ordered` rides the query string because this page never POSTs: it
+      // pushes to session/start, which is what turns these params into the
+      // sessions request body. Only ever appended here — the other three
+      // branches below are the random draws that must keep ignoring the cursor.
+      router.push(
+        `${base}&category_id=${encodeURIComponent(selectedCategory)}${orderedRun ? "&ordered=true" : ""}`
+      );
       return;
     }
     if (source === "variant") {
@@ -194,6 +263,23 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       return;
     }
     router.push(`${base}&has_image=${withImage}`);
+  };
+
+  // Sends the category code, not a uuid — see PracticeProgressDTO: the picker
+  // never receives a uuid, and the sessions endpoint already resolves either
+  // form (ResolveCategoryID in backend/internal/session/handlers.go).
+  const handleResetProgress = async () => {
+    if (!selectedCategory || resetting) return;
+    setResetting(true);
+    try {
+      await apiPost("me/practice-progress/reset", { category_id: selectedCategory });
+      await loadProgress();
+    } catch {
+      // Same tolerance as loading the position: a failed reset leaves the hint
+      // standing, which is honest — the cursor really did not move.
+    } finally {
+      setResetting(false);
+    }
   };
 
   const applyCustomCount = (raw: string) => {
@@ -520,6 +606,33 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
               />
             </label>
           </div>
+
+          {resumeAt > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/35 bg-accent/5 p-3.5">
+              <p className="text-sm font-semibold text-accent">
+                {t("orderedResume", {
+                  next: resumeAt + 1,
+                  remaining: Math.max(0, resumeTotal - resumeAt),
+                })}
+              </p>
+              {/* Needed because the cursor belongs to the profile, and on a
+                  classroom PC that is the room: a new group starts the topic
+                  fresh while the previous group's 123 is still stored. Does
+                  not start a session — clearing the position and beginning a
+                  lesson are two separate decisions for the teacher. */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="ml-auto"
+                disabled={resetting}
+                onClick={() => void handleResetProgress()}
+              >
+                <RotateCcw aria-hidden="true" className="mr-2 h-4 w-4" />
+                {t("orderedReset")}
+              </Button>
+            </div>
+          )}
 
           {allowance && (
             <div

@@ -30,6 +30,8 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/sessions/{id}/questions", h.listSessionQuestions)
 	r.Get("/sessions/{id}/questions/{questionID}", h.getSessionQuestion)
 	r.Get("/me/practice-allowance", h.practiceAllowance)
+	r.Get("/me/practice-progress", h.practiceProgress)
+	r.Post("/me/practice-progress/reset", h.resetPracticeProgress)
 	r.Get("/me/mock-eligibility", h.mockEligibility)
 	r.Get("/me/sessions", h.listMySessions)
 	r.Get("/me/variants", h.listVariantStatuses)
@@ -88,6 +90,10 @@ type startSessionBody struct {
 	VariantTo   int    `json:"variant_to"`
 	Locale      string `json:"locale"`
 	Count       int    `json:"count"`
+	// Ordered asks for a topic in its source order, resumed where this profile
+	// stopped, rather than a random draw -- see StartRequest.Ordered. Absent in
+	// every older client, and false is the behaviour those clients already had.
+	Ordered bool `json:"ordered"`
 }
 
 type startSessionResponse struct {
@@ -140,6 +146,53 @@ func (h *Handler) practiceAllowance(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, practiceAllowanceResponse(allowance))
 }
 
+// practiceProgress answers for every topic at once. The practice screen shows
+// all 13 side by side, and a request per topic would be 13 round trips to
+// render one card each.
+func (h *Handler) practiceProgress(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	items, err := h.Svc.PracticeProgress(r.Context(), claims.ProfileID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, items)
+}
+
+type resetPracticeProgressBody struct {
+	CategoryID string `json:"category_id"`
+}
+
+// resetPracticeProgress is the "Boshidan boshlash" control: a new group of
+// students starts a topic while the previous group's position is still stored,
+// and only a person can say which of the two is meant.
+func (h *Handler) resetPracticeProgress(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	var body resetPracticeProgressBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	// Accepts a category code as well as a UUID, the same as starting a
+	// session does -- the practice screen holds whichever the categories
+	// endpoint gave it, and having one of the two work would be a trap.
+	categoryID, err := h.Svc.ResolveCategoryID(r.Context(), body.CategoryID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	if err := h.Svc.ResetPracticeProgress(r.Context(), claims.ProfileID, categoryID); err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, map[string]any{"reset": true})
+}
+
 type mockEligibilityResponse struct {
 	Eligible             bool    `json:"eligible"`
 	MasteryPercent       int     `json:"mastery_percent"`
@@ -189,9 +242,10 @@ func (h *Handler) startSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req := StartRequest{
-		Mode:   body.Mode,
-		Locale: body.Locale,
-		Count:  body.Count,
+		Mode:    body.Mode,
+		Locale:  body.Locale,
+		Count:   body.Count,
+		Ordered: body.Ordered,
 	}
 	if body.VariantID != nil {
 		id, err := h.Svc.ResolveVariantID(r.Context(), *body.VariantID)

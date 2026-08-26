@@ -159,6 +159,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		variantID     uuid.NullUUID
 		categoryID    uuid.NullUUID
 		signID        uuid.NullUUID
+		orderedFrom   pgtype.Int4
 		err           error
 	)
 
@@ -298,6 +299,9 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			return SessionView{}, dailyErr
 		}
 		switch {
+		case req.CategoryID != uuid.Nil && req.Ordered:
+			categoryID = uuid.NullUUID{UUID: req.CategoryID, Valid: true}
+			ids, orderedFrom, err = s.orderedCategoryDraw(ctx, profileID, req.CategoryID, count)
 		case req.CategoryID != uuid.Nil:
 			categoryID = uuid.NullUUID{UUID: req.CategoryID, Valid: true}
 			ids, err = s.Q.RandomQuestionIDsByCategory(ctx, sqlc.RandomQuestionIDsByCategoryParams{
@@ -366,6 +370,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		TimeLimitSec:  timeLimit,
 		ErrorsAllowed: errorsAllowed,
 		QuestionIds:   ids,
+		OrderedFrom:   orderedFrom,
 	})
 	if err != nil {
 		return SessionView{}, err
@@ -566,6 +571,12 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 		SessionID: sessionID, QuestionID: questionID, AnswerID: answerID,
 		IsCorrect: ans.IsCorrect, Position: assigned.Position,
 	}); err != nil {
+		return AnswerResult{}, err
+	}
+	// In the same transaction as the answer: a class's position in a topic must
+	// never advance past a question whose answer was rolled back, nor lag one
+	// that was recorded. A no-op for every session that is not an ordered walk.
+	if err := advanceOrderedCursor(ctx, q, profileID, row); err != nil {
 		return AnswerResult{}, err
 	}
 	if !opts.SkipFSRS {

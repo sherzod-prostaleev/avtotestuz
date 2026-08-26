@@ -107,6 +107,14 @@ export interface StartSessionOptions {
   variant_from?: number;
   variant_to?: number;
   question_count?: number;
+  /**
+   * Practice, category selector only: walk the topic in its source order,
+   * resuming where this profile stopped, instead of drawing at random. It is
+   * what "Hammasi" means for a topic — a teacher taking a class through all
+   * 337 road-sign questions needs the same sequence every lesson and needs to
+   * continue at 124. The backend ignores it for any other selector.
+   */
+  ordered?: boolean;
   locale?: string;
 }
 
@@ -457,6 +465,11 @@ export function useSessionEngine(_initialSessionId?: string) {
         }
         if (options?.question_count !== undefined && options.question_count !== null) {
           payload.count = options.question_count;
+        }
+        // Only ever sent as true: absent means the random draw every other
+        // practice option wants, which is also what an older client sends.
+        if (options?.ordered) {
+          payload.ordered = true;
         }
 
         const created = await apiPost<StartSessionResponse>("sessions", payload);
