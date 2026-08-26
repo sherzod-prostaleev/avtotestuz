@@ -554,6 +554,8 @@
     "imageWithoutCount": "{count} та савол",
     "countLabel": "Саволлар сони",
     "countAll": "Ҳаммаси",
+    "orderedResume": "{next}-саволдан давом этади · {remaining} та қолди",
+    "orderedReset": "Бошидан бошлаш",
     "countCustom": "Ўзим киритаман",
     "countCustomPlaceholder": "Масалан 40",
     "allowanceRemaining": "Бугун {count} та савол қолди",

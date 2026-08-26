@@ -58,11 +58,19 @@ practice_cursor (
 )
 ```
 
-Per profile, per topic. On a classroom PC the profile is the station's shadow
-profile, so the cursor is the *room's* position: the teacher says "topic 5,
-all", the class reaches 123 today, and tomorrow starts at 124. That is the
-intended behaviour, chosen deliberately — a station has one profile and no way
-to tell one student from another.
+Per profile, per topic. On a classroom PC the profile is *that station's* shadow
+profile, so a 43-PC room keeps 43 independent positions: each seat resumes where
+that seat stopped.
+
+This is per-seat, not per-room, and that is the right shape even though it is
+not what an early draft of this document claimed. A single shared position
+across 43 machines would be actively broken — every student's answers would drag
+every other student's next question forward, and nobody could work at their own
+pace. Per-seat is also what a classroom actually does: students return to the
+same machine, and a topic walked at one desk continues at that desk. What the
+system cannot express is a teacher's "we as a class got to 123", and it should
+not pretend to: a station has one profile per machine and no way to tell one
+student from another.
 
 `exam_session` gains `ordered_from int` (null for every session that is not an
 ordered walk), recording the index the session started at.
@@ -81,13 +89,35 @@ ordered walk), recording the index the session started at.
 4. Store `ordered_from = cursor` on the session.
 
 **Advance.** When an answer is recorded in a session with `ordered_from` set,
-the cursor moves to `max(cursor, ordered_from + session_question.position)`.
-`position` is 1-based, so that is the index *after* the question just answered.
+the cursor moves to `max(cursor, ordered_from + p)`, where `p` is the
+**contiguous run of positions answered from the start of that session**.
 
 Advancing on **answer**, not on session creation, is the property that makes
 "continue from 123" true: a class that starts a 337-question session, answers
 123 and closes the browser resumes at 124, not at 337. `max` keeps it
 monotonic, so answering out of order inside a session never rewinds it.
+
+Two details in that sentence are load-bearing, and both were found by audit
+rather than by design:
+
+*The contiguous run, not the furthest question touched.* The session screen
+renders one clickable chip per question with no gating, so a student can scroll
+to the end of a 337-question walk and answer the last one. Counted as "the
+furthest position answered", that single click reads as a finished topic: the
+next draw wraps, the stored position is discarded, and the class's real place is
+gone with nothing on screen to recover it. The everyday version is quieter and
+worse — any forward jump silently buries the questions it skipped. Production
+already shows this shape: 30 of 504 answered practice sessions have a gap
+between the highest position answered and the number of answers.
+
+*Answers from an earlier walk are ignored.* The advance applies only when the
+session's `ordered_from` is not ahead of the stored cursor. Practice sessions
+are left open routinely — production holds 251, the oldest a month old — and the
+session history makes them reopenable, so without this one answer in a stale
+session would write that old walk's position over today's. A session of the
+current walk always satisfies the test, because `ordered_from` is the cursor as
+it stood when the session was drawn and the cursor only moves forward from
+there.
 
 **Reset.** "Boshidan boshlash" sets the cursor to 0. Needed because a new
 group of students starts the topic fresh while the previous group's position
@@ -140,9 +170,23 @@ each gets tests that fail loudly if it regresses:
 - A session of the whole topic, answered partway, leaves the cursor at exactly
   the count answered; the next draw begins at that question and contains the
   remainder.
-- Answering out of order inside a session never moves the cursor backwards.
+- Answering out of order inside a session never moves the cursor backwards, and
+  never moves it over material that was skipped: jumping ahead holds the
+  position, and filling the gap in afterwards releases it.
+- Answering the last question of a long walk is one question done, not a
+  finished topic.
+- An answer recorded in a session from an earlier walk (before a wrap or a
+  reset) leaves the current position alone.
 - Abandoning a session without answering leaves the cursor untouched.
 - Reaching the end wraps to 0, and the next draw is the topic from the start.
+- **The second lap advances like the first.** The wrap must be persisted, not
+  computed at draw time: the cursor only moves forward (the advance uses
+  `GREATEST`, which is what stops an out-of-order answer rewinding a class), so
+  a wrap that lived only in memory would leave 337 stored while the draw began
+  at 0. Answering the first question would then write `GREATEST(337, 1) = 337`,
+  the cursor would never move again, and the class would repeat the same
+  questions for the life of the topic. Testing only "the draw after the end
+  starts at question 1" does not catch this — the second lap has to be walked.
 - Reset returns the topic to 0.
 - 20 / 50 / 100 / manual, signs, ticket ranges and image-presence draws are
   still random and still ignore the cursor — a guard against the ordered path

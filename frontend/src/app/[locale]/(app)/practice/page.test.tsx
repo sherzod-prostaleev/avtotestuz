@@ -51,6 +51,7 @@ function mockEndpoints(overrides: Partial<Record<string, unknown>> = {}) {
     if (path.startsWith("categories")) return (overrides.categories ?? CATEGORIES) as never;
     if (path.startsWith("variants")) return (overrides.variants ?? VARIANTS) as never;
     if (path.startsWith("me/practice-allowance")) return (overrides.allowance ?? ALLOWANCE) as never;
+    if (path.startsWith("me/practice-progress")) return (overrides.progress ?? []) as never;
     if (path.startsWith("me/stats")) return (overrides.stats ?? { due_count: 0 }) as never;
     if (path.startsWith("me/mistakes")) {
       return (overrides.mistakes ?? {
@@ -300,6 +301,179 @@ describe("PracticePage", () => {
 
     expect(await screen.findByText("Chorrahalar")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeEnabled());
+  });
+});
+
+// "Ordered" is a property of "all questions of one topic" and nothing else, so
+// these tests are as much about where the flag must NOT appear as where it
+// must: a leak into the presets, a typed count, signs, ticket ranges or the
+// with-image selector turns a random draw into a cursor-advancing walk and
+// silently changes what every other practice mode gives the learner.
+describe("PracticePage ordered category walk", () => {
+  // priority_intersections sorts first, so it is the category the page selects
+  // on load — the one every case below is really about.
+  const PROGRESS = [{ category_code: "priority_intersections", next_index: 123, total: 334 }];
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    pushMock.mockReset();
+    mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
+  });
+
+  it("marks a category + Hammasi start as ordered", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=1260&category_id=priority_intersections&ordered=true"
+    );
+  });
+
+  it("leaves a preset count random", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: "50 ta savol" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=50&category_id=priority_intersections"
+    );
+  });
+
+  it("leaves a typed count random even when it equals the whole bank", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    // 1260 is exactly what Hammasi sends, so this pins that the flag follows
+    // the Hammasi control and not the number that happens to be in `count`.
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    fireEvent.change(screen.getByLabelText(/O'zim kiritaman/), { target: { value: "1260" } });
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=1260&category_id=priority_intersections"
+    );
+  });
+
+  it("leaves a non-category source random under Hammasi", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=1260&has_image=true"
+    );
+  });
+
+  it("shows where the topic resumes and how much of it is left", async () => {
+    mockEndpoints({ progress: PROGRESS });
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    // Nothing yet: the hint belongs to the Hammasi walk, not to the category.
+    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+
+    // next_index 123 is 0-based, so the next question is the 124th and 211 of
+    // the topic's 334 are still unseen.
+    expect(await screen.findByText("124-savoldan davom etadi · 211 ta qoldi")).toBeInTheDocument();
+  });
+
+  it("hides the hint for a topic at 0 and for a topic with no row at all", async () => {
+    mockEndpoints({
+      progress: [
+        { category_code: "priority_intersections", next_index: 0, total: 334 },
+        // stopping_parking is omitted entirely — a topic never started has no
+        // row, which the page must read as 0 rather than as missing data.
+      ],
+    });
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Boshidan boshlash" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /To'xtash va to'xtab turish/ }));
+    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the page usable when the position cannot be loaded", async () => {
+    // Same tolerance the page already gives me/stats: losing the position costs
+    // the hint and nothing else, because the ordered walk works without it.
+    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path.startsWith("categories")) return CATEGORIES as never;
+      if (path.startsWith("variants")) return VARIANTS as never;
+      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
+      if (path.startsWith("me/practice-progress")) throw new Error("progress unavailable");
+      return [] as never;
+    });
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeEnabled();
+  });
+
+  it("clears the position from Boshidan boshlash without starting a session", async () => {
+    let rows: unknown[] = PROGRESS;
+    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path.startsWith("categories")) return CATEGORIES as never;
+      if (path.startsWith("variants")) return VARIANTS as never;
+      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
+      if (path.startsWith("me/practice-progress")) return rows as never;
+      return [] as never;
+    });
+    const postSpy = vi.spyOn(apiClient, "apiPost").mockImplementation(async () => {
+      rows = [];
+      return { reset: true } as never;
+    });
+
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    await screen.findByText("124-savoldan davom etadi · 211 ta qoldi");
+
+    fireEvent.click(screen.getByRole("button", { name: "Boshidan boshlash" }));
+
+    expect(postSpy).toHaveBeenCalledWith("me/practice-progress/reset", {
+      category_id: "priority_intersections",
+    });
+    await waitFor(() => expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument());
+    // Clearing the position and beginning a lesson are two separate decisions.
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
+  // Documents a live gap in the agreed contract rather than papering over it:
+  // GET /categories returns `code` and no uuid, so a progress row identified
+  // only by category_id cannot be matched to the selected topic and the hint
+  // can never appear. The backend has to send category_code (or put the code
+  // in category_id) for the resume hint to work at all in production.
+  it("cannot match a row identified only by uuid", async () => {
+    mockEndpoints({
+      progress: [
+        { category_id: "3f1b2c4d-0000-4000-8000-000000000001", next_index: 123, total: 334 },
+      ],
+    });
+    renderWithIntl();
+    await screen.findByText("Chorrahalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
+    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
   });
 });
 

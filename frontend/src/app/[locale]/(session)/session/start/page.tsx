@@ -92,6 +92,14 @@ function SessionStartContent({ kiosk = false }: SessionStartContentProps) {
         if (Number.isInteger(count) && count > 0) options.question_count = count;
       }
 
+      // Practice -> one topic -> "Hammasi": walk the topic in order and resume
+      // where the class stopped. Matched against the exact string rather than
+      // any truthy value, so a stray "?ordered=0" cannot turn a random draw
+      // into an ordered one.
+      if (searchParams.get("ordered") === "true") {
+        options.ordered = true;
+      }
+
       const session = await startSession(mode, options);
       if (session?.id) {
         router.replace(

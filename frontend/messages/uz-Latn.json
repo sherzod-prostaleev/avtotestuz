@@ -554,6 +554,8 @@
     "imageWithoutCount": "{count} ta savol",
     "countLabel": "Savollar soni",
     "countAll": "Hammasi",
+    "orderedResume": "{next}-savoldan davom etadi · {remaining} ta qoldi",
+    "orderedReset": "Boshidan boshlash",
     "countCustom": "O'zim kiritaman",
     "countCustomPlaceholder": "Masalan 40",
     "allowanceRemaining": "Bugun {count} ta savol qoldi",

@@ -174,7 +174,7 @@ SELECT id FROM sign WHERE code = $1;
 -- name: CreateExamSession :one
 WITH created AS (
   INSERT INTO exam_session
-    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total)
+    (profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, total, ordered_from)
   VALUES (
     sqlc.arg(profile_id),
     sqlc.arg(mode),
@@ -184,7 +184,8 @@ WITH created AS (
     sqlc.arg(locale),
     sqlc.arg(time_limit_sec),
     sqlc.arg(errors_allowed),
-    COALESCE(cardinality(sqlc.arg(question_ids)::uuid[]), 0)
+    COALESCE(cardinality(sqlc.arg(question_ids)::uuid[]), 0),
+    sqlc.narg(ordered_from)
   )
   RETURNING *
 ), assigned AS (
@@ -276,3 +277,101 @@ SELECT * FROM variant_progress WHERE profile_id = $1;
 
 -- name: GetVariantByID :one
 SELECT * FROM variant WHERE id = $1;
+
+-- name: OrderedQuestionIDsByCategory :many
+-- The topic in its source order, so "all questions of one topic" is the same
+-- walk every time and can be resumed from an offset.
+--
+-- source_ext_id is 'avtoimtihon-<N>' for all 1260 questions in the bank and
+-- every N is distinct, which makes the numeric suffix a total, unique ordering
+-- -- and the same numbering the source material itself uses, so it means
+-- something to the teacher reading it. NULLIF guards an id with no digits: it
+-- sorts last instead of failing the cast, and source_ext_id then id keep the
+-- order total even then. No index: the whole bank is 1260 rows.
+SELECT q.id
+FROM question q
+WHERE q.validation_status = 'valid'
+  AND q.category_id = sqlc.arg(category_id)
+ORDER BY NULLIF(regexp_replace(q.source_ext_id, '\D', '', 'g'), '')::bigint NULLS LAST,
+         q.source_ext_id,
+         q.id
+OFFSET sqlc.arg(skip)
+LIMIT sqlc.arg(limit_count);
+
+-- name: CountValidQuestionsInCategory :one
+-- Named "InCategory", not "ByCategory": learning.sql already owns
+-- CountValidQuestionsByCategory, which counts every category at once for the
+-- practice screen. This one answers about a single topic, which is what the
+-- ordered draw needs to know before it can decide whether the cursor has run
+-- off the end and should wrap.
+SELECT count(*)::int FROM question
+WHERE category_id = sqlc.arg(category_id) AND validation_status = 'valid';
+
+-- name: GetPracticeCursor :one
+SELECT next_index FROM practice_cursor
+WHERE profile_id = sqlc.arg(profile_id) AND category_id = sqlc.arg(category_id);
+
+-- name: AdvancePracticeCursor :exec
+-- Moves a profile's place in a topic to the end of what it has actually worked
+-- through, which is not the same as the furthest question it has touched.
+--
+-- `prefix` is the contiguous run of positions answered from the start of this
+-- session. position - row_number() is 0 for exactly that run: the first gap
+-- makes it positive and it never returns to 0. This is what stops a student who
+-- scrolls the question navigator to the end and answers the last chip from
+-- marking a 337-question topic complete -- which would wrap the walk and
+-- discard the class's real position -- and stops any forward jump from silently
+-- burying the questions it skipped over.
+--
+-- The ordered_from <= current guard drops answers that belong to a walk the
+-- class has already left behind. Practice sessions are left open routinely and
+-- the history makes them reopenable, so without it one answer in a month-old
+-- session would write that old walk's position over today's and skip
+-- everything in between. A session of the current walk always satisfies it:
+-- ordered_from is the cursor as it stood when the session was drawn, and the
+-- cursor only ever moves forward from there.
+--
+-- GREATEST keeps the write monotone, so answering out of order within the
+-- current session, or two answers racing, can never rewind the class.
+WITH prefix AS (
+  SELECT COALESCE(MAX(position), 0)::int AS done
+  FROM (
+    SELECT position, position - (ROW_NUMBER() OVER (ORDER BY position))::int AS gap
+    FROM session_answer WHERE session_id = sqlc.arg(session_id)
+  ) runs
+  WHERE gap = 0
+), current AS (
+  SELECT COALESCE((SELECT next_index FROM practice_cursor
+                    WHERE profile_id = sqlc.arg(profile_id)
+                      AND category_id = sqlc.arg(category_id)), 0)::int AS at
+)
+INSERT INTO practice_cursor AS pc (profile_id, category_id, next_index)
+SELECT sqlc.arg(profile_id), sqlc.arg(category_id), sqlc.arg(ordered_from)::int + prefix.done
+FROM prefix, current
+WHERE sqlc.arg(ordered_from)::int <= current.at
+ON CONFLICT (profile_id, category_id) DO UPDATE
+SET next_index = GREATEST(pc.next_index, EXCLUDED.next_index),
+    updated_at = now();
+
+-- name: ResetPracticeCursor :exec
+-- Deleting rather than zeroing: no row IS the start, so this keeps the table
+-- free of rows that say nothing and makes ListPracticeProgress omit them
+-- without a filter.
+DELETE FROM practice_cursor
+WHERE profile_id = sqlc.arg(profile_id) AND category_id = sqlc.arg(category_id);
+
+-- name: ListPracticeProgress :many
+-- Returns the category's code as well as its id, because the code is the only
+-- identifier the practice screen holds: GET /categories answers with code,
+-- name, sort_order and question_count and no uuid at all (content.CategoryDTO).
+-- A progress list keyed only by uuid would be unmatchable by the one screen
+-- that needs it.
+SELECT pc.category_id,
+       c.code AS category_code,
+       pc.next_index,
+       (SELECT count(*) FROM question q
+         WHERE q.category_id = pc.category_id AND q.validation_status = 'valid')::int AS total
+FROM practice_cursor pc
+JOIN category c ON c.id = pc.category_id
+WHERE pc.profile_id = sqlc.arg(profile_id)
+ORDER BY c.sort_order, c.code;
