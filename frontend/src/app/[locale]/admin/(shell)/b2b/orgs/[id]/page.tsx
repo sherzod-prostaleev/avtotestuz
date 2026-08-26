@@ -119,6 +119,32 @@ export default function AdminB2BOrgDetailPage() {
     await load();
   }
 
+  // The way back from revoke. The PC keeps its station id and its sealed key
+  // across a revoke, so restoring the row is all it takes -- the agent on that
+  // machine recovers by itself at its next token renewal, within two minutes,
+  // with nobody going to the classroom. Before this existed, a school whose
+  // PCs had been revoked needed an engineer with database access.
+  //
+  // A full licence is the one refusal worth naming separately: "could not
+  // reactivate" would send an operator looking for a fault, when the answer is
+  // to free a seat or buy one.
+  async function reactivateStation(stationId: string) {
+    setError(null);
+    const res = await fetch(`/api/admin/b2b/orgs/${params.id}/stations/${stationId}/reactivate`, {
+      method: "POST",
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      setError(
+        body?.error?.code === "seats_exhausted"
+          ? t("errorReactivateSeats")
+          : t("errorReactivateStation"),
+      );
+      return;
+    }
+    await load();
+  }
+
   // Separate from revokeStation on purpose: revoke frees the seat and leaves
   // the PC in the list, purge erases the row and the shadow profile it
   // practised under. A confirm() because there is nothing to undo it with.
@@ -326,7 +352,11 @@ export default function AdminB2BOrgDetailPage() {
                       <Button type="button" size="sm" variant="outline" onClick={() => void revokeStation(s.id)}>
                         {t("revokeStation")}
                       </Button>
-                    ) : null}
+                    ) : (
+                      <Button type="button" size="sm" onClick={() => void reactivateStation(s.id)}>
+                        {t("reactivateStation")}
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       size="sm"

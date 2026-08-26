@@ -292,6 +292,38 @@ func (h *Handler) revokeB2BStation(w http.ResponseWriter, r *http.Request) {
 	httpx.Data(w, http.StatusOK, map[string]any{"revoked": true})
 }
 
+// reactivateB2BStation is the way back from revoke, and the panel had no such
+// route until 2026-08-26 made the absence expensive: an enrollment bug revoked
+// 37 classroom PCs at one school, every one of them otherwise healthy, and the
+// only way to put them back was a hand-written UPDATE against the production
+// database -- no audit trail, no record of who decided it, and nothing the
+// school could do without an engineer.
+//
+// A POST, not a DELETE: this one puts something back. It sits behind the same
+// permission as revoke, because the pair is one decision -- how many of a
+// school's paid seats are spent, and on which machines.
+func (h *Handler) reactivateB2BStation(w http.ResponseWriter, r *http.Request) {
+	orgID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	stationID, ok := parseUUIDParam(w, r, "stationID")
+	if !ok {
+		return
+	}
+	if err := h.b2bStore().ReactivateStation(r.Context(), orgID, stationID); err != nil {
+		writeB2BStoreErr(w, err, "reactivate station failed")
+		return
+	}
+	claims, _ := FromContext(r.Context())
+	adminID := claims.AdminUserID
+	_ = h.Svc.Store.WriteAudit(r.Context(), &adminID, "b2b.stations.reactivate", "b2b_station", stationID.String(),
+		map[string]any{"status": "revoked"}, map[string]any{"status": "active", "org_id": orgID.String()},
+		clientIP(r), r.UserAgent(), middleware.GetReqID(r.Context()),
+	)
+	httpx.Data(w, http.StatusOK, map[string]any{"reactivated": true})
+}
+
 // deleteB2BStation is the irreversible counterpart to revoke: the row and the
 // PC's shadow profile go away entirely. Kept as its own route rather than a
 // flag on the revoke call so the destructive action needs its own click in the

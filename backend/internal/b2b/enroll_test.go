@@ -272,9 +272,20 @@ func TestEnrollStationReclaimsASeatOnlyFromAMachineThatWentQuiet(t *testing.T) {
 	}
 
 	// Silent for longer than staleSeatAfter: this PC is gone, not busy.
-	if _, err := pool.Exec(ctx,
-		`UPDATE b2b_station SET last_seen_at = now() - interval '2 hours' WHERE id = $1`,
-		first.StationID); err != nil {
+	//
+	// Both timestamps are aged, because reclaimStaleSeat measures silence from
+	// the later of the two and that is the only shape production produces here:
+	// activated_at is stamped when a row joins the licence and last_seen_at
+	// moves forward with every token after it, so a PC that enrolled a while
+	// ago and then went quiet has both in the past. (The one case where
+	// activated_at is the later of the two is a station an admin has just
+	// reactivated -- which is exactly the case that must NOT be reclaimable,
+	// and is covered by its own test.)
+	if _, err := pool.Exec(ctx, `
+		UPDATE b2b_station
+		   SET last_seen_at = now() - interval '2 hours',
+		       activated_at = now() - interval '3 hours'
+		 WHERE id = $1`, first.StationID); err != nil {
 		t.Fatal(err)
 	}
 

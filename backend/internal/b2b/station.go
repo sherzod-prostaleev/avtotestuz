@@ -142,6 +142,105 @@ func (s Store) RevokeStation(ctx context.Context, orgID, stationID uuid.UUID) er
 	return nil
 }
 
+// ReactivateStation puts a revoked station back on its org's licence.
+//
+// It is the missing half of RevokeStation, and it was missing at the worst
+// possible time. On 2026-08-26 a 55-seat school ended the day with 37 of its
+// classroom PCs revoked -- not by an admin, but by an enrollment bug that read
+// a cloned disk image as the same machine re-imaged. Every one of those PCs was
+// otherwise perfectly healthy: the row, the keypair and the shadow profile were
+// all intact, and the agent on each machine was still asking for a token every
+// two minutes. All that stood between the school and a working classroom was a
+// single column, and the panel had no way to write it. The repair had to be a
+// hand-written UPDATE against production.
+//
+// So nobody has to visit a machine: the agent keeps its station id and its
+// sealed key across a revoke, so the PC recovers on its own at its next
+// renewal, within two minutes, with nothing typed at the keyboard.
+//
+// activated_at is stamped, and that is not bookkeeping. reclaimStaleSeat
+// judges a station by how long it has been silent, and a station that was just
+// restored has by definition been silent the whole time it was revoked -- it
+// could not renew a token without an active row. On a full licence it would
+// look like the most abandoned row in the org and lose its seat to the very
+// next enrollment. Stamping it says: this one was put back deliberately, give
+// it the same grace a machine that is merely switched off gets.
+func (s Store) ReactivateStation(ctx context.Context, orgID, stationID uuid.UUID) error {
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// The same org lock EnrollStation takes, for the same reason: the seat
+	// count is read in one statement and spent in another, so without it an
+	// admin clicking down a list of forty revoked PCs would have every click
+	// read the same pre-click count and walk straight past the cap.
+	var orgStatus string
+	if err := tx.QueryRow(ctx,
+		`SELECT status FROM b2b_org WHERE id = $1 FOR UPDATE`, orgID).Scan(&orgStatus); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	if orgStatus != "active" {
+		// A suspended school's stations get no VIP anyway (ActiveStationVIP
+		// joins on o.status = 'active'), so this would spend a seat and change
+		// nothing anyone could see.
+		return ErrOrgSuspended
+	}
+
+	// Must exist, belong to this org, and actually be revoked. A station id is
+	// not a secret -- it sits in agent config and in every admin station list
+	// -- so the org in the path has to be the org that owns the row.
+	var revoked bool
+	if err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM b2b_station
+			WHERE id = $1 AND org_id = $2 AND status = 'revoked'
+		)`, stationID, orgID).Scan(&revoked); err != nil {
+		return err
+	}
+	if !revoked {
+		return ErrNotFound
+	}
+
+	var seats int64
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE(SUM(seats), 0) FROM b2b_org_license
+		WHERE org_id = $1 AND starts_at <= now() AND ends_at > now()`, orgID).Scan(&seats); err != nil {
+		return err
+	}
+	if seats <= 0 {
+		return ErrNoLicense
+	}
+	var active int64
+	if err := tx.QueryRow(ctx,
+		`SELECT COUNT(*) FROM b2b_station WHERE org_id = $1 AND status = 'active'`, orgID).Scan(&active); err != nil {
+		return err
+	}
+	if active >= seats {
+		// Reactivation is the one route back onto a licence that does not go
+		// through EnrollStation. Without this check it would be a hole straight
+		// through the seat cap: revoke ten PCs on a five-seat licence, then put
+		// all ten back.
+		return ErrSeatsExhausted
+	}
+
+	if _, err := tx.Exec(ctx, `
+		UPDATE b2b_station SET status = 'active', activated_at = now()
+		WHERE id = $1 AND org_id = $2 AND status = 'revoked'`, stationID, orgID); err != nil {
+		if isUniqueViolation(err) {
+			// b2b_station_active_hwid_key_uidx: this exact installation --
+			// same machine, same keypair -- already holds an active row.
+			return ErrConflict
+		}
+		return err
+	}
+	return tx.Commit(ctx)
+}
+
 // DeleteStation removes a station row outright, together with the shadow
 // profile it practised under.
 //

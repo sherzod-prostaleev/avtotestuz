@@ -96,4 +96,77 @@ describe("Admin B2B organization detail", () => {
     );
     expect(replace).toHaveBeenCalledWith("/uz-Latn/admin/b2b/orgs");
   });
+
+  // The row of a revoked PC must offer the way back, and only that row. This
+  // is the control that was missing on 2026-08-26, when 37 revoked classroom
+  // PCs could only be restored with a hand-written UPDATE against production.
+  it("offers a revoked PC the way back, and an active one only the way out", async () => {
+    const withStations = {
+      ...detail,
+      stations: [
+        { id: "33333333-3333-4333-8333-333333333333", label: "PC-LIVE", status: "active" },
+        { id: "44444444-4444-4444-8444-444444444444", label: "PC-DOWN", status: "revoked" },
+      ],
+      seats_used: 1,
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/stats")) {
+        return Promise.resolve(json({ data: { active_seats: 30, seats_used: 1 } }));
+      }
+      if (url.endsWith("/reactivate")) {
+        return Promise.resolve(json({ data: { reactivated: true } }));
+      }
+      return Promise.resolve(json({ data: withStations }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText(/PC-DOWN/)).toBeInTheDocument();
+
+    // One of each: the live PC can be disconnected, the revoked one restored.
+    const restore = screen.getAllByRole("button", { name: messages.AdminB2B.reactivateStation });
+    expect(restore).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: messages.AdminB2B.revokeStation }),
+    ).toHaveLength(1);
+
+    await user.click(restore[0]);
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        `/api/admin/b2b/orgs/${detail.org.id}/stations/44444444-4444-4444-8444-444444444444/reactivate`,
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+  });
+
+  // A full licence is the refusal an operator will actually hit, and "could
+  // not reactivate" would send them hunting for a fault that isn't there.
+  it("says a full licence is why the PC did not come back", async () => {
+    const withStations = {
+      ...detail,
+      stations: [{ id: "44444444-4444-4444-8444-444444444444", label: "PC-DOWN", status: "revoked" }],
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/stats")) {
+        return Promise.resolve(json({ data: { active_seats: 30, seats_used: 30 } }));
+      }
+      if (url.endsWith("/reactivate")) {
+        return Promise.resolve(
+          json({ error: { code: "seats_exhausted", message: "full" } }, 409),
+        );
+      }
+      return Promise.resolve(json({ data: withStations }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole("button", { name: messages.AdminB2B.reactivateStation }),
+    );
+    expect(await screen.findByText(messages.AdminB2B.errorReactivateSeats)).toBeInTheDocument();
+  });
 });

@@ -288,6 +288,9 @@ func (h *Handler) Routes(r chi.Router) {
 			br.Post("/b2b/orgs/{id}/licenses", h.createB2BLicense)
 			br.Post("/b2b/orgs/{id}/partner-promos", h.createB2BPartnerPromo)
 			br.Delete("/b2b/orgs/{id}/stations/{stationID}", h.revokeB2BStation)
+			// Revoke's counterpart. Same permission: the two together are one
+			// decision about how a school's paid seats are spent.
+			br.Post("/b2b/orgs/{id}/stations/{stationID}/reactivate", h.reactivateB2BStation)
 			br.Post("/b2b/orgs/{id}/installer", h.openB2BInstaller)
 			br.Post("/b2b/orgs/{id}/installer/rotate", h.rotateB2BInstaller)
 		})

@@ -57,14 +57,22 @@ const staleSeatAfter = 30 * time.Minute
 // revoke whichever PC happens to look idlest, only to let a machine that is
 // being re-imaged step back into the seat it already had. The caller holds
 // the org row lock, so the count it read stays true through this update.
+//
+// Silence is measured from the later of last_seen_at and activated_at, not
+// from last_seen_at alone. A station an admin has just reactivated has been
+// silent for as long as it was revoked -- it could not renew a token without
+// an active row -- so on last_seen_at alone it reads as the most abandoned row
+// in the org and the next enrollment would take back the seat that was just
+// deliberately given to it. activated_at is when the row was last put on the
+// licence, which is exactly the grace period it deserves.
 func reclaimStaleSeat(ctx context.Context, tx pgx.Tx, orgID uuid.UUID, hwid string) (bool, error) {
 	tag, err := tx.Exec(ctx, `
 		UPDATE b2b_station SET status = 'revoked'
 		WHERE id = (
 			SELECT id FROM b2b_station
 			WHERE org_id = $1 AND hwid_hash = $2 AND status = 'active'
-			  AND last_seen_at < now() - make_interval(secs => $3)
-			ORDER BY last_seen_at ASC
+			  AND GREATEST(last_seen_at, activated_at) < now() - make_interval(secs => $3)
+			ORDER BY GREATEST(last_seen_at, activated_at) ASC
 			LIMIT 1
 		)`, orgID, hwid, staleSeatAfter.Seconds())
 	if err != nil {
