@@ -576,7 +576,7 @@ export default function DashboardPage() {
             </Card>
           </Link>
 
-          {/* 3. Mashq Rejimi */}
+          {/* 3. Mavzulashtirilgan testlar */}
           <Link href={`/${locale}/practice`} className="block min-w-0">
             <Card className="glass-card group flex h-full flex-col justify-between p-3 sm:p-5 md:p-6">
               <div>

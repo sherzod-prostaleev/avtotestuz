@@ -179,7 +179,7 @@
     "navExamTitle": "Imtihon simulyatsiyasi",
     "navExamDesc": "Rasmiy imtihon: 20 savollik yoki 50 savollik",
     "examMeta": "20 yoki 50 savol",
-    "navPracticeTitle": "Mashq rejimi",
+    "navPracticeTitle": "Mavzulashtirilgan testlar",
     "navPracticeDesc": "Kategoriya yoki yo'l belgisi bo'yicha mashq qiling",
     "practiceMeta": "Kategoriya / belgilar",
     "navMistakesTitle": "Xatolar ustida ishlash",
@@ -258,7 +258,7 @@
     "navDashboard": "Bosh sahifa",
     "navTickets": "Biletlar ({count} ta)",
     "navExam": "Imtihon simulyatsiyasi",
-    "navPractice": "Mashq rejimi",
+    "navPractice": "Mavzulashtirilgan testlar",
     "navSigns": "Yo'l belgilari",
     "navMistakes": "Xatolar banki",
     "navSaved": "Saqlangan savollar",
@@ -270,7 +270,7 @@
     "navMore": "Ko'proq",
     "navTabHome": "Asosiy",
     "navTabTickets": "Biletlar",
-    "navTabPractice": "Mashq",
+    "navTabPractice": "Mavzular",
     "navTabExam": "Imtihon",
     "navTabMore": "Menyu",
     "viewProfile": "Profilni ko'rish",
@@ -288,7 +288,7 @@
     "navDashboard": "Bosh sahifa",
     "navTickets": "Biletlar",
     "navSigns": "Yo'l belgilari",
-    "navPractice": "Mashq",
+    "navPractice": "Mavzular",
     "navMistakes": "Xatolar",
     "streakLabel": "{count} kunlik streak",
     "vipActive": "VIP obuna faol",
@@ -423,7 +423,7 @@
     "subtitle": "63 ta bilet — rasmiy imtihon standartiga mos",
     "heroTitle": "Biletlarni bosqichma-bosqich yoping",
     "heroDescription": "Har bir bilet — rasmiy imtihon formatidagi 20 ta savol. 1-bilet bepul; qolganlari uchun VIP kerak. VIP da har biletda kamida 10 ta to'g'ri — keyingisi ochiladi.",
-    "heroEmpty": "Barcha ochiq biletlar yopildi. Mashq rejimida davom eting.",
+    "heroEmpty": "Barcha ochiq biletlar yopildi. Mavzularda davom eting.",
     "unlockHint": "VIP: 10 ta to'g'ri → keyingi bilet ochiladi",
     "filterAll": "Hammasi",
     "filterCompleted": "Tugallangan",
@@ -455,7 +455,7 @@
     "nextTicketLabel": "Keyingi bilet",
     "nextTicketBest": "Eng yaxshi natija: {best}/{total}",
     "allDoneTitle": "Hammasi yopildi",
-    "goToPractice": "Mashq rejimiga o'tish"
+    "goToPractice": "Mavzularga o'tish"
   },
   "Signs": {
     "title": "Yo'l belgilari katalogi",
@@ -487,11 +487,11 @@
     "questionCountLabel": "{count} ta savol",
     "practiceThisSign": "Shu belgi bo'yicha mashq",
     "noQuestionsForSign": "Bu belgi uchun bog'langan savol hali yo'q",
-    "backToPractice": "Mashq rejimiga qaytish"
+    "backToPractice": "Mavzularga qaytish"
   },
   "Practice": {
     "backHome": "Bosh sahifaga qaytish",
-    "title": "Mashq rejimi",
+    "title": "Mavzulashtirilgan testlar",
     "subtitle": "Aynan o'zingiz qiynalayotgan kategoriya yoki yo'l belgisi bo'yicha mashq qiling",
     "heroModeTitle": "Faol yo'nalish",
     "heroCategoryBody": "Kategoriya bo'yicha mashq qilish zaif mavzuni tez yopadi. Tanlangan mavzu, savol soni va start tugmasi bitta oqimda.",
@@ -594,7 +594,7 @@
     "completedVariantBody": "Bilet yakunlandi. Javoblar tahlilini ko'rib, keyingi tayyorgarlik qadamiga o'ting.",
     "completedPracticeBody": "Mashq yakunlandi. Natijadan zaif mavzularni aniqlash uchun foydalaning.",
     "completedMistakesBody": "Xatolar takrori yakunlandi. Mustahkamlangan savollar keyingi takrorlash jadvaliga o'tadi.",
-    "backToPractice": "Mashqqa qaytish",
+    "backToPractice": "Mavzularga qaytish",
     "backToMistakes": "Xatolarga qaytish",
     "passedTitle": "Tabriklaymiz — o'tdingiz!",
     "failedTitle": "Bu safar chiqmadi",
@@ -721,7 +721,7 @@
     "mockNotEligible": "Bosh imtihon hali ochilmagan: o'rganilgan savollar hajmi va bilim darajasi talabga yetmagan. Boshqaruv panelidagi kartada qancha qolganini ko'rishingiz mumkin.",
     "nothingDue": "Hozir takrorlash navbatida savol yo'q. Biroz mashq qilib, keyinroq qayting.",
     "goToPremium": "VIP tariflarini ko'rish",
-    "backToPractice": "Mashqqa qaytish",
+    "backToPractice": "Mavzularga qaytish",
     "backToDashboard": "Boshqaruv paneliga qaytish",
     "backToTickets": "Biletlarga qaytish",
     "backToStation": "Sinfxonaga qaytish"
@@ -1309,7 +1309,7 @@
     "s4Title": "4. O'qishga qanday bog'lanadi?",
     "s4Body": "Nazariy bilish jarimalardan oldin keladi: belgilar katalogi va bilet mashqi qoidalarni eslashga yordam beradi. Katalog qo'shilganda shu sahifa rasmiy manbaga bog'langan ma'lumotnoma bo'ladi.",
     "ctaSigns": "Belgilarni ko'rish",
-    "ctaPractice": "Mashqqa kirish"
+    "ctaPractice": "Mavzularni ko'rish"
   },
   "AdminNav": {
     "badge": "Admin",
@@ -2158,7 +2158,7 @@
   },
   "Station": {
     "title": "Sinfxona",
-    "practice": "Mashq qilish",
+    "practice": "Mavzular",
     "tickets": "Biletlar",
     "exam": "Imtihon",
     "signs": "Yo'l belgilari",

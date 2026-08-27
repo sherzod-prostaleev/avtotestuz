@@ -207,7 +207,7 @@ describe("SessionStartPage", () => {
         "Bugungi bepul mashq limitingiz tugadi. Ertaga davom eting yoki VIP obunasini oling!"
       )
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Mashqqa qaytish" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mavzularga qaytish" }));
     expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/practice");
   });
 });
@@ -249,9 +249,9 @@ describe("SessionStartPage kiosk mode", () => {
   it.each([
     ["vip_required", "active entitlement required", "Sinfxonaga qaytish"],
     ["previous_ticket_required", "complete the previous ticket first", "Biletlarga qaytish"],
-    ["daily_limit_reached", "daily practice limit reached", "Mashqqa qaytish"],
+    ["daily_limit_reached", "daily practice limit reached", "Mavzularga qaytish"],
     ["mock_not_eligible", "not eligible for grand mock", "Sinfxonaga qaytish"],
-    ["nothing_due", "nothing due for review", "Mashqqa qaytish"],
+    ["nothing_due", "nothing due for review", "Mavzularga qaytish"],
     ["network_error", "backend unreachable", "Biletlarga qaytish"],
   ])("routes the %s error to a kiosk-reachable destination", (code, message, actionLabel) => {
     mockSessionEngine({ code, message } as SessionError);

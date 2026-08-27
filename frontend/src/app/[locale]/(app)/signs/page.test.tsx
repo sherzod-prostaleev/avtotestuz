@@ -202,7 +202,7 @@ describe("SignsPage kiosk mode", () => {
     mockSigns();
     renderKiosk();
 
-    const backLink = screen.getByRole("link", { name: /Mashq rejimiga qaytish/ });
+    const backLink = screen.getByRole("link", { name: /Mavzularga qaytish/ });
     expect(backLink).toHaveAttribute("href", "/uz-Latn/station/practice");
   });
 

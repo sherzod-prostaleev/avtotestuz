@@ -724,7 +724,7 @@ describe("SessionPage kiosk mode", () => {
     );
     renderKioskPage();
 
-    fireEvent.click(screen.getByRole("button", { name: "Mashqqa qaytish" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mavzularga qaytish" }));
     fireEvent.click(screen.getByRole("button", { name: "Bosh sahifa" }));
 
     expect(navigation.push).toHaveBeenCalledTimes(2);
