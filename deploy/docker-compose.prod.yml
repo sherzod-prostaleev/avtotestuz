@@ -128,10 +128,10 @@ services:
       - -ec
       - |
         until mc alias set local http://minio:9000 "$${MINIO_ROOT_USER}" "$${MINIO_ROOT_PASSWORD}"; do sleep 1; done
-        mc mb --ignore-existing -p local/media
+        mc mb -p local/media
         support_bucket="$${MINIO_SUPPORT_BUCKET:-$${MINIO_BUCKET:-support-attachments}}"
         case "$$support_bucket" in ''|*[!a-z0-9.-]*) echo "invalid support bucket" >&2; exit 2;; esac
-        mc mb --ignore-existing -p "local/$$support_bucket"
+        mc mb -p "local/$$support_bucket"
         # Preserve versions only in the dedicated support bucket.  Do not
         # turn on unbounded versioning for the legacy/public media bucket.
         if [ "$$support_bucket" != media ]; then mc version enable "local/$$support_bucket"; fi
