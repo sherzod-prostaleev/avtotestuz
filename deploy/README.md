@@ -252,3 +252,34 @@ one manual step they keep themselves current.
 make load-test                          # needs k6 + running API
 # docs: deploy/load-test/README.md
 ```
+
+## Docker build cache (disk)
+
+BuildKit keeps every layer it has ever built and reclaims none of it. On
+2026-08-27 that was 503 entries holding **30 GB** on a 72 GB disk that had
+reached 77% full; pruning them took it to 35%.
+
+Read the `Build Cache` row, not the `Images` row. `docker system df` reported
+"Images 34 GB, 28.89 GB reclaimable (84%)" and pointed at 64 accumulated image
+tags — but with the cache gone those images occupied 5.25 GB in total, 80 MB of
+it reclaimable, because their layers are shared with the running ones. Deleting
+old `rollback-*` tags would have freed almost nothing and cost the ability to
+roll back.
+
+A weekly timer keeps it bounded (Sunday 03:40 UTC, clear of the 02:15 backup),
+keeping the last week so incremental builds stay fast:
+
+```bash
+install -m 0755 deploy/prune-build-cache.sh /opt/drivergo/deploy/
+install -m 0644 deploy/systemd/drivergo-prune-build-cache.service /etc/systemd/system/
+install -m 0644 deploy/systemd/drivergo-prune-build-cache.timer   /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable --now drivergo-prune-build-cache.timer
+systemctl start drivergo-prune-build-cache.service   # run once now
+journalctl -u drivergo-prune-build-cache.service -n 20
+```
+
+Weekly rather than after each deploy: deploys here are manual and irregular, so
+a schedule catches the growth whoever ran the build and whether or not they
+remembered. Run it by hand any time with `deploy/prune-build-cache.sh`;
+`BUILD_CACHE_KEEP` overrides the one-week window.

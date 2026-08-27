@@ -1,0 +1,17 @@
+[Unit]
+Description=Reclaim Docker build cache weekly
+
+[Timer]
+# Weekly, not after each deploy: deploys here are manual and irregular, so a
+# schedule catches the growth whoever ran the build and whether or not they
+# remembered. Sunday 03:40 UTC sits clear of the 02:15 backup.
+OnCalendar=Sun *-*-* 03:40:00 UTC
+RandomizedDelaySec=20m
+AccuracySec=1m
+# Runs on the next boot if the machine was off when it was due -- the cache
+# does not shrink while nobody is looking.
+Persistent=true
+Unit=drivergo-prune-build-cache.service
+
+[Install]
+WantedBy=timers.target
