@@ -26,6 +26,8 @@
   "Landing": {
     "brandName": "Driver Go",
     "login": "Войти",
+    "haveAccountPrompt": "Уже есть аккаунт?",
+    "registerCta": "Регистрация",
     "updatedBadge": "Официальная база вопросов, обновлённая в 2026 году",
     "heroTitleBefore": "Войдите в экзамен",
     "heroTitleAccent": "готовым",

@@ -26,6 +26,8 @@
   "Landing": {
     "brandName": "Driver Go",
     "login": "Кириш",
+    "haveAccountPrompt": "Профилингиз борми?",
+    "registerCta": "Рўйхатдан ўтиш",
     "updatedBadge": "2026-йил янгиланган расмий саволлар базаси",
     "heroTitleBefore": "Имтиҳон залига",
     "heroTitleAccent": "тайёр",

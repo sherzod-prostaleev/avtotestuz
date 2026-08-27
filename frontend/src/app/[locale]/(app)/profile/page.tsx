@@ -191,7 +191,7 @@ export default function ProfilePage() {
               />
             </div>
 
-            <div className="sticky-cta-bar">
+            <div className="pt-2">
               <Button type="submit" variant="game" size="sm" className="w-full sm:w-auto" disabled={loading || saving || !profile}>
                 {saving ? t("saving") : t("save")}
               </Button>

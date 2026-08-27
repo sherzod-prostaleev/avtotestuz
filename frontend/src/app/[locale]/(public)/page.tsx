@@ -221,7 +221,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="flex min-h-screen flex-col bg-background text-foreground pb-[5.5rem] sm:pb-0">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       <header
         className="sticky top-0 z-40 w-full border-b border-border/60 bg-background/85 shadow-[0_8px_24px_-18px_hsl(var(--elev-ambient)/0.55)] backdrop-blur-md"
         style={{ paddingTop: "env(safe-area-inset-top)" }}
@@ -265,10 +265,10 @@ export default function LandingPage() {
               prefetch={false}
               href={`/${locale}/login`}
               aria-label={t("login")}
-              className={`${primaryCta} h-10 min-w-10 px-2.5 text-xs sm:h-9 sm:px-4`}
+              className={`${primaryCta} h-9 gap-1.5 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm`}
             >
-              <LogIn aria-hidden="true" className="h-4 w-4 sm:mr-1.5 sm:h-3.5 sm:w-3.5" />
-              <span className="hidden sm:inline">{t("login")}</span>
+              <LogIn aria-hidden="true" className="h-4 w-4 shrink-0 sm:h-3.5 sm:w-3.5" />
+              <span>{t("login")}</span>
             </Link>
           </div>
         </div>
@@ -308,6 +308,24 @@ export default function LandingPage() {
               <a href="#demo" className={heroOutlineCta}>
                 {t("ctaNoSignup")}
               </a>
+            </div>
+            <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground sm:text-sm">
+              <span>{t("haveAccountPrompt")}</span>
+              <Link
+                prefetch={false}
+                href={`/${locale}/login`}
+                className="font-bold text-accent underline-offset-4 hover:underline"
+              >
+                {t("login")}
+              </Link>
+              <span aria-hidden="true">·</span>
+              <Link
+                prefetch={false}
+                href={`/${locale}/register`}
+                className="font-bold text-accent underline-offset-4 hover:underline"
+              >
+                {t("registerCta")}
+              </Link>
             </div>
           </div>
 
@@ -592,13 +610,6 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
-
-      <div className="landing-sticky-cta">
-        <Link prefetch={false} href={heroCtaHref} className={`${heroPrimaryCta} w-full`}>
-          {heroCtaLabel}
-          <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0" />
-        </Link>
-      </div>
     </div>
   );
 }

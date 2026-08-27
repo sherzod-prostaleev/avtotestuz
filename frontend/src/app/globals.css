@@ -653,11 +653,6 @@
   animation: cockpitSweep 5.5s ease-in-out infinite;
 }
 
-.landing-sticky-cta {
-  @apply fixed inset-x-0 bottom-0 z-50 border-t border-border bg-background/95 px-4 py-3 backdrop-blur-md sm:hidden;
-  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-}
-
 /* App shell — thumb-zone tabs (phones only; drawer still holds full nav). */
 .app-bottom-nav {
   @apply fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-md md:hidden;

@@ -156,7 +156,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
               <p className="mt-2 text-sm font-semibold text-foreground">{t("browseHint")}</p>
             </div>
           </div>
-          <div className="sticky-cta-bar mt-5">
+          <div className="mt-5">
             <Link href={ticketsHref} className="block w-full">
               <Button as="span" variant="game" size="sm" className="w-full">
                 {t("browseTickets")}

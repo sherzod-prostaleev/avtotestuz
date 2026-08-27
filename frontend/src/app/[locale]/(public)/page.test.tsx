@@ -179,7 +179,7 @@ describe("LandingPage i18n and accessibility", () => {
     );
     renderWithIntl(localeCases[0]);
     const diagnosticLinks = await screen.findAllByRole("link", { name: "CMS diagnostika" });
-    expect(diagnosticLinks.length).toBeGreaterThanOrEqual(2);
+    expect(diagnosticLinks.length).toBeGreaterThanOrEqual(1);
     for (const item of diagnosticLinks) {
       expect(item).toHaveAttribute("href", "/uz-Latn/diagnostic");
     }

@@ -172,7 +172,7 @@ export default function MistakesPage() {
               <LockKeyhole className="mx-auto mb-3 h-12 w-12 text-gold" aria-hidden="true" />
               <h2 className="font-display text-xl font-bold">{t("vipRequired")}</h2>
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">{t("vipBody")}</p>
-              <div className="sticky-cta-bar mt-6">
+              <div className="mt-6">
                 <Link className={`${linkButtonClass} w-full sm:w-auto`} href={`/${locale}/premium`}>
                   {t("upgrade")}
                 </Link>
@@ -185,7 +185,7 @@ export default function MistakesPage() {
               <p className="mx-auto mt-2 max-w-xl text-sm text-muted-foreground">
                 {t("emptyBankBody")}
               </p>
-              <div className="sticky-cta-bar mt-6">
+              <div className="mt-6">
                 <Link className={`${linkButtonClass} w-full sm:w-auto`} href={`/${locale}/tickets`}>
                   {t("browseTickets")}
                 </Link>
@@ -210,7 +210,7 @@ export default function MistakesPage() {
                   <h2 className="font-display text-lg font-bold">{t("reviewTitle")}</h2>
                   <p className="mt-1 text-sm text-muted-foreground">{t("fsrsNote")}</p>
                 </div>
-                <div className="sticky-cta-bar sm:static sm:w-auto">
+                <div className="w-full sm:w-auto">
                   <Button variant="game" className="w-full sm:w-auto" onClick={handleStart} disabled={starting}>
                     {starting ? (
                       <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />

@@ -377,26 +377,6 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
           })}
         </div>
       )}
-
-      {!loading && !error && (
-        <div className="sticky-cta-bar sm:hidden">
-          {nextTicket ? (
-            <Button
-              type="button"
-              variant="game"
-              size="lg"
-              className="w-full"
-              onClick={() => handleStartTicket(nextTicket.ticket)}
-            >
-              {t("solve")}
-            </Button>
-          ) : (
-            <Button type="button" variant="outline" size="lg" className="w-full" onClick={() => router.push(practiceHref)}>
-              {t("goToPractice")}
-            </Button>
-          )}
-        </div>
-      )}
     </main>
   );
 }

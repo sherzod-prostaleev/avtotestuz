@@ -813,10 +813,8 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         <p className="text-center text-sm text-muted-foreground">{t("categoryCountUnavailable")}</p>
       )}
 
-      {/* Page-level so `sticky bottom-0` can pin to the viewport for the whole
-          scroll (inside a Card it could never leave the card's box). */}
       {source !== "sign" && source !== "category" && (
-        <div className="sticky-cta-bar">
+        <div className="mt-6 sm:mt-8">
           <Button
             variant="game"
             size="lg"

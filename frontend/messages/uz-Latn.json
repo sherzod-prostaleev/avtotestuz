@@ -26,6 +26,8 @@
   "Landing": {
     "brandName": "Driver Go",
     "login": "Kirish",
+    "haveAccountPrompt": "Profilingiz bormi?",
+    "registerCta": "Ro'yxatdan o'tish",
     "updatedBadge": "2026-yil yangilangan rasmiy savollar bazasi",
     "heroTitleBefore": "Imtihon zaliga",
     "heroTitleAccent": "tayyor",

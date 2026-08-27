@@ -210,7 +210,7 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
         </Card>
 
         {dueCount > 0 && (
-          <div className="sticky-cta-bar">
+          <div className="mt-6">
             <Link
               href={`${sessionStartBase}?mode=review&count=${Math.min(dueCount, 20)}`}
               className="inline-flex h-12 min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
