@@ -226,7 +226,7 @@ export default function DashboardPage() {
         : "bg-accent/15 text-accent";
 
   return (
-    <main className="page-shell space-y-3 sm:space-y-8">
+    <main suppressHydrationWarning className="page-shell space-y-3 sm:space-y-8">
       {showOnboarding && (
         <section
           aria-labelledby="onboarding-title"
@@ -303,7 +303,7 @@ export default function DashboardPage() {
               <div className="flex min-w-0 items-start gap-2 sm:gap-3">
                 <Hand aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-accent sm:mt-1 sm:h-7 sm:w-7" />
                 <div className="min-w-0">
-                  <h1 className="truncate font-display text-xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">
+                  <h1 suppressHydrationWarning className="truncate font-display text-xl font-extrabold tracking-tight sm:text-3xl md:text-4xl">
                     {loading ? (
                       <span
                         aria-hidden="true"
@@ -354,7 +354,7 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
+            <div suppressHydrationWarning className="grid grid-cols-3 gap-1.5 sm:gap-3">
               <div className="surface-raised-sm min-w-0 rounded-xl border border-border bg-background p-2 sm:rounded-2xl sm:p-5">
                 {loading ? (
                   <StatCardSkeleton />

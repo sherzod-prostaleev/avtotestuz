@@ -566,7 +566,16 @@
     "startPractice": "Mashqni boshlash",
     "placementTitle": "Diagnostika",
     "placementDesc": "10 savol, 12 daqiqa — hozirgi darajangizni aniqlang.",
-    "placementCta": "Diagnostikani boshlash"
+    "placementCta": "Diagnostikani boshlash",
+    "sectionGeneralRulesDuties": "Umumiy qoidalar va vazifalar",
+    "sectionRoadSigns": "Yo'l belgilari",
+    "sectionRoadMarkings": "Yo'l chiziqlari",
+    "sectionSignals": "Ishoralar va svetofor",
+    "sectionDrivingOrder": "Harakatlanish tartibi",
+    "sectionIntersections": "Chorrahalar",
+    "sectionSpecialSectionsPriority": "Maxsus yo'l qismlari va imtiyozlar",
+    "sectionVehicleCarriage": "Transport vositalari va tashishlar",
+    "sectionSafetyFirstAid": "Xavfsizlik va birinchi yordam"
   },
   "Session": {
     "loading": "Sessiya yuklanmoqda...",

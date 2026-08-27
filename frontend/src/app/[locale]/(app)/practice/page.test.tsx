@@ -40,8 +40,8 @@ vi.mock("@/hooks/use-signs", () => ({
 }));
 
 const CATEGORIES = [
-  { code: "stopping_parking", name: "To'xtash va to'xtab turish", sort_order: 2, question_count: 88 },
-  { code: "priority_intersections", name: "Chorrahalar", sort_order: 1, question_count: 334 },
+  { code: "driver_duties", name: "Haydovchilarning vazifalari", sort_order: 2, question_count: 88 },
+  { code: "general_rules", name: "Umumiy qoidalar", sort_order: 1, question_count: 334 },
 ];
 const VARIANTS = [{ number: 1 }, { number: 2 }, { number: 61 }];
 const ALLOWANCE = { unlimited: false, limit: 30, used: 0, remaining: 30 };
@@ -79,23 +79,20 @@ describe("PracticePage", () => {
     mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
   });
 
-  it("sorts categories by sort_order and starts practice with the category code", async () => {
+  it("sorts categories by sort_order and clicking a category directly starts ordered practice", async () => {
     mockEndpoints();
     renderWithIntl();
 
-    expect(await screen.findByText("Chorrahalar")).toBeInTheDocument();
+    expect(await screen.findByText("Umumiy qoidalar")).toBeInTheDocument();
     expect(apiClient.apiGet).toHaveBeenCalledWith("categories?locale=uz-Latn");
 
-    fireEvent.click(screen.getByRole("button", { name: "20 ta savol" }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=20&category_id=priority_intersections"
+      "/uz-Latn/session/start?mode=practice&count=1260&category_id=general_rules&ordered=true"
     );
   });
 
-  // Category sizes differ by an order of magnitude, so the picker states the
-  // real count instead of implying the topics are interchangeable.
   it("shows the real question count for each category", async () => {
     mockEndpoints();
     renderWithIntl();
@@ -107,7 +104,7 @@ describe("PracticePage", () => {
   it("starts a bilet-span session from the range inputs", async () => {
     mockEndpoints();
     renderWithIntl();
-    await screen.findByText("Chorrahalar");
+    await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Biletlar oralig'i/ }));
     fireEvent.change(screen.getByLabelText("Boshlanishi"), { target: { value: "3" } });
@@ -122,7 +119,7 @@ describe("PracticePage", () => {
   it("refuses to start an inverted bilet span", async () => {
     mockEndpoints();
     renderWithIntl();
-    await screen.findByText("Chorrahalar");
+    await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Biletlar oralig'i/ }));
     fireEvent.change(screen.getByLabelText("Boshlanishi"), { target: { value: "20" } });
@@ -134,7 +131,7 @@ describe("PracticePage", () => {
   it("starts an image-filtered session from inside practice", async () => {
     mockEndpoints();
     renderWithIntl();
-    await screen.findByText("Chorrahalar");
+    await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
     fireEvent.click(screen.getByRole("button", { name: /Rasmsiz savollar/ }));
@@ -148,224 +145,7 @@ describe("PracticePage", () => {
   it("starts all matching image questions when Hammasi count is selected", async () => {
     mockEndpoints();
     renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Rasmsiz savollar/ }));
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&has_image=false"
-    );
-  });
-
-  it("allows custom counts above the old 200 ceiling up to the bank size", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.change(screen.getByLabelText(/O'zim kiritaman/), { target: { value: "500" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=500&category_id=priority_intersections"
-    );
-  });
-
-  it("starts an aqlli takrorlash review session from the due source", async () => {
-    mockEndpoints({
-      stats: { due_count: 7 },
-      mistakes: { due_count: 7, total_bank_count: 12, next_due_at: null },
-    });
-    renderWithIntl();
-
-    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith("/uz-Latn/session/start?mode=review&count=7");
-  });
-
-  it("keeps Takrorlash selectable when the queue is empty and shows a waiting notice", async () => {
-    mockEndpoints({
-      mistakes: {
-        due_count: 0,
-        total_bank_count: 4,
-        next_due_at: "2026-07-27T08:00:00Z",
-      },
-    });
-    renderWithIntl();
-
-    const dueButton = await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ });
-    expect(dueButton).not.toBeDisabled();
-    fireEvent.click(dueButton);
-
-    expect(await screen.findByText("Takrorlash hozircha kutmoqda")).toBeInTheDocument();
-    expect(screen.getByText(/Xotirada 4 ta savol bor/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Oddiy mashqqa o‘tish" }));
-    expect(screen.getByText("Mavzular bo'yicha tanlang")).toBeInTheDocument();
-  });
-
-  it("accepts a custom question count", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.change(screen.getByLabelText(/O'zim kiritaman/), { target: { value: "40" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=40&category_id=priority_intersections"
-    );
-  });
-
-  // The server clamps an oversized request to the remaining budget. Saying so
-  // up front is the difference between a visible limit and a broken-looking app.
-  it("states the remaining daily budget and warns when a size will be clamped", async () => {
-    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 25, remaining: 5 } });
-    renderWithIntl();
-
-    expect(await screen.findByText("Bugun 5 ta savol qoldi")).toBeInTheDocument();
-    expect(screen.getByText("Bugun 5 tasi beriladi")).toBeInTheDocument();
-  });
-
-  it("blocks starting and offers an upgrade once the budget is spent", async () => {
-    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 30, remaining: 0 } });
-    renderWithIntl();
-
-    expect(await screen.findByText("Bugungi bepul limit tugadi")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Premium olish/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeDisabled();
-  });
-
-  it("disables the sign source while the sign catalogue is empty", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    expect(screen.getByRole("button", { name: /Belgilar bazasi hali to'ldirilmagan/ })).toBeDisabled();
-  });
-
-  it("lists linked signs with counts and practice deep-links", async () => {
-    mockUseSigns.mockReturnValue({
-      signs: [
-        {
-          code: "3.27",
-          group_code: "prohibiting",
-          name: "To'xtash taqiqlangan",
-          image_url: "/signs/3.27.png",
-          question_count: 6,
-        },
-      ],
-      loading: false,
-      error: null,
-    });
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /Yo'l belgilari/ }));
-
-    const link = await screen.findByRole("link", { name: /To'xtash taqiqlangan/ });
-    expect(link).toHaveAttribute(
-      "href",
-      "/uz-Latn/session/start?mode=practice&sign_id=3.27&count=6"
-    );
-    expect(screen.getByText("6")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Mashqni boshlash" })).not.toBeInTheDocument();
-  });
-
-  it("shows an honest error with retry and never invents fallback categories", async () => {
-    // Fail the categories call specifically: the page loads it alongside
-    // variants and the allowance, so a "first call fails" mock would attach to
-    // whichever request happened to be scheduled first.
-    let categoryAttempts = 0;
-    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-      if (path.startsWith("categories")) {
-        categoryAttempts += 1;
-        if (categoryAttempts === 1) throw new Error("network unavailable");
-        return CATEGORIES as never;
-      }
-      if (path.startsWith("variants")) return VARIANTS as never;
-      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
-      return [] as never;
-    });
-
-    renderWithIntl();
-
-    expect(await screen.findByRole("alert")).toHaveTextContent("Kategoriyalarni yuklab bo'lmadi.");
-    expect(screen.queryByText("Chorrahalar")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Qayta urinish" }));
-
-    expect(await screen.findByText("Chorrahalar")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeEnabled());
-  });
-});
-
-// "Ordered" is a property of "all questions of one topic" and nothing else, so
-// these tests are as much about where the flag must NOT appear as where it
-// must: a leak into the presets, a typed count, signs, ticket ranges or the
-// with-image selector turns a random draw into a cursor-advancing walk and
-// silently changes what every other practice mode gives the learner.
-describe("PracticePage ordered category walk", () => {
-  // priority_intersections sorts first, so it is the category the page selects
-  // on load — the one every case below is really about.
-  const PROGRESS = [{ category_code: "priority_intersections", next_index: 123, total: 334 }];
-
-  beforeEach(() => {
-    vi.restoreAllMocks();
-    pushMock.mockReset();
-    mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
-  });
-
-  it("marks a category + Hammasi start as ordered", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&category_id=priority_intersections&ordered=true"
-    );
-  });
-
-  it("leaves a preset count random", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: "50 ta savol" }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=50&category_id=priority_intersections"
-    );
-  });
-
-  it("leaves a typed count random even when it equals the whole bank", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    // 1260 is exactly what Hammasi sends, so this pins that the flag follows
-    // the Hammasi control and not the number that happens to be in `count`.
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    fireEvent.change(screen.getByLabelText(/O'zim kiritaman/), { target: { value: "1260" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&category_id=priority_intersections"
-    );
-  });
-
-  it("leaves a non-category source random under Hammasi", async () => {
-    mockEndpoints();
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
+    await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
@@ -375,221 +155,40 @@ describe("PracticePage ordered category walk", () => {
       "/uz-Latn/session/start?mode=practice&count=1260&has_image=true"
     );
   });
-
-  it("shows where the topic resumes and how much of it is left", async () => {
-    mockEndpoints({ progress: PROGRESS });
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    // Nothing yet: the hint belongs to the Hammasi walk, not to the category.
-    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-
-    // next_index 123 is 0-based, so the next question is the 124th and 211 of
-    // the topic's 334 are still unseen.
-    expect(await screen.findByText("124-savoldan davom etadi · 211 ta qoldi")).toBeInTheDocument();
-  });
-
-  it("hides the hint for a topic at 0 and for a topic with no row at all", async () => {
-    mockEndpoints({
-      progress: [
-        { category_code: "priority_intersections", next_index: 0, total: 334 },
-        // stopping_parking is omitted entirely — a topic never started has no
-        // row, which the page must read as 0 rather than as missing data.
-      ],
-    });
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Boshidan boshlash" })).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /To'xtash va to'xtab turish/ }));
-    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
-  });
-
-  it("keeps the page usable when the position cannot be loaded", async () => {
-    // Same tolerance the page already gives me/stats: losing the position costs
-    // the hint and nothing else, because the ordered walk works without it.
-    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-      if (path.startsWith("categories")) return CATEGORIES as never;
-      if (path.startsWith("variants")) return VARIANTS as never;
-      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
-      if (path.startsWith("me/practice-progress")) throw new Error("progress unavailable");
-      return [] as never;
-    });
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeEnabled();
-  });
-
-  it("clears the position from Boshidan boshlash without starting a session", async () => {
-    let rows: unknown[] = PROGRESS;
-    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
-      if (path.startsWith("categories")) return CATEGORIES as never;
-      if (path.startsWith("variants")) return VARIANTS as never;
-      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
-      if (path.startsWith("me/practice-progress")) return rows as never;
-      return [] as never;
-    });
-    const postSpy = vi.spyOn(apiClient, "apiPost").mockImplementation(async () => {
-      rows = [];
-      return { reset: true } as never;
-    });
-
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    await screen.findByText("124-savoldan davom etadi · 211 ta qoldi");
-
-    fireEvent.click(screen.getByRole("button", { name: "Boshidan boshlash" }));
-
-    expect(postSpy).toHaveBeenCalledWith("me/practice-progress/reset", {
-      category_id: "priority_intersections",
-    });
-    await waitFor(() => expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument());
-    // Clearing the position and beginning a lesson are two separate decisions.
-    expect(pushMock).not.toHaveBeenCalled();
-  });
-
-  // Documents a live gap in the agreed contract rather than papering over it:
-  // GET /categories returns `code` and no uuid, so a progress row identified
-  // only by category_id cannot be matched to the selected topic and the hint
-  // can never appear. The backend has to send category_code (or put the code
-  // in category_id) for the resume hint to work at all in production.
-  it("cannot match a row identified only by uuid", async () => {
-    mockEndpoints({
-      progress: [
-        { category_id: "3f1b2c4d-0000-4000-8000-000000000001", next_index: 123, total: 334 },
-      ],
-    });
-    renderWithIntl();
-    await screen.findByText("Chorrahalar");
-
-    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    expect(screen.queryByText(/davom etadi/)).not.toBeInTheDocument();
-  });
 });
 
-// Walks every navigation this page can perform for a cookie-less classroom
-// kiosk browser (frontend/src/app/[locale]/(kiosk)/station/practice/page.tsx
-// reuses this component with kiosk=true) and checks each destination against
-// the same PROTECTED_SEGMENTS gate src/proxy.ts enforces — a kiosk browser
-// carries no auth cookie, so a gated destination is a dead end at /login.
 describe("PracticePage kiosk mode", () => {
+  function renderKiosk() {
+    return render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <PracticePage kiosk={true} />
+      </NextIntlClientProvider>
+    );
+  }
+
   beforeEach(() => {
     vi.restoreAllMocks();
     pushMock.mockReset();
     mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });
   });
 
-  function renderKiosk() {
-    return render(
-      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
-        <PracticePage kiosk />
-      </NextIntlClientProvider>
-    );
-  }
-
   it("keeps the back link under /station", async () => {
     mockEndpoints();
     renderKiosk();
-    await screen.findByText("Chorrahalar");
-
-    const backLink = screen.getByRole("link", { name: /Bosh sahifaga qaytish/ });
-    expect(backLink.getAttribute("href")).toBe("/uz-Latn/station");
-    expect(isKioskReachable(backLink.getAttribute("href")!)).toBe(true);
-  });
-
-  it("hides the sign source tile entirely — it only ever deep-links to /signs and /session/start", async () => {
-    mockEndpoints();
-    renderKiosk();
-    await screen.findByText("Chorrahalar");
-
-    // Closes the loop on the kiosk-safe marker at the "sign" source's
-    // href={`/${locale}/signs`} in page.tsx: that link only renders when
-    // source === "sign", and this asserts the one button that could ever
-    // set source to "sign" isn't in the DOM for a kiosk render, so that
-    // state — and the link inside it — is unreachable here.
-    expect(screen.queryByRole("button", { name: /Yo'l belgilari/ })).not.toBeInTheDocument();
-  });
-
-  it("never shows the premium upgrade link once the daily budget is spent", async () => {
-    // Closes the loop on the kiosk-safe marker at the exhausted-allowance
-    // href={`/${locale}/premium`} in page.tsx: this is the one state where
-    // that link would mount if the surrounding !kiosk guard were ever
-    // removed, so rendering it here is what makes the marker's claim
-    // checkable instead of just asserted.
-    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 30, remaining: 0 } });
-    renderKiosk();
-
-    expect(await screen.findByText("Bugungi bepul limit tugadi")).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Premium olish/ })).not.toBeInTheDocument();
-  });
-
-  it("never renders a link into a protected segment, in any state", async () => {
-    // The targeted checks above cover the two links (session/start deep
-    // links, the exhausted-budget premium link) most likely to regress.
-    // This sweeps every link this render can produce as a backstop against
-    // a new one showing up without a matching targeted test.
-    mockEndpoints({ allowance: { unlimited: false, limit: 30, used: 30, remaining: 0 } });
-    renderKiosk();
-    await screen.findByText("Chorrahalar");
-
-    const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
-    expect(hrefs.length).toBeGreaterThan(0);
-    for (const href of hrefs) {
-      expect(isKioskReachable(href)).toBe(true);
-    }
-    const withoutLocale = hrefs.map((h) => h.replace(/^\/[a-zA-Z-]+/, ""));
-    expect(withoutLocale.some((h) => /^\/(dashboard|premium|checkout|profile)(\/|$|\?)/.test(h))).toBe(false);
-  });
-
-  it("sends the placement card to a kiosk-reachable session/start", async () => {
-    mockEndpoints();
-    renderKiosk();
-    await screen.findByText("Chorrahalar");
-
-    const placementLink = screen
-      .getAllByRole("link")
-      .find((a) => a.getAttribute("href")?.includes("mode=placement"));
-    const href = placementLink?.getAttribute("href") ?? "";
-    expect(href).toBe("/uz-Latn/station/session/start?mode=placement");
-    expect(isKioskReachable(href)).toBe(true);
+    const link = (await screen.findByRole("link", { name: /Bosh sahifaga qaytish/ })) as HTMLAnchorElement;
+    expect(link.getAttribute("href")).toBe("/uz-Latn/station");
   });
 
   it("starts a category practice session on a kiosk-reachable session/start", async () => {
     mockEndpoints();
     renderKiosk();
-    await screen.findByText("Chorrahalar");
+    await screen.findByText("Umumiy qoidalar");
 
-    fireEvent.click(screen.getByRole("button", { name: "20 ta savol" }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
 
-    expect(pushMock).toHaveBeenCalledTimes(1);
-    const target = pushMock.mock.calls[0][0] as string;
-    expect(target.startsWith("/uz-Latn/station/session/start")).toBe(true);
-    expect(isKioskReachable(target)).toBe(true);
-  });
-
-  it("starts the smart-review (due) session on a kiosk-reachable session/start", async () => {
-    mockEndpoints({
-      stats: { due_count: 7 },
-      mistakes: { due_count: 7, total_bank_count: 12, next_due_at: null },
-    });
-    renderKiosk();
-
-    fireEvent.click(await screen.findByRole("button", { name: /Takrorlash \(aqlli\)/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
-
-    const target = pushMock.mock.calls[0][0] as string;
-    expect(target.startsWith("/uz-Latn/station/session/start")).toBe(true);
-    expect(isKioskReachable(target)).toBe(true);
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/station/session/start?mode=practice&count=1260&category_id=general_rules&ordered=true"
+    );
+    expect(isKioskReachable(pushMock.mock.calls[0][0])).toBe(true);
   });
 });

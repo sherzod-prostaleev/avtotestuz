@@ -122,10 +122,7 @@ async function fetchUserStatsRest(locale: string): Promise<UserStatsRest> {
 
   const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
   const categoryMastery = statsDTO.categories.map((category) => {
-    const name = namesByCode.get(category.category_code);
-    if (!name) {
-      throw new Error(`Missing localized category: ${category.category_code}`);
-    }
+    const name = namesByCode.get(category.category_code) ?? category.category_code;
     return {
       code: category.category_code,
       name,

@@ -85,7 +85,7 @@ export default async function LocaleLayout({
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
       </head>
-      <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased">
+      <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased" suppressHydrationWarning>
         <NextIntlClientProvider messages={pickMessages(messages, COMMON_NAMESPACES)}>
           <Providers>
             {children}

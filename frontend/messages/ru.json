@@ -566,7 +566,16 @@
     "startPractice": "Начать практику",
     "placementTitle": "Диагностика",
     "placementDesc": "10 вопросов, 12 минут — определите текущий уровень.",
-    "placementCta": "Начать диагностику"
+    "placementCta": "Начать диагностику",
+    "sectionGeneralRulesDuties": "Общие положения и обязанности",
+    "sectionRoadSigns": "Дорожные знаки",
+    "sectionRoadMarkings": "Дорожная разметка",
+    "sectionSignals": "Сигналы и светофор",
+    "sectionDrivingOrder": "Порядок движения",
+    "sectionIntersections": "Перекрёстки",
+    "sectionSpecialSectionsPriority": "Специальные участки и приоритет",
+    "sectionVehicleCarriage": "Транспортные средства и перевозки",
+    "sectionSafetyFirstAid": "Безопасность и первая помощь"
   },
   "Session": {
     "loading": "Загружаем сессию...",

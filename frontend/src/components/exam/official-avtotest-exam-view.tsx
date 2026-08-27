@@ -327,91 +327,124 @@ export function OfficialAvtotestExamView({
       </main>
 
       {/* ═══ BOTTOM BAR ═══ */}
-      <footer className="relative z-10 flex h-[60px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-t border-[#1c3554] max-lg:h-auto max-lg:flex-row max-lg:items-center max-lg:gap-2 max-lg:px-2 max-lg:py-1.5 max-lg:pb-[max(0.35rem,env(safe-area-inset-bottom))]">
-        <div className="flex w-28 shrink-0 items-center max-lg:w-auto">
-          {allAnswered && !isCompleted ? (
-            <button
-              type="button"
-              onClick={onFinish}
-              disabled={finishing || submitting}
-              className="rounded-sm border border-emerald-400/70 bg-emerald-600 px-3 py-1.5 text-sm font-extrabold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-60 max-lg:h-8 max-lg:px-2.5 max-lg:text-xs"
-            >
-              {finishing ? (
-                <span className="inline-flex items-center gap-1.5">
-                  <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
-                  {t("finishing")}
-                </span>
-              ) : (
-                t("finish")
-              )}
-            </button>
-          ) : (
-            <div className="w-20 max-lg:hidden" />
-          )}
+      <footer className="relative z-10 flex shrink-0 flex-col gap-1.5 border-t border-[#1c3554] bg-[#081320]/95 px-2 py-1.5 pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:min-h-[64px] lg:flex-row lg:items-center lg:justify-between lg:px-5 lg:py-1">
+        {/* Mobile top sub-row / Desktop Left + Right HUD */}
+        <div className="flex w-full items-center justify-between gap-2 lg:contents">
+          {/* Left: Finish button */}
+          <div className="flex shrink-0 items-center lg:w-28">
+            {allAnswered && !isCompleted ? (
+              <button
+                type="button"
+                onClick={onFinish}
+                disabled={finishing || submitting}
+                className="rounded-sm border border-emerald-400/70 bg-emerald-600 px-2.5 py-1 text-xs font-extrabold text-white shadow-md transition-colors hover:bg-emerald-500 disabled:opacity-60 lg:h-9 lg:px-3 lg:text-sm"
+              >
+                {finishing ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    {t("finishing")}
+                  </span>
+                ) : (
+                  t("finish")
+                )}
+              </button>
+            ) : (
+              <div className="hidden lg:block lg:w-20" />
+            )}
+          </div>
+
+          {/* Right: Timer + live error budget */}
+          <div className="flex shrink-0 items-center gap-1.5 lg:order-last lg:gap-2">
+            {!isCompleted && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex h-7 items-center border border-[#2a4568] bg-[#050b12] px-2 py-0.5 rounded-sm font-mono text-[11px] font-bold tabular-nums text-white lg:h-8 lg:text-xs"
+              >
+                {t("examErrorsHud", { wrong: wrongCount, max: errorsAllowed })}
+              </div>
+            )}
+            {session.remaining_sec !== null && (
+              <div className="flex h-7 items-center bg-[#050b12] border border-[#2a4568] px-2.5 py-0.5 rounded-sm font-mono text-xs font-bold tracking-wider text-[#fbbf24] shadow-inner lg:h-8 lg:px-4 lg:text-base">
+                <CountdownTimer seconds={session.remaining_sec} onExpire={onFinish} />
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Question number pills — 50 of them overflow even a 1920px row
-            (50 × 38px ≈ 1900px before the finish button, HUD and timer), so
-            the track scrolls at every size; 20 still fit and show no scrollbar. */}
-        <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto scrollbar-none max-lg:gap-1">
-          {questions.map((q, idx) => {
-            const isCurrent = idx === currentIndex;
-            const isAns = q.answered || Boolean(q.user_answer_id);
-            const isCorr = q.correct === true;
-            const isWrn = q.correct === false;
+        {/* Center: Question number pills
+            Mobile: 10-column solid grid (20 questions = 2 rows of 10, 50 questions = 5 rows of 10) -> 0 scroll, 0 dangling items.
+            Desktop: 20 in 1 row, 50 in 2 rows of 25 (1..25 top, 26..50 bottom). */}
+        <div className="flex min-w-0 flex-1 items-center justify-center px-1 py-0.5 lg:px-3">
+          {(() => {
+            const renderChip = (q: SessionQuestionItem, idx: number) => {
+              const isCurrent = idx === currentIndex;
+              const isAns = q.answered || Boolean(q.user_answer_id);
+              const isCorr = q.correct === true;
+              const isWrn = q.correct === false;
 
-            // Answered+correct → green; answered+wrong → red; answered without
-            // grade must NOT stay blue (that confused learners with "correct").
-            let bg: string;
-            if (isWrn) bg = "bg-[#dc2626] text-white border border-red-400 shadow-md font-extrabold";
-            else if (isCorr) bg = "bg-[#16a34a] text-white border border-green-400 shadow-md font-extrabold";
-            else if (isAns) bg = "bg-[#334155] text-white border border-slate-400 shadow-md font-extrabold";
-            else bg = "bg-[#1c334d] text-white border border-[#304d70] hover:bg-[#28486e] hover:border-white font-extrabold";
+              let bg: string;
+              if (isWrn) bg = "bg-[#dc2626] text-white border border-red-400 shadow-md font-extrabold";
+              else if (isCorr) bg = "bg-[#16a34a] text-white border border-green-400 shadow-md font-extrabold";
+              else if (isAns) bg = "bg-[#334155] text-white border border-slate-400 shadow-md font-extrabold";
+              else bg = "bg-[#1c334d] text-white border border-[#304d70] hover:bg-[#28486e] hover:border-white font-extrabold";
+
+              return (
+                <button
+                  key={q.id}
+                  ref={isCurrent ? activeChipRef : undefined}
+                  type="button"
+                  onClick={() => onSelectIndex(idx)}
+                  aria-label={t("questionNavLabel", {
+                    number: idx + 1,
+                    status: isWrn
+                      ? t("statusWrong")
+                      : isCorr
+                        ? t("statusCorrect")
+                        : isAns
+                          ? t("statusAnswered")
+                          : isCurrent
+                            ? t("statusCurrent")
+                            : t("statusUnanswered"),
+                  })}
+                  className={`flex h-6 w-full max-w-[28px] sm:h-7 sm:max-w-[32px] lg:h-8 lg:w-8 shrink-0 items-center justify-center rounded-sm text-[10px] sm:text-xs lg:text-sm font-extrabold transition-all active:scale-95 ${
+                    isCurrent ? "ring-2 ring-white ring-offset-1 ring-offset-[#081320] scale-105 font-black z-10 shadow-lg" : ""
+                  } ${bg}`}
+                >
+                  {idx + 1}
+                </button>
+              );
+            };
 
             return (
-              <button
-                key={q.id}
-                ref={isCurrent ? activeChipRef : undefined}
-                type="button"
-                onClick={() => onSelectIndex(idx)}
-                aria-label={t("questionNavLabel", {
-                  number: idx + 1,
-                  status: isWrn
-                    ? t("statusWrong")
-                    : isCorr
-                      ? t("statusCorrect")
-                      : isAns
-                        ? t("statusAnswered")
-                        : isCurrent
-                          ? t("statusCurrent")
-                          : t("statusUnanswered"),
-                })}
-                className={`w-8 h-8 flex items-center justify-center text-base rounded-sm transition-all max-lg:h-8 max-lg:w-8 max-lg:shrink-0 max-lg:text-sm ${
-                  isCurrent ? "ring-2 ring-white ring-offset-2 ring-offset-[#081320] scale-110 font-black z-10 shadow-lg max-lg:ring-offset-1 max-lg:scale-105" : ""
-                } ${bg}`}
-              >
-                {idx + 1}
-              </button>
-            );
-          })}
-        </div>
+              <>
+                {/* Mobile view (< lg): 10 columns grid without horizontal scroll */}
+                <div className="grid w-full max-w-[340px] grid-cols-10 gap-1 justify-items-center lg:hidden">
+                  {questions.map((q, idx) => renderChip(q, idx))}
+                </div>
 
-        {/* Timer + live error budget (DTM: ≤2 wrong). Color grades stay as-is. */}
-        <div className="flex items-center gap-2 max-lg:shrink-0">
-          {!isCompleted && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="border border-[#2a4568] bg-[#050b12] px-2 py-1.5 rounded-sm font-mono text-xs font-bold tabular-nums text-white max-lg:h-8 max-lg:px-2 max-lg:py-0 max-lg:text-[11px] max-lg:flex max-lg:items-center"
-            >
-              {t("examErrorsHud", { wrong: wrongCount, max: errorsAllowed })}
-            </div>
-          )}
-          {session.remaining_sec !== null && (
-            <div className="bg-[#050b12] border border-[#2a4568] px-4 py-1.5 rounded-sm font-mono text-xl font-bold tracking-wider text-[#fbbf24] shadow-inner max-lg:flex max-lg:h-8 max-lg:items-center max-lg:px-2.5 max-lg:py-0 max-lg:text-sm">
-              <CountdownTimer seconds={session.remaining_sec} onExpire={onFinish} />
-            </div>
-          )}
+                {/* Desktop view (lg+): 20 in 1 row or 50 in 2 rows of 25 */}
+                <div className="hidden lg:flex lg:items-center lg:justify-center">
+                  {questions.length > 25 ? (
+                    <div className="flex flex-col items-center justify-center gap-1">
+                      <div className="flex flex-nowrap items-center justify-center gap-1.5">
+                        {questions.slice(0, Math.ceil(questions.length / 2)).map((q, idx) => renderChip(q, idx))}
+                      </div>
+                      <div className="flex flex-nowrap items-center justify-center gap-1.5">
+                        {questions.slice(Math.ceil(questions.length / 2)).map((q, idx) =>
+                          renderChip(q, Math.ceil(questions.length / 2) + idx)
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-nowrap items-center justify-center gap-1.5">
+                      {questions.map((q, idx) => renderChip(q, idx))}
+                    </div>
+                  )}
+                </div>
+              </>
+            );
+          })()}
         </div>
       </footer>
 

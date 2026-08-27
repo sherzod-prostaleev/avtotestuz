@@ -566,7 +566,16 @@
     "startPractice": "Машқни бошлаш",
     "placementTitle": "Диагностика",
     "placementDesc": "10 савол, 12 дақиқа — ҳозирги даражангизни аниқланг.",
-    "placementCta": "Диагностикани бошлаш"
+    "placementCta": "Диагностикани бошлаш",
+    "sectionGeneralRulesDuties": "Умумий қоидалар ва вазифалар",
+    "sectionRoadSigns": "Йўл белгилари",
+    "sectionRoadMarkings": "Йўл чизиқлари",
+    "sectionSignals": "Ишоралар ва светофор",
+    "sectionDrivingOrder": "Ҳаракатланиш тартиби",
+    "sectionIntersections": "Чорраҳалар",
+    "sectionSpecialSectionsPriority": "Махсус йўл қисмлари ва имтиёзлар",
+    "sectionVehicleCarriage": "Транспорт воситалари ва ташишлар",
+    "sectionSafetyFirstAid": "Хавфсизлик ва биринчи ёрдам"
   },
   "Session": {
     "loading": "Сессия юкланмоқда...",

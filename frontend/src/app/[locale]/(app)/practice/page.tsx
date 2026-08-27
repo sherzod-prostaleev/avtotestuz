@@ -25,6 +25,8 @@ import {
   RotateCcw,
   Signpost,
   BrainCircuit,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
 
@@ -32,6 +34,80 @@ const COUNT_PRESETS = [20, 50, 100] as const;
 const MAX_CUSTOM_COUNT = OFFICIAL_QUESTION_COUNT;
 
 type Source = "due" | "category" | "variant" | "image" | "sign";
+
+interface TopicSectionDef {
+  key: string;
+  codes: readonly string[];
+}
+
+const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
+  {
+    key: "sectionGeneralRulesDuties",
+    codes: ["general_rules", "driver_duties", "pedestrian_duties", "special_vehicle_priority"],
+  },
+  {
+    key: "sectionRoadSigns",
+    codes: [
+      "signs_warning",
+      "signs_priority",
+      "signs_prohibitory",
+      "signs_mandatory",
+      "signs_information",
+      "signs_service",
+      "signs_additional",
+    ],
+  },
+  {
+    key: "sectionRoadMarkings",
+    codes: ["markings_horizontal", "markings_vertical"],
+  },
+  {
+    key: "sectionSignals",
+    codes: ["traffic_lights", "traffic_controller", "warning_hazard_signals"],
+  },
+  {
+    key: "sectionDrivingOrder",
+    codes: ["starting_manoeuvring", "lane_position", "speed_limits", "overtaking", "stopping_and_parking"],
+  },
+  {
+    key: "sectionIntersections",
+    codes: [
+      "intersections_general",
+      "intersections_regulated",
+      "intersections_main_straight",
+      "intersections_equal",
+      "intersections_main_turns",
+    ],
+  },
+  {
+    key: "sectionSpecialSectionsPriority",
+    codes: [
+      "pedestrian_crossings_stops",
+      "railway_crossings",
+      "motorways",
+      "residential_zones",
+      "slopes",
+      "public_transport_priority",
+    ],
+  },
+  {
+    key: "sectionVehicleCarriage",
+    codes: [
+      "lighting_devices",
+      "towing",
+      "driver_training",
+      "passenger_carriage",
+      "cargo_carriage",
+      "cyclists_mopeds_animals",
+      "officials_duties",
+      "vehicle_defects",
+    ],
+  },
+  {
+    key: "sectionSafetyFirstAid",
+    codes: ["safety_basics", "first_aid"],
+  },
+] as const;
 
 interface CategoryItem {
   code: string;
@@ -118,6 +194,13 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const [nextDueAt, setNextDueAt] = useState<string | null>(null);
   const [progress, setProgress] = useState<Record<string, PracticeProgressDTO>>({});
   const [resetting, setResetting] = useState<boolean>(false);
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+    sectionGeneralRulesDuties: true,
+  });
+
+  const toggleSection = (secKey: string) => {
+    setOpenSections((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
+  };
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
@@ -240,24 +323,20 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     return true;
   })();
 
+  const handleCategoryClick = (catCode: string) => {
+    router.push(
+      `${sessionStartBase}?mode=practice&count=${MAX_CUSTOM_COUNT}&category_id=${encodeURIComponent(catCode)}&ordered=true`
+    );
+  };
+
   const handleStart = () => {
-    if (source === "sign") return;
+    if (source === "sign" || source === "category") return;
     if (source === "due") {
       const reviewCount = Math.min(20, Math.max(dueCount, 1));
       router.push(`${sessionStartBase}?mode=review&count=${reviewCount}`);
       return;
     }
     const base = `${sessionStartBase}?mode=practice&count=${count}`;
-    if (source === "category") {
-      // `ordered` rides the query string because this page never POSTs: it
-      // pushes to session/start, which is what turns these params into the
-      // sessions request body. Only ever appended here — the other three
-      // branches below are the random draws that must keep ignoring the cursor.
-      router.push(
-        `${base}&category_id=${encodeURIComponent(selectedCategory)}${orderedRun ? "&ordered=true" : ""}`
-      );
-      return;
-    }
     if (source === "variant") {
       router.push(`${base}&variant_from=${variantFrom}&variant_to=${variantTo}`);
       return;
@@ -456,28 +535,58 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       )}
 
       {source === "category" && (
-        <Card className="space-y-3 p-5 sm:p-6">
+        <Card className="space-y-4 p-5 sm:p-6">
           <h2 className="max-w-full text-[11px] font-extrabold uppercase leading-snug tracking-wide text-muted-foreground sm:text-sm sm:tracking-wider">
             {t("selectCategory")}
           </h2>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat.code;
+          <div className="space-y-3">
+            {TOPIC_SECTIONS.map((sec) => {
+              const sectionCats = categories.filter((c) => (sec.codes as readonly string[]).includes(c.code));
+              if (sectionCats.length === 0) return null;
+              const isOpen = openSections[sec.key] ?? false;
+              const hasSelected = sectionCats.some((c) => c.code === selectedCategory);
+              const totalQ = sectionCats.reduce((acc, c) => acc + (c.question_count || 0), 0);
+
               return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  aria-pressed={isSelected}
-                  onClick={() => setSelectedCategory(cat.code)}
-                  className={`flex min-h-12 items-center justify-between gap-3 rounded-xl border p-3.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    isSelected ? "border-accent bg-accent/10" : "border-border bg-background hover:border-accent/50"
-                  }`}
-                >
-                  <span className="text-base font-bold leading-snug">{cat.name}</span>
-                  <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-sm font-bold text-muted-foreground">
-                    {t("categoryQuestionCount", { count: cat.question_count })}
-                  </span>
-                </button>
+                <div key={sec.key} className="overflow-hidden rounded-xl border border-border bg-card">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(sec.key)}
+                    className="flex w-full items-center justify-between p-3.5 text-left transition-colors hover:bg-muted/40"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {isOpen ? (
+                        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      ) : (
+                        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      )}
+                      <span className="text-sm font-bold sm:text-base">{t(sec.key as any)}</span>
+                      {hasSelected && (
+                        <span className="h-2 w-2 rounded-full bg-accent" title="Tanlangan mavzu" />
+                      )}
+                    </div>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {t("categoryCountSummary", { count: sectionCats.length })} · {t("categoryQuestionCount", { count: totalQ })}
+                    </span>
+                  </button>
+                  {isOpen && (
+                    <div className="grid gap-2 border-t border-border p-3 sm:grid-cols-2">
+                      {sectionCats.map((cat) => (
+                        <button
+                          key={cat.code}
+                          type="button"
+                          onClick={() => handleCategoryClick(cat.code)}
+                          className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-accent hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
+                        >
+                          <span className="text-sm font-bold leading-snug sm:text-base">{cat.name}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
+                            {t("categoryQuestionCount", { count: cat.question_count })}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })}
           </div>
@@ -558,7 +667,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       )}
 
       {/* Question count + allowance */}
-      {source !== "sign" && source !== "due" && (
+      {source !== "sign" && source !== "due" && source !== "category" && (
         <Card className="space-y-4 p-5 sm:p-6">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("countLabel")}
@@ -706,7 +815,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
       {/* Page-level so `sticky bottom-0` can pin to the viewport for the whole
           scroll (inside a Card it could never leave the card's box). */}
-      {source !== "sign" && (
+      {source !== "sign" && source !== "category" && (
         <div className="sticky-cta-bar">
           <Button
             variant="game"

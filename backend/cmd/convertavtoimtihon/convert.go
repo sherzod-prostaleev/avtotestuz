@@ -204,11 +204,9 @@ func Convert(srcDir string, assignments map[string]string) (Result, error) {
 		ruComment := byLocale["ru"][i].Comment
 		category := ""
 		if code, ok := assignments[extID]; ok {
-			category = code // explicit assignment wins over citation
-		} else if code, ok := classifyByCitation(ruComment); ok {
-			category = code
+			category = code // explicit assignment wins
 		} else {
-			category = "umumiy" // provisional fallback; recorded below
+			category = "general_rules" // provisional fallback; recorded below
 			ansUz := make([]string, 0, count)
 			for p := 0; p < count; p++ {
 				ansUz = append(ansUz, byLocale["uz-Latn"][i].Answers[p])

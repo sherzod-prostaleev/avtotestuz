@@ -780,19 +780,19 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     <main
       className="session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
     >
-      <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-1.5 py-1 sm:gap-3 sm:rounded-2xl sm:p-3">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-3">
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-9 min-h-9 w-9 px-0 sm:h-11 sm:min-h-11 sm:w-auto sm:px-4"
+            className="h-9 min-h-9 gap-1 rounded-lg border-border px-2.5 text-xs font-extrabold sm:h-11 sm:min-h-11 sm:rounded-xl sm:px-4 sm:text-sm"
             aria-label={t("exit")}
             onClick={() => router.push(exitHref)}
           >
-            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">{t("exit")}</span>
+            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
+            <span>{t("exit")}</span>
           </Button>
-          <span className="truncate rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent sm:px-3 sm:py-1 sm:text-xs">
+          <span className="truncate rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent sm:px-3 sm:py-1.5 sm:text-xs">
             {modeLabel(session.mode)}
           </span>
         </div>
@@ -880,57 +880,6 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         </div>
       )}
 
-      <nav
-        className="session-navigator chip-scroll shrink-0 rounded-xl border border-border bg-card p-1 sm:rounded-2xl sm:p-2"
-        aria-label={t("questionNavigator")}
-      >
-        {questions.map((question, index) => {
-          const isCurrent = index === currentIndex;
-          const answered = hasAnswer(question);
-          const status = isCurrent
-            ? t("statusCurrent")
-            : question.correct === true
-              ? t("statusCorrect")
-              : question.correct === false
-                ? t("statusWrong")
-                : answered
-                  ? t("statusAnswered")
-                  : t("statusUnanswered");
-          const style = isCurrent
-            ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30"
-            : question.correct === true
-              ? "border-success/50 bg-success/15 text-success"
-              : question.correct === false
-                ? "border-danger/50 bg-danger/15 text-danger"
-                : answered
-                  ? "border-accent/40 bg-accent/10 text-accent"
-                  : "border-border bg-background text-muted-foreground";
-
-          return (
-            <button
-              key={question.id}
-              ref={isCurrent ? activeChipRef : undefined}
-              type="button"
-              onClick={() => goToQuestion(index)}
-              aria-current={isCurrent ? "step" : undefined}
-              aria-label={t("questionNavLabel", { number: index + 1, status })}
-              className={`relative flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-extrabold tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-11 sm:w-11 sm:rounded-xl sm:text-xs ${style}`}
-            >
-              {index + 1}
-              {!isCurrent && question.correct === true && (
-                <CheckCircle2 className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-              )}
-              {!isCurrent && question.correct === false && (
-                <XCircle className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-              )}
-              {!isCurrent && answered && question.correct === undefined && (
-                <Check className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
-              )}
-            </button>
-          );
-        })}
-      </nav>
-
       {currentQuestion && (
         <Card className="session-content-card flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
           <div className="min-h-0 flex-1 overflow-hidden">
@@ -961,38 +910,97 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         </Card>
       )}
 
-      <footer className="session-actions flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-card p-1 sm:justify-between sm:gap-3 sm:rounded-2xl sm:p-2.5">
-        <Button
-          variant="outline"
-          className="h-10 min-h-10 flex-1 sm:h-12 sm:min-h-12 sm:flex-none"
-          disabled={currentIndex === 0}
-          onClick={() => goToQuestion(Math.max(0, currentIndex - 1))}
+      <footer className="session-actions flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:rounded-2xl sm:p-2.5 shadow-raised-sm">
+        <nav
+          className="session-navigator flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-h-24 sm:max-h-36 overflow-y-auto px-1 py-0.5"
+          aria-label={t("questionNavigator")}
         >
-          <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-          <span className="hidden xs:inline sm:inline">{t("previous")}</span>
-        </Button>
+          {questions.map((question, index) => {
+            const isCurrent = index === currentIndex;
+            const answered = hasAnswer(question);
+            const status = isCurrent
+              ? t("statusCurrent")
+              : question.correct === true
+                ? t("statusCorrect")
+                : question.correct === false
+                  ? t("statusWrong")
+                  : answered
+                    ? t("statusAnswered")
+                    : t("statusUnanswered");
+            const style = isCurrent
+              ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30 font-black scale-105 shadow-md"
+              : question.correct === true
+                ? "border-success/50 bg-success/15 text-success font-extrabold"
+                : question.correct === false
+                  ? "border-danger/50 bg-danger/15 text-danger font-extrabold"
+                  : answered
+                    ? "border-accent/40 bg-accent/10 text-accent font-bold"
+                    : "border-border bg-background text-muted-foreground hover:border-accent/50 hover:text-foreground font-bold";
 
-        {isLast ? (
+            return (
+              <button
+                key={question.id}
+                ref={isCurrent ? activeChipRef : undefined}
+                type="button"
+                onClick={() => goToQuestion(index)}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={t("questionNavLabel", { number: index + 1, status })}
+                className={`relative flex h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-lg border text-[11px] sm:text-xs md:text-sm tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${style}`}
+              >
+                {index + 1}
+                {!isCurrent && question.correct === true && (
+                  <CheckCircle2 className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                )}
+                {!isCurrent && question.correct === false && (
+                  <XCircle className="absolute -right-0.5 -top-0.5 h-3 w-3 fill-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                )}
+                {!isCurrent && answered && question.correct === undefined && (
+                  <Check className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full bg-background sm:-right-1 sm:-top-1 sm:h-3.5 sm:w-3.5" aria-hidden="true" />
+                )}
+              </button>
+            );
+          })}
+        </nav>
+
+        <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-1.5">
           <Button
-            variant="game"
-            className="h-10 min-h-10 flex-[1.4] sm:h-12 sm:min-h-12 sm:flex-none"
-            disabled={!currentAnswered || finishing || submitting}
-            onClick={() => void handleFinish()}
+            variant="outline"
+            className="h-9 min-h-9 px-3 sm:h-11 sm:min-h-11 sm:px-5"
+            disabled={currentIndex === 0}
+            onClick={() => goToQuestion(Math.max(0, currentIndex - 1))}
           >
-            {finishing ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            {finishing ? t("finishing") : t("finish")}
+            <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            <span className="hidden xs:inline sm:inline">{t("previous")}</span>
           </Button>
-        ) : (
-          <Button
-            variant="game"
-            className="h-10 min-h-10 flex-[1.4] sm:h-12 sm:min-h-12 sm:flex-none"
-            disabled={!canGoNext}
-            onClick={() => goToQuestion(Math.min(questions.length - 1, currentIndex + 1))}
-          >
-            {t("next")}
-            <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
-          </Button>
-        )}
+
+          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground sm:text-sm">
+            <span className="tabular-nums font-extrabold text-foreground">
+              {currentIndex + 1} / {questions.length}
+            </span>
+          </div>
+
+          {isLast ? (
+            <Button
+              variant="game"
+              className="h-9 min-h-9 px-4 sm:h-11 sm:min-h-11 sm:px-6"
+              disabled={!currentAnswered || finishing || submitting}
+              onClick={() => void handleFinish()}
+            >
+              {finishing ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+              {finishing ? t("finishing") : t("finish")}
+            </Button>
+          ) : (
+            <Button
+              variant="game"
+              className="h-9 min-h-9 px-4 sm:h-11 sm:min-h-11 sm:px-6"
+              disabled={!canGoNext}
+              onClick={() => goToQuestion(Math.min(questions.length - 1, currentIndex + 1))}
+            >
+              <span>{t("next")}</span>
+              <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+            </Button>
+          )}
+        </div>
       </footer>
 
       {currentQuestion && (

@@ -224,7 +224,7 @@ export function Sidebar() {
           <NotificationBell variant="mobile" />
           <div className="flex min-h-10 items-center gap-1 rounded-xl border border-streak/30 bg-streak/10 px-2.5 text-sm font-bold text-streak">
             <Flame aria-hidden="true" className="h-4 w-4 animate-flame" />
-            <span className="tabular-nums">{currentStreak}</span>
+            <span suppressHydrationWarning className="tabular-nums">{currentStreak}</span>
           </div>
 
           <button
@@ -295,20 +295,20 @@ export function Sidebar() {
 
           {/* Streak lives in the mobile top bar — keep the panel for desktop only. */}
           <div className="sidebar-panel hidden px-3 py-2 md:block">
-            <div className="flex items-center justify-between gap-2 text-sm font-extrabold">
+            <div suppressHydrationWarning className="flex items-center justify-between gap-2 text-sm font-extrabold">
               <span className="flex min-w-0 items-center gap-1.5 truncate text-streak">
                 <Flame aria-hidden="true" className="h-4 w-4 shrink-0 animate-flame" />
-                <span className="truncate">{t("streakCount", { count: currentStreak })}</span>
+                <span suppressHydrationWarning className="truncate">{t("streakCount", { count: currentStreak })}</span>
               </span>
               {loading ? (
                 <span aria-hidden="true" className="h-5 w-14 animate-pulse rounded-full bg-border/60" />
               ) : isVip ? (
-                <span className="shrink-0 rounded-md border border-gold/30 bg-gold/15 px-2 py-0.5 text-xs font-extrabold text-gold">
+                <span suppressHydrationWarning className="shrink-0 rounded-md border border-gold/30 bg-gold/15 px-2 py-0.5 text-xs font-extrabold text-gold">
                   {t("vipBadge")}
                 </span>
               ) : (
                 <Link href={`/${currentLocale}/premium`} className="shrink-0">
-                  <span className="rounded-md bg-accent/20 px-2 py-0.5 text-xs font-extrabold text-foreground hover:underline">
+                  <span suppressHydrationWarning className="rounded-md bg-accent/20 px-2 py-0.5 text-xs font-extrabold text-foreground hover:underline">
                     {t("upgradeVip")}
                   </span>
                 </Link>
@@ -341,11 +341,11 @@ export function Sidebar() {
               onClick={() => setMobileOpen(false)}
               className="flex items-center gap-2 p-2 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-2.5 md:p-2.5"
             >
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm">
+              <div suppressHydrationWarning className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm">
                 {userName.charAt(0).toUpperCase()}
               </div>
               <div className="flex min-w-0 flex-col truncate">
-                <span className="truncate text-sm font-bold text-foreground">{userName}</span>
+                <span suppressHydrationWarning className="truncate text-sm font-bold text-foreground">{userName}</span>
                 <span className="text-[11px] text-muted-foreground md:text-xs">{t("viewProfile")}</span>
               </div>
             </Link>
