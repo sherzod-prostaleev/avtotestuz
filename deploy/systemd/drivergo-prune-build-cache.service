@@ -11,6 +11,14 @@ WorkingDirectory=/opt/drivergo
 # A week: long enough that an incremental build still hits cache, short enough
 # that the cache cannot grow to the 30 GB it reached before this existed.
 Environment="BUILD_CACHE_KEEP=168h"
+# The docker CLI writes a config directory on first use, and ProtectHome below
+# makes /root read-only, so without this the unit dies on
+# "mkdir /root/.docker: read-only file system" -- which is the hardening doing
+# its job, not a reason to drop it. Point the CLI at its own runtime directory
+# instead; systemd creates and removes it around each run.
+Environment="DOCKER_CONFIG=/run/drivergo-prune-build-cache"
+RuntimeDirectory=drivergo-prune-build-cache
+RuntimeDirectoryMode=0700
 ExecStart=/opt/drivergo/deploy/prune-build-cache.sh
 TimeoutStartSec=30m
 Nice=15
