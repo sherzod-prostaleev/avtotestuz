@@ -30,6 +30,19 @@ ENV HOSTNAME=0.0.0.0
 # toolchains shrinks the runtime attack surface and prevents build-only npm,
 # Corepack, Yarn, tar, undici, and brace-expansion advisories from shipping in
 # the production container.
+# Take Alpine's OpenSSL fixes even when the node:24-alpine tag has not been
+# rebuilt yet. CVE-2026-14456 (HIGH, openssl 3.5.7-r0 -> 3.5.8-r0) failed the
+# container-build CVE gate on 2026-08-27 while `node:24-alpine` still resolved
+# to the very digest pinned above -- the image had not changed at all, Trivy's
+# database had. Pinning the base by digest is what makes a build reproducible;
+# it is also what stops it from silently picking up a distro security fix, and
+# this line is the other half of that bargain.
+#
+# Named packages, not a blanket `apk upgrade`: a full upgrade would quietly
+# change anything the base ships, which is the reproducibility the digest pin
+# exists to protect. Add a package here when a gate names it, not before.
+RUN apk upgrade --no-cache libcrypto3 libssl3
+
 RUN rm -rf \
       /usr/local/lib/node_modules/npm \
       /usr/local/lib/node_modules/corepack \
