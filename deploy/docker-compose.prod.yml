@@ -45,7 +45,33 @@ services:
 
   redis:
     image: redis:7-alpine@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99
-    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    # maxmemory is set here rather than with CONFIG SET because this command
+    # line is the whole configuration: a runtime CONFIG SET is forgotten the
+    # next time the container is recreated, which is every deploy.
+    #
+    # Without it Redis has no ceiling below mem_limit, so memory pressure ends
+    # in an OOM kill rather than an eviction -- and the rate limiter fails
+    # closed (auth/ratelimit.go), so a dead Redis does not slow a classroom
+    # down, it denies every enrol, token and answer in it. 256m against a 512m
+    # container leaves room for the AOF rewrite, which briefly needs a second
+    # copy of the working set.
+    #
+    # volatile-ttl evicts the soonest-expiring keys first, which are exactly
+    # the disposable ones: rate-limit counters and station nonces. The three
+    # keys with no TTL (lb:alltime and the arena ratings) are caches that
+    # rebuild themselves, and under this policy they are never chosen -- the
+    # cost of that is only a risk if the untimed keys ever fill 256 MB on their
+    # own, and today the whole instance is under 2 MB.
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - volatile-ttl
     volumes:
       - drivergo_redisdata:/data
     healthcheck:
