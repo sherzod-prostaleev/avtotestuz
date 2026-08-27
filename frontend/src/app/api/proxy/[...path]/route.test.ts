@@ -290,4 +290,22 @@ describe("proxy route", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("cache-control")).not.toBe("public, max-age=300");
   });
+
+  it("acknowledges unauthenticated events with 200 without calling backend", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/proxy/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idempotency_key: "k1", events: [{ name: "page_view" }] }),
+      }),
+      routeContext(["events"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ data: { ok: true, count: 0 } });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -20,8 +20,8 @@ const contentSecurityPolicy = [
   // React Dev (and some Next.js HMR helpers) need eval() in development.
   // Keep production strict: never allow unsafe-eval there.
   isProd
-    ? "script-src 'self' 'unsafe-inline'"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com"
+    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com",
   "style-src 'self' 'unsafe-inline'",
   // Production: same-origin /media (nginx) + https CDNs.
   // Development: also allow the raw MinIO ports for leftover absolute URLs

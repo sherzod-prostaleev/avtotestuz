@@ -88,6 +88,12 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
   let accessToken = readCookie(request, AUTH_COOKIE);
   const refreshToken = readCookie(request, REFRESH_COOKIE);
 
+  // Anonymous telemetry: events without a profile session are acknowledged
+  // without spamming 401 errors into the browser console.
+  if (path[0] === "events" && !accessToken && !refreshToken) {
+    return NextResponse.json({ data: { ok: true, count: 0 } }, { status: 200 });
+  }
+
   // If endpoint is protected and no tokens exist, return 401 immediately
   if (!accessToken && !refreshToken && !isPublicPath(path)) {
     return NextResponse.json({ error: { code: "unauthorized", message: "no access token" } }, { status: 401 });
