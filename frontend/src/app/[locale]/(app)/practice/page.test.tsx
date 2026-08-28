@@ -101,31 +101,47 @@ describe("PracticePage", () => {
     expect(screen.getByText("88 ta savol")).toBeInTheDocument();
   });
 
-  it("starts a bilet-span session from the range inputs", async () => {
+  // The from/to pair is gone: a size is the whole choice, and it draws across
+  // every bilet the bank has (61 in this fixture).
+  it("starts ticket practice across every bilet when a size is tapped", async () => {
     mockEndpoints();
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Biletlar oralig'i/ }));
-    fireEvent.change(screen.getByLabelText("Boshlanishi"), { target: { value: "3" } });
-    fireEvent.change(screen.getByLabelText("Tugashi"), { target: { value: "12" } });
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+    fireEvent.click(screen.getByRole("button", { name: "50 ta savol" }));
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=20&variant_from=3&variant_to=12"
+      "/uz-Latn/session/start?mode=practice&count=50&variant_from=1&variant_to=61"
     );
   });
 
-  it("refuses to start an inverted bilet span", async () => {
+  it("offers the long sizes too, and Hammasi means the whole bank", async () => {
     mockEndpoints();
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Biletlar oralig'i/ }));
-    fireEvent.change(screen.getByLabelText("Boshlanishi"), { target: { value: "20" } });
-    fireEvent.change(screen.getByLabelText("Tugashi"), { target: { value: "5" } });
+    expect(screen.getByRole("button", { name: "800 ta savol" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
 
-    expect(screen.getByRole("button", { name: "Mashqni boshlash" })).toBeDisabled();
+    expect(pushMock).toHaveBeenCalledWith(
+      "/uz-Latn/session/start?mode=practice&count=1260&variant_from=1&variant_to=61"
+    );
+  });
+
+  // Without a bilet count the range would be 1..0, which the sessions endpoint
+  // rejects — so the sizes stay inert rather than starting a doomed session.
+  it("keeps ticket sizes inert until the bilet count is known", async () => {
+    mockEndpoints({ variants: [] });
+    renderWithIntl();
+    await screen.findByText("Umumiy qoidalar");
+
+    fireEvent.click(screen.getByRole("button", { name: /Biletlar oralig'i/ }));
+    fireEvent.click(screen.getByRole("button", { name: "20 ta savol" }));
+
+    expect(screen.getByRole("button", { name: "20 ta savol" })).toBeDisabled();
+    expect(pushMock).not.toHaveBeenCalled();
   });
 
   it("starts an image-filtered session from inside practice", async () => {
@@ -135,25 +151,46 @@ describe("PracticePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
     fireEvent.click(screen.getByRole("button", { name: /Rasmsiz savollar/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
+    fireEvent.click(screen.getByRole("button", { name: "20 ta savol" }));
 
     expect(pushMock).toHaveBeenCalledWith(
       "/uz-Latn/session/start?mode=practice&count=20&has_image=false"
     );
   });
 
-  it("starts all matching image questions when Hammasi count is selected", async () => {
+  it("starts all matching image questions when Hammasi is tapped", async () => {
     mockEndpoints();
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
     fireEvent.click(screen.getByRole("button", { name: /Rasm bo'yicha/ }));
     fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Mashqni boshlash" }));
 
     expect(pushMock).toHaveBeenCalledWith(
       "/uz-Latn/session/start?mode=practice&count=1260&has_image=true"
     );
+  });
+
+  // A learner's level now comes from the practice they do, so the placement
+  // test has no entry point left — on the kiosk either.
+  it("offers no diagnostic entry point", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Umumiy qoidalar");
+
+    expect(screen.queryByText(/Diagnostika/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Diagnostika/i })
+    ).not.toBeInTheDocument();
+  });
+
+  // The size card replaced the one that used to carry the daily budget, so the
+  // budget has to survive on its own or the limit is met as a failed start.
+  it("still states the remaining daily budget", async () => {
+    mockEndpoints();
+    renderWithIntl();
+
+    expect(await screen.findByText(/Bugun 30 ta savol qoldi/)).toBeInTheDocument();
   });
 });
 

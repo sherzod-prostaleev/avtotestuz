@@ -134,7 +134,10 @@ export default function DashboardPage() {
     : null;
   const hasAnyProgress =
     sessions.some(isFinishedSession) || (stats?.total_answered ?? 0) > 0;
-  const placementHref = `/${locale}/session/start?mode=placement`;
+  // The onboarding list used to open with a placement test. A learner's level
+  // now emerges from the practice they do, so the first step is the practice
+  // picker itself.
+  const onboardingHref = `/${locale}/practice`;
 
   useEffect(() => {
     try {
@@ -252,7 +255,7 @@ export default function DashboardPage() {
                 </li>
               </ul>
               <Link
-                href={placementHref}
+                href={onboardingHref}
                 className="inline-flex min-h-12 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-5 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none"
               >
                 {t("onboardingCta")}

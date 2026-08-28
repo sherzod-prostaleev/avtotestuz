@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet } from "@/lib/api-client";
 import { usePracticeAllowance } from "@/hooks/use-practice-allowance";
 import { useSigns } from "@/hooks/use-signs";
 import { SignPracticeGrid } from "@/components/practice/sign-practice-grid";
@@ -22,7 +22,6 @@ import {
   Layers,
   Play,
   RefreshCw,
-  RotateCcw,
   Signpost,
   BrainCircuit,
   ChevronDown,
@@ -30,7 +29,10 @@ import {
 } from "lucide-react";
 import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
 
-const COUNT_PRESETS = [20, 50, 100] as const;
+// Every preset is a one-tap start, so the list runs past a single sitting on
+// purpose: a learner picking 800 is choosing a marathon, and the server clamps
+// to whatever the bank and the daily allowance actually hold.
+const COUNT_PRESETS = [20, 50, 100, 200, 400, 500, 800, 1000] as const;
 const MAX_CUSTOM_COUNT = OFFICIAL_QUESTION_COUNT;
 
 type Source = "due" | "category" | "variant" | "image" | "sign";
@@ -131,33 +133,6 @@ interface MistakesDTO {
   next_due_at: string | null;
 }
 
-/** One row of `me/practice-progress`: how far this profile has walked one topic. */
-interface PracticeProgressDTO {
-  category_id: string;
-  // The design spec keys the row by uuid, but this picker has no uuid to key
-  // it back to: `GET /categories` returns `code` and nothing else
-  // (backend/internal/content/dto.go CategoryDTO), so the whole page — the
-  // selector, the start URL, the reset body — speaks category codes. Both
-  // fields are read so the row lands whichever identifier the backend puts on
-  // it; a uuid-only row simply never matches a code and the hint stays hidden.
-  category_code?: string;
-  next_index: number;
-  total: number;
-}
-
-// Keyed by every identifier the row carries rather than by a single field, so
-// one lookup by category code works without the page knowing which of the two
-// the backend filled in.
-function indexProgress(rows: PracticeProgressDTO[]): Record<string, PracticeProgressDTO> {
-  const byKey: Record<string, PracticeProgressDTO> = {};
-  for (const row of rows) {
-    if (!row || !Number.isInteger(row.next_index)) continue;
-    if (typeof row.category_code === "string" && row.category_code) byKey[row.category_code] = row;
-    if (typeof row.category_id === "string" && row.category_id) byKey[row.category_id] = row;
-  }
-  return byKey;
-}
-
 export interface PracticePageProps {
   // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/practice/page.tsx):
   // a walk-up student has no dashboard or VIP checkout to go back to, so
@@ -179,21 +154,15 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const [source, setSource] = useState<Source>("category");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>("");
+  // Highest bilet number the bank holds. The ticket source draws across the
+  // whole span, so this is the only part of the old from/to pair still needed.
   const [variantCount, setVariantCount] = useState<number>(0);
-  const [variants, setVariants] = useState<VariantItem[]>([]);
-  const [variantFrom, setVariantFrom] = useState<number>(1);
-  const [variantTo, setVariantTo] = useState<number>(10);
   const [withImage, setWithImage] = useState<boolean>(true);
-  const [count, setCount] = useState<number>(20);
-  const [customCount, setCustomCount] = useState<string>("");
-  const [allQuestions, setAllQuestions] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<boolean>(false);
   const [dueCount, setDueCount] = useState<number>(0);
   const [bankCount, setBankCount] = useState<number>(0);
   const [nextDueAt, setNextDueAt] = useState<string | null>(null);
-  const [progress, setProgress] = useState<Record<string, PracticeProgressDTO>>({});
-  const [resetting, setResetting] = useState<boolean>(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     sectionGeneralRulesDuties: true,
   });
@@ -205,19 +174,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
   const signsAvailable = signs.length > 0;
-
-  // One call covers all 13 topics, so the picker can label the selected one
-  // without a request per topic. Swallowing the failure the way `me/stats` does
-  // is deliberate: the position is a convenience on top of an ordered walk that
-  // works without it, so losing it must cost the hint and nothing else.
-  const loadProgress = useCallback(async () => {
-    try {
-      const rows = await apiGet<PracticeProgressDTO[]>("me/practice-progress");
-      setProgress(indexProgress(Array.isArray(rows) ? rows : []));
-    } catch {
-      setProgress({});
-    }
-  }, []);
 
   const loadContent = useCallback(async () => {
     setLoading(true);
@@ -232,7 +188,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
           total_bank_count: 0,
           next_due_at: null,
         })),
-        loadProgress(),
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       setCategories(ordered);
@@ -243,27 +198,19 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       setBankCount(Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0);
       setNextDueAt(typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null);
 
-      const highest = variants.reduce((max, item) => Math.max(max, item.number), 0);
-      setVariants(variants);
-      setVariantCount(highest);
-      if (highest > 0) {
-        setVariantFrom(1);
-        setVariantTo(Math.min(10, highest));
-      }
+      setVariantCount(variants.reduce((max, item) => Math.max(max, item.number), 0));
     } catch {
       setCategories([]);
       setSelectedCategory("");
-      setVariants([]);
       setVariantCount(0);
       setDueCount(0);
       setBankCount(0);
       setNextDueAt(null);
-      setProgress({});
       setLoadError(true);
     } finally {
       setLoading(false);
     }
-  }, [locale, loadProgress]);
+  }, [locale]);
 
   useEffect(() => {
     void loadContent();
@@ -276,52 +223,16 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     return total;
   }, [categories]);
 
-  const rangeValid = variantFrom >= 1 && variantTo >= variantFrom && variantTo <= variantCount;
-
-  const variantRangeQuestionCount = useMemo(() => {
-    if (!rangeValid || variants.length === 0) return 0;
-    const inRange = variants.filter((item) => item.number >= variantFrom && item.number <= variantTo);
-    if (inRange.length === 0) {
-      return (variantTo - variantFrom + 1) * 20;
-    }
-    return inRange.reduce((sum, item) => sum + (item.question_count ?? 20), 0);
-  }, [rangeValid, variants, variantFrom, variantTo]);
-
-  const effectiveCount = useMemo(() => {
-    if (!allowance || allowance.unlimited) return count;
-    return Math.min(count, allowance.remaining);
-  }, [allowance, count]);
-
   const exhausted = Boolean(allowance && !allowance.unlimited && allowance.remaining <= 0);
-  const clamped = Boolean(allowance && !allowance.unlimited && !exhausted && effectiveCount < count);
 
-  // "Ordered" is a property of "all questions of one topic" and nothing else:
-  // the 20/50/100 presets, a typed count, signs, ticket ranges and the
-  // with-image selector all stay random draws, so this is the single gate every
-  // ordered behaviour on the page hangs off.
-  const orderedRun = source === "category" && allQuestions && Boolean(selectedCategory);
-  const resume = orderedRun ? progress[selectedCategory] : undefined;
-  // next_index is 0-based and counts questions worked through, so 123 means the
-  // next one is the 124th. 0 means nothing to resume, and a hint that says
-  // "continues from question 1" is noise, so it is not rendered at all.
-  const resumeAt = resume && resume.next_index > 0 ? resume.next_index : 0;
-  // total travels with the row, but fall back to the picker's own count for the
-  // topic: they are the same number, and a row without it would otherwise claim
-  // "0 ta qoldi" on a topic with 214 left.
-  const resumeTotal =
-    resume && Number.isInteger(resume.total) && resume.total > 0
-      ? resume.total
-      : (categories.find((cat) => cat.code === selectedCategory)?.question_count ?? 0);
+  // Every source except Takrorlash now starts from the thing you pick — a
+  // topic, or a size — so Start survives only for the review queue, which has
+  // nothing to pick.
+  const canStart = !loading && source === "due" && dueCount > 0;
 
-  const canStart = (() => {
-    if (loading) return false;
-    if (source === "due") return dueCount > 0;
-    if (exhausted) return false;
-    if (source === "category") return Boolean(selectedCategory);
-    if (source === "variant") return rangeValid;
-    if (source === "sign") return false;
-    return true;
-  })();
+  // The ticket source draws across every bilet, so it needs the bank loaded
+  // before a size button can mean anything.
+  const countStartReady = !loading && !exhausted && (source !== "variant" || variantCount > 0);
 
   const handleCategoryClick = (catCode: string) => {
     router.push(
@@ -329,45 +240,22 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     );
   };
 
-  const handleStart = () => {
-    if (source === "sign" || source === "category") return;
-    if (source === "due") {
-      const reviewCount = Math.min(20, Math.max(dueCount, 1));
-      router.push(`${sessionStartBase}?mode=review&count=${reviewCount}`);
-      return;
-    }
-    const base = `${sessionStartBase}?mode=practice&count=${count}`;
+  // Ticket and image practice are a single tap: the size *is* the start button.
+  // Both stay random draws — only "all questions of one topic" is ordered.
+  const handleCountClick = (size: number) => {
+    if (!countStartReady) return;
+    const base = `${sessionStartBase}?mode=practice&count=${size}`;
     if (source === "variant") {
-      router.push(`${base}&variant_from=${variantFrom}&variant_to=${variantTo}`);
+      router.push(`${base}&variant_from=1&variant_to=${variantCount}`);
       return;
     }
     router.push(`${base}&has_image=${withImage}`);
   };
 
-  // Sends the category code, not a uuid — see PracticeProgressDTO: the picker
-  // never receives a uuid, and the sessions endpoint already resolves either
-  // form (ResolveCategoryID in backend/internal/session/handlers.go).
-  const handleResetProgress = async () => {
-    if (!selectedCategory || resetting) return;
-    setResetting(true);
-    try {
-      await apiPost("me/practice-progress/reset", { category_id: selectedCategory });
-      await loadProgress();
-    } catch {
-      // Same tolerance as loading the position: a failed reset leaves the hint
-      // standing, which is honest — the cursor really did not move.
-    } finally {
-      setResetting(false);
-    }
-  };
-
-  const applyCustomCount = (raw: string) => {
-    setCustomCount(raw);
-    setAllQuestions(false);
-    const parsed = Number(raw);
-    if (Number.isInteger(parsed) && parsed > 0) {
-      setCount(Math.min(parsed, MAX_CUSTOM_COUNT));
-    }
+  const handleStart = () => {
+    if (source !== "due") return;
+    const reviewCount = Math.min(20, Math.max(dueCount, 1));
+    router.push(`${sessionStartBase}?mode=review&count=${reviewCount}`);
   };
 
   const nextDueLabel = nextDueAt ? formatDateWithTime(nextDueAt) : null;
@@ -407,28 +295,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
         <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("subtitle")}</p>
       </div>
-
-      <Link
-        href={`${sessionStartBase}?mode=placement`}
-        className="block"
-      >
-        <Card className="group flex items-center justify-between gap-3 border-accent/35 p-4 transition-colors hover:border-accent sm:p-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent/15 text-accent">
-              <BrainCircuit aria-hidden="true" className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-              <p className="font-display text-base font-extrabold tracking-tight sm:text-lg">
-                {t("placementTitle")}
-              </p>
-              <p className="mt-0.5 text-sm leading-snug text-muted-foreground">{t("placementDesc")}</p>
-            </div>
-          </div>
-          <Button as="span" variant="game" size="sm" className="shrink-0">
-            {t("placementCta")}
-          </Button>
-        </Card>
-      </Link>
 
       {loadError && (
         <Card
@@ -593,52 +459,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         </Card>
       )}
 
-      {source === "variant" && (
-        <Card className="space-y-4 p-5 sm:p-6">
-          <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
-            {t("variantRangeLabel")}
-          </h2>
-          <div className="flex flex-wrap items-end gap-4">
-            <label className="flex flex-col gap-1.5 text-sm font-bold text-muted-foreground">
-              {t("variantFrom")}
-              <input
-                type="number"
-                min={1}
-                max={variantCount || 1}
-                value={variantFrom}
-                onChange={(event) => setVariantFrom(Number(event.target.value))}
-                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </label>
-            <label className="flex flex-col gap-1.5 text-sm font-bold text-muted-foreground">
-              {t("variantTo")}
-              <input
-                type="number"
-                min={1}
-                max={variantCount || 1}
-                value={variantTo}
-                onChange={(event) => setVariantTo(Number(event.target.value))}
-                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </label>
-            {rangeValid && variantCount > 0 && (
-              <p className="pb-2 text-sm font-semibold text-muted-foreground">
-                {t("variantRangeSummary", {
-                  from: variantFrom,
-                  to: variantTo,
-                  count: variantRangeQuestionCount,
-                })}
-              </p>
-            )}
-          </div>
-          {!rangeValid && variantCount > 0 && (
-            <p role="alert" className="text-sm font-semibold text-destructive">
-              {t("variantRangeInvalid")}
-            </p>
-          )}
-        </Card>
-      )}
-
       {source === "image" && (
         <Card className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
           {[
@@ -666,122 +486,76 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         </Card>
       )}
 
-      {/* Question count + allowance */}
-      {source !== "sign" && source !== "due" && source !== "category" && (
+      {/* Ticket and image practice: the size is the start button. Presented as
+          a grid rather than a row because eight sizes wrap badly on a phone,
+          and the kiosk is touched, not clicked. */}
+      {(source === "variant" || source === "image") && (
         <Card className="space-y-4 p-5 sm:p-6">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("countLabel")}
           </h2>
-          <div className="flex flex-wrap gap-3">
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
             {COUNT_PRESETS.map((preset) => (
               <Button
                 key={preset}
-                variant={!allQuestions && count === preset && customCount === "" ? "game" : "outline"}
-                size="sm"
-                aria-pressed={!allQuestions && count === preset && customCount === ""}
-                onClick={() => {
-                  setAllQuestions(false);
-                  setCustomCount("");
-                  setCount(preset);
-                }}
-                className="min-w-28 py-2.5 text-sm font-extrabold"
+                variant="outline"
+                onClick={() => handleCountClick(preset)}
+                disabled={!countStartReady}
+                className="min-h-12 py-2.5 text-sm font-extrabold"
               >
                 {t("questionCountOption", { count: preset })}
               </Button>
             ))}
             <Button
-              variant={allQuestions ? "game" : "outline"}
-              size="sm"
-              aria-pressed={allQuestions}
-              onClick={() => {
-                setAllQuestions(true);
-                setCustomCount("");
-                setCount(MAX_CUSTOM_COUNT);
-              }}
-              className="min-w-28 py-2.5 text-sm font-extrabold"
+              variant="game"
+              onClick={() => handleCountClick(MAX_CUSTOM_COUNT)}
+              disabled={!countStartReady}
+              className="min-h-12 py-2.5 text-sm font-extrabold"
             >
               {t("countAll")}
             </Button>
-            <label className="flex items-center gap-2 text-sm font-bold text-muted-foreground">
-              {t("countCustom")}
-              <input
-                type="number"
-                min={1}
-                max={MAX_CUSTOM_COUNT}
-                value={customCount}
-                placeholder={t("countCustomPlaceholder")}
-                onChange={(event) => applyCustomCount(event.target.value)}
-                className="h-12 w-28 rounded-xl border border-border bg-background px-3 text-base font-bold text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              />
-            </label>
           </div>
-
-          {resumeAt > 0 && (
-            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-accent/35 bg-accent/5 p-3.5">
-              <p className="text-sm font-semibold text-accent">
-                {t("orderedResume", {
-                  next: resumeAt + 1,
-                  remaining: Math.max(0, resumeTotal - resumeAt),
-                })}
-              </p>
-              {/* Needed because the cursor belongs to the profile, and on a
-                  classroom PC that is the room: a new group starts the topic
-                  fresh while the previous group's 123 is still stored. Does
-                  not start a session — clearing the position and beginning a
-                  lesson are two separate decisions for the teacher. */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="ml-auto"
-                disabled={resetting}
-                onClick={() => void handleResetProgress()}
-              >
-                <RotateCcw aria-hidden="true" className="mr-2 h-4 w-4" />
-                {t("orderedReset")}
-              </Button>
-            </div>
-          )}
-
-          {allowance && (
-            <div
-              className={`rounded-xl border p-3.5 text-sm font-semibold ${
-                exhausted
-                  ? "border-gold/40 bg-gold/10 text-gold"
-                  : "border-border bg-background text-muted-foreground"
-              }`}
-            >
-              {allowance.unlimited ? (
-                <span className="flex items-center gap-1.5 text-gold">
-                  <Crown aria-hidden="true" className="h-4 w-4" />
-                  {t("allowanceUnlimited")}
-                </span>
-              ) : exhausted ? (
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <span>{t("allowanceExhausted")}</span>
-                  {/* No checkout entry point on the kiosk: a walk-up student
-                      must never be one tap from VIP purchase. */}
-                  {!kiosk && (
-                    <Link
-                      // kiosk-safe: wrapped in the !kiosk check two lines up — no checkout entry point on the kiosk, a walk-up student must never be one tap from VIP purchase
-                      href={`/${locale}/premium`}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
-                    >
-                      <Crown aria-hidden="true" className="h-4 w-4" />
-                      {t("allowanceUpgrade")}
-                    </Link>
-                  )}
-                </div>
-              ) : (
-                <div className="space-y-1">
-                  <p>{t("allowanceRemaining", { count: allowance.remaining })}</p>
-                  {clamped && <p className="text-gold">{t("allowanceClamped", { count: effectiveCount })}</p>}
-                </div>
-              )}
-            </div>
-          )}
         </Card>
       )}
+
+      {/* Outside the size card on purpose: every source except the review queue
+          now starts from its own card, and the daily budget has to stay visible
+          in all of them or a learner meets the limit only as a failed start. */}
+      {allowance && source !== "sign" && (
+        <div
+          className={`rounded-xl border p-3.5 text-sm font-semibold ${
+            exhausted
+              ? "border-gold/40 bg-gold/10 text-gold"
+              : "border-border bg-background text-muted-foreground"
+          }`}
+        >
+          {allowance.unlimited ? (
+            <span className="flex items-center gap-1.5 text-gold">
+              <Crown aria-hidden="true" className="h-4 w-4" />
+              {t("allowanceUnlimited")}
+            </span>
+          ) : exhausted ? (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span>{t("allowanceExhausted")}</span>
+              {/* No checkout entry point on the kiosk: a walk-up student
+                  must never be one tap from VIP purchase. */}
+              {!kiosk && (
+                <Link
+                  // kiosk-safe: wrapped in the !kiosk check two lines up — no checkout entry point on the kiosk, a walk-up student must never be one tap from VIP purchase
+                  href={`/${locale}/premium`}
+                  className="inline-flex min-h-11 items-center gap-1.5 rounded-xl bg-gold px-3 text-sm font-extrabold text-slate-950 hover:brightness-105"
+                >
+                  <Crown aria-hidden="true" className="h-4 w-4" />
+                  {t("allowanceUpgrade")}
+                </Link>
+              )}
+            </div>
+          ) : (
+            <p>{t("allowanceRemaining", { count: allowance.remaining })}</p>
+          )}
+        </div>
+      )}
+
 
       {source === "sign" && signsAvailable && (
         <section className="space-y-3" aria-label={t("sourceSignPick")}>
@@ -813,7 +587,9 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         <p className="text-center text-sm text-muted-foreground">{t("categoryCountUnavailable")}</p>
       )}
 
-      {source !== "sign" && source !== "category" && (
+      {/* Only the review queue still needs a Start: topics, tickets and image
+          practice all start from the card you picked in. */}
+      {source === "due" && (
         <div className="mt-6 sm:mt-8">
           <Button
             variant="game"

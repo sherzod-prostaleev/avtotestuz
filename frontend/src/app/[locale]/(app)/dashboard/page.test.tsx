@@ -328,10 +328,13 @@ describe("DashboardPage i18n and accessibility", () => {
     renderWithIntl(localeCases[0]);
 
     expect(screen.getByRole("heading", { name: "Qanday boshlash kerak?" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Diagnostikani boshlash/ })).toHaveAttribute(
+    // The callout used to open a placement test; a learner's level now comes
+    // from the practice they do, so it opens the practice picker instead.
+    expect(screen.getByRole("link", { name: /Mashqni boshlash/ })).toHaveAttribute(
       "href",
-      "/uz-Latn/session/start?mode=placement"
+      "/uz-Latn/practice"
     );
+    expect(screen.queryByText(/Diagnostika/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Yopish" }));
 
