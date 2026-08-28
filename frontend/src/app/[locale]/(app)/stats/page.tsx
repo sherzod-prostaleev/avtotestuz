@@ -9,7 +9,8 @@ import { ResultRing } from "@/components/shared/result-ring";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Flame, RefreshCw } from "lucide-react";
+import { Flame, RefreshCw } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 
 export interface StatsPageProps {
   // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/stats/page.tsx):
@@ -61,9 +62,7 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
   return (
     <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={backHref} className="back-link">
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
-        </Link>
+        <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         <p className="mt-1 text-xs text-muted-foreground/90">{t("disclaimer")}</p>

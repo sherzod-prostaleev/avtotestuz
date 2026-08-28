@@ -679,7 +679,8 @@
     "stopMeta": "{n}-xatoda to'xtaydi",
     "start": "Boshlash",
     "vipLocked": "VIP obuna kerak",
-    "keyboardHint": "Klaviaturada 1 yoki 2 tugmasini bosing"
+    "keyboardHint": "Klaviaturada 1 yoki 2 tugmasini bosing",
+    "backHome": "Bosh sahifaga qaytish"
   },
   "GrandMock": {
     "title": "BOSH IMTIHON",

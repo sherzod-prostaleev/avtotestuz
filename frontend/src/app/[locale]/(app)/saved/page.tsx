@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, Bookmark, CalendarDays, ImageIcon, Trash2 } from "lucide-react";
+import { Bookmark, CalendarDays, ImageIcon, Trash2 } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 import { apiDelete, apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -105,9 +106,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
   return (
     <main className="page-shell-tight space-y-6 sm:space-y-8">
       <header>
-        <Link href={backHref} className="back-link">
-          <ArrowLeft className="h-4 w-4" /> {t("backToDashboard")}
-        </Link>
+        <BackLink href={backHref} kiosk={kiosk}>{t("backToDashboard")}</BackLink>
         <div className="flex items-center gap-3">
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent">
             <Bookmark className="h-6 w-6" />

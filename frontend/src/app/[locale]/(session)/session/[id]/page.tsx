@@ -404,12 +404,16 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
       }
       if (!session || session.status !== "active" || !currentQuestion) return;
 
+      // Both arrows walk the question list freely, in both directions. The
+      // numbered chips already jump anywhere without answering first, so
+      // gating the right arrow on an answer only made the keyboard the one
+      // way you could move backwards but not forwards.
       if (event.key === "ArrowLeft" && currentIndex > 0) {
         event.preventDefault();
         goToQuestion(currentIndex - 1);
         return;
       }
-      if (event.key === "ArrowRight" && currentAnswered && currentIndex < questions.length - 1) {
+      if (event.key === "ArrowRight" && currentIndex < questions.length - 1) {
         event.preventDefault();
         goToQuestion(currentIndex + 1);
         return;

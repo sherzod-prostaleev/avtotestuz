@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import Link from "next/link";
 import { apiGet } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, RefreshCw, Trophy } from "lucide-react";
+import { RefreshCw, Trophy } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 
 export type LeaderboardPeriod = "daily" | "weekly" | "monthly" | "alltime";
 
@@ -113,9 +113,7 @@ export default function LeaderboardPage({ kiosk = false }: LeaderboardPageProps 
   return (
     <main className="page-shell-narrow">
       <header className="mb-6">
-        <Link href={backHref} className="back-link">
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
-        </Link>
+        <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
         <h1 className="flex items-center gap-2 font-display text-2xl font-bold tracking-tight">
           <Trophy aria-hidden="true" className="h-6 w-6 text-gold" />
           {t("title")}

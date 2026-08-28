@@ -901,3 +901,70 @@ describe("SessionPage auto-advance", () => {
     }
   });
 });
+
+describe("SessionPage keyboard navigation", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    navigation.push.mockReset();
+    navigation.replace.mockReset();
+    vi.mocked(useSessionEngine).mockReset();
+    vi.mocked(trackEvent).mockReset();
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue([] as never);
+    vi.spyOn(apiClient, "apiPost").mockResolvedValue({ ok: true } as never);
+    vi.spyOn(apiClient, "apiDelete").mockResolvedValue({ ok: true } as never);
+  });
+
+  function threeQuestions() {
+    return activeSession({
+      total: 3,
+      questions: [
+        question({ id: "q-1" }),
+        question({ id: "q-2" }),
+        question({ id: "q-3" }),
+      ],
+    });
+  }
+
+  // The right arrow used to require an answer first, so the keyboard could
+  // walk backwards but not forwards. The numbered chips never had that gate.
+  it("walks forward with the right arrow without answering first", () => {
+    mockEngine(threeQuestions());
+    renderPage();
+
+    expect(screen.getByRole("button", { name: "1-savol: joriy" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "2-savol: joriy" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "3-savol: joriy" })).toBeInTheDocument();
+  });
+
+  it("walks back with the left arrow", () => {
+    mockEngine(threeQuestions());
+    renderPage();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "3-savol: joriy" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("button", { name: "2-savol: joriy" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("button", { name: "1-savol: joriy" })).toBeInTheDocument();
+  });
+
+  it("stops at both ends instead of wrapping", () => {
+    mockEngine(threeQuestions());
+    renderPage();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(screen.getByRole("button", { name: "1-savol: joriy" })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(screen.getByRole("button", { name: "3-savol: joriy" })).toBeInTheDocument();
+  });
+});

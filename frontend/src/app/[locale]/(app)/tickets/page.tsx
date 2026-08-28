@@ -2,13 +2,13 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTickets, TicketItem } from "@/hooks/use-tickets";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefetchVariantDetail } from "@/lib/prefetch-variant";
-import { ArrowLeft, Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
+import { Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
 
@@ -115,9 +115,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
     <main className="page-shell space-y-6 sm:space-y-8">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={backHref} className="back-link">
-            <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
-          </Link>
+          <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>

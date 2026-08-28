@@ -264,6 +264,15 @@
     @apply hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring;
   }
 
+  /* Kiosk variant: a walk-up student has no sidebar and no browser back, so
+     the way out has to read as a button from across a classroom and take a
+     fingertip, not a cursor. */
+  .back-link-kiosk {
+    @apply mb-5 inline-flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-accent/45 bg-accent/10 px-5 text-base font-extrabold tracking-tight text-accent;
+    @apply shadow-raised-sm transition-all hover:border-accent hover:bg-accent/20;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-0.5 active:shadow-none;
+  }
+
   .field-input {
     @apply min-h-11 w-full rounded-xl border border-border bg-card px-3.5 text-sm font-semibold text-foreground;
     @apply outline-none transition-colors focus:border-accent focus-visible:ring-2 focus-visible:ring-ring;

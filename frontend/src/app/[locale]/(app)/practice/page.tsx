@@ -13,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { formatDateWithTime } from "@/lib/date-format";
 import {
   AlignLeft,
-  ArrowLeft,
   BookOpen,
   CalendarClock,
   CheckCircle2,
@@ -27,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
 
 // Every preset is a one-tap start, so the list runs past a single sitting on
@@ -289,9 +289,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   return (
     <main className="page-shell-tight space-y-5 sm:space-y-6">
       <div>
-        <Link href={backHref} className="back-link">
-          <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
-        </Link>
+        <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
         <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("subtitle")}</p>
       </div>

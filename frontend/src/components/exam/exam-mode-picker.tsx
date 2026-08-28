@@ -3,7 +3,8 @@
 import { useCallback, useEffect } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
-import { Award, ChevronRight, Clock, ListChecks, Lock, RotateCcw, XCircle } from "lucide-react";
+import Link from "next/link";
+import { ArrowLeft, Award, ChevronRight, Clock, ListChecks, Lock, RotateCcw, XCircle } from "lucide-react";
 import { useMeQuery } from "@/hooks/use-me";
 
 /**
@@ -104,6 +105,22 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
       />
 
       <div className="relative z-10 w-full max-w-4xl">
+        {/* Kiosk only: this page fills a classroom screen that has no sidebar,
+            no browser chrome and no keyboard shortcut out, so without this a
+            student who opened the exam by mistake is stranded. In the learner
+            app the sidebar is already on screen. Styled against the picker's
+            own dark palette rather than the app tokens, which do not apply
+            here. */}
+        {kiosk && (
+          <Link
+            href={`/${locale}/station`}
+            className="mb-6 inline-flex min-h-14 items-center gap-2.5 rounded-2xl border-2 border-white/25 bg-white/10 px-5 text-base font-extrabold tracking-tight text-white shadow-lg transition-all hover:border-white/50 hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-[#091726] active:translate-y-0.5 active:shadow-none"
+          >
+            <ArrowLeft aria-hidden="true" className="h-5 w-5 shrink-0" />
+            {t("backHome")}
+          </Link>
+        )}
+
         <header className="text-center">
           <h1 className="font-display text-3xl font-black tracking-tight sm:text-4xl">{t("title")}</h1>
           <p className="mt-2 text-sm text-slate-300 sm:text-base">{t("subtitle")}</p>

@@ -5,13 +5,13 @@ import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import {
   AlertTriangle,
-  ArrowLeft,
   ImageOff,
   Play,
   RefreshCw,
   Search,
   X,
 } from "lucide-react";
+import { BackLink } from "@/components/layout/back-link";
 import { useSignDetail, useSigns, type SignItem } from "@/hooks/use-signs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -84,10 +84,7 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
     <main className="page-shell space-y-5 sm:space-y-6">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <Link href={backHref} className="back-link">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-            {t("backToPractice")}
-          </Link>
+          <BackLink href={backHref} kiosk={kiosk}>{t("backToPractice")}</BackLink>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
         </div>

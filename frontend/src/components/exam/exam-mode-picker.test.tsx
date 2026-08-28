@@ -108,6 +108,38 @@ describe("ExamModePicker on the kiosk", () => {
     renderPicker(true);
     expect(screen.queryByText(messages.ExamPicker.vipLocked)).not.toBeInTheDocument();
   });
+
+  // The picker fills a classroom screen that has no sidebar and no browser
+  // chrome, so without this a student who opened it by mistake is stranded.
+  it("gives a walk-up student a way back to the station home", () => {
+    renderPicker(true);
+    const back = screen.getByRole("link", { name: messages.ExamPicker.backHome });
+    expect(back).toHaveAttribute("href", "/uz-Latn/station");
+    expect(isKioskReachable(back.getAttribute("href")!)).toBe(true);
+  });
+
+  it("sizes that way out for a fingertip, not a cursor", () => {
+    renderPicker(true);
+    const back = screen.getByRole("link", { name: messages.ExamPicker.backHome });
+    expect(back.className).toMatch(/min-h-14/);
+  });
+});
+
+describe("ExamModePicker in the learner app", () => {
+  beforeEach(() => {
+    navigation.push.mockReset();
+    vi.mocked(useMeQuery).mockReset();
+    mockVip(true);
+  });
+
+  // The sidebar is already on screen there, so a second way out would just be
+  // furniture.
+  it("leaves the way out to the sidebar", () => {
+    renderPicker(false);
+    expect(
+      screen.queryByRole("link", { name: messages.ExamPicker.backHome })
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe("ExamModePicker without a subscription", () => {
