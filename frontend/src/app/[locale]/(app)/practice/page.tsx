@@ -23,8 +23,14 @@ import {
   RefreshCw,
   Signpost,
   BrainCircuit,
-  ChevronDown,
-  ChevronRight,
+  TriangleAlert,
+  Route,
+  Siren,
+  Car,
+  Navigation,
+  MapPin,
+  Truck,
+  HeartPulse,
 } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
 import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
@@ -39,16 +45,23 @@ type Source = "due" | "category" | "variant" | "image" | "sign";
 
 interface TopicSectionDef {
   key: string;
+  icon: typeof BookOpen;
   codes: readonly string[];
 }
 
+// The 42 topics are shown as one continuous list — the YHQ chapter order is
+// the order a learner is taught in, and nine collapsed headers hid 38 of them
+// behind a tap. The section a topic belongs to still rides on its card as a
+// label, so "the sign topics" stays findable without a band to open.
 const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
   {
     key: "sectionGeneralRulesDuties",
+    icon: BookOpen,
     codes: ["general_rules", "driver_duties", "pedestrian_duties", "special_vehicle_priority"],
   },
   {
     key: "sectionRoadSigns",
+    icon: TriangleAlert,
     codes: [
       "signs_warning",
       "signs_priority",
@@ -61,18 +74,22 @@ const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
   },
   {
     key: "sectionRoadMarkings",
+    icon: Route,
     codes: ["markings_horizontal", "markings_vertical"],
   },
   {
     key: "sectionSignals",
+    icon: Siren,
     codes: ["traffic_lights", "traffic_controller", "warning_hazard_signals"],
   },
   {
     key: "sectionDrivingOrder",
+    icon: Car,
     codes: ["starting_manoeuvring", "lane_position", "speed_limits", "overtaking", "stopping_and_parking"],
   },
   {
     key: "sectionIntersections",
+    icon: Navigation,
     codes: [
       "intersections_general",
       "intersections_regulated",
@@ -83,6 +100,7 @@ const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
   },
   {
     key: "sectionSpecialSectionsPriority",
+    icon: MapPin,
     codes: [
       "pedestrian_crossings_stops",
       "railway_crossings",
@@ -94,6 +112,7 @@ const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
   },
   {
     key: "sectionVehicleCarriage",
+    icon: Truck,
     codes: [
       "lighting_devices",
       "towing",
@@ -107,9 +126,15 @@ const TOPIC_SECTIONS: readonly TopicSectionDef[] = [
   },
   {
     key: "sectionSafetyFirstAid",
+    icon: HeartPulse,
     codes: ["safety_basics", "first_aid"],
   },
 ] as const;
+
+/** code -> the section it belongs to, so a card can label itself. */
+const SECTION_BY_CODE: ReadonlyMap<string, TopicSectionDef> = new Map(
+  TOPIC_SECTIONS.flatMap((section) => section.codes.map((code) => [code, section] as const))
+);
 
 interface CategoryItem {
   code: string;
@@ -153,7 +178,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
   const [source, setSource] = useState<Source>("category");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
   // Highest bilet number the bank holds. The ticket source draws across the
   // whole span, so this is the only part of the old from/to pair still needed.
   const [variantCount, setVariantCount] = useState<number>(0);
@@ -163,13 +187,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const [dueCount, setDueCount] = useState<number>(0);
   const [bankCount, setBankCount] = useState<number>(0);
   const [nextDueAt, setNextDueAt] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    sectionGeneralRulesDuties: true,
-  });
-
-  const toggleSection = (secKey: string) => {
-    setOpenSections((prev) => ({ ...prev, [secKey]: !prev[secKey] }));
-  };
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
@@ -191,7 +208,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       setCategories(ordered);
-      setSelectedCategory(ordered[0]?.code ?? "");
       const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
       const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
       setDueCount(Math.max(dueFromMistakes, dueFromStats));
@@ -201,7 +217,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       setVariantCount(variants.reduce((max, item) => Math.max(max, item.number), 0));
     } catch {
       setCategories([]);
-      setSelectedCategory("");
       setVariantCount(0);
       setDueCount(0);
       setBankCount(0);
@@ -287,7 +302,14 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const sources = kiosk ? allSources.filter((item) => item.value !== "sign") : allSources;
 
   return (
-    <main className="page-shell-tight space-y-5 sm:space-y-6">
+    <main
+      className={`space-y-5 sm:space-y-6 ${
+        // A classroom monitor is 1920px wide and the learner shell caps at
+        // 1024, so half of it sat empty. Wider shell, same four columns:
+        // the cards grow instead of multiplying.
+        kiosk ? "page-shell" : "page-shell-tight"
+      }`}
+    >
       <div>
         <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
         <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
@@ -403,54 +425,59 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
           <h2 className="max-w-full text-[11px] font-extrabold uppercase leading-snug tracking-wide text-muted-foreground sm:text-sm sm:tracking-wider">
             {t("selectCategory")}
           </h2>
-          <div className="space-y-3">
-            {TOPIC_SECTIONS.map((sec) => {
-              const sectionCats = categories.filter((c) => (sec.codes as readonly string[]).includes(c.code));
-              if (sectionCats.length === 0) return null;
-              const isOpen = openSections[sec.key] ?? false;
-              const hasSelected = sectionCats.some((c) => c.code === selectedCategory);
-              const totalQ = sectionCats.reduce((acc, c) => acc + (c.question_count || 0), 0);
-
+          {/* One continuous 1..42 grid in YHQ chapter order. Two columns on a
+              phone, four from `sm` up — the kiosk gets the same four in a wider
+              shell, so a classroom screen scales the cards rather than cramming
+              a fifth column in. */}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
+            {categories.map((cat) => {
+              const section = SECTION_BY_CODE.get(cat.code);
+              const SectionIcon = section?.icon;
               return (
-                <div key={sec.key} className="overflow-hidden rounded-xl border border-border bg-card">
-                  <button
-                    type="button"
-                    onClick={() => toggleSection(sec.key)}
-                    className="flex w-full items-center justify-between p-3.5 text-left transition-colors hover:bg-muted/40"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      {isOpen ? (
-                        <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      ) : (
-                        <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-muted-foreground" />
-                      )}
-                      <span className="text-sm font-bold sm:text-base">{t(sec.key as any)}</span>
-                      {hasSelected && (
-                        <span className="h-2 w-2 rounded-full bg-accent" title="Tanlangan mavzu" />
-                      )}
-                    </div>
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {t("categoryCountSummary", { count: sectionCats.length })} · {t("categoryQuestionCount", { count: totalQ })}
+                <button
+                  key={cat.code}
+                  type="button"
+                  onClick={() => handleCategoryClick(cat.code)}
+                  className={`surface-raised-sm surface-interactive flex flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
+                  }`}
+                >
+                  {section && SectionIcon && (
+                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                      <SectionIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                      <span
+                        className={`truncate font-bold uppercase tracking-wider ${
+                          kiosk ? "text-[11px]" : "text-[10px]"
+                        }`}
+                      >
+                        {t(section.key as never)}
+                      </span>
                     </span>
-                  </button>
-                  {isOpen && (
-                    <div className="grid gap-2 border-t border-border p-3 sm:grid-cols-2">
-                      {sectionCats.map((cat) => (
-                        <button
-                          key={cat.code}
-                          type="button"
-                          onClick={() => handleCategoryClick(cat.code)}
-                          className="flex min-h-12 items-center justify-between gap-3 rounded-xl border border-border bg-background p-3 text-left transition-all hover:border-accent hover:bg-accent/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-[0.99]"
-                        >
-                          <span className="text-sm font-bold leading-snug sm:text-base">{cat.name}</span>
-                          <span className="shrink-0 rounded-full bg-muted px-2.5 py-0.5 text-xs font-bold text-muted-foreground">
-                            {t("categoryQuestionCount", { count: cat.question_count })}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
                   )}
-                </div>
+                  <span
+                    className={`line-clamp-2 font-bold leading-snug ${
+                      kiosk ? "text-base" : "text-sm"
+                    }`}
+                  >
+                    {cat.name}
+                  </span>
+                  <span className="flex items-center justify-between gap-2">
+                    <span
+                      className={`font-semibold tabular-nums text-muted-foreground ${
+                        kiosk ? "text-sm" : "text-xs"
+                      }`}
+                    >
+                      {t("categoryQuestionCount", { count: cat.question_count })}
+                    </span>
+                    <span
+                      className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-accent/15 font-bold tabular-nums text-accent ${
+                        kiosk ? "h-7 min-w-7 text-xs" : "h-6 min-w-6 text-[11px]"
+                      }`}
+                    >
+                      {cat.sort_order}
+                    </span>
+                  </span>
+                </button>
               );
             })}
           </div>

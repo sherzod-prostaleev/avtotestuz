@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -99,6 +99,30 @@ describe("PracticePage", () => {
 
     expect(await screen.findByText("334 ta savol")).toBeInTheDocument();
     expect(screen.getByText("88 ta savol")).toBeInTheDocument();
+  });
+
+  // Nine collapsed bands hid 38 of the 42 topics behind a tap. Every topic is
+  // now on screen from the first paint, in YHQ chapter order.
+  it("lists every topic without anything to expand first", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Umumiy qoidalar");
+
+    expect(screen.getByText("Haydovchilarning vazifalari")).toBeInTheDocument();
+    // One card per topic, all of them rendered on the first paint.
+    expect(screen.getAllByText(/ta savol$/)).toHaveLength(2);
+  });
+
+  // The band is gone but the grouping is not: each card carries the section it
+  // belongs to, so "the sign topics" is still findable by eye.
+  it("labels each card with the section it belongs to", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Umumiy qoidalar");
+
+    const card = screen.getByText("Umumiy qoidalar").closest("button")!;
+    expect(within(card).getByText(messages.Practice.sectionGeneralRulesDuties)).toBeInTheDocument();
+    expect(within(card).getByText("1")).toBeInTheDocument();
   });
 
   // The from/to pair is gone: a size is the whole choice, and it draws across
