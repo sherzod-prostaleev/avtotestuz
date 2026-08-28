@@ -112,11 +112,13 @@ func TestShufflePreservesOrderForPositionalAndCollectiveAnswers(t *testing.T) {
 			},
 		},
 		{
+			// Rendered in Russian, decided on uz-Latn: that is the production
+			// shape, and the reason the rule no longer needs Russian patterns.
 			name: "Russian collective option (Все ответы правильные)",
 			answers: []content.AnswerDTO{
-				{ID: "1", Position: 1, Text: "Вариант 1"},
-				{ID: "2", Position: 2, Text: "Вариант 2"},
-				{ID: "3", Position: 3, Text: "Все ответы правильные"},
+				{ID: "1", Position: 1, Text: "Вариант 1", TextUzLatn: "Birinchi variant"},
+				{ID: "2", Position: 2, Text: "Вариант 2", TextUzLatn: "Ikkinchi variant"},
+				{ID: "3", Position: 3, Text: "Все ответы правильные", TextUzLatn: "Barcha javoblar to'g'ri"},
 			},
 		},
 	}
@@ -130,6 +132,94 @@ func TestShufflePreservesOrderForPositionalAndCollectiveAnswers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// The reader's language must not decide whether a question keeps its option
+// order: "F2 va F3 javoblarda" is a slot reference in Uzbek and reads as "во
+// втором и третьем ответах" in Russian, which no uz-Latn pattern list can
+// match. Before the fix this question shuffled for Russian readers only.
+func TestShuffleDecidesOnUzLatnNotReaderLocale(t *testing.T) {
+	sessionID := uuid.MustParse("11111111-1111-1111-1111-111111111111")
+	questionID := uuid.MustParse("22222222-2222-2222-2222-222222222222")
+
+	// avtoimtihon-322, rendered in each of the three locales.
+	byLocale := map[string][]string{
+		"uz-Latn": {
+			"Yo'nalishli taksilarga",
+			"Taksometri ishlab turgan taksilarga",
+			"«Nogiron» taniqlik belgisi o'rnatilgan avtomobilga",
+			"Belgilangan yo'nalishdagi transport vositalariga",
+			"F2 va F3 javoblarda ko'rsatilgan transport vositalariga",
+		},
+		"uz-Cyrl": {
+			"Йўналишли таксиларга",
+			"Таксометри ишлаб турган таксиларга",
+			"«Ногирон» таниқлик белгиси ўрнатилган автомобилга",
+			"Белгиланган йўналишдаги транспорт воситаларига",
+			"F2 ва F3 жавобларда кўрсатилган транспорт воситаларига",
+		},
+		"ru": {
+			"Маршрутное такси",
+			"Такси с включенным таксометром",
+			"На автомобиль, управляемый инвалидом",
+			"Маршрутные транспортные средства",
+			"Транспортные средства, указанные во втором и третьем ответах",
+		},
+	}
+	uzLatn := byLocale["uz-Latn"]
+
+	for locale, texts := range byLocale {
+		answers := make([]content.AnswerDTO, len(texts))
+		for i, text := range texts {
+			answers[i] = content.AnswerDTO{
+				ID:         string(rune('a' + i)),
+				Position:   int16(i + 1),
+				Text:       text,
+				TextUzLatn: uzLatn[i],
+			}
+		}
+		got := shuffleSessionAnswers(answers, sessionID, questionID)
+		for i := range answers {
+			if got[i].ID != answers[i].ID {
+				t.Fatalf("%s: order changed on a slot-referencing question; got %v", locale, ids(got))
+			}
+		}
+	}
+}
+
+// A question with no slot reference must still shuffle, in every locale, or the
+// fix would have simply frozen the whole bank.
+func TestShuffleStillPermutesPlainQuestionsInEveryLocale(t *testing.T) {
+	sessionID := uuid.MustParse("44444444-4444-4444-4444-444444444444")
+	questionID := uuid.MustParse("55555555-5555-5555-5555-555555555555")
+
+	uzLatn := []string{"Chapga", "O'ngga", "To'g'riga", "Orqaga"}
+	for _, texts := range [][]string{
+		uzLatn,
+		{"Чапга", "Ўнгга", "Тўғрига", "Орқага"},
+		{"Налево", "Направо", "Прямо", "Назад"},
+	} {
+		answers := make([]content.AnswerDTO, len(texts))
+		for i, text := range texts {
+			answers[i] = content.AnswerDTO{
+				ID:         string(rune('a' + i)),
+				Position:   int16(i + 1),
+				Text:       text,
+				TextUzLatn: uzLatn[i],
+			}
+		}
+		got := shuffleSessionAnswers(answers, sessionID, questionID)
+		same := true
+		for i := range answers {
+			if got[i].ID != answers[i].ID {
+				same = false
+				break
+			}
+		}
+		if same {
+			t.Fatalf("plain question kept its order for this seed; got %v", ids(got))
+		}
 	}
 }
 

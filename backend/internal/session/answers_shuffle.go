@@ -11,29 +11,52 @@ import (
 	"avtotest.uz/backend/internal/content"
 )
 
-// rePositional matches answers that rely on option order or ordinal position:
-// - F-key references: F1, F2, F3, F4, F5
-// - Numbered references: "1 va 2", "2 va 3", "1 va 3", "1, 2", "1- va 2-", "1 yoki 2", "1 и 2", "2 и 3", "1 и 3", "в ответах"
-// - Ordinal words: "birinchi va ikkinchi", "ikkinchi va uchinchi", "birinchi va uchinchi"
-// - Collective options: "barcha javoblar", "barcha keltirilgan", "ko'rsatilgan barcha", "barcha hollarda", "barchasi", "hammasi", "yuqoridagi barcha", "все ответы", "во всех перечисленных", "все вышеперечисленные"
+// rePositional matches an option that only makes sense in its authored slot:
+//
+//   - a slot reference: "F1 va F2 javoblar to'g'ri", "F2 va F3 javoblarda"
+//   - a numeric or ordinal cross-reference: "1 va 2", "2 va 4", "1, 2",
+//     "2- va 3-chiziq", "Birinchi va ikkinchi rasmda"
+//   - a collective option — the "all of the above" that must stay last:
+//     "Barcha javoblar to'g'ri", "Sanab o'tilgan barcha hollarda", "Hammasi"
+//
+// It is matched against AnswerDTO.TextUzLatn, never the localized text. The
+// three translations are worded independently, so a per-locale decision
+// disagreed with itself: of the 121 questions this protected in at least one
+// language, only 10 were protected in all three — uz-Cyrl "1 ва 2" and ru
+// "во втором и третьем ответах" both slipped past a pattern list built from
+// uz-Latn phrasing, and those questions shuffled for exactly the readers the
+// rule exists to protect. Deciding on one locale makes the verdict a property
+// of the question, so it cannot vary by reader.
+//
+// Two deliberate exclusions, both verified against the live bank: the comma
+// form stays an explicit list ("1,2", "1,3", "2,3") because a general
+// [1-5],[1-5] also swallows decimals like "3,5 tonna" and "2,5 mm"; and the
+// va/yoki form requires the digits to stand alone, because "5.15.1 yoki
+// 5.15.2" is a pair of sign codes, not a pair of options.
 var rePositional = regexp.MustCompile(`(?i)(` +
-	`\bF[1-5]\b|` +
-	`1\s*(va|va\s*yoki|yoki|и|или)\s*2|` +
-	`2\s*(va|va\s*yoki|yoki|и|или)\s*3|` +
-	`1\s*(va|va\s*yoki|yoki|и|или)\s*3|` +
-	`1,\s*2|1,\s*3|2,\s*3|1,\s*2,\s*3|` +
-	`1-?\s*va\s*2|2-?\s*va\s*3|1-?\s*va\s*3|` +
-	`birinchi\s*va\s*ikkinchi|ikkinchi\s*va\s*uchinchi|birinchi\s*va\s*uchinchi|` +
-	`в\s*ответах|во\s*2\s*и\s*3|в\s*1\s*и\s*2|в\s*1\s*и\s*3|` +
-	`barcha\s*javob|barcha\s*keltirilgan|barcha\s*ko['‘]rsatilgan|barcha\s*hollarda|` +
-	`barchasi|hammasi|yuqoridagi\s*barcha|ko['‘]rsatilgan\s*barcha|` +
-	`все\s*ответы|во\s*всех\s*перечисленных|все\s*вышеперечисленные` +
+	`\bF\s*[1-5]\b` +
+	`|(?:^|[\s(])[1-5]\s*-?\s*(?:va|yoki)\s*-?\s*[1-5](?:[-\s,.;)]|$)` +
+	`|1,\s*2|1,\s*3|2,\s*3|1,\s*2,\s*3` +
+	`|\b(?:birinchi|ikkinchi|uchinchi|to['‘]rtinchi|beshinchi)\s+va\s+` +
+	`(?:birinchi|ikkinchi|uchinchi|to['‘]rtinchi|beshinchi)\b` +
+	`|\b(?:barchasi|hammasi)` +
+	`|\b(?:barcha|hamma)\s+(?:javob|hol|aytilgan|keltirilgan|ko['‘]rsatilgan|sanab|yuqorida)` +
+	`|sanab\s+o['‘]tilgan` +
+	`|yuqoridagi\s+(?:barcha|hamma)` +
+	`|ko['‘]rsatilgan\s+(?:barcha|hamma)|keltirilgan\s+(?:barcha|hamma)` +
 	`)`)
 
-// isOrderSensitive checks if any answer in the list refers to slot positions or is collective.
+// isOrderSensitive reports whether any option pins the question to its
+// authored order. It reads TextUzLatn so the answer is the same for every
+// reader; TextUzLatn falls back to the localized text only when a question has
+// no uz-Latn translation at all, which the importer does not allow.
 func isOrderSensitive(answers []content.AnswerDTO) bool {
 	for _, a := range answers {
-		if rePositional.MatchString(a.Text) {
+		text := a.TextUzLatn
+		if text == "" {
+			text = a.Text
+		}
+		if rePositional.MatchString(text) {
 			return true
 		}
 	}

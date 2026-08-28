@@ -142,6 +142,11 @@ const listAnswersByQuestionIDs = `-- name: ListAnswersByQuestionIDs :many
 SELECT a.id, a.question_id, a.position,
        aimg.storage_key AS image_key,
        COALESCE(at.text, aft.text, '') AS text,
+       -- Answer-shuffling reads this, never the localized text: whether a
+       -- question's options may be reordered is a property of the question,
+       -- and deciding it from whichever locale the reader happens to use made
+       -- the same question shuffle in Russian and stay put in Uzbek.
+       COALESCE(aft.text, at.text, '') AS text_uz_latn,
        (at.text IS NULL)::bool AS fallback_used
 FROM answer a
 LEFT JOIN image aimg ON aimg.id = a.image_id
@@ -164,6 +169,7 @@ type ListAnswersByQuestionIDsRow struct {
 	Position     int16       `json:"position"`
 	ImageKey     pgtype.Text `json:"image_key"`
 	Text         string      `json:"text"`
+	TextUzLatn   string      `json:"text_uz_latn"`
 	FallbackUsed bool        `json:"fallback_used"`
 }
 
@@ -182,6 +188,7 @@ func (q *Queries) ListAnswersByQuestionIDs(ctx context.Context, arg ListAnswersB
 			&i.Position,
 			&i.ImageKey,
 			&i.Text,
+			&i.TextUzLatn,
 			&i.FallbackUsed,
 		); err != nil {
 			return nil, err

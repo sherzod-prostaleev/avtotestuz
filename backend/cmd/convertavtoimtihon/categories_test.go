@@ -1,6 +1,30 @@
 package main
 
-import "testing"
+import (
+	"regexp"
+	"strings"
+	"testing"
+)
+
+// A Cyrillic name that still holds Latin words is a half-finished
+// transliteration, not a name: public_transport_priority shipped as
+// "Йўналишли transport vositalarining imtiyozlari" and would have overwritten
+// the correct seed entry the next time the converter ran.
+var latinWord = regexp.MustCompile(`[A-Za-z]{2,}`)
+
+func TestCategoryNamesUseTheRightScript(t *testing.T) {
+	for _, c := range categoriesForDataset(false) {
+		if got := latinWord.FindAllString(c.Names["uz-Cyrl"], -1); got != nil {
+			t.Errorf("%s: uz-Cyrl name has Latin words %v: %q", c.Code, got, c.Names["uz-Cyrl"])
+		}
+		if got := latinWord.FindAllString(c.Names["ru"], -1); got != nil {
+			t.Errorf("%s: ru name has Latin words %v: %q", c.Code, got, c.Names["ru"])
+		}
+		if strings.ContainsAny(c.Names["uz-Latn"], "ЁёІЇАБВГДЕЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдежзийклмнопрстуфхцчшщъыьэюяқўғҳ") {
+			t.Errorf("%s: uz-Latn name has Cyrillic: %q", c.Code, c.Names["uz-Latn"])
+		}
+	}
+}
 
 func TestCategoriesForDataset(t *testing.T) {
 	cats := categoriesForDataset(false)

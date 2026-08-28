@@ -21,6 +21,13 @@ type AnswerDTO struct {
 	Position int16   `json:"position"`
 	Text     string  `json:"text"`
 	ImageURL *string `json:"image_url"`
+
+	// TextUzLatn is the same option in uz-Latn regardless of the reader's
+	// locale, and never leaves the server. Answer shuffling decides on it so a
+	// question that must keep its option order ("F1 va F2", "Barcha javoblar
+	// to'g'ri") keeps it in every language: the three translations are worded
+	// independently, so a per-locale decision disagreed with itself.
+	TextUzLatn string `json:"-"`
 }
 
 type QuestionDTO struct {

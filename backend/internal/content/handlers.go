@@ -129,6 +129,7 @@ func (h *Handler) getVariant(w http.ResponseWriter, r *http.Request) {
 		fallback = fallback || a.FallbackUsed
 		byQ[a.QuestionID] = append(byQ[a.QuestionID], AnswerDTO{
 			ID: a.ID.String(), Position: a.Position, Text: a.Text, ImageURL: h.media(a.ImageKey),
+			TextUzLatn: a.TextUzLatn,
 		})
 	}
 	detail := VariantDetailDTO{Number: v.Number, Questions: make([]QuestionDTO, 0, len(qs))}
@@ -247,6 +248,7 @@ func (h *Handler) LoadQuestionDetail(ctx context.Context, id uuid.UUID, loc stri
 	for _, a := range ans {
 		answers = append(answers, AnswerDTO{
 			ID: a.ID.String(), Position: a.Position, Text: a.Text, ImageURL: h.media(a.ImageKey),
+			TextUzLatn: a.TextUzLatn,
 		})
 	}
 	signs, err := h.Q.ListQuestionSigns(ctx,
@@ -313,6 +315,7 @@ func (h *Handler) LoadQuestionDetails(ctx context.Context, ids []uuid.UUID, loc 
 	for _, a := range answers {
 		answersByQ[a.QuestionID] = append(answersByQ[a.QuestionID], AnswerDTO{
 			ID: a.ID.String(), Position: a.Position, Text: a.Text, ImageURL: h.media(a.ImageKey),
+			TextUzLatn: a.TextUzLatn,
 		})
 	}
 	signsByQ := make(map[uuid.UUID][]SignChipDTO, len(questions))

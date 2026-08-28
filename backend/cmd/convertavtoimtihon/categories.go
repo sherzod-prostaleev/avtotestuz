@@ -46,7 +46,7 @@ var categoryDefs = []categoryDef{
 	{"motorways", "Avtomagistrallarda harakatlanish", "Автомагистралларда ҳаракатланиш", "Движение по автомагистралям"},
 	{"residential_zones", "Turar joy dahalarida harakatlanish", "Турар жой даҳаларида ҳаракатланиш", "Движение в жилых зонах"},
 	{"slopes", "Tik balandlik va nishabliklarda harakatlanish", "Тик баландлик ва нишабликларда ҳаракатланиш", "Движение на крутых подъемах и спусках"},
-	{"public_transport_priority", "Yo‘nalishli transport vositalarining imtiyozlari", "Йўналишли transport vositalarining imtiyozlari", "Преимущества маршрутных транспортных средств"},
+	{"public_transport_priority", "Yo‘nalishli transport vositalarining imtiyozlari", "Йўналишли транспорт воситаларининг имтиёзлари", "Преимущества маршрутных транспортных средств"},
 	{"lighting_devices", "Tashqi yoritish asboblaridan foydalanish", "Ташқи ёритиш асбобларидан фойдаланиш", "Использование внешних световых приборов"},
 	{"towing", "Mexanik transport vositalarini shatakka olish", "Механик транспорт воситаларини шатакка олиш", "Буксировка механических транспортных средств"},
 	{"driver_training", "Transport vositalarini boshqarishni o‘rgatish", "Транспорт воситаларини бошқаришни ўргатиш", "Обучение управлению транспортными средствами"},
