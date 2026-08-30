@@ -81,37 +81,64 @@ react-dom        ^18.3.0 → ^19.2.8
 
 ## 4. Animatsiya arxitekturasi
 
-**Yoqish.** `next.config.ts` → `experimental: { viewTransition: true }`.
+> **TUZATISH (implementatsiya paytida topildi).** 3-bo'limdagi taxmin —
+> "React 19 stable View Transitions'ni ochadi" — **NOTO'G'RI** chiqdi.
+> `react@19.2.8` da `ViewTransition` ham, `unstable_ViewTransition` ham,
+> `unstable_addTransitionType` ham **yo'q**; ular faqat `react@experimental`
+> kanalida. Next'ning `experimental.viewTransition` bayrog'i va `Link` ning
+> `transitionTypes` prop'i ikkalasi ham `React.addTransitionType` ga suyanadi,
+> ya'ni stable React'da **hech narsa qilmaydi**. Bu taxmin emas, o'lchov:
+> bayroq yoqilgan holda `document.startViewTransition` instrumentlanib haqiqiy
+> navigatsiya qilindi — **0 marta chaqirildi**.
+>
+> Qo'lda `document.startViewTransition` ni haydash mumkin edi, lekin bu butun
+> ilovadagi har bir navigatsiyani ushlab olishni talab qiladi — jumladan
+> `(session)` va `(kiosk)` oqimlariga tarqalgan `router.push` chaqiruvlarini.
+> Tanlangan vizual (oddiy so'nish) uchun bu narx juda baland.
 
-**Nomlash.** Faqat kontent maydoni nomlanadi. `[locale]/layout.tsx` dagi umumiy
-shell emas, balki har bir route-guruhning kontent o'ramiga bitta barqaror nom:
+**Amalda qilingani — CSS, `template.tsx` orqali.** Client JS yo'q, kutubxona yo'q.
 
-- `(app)` — `AppShell` ichidagi `<main>`
-- `(public)`, `(kiosk)`, `(auth)`, `(session)` — mos kontent elementi
-
-Sidebar, header va pastki navigatsiya **nomlanmaydi** — nomlanmagan element
-snapshot'ga tushmaydi va animatsiyalanmaydi, ya'ni joyida qotib turadi.
-
-**CSS** (`globals.css`), taxminan 15 satr:
+`globals.css`:
 
 ```css
-::view-transition-old(content),
-::view-transition-new(content) {
-  animation-duration: 180ms;
-  animation-timing-function: ease;
-}
+.page-fade { animation: page-fade-in 180ms ease both; }
+@keyframes page-fade-in { from { opacity: 0 } to { opacity: 1 } }
 ```
 
-Standart cross-fade yetarli — `mix-blend-mode` yoki qo'shimcha keyframe kerak emas.
+`PageFade` (`src/components/layout/page-fade.tsx`) — oddiy blok `div`.
+Har bir route-guruhning `template.tsx` fayli uni default eksport qiladi:
+`(public)`, `(app)`, `(kiosk)`, `(auth)`, `(session)`, `admin/(shell)`.
 
-**Degradatsiya, ikki qatlam:**
+**Nega `[locale]` da emas, guruh ichida** — ikki sabab, ikkalasi ham brauzerda
+tekshirilgan:
 
-1. `@media (prefers-reduced-motion: reduce)` → `animation: none`. Bu shart:
-   `globals.css:140` da loyihada allaqachon shu tamoyil bor.
-2. `@supports not (view-transition-name: none)` → eski kiosk brauzeri uchun
-   `template.tsx` orqali oddiy 180ms `fade-in` (faqat kirish). View Transitions
-   qo'llanadigan joyda bu qoida umuman qo'llanmaydi, ya'ni ikkitasi ustma-ust
-   tushmaydi.
+1. `[locale]` darajasida React DOM tugunini QAYTA ISHLATADI — tugunga marker
+   qo'yib navigatsiya qilinganda marker saqlanib qoldi (`sameElement: true`),
+   animatsiya esa `finished` holatida qotib qoldi va qayta ishga tushmadi.
+   Guruh ichida esa yangi tugun yaratiladi (`sameElement: false`) va animatsiya
+   qayta boshlanadi.
+2. `(app)` da sidebar va pastki navigatsiya **layout**da, ya'ni shablondan
+   yuqorida. Shuning uchun ular qayta yaratilmaydi — faqat kontent so'nadi.
+   Bu 2-bo'limdagi "sidebar qimirlamasin" talabini `view-transition-name`
+   siz bajaradi.
+
+**Nega `display: contents` emas:** box yaratmaydigan element bo'yalmaydi,
+bo'yalmagan elementning `opacity` sini animatsiyalab bo'lmaydi. Shuning uchun
+oddiy blok `div`. Route-guruh shell'lari o'z `min-h-screen` va flex
+yo'nalishini o'zi belgilaydi, blok ota-element ularga tegmaydi.
+
+**`(session)` xavfsizligi tekshirildi:** savollar `useState currentIndex` bilan
+almashadi, route o'zgarmaydi (`session/[id]/page.tsx:135`). Ya'ni shablon faqat
+sessiyaga kirish va chiqishda qayta yaratiladi — imtihon o'rtasida emas.
+
+**Degradatsiya:** `prefers-reduced-motion: reduce` bloki (`globals.css:134`)
+`*` selektori bilan `animation-duration: 0.01ms !important` qo'yadi, bu
+`.page-fade` ga ham tegadi. Alohida qoida kerak emas.
+
+**Chiqish animatsiyasi yo'q** — App Router eski sahifani yangi tayyor
+bo'lguncha ekranda ushlab turadi, so'ng yangisi so'nib chiqadi. osonprava'dagi
+`exit` bosqichi bu yerda yo'q; buni qo'shish uchun yuqoridagi navigatsiya-ushlash
+kerak bo'ladi.
 
 ## 5. Test rejasi
 
