@@ -159,8 +159,19 @@ test.describe("Page transition", () => {
     await link.hover();
     await page.waitForTimeout(600);
 
-    const trace = await page.evaluate(async () => {
-      const samples: Array<{ ms: number; opacity: number }> = [];
+    const blinks = await page.evaluate(async () => {
+      // Track which wrapper each sample belongs to. A fresh wrapper starting at
+      // 0 is the ordinary enter-fade; the bug is one wrapper reaching full
+      // opacity and then being pulled back through transparent.
+      const ids = new WeakMap<Element, number>();
+      let next = 0;
+      const idOf = (el: Element) => {
+        if (!ids.has(el)) ids.set(el, next++);
+        return ids.get(el)!;
+      };
+      idOf(document.querySelector(".page-fade")!);
+
+      const samples: Array<{ ms: number; opacity: number; node: number }> = [];
       const started = performance.now();
       (
         [...document.querySelectorAll("a")].find((a) =>
@@ -168,19 +179,34 @@ test.describe("Page transition", () => {
         ) as HTMLAnchorElement
       ).click();
 
-      for (let i = 0; i < 90; i++) {
+      for (let i = 0; i < 110; i++) {
         await new Promise((r) => requestAnimationFrame(r));
         const el = document.querySelector(".page-fade");
-        if (el) samples.push({ ms: Math.round(performance.now() - started), opacity: +getComputedStyle(el).opacity });
+        if (el) {
+          samples.push({
+            ms: Math.round(performance.now() - started),
+            opacity: +getComputedStyle(el).opacity,
+            node: idOf(el),
+          });
+        }
       }
-      return samples;
+
+      const byNode = new Map<number, Array<{ ms: number; opacity: number }>>();
+      for (const s of samples) {
+        if (!byNode.has(s.node)) byNode.set(s.node, []);
+        byNode.get(s.node)!.push(s);
+      }
+
+      const found: Array<{ node: number; ms: number; opacity: number }> = [];
+      for (const [node, frames] of byNode) {
+        const settled = frames.findIndex((f) => f.opacity === 1);
+        if (settled < 0) continue;
+        const relapse = frames.slice(settled).find((f) => f.opacity < 1);
+        if (relapse) found.push({ node, ...relapse });
+      }
+      return found;
     });
 
-    // Find where the page first reaches full opacity, then require it stays there.
-    const settled = trace.findIndex((s) => s.opacity === 1);
-    expect(settled).toBeGreaterThanOrEqual(0);
-    const afterSettling = trace.slice(settled);
-    const relapse = afterSettling.find((s) => s.opacity < 1);
-    expect(relapse, `page went transparent again at ${relapse?.ms}ms`).toBeUndefined();
+    expect(blinks, `a wrapper went transparent again: ${JSON.stringify(blinks)}`).toEqual([]);
   });
 });
