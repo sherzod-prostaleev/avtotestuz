@@ -164,6 +164,11 @@ export function Sidebar() {
       <Link
         key={link.href}
         href={link.href}
+        // The eight nav targets are the ones a learner actually opens, and they
+        // sit in the viewport the whole session. Fetching them up front turns a
+        // click into a cache read instead of a round trip — without it the app
+        // sat still for ~0.5s after each click before anything moved.
+        prefetch
         onClick={() => setMobileOpen(false)}
         className={`sidebar-link max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
