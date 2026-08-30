@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useVariantCount } from "@/hooks/use-variant-count";
 import { useLocale, useTranslations } from "next-intl";
 import { ArrowLeft, Crown } from "lucide-react";
 import { apiGet } from "@/lib/api-client";
@@ -29,6 +30,7 @@ export default function NarxlarPage() {
   const t = useTranslations("Narxlar");
   const tLanding = useTranslations("Landing");
   const tPremium = useTranslations("Premium");
+  const ticketCount = useVariantCount();
   const locale = useLocale();
   const home = `/${locale}`;
 
@@ -99,7 +101,7 @@ export default function NarxlarPage() {
 
         <ul className="mt-8 grid gap-3 sm:grid-cols-2">
           <li className="rounded-2xl border border-border/80 bg-card/40 px-4 py-3 text-sm text-muted-foreground">
-            {t("perk1")}
+            {t("perk1", { count: ticketCount })}
           </li>
           <li className="rounded-2xl border border-border/80 bg-card/40 px-4 py-3 text-sm text-muted-foreground">
             {t("perk2")}

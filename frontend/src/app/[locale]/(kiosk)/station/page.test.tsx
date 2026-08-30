@@ -4,7 +4,13 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 const apiGet = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
-  apiGet: (...args: unknown[]) => apiGet(...args),
+  apiGet: (...args: unknown[]) => {
+    // The kiosk shell also asks the catalog how many biletlar exist so the
+    // tile can name the real number. That call is not part of the station
+    // token sequence these tests drive, so keep it out of the mock queue.
+    if (String(args[0] ?? "").startsWith("variants")) return Promise.resolve([]);
+    return apiGet(...args);
+  },
 }));
 
 vi.mock("next-intl", () => ({

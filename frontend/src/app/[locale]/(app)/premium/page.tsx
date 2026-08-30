@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
+import { useVariantCount } from "@/hooks/use-variant-count";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -54,6 +55,7 @@ function formatSom(n: number): string {
 
 export default function PremiumPage() {
   const t = useTranslations("Premium");
+  const ticketCount = useVariantCount();
   const locale = useLocale();
   const router = useRouter();
 
@@ -184,7 +186,7 @@ export default function PremiumPage() {
     return null;
   };
 
-  const features = [t("feature1"), t("feature2"), t("feature3"), t("feature4")];
+  const features = [t("feature1", { count: ticketCount }), t("feature2"), t("feature3"), t("feature4")];
 
   const stickyBuyDisabled =
     !selectedTariff ||
@@ -205,7 +207,7 @@ export default function PremiumPage() {
           {t("title")}
         </h1>
         <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground md:text-base">
-          {t("subtitle")}
+          {t("subtitle", { count: ticketCount })}
         </p>
       </header>
 
