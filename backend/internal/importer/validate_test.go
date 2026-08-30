@@ -165,14 +165,56 @@ func TestLocaleAndRefInvariants(t *testing.T) {
 }
 
 func TestVariantInvariants(t *testing.T) {
-	ds := baseDataset(19)
+	// A short ticket that is NOT the last one means a question was dropped.
+	ds := baseDataset(39)
 	var ids []string
 	for _, q := range ds.Questions {
 		ids = append(ids, q.ExtID)
 	}
-	ds.Variants = []CanonVariant{{Number: 1, Questions: ids}}
+	ds.Variants = []CanonVariant{
+		{Number: 1, Questions: ids[:19]},
+		{Number: 2, Questions: ids[19:39]},
+	}
 	if !has(Validate(ds), "variant_size") {
-		t.Fatal("want variant_size for 19 questions")
+		t.Fatal("want variant_size for a short non-final ticket")
+	}
+
+	// The final ticket may still be filling up.
+	ds = baseDataset(25)
+	ids = ids[:0]
+	for _, q := range ds.Questions {
+		ids = append(ids, q.ExtID)
+	}
+	ds.Variants = []CanonVariant{
+		{Number: 1, Questions: ids[:20]},
+		{Number: 2, Questions: ids[20:25]},
+	}
+	if has(Validate(ds), "variant_size") {
+		t.Fatal("final ticket with 5 questions must be allowed")
+	}
+
+	// ...but it may not be empty.
+	ds = baseDataset(20)
+	ids = ids[:0]
+	for _, q := range ds.Questions {
+		ids = append(ids, q.ExtID)
+	}
+	ds.Variants = []CanonVariant{
+		{Number: 1, Questions: ids},
+		{Number: 2, Questions: nil},
+	}
+	if !has(Validate(ds), "variant_size") {
+		t.Fatal("want variant_size for an empty final ticket")
+	}
+
+	ds = baseDataset(19)
+	ids = ids[:0]
+	for _, q := range ds.Questions {
+		ids = append(ids, q.ExtID)
+	}
+	ds.Variants = []CanonVariant{{Number: 1, Questions: ids}}
+	if has(Validate(ds), "variant_size") {
+		t.Fatal("a lone ticket is the final one, 19 questions must be allowed")
 	}
 
 	ds = baseDataset(20)

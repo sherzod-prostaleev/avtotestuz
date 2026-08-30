@@ -53193,6 +53193,220 @@
     }
    ],
    "source": "avtoimtihon"
+  },
+  {
+   "ext_id": "avtoimtihon-1265",
+   "category": "traffic_lights",
+   "texts": {
+    "ru": "Какие цветовые сигналы используются в светофорах?",
+    "uz-Cyrl": "Светофорларда қандай рангли ёруғлик ишоралари қўлланилади?",
+    "uz-Latn": "Svetoforlarda qanday rangli yorug'lik ishoralari qo'llaniladi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Зелёный, жёлтый, красный и чёрный",
+      "uz-Cyrl": "Яшил, сариқ, қизил ва қора",
+      "uz-Latn": "Yashil, sariq, qizil va qora"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Зелёный, жёлтый, красный и белый",
+      "uz-Cyrl": "Яшил, сариқ, қизил ва оқ",
+      "uz-Latn": "Yashil, sariq, qizil va oq"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Зелёный, жёлтый и красный",
+      "uz-Cyrl": "Яшил, сариқ, қизил",
+      "uz-Latn": "Yashil, sariq, qizi"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1266",
+   "category": "officials_duties",
+   "texts": {
+    "ru": "Кто привлекается к административной ответственности за нарушение Правил дорожного движения, зафиксированное специальными автоматизированными средствами фото- и видеофиксации?",
+    "uz-Cyrl": "Махсус автоматлаштирилган фото ва видео қайд этиш техника воситалари орқали қайд этилган йўл ҳаракати қоидаларини бузганлик учун кимлар маъмурий жавобгарликка тортилади?",
+    "uz-Latn": "Maxsus avtomatlashtirilgan foto va video qayd etish texnika vositalari orqali qayd etilgan yo'l harakati qoidalarini buzganlik uchun kimlar ma'muriy javobgarlikka tortiladi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Собственник транспортного средства",
+      "uz-Cyrl": "Транспорт воситасининг мулкдори",
+      "uz-Latn": "Transport vositasining mulkdori"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Лицо, ответственное за эксплуатацию транспортного средства",
+      "uz-Cyrl": "Транспорт воситасидан фойдаланиш учун масъул бўлган шахс",
+      "uz-Latn": "Transport vositasidan foydalanish uchun mas'ul bo'lgan shaxs"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Водитель транспортного средства",
+      "uz-Cyrl": "Транспорт воситасининг ҳайдовчиси",
+      "uz-Latn": "Transport vositasining haydovchisi"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "Дежурный механик юридического лица",
+      "uz-Cyrl": "Юридик шахснинг навбатчи механиги",
+      "uz-Latn": "Yuridik shaxsning navbatchi mexanigi"
+     }
+    },
+    {
+     "position": 5,
+     "correct": true,
+     "texts": {
+      "ru": "Случаи, указанные в ответах 1 и 2",
+      "uz-Cyrl": "1- ва 2-жавобларда кўрсатилган ҳолатлар",
+      "uz-Latn": "1- va 2-javoblarda ko'rsatilgan holatlar"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1267",
+   "category": "vehicle_defects",
+   "texts": {
+    "ru": "Какова минимальная глубина рисунка протектора шин транспортных средств категории L?",
+    "uz-Cyrl": "L тоифадаги транспорт воситалари шина протектори нақши неча мм бўлиши керак?",
+    "uz-Latn": "L toifadagi transport vositalari shina protektori naqshi necha mm bo'lishi kerak?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "0,8 мм",
+      "uz-Cyrl": "0,8 мм",
+      "uz-Latn": "0.8 mm"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "0,6 мм",
+      "uz-Cyrl": "0,6 мм",
+      "uz-Latn": "0.6 mm"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "0,4 мм",
+      "uz-Cyrl": "0,4 мм",
+      "uz-Latn": "0.4 mm"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1268",
+   "category": "general_rules",
+   "texts": {
+    "ru": "В чем заключается основная цель Закона Республики Узбекистан «О дорожном движении»?",
+    "uz-Cyrl": "Ўзбекистон Республикаси «Йўл ҳаракати тўғрисида»ги Қонунининг асосий мақсади нимадан иборат?",
+    "uz-Latn": "O'zbekiston Respublikasi «Yo'l harakati to'g'risida»gi Qonunining asosiy maqsadi nimadan iborat?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "Регулирование отношений в сфере дорожного движения",
+      "uz-Cyrl": "Йўл ҳаракати соҳасидаги муносабатларни тартибга солишдан иборат",
+      "uz-Latn": "Yo'l harakati sohasidagi munosabatlarni tartibga solishdan iborat"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Выдача разрешения на изменение цвета (тонировку) стёкол автотранспортного средства",
+      "uz-Cyrl": "Автотранспорт воситаси ойналарининг тусини ўзгартиришга (қорайтиришга) рухсатнома беришдан иборат",
+      "uz-Latn": "Avtotransport vositasi oynalarining tusini o'zgartirishga (qoraytirishga) ruxsatnoma berishdan iborat"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Проведение технического осмотра транспортных средств",
+      "uz-Cyrl": "Транспорт воситаларини техник кўрикдан ўтказишдан иборат",
+      "uz-Latn": "Transport vositalarini texnik ko'rikdan o'tkazishdan iborat"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1269",
+   "category": "starting_manoeuvring",
+   "texts": {
+    "ru": "Разрешается ли водителю движение задним ходом на мосту для высадки пассажира?",
+    "uz-Cyrl": "Ҳайдовчига кўприкда турган йўловчини чиқариш учун орқага ҳаракатланишга рухсат этиладими?",
+    "uz-Latn": "Haydovchiga ko'prikda turgan yo'lovchini chiqarish uchun orqaga harakatlanishga ruxsat etiladimi"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается",
+      "uz-Cyrl": "Рухсат этилади",
+      "uz-Latn": "Ruxsat etiladi"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается, если это не создаёт помех другим участникам дорожного движения",
+      "uz-Cyrl": "Агар бошқа йўл ҳаракати қатнашчиларига халақит бермаса, рухсат этилади",
+      "uz-Latn": "Agar boshqa yo'l harakati qatnashchilariga xalaqit bermasa, ruxsat etiladi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": true,
+     "texts": {
+      "ru": "Запрещается",
+      "uz-Cyrl": "Тақиқланади",
+      "uz-Latn": "Taqiqlanadi"
+     }
+    }
+   ],
+   "source": "ptest",
+   "image": "images/i1269_1.webp"
   }
  ],
  "variants": [
@@ -54769,6 +54983,16 @@
     "avtoimtihon-1262",
     "avtoimtihon-1263",
     "avtoimtihon-1264"
+   ]
+  },
+  {
+   "number": 64,
+   "questions": [
+    "avtoimtihon-1265",
+    "avtoimtihon-1266",
+    "avtoimtihon-1267",
+    "avtoimtihon-1268",
+    "avtoimtihon-1269"
    ]
   }
  ],
