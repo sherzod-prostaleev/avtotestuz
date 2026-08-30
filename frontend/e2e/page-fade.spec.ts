@@ -30,18 +30,29 @@ test.describe("Page transition", () => {
       };
     });
 
+    // `next dev` disables prefetching, so a first click would always outrun
+    // the freeze limit and be skipped by design. Visit the route once through
+    // the client router instead: staleTimes keeps it in the router cache, so
+    // the click being measured commits from memory the way a prefetched route
+    // does in production.
     await page.goto("/uz-Latn");
-    await page.waitForTimeout(600);
+    await page.locator('a[href*="/narxlar"]').first().click();
+    await expect(page).toHaveURL(/narxlar/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/uz-Latn$/);
+    await page.waitForTimeout(400);
 
-    const supported = await page.evaluate(() => typeof (document as any).startViewTransition === "function");
+    const supported = await page.evaluate(
+      () => typeof (document as any).startViewTransition === "function",
+    );
     test.skip(!supported, "browser has no View Transitions API");
 
     await page.evaluate(() => {
-      const link = [...document.querySelectorAll("a")].find((a) =>
-        (a.getAttribute("href") || "").includes("/narxlar"),
-      ) as HTMLAnchorElement;
-      link.click();
+      (window as any).__vt.calls = 0;
+      (window as any).__vt.snapshot = false;
     });
+
+    await page.locator('a[href*="/narxlar"]').first().click();
     await page.waitForTimeout(1500);
 
     const result = await page.evaluate(() => ({
@@ -73,5 +84,42 @@ test.describe("Page transition", () => {
     await page.getByRole("link", { name: /narxlar|тариф/i }).first().click();
     await expect(page).toHaveURL(/narxlar/);
     await expect(page.locator("h1").first()).toBeVisible();
+  });
+
+  test("drops the snapshot instead of freezing when a route is slow", async ({ page }) => {
+    // Hold the RSC payload back so the route cannot commit inside the freeze
+    // limit. The transition must give up rather than leave the page locked.
+    await page.route("**/*_rsc=*", async (route) => {
+      await new Promise((r) => setTimeout(r, 800));
+      await route.continue();
+    });
+
+    await page.addInitScript(() => {
+      const w = window as any;
+      w.__vt = { skipped: false };
+      const doc = document as any;
+      const original = doc.startViewTransition;
+      if (!original) return;
+      doc.startViewTransition = function (cb: any) {
+        const t = original.call(this, cb);
+        // `ready` rejects when a transition is skipped before it can animate.
+        t.ready.then(
+          () => {},
+          () => {
+            w.__vt.skipped = true;
+          },
+        );
+        return t;
+      };
+    });
+
+    await page.goto("/uz-Latn");
+    const link = page.locator('a[href*="/narxlar"]').first();
+    await link.click();
+
+    // The page still gets there, and it was never held hostage by the snapshot.
+    await expect(page).toHaveURL(/narxlar/, { timeout: 10_000 });
+    await expect(page.locator("h1").first()).toBeVisible();
+    expect(await page.evaluate(() => (window as any).__vt.skipped)).toBe(true);
   });
 });
