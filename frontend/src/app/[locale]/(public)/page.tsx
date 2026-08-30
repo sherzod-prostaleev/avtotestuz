@@ -124,7 +124,7 @@ function ExamCockpit({
 export default function LandingPage() {
   const t = useTranslations("Landing");
   const locale = useLocale();
-  const { tickets: ticketCount, questions: questionCount } = useCatalogCounts();
+  const { tickets: ticketCount, questions: questionCount, topics: topicCount } = useCatalogCounts();
   const [contacts, setContacts] = useState<SiteContacts | null>(null);
   const [home, setHome] = useState<SiteHomeHero | null>(null);
 
@@ -189,7 +189,7 @@ export default function LandingPage() {
     { q: t("faq1Q"), a: t("faq1A") },
     { q: t("faq2Q"), a: t("faq2A") },
     { q: t("faq3Q"), a: t("faq3A") },
-    { q: t("faq4Q"), a: t("faq4A") },
+    { q: t("faq4Q"), a: t("faq4A", { topics: topicCount }) },
   ];
 
   const methodSteps = [
@@ -201,7 +201,7 @@ export default function LandingPage() {
   const productFacts = [
     { value: t("factQuestionsValue", { questions: questionCount }), label: t("proofQuestions") },
     { value: t("factTicketsValue", { count: ticketCount }), label: t("proofTickets") },
-    { value: t("factTopicsValue"), label: t("proofTopics") },
+    { value: t("factTopicsValue", { topics: topicCount }), label: t("proofTopics") },
     { value: t("factLanguagesValue"), label: t("proofLanguages") },
   ];
 
