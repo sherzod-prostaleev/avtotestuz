@@ -129,7 +129,20 @@ export function ViewTransitions() {
       // Rather than freeze while a slow route loads, drop the snapshot and let
       // the outgoing page stay live until the new one is ready.
       const holdTimer = window.setTimeout(() => transition.skipTransition(), HOLD_LIMIT_MS);
-      transition.finished.finally(() => window.clearTimeout(holdTimer));
+
+      // Mark the document only once the cross-fade is genuinely running, so the
+      // CSS enter-fade stands down for it. A skipped transition never sets the
+      // mark and the incoming page keeps its own fade — the reader always gets
+      // one animation, never two and never none.
+      const root = document.documentElement;
+      transition.ready.then(
+        () => root.setAttribute("data-view-transition", ""),
+        () => {},
+      );
+      transition.finished.finally(() => {
+        window.clearTimeout(holdTimer);
+        root.removeAttribute("data-view-transition");
+      });
     };
 
     document.addEventListener("click", onClick, true);

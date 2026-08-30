@@ -59,14 +59,15 @@ test.describe("Page transition", () => {
       calls: (window as any).__vt.calls,
       snapshot: (window as any).__vt.snapshot,
       path: location.pathname,
-      // The enter-only fallback must stay out of the way when the API drives.
-      fallbackAnimation: getComputedStyle(document.querySelector(".page-fade")!).animationName,
+      // While a real cross-fade runs the document is stamped, which stands the
+      // enter-fade down so the two cannot stack.
+      stamped: document.documentElement.hasAttribute("data-view-transition"),
     }));
 
     expect(result.path).toContain("/narxlar");
     expect(result.calls).toBe(1);
     expect(result.snapshot).toBe(true);
-    expect(result.fallbackAnimation).toBe("none");
+    expect(result.stamped).toBe(false); // cleared once the transition finished
   });
 
   test("still navigates when the API is missing, and never leaves a blank page", async ({ page }) => {
@@ -121,5 +122,17 @@ test.describe("Page transition", () => {
     await expect(page).toHaveURL(/narxlar/, { timeout: 10_000 });
     await expect(page.locator("h1").first()).toBeVisible();
     expect(await page.evaluate(() => (window as any).__vt.skipped)).toBe(true);
+
+    // A skipped transition must still leave the incoming page with its own
+    // fade — otherwise a slow route means no animation at all.
+    const fade = await page.evaluate(() => {
+      const el = document.querySelector(".page-fade")!;
+      return {
+        name: getComputedStyle(el).animationName,
+        stamped: document.documentElement.hasAttribute("data-view-transition"),
+      };
+    });
+    expect(fade.stamped).toBe(false);
+    expect(fade.name).toBe("page-fade-in");
   });
 });

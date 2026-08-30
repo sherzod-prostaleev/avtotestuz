@@ -167,10 +167,11 @@
     animation: page-fade-in 240ms ease;
   }
 
-  @supports (view-transition-name: none) {
-    .page-fade {
-      animation: none;
-    }
+  /* Only while a real cross-fade is running — view-transitions.tsx stamps the
+     root for its duration. A skipped transition (slow route) leaves the stamp
+     off, so the incoming page still fades in rather than snapping into place. */
+  :root[data-view-transition] .page-fade {
+    animation: none;
   }
 
   @keyframes page-fade-in {
