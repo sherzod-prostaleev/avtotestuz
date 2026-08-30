@@ -6,6 +6,7 @@ import Link from "next/link";
 import { AnswerOption, type AnswerState } from "@/components/shared/answer-option";
 import { Button } from "@/components/ui/button";
 import { demoProgressCount, recordDemoAnswer } from "@/lib/demo-progress-storage";
+import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
 import { Sparkles, ArrowRight, RotateCw, BookmarkCheck } from "lucide-react";
 
 interface DemoAnswer {
@@ -40,7 +41,12 @@ async function readData<T>(response: Response): Promise<T> {
   return payload.data;
 }
 
-export function DemoQuestionBlock() {
+export interface DemoQuestionBlockProps {
+  /** Live bank size from the landing page, which already reads the catalog. */
+  questionCount?: number;
+}
+
+export function DemoQuestionBlock({ questionCount = OFFICIAL_QUESTION_COUNT }: DemoQuestionBlockProps = {}) {
   const locale = useLocale();
   const t = useTranslations("Landing");
   const [question, setQuestion] = useState<DemoQuestion | null>(null);
@@ -178,7 +184,7 @@ export function DemoQuestionBlock() {
             {grade.correct ? t("demoSuccessTitle") : t("demoFailureTitle")}
           </div>
           <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-            {grade.correct ? t("demoSuccessBody") : t("demoFailureBody")}
+            {grade.correct ? t("demoSuccessBody", { questions: questionCount }) : t("demoFailureBody")}
           </p>
           <p className="mt-3 flex items-start gap-2 text-xs font-semibold leading-relaxed text-foreground">
             <BookmarkCheck aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-accent" />

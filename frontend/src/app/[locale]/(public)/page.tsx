@@ -8,6 +8,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Reveal } from "@/components/shared/reveal";
+import { useCatalogCounts } from "@/hooks/use-variant-count";
 import { apiGet } from "@/lib/api-client";
 import { contactOrFallback, resolvePhonePair, type SiteContacts } from "@/lib/site-contacts";
 import { homeOrFallback, type SiteHomeHero } from "@/lib/site-home";
@@ -123,6 +124,7 @@ function ExamCockpit({
 export default function LandingPage() {
   const t = useTranslations("Landing");
   const locale = useLocale();
+  const { tickets: ticketCount, questions: questionCount } = useCatalogCounts();
   const [contacts, setContacts] = useState<SiteContacts | null>(null);
   const [home, setHome] = useState<SiteHomeHero | null>(null);
 
@@ -197,8 +199,8 @@ export default function LandingPage() {
   ];
 
   const productFacts = [
-    { value: t("factQuestionsValue"), label: t("proofQuestions") },
-    { value: t("factTicketsValue"), label: t("proofTickets") },
+    { value: t("factQuestionsValue", { questions: questionCount }), label: t("proofQuestions") },
+    { value: t("factTicketsValue", { count: ticketCount }), label: t("proofTickets") },
     { value: t("factTopicsValue"), label: t("proofTopics") },
     { value: t("factLanguagesValue"), label: t("proofLanguages") },
   ];
@@ -356,7 +358,7 @@ export default function LandingPage() {
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:items-start">
             <Reveal delayMs={60} className="mx-auto w-full max-w-xl lg:mx-0">
               <div className="landing-panel p-5 sm:p-6">
-                <DemoQuestionBlock />
+                <DemoQuestionBlock questionCount={questionCount} />
               </div>
             </Reveal>
             <div className="space-y-4">

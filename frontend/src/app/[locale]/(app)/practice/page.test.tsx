@@ -43,7 +43,14 @@ const CATEGORIES = [
   { code: "driver_duties", name: "Haydovchilarning vazifalari", sort_order: 2, question_count: 88 },
   { code: "general_rules", name: "Umumiy qoidalar", sort_order: 1, question_count: 334 },
 ];
-const VARIANTS = [{ number: 1 }, { number: 2 }, { number: 61 }];
+// question_count is what the page sums for "Hammasi", so the expected
+// count below (3 x 20) has to come from this list, not from a constant.
+const VARIANTS = [
+  { number: 1, question_count: 20 },
+  { number: 2, question_count: 20 },
+  { number: 61, question_count: 20 },
+];
+const VARIANT_QUESTIONS = VARIANTS.reduce((sum, v) => sum + v.question_count, 0);
 const ALLOWANCE = { unlimited: false, limit: 30, used: 0, remaining: 30 };
 
 function mockEndpoints(overrides: Partial<Record<string, unknown>> = {}) {
@@ -89,7 +96,7 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&category_id=general_rules&ordered=true"
+      `/uz-Latn/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
     );
   });
 
@@ -150,7 +157,7 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&variant_from=1&variant_to=61"
+      `/uz-Latn/session/start?mode=practice&count=${VARIANT_QUESTIONS}&variant_from=1&variant_to=61`
     );
   });
 
@@ -191,7 +198,7 @@ describe("PracticePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Hammasi$/ }));
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/session/start?mode=practice&count=1260&has_image=true"
+      `/uz-Latn/session/start?mode=practice&count=${VARIANT_QUESTIONS}&has_image=true`
     );
   });
 
@@ -248,7 +255,7 @@ describe("PracticePage kiosk mode", () => {
     fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
 
     expect(pushMock).toHaveBeenCalledWith(
-      "/uz-Latn/station/session/start?mode=practice&count=1260&category_id=general_rules&ordered=true"
+      `/uz-Latn/station/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
     );
     expect(isKioskReachable(pushMock.mock.calls[0][0])).toBe(true);
   });

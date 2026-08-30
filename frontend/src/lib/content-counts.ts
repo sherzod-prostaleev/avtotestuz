@@ -1,11 +1,15 @@
 /**
- * Official numbered bilet count from the live catalog (`GET /variants`).
- * Keep UI copy / nav badges in sync with this — do not hardcode elsewhere.
+ * Pre-fetch fallbacks only. The catalog is the source of truth: every place
+ * that shows these numbers reads the live `GET /variants` list through
+ * `useCatalogCounts()`, so a newly imported bilet or question shows up without
+ * a code change. These constants are what the UI paints for the few hundred
+ * milliseconds before that request resolves (and if it fails), so keep them
+ * close to reality but never treat them as the count.
  */
-export const OFFICIAL_TICKET_COUNT = 63;
+export const OFFICIAL_TICKET_COUNT = 64;
 
 /**
  * Official valid question-bank size (verified import). Cap custom practice
  * counts here — not at arbitrary UI ceilings like 200.
  */
-export const OFFICIAL_QUESTION_COUNT = 1260;
+export const OFFICIAL_QUESTION_COUNT = 1265;

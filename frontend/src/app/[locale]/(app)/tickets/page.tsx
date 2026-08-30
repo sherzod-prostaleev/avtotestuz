@@ -7,6 +7,7 @@ import { useTickets, TicketItem } from "@/hooks/use-tickets";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefetchVariantDetail } from "@/lib/prefetch-variant";
+import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
 import { Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
 
@@ -43,6 +44,9 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const locale = useLocale();
   const router = useRouter();
   const { tickets, loading, error, refetch } = useTickets();
+  // The page already has the real list — count it rather than quoting a number
+  // that goes stale the next time a bilet is imported.
+  const ticketCount = tickets.length || OFFICIAL_TICKET_COUNT;
   const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
   const practiceHref = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
   // /station/session/start (not /session/start): keeps the proxy.ts kiosk
@@ -117,7 +121,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         <div>
           <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+          <p className="text-sm text-muted-foreground">{t("subtitle", { count: ticketCount })}</p>
         </div>
 
         <div className="relative w-full sm:w-64">

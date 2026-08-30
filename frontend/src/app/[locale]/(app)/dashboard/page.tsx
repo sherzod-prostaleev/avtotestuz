@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
+import { useVariantCount } from "@/hooks/use-variant-count";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
 import { apiGet } from "@/lib/api-client";
@@ -106,6 +107,7 @@ function StatCardSkeleton() {
 
 export default function DashboardPage() {
   const t = useTranslations("Dashboard");
+  const ticketCount = useVariantCount();
   const savedT = useTranslations("Saved");
   const locale = useLocale();
   const { user, entitlement, streak, stats, loading, error } = useUserStats();
@@ -556,7 +558,7 @@ export default function DashboardPage() {
                 <CardTitle className="text-sm sm:text-lg">{t("navVariantsTitle")}</CardTitle>
               </div>
               <div className="mt-2 flex items-center justify-between text-[11px] font-bold text-accent sm:mt-4 sm:text-sm">
-                <span className="truncate">{t("variantsMeta")}</span>
+                <span className="truncate">{t("variantsMeta", { count: ticketCount })}</span>
                 <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5" />
               </div>
             </Card>

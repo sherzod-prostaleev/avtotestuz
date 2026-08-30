@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { BrandLogo } from "@/components/brand/brand-logo";
+import { useVariantCount } from "@/hooks/use-variant-count";
 import { apiGet } from "@/lib/api-client";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import {
@@ -146,6 +147,7 @@ const RETRY_MS = [1000, 2000, 3000, 5000, 8000, 10000, 15000, 20000, 30000, 4500
 
 export default function StationPage() {
   const t = useTranslations();
+  const ticketCount = useVariantCount();
   const locale = useLocale();
   const [me, setMe] = useState<Me | null>(null);
   const [phase, setPhase] = useState<Phase>("checking");
@@ -258,13 +260,13 @@ export default function StationPage() {
                     </div>
                     <CardTitle className="text-base sm:text-xl">{t(item.titleKey)}</CardTitle>
                     <CardDescription className="mt-1.5 text-xs sm:text-sm">
-                      {t(item.descKey)}
+                      {t(item.descKey, { count: ticketCount })}
                     </CardDescription>
                   </div>
                   <div
                     className={`mt-4 flex items-center justify-between text-xs font-bold sm:text-sm ${item.tone}`}
                   >
-                    <span className="truncate">{t(item.metaKey)}</span>
+                    <span className="truncate">{t(item.metaKey, { count: ticketCount })}</span>
                     <ChevronRight
                       aria-hidden="true"
                       className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1 sm:h-5 sm:w-5"

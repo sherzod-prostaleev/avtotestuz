@@ -33,13 +33,12 @@ import {
   HeartPulse,
 } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
-import { OFFICIAL_QUESTION_COUNT } from "@/lib/content-counts";
+import { useCatalogCounts } from "@/hooks/use-variant-count";
 
 // Every preset is a one-tap start, so the list runs past a single sitting on
 // purpose: a learner picking 800 is choosing a marathon, and the server clamps
 // to whatever the bank and the daily allowance actually hold.
 const COUNT_PRESETS = [20, 50, 100, 200, 400, 500, 800, 1000] as const;
-const MAX_CUSTOM_COUNT = OFFICIAL_QUESTION_COUNT;
 
 type Source = "due" | "category" | "variant" | "image" | "sign";
 
@@ -167,6 +166,9 @@ export interface PracticePageProps {
 
 export default function PracticePage({ kiosk = false }: PracticePageProps = {}) {
   const t = useTranslations("Practice");
+  // "Hammasi" means the bank as it actually is, so a freshly imported
+  // question is included without touching this file.
+  const { questions: maxCustomCount } = useCatalogCounts();
   const locale = useLocale();
   const router = useRouter();
   const backHref = kiosk ? `/${locale}/station` : `/${locale}/dashboard`;
@@ -251,7 +253,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
   const handleCategoryClick = (catCode: string) => {
     router.push(
-      `${sessionStartBase}?mode=practice&count=${MAX_CUSTOM_COUNT}&category_id=${encodeURIComponent(catCode)}&ordered=true`
+      `${sessionStartBase}?mode=practice&count=${maxCustomCount}&category_id=${encodeURIComponent(catCode)}&ordered=true`
     );
   };
 
@@ -533,7 +535,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
             ))}
             <Button
               variant="game"
-              onClick={() => handleCountClick(MAX_CUSTOM_COUNT)}
+              onClick={() => handleCountClick(maxCustomCount)}
               disabled={!countStartReady}
               className="min-h-12 py-2.5 text-sm font-extrabold"
             >
