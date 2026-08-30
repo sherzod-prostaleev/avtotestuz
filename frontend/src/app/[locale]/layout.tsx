@@ -89,8 +89,7 @@ export default async function LocaleLayout({
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased" suppressHydrationWarning>
         <NextIntlClientProvider messages={pickMessages(messages, COMMON_NAMESPACES)}>
           <Providers>
-            <ViewTransitions />
-            {children}
+            <ViewTransitions>{children}</ViewTransitions>
           </Providers>
         </NextIntlClientProvider>
       </body>

@@ -209,4 +209,38 @@ test.describe("Page transition", () => {
 
     expect(blinks, `a wrapper went transparent again: ${JSON.stringify(blinks)}`).toEqual([]);
   });
+
+  test("cross-fades a language switch too", async ({ page }) => {
+    // A language switch is a router.replace behind a button, not a link click,
+    // so it needs the transition driven explicitly. Reaching for the switcher
+    // is what warms the other locales.
+    await page.addInitScript(() => {
+      const w = window as any;
+      w.__vt = { calls: 0, snapshot: false };
+      const doc = document as any;
+      const original = doc.startViewTransition;
+      if (!original) return;
+      doc.startViewTransition = function (cb: any) {
+        w.__vt.calls++;
+        const t = original.call(this, cb);
+        t.ready.then(() => { w.__vt.snapshot = true; }, () => {});
+        return t;
+      };
+    });
+
+    await page.goto("/uz-Latn");
+    const switcher = page.getByRole("group").filter({ has: page.getByRole("button", { name: /Ру|Ru/i }) }).first();
+    const target = (await switcher.count())
+      ? switcher.getByRole("button", { name: /Ру|Ru/i }).first()
+      : page.getByRole("button", { name: /Ру|Ru/i }).first();
+
+    await target.hover();
+    // Give the prefetch its lead — below it the switch navigates plainly.
+    await page.waitForTimeout(900);
+    await target.click();
+
+    await expect(page).toHaveURL(/\/ru(\/|$)/);
+    const result = await page.evaluate(() => (window as any).__vt);
+    expect(result.calls).toBe(1);
+  });
 });

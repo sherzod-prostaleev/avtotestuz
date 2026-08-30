@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 /**
@@ -83,7 +83,26 @@ function internalTarget(node: EventTarget | null): string | null {
   return url.pathname + url.search + url.hash;
 }
 
-export function ViewTransitions() {
+/**
+ * Wraps a navigation in a cross-fade. `warm` says the destination is already
+ * loaded — without it the screen would be held waiting on the network, so a
+ * cold call navigates plainly instead.
+ */
+export type TransitionNavigate = (navigate: () => void, opts?: { warm?: boolean }) => void;
+
+const TransitionContext = createContext<TransitionNavigate | null>(null);
+
+/**
+ * Cross-fade a navigation this component drives itself — a language switch,
+ * say, which is a router.replace and not a link click. Falls back to running
+ * the navigation directly wherever the provider is absent.
+ */
+export function useTransitionNavigate(): TransitionNavigate {
+  const fromContext = useContext(TransitionContext);
+  return fromContext ?? ((navigate) => navigate());
+}
+
+export function ViewTransitions({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const settleRef = useRef<(() => void) | null>(null);
@@ -116,76 +135,77 @@ export function ViewTransitions() {
     };
   }, [router]);
 
-  useEffect(() => {
+  const run = useCallback<TransitionNavigate>((navigate, opts) => {
+    const root = document.documentElement;
     const start = document.startViewTransition?.bind(document);
-    if (!start) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+    // Without a warm route the callback would wait on the network, and the
+    // browser would hold the screen frozen for all of it. Navigate plainly
+    // instead: the incoming page still fades in on its own.
+    if (!start || reduced || !opts?.warm) {
+      root.removeAttribute(VT_ATTR);
+      navigate();
+      return;
+    }
+
+    // Decide before the incoming page mounts, and leave it decided. Toggling
+    // this while that page is on screen re-arms its CSS animation, and the
+    // browser restarts it from opacity 0 — a dark blink right after the
+    // cross-fade had already finished. Measured: stamp cleared at 400ms, the
+    // wrapper back at opacity 0 by 415ms.
+    root.setAttribute(VT_ATTR, "");
+
+    let holdTimer = 0;
+    let committed = false;
+
+    const transition = start(
+      () =>
+        new Promise<void>((resolve) => {
+          // Called when the route commits. Cancelling the hold here rather than
+          // on transition.finished matters: the two land within a frame of each
+          // other on a real connection, and a skip that wins that race
+          // un-stamps a page already on screen — which re-arms its fade and
+          // blinks it through transparent.
+          const settle = () => {
+            if (settleRef.current !== settle) return;
+            settleRef.current = null;
+            committed = true;
+            window.clearTimeout(holdTimer);
+            resolve();
+          };
+          settleRef.current = settle;
+          window.setTimeout(settle, SETTLE_TIMEOUT_MS);
+          navigate();
+        }),
+    );
+
+    // Rather than freeze while a slow route loads, drop the snapshot and let
+    // the outgoing page stay live until the new one is ready. Only reachable
+    // before the route commits, so there is no incoming wrapper to disturb —
+    // un-stamping simply hands that page its own fade back.
+    holdTimer = window.setTimeout(() => {
+      if (committed) return;
+      root.removeAttribute(VT_ATTR);
+      transition.skipTransition();
+    }, HOLD_LIMIT_MS);
+  }, []);
+
+  useEffect(() => {
     const onClick = (event: MouseEvent) => {
       if (!isPlainLeftClick(event)) return;
       const to = internalTarget(event.target);
       if (!to) return;
 
-      const root = document.documentElement;
-
-      // Without a warm route the callback would wait on the network, and the
-      // browser would hold the screen frozen for all of it. Navigate plainly
-      // instead: the incoming page still fades in on its own.
-      const warmedAt = warmedRef.current.get(to);
-      if (warmedAt === undefined || performance.now() - warmedAt < PREFETCH_LEAD_MS) {
-        event.preventDefault();
-        root.removeAttribute(VT_ATTR);
-        router.push(to);
-        return;
-      }
-
       event.preventDefault();
-
-      // Decide before the incoming page mounts, and leave it decided. Toggling
-      // this while that page is on screen re-arms its CSS animation, and the
-      // browser restarts it from opacity 0 — a dark blink right after the
-      // cross-fade had already finished. Measured: stamp cleared at 400ms, the
-      // wrapper back at opacity 0 by 415ms.
-      root.setAttribute(VT_ATTR, "");
-
-      let holdTimer = 0;
-      let committed = false;
-
-      const transition = start(
-        () =>
-          new Promise<void>((resolve) => {
-            // Called when the route commits. Cancelling the hold here rather
-            // than on transition.finished matters: the two land within a frame
-            // of each other on a real connection, and a skip that wins that
-            // race un-stamps a page already on screen — which re-arms its fade
-            // and blinks it through transparent.
-            const settle = () => {
-              if (settleRef.current !== settle) return;
-              settleRef.current = null;
-              committed = true;
-              window.clearTimeout(holdTimer);
-              resolve();
-            };
-            settleRef.current = settle;
-            window.setTimeout(settle, SETTLE_TIMEOUT_MS);
-            router.push(to);
-          }),
-      );
-
-      // Rather than freeze while a slow route loads, drop the snapshot and let
-      // the outgoing page stay live until the new one is ready. Only reachable
-      // before the route commits, so there is no incoming wrapper to disturb —
-      // un-stamping simply hands that page its own fade back.
-      holdTimer = window.setTimeout(() => {
-        if (committed) return;
-        root.removeAttribute(VT_ATTR);
-        transition.skipTransition();
-      }, HOLD_LIMIT_MS);
+      const warmedAt = warmedRef.current.get(to);
+      const warm = warmedAt !== undefined && performance.now() - warmedAt >= PREFETCH_LEAD_MS;
+      run(() => router.push(to), { warm });
     };
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [router]);
+  }, [router, run]);
 
-  return null;
+  return <TransitionContext.Provider value={run}>{children}</TransitionContext.Provider>;
 }
