@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/config";
 import { ChevronDown } from "lucide-react";
+import { useTransitionNavigate } from "@/components/layout/view-transitions";
 
 const LOCALES = [
   { code: "uz-Latn" as const, labelKey: "languageUzLatn" as const },
@@ -51,6 +52,22 @@ export function LocaleSwitcher({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
+  const withTransition = useTransitionNavigate();
+  const warmedRef = useRef(new Set<Locale>());
+
+  /**
+   * A language switch is a route change like any other, so it earns the same
+   * cross-fade — but only if the other locale is already loaded. Reaching for
+   * the switcher warms them, which is early enough: the pointer arrives well
+   * before the click does.
+   */
+  const warmLocales = () => {
+    for (const { code } of LOCALES) {
+      if (code === currentLocale || warmedRef.current.has(code)) continue;
+      warmedRef.current.add(code);
+      router.prefetch(pathname, { locale: code });
+    }
+  };
 
   const handleLanguageChange = (newLocale: Locale) => {
     if (newLocale === currentLocale) return;
@@ -58,12 +75,17 @@ export function LocaleSwitcher({
       typeof window !== "undefined"
         ? Object.fromEntries(new URLSearchParams(window.location.search))
         : {};
-    startTransition(() => {
-      router.replace(
-        Object.keys(query).length > 0 ? { pathname, query } : pathname,
-        { locale: newLocale, scroll: false }
-      );
-    });
+    withTransition(
+      () => {
+        startTransition(() => {
+          router.replace(
+            Object.keys(query).length > 0 ? { pathname, query } : pathname,
+            { locale: newLocale, scroll: false }
+          );
+        });
+      },
+      { warm: warmedRef.current.has(newLocale) },
+    );
     setOpen(false);
   };
 
@@ -96,7 +118,12 @@ export function LocaleSwitcher({
     const menuSide = menuAlign === "start" ? "left-0" : "right-0";
 
     return (
-      <div ref={rootRef} className={`relative z-20 ${className}`}>
+      <div
+        ref={rootRef}
+        className={`relative z-20 ${className}`}
+        onPointerOver={warmLocales}
+        onFocus={warmLocales}
+      >
         <button
           type="button"
           aria-label={t("languageSwitcher")}
@@ -155,6 +182,8 @@ export function LocaleSwitcher({
       role="group"
       aria-label={t("languageSwitcher")}
       className={`flex gap-0.5 ${fill ? "w-full" : ""} ${shell} ${className}`}
+      onPointerOver={warmLocales}
+      onFocus={warmLocales}
     >
       {LOCALES.map((lang) => (
         <button
