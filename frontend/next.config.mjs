@@ -54,6 +54,15 @@ const nextConfig = {
   output: "standalone",
   poweredByHeader: false,
   reactStrictMode: true,
+  experimental: {
+    // Next treats a prefetched dynamic route as stale the moment it arrives
+    // (staleTimes.dynamic defaults to 0), so the sidebar's prefetches were
+    // thrown away and every click still paid the round trip. Keeping them for
+    // 30s makes a click a cache read. Safe here because (app) pages are client
+    // components that fetch their own data on mount — only the shell is reused,
+    // and the effects re-run, so nothing shown to the learner goes stale.
+    staleTimes: { dynamic: 30 },
+  },
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
