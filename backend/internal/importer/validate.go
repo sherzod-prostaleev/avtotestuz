@@ -76,9 +76,20 @@ func Validate(ds Dataset) []Issue {
 		}
 	}
 
+	// Only the highest-numbered ticket may be partial: newly imported questions
+	// accumulate there until it reaches 20. A short ticket anywhere else means a
+	// question was dropped, so that stays an issue.
+	lastVariant := 0
+	for _, v := range ds.Variants {
+		if v.Number > lastVariant {
+			lastVariant = v.Number
+		}
+	}
+
 	for _, v := range ds.Variants {
 		vid := fmt.Sprintf("%d", v.Number)
-		if len(v.Questions) != 20 {
+		filling := v.Number == lastVariant && len(v.Questions) >= 1 && len(v.Questions) < 20
+		if len(v.Questions) != 20 && !filling {
 			add("variant", vid, "variant_size", fmt.Sprintf("%d ta savol", len(v.Questions)))
 			continue
 		}
