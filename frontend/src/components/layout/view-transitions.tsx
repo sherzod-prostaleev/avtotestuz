@@ -148,30 +148,39 @@ export function ViewTransitions() {
       // wrapper back at opacity 0 by 415ms.
       root.setAttribute(VT_ATTR, "");
 
+      let holdTimer = 0;
+      let committed = false;
+
       const transition = start(
         () =>
           new Promise<void>((resolve) => {
-            const done = () => {
-              if (settleRef.current !== resolve) return;
+            // Called when the route commits. Cancelling the hold here rather
+            // than on transition.finished matters: the two land within a frame
+            // of each other on a real connection, and a skip that wins that
+            // race un-stamps a page already on screen — which re-arms its fade
+            // and blinks it through transparent.
+            const settle = () => {
+              if (settleRef.current !== settle) return;
               settleRef.current = null;
+              committed = true;
+              window.clearTimeout(holdTimer);
               resolve();
             };
-            settleRef.current = resolve;
-            window.setTimeout(done, SETTLE_TIMEOUT_MS);
+            settleRef.current = settle;
+            window.setTimeout(settle, SETTLE_TIMEOUT_MS);
             router.push(to);
           }),
       );
 
       // Rather than freeze while a slow route loads, drop the snapshot and let
-      // the outgoing page stay live until the new one is ready. The route has
-      // not committed at this point, so the incoming wrapper does not exist yet
-      // and un-stamping cannot restart anything — it just hands that page its
-      // own fade back.
-      const holdTimer = window.setTimeout(() => {
+      // the outgoing page stay live until the new one is ready. Only reachable
+      // before the route commits, so there is no incoming wrapper to disturb —
+      // un-stamping simply hands that page its own fade back.
+      holdTimer = window.setTimeout(() => {
+        if (committed) return;
         root.removeAttribute(VT_ATTR);
         transition.skipTransition();
       }, HOLD_LIMIT_MS);
-      transition.finished.finally(() => window.clearTimeout(holdTimer));
     };
 
     document.addEventListener("click", onClick, true);
