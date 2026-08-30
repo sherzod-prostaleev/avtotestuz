@@ -152,9 +152,14 @@
 
      So this is enter-only: App Router keeps the old page painted until the new
      one is ready, then the new content fades in. template.tsx re-mounts on each
-     navigation, which restarts the animation. */
+     navigation, which restarts the animation.
+
+     This only reads as a transition while the route has no Suspense fallback.
+     With one, the template mounts around the fallback instead — the spinner
+     fades in and the real content then replaces it with no animation at all,
+     which is why (app)/loading.tsx was removed. */
   .page-fade {
-    animation: page-fade-in 180ms ease both;
+    animation: page-fade-in 240ms ease both;
   }
 
   @keyframes page-fade-in {

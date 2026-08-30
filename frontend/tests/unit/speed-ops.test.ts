@@ -30,9 +30,17 @@ describe("origin speed plan contracts", () => {
     );
   });
 
-  it("ships app and session loading shells", () => {
-    expect(existsSync(join(frontendRoot, "src/app/[locale]/(app)/loading.tsx"))).toBe(true);
+  it("keeps a session loading shell but none for (app)", () => {
+    // Starting a session POSTs before it can render, so that wait gets a shell.
     expect(existsSync(join(frontendRoot, "src/app/[locale]/(session)/loading.tsx"))).toBe(true);
+
+    // (app) deliberately has none. Its RSC fetch is ~180ms and every page draws
+    // its own skeleton, so a route-level spinner only flashed. Worse, a Suspense
+    // fallback made template.tsx mount around the *spinner*: the fade played on
+    // the spinner and the real content then replaced it with no animation.
+    expect(existsSync(join(frontendRoot, "src/app/[locale]/(app)/loading.tsx"))).toBe(false);
+    expect(existsSync(join(frontendRoot, "src/app/[locale]/(app)/template.tsx"))).toBe(true);
+
     expect(readFileSync(join(frontendRoot, "src/app/[locale]/(app)/layout.tsx"), "utf8")).not.toMatch(
       /^"use client";/m,
     );
