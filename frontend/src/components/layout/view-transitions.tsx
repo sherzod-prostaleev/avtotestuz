@@ -30,10 +30,20 @@ import { usePathname, useRouter } from "next/navigation";
  */
 
 /**
- * How long the screen may stay frozen under a snapshot. Past this the
- * transition is worth less than the responsiveness it costs.
+ * How long the screen may stay under a snapshot. Only routes already in the
+ * router cache get this far, so the time is React rendering the new page — it
+ * would be spent either way, and spending it on the outgoing page beats
+ * spending it on a half-drawn one. Measured on production: a cached route
+ * commits in ~190ms.
  */
-const HOLD_LIMIT_MS = 120;
+const HOLD_LIMIT_MS = 400;
+
+/**
+ * How long a prefetch needs before its route counts as ready. Below this the
+ * payload is probably still in flight, and a transition would sit frozen
+ * waiting for the network — which is what made the app feel stuck.
+ */
+const PREFETCH_LEAD_MS = 250;
 
 /** Backstop so a navigation that never lands cannot strand the callback. */
 const SETTLE_TIMEOUT_MS = 2000;
@@ -82,12 +92,15 @@ export function ViewTransitions() {
   }, [pathname]);
 
   // Warm a route as the pointer arrives, so the click has nothing to wait for.
+  // The timestamp is what later decides whether a cross-fade is affordable.
+  const warmedRef = useRef(new Map<string, number>());
+
   useEffect(() => {
-    const warmed = new Set<string>();
+    const warmed = warmedRef.current;
     const warm = (event: Event) => {
       const to = internalTarget(event.target);
       if (!to || warmed.has(to)) return;
-      warmed.add(to);
+      warmed.set(to, performance.now());
       router.prefetch(to);
     };
 
@@ -109,6 +122,16 @@ export function ViewTransitions() {
       if (!isPlainLeftClick(event)) return;
       const to = internalTarget(event.target);
       if (!to) return;
+
+      // Without a warm route the callback would wait on the network, and the
+      // browser would hold the screen frozen for all of it. Navigate plainly
+      // instead: the incoming page still fades in on its own.
+      const warmedAt = warmedRef.current.get(to);
+      if (warmedAt === undefined || performance.now() - warmedAt < PREFETCH_LEAD_MS) {
+        event.preventDefault();
+        router.push(to);
+        return;
+      }
 
       event.preventDefault();
 

@@ -36,11 +36,16 @@ test.describe("Page transition", () => {
     // the click being measured commits from memory the way a prefetched route
     // does in production.
     await page.goto("/uz-Latn");
-    await page.locator('a[href*="/narxlar"]').first().click();
+    const link = page.locator('a[href*="/narxlar"]').first();
+    // Prime the router cache through a real navigation — `next dev` disables
+    // prefetch — then hover long enough that the click counts the route warm.
+    await link.click();
     await expect(page).toHaveURL(/narxlar/);
     await page.goBack();
     await expect(page).toHaveURL(/\/uz-Latn$/);
     await page.waitForTimeout(400);
+    await link.hover();
+    await page.waitForTimeout(600);
 
     const supported = await page.evaluate(
       () => typeof (document as any).startViewTransition === "function",
@@ -52,7 +57,7 @@ test.describe("Page transition", () => {
       (window as any).__vt.snapshot = false;
     });
 
-    await page.locator('a[href*="/narxlar"]').first().click();
+    await link.click();
     await page.waitForTimeout(1500);
 
     const result = await page.evaluate(() => ({
@@ -116,6 +121,8 @@ test.describe("Page transition", () => {
 
     await page.goto("/uz-Latn");
     const link = page.locator('a[href*="/narxlar"]').first();
+    await link.hover();
+    await page.waitForTimeout(600);
     await link.click();
 
     // The page still gets there, and it was never held hostage by the snapshot.
