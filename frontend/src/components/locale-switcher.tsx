@@ -75,15 +75,19 @@ export function LocaleSwitcher({
       typeof window !== "undefined"
         ? Object.fromEntries(new URLSearchParams(window.location.search))
         : {};
+    const navigate = () =>
+      router.replace(
+        Object.keys(query).length > 0 ? { pathname, query } : pathname,
+        { locale: newLocale, scroll: false }
+      );
+
     withTransition(
-      () => {
-        startTransition(() => {
-          router.replace(
-            Object.keys(query).length > 0 ? { pathname, query } : pathname,
-            { locale: newLocale, scroll: false }
-          );
-        });
-      },
+      // No React startTransition inside a view transition: both exist to keep
+      // the old UI on screen while the new one prepares, and nesting them
+      // pushes the commit to low priority. Measured on production, that alone
+      // took the switch past the freeze limit every time, so the cross-fade was
+      // always dropped. Outside one it still defers, as before.
+      (driven) => (driven ? navigate() : startTransition(navigate)),
       { warm: warmedRef.current.has(newLocale) },
     );
     setOpen(false);

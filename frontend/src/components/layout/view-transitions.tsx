@@ -88,7 +88,11 @@ function internalTarget(node: EventTarget | null): string | null {
  * loaded — without it the screen would be held waiting on the network, so a
  * cold call navigates plainly instead.
  */
-export type TransitionNavigate = (navigate: () => void, opts?: { warm?: boolean }) => void;
+export type TransitionNavigate = (
+  /** `driven` is true when a cross-fade is holding the screen for this call. */
+  navigate: (driven: boolean) => void,
+  opts?: { warm?: boolean },
+) => void;
 
 const TransitionContext = createContext<TransitionNavigate | null>(null);
 
@@ -99,7 +103,7 @@ const TransitionContext = createContext<TransitionNavigate | null>(null);
  */
 export function useTransitionNavigate(): TransitionNavigate {
   const fromContext = useContext(TransitionContext);
-  return fromContext ?? ((navigate) => navigate());
+  return fromContext ?? ((navigate) => navigate(false));
 }
 
 export function ViewTransitions({ children }: { children?: React.ReactNode }) {
@@ -145,7 +149,7 @@ export function ViewTransitions({ children }: { children?: React.ReactNode }) {
     // instead: the incoming page still fades in on its own.
     if (!start || reduced || !opts?.warm) {
       root.removeAttribute(VT_ATTR);
-      navigate();
+      navigate(false);
       return;
     }
 
@@ -176,7 +180,7 @@ export function ViewTransitions({ children }: { children?: React.ReactNode }) {
           };
           settleRef.current = settle;
           window.setTimeout(settle, SETTLE_TIMEOUT_MS);
-          navigate();
+          navigate(true);
         }),
     );
 
