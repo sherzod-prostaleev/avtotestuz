@@ -42,9 +42,9 @@ describe("useFitScale", () => {
     Object.defineProperty(viewport, "clientHeight", { value: 400, configurable: true });
     Object.defineProperty(content, "scrollHeight", { value: 800, configurable: true });
 
-    // @ts-expect-error — assign for test
+    // Stand in for the nodes React would have attached. React 19 types
+    // RefObject.current as mutable, so this needs no escape hatch.
     result.current.viewportRef.current = viewport;
-    // @ts-expect-error — assign for test
     result.current.contentRef.current = content;
 
     Object.defineProperty(window, "innerWidth", { value: 390, configurable: true });

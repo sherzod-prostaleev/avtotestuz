@@ -141,6 +141,31 @@
     }
   }
 
+  /* Page navigation fade.
+
+     A true cross-fade would need React's <ViewTransition>, which ships only on
+     React's experimental channel — Next's experimental.viewTransition flag and
+     Link's transitionTypes both feed React.addTransitionType and do nothing
+     without it. Driving document.startViewTransition by hand would mean
+     intercepting every navigation in the app, including the router.push calls
+     spread through the session and kiosk flows.
+
+     So this is enter-only: App Router keeps the old page painted until the new
+     one is ready, then the new content fades in. template.tsx re-mounts on each
+     navigation, which restarts the animation. */
+  .page-fade {
+    animation: page-fade-in 180ms ease both;
+  }
+
+  @keyframes page-fade-in {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
