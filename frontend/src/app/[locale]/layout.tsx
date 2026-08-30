@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Baloo_2, Manrope } from "next/font/google";
+import { ViewTransitions } from "@/components/layout/view-transitions";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages, getTranslations } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -88,6 +89,7 @@ export default async function LocaleLayout({
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased" suppressHydrationWarning>
         <NextIntlClientProvider messages={pickMessages(messages, COMMON_NAMESPACES)}>
           <Providers>
+            <ViewTransitions />
             {children}
           </Providers>
         </NextIntlClientProvider>

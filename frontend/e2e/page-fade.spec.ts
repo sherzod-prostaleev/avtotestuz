@@ -1,58 +1,77 @@
 import { test, expect } from "@playwright/test";
 
-// The navigation fade has broken silently twice: once because a Suspense
-// fallback made the template mount around the spinner instead of the content,
-// and once because it was measured in a hidden tab where the document timeline
-// is frozen. Asserting the DOM shape is not enough — this watches the opacity
-// actually move.
-test.describe("Page fade", () => {
-  test("animates the incoming page from transparent to opaque", async ({ page }) => {
-    await page.goto("/uz-Latn");
-    await page.waitForSelector(".page-fade");
-
-    const samples = await page.evaluate(async () => {
-      const out: Array<{ opacity: number; node: number }> = [];
-      const ids = new WeakMap<Element, number>();
-      let next = 0;
-      const idOf = (el: Element) => {
-        if (!ids.has(el)) ids.set(el, next++);
-        return ids.get(el)!;
+// This transition has broken silently more than once — a Suspense fallback made
+// the wrapper mount around the spinner instead of the content, and a fill-mode
+// left the page able to rest at opacity 0. Asserting DOM shape missed both, so
+// these watch what the browser actually does.
+test.describe("Page transition", () => {
+  test("cross-fades: the outgoing page is held while the new one arrives", async ({ page }) => {
+    // view-transitions.tsx binds document.startViewTransition when it mounts,
+    // so the probe has to be installed before any app code runs.
+    await page.addInitScript(() => {
+      const w = window as any;
+      w.__vt = { calls: 0, snapshot: false };
+      const doc = document as any;
+      const original = doc.startViewTransition;
+      if (!original) return;
+      doc.startViewTransition = function (cb: any) {
+        w.__vt.calls++;
+        const transition = original.call(this, cb);
+        // `ready` settles only once the browser has captured the outgoing page
+        // and built the ::view-transition tree — a real cross-fade rather than
+        // a swap. It rejects if the transition is skipped.
+        transition.ready.then(
+          () => {
+            w.__vt.snapshot = true;
+          },
+          () => {},
+        );
+        return transition;
       };
-      idOf(document.querySelector(".page-fade")!);
-
-      const link = [...document.querySelectorAll("a")].find((a) =>
-        (a.getAttribute("href") || "").includes("/narxlar"),
-      );
-      (link as HTMLAnchorElement).click();
-
-      for (let i = 0; i < 60; i++) {
-        await new Promise((r) => requestAnimationFrame(r));
-        const el = document.querySelector(".page-fade");
-        if (el) out.push({ opacity: +getComputedStyle(el).opacity, node: idOf(el) });
-      }
-      return out;
     });
 
-    // A fresh wrapper for the incoming page, not the one we started on.
-    const incoming = Math.max(...samples.map((s) => s.node));
-    expect(incoming).toBeGreaterThan(0);
+    await page.goto("/uz-Latn");
+    await page.waitForTimeout(600);
 
-    const onIncoming = samples.filter((s) => s.node === incoming);
-    const midFade = onIncoming.filter((s) => s.opacity > 0 && s.opacity < 1);
+    const supported = await page.evaluate(() => typeof (document as any).startViewTransition === "function");
+    test.skip(!supported, "browser has no View Transitions API");
 
-    // Several frames caught mid-fade: the animation ran, it was not a jump.
-    expect(midFade.length).toBeGreaterThan(3);
-    // And it settles fully opaque — a page must never be left transparent.
-    expect(onIncoming.at(-1)!.opacity).toBe(1);
+    await page.evaluate(() => {
+      const link = [...document.querySelectorAll("a")].find((a) =>
+        (a.getAttribute("href") || "").includes("/narxlar"),
+      ) as HTMLAnchorElement;
+      link.click();
+    });
+    await page.waitForTimeout(1500);
+
+    const result = await page.evaluate(() => ({
+      calls: (window as any).__vt.calls,
+      snapshot: (window as any).__vt.snapshot,
+      path: location.pathname,
+      // The enter-only fallback must stay out of the way when the API drives.
+      fallbackAnimation: getComputedStyle(document.querySelector(".page-fade")!).animationName,
+    }));
+
+    expect(result.path).toContain("/narxlar");
+    expect(result.calls).toBe(1);
+    expect(result.snapshot).toBe(true);
+    expect(result.fallbackAnimation).toBe("none");
   });
 
-  test("leaves the page readable when the animation cannot run", async ({ page }) => {
-    // No fill-mode, so the resting opacity is 1. Guards against the variant
-    // that holds the 0% keyframe and blanks the page on a frozen timeline.
+  test("still navigates when the API is missing, and never leaves a blank page", async ({ page }) => {
+    await page.addInitScript(() => {
+      delete (Document.prototype as any).startViewTransition;
+    });
     await page.goto("/uz-Latn");
+
+    // No fill-mode: a page whose animation never runs still rests at opacity 1.
     const fillMode = await page.evaluate(
       () => getComputedStyle(document.querySelector(".page-fade")!).animationFillMode,
     );
     expect(fillMode).toBe("none");
+
+    await page.getByRole("link", { name: /narxlar|тариф/i }).first().click();
+    await expect(page).toHaveURL(/narxlar/);
+    await expect(page.locator("h1").first()).toBeVisible();
   });
 });

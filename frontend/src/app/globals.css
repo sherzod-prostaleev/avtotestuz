@@ -141,30 +141,36 @@
     }
   }
 
-  /* Page navigation fade.
+  /* Page navigation.
 
-     A true cross-fade would need React's <ViewTransition>, which ships only on
-     React's experimental channel — Next's experimental.viewTransition flag and
-     Link's transitionTypes both feed React.addTransitionType and do nothing
-     without it. Driving document.startViewTransition by hand would mean
-     intercepting every navigation in the app, including the router.push calls
-     spread through the session and kiosk flows.
+     Preferred path — a real cross-fade. view-transitions.tsx drives
+     document.startViewTransition on link clicks, so the browser holds a picture
+     of the outgoing page while the incoming one appears over it. The whole page
+     is snapshotted: the sidebar and header are pixel-identical in both, so
+     fading them changes nothing on screen, and naming a box risks two elements
+     claiming one view-transition-name, which makes the browser skip the
+     transition entirely. */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: ease;
+  }
 
-     So this is enter-only: App Router keeps the old page painted until the new
-     one is ready, then the new content fades in. template.tsx re-mounts on each
-     navigation, which restarts the animation.
-
-     This only reads as a transition while the route has no Suspense fallback.
-     With one, the template mounts around the fallback instead — the spinner
-     fades in and the real content then replaces it with no animation at all,
-     which is why (app)/loading.tsx was removed. */
+  /* Fallback for browsers without the API: the incoming page fades in on its
+     own (template.tsx re-mounts this wrapper per navigation). Enter-only — the
+     old page cannot be held without a snapshot — so it is switched off wherever
+     the cross-fade above can run, or the two would stack. */
   .page-fade {
     /* No fill-mode on purpose. With `both` the element holds the 0% keyframe
        whenever the animation does not run — a hidden tab freezes the document
-       timeline, and the page would then sit at opacity 0, invisible. Without
-       it the resting opacity is 1, so a page that never animates is still a
-       page you can read. */
+       timeline, and the page would then sit at opacity 0, invisible. */
     animation: page-fade-in 240ms ease;
+  }
+
+  @supports (view-transition-name: none) {
+    .page-fade {
+      animation: none;
+    }
   }
 
   @keyframes page-fade-in {
@@ -173,6 +179,16 @@
     }
     to {
       opacity: 1;
+    }
+  }
+
+  /* The wildcard reduced-motion rule below cannot reach these pseudo-elements,
+     and view-transitions.tsx additionally skips the API altogether. */
+  @media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+      animation: none !important;
     }
   }
 
