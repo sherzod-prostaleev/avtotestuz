@@ -6,11 +6,29 @@ test.describe("Landing page", () => {
     await expect(page.locator("h1").first()).toBeVisible();
   });
 
-  test("shows proof stats (question + ticket counts)", async ({ page }) => {
+  test("shows proof stats read from the live catalog", async ({ page }) => {
+    // The counts are no longer written into the copy: the page derives them
+    // from GET /variants (biletlar = list length, savollar = summed
+    // question_count). Pin a catalog and assert what the page makes of it, so
+    // this test keeps passing when the real bank grows.
+    await page.route("**/api/proxy/variants", async (route) => {
+      await route.fulfill({
+        contentType: "application/json",
+        body: JSON.stringify({
+          data: [
+            { number: 1, question_count: 20 },
+            { number: 2, question_count: 20 },
+            { number: 3, question_count: 5 },
+          ],
+        }),
+      });
+    });
+
     await page.goto("/uz-Latn");
-    // Copy uses "1260+" (verified import size), not a hard "1235".
-    await expect(page.getByText("1260+")).toBeVisible();
-    await expect(page.getByText("63")).toBeVisible();
+
+    const facts = page.locator(".landing-fact");
+    await expect(facts.filter({ hasText: "savol" })).toContainText("45+");
+    await expect(facts.filter({ hasText: "bilet" })).toContainText("3");
   });
 
   test("has login link in header", async ({ page }) => {
