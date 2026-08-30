@@ -45,6 +45,9 @@ const HOLD_LIMIT_MS = 400;
  */
 const PREFETCH_LEAD_MS = 250;
 
+/** Set while a cross-fade owns the navigation, so the CSS enter-fade stands down. */
+const VT_ATTR = "data-view-transition";
+
 /** Backstop so a navigation that never lands cannot strand the callback. */
 const SETTLE_TIMEOUT_MS = 2000;
 
@@ -123,17 +126,27 @@ export function ViewTransitions() {
       const to = internalTarget(event.target);
       if (!to) return;
 
+      const root = document.documentElement;
+
       // Without a warm route the callback would wait on the network, and the
       // browser would hold the screen frozen for all of it. Navigate plainly
       // instead: the incoming page still fades in on its own.
       const warmedAt = warmedRef.current.get(to);
       if (warmedAt === undefined || performance.now() - warmedAt < PREFETCH_LEAD_MS) {
         event.preventDefault();
+        root.removeAttribute(VT_ATTR);
         router.push(to);
         return;
       }
 
       event.preventDefault();
+
+      // Decide before the incoming page mounts, and leave it decided. Toggling
+      // this while that page is on screen re-arms its CSS animation, and the
+      // browser restarts it from opacity 0 — a dark blink right after the
+      // cross-fade had already finished. Measured: stamp cleared at 400ms, the
+      // wrapper back at opacity 0 by 415ms.
+      root.setAttribute(VT_ATTR, "");
 
       const transition = start(
         () =>
@@ -150,22 +163,15 @@ export function ViewTransitions() {
       );
 
       // Rather than freeze while a slow route loads, drop the snapshot and let
-      // the outgoing page stay live until the new one is ready.
-      const holdTimer = window.setTimeout(() => transition.skipTransition(), HOLD_LIMIT_MS);
-
-      // Mark the document only once the cross-fade is genuinely running, so the
-      // CSS enter-fade stands down for it. A skipped transition never sets the
-      // mark and the incoming page keeps its own fade — the reader always gets
-      // one animation, never two and never none.
-      const root = document.documentElement;
-      transition.ready.then(
-        () => root.setAttribute("data-view-transition", ""),
-        () => {},
-      );
-      transition.finished.finally(() => {
-        window.clearTimeout(holdTimer);
-        root.removeAttribute("data-view-transition");
-      });
+      // the outgoing page stay live until the new one is ready. The route has
+      // not committed at this point, so the incoming wrapper does not exist yet
+      // and un-stamping cannot restart anything — it just hands that page its
+      // own fade back.
+      const holdTimer = window.setTimeout(() => {
+        root.removeAttribute(VT_ATTR);
+        transition.skipTransition();
+      }, HOLD_LIMIT_MS);
+      transition.finished.finally(() => window.clearTimeout(holdTimer));
     };
 
     document.addEventListener("click", onClick, true);

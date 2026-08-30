@@ -64,15 +64,16 @@ test.describe("Page transition", () => {
       calls: (window as any).__vt.calls,
       snapshot: (window as any).__vt.snapshot,
       path: location.pathname,
-      // While a real cross-fade runs the document is stamped, which stands the
-      // enter-fade down so the two cannot stack.
+      // The stamp stands the enter-fade down, and stays put until the next
+      // navigation decides again — clearing it while the page is on screen
+      // would re-arm that animation and blink it back through transparent.
       stamped: document.documentElement.hasAttribute("data-view-transition"),
     }));
 
     expect(result.path).toContain("/narxlar");
     expect(result.calls).toBe(1);
     expect(result.snapshot).toBe(true);
-    expect(result.stamped).toBe(false); // cleared once the transition finished
+    expect(result.stamped).toBe(true);
   });
 
   test("still navigates when the API is missing, and never leaves a blank page", async ({ page }) => {
@@ -141,5 +142,45 @@ test.describe("Page transition", () => {
     });
     expect(fade.stamped).toBe(false);
     expect(fade.name).toBe("page-fade-in");
+  });
+
+  test("does not blink after the cross-fade finishes", async ({ page }) => {
+    // Re-arming the enter-fade once the incoming page is already on screen
+    // restarts it from opacity 0, which showed as a dark blink a frame after
+    // the cross-fade had finished. Nothing may drop the page back to
+    // transparent once it has been shown.
+    await page.goto("/uz-Latn");
+    const link = page.locator('a[href*="/narxlar"]').first();
+    await link.click();
+    await expect(page).toHaveURL(/narxlar/);
+    await page.goBack();
+    await expect(page).toHaveURL(/\/uz-Latn$/);
+    await page.waitForTimeout(400);
+    await link.hover();
+    await page.waitForTimeout(600);
+
+    const trace = await page.evaluate(async () => {
+      const samples: Array<{ ms: number; opacity: number }> = [];
+      const started = performance.now();
+      (
+        [...document.querySelectorAll("a")].find((a) =>
+          (a.getAttribute("href") || "").includes("/narxlar"),
+        ) as HTMLAnchorElement
+      ).click();
+
+      for (let i = 0; i < 90; i++) {
+        await new Promise((r) => requestAnimationFrame(r));
+        const el = document.querySelector(".page-fade");
+        if (el) samples.push({ ms: Math.round(performance.now() - started), opacity: +getComputedStyle(el).opacity });
+      }
+      return samples;
+    });
+
+    // Find where the page first reaches full opacity, then require it stays there.
+    const settled = trace.findIndex((s) => s.opacity === 1);
+    expect(settled).toBeGreaterThanOrEqual(0);
+    const afterSettling = trace.slice(settled);
+    const relapse = afterSettling.find((s) => s.opacity < 1);
+    expect(relapse, `page went transparent again at ${relapse?.ms}ms`).toBeUndefined();
   });
 });
