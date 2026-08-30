@@ -6,27 +6,36 @@ import { usePathname, useRouter } from "next/navigation";
 /**
  * Cross-fades one page into the next.
  *
- * The enter-only CSS fade made the old page vanish and the new one assemble
- * from nothing, which does not read as a transition. A real cross-fade needs
- * the browser to hold a picture of the outgoing page while the incoming one
- * appears over it — that is what document.startViewTransition does.
+ * Next cannot drive this on React 19 stable: its experimental.viewTransition
+ * flag and Link's transitionTypes both go through React.addTransitionType,
+ * which ships only on React's experimental channel. So this listens for link
+ * clicks and drives document.startViewTransition itself.
  *
- * Next cannot drive it for us here: its experimental.viewTransition flag and
- * Link's transitionTypes both go through React.addTransitionType, which only
- * exists on React's experimental channel. So this listens for link clicks and
- * drives the API itself.
+ * The subtlety is that a view transition freezes the screen. The browser holds
+ * a picture of the outgoing page until the callback settles, and here that
+ * means until the new route commits — a server round trip. Hold it for the
+ * whole fetch and the page does not animate, it locks up. Two things keep that
+ * from happening:
  *
- * startViewTransition takes a callback that must not settle until the new DOM
- * is committed. router.push is asynchronous, so the promise is resolved by the
- * effect below once the pathname has actually changed — with a timeout so a
- * navigation that never lands cannot leave the page frozen under a snapshot.
+ *  - links are prefetched as the pointer reaches them, so by the time the click
+ *    lands the route is usually already in the router cache and commits in a
+ *    frame or two;
+ *  - and if it has not committed within HOLD_LIMIT_MS the transition is
+ *    skipped, which drops the snapshot at once. The outgoing page goes back to
+ *    being live and interactive and the navigation finishes without animation —
+ *    never worse than having no transition at all.
  *
- * Navigations made through router.push elsewhere in the app, and browser
- * back/forward, are not intercepted; they simply navigate without the
- * cross-fade, exactly as before.
+ * Scope is deliberately narrow: plain left-clicks on same-origin anchors.
+ * router.push calls elsewhere and browser back/forward navigate as before.
  */
 
-/** Longer than the CSS cross-fade, short enough not to strand the page. */
+/**
+ * How long the screen may stay frozen under a snapshot. Past this the
+ * transition is worth less than the responsiveness it costs.
+ */
+const HOLD_LIMIT_MS = 120;
+
+/** Backstop so a navigation that never lands cannot strand the callback. */
 const SETTLE_TIMEOUT_MS = 2000;
 
 function isPlainLeftClick(event: MouseEvent): boolean {
@@ -40,6 +49,27 @@ function isPlainLeftClick(event: MouseEvent): boolean {
   );
 }
 
+/** The in-app destination of an anchor, or null if it is not one. */
+function internalTarget(node: EventTarget | null): string | null {
+  const anchor = node instanceof Element ? node.closest("a") : null;
+  if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return null;
+
+  const href = anchor.getAttribute("href");
+  if (!href || href.startsWith("#")) return null;
+
+  let url: URL;
+  try {
+    url = new URL(anchor.href, window.location.href);
+  } catch {
+    return null;
+  }
+  if (url.origin !== window.location.origin) return null;
+  // Same page: nothing would change, and the callback would never settle.
+  if (url.pathname === window.location.pathname && url.search === window.location.search) return null;
+
+  return url.pathname + url.search + url.hash;
+}
+
 export function ViewTransitions() {
   const router = useRouter();
   const pathname = usePathname();
@@ -51,6 +81,25 @@ export function ViewTransitions() {
     settleRef.current = null;
   }, [pathname]);
 
+  // Warm a route as the pointer arrives, so the click has nothing to wait for.
+  useEffect(() => {
+    const warmed = new Set<string>();
+    const warm = (event: Event) => {
+      const to = internalTarget(event.target);
+      if (!to || warmed.has(to)) return;
+      warmed.add(to);
+      router.prefetch(to);
+    };
+
+    // pointerover bubbles where pointerenter does not; focusin covers keyboards.
+    document.addEventListener("pointerover", warm, true);
+    document.addEventListener("focusin", warm, true);
+    return () => {
+      document.removeEventListener("pointerover", warm, true);
+      document.removeEventListener("focusin", warm, true);
+    };
+  }, [router]);
+
   useEffect(() => {
     const start = document.startViewTransition?.bind(document);
     if (!start) return;
@@ -58,27 +107,12 @@ export function ViewTransitions() {
 
     const onClick = (event: MouseEvent) => {
       if (!isPlainLeftClick(event)) return;
-
-      const target = event.target;
-      const anchor = target instanceof Element ? target.closest("a") : null;
-      if (!anchor || anchor.target === "_blank" || anchor.hasAttribute("download")) return;
-
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#")) return;
-
-      let url: URL;
-      try {
-        url = new URL(anchor.href, window.location.href);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) return;
-      // Same page: nothing would change, and the promise would never settle.
-      if (url.pathname === window.location.pathname && url.search === window.location.search) return;
+      const to = internalTarget(event.target);
+      if (!to) return;
 
       event.preventDefault();
 
-      start(
+      const transition = start(
         () =>
           new Promise<void>((resolve) => {
             const done = () => {
@@ -88,9 +122,14 @@ export function ViewTransitions() {
             };
             settleRef.current = resolve;
             window.setTimeout(done, SETTLE_TIMEOUT_MS);
-            router.push(url.pathname + url.search + url.hash);
+            router.push(to);
           }),
       );
+
+      // Rather than freeze while a slow route loads, drop the snapshot and let
+      // the outgoing page stay live until the new one is ready.
+      const holdTimer = window.setTimeout(() => transition.skipTransition(), HOLD_LIMIT_MS);
+      transition.finished.finally(() => window.clearTimeout(holdTimer));
     };
 
     document.addEventListener("click", onClick, true);
