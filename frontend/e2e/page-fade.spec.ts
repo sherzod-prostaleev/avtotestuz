@@ -242,5 +242,10 @@ test.describe("Page transition", () => {
     await expect(page).toHaveURL(/\/ru(\/|$)/);
     const result = await page.evaluate(() => (window as any).__vt);
     expect(result.calls).toBe(1);
+    // A switch changes the [locale] segment and re-mounts the driver. Asserting
+    // the snapshot, not just the call, is what catches the resolver being lost
+    // with that re-mount — which skipped every switch on production while the
+    // call count still looked right.
+    expect(result.snapshot).toBe(true);
   });
 });
