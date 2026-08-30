@@ -159,7 +159,12 @@
      fades in and the real content then replaces it with no animation at all,
      which is why (app)/loading.tsx was removed. */
   .page-fade {
-    animation: page-fade-in 240ms ease both;
+    /* No fill-mode on purpose. With `both` the element holds the 0% keyframe
+       whenever the animation does not run — a hidden tab freezes the document
+       timeline, and the page would then sit at opacity 0, invisible. Without
+       it the resting opacity is 1, so a page that never animates is still a
+       page you can read. */
+    animation: page-fade-in 240ms ease;
   }
 
   @keyframes page-fade-in {
