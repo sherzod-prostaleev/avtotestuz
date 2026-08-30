@@ -48,6 +48,17 @@ const PREFETCH_LEAD_MS = 250;
 /** Set while a cross-fade owns the navigation, so the CSS enter-fade stands down. */
 const VT_ATTR = "data-view-transition";
 
+/**
+ * The pending cross-fade's resolver, deliberately outside React.
+ *
+ * A language switch changes the [locale] segment, which re-mounts this
+ * component — and a resolver held in a ref would go with it, leaving the
+ * transition to wait out its guard and be skipped every time. Module scope
+ * survives that, so the freshly mounted tree can settle a transition the
+ * previous one started.
+ */
+let pendingSettle: (() => void) | null = null;
+
 /** Backstop so a navigation that never lands cannot strand the callback. */
 const SETTLE_TIMEOUT_MS = 2000;
 
@@ -109,12 +120,10 @@ export function useTransitionNavigate(): TransitionNavigate {
 export function ViewTransitions({ children }: { children?: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const settleRef = useRef<(() => void) | null>(null);
-
-  // The new route has rendered — let the browser finish the cross-fade.
+  // The new route has rendered — let the browser finish the cross-fade. This
+  // also runs on mount, which is what settles a switch that re-mounted us.
   useEffect(() => {
-    settleRef.current?.();
-    settleRef.current = null;
+    pendingSettle?.();
   }, [pathname]);
 
   // Warm a route as the pointer arrives, so the click has nothing to wait for.
@@ -172,13 +181,13 @@ export function ViewTransitions({ children }: { children?: React.ReactNode }) {
           // un-stamps a page already on screen — which re-arms its fade and
           // blinks it through transparent.
           const settle = () => {
-            if (settleRef.current !== settle) return;
-            settleRef.current = null;
+            if (pendingSettle !== settle) return;
+            pendingSettle = null;
             committed = true;
             window.clearTimeout(holdTimer);
             resolve();
           };
-          settleRef.current = settle;
+          pendingSettle = settle;
           window.setTimeout(settle, SETTLE_TIMEOUT_MS);
           navigate(true);
         }),
