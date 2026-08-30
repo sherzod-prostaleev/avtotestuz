@@ -5,10 +5,14 @@ const apiGet = vi.fn();
 
 vi.mock("@/lib/api-client", () => ({
   apiGet: (...args: unknown[]) => {
-    // The kiosk shell also asks the catalog how many biletlar exist so the
-    // tile can name the real number. That call is not part of the station
-    // token sequence these tests drive, so keep it out of the mock queue.
-    if (String(args[0] ?? "").startsWith("variants")) return Promise.resolve([]);
+    // The kiosk shell also asks the catalog how many biletlar and topics
+    // exist so the tiles can name the real numbers. Those calls are not part
+    // of the station token sequence these tests drive, so keep them out of
+    // the mock queue.
+    const path = String(args[0] ?? "");
+    if (path.startsWith("variants") || path.startsWith("categories")) {
+      return Promise.resolve([]);
+    }
     return apiGet(...args);
   },
 }));

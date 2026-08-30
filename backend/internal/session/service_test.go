@@ -718,6 +718,69 @@ func TestFinishSessionVariantModeUnlocksNextBilet(t *testing.T) {
 	}
 }
 
+// The last bilet may hold fewer questions than the unlock threshold while it
+// fills up (the importer allows a short final variant). Requiring 10 correct
+// answers from a 5-question bilet would leave it permanently incomplete.
+func TestFinishSessionShortBiletCompletesAtItsOwnSize(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	ctx := context.Background()
+
+	// Shrink bilet #1 rather than appending a new one: #1 is always unlocked,
+	// so the test exercises the threshold and not the unlock chain.
+	v1, err := q.GetVariantByNumber(ctx, 1)
+	if err != nil {
+		t.Fatalf("get variant 1: %v", err)
+	}
+	borrowed, err := q.ListVariantQuestions(ctx, sqlc.ListVariantQuestionsParams{VariantID: v1.ID, Locale: "uz-Latn"})
+	if err != nil {
+		t.Fatalf("list variant 1 questions: %v", err)
+	}
+
+	const shortSize = 5
+	if err := q.DeleteVariantQuestions(ctx, v1.ID); err != nil {
+		t.Fatalf("clear variant 1: %v", err)
+	}
+	for i, row := range borrowed[:shortSize] {
+		if err := q.InsertVariantQuestion(ctx, sqlc.InsertVariantQuestionParams{
+			VariantID: v1.ID, QuestionID: row.ID, Position: int16(i + 1),
+		}); err != nil {
+			t.Fatalf("attach question %d: %v", i, err)
+		}
+	}
+
+	view, err := svc.StartSession(ctx, profileID, session.StartRequest{
+		Mode: "variant", VariantID: v1.ID, Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if len(view.QuestionIDs) != shortSize {
+		t.Fatalf("short bilet must hand out %d questions, got %d", shortSize, len(view.QuestionIDs))
+	}
+
+	for _, qid := range view.QuestionIDs {
+		if _, err := svc.SubmitAnswer(ctx, profileID, view.ID, qid, correctAnswerID(t, q, qid), session.SubmitAnswerOpts{}); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	res, err := svc.FinishSession(ctx, profileID, view.ID)
+	if err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+	if res.Score != shortSize {
+		t.Fatalf("expected %d correct, got %d", shortSize, res.Score)
+	}
+
+	progress, err := q.GetVariantProgress(ctx, sqlc.GetVariantProgressParams{ProfileID: profileID, VariantID: v1.ID})
+	if err != nil {
+		t.Fatalf("progress: %v", err)
+	}
+	if !progress.CompletedAt.Valid {
+		t.Fatalf("a fully-answered short bilet must be completed, got %+v", progress)
+	}
+}
+
 func TestFinishSessionRollsBackStatusWhenVariantProgressFails(t *testing.T) {
 	q, svc, profileID := seed(t)
 	ctx := context.Background()

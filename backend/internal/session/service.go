@@ -785,7 +785,8 @@ func (s *Service) ListSessionQuestionAccesses(ctx context.Context, profileID, se
 // completed (completed_at). Completing a bilet unlocks the next one for VIP
 // profiles (free users stay on #1 only) — see IsVariantUnlocked / StartSession.
 // Free and VIP tiers share the same completed threshold (10), so FinishSession
-// reads FreeValue without an extra billing lookup.
+// reads FreeValue without an extra billing lookup. A bilet holding fewer
+// questions than the threshold caps it at its own size — see FinishSession.
 const unlockThresholdConfigKey = "unlock_threshold_correct"
 
 // FinishSession finishes an in-progress session — computing its final
@@ -920,8 +921,16 @@ func (s *Service) finishInternal(ctx context.Context, row sqlc.ExamSession, tooM
 		if err != nil {
 			return FinishResult{}, err
 		}
+		// The threshold is an absolute count tuned for a full 20-question bilet.
+		// The last bilet may hold fewer while it fills up (see the importer's
+		// variant_size rule), and requiring more correct answers than it has
+		// questions would leave it permanently incomplete.
+		required := int(cfg.FreeValue)
+		if total := int(row.Total); total > 0 && total < required {
+			required = total
+		}
 		var completedAt pgtype.Timestamptz
-		if correctCount >= int(cfg.FreeValue) {
+		if correctCount >= required {
 			completedAt = pgtype.Timestamptz{Time: time.Now(), Valid: true}
 		}
 		if _, err := s.Q.UpsertVariantProgress(ctx, sqlc.UpsertVariantProgressParams{
