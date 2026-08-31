@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Bell } from "lucide-react";
-import { getNotificationUnreadCount } from "@/lib/notifications-client";
+import { notificationUnreadCount } from "@/lib/badge-counts";
+import { useSharedCount } from "@/lib/shared-count";
 import { NotificationPanel } from "@/components/notifications/notification-panel";
 
 type Props = {
@@ -24,19 +25,13 @@ type AnchorRect = {
 export function NotificationBell({ variant }: Props) {
   const t = useTranslations("Notifications");
   const pathname = usePathname();
-  const [unread, setUnread] = useState(0);
+  // Shared with the other bell: this component is mounted twice (mobile top
+  // bar and desktop rail) and CSS hides one, so a private fetch per instance
+  // doubled the platform's most-requested endpoint on every navigation.
+  const unread = useSharedCount(notificationUnreadCount, pathname);
   const [open, setOpen] = useState(false);
   const [anchorRect, setAnchorRect] = useState<AnchorRect | null>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
-
-  const refresh = useCallback(async () => {
-    try {
-      const n = await getNotificationUnreadCount();
-      setUnread(n);
-    } catch {
-      /* badge is best-effort */
-    }
-  }, []);
 
   const measure = useCallback(() => {
     const el = buttonRef.current;
@@ -53,17 +48,8 @@ export function NotificationBell({ variant }: Props) {
   }, []);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh, pathname]);
-
-  useEffect(() => {
     setOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    const id = window.setInterval(() => void refresh(), 60_000);
-    return () => window.clearInterval(id);
-  }, [refresh]);
 
   useEffect(() => {
     if (!open) return;
@@ -109,7 +95,8 @@ export function NotificationBell({ variant }: Props) {
       <NotificationPanel
         open={open}
         onClose={() => setOpen(false)}
-        onUnreadChange={setUnread}
+        // Publish into the shared store so the other bell updates too.
+        onUnreadChange={(next) => notificationUnreadCount.set(next)}
         variant={variant === "mobile" ? "sheet" : "dropdown"}
         anchorRect={anchorRect}
       />

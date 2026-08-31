@@ -11,7 +11,8 @@ import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useVariantCount } from "@/hooks/use-variant-count";
-import { getMySupportUnread } from "@/lib/support-chat-client";
+import { supportUnreadCount } from "@/lib/badge-counts";
+import { useSharedCount } from "@/lib/shared-count";
 import {
   LayoutDashboard,
   BookOpen,
@@ -45,7 +46,9 @@ export function Sidebar() {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [supportUnread, setSupportUnread] = useState(0);
+  // TTL-guarded shared store: a page change inside the window no longer costs
+  // a `me/support/unread` round trip on the BFF.
+  const supportUnread = useSharedCount(supportUnreadCount, pathname);
   const drawerRef = useRef<HTMLElement>(null);
 
   const { streak, entitlement, user, loading } = useUserStats();
@@ -54,20 +57,6 @@ export function Sidebar() {
   const isVip = entitlement?.is_vip ?? false;
   const currentStreak = streak?.current_streak ?? 0;
   const userName = user?.name || t("userFallback");
-
-  useEffect(() => {
-    let cancelled = false;
-    getMySupportUnread()
-      .then((r) => {
-        if (!cancelled) setSupportUnread(r.unread ?? 0);
-      })
-      .catch(() => {
-        /* ignore — badge is best-effort */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [pathname]);
 
   useEffect(() => {
     if (!mobileOpen) return;
