@@ -11,16 +11,25 @@ export interface SessionSummary {
   finished_at?: string;
 }
 
+let sessionHistoryCache: SessionSummary[] | null = null;
+
+export function clearSessionHistoryCache(): void {
+  sessionHistoryCache = null;
+}
+
 export function useSessionHistory(limit = 20) {
-  const [sessions, setSessions] = useState<SessionSummary[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [sessions, setSessions] = useState<SessionSummary[]>(() => sessionHistoryCache ?? []);
+  const [loading, setLoading] = useState(() => sessionHistoryCache === null);
   const [error, setError] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
-    setLoading(true);
+    if (!sessionHistoryCache) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const data = await apiGet<SessionSummary[]>(`me/sessions?limit=${limit}`);
+      sessionHistoryCache = data;
       setSessions(data);
     } catch (requestError) {
       setError(requestError instanceof ApiError ? requestError.message : "Failed to load session history");
@@ -35,3 +44,4 @@ export function useSessionHistory(limit = 20) {
 
   return { sessions, loading, error, refetch: fetchSessions };
 }
+

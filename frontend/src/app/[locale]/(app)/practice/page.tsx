@@ -159,6 +159,16 @@ interface MistakesDTO {
   next_due_at: string | null;
 }
 
+const categoriesModuleCache: Record<string, CategoryItem[]> = {};
+let variantsModuleCache: number | null = null;
+let statsModuleCache: { dueCount: number; bankCount: number; nextDueAt: string | null } | null = null;
+
+export function clearPracticeCache(): void {
+  for (const k in categoriesModuleCache) delete categoriesModuleCache[k];
+  variantsModuleCache = null;
+  statsModuleCache = null;
+}
+
 export interface PracticePageProps {
   // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/practice/page.tsx):
   // a walk-up student has no dashboard or VIP checkout to go back to, so
@@ -181,23 +191,25 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
 
   const [source, setSource] = useState<Source>("category");
-  const [categories, setCategories] = useState<CategoryItem[]>([]);
+  const [categories, setCategories] = useState<CategoryItem[]>(() => categoriesModuleCache[locale] ?? []);
   // Highest bilet number the bank holds. The ticket source draws across the
   // whole span, so this is the only part of the old from/to pair still needed.
-  const [variantCount, setVariantCount] = useState<number>(0);
+  const [variantCount, setVariantCount] = useState<number>(() => variantsModuleCache ?? 0);
   const [withImage, setWithImage] = useState<boolean>(true);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [loading, setLoading] = useState<boolean>(() => !categoriesModuleCache[locale]);
   const [loadError, setLoadError] = useState<boolean>(false);
-  const [dueCount, setDueCount] = useState<number>(0);
-  const [bankCount, setBankCount] = useState<number>(0);
-  const [nextDueAt, setNextDueAt] = useState<string | null>(null);
+  const [dueCount, setDueCount] = useState<number>(() => statsModuleCache?.dueCount ?? 0);
+  const [bankCount, setBankCount] = useState<number>(() => statsModuleCache?.bankCount ?? 0);
+  const [nextDueAt, setNextDueAt] = useState<string | null>(() => statsModuleCache?.nextDueAt ?? null);
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
   const signsAvailable = signs.length > 0;
 
   const loadContent = useCallback(async () => {
-    setLoading(true);
+    if (!categoriesModuleCache[locale]) {
+      setLoading(true);
+    }
     setLoadError(false);
     try {
       const [cats, variants, stats, mistakes] = await Promise.all([
@@ -211,21 +223,32 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         })),
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
+      categoriesModuleCache[locale] = ordered;
       setCategories(ordered);
+
       const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
       const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
-      setDueCount(Math.max(dueFromMistakes, dueFromStats));
-      setBankCount(Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0);
-      setNextDueAt(typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null);
+      const calculatedDue = Math.max(dueFromMistakes, dueFromStats);
+      const calculatedBank = Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0;
+      const calculatedNextDue = typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null;
 
-      setVariantCount(variants.reduce((max, item) => Math.max(max, item.number), 0));
+      statsModuleCache = { dueCount: calculatedDue, bankCount: calculatedBank, nextDueAt: calculatedNextDue };
+      setDueCount(calculatedDue);
+      setBankCount(calculatedBank);
+      setNextDueAt(calculatedNextDue);
+
+      const maxVar = variants.reduce((max, item) => Math.max(max, item.number), 0);
+      variantsModuleCache = maxVar;
+      setVariantCount(maxVar);
     } catch {
-      setCategories([]);
-      setVariantCount(0);
-      setDueCount(0);
-      setBankCount(0);
-      setNextDueAt(null);
-      setLoadError(true);
+      if (!categoriesModuleCache[locale]) {
+        setCategories([]);
+        setVariantCount(0);
+        setDueCount(0);
+        setBankCount(0);
+        setNextDueAt(null);
+        setLoadError(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -434,56 +457,79 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
               shell, so a classroom screen scales the cards rather than cramming
               a fifth column in. */}
           <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
-            {categories.map((cat) => {
-              const section = SECTION_BY_CODE.get(cat.code);
-              const SectionIcon = section?.icon;
-              return (
-                <button
-                  key={cat.code}
-                  type="button"
-                  onClick={() => handleCategoryClick(cat.code)}
-                  className={`surface-raised-sm surface-interactive flex flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
-                  }`}
-                >
-                  {section && SectionIcon && (
-                    <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
-                      <SectionIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
-                      <span
-                        className={`truncate font-bold uppercase tracking-wider ${
-                          kiosk ? "text-[11px]" : "text-[10px]"
-                        }`}
-                      >
-                        {t(section.key as never)}
-                      </span>
-                    </span>
-                  )}
-                  <span
-                    className={`line-clamp-2 font-bold leading-snug ${
-                      kiosk ? "text-base" : "text-sm"
+            {categories.length === 0 && loading
+              ? Array.from({ length: 42 }).map((_, i) => (
+                  <div
+                    key={i}
+                    aria-hidden="true"
+                    className={`surface-raised-sm flex flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 animate-pulse ${
+                      kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
                     }`}
                   >
-                    {cat.name}
-                  </span>
-                  <span className="flex items-center justify-between gap-2">
-                    <span
-                      className={`font-semibold tabular-nums text-muted-foreground ${
-                        kiosk ? "text-sm" : "text-xs"
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-3.5 w-3.5 rounded bg-border/60" />
+                      <div className="h-2.5 w-20 rounded bg-border/60" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="h-4 w-full rounded bg-border/60" />
+                      <div className="h-3 w-2/3 rounded bg-border/50" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="h-3 w-12 rounded bg-border/50" />
+                      <div className="h-6 w-6 rounded-lg bg-border/60" />
+                    </div>
+                  </div>
+                ))
+              : categories.map((cat) => {
+                  const section = SECTION_BY_CODE.get(cat.code);
+                  const SectionIcon = section?.icon;
+                  return (
+                    <button
+                      key={cat.code}
+                      type="button"
+                      onClick={() => handleCategoryClick(cat.code)}
+                      className={`surface-raised-sm surface-interactive flex flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                        kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
                       }`}
                     >
-                      {t("categoryQuestionCount", { count: cat.question_count })}
-                    </span>
-                    <span
-                      className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-accent/15 font-bold tabular-nums text-accent ${
-                        kiosk ? "h-7 min-w-7 text-xs" : "h-6 min-w-6 text-[11px]"
-                      }`}
-                    >
-                      {cat.sort_order}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+                      {section && SectionIcon && (
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                          <SectionIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                          <span
+                            className={`truncate font-bold uppercase tracking-wider ${
+                              kiosk ? "text-[11px]" : "text-[10px]"
+                            }`}
+                          >
+                            {t(section.key as never)}
+                          </span>
+                        </span>
+                      )}
+                      <span
+                        className={`line-clamp-2 font-bold leading-snug ${
+                          kiosk ? "text-base" : "text-sm"
+                        }`}
+                      >
+                        {cat.name}
+                      </span>
+                      <span className="flex items-center justify-between gap-2">
+                        <span
+                          className={`font-semibold tabular-nums text-muted-foreground ${
+                            kiosk ? "text-sm" : "text-xs"
+                          }`}
+                        >
+                          {t("categoryQuestionCount", { count: cat.question_count })}
+                        </span>
+                        <span
+                          className={`inline-flex shrink-0 items-center justify-center rounded-lg bg-accent/15 font-bold tabular-nums text-accent ${
+                            kiosk ? "h-7 min-w-7 text-xs" : "h-6 min-w-6 text-[11px]"
+                          }`}
+                        >
+                          {cat.sort_order}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
           </div>
         </Card>
       )}

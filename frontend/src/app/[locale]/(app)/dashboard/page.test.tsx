@@ -234,13 +234,13 @@ describe("DashboardPage i18n and accessibility", () => {
       expect(screen.queryByText("Failed to load user data")).not.toBeInTheDocument();
       expect(screen.queryByText("Failed to load session history")).not.toBeInTheDocument();
 
-      setHistory({ loading: true });
+      setHistory({ loading: true, error: null });
       rerender(
         <NextIntlClientProvider locale={localeCase.locale} messages={localeCase.messages}>
           <DashboardPage />
         </NextIntlClientProvider>
       );
-      expect(screen.getByRole("status")).toHaveTextContent(localeCase.resumeLoading);
+      expect(screen.queryByText(localeCase.resumeError)).not.toBeInTheDocument();
     }
   );
 

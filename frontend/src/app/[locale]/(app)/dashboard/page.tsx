@@ -33,6 +33,7 @@ import {
   Route,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 
 const ONBOARDING_DISMISS_KEY = "dg-onboarding-v1-dismissed";
 
@@ -115,9 +116,9 @@ export default function DashboardPage() {
   const [onboardingVisible, setOnboardingVisible] = useState(false);
   const [mistakesDueCount, setMistakesDueCount] = useState(0);
 
-  // Both hooks feed the hero/next-action UI below; treat them as loaded
-  // together so those sections settle once instead of updating piecemeal.
-  const isPersonalizationLoading = loading || historyLoading;
+  // Hero and stats sections settle based on user profile & stats; session history
+  // loads seamlessly in the background with in-memory caching.
+  const isPersonalizationLoading = loading;
 
   const userName = user?.name || t("guestUser");
   const isVip = entitlement?.is_vip ?? false;
@@ -488,61 +489,62 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {historyLoading ? (
-        <div
-          role="status"
-          aria-live="polite"
-          className="rounded-2xl border border-accent/20 bg-accent/5 px-5 py-4 text-sm font-medium text-muted-foreground"
-        >
-          {t("resumeLoading")}
-        </div>
-      ) : historyError ? (
+      {historyError && (
         <div
           role="alert"
           className="rounded-2xl border border-destructive/40 bg-destructive/5 px-5 py-4 text-sm font-medium text-destructive"
         >
           {t("resumeLoadError")}
         </div>
-      ) : resumeSession && resumeStartedAt ? (
-        <section
-          aria-labelledby="resume-session-title"
-          className="surface-raised relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
-        >
-          <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
-            <div className="flex items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground shadow-3d">
-                <PlayCircle aria-hidden="true" className="h-7 w-7" />
-              </div>
-              <div className="space-y-2">
-                <h2 id="resume-session-title" className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
-                  {t("resumeTitle")}
-                </h2>
-                <p className="max-w-xl text-base leading-relaxed text-muted-foreground">{t("resumeDescription")}</p>
-                <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
-                  <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-accent">
-                    {t(resumeModeKeys[resumeSession.mode])}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
-                    <Clock3 aria-hidden="true" className="h-4 w-4" />
-                    {t("resumeStartedAt", { date: resumeStartedAt })}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
-                    <ListChecks aria-hidden="true" className="h-4 w-4" />
-                    {t("resumeTotal", { total: resumeSession.total })}
-                  </span>
+      )}
+
+      <AnimatePresence>
+        {resumeSession && resumeStartedAt && (
+          <motion.section
+            key={resumeSession.id}
+            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+            aria-labelledby="resume-session-title"
+            className="surface-raised relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
+          >
+            <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground shadow-3d">
+                  <PlayCircle aria-hidden="true" className="h-7 w-7" />
+                </div>
+                <div className="space-y-2">
+                  <h2 id="resume-session-title" className="font-display text-xl font-extrabold tracking-tight md:text-2xl">
+                    {t("resumeTitle")}
+                  </h2>
+                  <p className="max-w-xl text-base leading-relaxed text-muted-foreground">{t("resumeDescription")}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-sm font-bold">
+                    <span className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1.5 text-accent">
+                      {t(resumeModeKeys[resumeSession.mode])}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
+                      <Clock3 aria-hidden="true" className="h-4 w-4" />
+                      {t("resumeStartedAt", { date: resumeStartedAt })}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-background/80 px-3 py-1.5 text-muted-foreground">
+                      <ListChecks aria-hidden="true" className="h-4 w-4" />
+                      {t("resumeTotal", { total: resumeSession.total })}
+                    </span>
+                  </div>
                 </div>
               </div>
+              <Link
+                href={`/${locale}/session/${encodeURIComponent(resumeSession.id)}`}
+                className="inline-flex min-h-13 w-full shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none md:w-auto"
+              >
+                {t("resumeCta")}
+                <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
+              </Link>
             </div>
-            <Link
-              href={`/${locale}/session/${encodeURIComponent(resumeSession.id)}`}
-              className="inline-flex min-h-13 w-full shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none md:w-auto"
-            >
-              {t("resumeCta")}
-              <ChevronRight aria-hidden="true" className="ml-2 h-5 w-5" />
-            </Link>
-          </div>
-        </section>
-      ) : null}
+          </motion.section>
+        )}
+      </AnimatePresence>
 
       {/* 4 Main Mode Cards — dense 2×2 on phones (competitor-style compact tiles) */}
       <section className="space-y-2 sm:space-y-4">

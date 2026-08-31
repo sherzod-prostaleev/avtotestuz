@@ -674,32 +674,40 @@ export function useSessionEngine(initialSessionId?: string) {
 
       try {
         const response = await apiPost<FinishSessionResponse>(`sessions/${sessionId}/finish`);
+        const current = sessionRef.current;
 
-        // Finishing changes exam disclosure rules, so the finish DTO alone is
-        // insufficient: reload session answers and each scoped question.
-        try {
-          const reloaded = await fetchSessionState(sessionId, localeRef.current);
-          commitSession(reloaded);
-          return reloaded;
-        } catch (reloadError: unknown) {
-          const current = sessionRef.current;
-          if (!current) {
-            setError(toSessionError(reloadError));
-            return null;
-          }
-          const completed: SessionState = {
-            ...current,
-            status: "completed",
-            score: response.score,
-            total: response.total,
-            stopped_reason: response.stopped_reason || null,
-            passed: response.status === "passed",
-            certificate_share_code: response.certificate_share_code ?? current.certificate_share_code ?? null,
-          };
-          commitSession(completed);
-          setError(toSessionError(reloadError));
-          return completed;
-        }
+        const completed: SessionState = {
+          ...(current ?? {
+            id: sessionId,
+            mode: "variant",
+            time_limit_sec: null,
+            errors_allowed: null,
+            remaining_sec: null,
+            questions: [],
+            completed_at: new Date().toISOString(),
+          }),
+          status: "completed",
+          score: response.score,
+          total: response.total,
+          stopped_reason: response.stopped_reason || null,
+          passed: response.status === "passed",
+          certificate_share_code: response.certificate_share_code ?? current?.certificate_share_code ?? null,
+          completed_at: current?.completed_at ?? new Date().toISOString(),
+        };
+
+        // Render the completed result screen immediately without blocking on secondary full-batch reloads
+        commitSession(completed);
+
+        // Background reload to populate any unrevealed explanations/keys for the review section
+        void fetchSessionState(sessionId, localeRef.current)
+          .then((reloaded) => {
+            commitSession(reloaded);
+          })
+          .catch(() => {
+            // Completed state is already active and displayed
+          });
+
+        return completed;
       } catch (err: unknown) {
         setError(toSessionError(err));
         return null;
