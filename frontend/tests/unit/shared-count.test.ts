@@ -51,7 +51,7 @@ describe("createSharedCount", () => {
 
   it("keeps the last known value when a poll fails", async () => {
     const fetcher = vi
-      .fn<[], Promise<number>>()
+      .fn<() => Promise<number>>()
       .mockResolvedValueOnce(5)
       .mockRejectedValueOnce(new Error("offline"));
     const store = createSharedCount(fetcher, { ttlMs: 0 });

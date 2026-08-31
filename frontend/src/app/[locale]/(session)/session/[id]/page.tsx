@@ -785,7 +785,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   }
 
   return (
-    <main className="page-enter session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3">
+    <main className="page-enter-fade session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3">
 
       <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-3">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
