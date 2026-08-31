@@ -9,6 +9,8 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
 import { useFitScale } from "@/hooks/use-fit-scale";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
+import { AnimatePresence, motion } from "motion/react";
+
 
 interface OfficialAvtotestExamViewProps {
   session: SessionState;
@@ -221,13 +223,20 @@ export function OfficialAvtotestExamView({
                     : "bg-[#0f2236] text-slate-200 border-[#284260] hover:bg-[#183654] hover:text-white"
                 }`}
               >
-                {isActive && <span className="absolute top-0 left-0 w-full h-[3px] bg-[#22c55e]" />}
-                <span className="max-lg:hidden">{lang.label}</span>
-                <span className="hidden max-lg:inline">{lang.short}</span>
+                {isActive && (
+                  <motion.span
+                    layoutId="exam-locale-active-line"
+                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                    className="absolute top-0 left-0 w-full h-[3px] bg-[#22c55e]"
+                  />
+                )}
+                <span className="relative z-10 max-lg:hidden">{lang.label}</span>
+                <span className="relative z-10 hidden max-lg:inline">{lang.short}</span>
               </button>
             );
           })}
         </div>
+
 
         {/* Right: X close */}
         <button
@@ -243,19 +252,30 @@ export function OfficialAvtotestExamView({
       {/* ═══ QUESTION TEXT BANNER / RESULT BANNER ═══ */}
       <div className="relative z-10 w-full shrink-0">
         {isFailed ? (
-          <div className="w-full bg-[#dc2626] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm">
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full bg-[#dc2626] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm"
+          >
             {t("examBannerFailed")}
-          </div>
+          </motion.div>
         ) : isCompleted ? (
-          <div className="w-full bg-[#16a34a] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm">
+          <motion.div
+            initial={{ opacity: 0, y: -6 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="w-full bg-[#16a34a] text-white text-center py-3 text-xl font-extrabold tracking-wide shadow-md max-lg:py-1.5 max-lg:text-sm"
+          >
             {t("examBannerPassed")}
-          </div>
+          </motion.div>
         ) : (
           <div className="exam-question-banner w-full border-y border-[#204a75] bg-[#0d2e4d] px-8 py-3.5 text-center text-lg font-extrabold leading-relaxed tracking-wide text-white shadow-md max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
             {currentQuestion ? currentQuestion.question : "Yuklanmoqda..."}
           </div>
         )}
       </div>
+
 
       {/* ═══ MAIN 2-COLUMN LAYOUT (desktop) / STACKED fit-to-viewport (mobile) ═══ */}
       <main className="relative z-10 flex min-h-0 w-full flex-1 flex-col overflow-hidden px-5 py-4 max-lg:px-2 max-lg:py-1.5">
@@ -466,56 +486,83 @@ export function OfficialAvtotestExamView({
         </div>
       )}
 
-      {exitConfirm && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="exam-exit-title"
-        >
-          <div className="w-full max-w-sm rounded-lg border border-[#2a4568] bg-[#0d2e4d] p-5 text-white shadow-xl">
-            <p id="exam-exit-title" className="text-sm font-semibold leading-relaxed">
-              {t("examExitConfirm")}
-            </p>
-            <div className="mt-4 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setExitConfirm(false)}
-                className="flex-1 rounded-sm border border-[#5a8aaa] bg-[#183654] px-3 py-2 text-sm font-extrabold"
-              >
-                {t("examExitStay")}
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push(exitHref)}
-                className="flex-1 rounded-sm border border-red-400/50 bg-[#421414] px-3 py-2 text-sm font-extrabold"
-              >
-                {t("examExitLeave")}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <AnimatePresence>
+        {exitConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="exam-exit-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 8 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-sm"
+            >
+              <div className="w-full rounded-lg border border-[#2a4568] bg-[#0d2e4d] p-5 text-white shadow-xl">
+                <p id="exam-exit-title" className="text-sm font-semibold leading-relaxed">
+                  {t("examExitConfirm")}
+                </p>
+                <div className="mt-4 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setExitConfirm(false)}
+                    className="flex-1 rounded-sm border border-[#5a8aaa] bg-[#183654] px-3 py-2 text-sm font-extrabold"
+                  >
+                    {t("examExitStay")}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push(exitHref)}
+                    className="flex-1 rounded-sm border border-red-400/50 bg-[#421414] px-3 py-2 text-sm font-extrabold"
+                  >
+                    {t("examExitLeave")}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ZOOM MODAL */}
-      {zoomImageUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
-          onClick={() => setZoomImageUrl(null)}
-        >
-          <div className="relative max-h-[95vh] max-w-[95vw]">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={zoomImageUrl} alt="Zoom" className="max-h-[90vh] max-w-[90vw] object-contain border border-white" />
-            <button
-              type="button"
-              onClick={() => setZoomImageUrl(null)}
-              className="absolute -top-10 right-0 text-white hover:text-slate-300 max-lg:top-2 max-lg:right-2 max-lg:flex max-lg:h-11 max-lg:w-11 max-lg:items-center max-lg:justify-center max-lg:rounded-full max-lg:bg-black/70"
+      <AnimatePresence>
+        {zoomImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+            onClick={() => setZoomImageUrl(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.2 }}
+              className="relative max-h-[95vh] max-w-[95vw]"
             >
-              <X className="w-8 h-8 max-lg:w-6 max-lg:h-6" />
-            </button>
-          </div>
-        </div>
-      )}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={zoomImageUrl} alt="Zoom" className="max-h-[90vh] max-w-[90vw] object-contain border border-white" />
+              <button
+                type="button"
+                onClick={() => setZoomImageUrl(null)}
+                className="absolute -top-10 right-0 text-white hover:text-slate-300 max-lg:top-2 max-lg:right-2 max-lg:flex max-lg:h-11 max-lg:w-11 max-lg:items-center max-lg:justify-center max-lg:rounded-full max-lg:bg-black/70"
+              >
+                <X className="w-8 h-8 max-lg:w-6 max-lg:h-6" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+

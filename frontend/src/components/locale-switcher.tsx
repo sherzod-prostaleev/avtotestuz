@@ -1,11 +1,11 @@
 "use client";
 
-import { startTransition, useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/config";
 import { ChevronDown } from "lucide-react";
-import { useTransitionNavigate } from "@/components/layout/view-transitions";
+import { motion } from "motion/react";
 
 const LOCALES = [
   { code: "uz-Latn" as const, labelKey: "languageUzLatn" as const },
@@ -52,15 +52,8 @@ export function LocaleSwitcher({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const withTransition = useTransitionNavigate();
   const warmedRef = useRef(new Set<Locale>());
 
-  /**
-   * A language switch is a route change like any other, so it earns the same
-   * cross-fade — but only if the other locale is already loaded. Reaching for
-   * the switcher warms them, which is early enough: the pointer arrives well
-   * before the click does.
-   */
   const warmLocales = () => {
     for (const { code } of LOCALES) {
       if (code === currentLocale || warmedRef.current.has(code)) continue;
@@ -75,20 +68,9 @@ export function LocaleSwitcher({
       typeof window !== "undefined"
         ? Object.fromEntries(new URLSearchParams(window.location.search))
         : {};
-    const navigate = () =>
-      router.replace(
-        Object.keys(query).length > 0 ? { pathname, query } : pathname,
-        { locale: newLocale, scroll: false }
-      );
-
-    withTransition(
-      // No React startTransition inside a view transition: both exist to keep
-      // the old UI on screen while the new one prepares, and nesting them
-      // pushes the commit to low priority. Measured on production, that alone
-      // took the switch past the freeze limit every time, so the cross-fade was
-      // always dropped. Outside one it still defers, as before.
-      (driven) => (driven ? navigate() : startTransition(navigate)),
-      { warm: warmedRef.current.has(newLocale) },
+    router.replace(
+      Object.keys(query).length > 0 ? { pathname, query } : pathname,
+      { locale: newLocale, scroll: false }
     );
     setOpen(false);
   };
@@ -152,21 +134,24 @@ export function LocaleSwitcher({
             aria-label={t("languageSwitcher")}
             className={`absolute ${menuPos} ${menuSide} z-50 min-w-[7.5rem] max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-border bg-card p-1 shadow-raised-sm`}
           >
-            {LOCALES.map((lang) => (
-              <li key={lang.code} role="option" aria-selected={currentLocale === lang.code}>
-                <button
-                  type="button"
-                  onClick={() => handleLanguageChange(lang.code)}
-                  className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                    currentLocale === lang.code
-                      ? "bg-accent text-accent-foreground"
-                      : "text-muted-foreground hover:bg-background hover:text-foreground"
-                  }`}
-                >
-                  {t(lang.labelKey)}
-                </button>
-              </li>
-            ))}
+            {LOCALES.map((lang) => {
+              const isSelected = currentLocale === lang.code;
+              return (
+                <li key={lang.code} role="option" aria-selected={isSelected}>
+                  <button
+                    type="button"
+                    onClick={() => handleLanguageChange(lang.code)}
+                    className={`relative flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      isSelected
+                        ? "bg-accent text-accent-foreground"
+                        : "text-muted-foreground hover:bg-background hover:text-foreground"
+                    }`}
+                  >
+                    {t(lang.labelKey)}
+                  </button>
+                </li>
+              );
+            })}
           </ul>
         ) : null}
       </div>
@@ -189,21 +174,31 @@ export function LocaleSwitcher({
       onPointerOver={warmLocales}
       onFocus={warmLocales}
     >
-      {LOCALES.map((lang) => (
-        <button
-          type="button"
-          key={lang.code}
-          onClick={() => handleLanguageChange(lang.code)}
-          aria-pressed={currentLocale === lang.code}
-          className={`${chip} ${fill ? "min-w-0 flex-1" : ""} transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-            currentLocale === lang.code
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:bg-background/80 hover:text-foreground"
-          }`}
-        >
-          {t(lang.labelKey)}
-        </button>
-      ))}
+      {LOCALES.map((lang) => {
+        const isSelected = currentLocale === lang.code;
+        return (
+          <button
+            type="button"
+            key={lang.code}
+            onClick={() => handleLanguageChange(lang.code)}
+            aria-pressed={isSelected}
+            className={`relative ${chip} ${fill ? "min-w-0 flex-1" : ""} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+              isSelected
+                ? "font-black text-accent-foreground"
+                : "font-bold text-muted-foreground hover:bg-background/80 hover:text-foreground"
+            }`}
+          >
+            {isSelected && (
+              <motion.span
+                layoutId="locale-switcher-active-pill"
+                transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                className="absolute inset-0 rounded bg-accent shadow-3d md:rounded-md"
+              />
+            )}
+            <span className="relative z-10">{t(lang.labelKey)}</span>
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -7,6 +7,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Trophy } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
+import { motion } from "motion/react";
+
+
 
 export type LeaderboardPeriod = "daily" | "weekly" | "monthly" | "alltime";
 
@@ -135,15 +138,23 @@ export default function LeaderboardPage({ kiosk = false }: LeaderboardPageProps 
               role="radio"
               aria-checked={isSelected}
               onClick={() => setPeriod(item.value)}
-              className={`filter-chip w-full ${
-                isSelected ? "filter-chip-active" : "filter-chip-idle"
+              className={`filter-chip relative w-full transition-colors ${
+                isSelected ? "font-extrabold text-accent-foreground" : "filter-chip-idle font-bold"
               }`}
             >
-              {t(item.labelKey)}
+              {isSelected && (
+                <motion.span
+                  layoutId="leaderboard-period-pill"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  className="absolute inset-0 rounded-xl bg-accent shadow-3d"
+                />
+              )}
+              <span className="relative z-10">{t(item.labelKey)}</span>
             </button>
           );
         })}
       </div>
+
 
       {loading ? (
         <p role="status" className="py-12 text-center text-sm text-muted-foreground">

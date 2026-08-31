@@ -141,58 +141,6 @@
     }
   }
 
-  /* Page navigation.
-
-     Preferred path — a real cross-fade. view-transitions.tsx drives
-     document.startViewTransition on link clicks, so the browser holds a picture
-     of the outgoing page while the incoming one appears over it. The whole page
-     is snapshotted: the sidebar and header are pixel-identical in both, so
-     fading them changes nothing on screen, and naming a box risks two elements
-     claiming one view-transition-name, which makes the browser skip the
-     transition entirely. */
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
-    animation-duration: 260ms;
-    animation-timing-function: ease;
-  }
-
-  /* Fallback for browsers without the API: the incoming page fades in on its
-     own (template.tsx re-mounts this wrapper per navigation). Enter-only — the
-     old page cannot be held without a snapshot — so it is switched off wherever
-     the cross-fade above can run, or the two would stack. */
-  .page-fade {
-    /* No fill-mode on purpose. With `both` the element holds the 0% keyframe
-       whenever the animation does not run — a hidden tab freezes the document
-       timeline, and the page would then sit at opacity 0, invisible. */
-    animation: page-fade-in 240ms ease;
-  }
-
-  /* Only while a real cross-fade is running — view-transitions.tsx stamps the
-     root for its duration. A skipped transition (slow route) leaves the stamp
-     off, so the incoming page still fades in rather than snapping into place. */
-  :root[data-view-transition] .page-fade {
-    animation: none;
-  }
-
-  @keyframes page-fade-in {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  /* The wildcard reduced-motion rule below cannot reach these pseudo-elements,
-     and view-transitions.tsx additionally skips the API altogether. */
-  @media (prefers-reduced-motion: reduce) {
-    ::view-transition-group(*),
-    ::view-transition-old(*),
-    ::view-transition-new(*) {
-      animation: none !important;
-    }
-  }
-
   ::-webkit-scrollbar { width: 6px; height: 6px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb {
@@ -621,8 +569,7 @@
     min-height: min(92dvh, 52rem);
   }
 }
-.light .landing-hero-stage,
-:root:not(.dark) .landing-hero-stage {
+.light .landing-hero-stage {
   background-image:
     radial-gradient(ellipse 90% 55% at 70% 35%, hsl(38 96% 48% / 0.12), transparent 58%),
     radial-gradient(ellipse 70% 45% at 20% 90%, hsl(220 16% 80% / 0.45), transparent 62%),
@@ -664,8 +611,7 @@
   mask-image: linear-gradient(90deg, transparent 0%, black 35%, black 100%);
   animation: landingLaneRoll 7s linear infinite;
 }
-.light .landing-hero-lane,
-:root:not(.dark) .landing-hero-lane {
+.light .landing-hero-lane {
   opacity: 0.35;
   background-image:
     linear-gradient(
@@ -691,6 +637,7 @@
       transparent 62px
     );
 }
+
 
 @keyframes landingLaneRoll {
   from { background-position: center, 72% 0; }

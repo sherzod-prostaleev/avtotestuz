@@ -22,6 +22,8 @@ import {
 import { locales } from "@/i18n/config";
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
 import { trackEvent, type SafeAnalyticsProps } from "@/lib/analytics-events";
+import { AnimatePresence, motion } from "motion/react";
+
 import {
   useSessionEngine,
   type SessionMode,
@@ -144,7 +146,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   const [certificateOpen, setCertificateOpen] = useState(false);
   const [examPassOpen, setExamPassOpen] = useState(false);
   const [biletPraiseOpen, setBiletPraiseOpen] = useState(false);
+  const [exitConfirmOpen, setExitConfirmOpen] = useState(false);
   const initializedSessionRef = useRef<string | null>(null);
+
   const viewedQuestionsRef = useRef<Set<string>>(new Set());
   const certificateShownForRef = useRef<string | null>(null);
   const examPassShownForRef = useRef<string | null>(null);
@@ -616,7 +620,12 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     const wrongCount = questions.filter((q) => q.correct === false).length;
 
     return (
-      <main className="page-shell-narrow space-y-5 sm:space-y-6">
+      <motion.main
+        initial={{ opacity: 0, scale: 0.97, y: 14 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+        className="page-shell-narrow space-y-5 sm:space-y-6"
+      >
         <Card className={`p-5 text-center sm:p-8 ${positiveResult ? "border-success/40" : "border-border"}`}>
           <div
             className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border sm:h-20 sm:w-20 sm:rounded-full ${
@@ -656,10 +665,10 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
           </dl>
 
           <div className="sticky-cta-bar flex flex-col gap-2 sm:flex-row sm:justify-center">
-            <Button variant="game" size="lg" className="w-full sm:w-auto" onClick={() => router.push(primaryRoute)}>
+            <Button variant="game" size="lg" className="w-full sm:w-auto transition-transform active:scale-95" onClick={() => router.push(primaryRoute)}>
               {primaryLabel}
             </Button>
-            <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => router.push(exitHref)}>
+            <Button variant="outline" size="lg" className="w-full sm:w-auto transition-transform active:scale-95" onClick={() => router.push(exitHref)}>
               {t("dashboard")}
             </Button>
           </div>
@@ -750,8 +759,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
             total={total}
           />
         )}
-      </main>
+      </motion.main>
     );
+
   }
 
   const currentSaved = currentQuestion ? savedIds.has(currentQuestion.id) : false;
@@ -781,21 +791,27 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   }
 
   return (
-    <main
+    <motion.main
+      initial={{ opacity: 0.3, scale: 0.99 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       className="session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
     >
+
       <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-3">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
           <Button
             variant="outline"
             size="sm"
-            className="h-9 min-h-9 gap-1 rounded-lg border-border px-2.5 text-xs font-extrabold sm:h-11 sm:min-h-11 sm:rounded-xl sm:px-4 sm:text-sm"
+            className="h-9 min-h-9 gap-1 rounded-lg border-border px-2.5 text-xs font-extrabold transition-transform active:scale-95 sm:h-11 sm:min-h-11 sm:rounded-xl sm:px-4 sm:text-sm"
             aria-label={t("exit")}
-            onClick={() => router.push(exitHref)}
+            onClick={() => (kiosk ? router.push(exitHref) : setExitConfirmOpen(true))}
           >
             <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t("exit")}</span>
           </Button>
+
+
           <span className="truncate rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent sm:px-3 sm:py-1.5 sm:text-xs">
             {modeLabel(session.mode)}
           </span>
@@ -1018,35 +1034,98 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         />
       )}
 
-      {zoomImageUrl && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-label={t("zoomDialog")}
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setZoomImageUrl(null);
-          }}
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 p-0 sm:items-center sm:p-4"
-        >
-          <div className="session-zoom-panel relative w-full max-w-5xl rounded-t-3xl bg-card p-3 sm:rounded-2xl sm:bg-transparent sm:p-0">
-            {/* Dynamic media URL is served by the backend. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={zoomImageUrl}
-              alt={t("zoomedImageAlt")}
-              className="session-zoom-image w-full rounded-2xl object-contain"
-            />
-            <button
-              type="button"
-              onClick={() => setZoomImageUrl(null)}
-              aria-label={t("closeZoom")}
-              className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-2 sm:top-2 sm:border-0 sm:bg-foreground/90 sm:text-background"
+      <AnimatePresence>
+        {zoomImageUrl && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={t("zoomDialog")}
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) setZoomImageUrl(null);
+            }}
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/85 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.92 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.92 }}
+              transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              className="session-zoom-panel relative w-full max-w-5xl rounded-t-3xl bg-card p-3 sm:rounded-2xl sm:bg-transparent sm:p-0"
             >
-              <X className="h-5 w-5" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      )}
-    </main>
+              {/* Dynamic media URL is served by the backend. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={zoomImageUrl}
+                alt={t("zoomedImageAlt")}
+                className="session-zoom-image w-full rounded-2xl object-contain"
+              />
+              <button
+                type="button"
+                onClick={() => setZoomImageUrl(null)}
+                aria-label={t("closeZoom")}
+                className="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:right-2 sm:top-2 sm:border-0 sm:bg-foreground/90 sm:text-background"
+              >
+                <X className="h-5 w-5" aria-hidden="true" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {exitConfirmOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="session-exit-title"
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.94, y: 10 }}
+              transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
+              className="w-full max-w-sm rounded-2xl border border-border bg-card p-6 shadow-2xl"
+            >
+              <h2 id="session-exit-title" className="font-display text-lg font-bold text-foreground">
+                {t("exit")}
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">
+                {t("examExitConfirm")}
+              </p>
+              <div className="mt-6 flex justify-end gap-2.5">
+                <Button
+                  variant="outline"
+                  onClick={() => setExitConfirmOpen(false)}
+                  className="transition-transform active:scale-95"
+                >
+                  {t("examExitStay")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setExitConfirmOpen(false);
+                    router.push(exitHref);
+                  }}
+                  className="transition-transform active:scale-95"
+                >
+                  {t("examExitLeave")}
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.main>
   );
 }
+
+

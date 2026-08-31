@@ -10,6 +10,8 @@ import { prefetchVariantDetail } from "@/lib/prefetch-variant";
 import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
 import { Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
+import { AnimatePresence, motion } from "motion/react";
+
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
 
@@ -254,20 +256,31 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
       </section>
 
       <div className="chip-scroll" role="group" aria-label={t("title")}>
-        {filterTabs.map((tab) => (
-          <button
-            type="button"
-            key={tab.key}
-            onClick={() => setFilterStatus(tab.key)}
-            aria-pressed={filterStatus === tab.key}
-            className={`filter-chip ${
-              filterStatus === tab.key ? "filter-chip-active" : "filter-chip-idle"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+        {filterTabs.map((tab) => {
+          const isSelected = filterStatus === tab.key;
+          return (
+            <button
+              type="button"
+              key={tab.key}
+              onClick={() => setFilterStatus(tab.key)}
+              aria-pressed={isSelected}
+              className={`filter-chip relative transition-colors ${
+                isSelected ? "font-extrabold text-accent-foreground" : "filter-chip-idle font-bold"
+              }`}
+            >
+              {isSelected && (
+                <motion.span
+                  layoutId="tickets-filter-pill"
+                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  className="absolute inset-0 rounded-xl bg-accent shadow-3d"
+                />
+              )}
+              <span className="relative z-10">{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
+
 
       {error && (
         <div role="alert" className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm text-destructive font-medium">

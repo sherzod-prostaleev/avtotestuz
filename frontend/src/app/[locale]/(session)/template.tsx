@@ -1,1 +1,4 @@
-export { PageFade as default } from "@/components/layout/page-fade";
+export default function SessionTemplate({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+

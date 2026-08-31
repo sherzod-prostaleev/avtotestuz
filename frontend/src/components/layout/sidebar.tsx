@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "motion/react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -170,7 +171,7 @@ export function Sidebar() {
         // sat still for ~0.5s after each click before anything moved.
         prefetch
         onClick={() => setMobileOpen(false)}
-        className={`sidebar-link max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`sidebar-link relative max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
             ? "sidebar-link-active"
             : link.isGold
@@ -178,16 +179,24 @@ export function Sidebar() {
               : "sidebar-link-inactive"
         }`}
       >
-        <Icon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-90" />
-        <span className="min-w-0 flex-1 leading-snug">{link.label}</span>
+        {isActive && (
+          <motion.span
+            layoutId="sidebar-active-indicator"
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            className="absolute inset-0 rounded-md bg-accent text-accent-foreground shadow-3d md:rounded-lg"
+          />
+        )}
+        <Icon aria-hidden="true" className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-90" />
+        <span className="relative z-10 min-w-0 flex-1 leading-snug">{link.label}</span>
         {link.badge && link.badge > 0 ? (
-          <span className="ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+          <span className="relative z-10 ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
             {link.badge > 99 ? "99+" : link.badge}
           </span>
         ) : null}
       </Link>
     );
   };
+
 
   const moreSection = (
     <div className="pt-0.5 md:pt-1.5">
@@ -360,7 +369,7 @@ export function Sidebar() {
 
       {/* Thumb-zone primary destinations */}
       <nav className="app-bottom-nav" aria-label={t("brandName")}>
-        <div className="flex items-stretch">
+        <div className="flex items-stretch px-1">
           {bottomTabs.map((tab) => {
             const Icon = tab.icon;
             const active = tab.match(pathname);
@@ -368,10 +377,22 @@ export function Sidebar() {
               <Link
                 key={tab.href}
                 href={tab.href}
-                className={`app-bottom-nav-item ${active ? "app-bottom-nav-item-active" : ""}`}
+                className={`app-bottom-nav-item relative ${active ? "app-bottom-nav-item-active" : ""}`}
               >
-                <Icon aria-hidden="true" className="h-5 w-5" />
-                <span className="truncate">{tab.label}</span>
+                <span className="relative flex h-7 w-12 items-center justify-center">
+                  {active && (
+                    <motion.span
+                      layoutId="bottom-nav-active-pill"
+                      transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                      className="absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
+                    />
+                  )}
+                  <Icon
+                    aria-hidden="true"
+                    className={`relative h-5 w-5 transition-transform duration-200 ${active ? "scale-105" : ""}`}
+                  />
+                </span>
+                <span className="relative z-10 truncate">{tab.label}</span>
               </Link>
             );
           })}
@@ -380,13 +401,24 @@ export function Sidebar() {
             aria-label={t("openMenu")}
             aria-pressed={mobileOpen}
             onClick={() => setMobileOpen(true)}
-            className={`app-bottom-nav-item ${mobileOpen ? "app-bottom-nav-item-active" : ""}`}
+            className={`app-bottom-nav-item relative ${mobileOpen ? "app-bottom-nav-item-active" : ""}`}
           >
-            <Menu aria-hidden="true" className="h-5 w-5" />
-            <span>{t("navTabMore")}</span>
+            <span className="relative flex h-7 w-12 items-center justify-center">
+              {mobileOpen && (
+                <motion.span
+                  layoutId="bottom-nav-active-pill"
+                  transition={{ type: "spring", stiffness: 320, damping: 30 }}
+                  className="absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
+                />
+              )}
+              <Menu aria-hidden="true" className="relative h-5 w-5" />
+            </span>
+            <span className="relative z-10 truncate">{t("navTabMore")}</span>
           </button>
+
         </div>
       </nav>
     </>
   );
 }
+

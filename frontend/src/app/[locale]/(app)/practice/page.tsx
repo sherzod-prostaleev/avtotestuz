@@ -34,6 +34,8 @@ import {
 } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
 import { useCatalogCounts } from "@/hooks/use-variant-count";
+import { AnimatePresence, motion } from "motion/react";
+
 
 // Every preset is a one-tap start, so the list runs past a single sitting on
 // purpose: a learner picking 800 is choosing a marathon, and the server clamps
@@ -545,6 +547,50 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         </Card>
       )}
 
+      {source === "sign" && signsAvailable && (
+        <section className="space-y-3" aria-label={t("sourceSignPick")}>
+          <div className="flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+                {t("sourceSignPick")}
+              </h2>
+              <p className="text-base text-muted-foreground">{t("sourceSignHint")}</p>
+            </div>
+            {/* Unreachable today — sources filters out "sign" on the kiosk, so
+                source can never be "sign" there — but guarded so it stays
+                correct if source ever becomes settable independently. */}
+            {!kiosk && (
+              <Link
+                // kiosk-safe: wrapped in the !kiosk check two lines up, and sources already filters "sign" out of the kiosk's source list, so this block is structurally unreachable there
+                href={`/${locale}/signs`}
+                className="shrink-0 text-sm font-bold text-accent hover:underline"
+              >
+                {t("openSigns")}
+              </Link>
+            )}
+          </div>
+          <SignPracticeGrid signs={signs} emptyHint={t("sourceSignEmptyLinks")} />
+        </section>
+      )}
+
+      {/* Only the review queue still needs a Start: topics, tickets and image
+          practice all start from the card you picked in. */}
+      {source === "due" && (
+        <div className="mt-6 sm:mt-8">
+          <Button
+            variant="game"
+            size="lg"
+            className="w-full text-base"
+            onClick={handleStart}
+            disabled={!canStart}
+          >
+            <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" />
+            {t("startPractice")}
+          </Button>
+        </div>
+      )}
+
+
       {/* Outside the size card on purpose: every source except the review queue
           now starts from its own card, and the daily budget has to stay visible
           in all of them or a learner meets the limit only as a failed start. */}
@@ -583,53 +629,10 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
         </div>
       )}
 
-
-      {source === "sign" && signsAvailable && (
-        <section className="space-y-3" aria-label={t("sourceSignPick")}>
-          <div className="flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
-                {t("sourceSignPick")}
-              </h2>
-              <p className="text-base text-muted-foreground">{t("sourceSignHint")}</p>
-            </div>
-            {/* Unreachable today — sources filters out "sign" on the kiosk, so
-                source can never be "sign" there — but guarded so it stays
-                correct if source ever becomes settable independently. */}
-            {!kiosk && (
-              <Link
-                // kiosk-safe: wrapped in the !kiosk check two lines up, and sources already filters "sign" out of the kiosk's source list, so this block is structurally unreachable there
-                href={`/${locale}/signs`}
-                className="shrink-0 text-sm font-bold text-accent hover:underline"
-              >
-                {t("openSigns")}
-              </Link>
-            )}
-          </div>
-          <SignPracticeGrid signs={signs} emptyHint={t("sourceSignEmptyLinks")} />
-        </section>
-      )}
-
       {imageCounts === 0 && !loading && !loadError && (
         <p className="text-center text-sm text-muted-foreground">{t("categoryCountUnavailable")}</p>
       )}
 
-      {/* Only the review queue still needs a Start: topics, tickets and image
-          practice all start from the card you picked in. */}
-      {source === "due" && (
-        <div className="mt-6 sm:mt-8">
-          <Button
-            variant="game"
-            size="lg"
-            className="w-full text-base"
-            onClick={handleStart}
-            disabled={!canStart}
-          >
-            <Play aria-hidden="true" className="mr-2 h-5 w-5 fill-current" />
-            {t("startPractice")}
-          </Button>
-        </div>
-      )}
     </main>
   );
 }

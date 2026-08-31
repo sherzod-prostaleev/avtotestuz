@@ -343,10 +343,12 @@ type WarmSessionBundle = {
 };
 
 let warmSessionBundle: WarmSessionBundle | null = null;
+let lastActiveSession: SessionState | null = null;
 
 /** Drops the start→session-page one-shot bundle. Tests must call this between cases. */
 export function clearSessionQuestionWarmCache(): void {
   warmSessionBundle = null;
+  lastActiveSession = null;
 }
 
 function stashWarmSession(state: SessionState, locale: string, startedAt: string): void {
@@ -417,9 +419,20 @@ async function fetchSessionState(sessionId: string, locale: string): Promise<Ses
   };
 }
 
-export function useSessionEngine(_initialSessionId?: string) {
-  const [session, setSession] = useState<SessionState | null>(null);
-  const sessionRef = useRef<SessionState | null>(null);
+export function useSessionEngine(initialSessionId?: string) {
+  const [session, setSession] = useState<SessionState | null>(() => {
+    if (initialSessionId && warmSessionBundle?.state.id === initialSessionId) {
+      return {
+        ...warmSessionBundle.state,
+        remaining_sec: remainingSeconds(warmSessionBundle.startedAt, warmSessionBundle.state.time_limit_sec),
+      };
+    }
+    if (initialSessionId && lastActiveSession?.id === initialSessionId) {
+      return lastActiveSession;
+    }
+    return null;
+  });
+  const sessionRef = useRef<SessionState | null>(session);
   const localeRef = useRef<string>(defaultLocale);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -427,6 +440,11 @@ export function useSessionEngine(_initialSessionId?: string) {
 
   const commitSession = useCallback((next: SessionState | null) => {
     sessionRef.current = next;
+    if (next) {
+      lastActiveSession = next;
+    } else {
+      lastActiveSession = null;
+    }
     setSession(next);
   }, []);
 
@@ -511,42 +529,52 @@ export function useSessionEngine(_initialSessionId?: string) {
       // keep the painted UI instead of wiping to null → loading spinner → white flash.
       const resolvedLocale = locale ?? defaultLocale;
       localeRef.current = resolvedLocale;
-      const soft = sessionRef.current?.id === sessionId;
+
+      // 1. One-shot warm bundle from startSession
+      const warm = takeWarmSession(sessionId, resolvedLocale);
+      if (warm) {
+        setError(null);
+        commitSession(warm);
+        return warm;
+      }
+
+      // 2. Soft in-memory reload on locale switch
+      const prior = sessionRef.current ?? (lastActiveSession?.id === sessionId ? lastActiveSession : null);
+      const soft = prior?.id === sessionId;
 
       if (!soft) {
-        const warm = takeWarmSession(sessionId, resolvedLocale);
-        if (warm) {
-          setError(null);
-          commitSession(warm);
-          return warm;
-        }
         setLoading(true);
         commitSession(null);
+      } else if (!sessionRef.current && prior) {
+        sessionRef.current = prior;
+        setSession(prior);
       }
       setError(null);
+
 
       try {
         const state = await fetchSessionState(sessionId, resolvedLocale);
         // Soft locale reload: keep grades already painted from SubmitAnswer so
         // a redacted/stale resume payload cannot flip green answers back to blue.
-        const prev = sessionRef.current;
+        const prev = sessionRef.current ?? lastActiveSession;
         if (soft && prev?.id === sessionId) {
           const prevById = new Map(prev.questions.map((q) => [q.id, q]));
-          commitSession({
+          const merged: SessionState = {
             ...state,
             questions: state.questions.map((q) => {
-              const prior = prevById.get(q.id);
-              if (!prior) return q;
+              const priorQ = prevById.get(q.id);
+              if (!priorQ) return q;
               return {
                 ...q,
-                correct: q.correct ?? prior.correct,
-                correct_answer_id: q.correct_answer_id ?? prior.correct_answer_id,
-                user_answer_id: q.user_answer_id ?? prior.user_answer_id,
-                answered: q.answered || prior.answered,
+                correct: q.correct ?? priorQ.correct,
+                correct_answer_id: q.correct_answer_id ?? priorQ.correct_answer_id,
+                user_answer_id: q.user_answer_id ?? priorQ.user_answer_id,
+                answered: q.answered || priorQ.answered,
               };
             }),
-          });
-          return sessionRef.current;
+          };
+          commitSession(merged);
+          return merged;
         }
         commitSession(state);
         return state;
@@ -560,6 +588,7 @@ export function useSessionEngine(_initialSessionId?: string) {
     },
     [commitSession]
   );
+
 
   const submitAnswer = useCallback(
     async (

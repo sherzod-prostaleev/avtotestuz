@@ -230,7 +230,6 @@ export default function LandingPage() {
       >
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 sm:h-16 sm:gap-3 sm:px-4">
           <Link
-            prefetch={false}
             href={`/${locale}`}
             className="flex min-w-0 items-center gap-2 font-display text-lg font-black tracking-tight text-foreground sm:gap-2.5 sm:text-2xl"
           >
@@ -264,7 +263,6 @@ export default function LandingPage() {
             <LocaleSwitcher className="hidden sm:flex" />
             <ThemeToggle />
             <Link
-              prefetch={false}
               href={`/${locale}/login`}
               aria-label={t("login")}
               className={`${primaryCta} h-9 gap-1.5 px-3 text-xs sm:h-9 sm:px-4 sm:text-sm`}
@@ -303,7 +301,7 @@ export default function LandingPage() {
               {heroSubtitle}
             </p>
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
-              <Link prefetch={false} href={heroCtaHref} className={heroPrimaryCta}>
+              <Link href={heroCtaHref} className={heroPrimaryCta}>
                 {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
@@ -314,7 +312,6 @@ export default function LandingPage() {
             <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground sm:text-sm">
               <span>{t("haveAccountPrompt")}</span>
               <Link
-                prefetch={false}
                 href={`/${locale}/login`}
                 className="font-bold text-accent underline-offset-4 hover:underline"
               >
@@ -322,7 +319,6 @@ export default function LandingPage() {
               </Link>
               <span aria-hidden="true">·</span>
               <Link
-                prefetch={false}
                 href={`/${locale}/register`}
                 className="font-bold text-accent underline-offset-4 hover:underline"
               >
@@ -508,7 +504,7 @@ export default function LandingPage() {
             <div className="relative">
               <h2 className="font-display text-3xl font-extrabold sm:text-4xl">{t("bottomCtaTitle")}</h2>
               <p className="mx-auto mt-3 max-w-md text-base text-muted-foreground">{t("bottomCtaText")}</p>
-              <Link prefetch={false} href={heroCtaHref} className={`${heroPrimaryCta} mt-7`}>
+              <Link href={heroCtaHref} className={`${heroPrimaryCta} mt-7`}>
                 {heroCtaLabel}
                 <ChevronRight aria-hidden="true" className="ml-1.5 h-4 w-4 shrink-0 sm:ml-2 sm:h-5 sm:w-5" />
               </Link>
@@ -537,7 +533,7 @@ export default function LandingPage() {
                       {item.label}
                     </a>
                   ) : (
-                    <Link prefetch={false} href={item.href} className="text-foreground hover:text-accent">
+                    <Link href={item.href} className="text-foreground hover:text-accent">
                       {item.label}
                     </Link>
                   )}
@@ -545,6 +541,7 @@ export default function LandingPage() {
               ))}
             </ul>
           </div>
+
 
           <div className="space-y-3">
             <p className="text-[11px] font-extrabold uppercase tracking-wider text-muted-foreground">
