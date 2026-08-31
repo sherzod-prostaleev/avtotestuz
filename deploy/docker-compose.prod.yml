@@ -28,10 +28,18 @@ services:
       - drivergo_pgdata:/var/lib/postgresql/data
       - ../compose/postgres-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
+      # Every probe is a full container exec -- dockerd -> containerd -> shim
+      # -> runc -- so the interval is a standing CPU cost, not a free check.
+      # Six containers probing on 5-15s burned ~60% of a core on the docker
+      # machinery alone, around the clock, with nobody using the site.
+      # `start_interval` keeps `depends_on: service_healthy` fast at boot
+      # while the steady-state probe drops to twice a minute.
       test: ["CMD-SHELL", "pg_isready -U avtotest"]
-      interval: 5s
+      interval: 30s
+      start_period: 30s
+      start_interval: 2s
       timeout: 5s
-      retries: 10
+      retries: 5
     restart: unless-stopped
     cpus: "1.50"
     mem_limit: 1536m
@@ -76,9 +84,11 @@ services:
       - drivergo_redisdata:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
+      interval: 30s
+      start_period: 15s
+      start_interval: 2s
       timeout: 3s
-      retries: 10
+      retries: 5
     # Internal only — no host publish (avoids clash with system Redis :6379).
     restart: unless-stopped
     cpus: "0.50"
@@ -104,9 +114,11 @@ services:
       - drivergo_minio:/data
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9000/minio/health/ready"]
-      interval: 10s
+      interval: 30s
+      start_period: 20s
+      start_interval: 2s
       timeout: 5s
-      retries: 10
+      retries: 5
     restart: unless-stopped
     cpus: "0.75"
     mem_limit: 1024m
@@ -237,7 +249,8 @@ services:
     pids_limit: 256
     healthcheck:
       test: ["CMD", "/healthcheck", "http://127.0.0.1:8080/readyz"]
-      interval: 15s
+      interval: 30s
+      start_interval: 3s
       timeout: 5s
       retries: 5
       start_period: 45s
@@ -285,7 +298,8 @@ services:
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "python", "/app/healthcheck.py"]
-      interval: 15s
+      interval: 60s
+      start_interval: 3s
       timeout: 5s
       retries: 4
       start_period: 20s
@@ -345,7 +359,8 @@ services:
     stop_grace_period: 30s
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/healthz"]
-      interval: 15s
+      interval: 30s
+      start_interval: 3s
       timeout: 5s
       retries: 5
       start_period: 45s
