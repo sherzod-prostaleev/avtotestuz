@@ -51,28 +51,22 @@ export function LocaleSwitcher({
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-  const warmedRef = useRef(new Set<Locale>());
 
-  useEffect(() => {
-    for (const { code } of LOCALES) {
-      if (code !== currentLocale && !warmedRef.current.has(code)) {
-        warmedRef.current.add(code);
-        if (typeof router.prefetch === "function") {
-          router.prefetch(pathname, { locale: code });
-        }
-      }
-    }
-  }, [currentLocale, pathname, router]);
-
-  const warmLocales = () => {
-    for (const { code } of LOCALES) {
-      if (code === currentLocale || warmedRef.current.has(code)) continue;
-      warmedRef.current.add(code);
-      if (typeof router.prefetch === "function") {
-        router.prefetch(pathname, { locale: code });
-      }
-    }
-  };
+  /**
+   * Deliberately NOT prefetching the other locales.
+   *
+   * 72b9aee warmed /ru/<page> and /uz-Cyrl/<page> on mount and on hover to
+   * make the switch instant. Every one of those requests goes through
+   * proxy.ts, which runs next-intl's middleware, and that middleware sets
+   * NEXT_LOCALE to the locale of the path it just served. So warming the
+   * list rewrote the learner's stored language to whichever entry came last
+   * — "ru" — and the site opened in Russian on their next visit, for
+   * everyone, without anyone having chosen it.
+   *
+   * The warming did not even pay for itself: staleTimes.dynamic is 30s, so a
+   * prefetch taken at mount is stale long before anyone reaches for the
+   * switcher.
+   */
 
   const handleLanguageChange = (newLocale: Locale) => {
     if (newLocale === currentLocale) return;
@@ -119,8 +113,6 @@ export function LocaleSwitcher({
       <div
         ref={rootRef}
         className={`relative z-20 ${className}`}
-        onPointerOver={warmLocales}
-        onFocus={warmLocales}
       >
         <button
           type="button"
@@ -183,8 +175,6 @@ export function LocaleSwitcher({
       role="group"
       aria-label={t("languageSwitcher")}
       className={`flex gap-0.5 ${fill ? "w-full" : ""} ${shell} ${className}`}
-      onPointerOver={warmLocales}
-      onFocus={warmLocales}
     >
       {LOCALES.map((lang) => {
         const isSelected = currentLocale === lang.code;
