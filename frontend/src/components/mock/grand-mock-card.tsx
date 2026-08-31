@@ -45,19 +45,21 @@ function progressWidth(current: number, min: number): number {
  * /session/start?mode=grand_mock flow — the same mechanism "exam" mode
  * already uses — rather than starting a session directly here.
  */
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
+
 export function GrandMockCard() {
   const t = useTranslations("GrandMock");
   const locale = useLocale();
 
-  const [data, setData] = useState<MockEligibilityResponse | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<MockEligibilityResponse | null>(() => mockEligibilityStore.get());
+  const [loading, setLoading] = useState(() => !mockEligibilityStore.get());
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const res = await apiGet<MockEligibilityResponse>("me/mock-eligibility");
+      const res = await mockEligibilityStore.load();
       setData(res);
     } catch {
       setError(true);

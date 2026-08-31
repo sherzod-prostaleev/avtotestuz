@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
-import PracticePage from "./page";
+import PracticePage, { clearPracticeCacheForTests } from "./page";
 import * as apiClient from "@/lib/api-client";
 import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
 
@@ -81,6 +81,7 @@ function renderWithIntl() {
 
 describe("PracticePage", () => {
   beforeEach(() => {
+    clearPracticeCacheForTests();
     vi.restoreAllMocks();
     pushMock.mockReset();
     mockUseSigns.mockReturnValue({ signs: [], loading: false, error: null });

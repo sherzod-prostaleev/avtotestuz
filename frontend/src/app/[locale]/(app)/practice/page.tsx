@@ -161,11 +161,13 @@ interface MistakesDTO {
 const categoriesModuleCache: Record<string, CategoryItem[]> = {};
 let variantsModuleCache: number | null = null;
 let statsModuleCache: { dueCount: number; bankCount: number; nextDueAt: string | null } | null = null;
+let practiceFetchedAt = 0;
 
-export function clearPracticeCache(): void {
+export function clearPracticeCacheForTests(): void {
   for (const k in categoriesModuleCache) delete categoriesModuleCache[k];
   variantsModuleCache = null;
   statsModuleCache = null;
+  practiceFetchedAt = 0;
 }
 
 export interface PracticePageProps {
@@ -206,6 +208,18 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const signsAvailable = signs.length > 0;
 
   const loadContent = useCallback(async () => {
+    if (categoriesModuleCache[locale] && Date.now() - practiceFetchedAt < 30_000) {
+      setCategories(categoriesModuleCache[locale]);
+      if (variantsModuleCache !== null) setVariantCount(variantsModuleCache);
+      if (statsModuleCache) {
+        setDueCount(statsModuleCache.dueCount);
+        setBankCount(statsModuleCache.bankCount);
+        setNextDueAt(statsModuleCache.nextDueAt);
+      }
+      setLoading(false);
+      return;
+    }
+
     if (!categoriesModuleCache[locale]) {
       setLoading(true);
     }
@@ -223,6 +237,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       ]);
       const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
       categoriesModuleCache[locale] = ordered;
+      practiceFetchedAt = Date.now();
       setCategories(ordered);
 
       const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;

@@ -7,6 +7,7 @@ import ruMessages from "../../../../../messages/ru.json";
 import DashboardPage from "./page";
 import * as useUserStatsModule from "@/hooks/use-user-stats";
 import * as useSessionHistoryModule from "@/hooks/use-session-history";
+import { mistakesCountStore } from "@/lib/dashboard-stores";
 import * as apiClient from "@/lib/api-client";
 
 vi.mock("next/link", () => ({
@@ -140,6 +141,7 @@ function renderWithIntl(localeCase: (typeof localeCases)[number]) {
 
 describe("DashboardPage i18n and accessibility", () => {
   beforeEach(() => {
+    mistakesCountStore.reset();
     vi.restoreAllMocks();
     vi.mocked(apiClient.apiGet).mockResolvedValue({ due_count: 0 } as never);
     window.localStorage.clear();

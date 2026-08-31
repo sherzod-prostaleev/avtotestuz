@@ -3,6 +3,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../messages/uz-Latn.json";
 import { GrandMockCard, type MockEligibilityResponse } from "./grand-mock-card";
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
 import * as apiClient from "@/lib/api-client";
 
 vi.mock("next/link", () => ({
@@ -34,6 +35,7 @@ function renderWithIntl() {
 
 describe("GrandMockCard", () => {
   beforeEach(() => {
+    mockEligibilityStore.reset();
     vi.restoreAllMocks();
   });
 

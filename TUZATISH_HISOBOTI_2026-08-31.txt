@@ -1,0 +1,538 @@
+================================================================================
+DRIVER GO (drivergo.uz) — 2026-08-31 SEKINLASHUV TEKSHIRUVI VA TUZATISHLAR
+Boshqa AI/muhandisga topshirish uchun to'liq hisobot
+================================================================================
+
+MUAMMO HALI TO'LIQ HAL BO'LMAGAN. Foydalanuvchi bu hisobotdan keyin ham
+"sayt yaxshi ishlamayapti" deb bildirdi. Quyida NIMA tuzatilgani, NIMA
+o'lchangani va NIMA hali ochiq qolgani yozilgan.
+
+--------------------------------------------------------------------------------
+0. TEZKOR XULOSA (avval shuni o'qing)
+--------------------------------------------------------------------------------
+- Sabab bitta emas, KAMIDA 4 ta alohida muammo topildi va tuzatildi.
+- 3 tasi prodga chiqdi, 2 tasi hali CHIQMAGAN (5-bo'limga qarang).
+- Ilovaning O'ZI tez: serverdan bitta API chaqiruvi 25 ms.
+- Qolgan sekinlik "navbat" effekti + host darajasidagi tushunilmagan yuk.
+- 8-bo'limda "TEKSHIRILGAN VA MUAMMO EMAS" ro'yxati bor — QAYTA QAZIMANG.
+- 9-bo'limda o'lchov tuzoqlari bor — ularga tushmang, men tushib qoldim.
+
+--------------------------------------------------------------------------------
+1. BOSHLANG'ICH SHIKOYAT
+--------------------------------------------------------------------------------
+Foydalanuvchi animatsiyalarni kuchaytirish uchun o'zgarishlar kiritgan
+(commit 9a37779 va atrofidagilar, 2026-08-30/31). Natijada:
+  a) Sayt qattiq qotib qoldi, ayniqsa mobil telefonda.
+  b) VPS ortiqcha yuk bilan ishlay boshladi.
+  c) Bilet ishlayotganda "Chiqish" bosilsa, avval hech narsa chiqmasdi —
+     endi taymer haqida ogohlantirish chiqadigan bo'lib qoldi.
+  d) (Keyinroq aytildi) Til almashtirishda eng kuchli qotish.
+  e) (Keyinroq aytildi) Sayt endi avtomatik RUS tilida ochiladigan bo'lib qolgan.
+
+--------------------------------------------------------------------------------
+2. TOPILGAN SABABLAR (dalillari bilan)
+--------------------------------------------------------------------------------
+
+### SABAB 1 — PageTransition komponenti (commit 9a37779)
+Fayl: frontend/src/components/layout/page-transition.tsx
+U app-shell.tsx da BARCHA sahifani o'raydi. Uchta halokatli xato:
+
+  1.1 AnimatePresence mode="popLayout"
+      Eski sahifa yangisi chizilgunча DOM'da qoladi va Framer butun daraxtni
+      getBoundingClientRect bilan o'lchaydi. /signs sahifasida bu 570 karta
+      (285 eski + 285 yangi) bir vaqtda.
+
+  1.2 FrozenRoute — ENG YOMONI
+      const frozen = useRef(context).current
+      Bu Next.js App Router'ning LayoutRouterContext'ini ABADIY muzlatadi.
+      (Internetdagi mashhur "FrozenRoute" retsepti faqat CHIQAYOTGAN daraxt
+      uchun mo'ljallangan; aktiv route'da u routerni sindiradi.)
+      Natija: router daraxti bilan DOM ajralib ketadi, route sub-daraxti
+      tinmay qayta mount bo'ladi.
+
+  1.3 style={{ willChange: "transform, opacity" }}
+      Doimiy yopishtirilgan. Butun sahifa abadiy GPU kompozitor qatlamida
+      qoladi — mobil xotira va rasterizatsiya uchun o'ldiruvchi.
+
+  KUCHAYTIRGICHLAR:
+  - layoutId (Framer shared layout) DOIM mount turadigan Sidebar'da (3 joyda),
+    til almashtirgichda va filtr chiplarida → har projection passda o'lchov.
+  - signs gridida yana bir mode="popLayout".
+  - 285 ta belgi kartasining <Link> i /session/start ga default prefetch bilan.
+
+  DALIL — nginx logidan (/var/log/nginx/drivergo-access.log):
+    * manifest.webmanifest : haqiqiy HTML sahifa yuklash NISBATI
+        30-avg (sog'lom): 17 : 21  ≈ 1:1
+        31-avg (kasal)  : 305 : 34 ≈ 9:1 ... 11:1
+      Har bir ortiqcha manifest = bitta route-daraxt remounti. Bu FrozenRoute'ning
+      to'g'ridan-to'g'ri barmoq izi.
+    * Bitta brauzer bir soatda 463 ta /session/start RSC prefetch yubordi
+      (253 noyob URL = 285 belgi kartasi, har biri 2-4 marta takror).
+    * Bitta brauzer: 2243 so'rov/soat, sekundiga 34 tagacha portlash.
+    * Bir soatda ATIGI 14 ta noyob IP, lekin 5814 so'rov.
+
+  O'LCHANGAN ZARAR:
+    BFF p50: 0.018 s  ->  0.474 s   (26x)
+    BFF p95: 0.071 s  ->  3.6 s     (50x)
+    SSR eng yomoni: 9.2 s
+    drivergo-web konteyneri: 353% CPU (limit 250%)
+
+### SABAB 2 — NEXT_LOCALE cookie'ning buzilishi (commit 72b9aee)
+Fayl: frontend/src/components/locale-switcher.tsx
+72b9aee "tez til almashish" uchun eager prefetch qo'shgan edi:
+
+    router.prefetch(pathname, { locale: code })   // mount'da VA hover'da
+
+frontend/src/proxy.ts (Next 16'da middleware.ts shunday nomlanadi) next-intl
+middleware'ini ishga tushiradi. U HAR SO'ROVDA NEXT_LOCALE cookie'sini o'zi
+xizmat qilgan yo'lning tiliga o'rnatadi — RSC prefetch so'rovida ham.
+
+  PRODDA ISBOTLANDI:
+    curl -D- -o /dev/null -H "RSC: 1" "http://127.0.0.1:3010/ru/login?_rsc=x"
+      -> set-cookie: NEXT_LOCALE=ru; Path=/; SameSite=lax
+
+LOCALES massivida "ru" OXIRGI. Shuning uchun har bir foydalanuvchining saqlangan
+tili "ru" ga yozilib qolardi va til almashtirgichga hech tegmagan odamlar ham
+keyingi kirishda rus tilidagi saytga tushardi.
+
+Bundan tashqari prefetch FOYDA HAM BERMASDI: staleTimes.dynamic = 30s, ya'ni
+mount'da olingan prefetch foydalanuvchi tugmaga tegguncha allaqachon eskirgan.
+
+### SABAB 3 — Badge so'rovlarining takrorlanishi (eski, animatsiyaga aloqasiz)
+Fayllar: frontend/src/components/notifications/notification-bell.tsx
+         frontend/src/components/layout/sidebar.tsx
+NotificationBell IKKI marta mount bo'ladi (sidebar.tsx ichida mobil variant va
+desktop variant; biri CSS bilan yashiringan). Har biri:
+  - o'z state'i, o'z 60 soniyalik taymeri
+  - useEffect(..., [refresh, pathname]) → HAR navigatsiyada qayta so'rash
+Sidebar'ning support badge'i ham har navigatsiyada so'rardi.
+= sahifa har almashganda 3 ta ortiqcha so'rov, platformadagi eng ko'p
+chaqiriladigan ikkita endpointga.
+
+### SABAB 4 — Healthcheck solig'i (eski, animatsiyaga aloqasiz)
+Fayl: deploy/docker-compose.prod.yml
+Har healthcheck TO'LIQ container exec: dockerd -> containerd -> shim -> runc.
+  postgres: har 5 s   = 12/daqiqa
+  redis   : har 5 s   = 12/daqiqa
+  minio   : har 10 s  =  6/daqiqa
+  web/api/humo: har 15 s = 12/daqiqa
+  JAMI: daqiqasiga ~42 exec, abadiy, foydalanuvchi bo'lmasa ham.
+
+Tinch 30 soniyalik oynada (build yo'q, yuk testi yo'q) docker mashinasi eng
+katta bitta iste'molchi guruh edi:
+  containerd-shim 12%+5%, dockerd 10%, containerd 10%, runc:[2:INIT] 8%
+  = taxminan bir yadroning 45-60%i.
+
+### SABAB 5 — "NAVBAT" effekti (strukturaviy, hali to'liq hal qilinmagan)
+Bu eng muhim va HALI OCHIQ qismi.
+
+  Serverning O'ZIDAN o'lchov (127.0.0.1:3010, Cloudflare'siz):
+    1 ta  /api/proxy/flags               ->  25 ms   (SOG'LOM)
+    12 ta parallel (2 ishchi bilan)      -> 691 ms
+    12 ta parallel (3 ishchi bilan)      -> ~200-400 ms
+    20 ta parallel (3 ishchi bilan)      -> 418-1183 ms
+
+  Brauzer sahifa ochganda ~20 ta chaqiruvni BIR ZUMDA yuboradi:
+    me, me/streak, me/stats, me/variants, me/mistakes, me/mock-eligibility,
+    me/sessions, me/notifications/unread-count, me/support/unread, flags,
+    site/banner, categories + 8 ta sidebar RSC prefetch
+
+  Node cluster (WEB_WORKERS ta ishchi) ularni navbatga qo'yadi. nginx logidagi
+  "p50 = 495 ms" — aynan shu NAVBAT, sekin kod emas.
+
+  Til almashtirish eng qattiq qotadi, chunki u butun [locale] daraxtini qayta
+  render qiladi (123-166 KB message bundle) VA o'sha navbatning oxiriga tushadi.
+
+--------------------------------------------------------------------------------
+3. QILINGAN O'ZGARISHLAR (kod)
+--------------------------------------------------------------------------------
+Barchasi origin/main ga PUSH QILINGAN. Oralig'i: 72b9aee..8ca335e
+
+  f6821a6  perf(ui): stop the page transition from remounting the app on every render
+  cf2a88f  fix(i18n): stop the language switcher rewriting everyone's stored locale
+  f827dc6  perf(web): fetch each chrome badge once instead of once per mount
+  7607200  perf(deploy): stop the health probes burning a core
+  8ca335e  fix(ui): keep the session shell inside the viewport during its fade
+
+O'zgargan fayllar (16 ta, +472 / -180):
+  deploy/docker-compose.prod.yml
+  frontend/src/app/globals.css
+  frontend/src/app/[locale]/(app)/dashboard/page.tsx
+  frontend/src/app/[locale]/(app)/leaderboard/page.tsx
+  frontend/src/app/[locale]/(app)/practice/page.tsx
+  frontend/src/app/[locale]/(app)/signs/page.tsx
+  frontend/src/app/[locale]/(app)/tickets/page.tsx
+  frontend/src/app/[locale]/(session)/session/[id]/page.tsx
+  frontend/src/components/exam/official-avtotest-exam-view.tsx
+  frontend/src/components/layout/page-transition.tsx
+  frontend/src/components/layout/sidebar.tsx
+  frontend/src/components/locale-switcher.tsx
+  frontend/src/components/notifications/notification-bell.tsx
+  frontend/src/lib/badge-counts.ts            (YANGI)
+  frontend/src/lib/shared-count.ts            (YANGI)
+  frontend/tests/unit/shared-count.test.ts    (YANGI, 8 ta test)
+
+### f6821a6 nima qildi
+- PageTransition: Framer BUTUNLAY olib tashlandi. Endi oddiy <div> + CSS
+  animatsiya (.page-enter globals.css da). AnimatePresence yo'q, FrozenRoute
+  yo'q, willChange yo'q. getRouteKey() til prefiksini kesadi, shuning uchun
+  til almashtirilganda daraxt qayta mount bo'lmaydi (72b9aee dagi yaxshi
+  g'oya saqlandi).
+- layoutId HAMMA joydan olib tashlandi (sidebar x3, til almashtirgich,
+  signs/tickets/leaderboard filtr chiplari, imtihon til chizig'i).
+  O'rniga .nav-pill-in CSS animatsiyasi.
+  VIZUAL FARQ: aktiv "pill" endi sirg'almaydi, yumshoq paydo bo'ladi.
+- signs grididan mode="popLayout" olib tashlandi.
+- 285 belgi kartasi + dashboard next-action + resume havolalariga
+  prefetch={false} qo'yildi (/session/start mount bo'lishi bilan sessiya
+  boshlaydi — prefetch qilingan payload hech qachon ishlatilmaydi).
+- Sessiya sahifasidagi motion.main x2 -> oddiy <main> + CSS.
+- CHIQISH MODALI: endi faqat isExamLikeMode(session.mode) da ochiladi
+  (exam / grand_mock / placement). Biletda va mavzuda avvalgidek to'g'ridan
+  to'g'ri chiqadi. Sabab: modal matni t("examExitConfirm") =
+  "Imtihonni tark etasizmi? Timer davom etadi..." — biletda taymer YO'Q,
+  ya'ni bu ham yolg'on, ham avval bo'lmagan to'siq edi.
+
+### cf2a88f nima qildi
+- locale-switcher.tsx dan eager prefetch (mount useEffect + hover warmLocales)
+  BUTUNLAY olib tashlandi.
+- MUHIM: bundan keyin foydalanuvchilar tilni BIR MARTA qo'lda tanlashi kerak,
+  keyin cookie'da to'g'ri saqlanadi.
+
+### f827dc6 nima qildi
+- frontend/src/lib/shared-count.ts — createSharedCount() fabrikasi:
+    * bir vaqtda so'ragan o'quvchilar BITTA in-flight so'rovga qo'shiladi
+    * TTL (30s) ichidagi o'qish xotiradan beriladi
+    * poll taymeri STORE'niki, obunachiniki emas -> 2 ta qo'ng'iroq = 1 so'rov
+    * pollMs default 0 (support'ga taymer qo'shilmadi, avvalgidek navigatsiya)
+- frontend/src/lib/badge-counts.ts — notificationUnreadCount (pollMs 60s),
+  supportUnreadCount (pollMs yo'q)
+- notification-bell va sidebar shularga ulandi.
+- NotificationPanel'ning onUnreadChange endi store'ga yozadi, ya'ni o'qilgandan
+  keyin IKKALA qo'ng'iroq ham yangilanadi.
+
+### 7607200 nima qildi
+- docker-compose.prod.yml healthcheck intervallari:
+    postgres 5s -> 30s (+ start_period 30s, start_interval 2s, retries 10->5)
+    redis    5s -> 30s (+ start_period 15s, start_interval 2s, retries 10->5)
+    minio   10s -> 30s (+ start_period 20s, start_interval 2s, retries 10->5)
+    api     15s -> 30s (+ start_interval 3s)
+    web     15s -> 30s (+ start_interval 3s)
+    humo    15s -> 60s (+ start_interval 3s)
+  start_interval (Docker >= 25) start_period davomida tez tekshiradi, ya'ni
+  depends_on: service_healthy boot'da tez qoladi.
+  42 exec/daqiqa -> 11 exec/daqiqa (74% kamayish).
+
+### 8ca335e nima qildi (CI'ni tuzatish)
+- .page-enter dagi transform: translate3d(0, 6px, 0) sessiya sahifasini
+  sindirgan edi. Vizual overflow ham scrollHeight ga qo'shiladi, shuning uchun
+  ekranga aniq sig'ishi kerak bo'lgan session-shell da hujjat 2px baland
+  bo'lib qolardi. e2e/session-viewport.spec.ts pageOverflow <= 1 ni to'rtala
+  viewport'da tekshiradi -> 13 ta test qizil edi.
+- Yechim: yangi .page-enter-fade klassi (FAQAT opacity) va uni session-shell
+  ga qo'llash. Scroll bo'ladigan sahifalar ko'tarilishni saqlaydi.
+- Yana: vi.fn<[], Promise<number>>() -> vi.fn<() => Promise<number>>()
+  (Vitest 4 da vi.fn funksiya tipini oladi).
+
+--------------------------------------------------------------------------------
+4. SERVERDA QILINGAN O'ZGARISHLAR (kod EMAS)
+--------------------------------------------------------------------------------
+Server: root@89.117.59.137, papka /opt/drivergo, deploy papkasi /opt/drivergo/deploy
+
+  a) /opt/drivergo/deploy/app.env ga qo'shildi:
+        WEB_WORKERS=3     (avval 2)
+        WEB_CPUS=3.0      (avval 2.50)
+     Zaxira nusxa: /root/app.env.bak-20260831
+     ESLATMA: zaxirani /opt/drivergo/deploy ichida saqlamang — sync-to-vps.sh
+     uni o'chirib yuboradi (bir marta shunday bo'ldi).
+
+  b) Redis CPU kvotasi jonli oshirildi (konteyner qayta yaratilmasdan):
+        docker update --cpus=1.0 drivergo-redis-1
+     Sabab: redis 0.5 yadroda davrlarning 10-21% ida throttle bo'layotgan edi.
+     ⚠️⚠️ MUHIM TUZOQ: bu compose faylga YOZILMAGAN. docker-compose.prod.yml
+     da redis hali ham cpus: "0.50". Ya'ni KEYINGI DEPLOY (up -d) da redis
+     0.5 yadroga QAYTADI. Agar 1.0 saqlanishi kerak bo'lsa, compose faylni
+     ham o'zgartirish shart.
+
+--------------------------------------------------------------------------------
+5. PROD HOZIRGI HOLATI — NIMA CHIQQAN, NIMA CHIQMAGAN
+--------------------------------------------------------------------------------
+PRODDA ISHLAYAPTI (2026-08-31, oxirgi tekshiruv 12:15 mahalliy vaqt):
+  Docker image : drivergo-web:local = f84178bb52b3 (qurilgan 11:47)
+  Ishga tushgan: 2026-08-31T09:52:27Z (= 11:52 mahalliy)
+  Kod          : commit f827dc6
+  Ishchilar    : 3
+  Web CPU kvota: 300000/100000 (3.0 yadro)
+  Redis CPU    : 100000/100000 (1.0 yadro, docker update orqali)
+
+PRODGA HALI CHIQMAGAN (kod push qilingan, lekin deploy qilinmagan):
+  1. 7607200 — healthcheck intervallari.
+     Kod /opt/drivergo ga SINXRONLANGAN, lekin konteynerlar qayta
+     yaratilmagan, shuning uchun HALI ESKI 5s/15s intervallar ishlamoqda.
+     Qo'llash uchun konteynerlarni recreate qilish kerak (postgres va redis
+     ham) = jonli foydalanuvchilarga 15-30 soniya uzilish.
+  2. 8ca335e — sessiya sahifasidagi 2px overflow tuzatmasi.
+     Kosmetik, 200 ms davom etadi. Yangi build kerak.
+
+NEGA DEPLOY QILINMADI: VPS'da "next build" 11.2 DAQIQA ketadi (lokalda 5.5
+soniya!) va build paytida host load average 20.8 ga chiqadi. Ya'ni ish vaqtida
+deploy qilishning O'ZI foydalanuvchilarga sekinlik keltiradi. Foydalanuvchining
+"hali ham sekin" hissiyotining bir qismi aynan shu build'lardan edi.
+
+ROLLBACK IMKONIYATI:
+  drivergo-web:rollback-20260831-anim  = 81a89546a0e2 (09:30, ANIMATSIYA
+      REGRESSIYASI BOR bo'lgan build — ya'ni bu tuzatishlardan OLDINGI holat)
+  drivergo-web:rollback-20260830-1853  = 153a701c0556
+  drivergo-web:rollback-20260830-1848  = 65527a0dca06
+  ⚠️ Oraliq imijlar (02f957eacc75 = f6821a6, d4a6cb518790 = cf2a88f) YO'QOLGAN.
+  Sabab: yangi build "drivergo-web:local" tegini o'ziga oladi, eski imij
+  dangling bo'lib qoladi va builder uni tozalab yuboradi.
+  QOIDA: rollback tegini build'dan OLDIN qo'ying, keyin emas.
+
+--------------------------------------------------------------------------------
+6. TEKSHIRUV NATIJALARI
+--------------------------------------------------------------------------------
+Lokal (8ca335e da):
+  npm run typecheck        -> 0 xato
+  npm run lint             -> 0 xato
+  npx vitest run           -> 122 fayl, 696/696 test o'tdi
+  npm run test:e2e (to'liq)-> 60 o'tdi, 32 o'tkazib yuborildi, 0 xato
+  npm run build            -> muvaffaqiyatli
+
+GitHub CI (run 33382491637, commit 8ca335e): TO'LIQ YASHIL
+  e2e ✓, frontend ✓, backend ✓, container-build ✓, ops-contracts ✓,
+  barcha vulnerability scan'lar ✓
+  (station-vulnerability-scan da "Cannot open: File exists" annotatsiyalari
+   bor — bu keshni tiklashdagi eski shovqin, mening o'zgarishimdan emas,
+   job o'zi o'tgan.)
+
+deploy/tests/compose_contract_test.py -> 14/14 o'tdi (healthcheck o'zgarishidan keyin)
+
+Prodda tasdiqlangan:
+  - Yangi CSS jonli: page-enter{animation:.22s...}, nav-pill-in{animation:.18s...}
+  - will-change:transform,opacity CSS bundle'da 0 marta uchraydi
+  - deploy/smoke.sh -> smoke: ok (healthz, readyz, agent-manifest, web 200)
+  - Deploydan keyingi 10 daqiqada /session/start prefetch: 463/soat -> 4 ta
+
+--------------------------------------------------------------------------------
+7. HOST/VPS HAQIDA O'LCHANGAN MA'LUMOTLAR
+--------------------------------------------------------------------------------
+VPS: 89.117.59.137, Ubuntu, 4 vCPU, 7.8 GB RAM, 4 GB swap.
+Bu mashinada 5 ta sayt turadi: drivergo.uz, avtomotohavaskorlar,
+meteor/bigwin, movixpro.uz, taklifnomaa.uz. Docker'ni FAQAT drivergo ishlatadi;
+qolganlari host'da (PM2, host postgres, host redis).
+
+BUGUNGI TRAFIK ULUSHI:
+  /var/log/nginx/drivergo-access.log : 15 506 so'rov
+  /var/log/nginx/access.log (qolgan 4 sayt) : 3 416 so'rov
+  -> drivergo bu mashinadagi trafikning ~82% i.
+
+30 SONIYALIK TOZA pidstat (build yo'q, yuk testi yo'q):
+  containerd-shim 12.23% + 5.10%
+  /var/www/a (avtomotohavaskorlar) 11.05%
+  redis-server 10.53% + 6.25%
+  dockerd 10.30%
+  python 9.94% + 7.13%
+  containerd 9.71%
+  minio 8.99%
+  runc:[2:INIT] 7.88%
+  systemd-journal 7.10%
+  sshd 6.93% + 6.70%   <- BU MENING SSH SESSIYALARIM
+  JAMI ~130% / 400%  (ya'ni host CPU ning ~1/3 i ishlatilmoqda)
+  Diqqat: drivergo-web, drivergo-api, drivergo-postgres bu ro'yxatda YO'Q.
+
+--------------------------------------------------------------------------------
+8. TEKSHIRILGAN VA MUAMMO EMASLIGI ANIQLANGAN — QAYTA QAZIMANG
+--------------------------------------------------------------------------------
+1. avtomotohavaskorlar.uz VPS'ni "o'ldirmayapti".
+   O'lchovlar: bir namunada 1.1%, boshqasida 30.68%, uchinchisida 11.05% CPU.
+   Ya'ni 400% dan 0.3-8% orasida tebranadi. Sezilarli, lekin asosiy sabab EMAS.
+   Uni ko'chirish/o'chirish muammoni hal qilmaydi.
+
+2. Postgres — bo'sh. pg_stat_activity da faqat mening tekshiruv so'rovim
+   active edi. CPU 0.18-21% orasida, asosan past.
+
+3. Go API — tez. web konteyner ichidan /healthz: p50 25.8 ms (min 8.9, max 87.4).
+   Host'dan to'g'ridan-to'g'ri: 8-12 ms. API konteyner CPU ko'pincha 0.00%.
+
+4. Tarmoq / Cloudflare — sabab EMAS. nginx logida rt va urt AYNAN TENG
+   (rt p50 0.495 = urt p50 0.495). Ya'ni vaqt Next'ning ichida, mijozga
+   javob yozishda emas.
+
+5. Docker DNS — sog'lom. "api" nomi 23 ms da hal bo'ladi.
+
+6. Konteyner restart looplari YO'Q. Hammasi "Up 3 days / 3 weeks (healthy)".
+
+7. Web konteynerda xotira sizishi YO'Q. RSS 168-213 MB, limit 1 GB, barqaror.
+
+8. Web konteyner CPU throttle bo'lmayapti (tinch paytda nr_throttled o'zgarmaydi).
+
+9. Bir lahzalik "drivergo-web 431% CPU" ko'rsatkichi YOLG'ON EDI — keyingi
+   4 ta o'lchov: 93.9%, 6.37%, 2.91%, 0.58%. docker stats namuna artefakti.
+
+10. RSC render narxi o'z-o'zicha muammo emas: bitta prefetch 9-43 ms,
+    bitta to'liq SSR sahifa 31-220 ms.
+
+--------------------------------------------------------------------------------
+9. O'LCHOV TUZOQLARI — MEN TUSHGAN XATOLAR, TAKRORLAMANG
+--------------------------------------------------------------------------------
+1. `docker exec <c> node -e "fetch(...)"` bilan kechikish o'lchamang.
+   Har safar YANGI Node protsessi undici'ni initsializatsiya qiladi.
+   YOLG'ON natija: 344-801 ms. To'g'ri usul: BITTA node protsessida 12 marta
+   chaqiring va BIRINCHISINI TASHLANG -> haqiqiy 25.8 ms.
+
+2. `ps -eo pcpu` = protsessning BUTUN UMRI bo'yicha o'rtacha, hozirgi emas.
+   Bitta `top` surati ham chalg'itadi. `pidstat 20 1` yoki `pidstat 30 1`
+   ishlating.
+
+3. Konteyner qayta ishga tushgandan keyin darhol o'lchamang — Node/Next JIT
+   qizishi kerak. Sovuq: 6.42 rps. Issiq: 11.42 rps. Kamida 200 ta so'rov
+   bilan isiting.
+
+4. VPS'ning o'zidan https://drivergo.uz ni urmang — Cloudflare orqali
+   aylanadi va 4.4x YOLG'ON PAST natija beradi. Doim origin'ga uring:
+   http://127.0.0.1:3010 (Next), http://127.0.0.1:8081 (Go).
+   `Host: drivergo.uz` bilan 127.0.0.1:80 ISHLAMAYDI (origin lockdown).
+
+5. nginx logida `grep -oE "rt=[0-9.]+"` HAM rt HAM urt ni tutadi (chunki
+   "urt=" ichida "rt=" bor). Oldiga bo'sh joy qo'ying: `grep -oE " rt="`.
+
+6. LOAD AVERAGE bu mashinada CPU to'lganini BILDIRMAYDI.
+   O'lchangan: load average 9-18, lekin CPU 70-96% BO'SH, wa (I/O kutish) ~0.
+   /proc/pressure/cpu: some avg300 = 35-74%, lekin full = 0.00 HAR DOIM.
+   Ya'ni ba'zi vazifalar CPU kutadi, lekin mashina hech qachon to'liq
+   bloklanmagan. Regressiyani load average bilan emas, IP boshiga so'rov
+   soni va manifest:HTML nisbati bilan o'lchang.
+
+7. Yangi test fayli qo'shgandan keyin `npm run typecheck` ni QAYTA yugurting.
+   `vitest run` tip tekshirmaydi. Men shu sababli CI'ni sindirdim.
+
+--------------------------------------------------------------------------------
+10. FOYDALI DIAGNOSTIKA RETSEPTLARI
+--------------------------------------------------------------------------------
+### Route remount tsiklini aniqlash (FrozenRoute tipidagi xato)
+    L=/var/log/nginx/drivergo-access.log
+    # manifest : HTML nisbati. Sog'lom ~1:1. 9:1 dan yuqori = remount tsikli.
+    grep "31/Aug/2026:08" $L | grep -c "manifest.webmanifest"
+    grep "31/Aug/2026:08" $L | grep -E "GET /(uz-Latn|uz-Cyrl|ru)/" \
+      | grep -v "_rsc=" | grep -c HTTP
+
+### Prefetch bo'ronini aniqlash
+    grep "31/Aug/2026:08" $L | grep "^<IP> " \
+      | grep -oE "GET /[^ ]*session/start[^ ]*" | sort | uniq -c | sort -rn
+    # Noyob URL soni ko'p + har biri takrorlangan = viewport prefetch bo'roni
+
+### Xom tasmani o'qish (eng foydali)
+    grep -E "31/Aug/2026:08:46:0[567]" $L | grep "^<IP> " | cut -d'"' -f2
+
+### Vaqt Next ichidami yoki tarmoqdami
+    # rt va urt ni ALOHIDA hisoblang. Teng bo'lsa -> Next ichida.
+    grep ... | grep -oE " rt=[0-9.]+" | cut -d= -f2 | sort -n | awk '...'
+    grep ... | grep -oE "urt=[0-9.]+" | cut -d= -f2 | sort -n | awk '...'
+
+### Navbat effektini aniqlash (ENG MUHIMI)
+    # Bitta chaqiruv tez, parallel sekin bo'lsa -> navbat, sekin kod emas.
+    for i in $(seq 6); do curl -s -o /dev/null -w "%{time_total} " \
+      http://127.0.0.1:3010/api/proxy/flags; done
+    for r in $(seq 5); do s=$(date +%s%N); \
+      for i in $(seq 12); do curl -s -o /dev/null \
+        http://127.0.0.1:3010/api/proxy/flags & done; wait; \
+      e=$(date +%s%N); echo -n "$(( (e-s)/1000000 ))ms "; done
+
+### Cgroup throttling
+    ID=$(docker inspect -f '{{.Id}}' drivergo-web-1)
+    cat /sys/fs/cgroup/system.slice/docker-$ID.scope/cpu.stat
+    # nr_throttled va throttled_usec ni 20 soniya oralig'ida ikki marta oling
+
+### NEXT_LOCALE cookie tekshiruvi
+    curl -s -D- -o /dev/null -H "RSC: 1" \
+      "http://127.0.0.1:3010/ru/login?_rsc=x" | grep -i set-cookie
+
+--------------------------------------------------------------------------------
+11. HALI OCHIQ MUAMMOLAR VA KEYINGI QADAMLAR
+--------------------------------------------------------------------------------
+### A. TUSHUNTIRILMAGAN: load average anomaliyasi
+Load average 9-18, lekin CPU 70-96% bo'sh, iowait ~0, PSI full = 0.00 har doim,
+vmstat run queue (r) 20-29 ga sakraydi. Healthcheck exec churn'i (42/daqiqa)
+buning BIR QISMINI tushuntiradi, lekin HAMMASINI emas. Bu to'liq
+tushuntirilmagan qoldi. Keyingi tekshiruvchi shu yerdan davom etsin.
+Tekshirilmagan gipotezalar: softirq/tarmoq interrupt bo'roni (ksoftirqd 9.9%
+ko'rindi), boshqa loyihalarning cron/timer ishlari, VPS qo'shnilari (steal
+0.0 ko'rindi, ya'ni ehtimol emas).
+
+### B. ENG KATTA STRUKTURAVIY YUTUQ: /me/* fan-out
+Dashboard 9 ta ALOHIDA BFF chaqiruvi yuboradi. Bitta agregat endpoint
+(masalan GET /me/bootstrap) bularni bittaga tushirardi. Backend ishi kerak.
+Bu navbat effektining ildizi.
+
+### C. BFF solig'ini chetlab o'tish
+Oldingi audit (2026-08-22) o'lchagan: Go API to'g'ridan-to'g'ri 1153 rps,
+BFF orqali 208 rps = 5.5x soliq. Variant: nginx cookie'dan Authorization
+qo'yib issiq chaqiruvlarni to'g'ridan-to'g'ri Go'ga yuborsin, 401 da
+error_page bilan BFF'ga qaytsin. Har chaqiruvdagi CPU ~7x kamayadi.
+
+### D. Deploy jarayonini tuzatish
+VPS'da build qilmang. 11.2 daqiqa + host load 20.8 = foydalanuvchilarga
+zarar. Boshqa joyda (CI yoki lokal) qurib, imijni registry orqali push qiling
+yoki `docker save`/`docker load` ishlating.
+
+### E. Kutilayotgan deploy
+7607200 (healthcheck) + 8ca335e (2px overflow) hali chiqmagan.
+Tinch paytda bitta deploy'ga jamlab chiqarish kerak.
+Buyruqlar (prod-deploy protsedurasi):
+    git checkout main
+    ./deploy/sync-to-vps.sh --apply
+    ssh root@89.117.59.137 'cd /opt/drivergo/deploy && \
+      docker tag $(docker inspect -f "{{.Image}}" drivergo-web-1) \
+        drivergo-web:rollback-<sana> && \
+      docker compose -f docker-compose.prod.yml --env-file app.env build web && \
+      docker compose -f docker-compose.prod.yml --env-file app.env up -d web'
+    ./deploy/smoke.sh https://drivergo.uz https://drivergo.uz
+ESLATMA: healthcheck o'zgarishi UCHUN `--no-deps web` YETMAYDI — postgres,
+redis, minio, api, humo-watcher ham recreate bo'lishi kerak.
+ESLATMA 2: sync-to-vps.sh iflos ish daraxtidan --apply qilishni RAD ETADI.
+BAJARILGAN_ISHLAR_HISOBOTI.txt kabi tracked bo'lmagan fayllarni vaqtincha
+ko'chirish kerak. Yana `frontend/next-env.d.ts` build/dev orasida o'zgarib
+turadi (Next o'zi yozadi) — `git checkout -- frontend/next-env.d.ts` qiling.
+
+### F. Foydalanuvchi hali ham sekinlik his qilmoqda
+Bu hisobot yozilayotgan paytda foydalanuvchi "hali ham yaxshi ishlamayapti"
+dedi. Yuqoridagi A, B, C bandlari hali hal qilinmagan va eng ehtimolli
+sabablar shular. Shuningdek E bandidagi ikki tuzatma hali prodda yo'q.
+
+--------------------------------------------------------------------------------
+12. LOYIHA KONTEKSTI (yangi kelgan uchun)
+--------------------------------------------------------------------------------
+Stack : Go (backend) + Next.js 16.2.12 / React 19 (frontend, Turbopack) +
+        PostgreSQL + Redis + MinIO, hammasi Docker Compose'da
+Domen : https://drivergo.uz (va avtotest.uz)
+i18n  : next-intl 4.13.4, 3 til: uz-Latn (default), uz-Cyrl, ru
+        localePrefix: "always"
+        Middleware fayli: frontend/src/proxy.ts (Next 16 da shunday nomlanadi!)
+        Message bundle'lar: frontend/messages/*.json (123-166 KB har biri)
+Motion: "motion" paketi v13.1.1 (Framer Motion). Tuzatishdan keyin faqat
+        modal/dialog animatsiyalarida qoldi, layout/navigatsiyada YO'Q.
+BFF   : frontend/src/app/api/proxy/[...path]/route.ts — brauzerdan kelgan
+        barcha API chaqiruvlari shu orqali Go API ga boradi (cookie'dan
+        token o'qiydi, Authorization qo'yadi). Bu Next protsessining
+        ustidagi asosiy yuk.
+Cluster: frontend/cluster.js — WEB_WORKERS ta Node ishchisi
+next.config.mjs: experimental.staleTimes = { dynamic: 30 }
+
+MUHIM INVARIANTLAR (buzmang):
+  - Next App Router'da LayoutRouterContext ni HECH QACHON muzlatmang.
+  - Butun sahifani AnimatePresence mode="popLayout" bilan o'ramang.
+  - will-change ni doimiy qoldirmang.
+  - Doim mount turadigan komponentda (Sidebar) layoutId ishlatmang.
+  - Boshqa locale'dagi URL ni prefetch qilmang (NEXT_LOCALE ni buzadi).
+  - Viewport-fit layout'larda (session-shell) faqat opacity animatsiyasi;
+    translate YO'Q (scrollHeight ni oshiradi).
+  - Ko'p kartali ro'yxatda har xil query'li <Link> ga prefetch={false}.
+  - KEEP_ALIVE_TIMEOUT (Next) nginx'ning keepalive_timeout'idan KATTA
+    bo'lishi shart — aks holda 502. Buni compose contract testi tekshiradi.
+
+================================================================================
+Hisobot yozildi: 2026-08-31
+Kod holati: origin/main = 8ca335e (CI yashil)
+Prod holati: f827dc6 (image f84178bb52b3)
+================================================================================

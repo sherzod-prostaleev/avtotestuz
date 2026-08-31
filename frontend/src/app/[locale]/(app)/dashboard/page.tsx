@@ -7,6 +7,7 @@ import { useVariantCount } from "@/hooks/use-variant-count";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
 import { apiGet } from "@/lib/api-client";
+import { mistakesCountStore } from "@/lib/dashboard-stores";
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { GrandMockCard } from "@/components/mock/grand-mock-card";
@@ -114,7 +115,7 @@ export default function DashboardPage() {
   const { user, entitlement, streak, stats, loading, error } = useUserStats();
   const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
-  const [mistakesDueCount, setMistakesDueCount] = useState(0);
+  const [mistakesDueCount, setMistakesDueCount] = useState(() => mistakesCountStore.get());
 
   // Hero and stats sections settle based on user profile & stats; session history
   // loads seamlessly in the background with in-memory caching.
@@ -154,10 +155,11 @@ export default function DashboardPage() {
   // Mistakes card must show me/mistakes.due_count (lapses>0), not FSRS me/stats.due_count.
   useEffect(() => {
     let cancelled = false;
-    void apiGet<{ due_count: number }>("me/mistakes")
-      .then((data) => {
-        if (!cancelled && Number.isInteger(data.due_count) && data.due_count >= 0) {
-          setMistakesDueCount(data.due_count);
+    void mistakesCountStore
+      .load()
+      .then((count) => {
+        if (!cancelled) {
+          setMistakesDueCount(count);
         }
       })
       .catch(() => {

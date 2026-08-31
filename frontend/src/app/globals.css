@@ -805,6 +805,16 @@
   isolation: isolate;
 }
 
+@keyframes answerCorrectPulse {
+  0% { box-shadow: 0 0 0 0 hsl(var(--success) / 0.55); }
+  70% { box-shadow: 0 0 0 12px hsl(var(--success) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
+}
+.answer-correct-pulse {
+  animation: answerCorrectPulse 0.45s ease-out 1;
+  isolation: isolate;
+}
+
 /* Session shell — vh first, dvh overrides when supported (older Safari/WebViews).
    Fit-to-viewport: image/gaps/type compact first; JS scale-fit is last resort.
    Question images must NEVER crop: cap via max-height on the img (inherit),

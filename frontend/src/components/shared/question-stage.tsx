@@ -6,6 +6,7 @@ import { AnswerOption, type AnswerState } from "@/components/shared/answer-optio
 import { useFitScale } from "@/hooks/use-fit-scale";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
+import { motion } from "motion/react";
 
 /**
  * Beyond this much combined question + answer text the default density stops fitting a short
@@ -70,7 +71,13 @@ export function QuestionStage({
   ]);
 
   const questionColumn = (
-    <div className="session-question-copy flex min-h-0 w-full flex-col gap-1 sm:gap-3 lg:h-full">
+    <motion.div
+      key={question.id}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      className="session-question-copy flex min-h-0 w-full flex-col gap-1 sm:gap-3 lg:h-full"
+    >
       <div className="shrink-0 space-y-0.5 sm:space-y-2">
         <div className="flex items-center justify-between gap-2">
           <span className="inline-flex items-center rounded-md border border-accent/30 bg-accent/10 px-2 py-0.5 text-[10px] font-extrabold tabular-nums text-accent sm:px-3 sm:py-1 sm:text-xs">
@@ -128,7 +135,7 @@ export function QuestionStage({
           </button>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 
   return (
