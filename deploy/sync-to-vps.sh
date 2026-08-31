@@ -14,7 +14,7 @@ ALLOWED_PATHS="${DEPLOY_ALLOWED_PATHS:-$DEFAULT_DEST}"
 EXCLUDE="${ROOT}/deploy/rsync-exclude.txt"
 MODE=dry-run
 ROLLBACK_ID=""
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
+SSH_OPTS=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
 
 usage() {
   cat <<'EOF'

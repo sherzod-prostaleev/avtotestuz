@@ -3,6 +3,8 @@
 
 .git/
 .deployed-commit
+.deployed-web-image
+.deploy-artifacts/
 .deploy-rollbacks/
 .rsync-partial/
 .agents/
