@@ -121,10 +121,9 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
               }`}
             >
               {isSelected && (
-                <motion.span
-                  layoutId="signs-filter-pill"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  className="absolute inset-0 rounded-xl bg-accent shadow-3d"
+                <span
+                  aria-hidden="true"
+                  className="nav-pill-in absolute inset-0 rounded-xl bg-accent shadow-3d"
                 />
               )}
               <span className="relative z-10">{group.name}</span>
@@ -157,16 +156,15 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
         </Card>
       )}
 
+      {/* CSS enter animation, keyed by group. `AnimatePresence mode="popLayout"`
+          held the outgoing group in the DOM alongside the incoming one — up to
+          570 cards at once, every one of them re-registering its Link — and
+          measured the whole grid to place them. */}
       {!loading && !error && signs.length > 0 && (
-        <AnimatePresence mode="popLayout">
-          <motion.div
-            key={activeGroup}
-            initial={{ opacity: 0.4, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-            className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
-          >
+        <div
+          key={activeGroup}
+          className="page-enter grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+        >
             {signs.map((sign) => {
               const hasQuestions = sign.question_count > 0;
               const content = (
@@ -204,6 +202,12 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
                   {hasQuestions ? (
                     <Link
                       href={practiceHref(sessionStartBase, sign.code, sign.question_count)}
+                      // Every card points at a different /session/start query, so
+                      // the default prefetch asked the server to render one RSC
+                      // payload per sign — 285 of them, re-fired on each remount.
+                      // The route is a client component that starts a session on
+                      // mount; there is nothing worth prefetching.
+                      prefetch={false}
                       className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       aria-label={`${sign.code}. ${sign.name}. ${t("questionCountLabel", { count: sign.question_count })}`}
                     >
@@ -222,8 +226,7 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
                 </Card>
               );
             })}
-          </motion.div>
-        </AnimatePresence>
+        </div>
       )}
 
 
@@ -321,6 +324,7 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
                   {modalCount > 0 && (
                     <Link
                       href={practiceHref(sessionStartBase, activeModalSign.code, modalCount)}
+                      prefetch={false}
                       className="inline-flex h-9 items-center justify-center rounded-xl bg-accent px-4 text-sm font-extrabold text-accent-foreground"
                     >
                       <Play className="mr-2 h-4 w-4" aria-hidden="true" />

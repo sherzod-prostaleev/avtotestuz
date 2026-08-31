@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -179,11 +178,14 @@ export function Sidebar() {
               : "sidebar-link-inactive"
         }`}
       >
+        {/* Plain span, not a shared-layout `motion.span`. A `layoutId` here made
+            the sidebar — which is mounted for the whole session — re-measure
+            its subtree on every projection pass, and the slide it bought was
+            not worth the constant layout work on a phone. */}
         {isActive && (
-          <motion.span
-            layoutId="sidebar-active-indicator"
-            transition={{ type: "spring", stiffness: 320, damping: 30 }}
-            className="absolute inset-0 rounded-md bg-accent text-accent-foreground shadow-3d md:rounded-lg"
+          <span
+            aria-hidden="true"
+            className="nav-pill-in absolute inset-0 rounded-md bg-accent text-accent-foreground shadow-3d md:rounded-lg"
           />
         )}
         <Icon aria-hidden="true" className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-90" />
@@ -381,10 +383,9 @@ export function Sidebar() {
               >
                 <span className="relative flex h-7 w-12 items-center justify-center">
                   {active && (
-                    <motion.span
-                      layoutId="bottom-nav-active-pill"
-                      transition={{ type: "spring", stiffness: 320, damping: 30 }}
-                      className="absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
+                    <span
+                      aria-hidden="true"
+                      className="nav-pill-in absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
                     />
                   )}
                   <Icon
@@ -405,10 +406,9 @@ export function Sidebar() {
           >
             <span className="relative flex h-7 w-12 items-center justify-center">
               {mobileOpen && (
-                <motion.span
-                  layoutId="bottom-nav-active-pill"
-                  transition={{ type: "spring", stiffness: 320, damping: 30 }}
-                  className="absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
+                <span
+                  aria-hidden="true"
+                  className="nav-pill-in absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
                 />
               )}
               <Menu aria-hidden="true" className="relative h-5 w-5" />

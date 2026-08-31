@@ -224,10 +224,9 @@ export function OfficialAvtotestExamView({
                 }`}
               >
                 {isActive && (
-                  <motion.span
-                    layoutId="exam-locale-active-line"
-                    transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                    className="absolute top-0 left-0 w-full h-[3px] bg-[#22c55e]"
+                  <span
+                    aria-hidden="true"
+                    className="nav-pill-in absolute top-0 left-0 w-full h-[3px] bg-[#22c55e]"
                   />
                 )}
                 <span className="relative z-10 max-lg:hidden">{lang.label}</span>

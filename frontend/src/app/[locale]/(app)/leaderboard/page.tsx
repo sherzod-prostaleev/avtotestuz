@@ -7,7 +7,6 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Trophy } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
-import { motion } from "motion/react";
 
 
 
@@ -143,10 +142,9 @@ export default function LeaderboardPage({ kiosk = false }: LeaderboardPageProps 
               }`}
             >
               {isSelected && (
-                <motion.span
-                  layoutId="leaderboard-period-pill"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  className="absolute inset-0 rounded-xl bg-accent shadow-3d"
+                <span
+                  aria-hidden="true"
+                  className="nav-pill-in absolute inset-0 rounded-xl bg-accent shadow-3d"
                 />
               )}
               <span className="relative z-10">{t(item.labelKey)}</span>

@@ -34,7 +34,6 @@ import {
 } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
 import { useCatalogCounts } from "@/hooks/use-variant-count";
-import { AnimatePresence, motion } from "motion/react";
 
 
 // Every preset is a one-tap start, so the list runs past a single sitting on

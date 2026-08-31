@@ -10,7 +10,6 @@ import { prefetchVariantDetail } from "@/lib/prefetch-variant";
 import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
 import { Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
-import { AnimatePresence, motion } from "motion/react";
 
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
@@ -269,10 +268,9 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
               }`}
             >
               {isSelected && (
-                <motion.span
-                  layoutId="tickets-filter-pill"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                  className="absolute inset-0 rounded-xl bg-accent shadow-3d"
+                <span
+                  aria-hidden="true"
+                  className="nav-pill-in absolute inset-0 rounded-xl bg-accent shadow-3d"
                 />
               )}
               <span className="relative z-10">{tab.label}</span>

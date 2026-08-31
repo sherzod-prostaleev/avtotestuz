@@ -620,12 +620,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     const wrongCount = questions.filter((q) => q.correct === false).length;
 
     return (
-      <motion.main
-        initial={{ opacity: 0, scale: 0.97, y: 14 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-        className="page-shell-narrow space-y-5 sm:space-y-6"
-      >
+      <main className="page-enter page-shell-narrow space-y-5 sm:space-y-6">
         <Card className={`p-5 text-center sm:p-8 ${positiveResult ? "border-success/40" : "border-border"}`}>
           <div
             className={`mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border sm:h-20 sm:w-20 sm:rounded-full ${
@@ -759,9 +754,8 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
             total={total}
           />
         )}
-      </motion.main>
+      </main>
     );
-
   }
 
   const currentSaved = currentQuestion ? savedIds.has(currentQuestion.id) : false;
@@ -791,12 +785,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   }
 
   return (
-    <motion.main
-      initial={{ opacity: 0.3, scale: 0.99 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-      className="session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3"
-    >
+    <main className="page-enter session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3">
 
       <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-3">
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
@@ -805,7 +794,15 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
             size="sm"
             className="h-9 min-h-9 gap-1 rounded-lg border-border px-2.5 text-xs font-extrabold transition-transform active:scale-95 sm:h-11 sm:min-h-11 sm:rounded-xl sm:px-4 sm:text-sm"
             aria-label={t("exit")}
-            onClick={() => (kiosk ? router.push(exitHref) : setExitConfirmOpen(true))}
+            // Only a timed exam has anything to warn about: its clock keeps
+            // running after you leave. A bilet or a topic drill has no timer,
+            // so asking "the timer will keep going" there is both a lie and an
+            // interruption that was never there before — leave straight away.
+            onClick={() =>
+              kiosk || !isExamLikeMode(session.mode)
+                ? router.push(exitHref)
+                : setExitConfirmOpen(true)
+            }
           >
             <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
             <span>{t("exit")}</span>
@@ -1124,7 +1121,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.main>
+    </main>
   );
 }
 

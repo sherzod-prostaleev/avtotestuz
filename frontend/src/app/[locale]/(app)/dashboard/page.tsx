@@ -346,6 +346,10 @@ export default function DashboardPage() {
                           </p>
                           <Link
                             href={nextAction.href}
+                            // Can point at /session/start, which starts a session
+                            // on mount — a prefetch of it renders server-side for
+                            // nothing, and re-renders on every remount.
+                            prefetch={false}
                             className="inline-flex min-h-11 items-center text-sm font-extrabold text-accent hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             {t("habitContinueCta")}
@@ -464,6 +468,7 @@ export default function DashboardPage() {
 
               <Link
                 href={nextAction.href}
+                prefetch={false}
                 className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl border-b-4 border-accent-shadow bg-accent px-4 text-sm font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none sm:mt-6 sm:min-h-13 sm:rounded-2xl sm:px-6 sm:text-base"
               >
                 {nextAction.cta}
@@ -536,6 +541,9 @@ export default function DashboardPage() {
               </div>
               <Link
                 href={`/${locale}/session/${encodeURIComponent(resumeSession.id)}`}
+                // The session page loads its own state on mount; the prefetched
+                // shell is thrown away and only costs a server render.
+                prefetch={false}
                 className="inline-flex min-h-13 w-full shrink-0 items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-extrabold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:translate-y-1 active:border-b-0 active:shadow-none md:w-auto"
               >
                 {t("resumeCta")}

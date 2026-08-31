@@ -1,38 +1,41 @@
 "use client";
 
-import { AnimatePresence, motion } from "motion/react";
 import { usePathname } from "next/navigation";
-import { LayoutRouterContext } from "next/dist/shared/lib/app-router-context.shared-runtime";
-import React, { useContext, useRef } from "react";
-
-// Apple iOS fluid deceleration curve
-const iosEasing = [0.16, 1, 0.3, 1] as const;
+import React from "react";
 
 /**
- * Freezes the outgoing route's React component tree during the exit animation
- * so that AnimatePresence mode="popLayout" can smoothly animate the old page fading out
- * while revealing the incoming page.
+ * The locale prefix is not a route change. Stripping it keeps the key stable
+ * while switching language, so the tree is never torn down and the text swaps
+ * in place — the behaviour 72b9aee introduced, kept here.
  */
-function FrozenRoute({ children }: { children: React.ReactNode }) {
-  const context = useContext(LayoutRouterContext ?? {});
-  const frozen = useRef(context).current;
-
-  if (!LayoutRouterContext) {
-    return <>{children}</>;
-  }
-
-  return (
-    <LayoutRouterContext.Provider value={frozen}>
-      {children}
-    </LayoutRouterContext.Provider>
-  );
-}
-
 function getRouteKey(pathname: string | null): string {
   if (!pathname) return "";
   return pathname.replace(/^\/(uz-Latn|uz-Cyrl|ru)(\/|$)/, "/") || "/";
 }
 
+/**
+ * Enter-only page fade, done in CSS.
+ *
+ * This deliberately does NOT use AnimatePresence. The Framer version
+ * (9a37779) cost the platform its responsiveness in three ways, all measured
+ * in production:
+ *
+ *  - `mode="popLayout"` kept the outgoing page mounted and absolutely
+ *    positioned while the next one rendered, and measured the whole subtree to
+ *    do it. On /signs that is 285 cards held in the DOM twice.
+ *  - A `FrozenRoute` provider pinned `LayoutRouterContext` to its first value
+ *    for the life of the mounted route, so the App Router's tree and the DOM
+ *    drifted apart. The route subtree — head metadata included — remounted
+ *    over and over: one browser refetched /manifest.webmanifest 170 times
+ *    against 16 real page loads, and every <Link prefetch> under it
+ *    re-registered each time, which is what turned prefetching into a storm.
+ *  - `will-change: transform, opacity` sat on the wrapper permanently, holding
+ *    the entire page on its own compositor layer long after any animation.
+ *
+ * A keyed <div> with a CSS animation gives the same thing on screen for no JS,
+ * no measurement, and no router interference. Opacity and transform are
+ * composited, so no will-change hint is needed.
+ */
 export function PageTransition({
   children,
   className = "w-full",
@@ -40,28 +43,11 @@ export function PageTransition({
   children: React.ReactNode;
   className?: string;
 }) {
-  const pathname = usePathname();
-  const routeKey = getRouteKey(pathname);
+  const routeKey = getRouteKey(usePathname());
 
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
-      <motion.div
-        key={routeKey}
-        initial={{ opacity: 0.35, scale: 0.99, y: 6 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 1.005, y: -6 }}
-        transition={{
-          duration: 0.22,
-          ease: iosEasing,
-        }}
-        className={className}
-        style={{ willChange: "transform, opacity" }}
-      >
-        <FrozenRoute>{children}</FrozenRoute>
-      </motion.div>
-    </AnimatePresence>
+    <div key={routeKey} className={`page-enter ${className}`}>
+      {children}
+    </div>
   );
 }
-
-export { PageTransition as PageFade };
-

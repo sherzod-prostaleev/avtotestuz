@@ -5,7 +5,6 @@ import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/config";
 import { ChevronDown } from "lucide-react";
-import { motion } from "motion/react";
 
 const LOCALES = [
   { code: "uz-Latn" as const, labelKey: "languageUzLatn" as const },
@@ -202,10 +201,9 @@ export function LocaleSwitcher({
             }`}
           >
             {isSelected && (
-              <motion.span
-                layoutId="locale-switcher-active-pill"
-                transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                className="absolute inset-0 rounded bg-accent shadow-3d md:rounded-md"
+              <span
+                aria-hidden="true"
+                className="nav-pill-in absolute inset-0 rounded bg-accent shadow-3d md:rounded-md"
               />
             )}
             <span className="relative z-10">{t(lang.labelKey)}</span>
