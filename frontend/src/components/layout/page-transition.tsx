@@ -28,6 +28,11 @@ function FrozenRoute({ children }: { children: React.ReactNode }) {
   );
 }
 
+function getRouteKey(pathname: string | null): string {
+  if (!pathname) return "";
+  return pathname.replace(/^\/(uz-Latn|uz-Cyrl|ru)(\/|$)/, "/") || "/";
+}
+
 export function PageTransition({
   children,
   className = "w-full",
@@ -36,16 +41,17 @@ export function PageTransition({
   className?: string;
 }) {
   const pathname = usePathname();
+  const routeKey = getRouteKey(pathname);
 
   return (
     <AnimatePresence mode="popLayout" initial={false}>
       <motion.div
-        key={pathname}
-        initial={{ opacity: 0.25, scale: 0.985, y: 8 }}
+        key={routeKey}
+        initial={{ opacity: 0.35, scale: 0.99, y: 6 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 1.01, y: -8 }}
+        exit={{ opacity: 0, scale: 1.005, y: -6 }}
         transition={{
-          duration: 0.40,
+          duration: 0.22,
           ease: iosEasing,
         }}
         className={className}
@@ -57,6 +63,5 @@ export function PageTransition({
   );
 }
 
-
-
 export { PageTransition as PageFade };
+

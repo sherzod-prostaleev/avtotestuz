@@ -54,11 +54,24 @@ export function LocaleSwitcher({
   const listId = useId();
   const warmedRef = useRef(new Set<Locale>());
 
+  useEffect(() => {
+    for (const { code } of LOCALES) {
+      if (code !== currentLocale && !warmedRef.current.has(code)) {
+        warmedRef.current.add(code);
+        if (typeof router.prefetch === "function") {
+          router.prefetch(pathname, { locale: code });
+        }
+      }
+    }
+  }, [currentLocale, pathname, router]);
+
   const warmLocales = () => {
     for (const { code } of LOCALES) {
       if (code === currentLocale || warmedRef.current.has(code)) continue;
       warmedRef.current.add(code);
-      router.prefetch(pathname, { locale: code });
+      if (typeof router.prefetch === "function") {
+        router.prefetch(pathname, { locale: code });
+      }
     }
   };
 
