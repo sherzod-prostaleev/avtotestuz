@@ -33,6 +33,13 @@ export function Sidebar() {
   const supportUnread = useSharedCount(supportUnreadCount, pathname);
   const drawerRef = useRef<HTMLElement>(null);
 
+  // The menu no longer covers the tab bar, so a learner can navigate straight
+  // out of it — and every other route change (a link, a tab, the back button)
+  // must close it too, not just the ones that remember to call this.
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
+
   const { streak, entitlement, user, loading } = useUserStats();
   const ticketCount = useVariantCount();
 

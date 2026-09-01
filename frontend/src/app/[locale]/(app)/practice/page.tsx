@@ -400,7 +400,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
   return (
     <main
-      className={`space-y-5 sm:space-y-6 ${
+      className={`space-y-5 max-md:space-y-4 sm:space-y-6 ${
         // A classroom monitor is 1920px wide and the learner shell caps at
         // 1024, so half of it sat empty. Wider shell, same four columns:
         // the cards grow instead of multiplying.
@@ -669,7 +669,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       )}
 
       {source === "image" && (
-        <Card className="grid gap-3 p-5 sm:grid-cols-2 sm:p-6">
+        <Card className="grid gap-3 p-5 max-md:grid-cols-2 max-md:gap-2 max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:shadow-none sm:grid-cols-2 sm:p-6">
           {[
             { value: true, icon: ImageIcon, label: t("imageWith") },
             { value: false, icon: AlignLeft, label: t("imageWithout") },
@@ -682,13 +682,13 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                 type="button"
                 aria-pressed={isSelected}
                 onClick={() => setWithImage(item.value)}
-                className={`flex min-h-14 items-center gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                className={`flex min-h-14 items-center gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11 max-md:gap-2 max-md:rounded-xl max-md:px-2.5 max-md:py-0 ${
                   isSelected ? "border-accent bg-accent/10" : "border-border bg-background hover:border-accent/50"
                 }`}
               >
-                <Icon aria-hidden="true" className="h-6 w-6 shrink-0 text-accent" />
-                <span className="text-base font-bold">{item.label}</span>
-                {isSelected && <CheckCircle2 aria-hidden="true" className="ml-auto h-5 w-5 text-accent" />}
+                <Icon aria-hidden="true" className="h-6 w-6 shrink-0 text-accent max-md:h-5 max-md:w-5" />
+                <span className="text-base font-bold max-md:truncate max-md:text-sm">{item.label}</span>
+                {isSelected && <CheckCircle2 aria-hidden="true" className="ml-auto h-5 w-5 shrink-0 text-accent max-md:hidden" />}
               </button>
             );
           })}
@@ -699,27 +699,29 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
           a grid rather than a row because eight sizes wrap badly on a phone,
           and the kiosk is touched, not clicked. */}
       {(source === "variant" || source === "image") && (
-        <Card className="space-y-4 p-5 sm:p-6">
+        <Card className="space-y-4 p-5 max-md:space-y-1.5 max-md:p-2.5 sm:p-6">
           <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
             {t("countLabel")}
           </h2>
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2.5 max-md:grid-cols-3 max-md:gap-1.5 sm:grid-cols-3">
             {COUNT_PRESETS.map((preset) => (
               <Button
                 key={preset}
                 variant="outline"
+                aria-label={t("questionCountOption", { count: preset })}
                 onClick={() => handleCountClick(preset)}
                 disabled={!countStartReady}
-                className="min-h-12 py-2.5 text-sm font-extrabold"
+                className="min-h-12 py-2.5 text-sm font-extrabold max-md:min-h-11 max-md:px-1 max-md:py-2"
               >
-                {t("questionCountOption", { count: preset })}
+                <span className="max-md:hidden">{t("questionCountOption", { count: preset })}</span>
+                <span className="hidden tabular-nums max-md:inline">{preset}</span>
               </Button>
             ))}
             <Button
               variant="game"
               onClick={() => handleCountClick(maxCustomCount)}
               disabled={!countStartReady}
-              className="min-h-12 py-2.5 text-sm font-extrabold"
+              className="min-h-12 py-2.5 text-sm font-extrabold max-md:min-h-11 max-md:px-1 max-md:py-2"
             >
               {t("countAll")}
             </Button>
