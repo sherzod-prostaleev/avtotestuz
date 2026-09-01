@@ -24,6 +24,12 @@ export function Reveal({ children, className = "", delayMs = 0 }: RevealProps) {
       return;
     }
 
+    const rect = el.getBoundingClientRect();
+    if (rect.top < (window.innerHeight || 800) && rect.bottom > 0) {
+      el.classList.add("is-revealed");
+      return;
+    }
+
     const io = new IntersectionObserver(
       ([entry]) => {
         if (!entry?.isIntersecting) return;

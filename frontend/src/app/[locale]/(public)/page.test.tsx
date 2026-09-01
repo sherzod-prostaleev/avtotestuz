@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import uzLatnMessages from "../../../../messages/uz-Latn.json";
 import uzCyrlMessages from "../../../../messages/uz-Cyrl.json";
 import ruMessages from "../../../../messages/ru.json";
-import LandingPage from "./page";
+import LandingPage, { clearLandingCacheForTests } from "./page";
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => (
@@ -69,6 +69,7 @@ function renderWithIntl(localeCase: (typeof localeCases)[number]) {
 }
 
 beforeEach(() => {
+  clearLandingCacheForTests();
   vi.stubGlobal(
     "fetch",
     vi.fn().mockImplementation((input: string) => {

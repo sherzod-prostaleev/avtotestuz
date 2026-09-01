@@ -26,6 +26,14 @@ const FALLBACK: CatalogCounts = {
   topics: OFFICIAL_TOPIC_COUNT,
 };
 
+let catalogCountsCache: CatalogCounts | null = null;
+let catalogCountsFetchedAt = 0;
+
+export function clearCatalogCountsCacheForTests(): void {
+  catalogCountsCache = null;
+  catalogCountsFetchedAt = 0;
+}
+
 /**
  * Live catalog sizes, read from the catalog itself rather than quoted from
  * constants, so imported biletlar, questions and topics show up in the copy
@@ -33,20 +41,30 @@ const FALLBACK: CatalogCounts = {
  * land, and keeps them for whichever request fails.
  */
 export function useCatalogCounts(): CatalogCounts {
-  const [counts, setCounts] = useState<CatalogCounts>(FALLBACK);
+  const [counts, setCounts] = useState<CatalogCounts>(() => catalogCountsCache ?? FALLBACK);
 
   useEffect(() => {
+    if (catalogCountsCache && Date.now() - catalogCountsFetchedAt < 30_000) {
+      setCounts(catalogCountsCache);
+      return;
+    }
+
     let cancelled = false;
 
     void apiGet<VariantListItem[]>("variants")
       .then((list) => {
         if (cancelled || !Array.isArray(list) || list.length === 0) return;
         const questions = list.reduce((sum, v) => sum + (v.question_count ?? 0), 0);
-        setCounts((prev) => ({
-          ...prev,
-          tickets: list.length,
-          questions: questions > 0 ? questions : prev.questions,
-        }));
+        setCounts((prev) => {
+          const next = {
+            ...prev,
+            tickets: list.length,
+            questions: questions > 0 ? questions : prev.questions,
+          };
+          catalogCountsCache = next;
+          catalogCountsFetchedAt = Date.now();
+          return next;
+        });
       })
       .catch(() => {
         // Keep the static fallback.
@@ -55,7 +73,12 @@ export function useCatalogCounts(): CatalogCounts {
     void apiGet<CategoryListItem[]>("categories")
       .then((list) => {
         if (cancelled || !Array.isArray(list) || list.length === 0) return;
-        setCounts((prev) => ({ ...prev, topics: list.length }));
+        setCounts((prev) => {
+          const next = { ...prev, topics: list.length };
+          catalogCountsCache = next;
+          catalogCountsFetchedAt = Date.now();
+          return next;
+        });
       })
       .catch(() => {
         // Keep the static fallback.

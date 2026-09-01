@@ -56,20 +56,29 @@ export function GrandMockCard() {
   const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
-    setLoading(true);
+    if (!mockEligibilityStore.get()) {
+      setLoading(true);
+    }
     setError(false);
     try {
       const res = await mockEligibilityStore.load();
       setData(res);
     } catch {
-      setError(true);
+      if (!mockEligibilityStore.get()) {
+        setError(true);
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    const unsub = mockEligibilityStore.subscribe((next) => {
+      setData(next);
+      setLoading(false);
+    });
     void load();
+    return unsub;
   }, [load]);
 
   return (

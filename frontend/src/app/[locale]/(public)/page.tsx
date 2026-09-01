@@ -121,25 +121,49 @@ function ExamCockpit({
   );
 }
 
+let landingContactsCache: SiteContacts | null = null;
+let landingHomeCache: SiteHomeHero | null = null;
+let landingFetchedAt = 0;
+
+export function clearLandingCacheForTests(): void {
+  landingContactsCache = null;
+  landingHomeCache = null;
+  landingFetchedAt = 0;
+}
+
 export default function LandingPage() {
   const t = useTranslations("Landing");
   const locale = useLocale();
   const { tickets: ticketCount, questions: questionCount, topics: topicCount } = useCatalogCounts();
-  const [contacts, setContacts] = useState<SiteContacts | null>(null);
-  const [home, setHome] = useState<SiteHomeHero | null>(null);
+  const [contacts, setContacts] = useState<SiteContacts | null>(() => landingContactsCache);
+  const [home, setHome] = useState<SiteHomeHero | null>(() => landingHomeCache);
 
   useEffect(() => {
+    if (landingContactsCache && landingHomeCache && Date.now() - landingFetchedAt < 30_000) {
+      setContacts(landingContactsCache);
+      setHome(landingHomeCache);
+      return;
+    }
+
     let cancelled = false;
     void apiGet<SiteContacts>("site/contacts")
       .then((data) => {
-        if (!cancelled) setContacts(data);
+        if (!cancelled) {
+          landingContactsCache = data;
+          landingFetchedAt = Date.now();
+          setContacts(data);
+        }
       })
       .catch(() => {
         /* keep i18n placeholders */
       });
     void apiGet<SiteHomeHero>("site/home")
       .then((data) => {
-        if (!cancelled) setHome(data);
+        if (!cancelled) {
+          landingHomeCache = data;
+          landingFetchedAt = Date.now();
+          setHome(data);
+        }
       })
       .catch(() => {
         /* keep i18n placeholders */

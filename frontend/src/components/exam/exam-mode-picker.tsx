@@ -86,7 +86,13 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
   }, [start]);
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#091726] px-4 py-10 text-white">
+    <main
+      className={`relative flex flex-col items-center justify-center overflow-hidden text-white ${
+        kiosk
+          ? "min-h-screen bg-[#091726] px-4 py-10"
+          : "page-shell min-h-[calc(100dvh-5rem)] rounded-2xl sm:rounded-3xl bg-[#091726] px-4 py-8 sm:py-12 my-2 sm:my-4"
+      }`}
+    >
       {/* The same cube mesh the exam runner uses, so this reads as its front door. */}
       <div
         className="pointer-events-none absolute inset-0"

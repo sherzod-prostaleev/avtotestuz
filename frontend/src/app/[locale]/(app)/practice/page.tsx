@@ -162,12 +162,14 @@ const categoriesModuleCache: Record<string, CategoryItem[]> = {};
 let variantsModuleCache: number | null = null;
 let statsModuleCache: { dueCount: number; bankCount: number; nextDueAt: string | null } | null = null;
 let practiceFetchedAt = 0;
+const practiceInFlight = new Map<string, Promise<void>>();
 
 export function clearPracticeCacheForTests(): void {
   for (const k in categoriesModuleCache) delete categoriesModuleCache[k];
   variantsModuleCache = null;
   statsModuleCache = null;
   practiceFetchedAt = 0;
+  practiceInFlight.clear();
 }
 
 export interface PracticePageProps {
@@ -220,52 +222,75 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       return;
     }
 
+    const existingTask = practiceInFlight.get(locale);
+    if (existingTask) {
+      await existingTask;
+      if (categoriesModuleCache[locale]) {
+        setCategories(categoriesModuleCache[locale]);
+        if (variantsModuleCache !== null) setVariantCount(variantsModuleCache);
+        if (statsModuleCache) {
+          setDueCount(statsModuleCache.dueCount);
+          setBankCount(statsModuleCache.bankCount);
+          setNextDueAt(statsModuleCache.nextDueAt);
+        }
+      }
+      setLoading(false);
+      return;
+    }
+
     if (!categoriesModuleCache[locale]) {
       setLoading(true);
     }
     setLoadError(false);
-    try {
-      const [cats, variants, stats, mistakes] = await Promise.all([
-        apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
-        apiGet<VariantItem[]>("variants"),
-        apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0 })),
-        apiGet<MistakesDTO>("me/mistakes").catch(() => ({
-          due_count: 0,
-          total_bank_count: 0,
-          next_due_at: null,
-        })),
-      ]);
-      const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
-      categoriesModuleCache[locale] = ordered;
-      practiceFetchedAt = Date.now();
-      setCategories(ordered);
 
-      const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
-      const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
-      const calculatedDue = Math.max(dueFromMistakes, dueFromStats);
-      const calculatedBank = Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0;
-      const calculatedNextDue = typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null;
+    const task = (async () => {
+      try {
+        const [cats, variants, stats, mistakes] = await Promise.all([
+          apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
+          apiGet<VariantItem[]>("variants"),
+          apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0 })),
+          apiGet<MistakesDTO>("me/mistakes").catch(() => ({
+            due_count: 0,
+            total_bank_count: 0,
+            next_due_at: null,
+          })),
+        ]);
+        const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
+        categoriesModuleCache[locale] = ordered;
+        practiceFetchedAt = Date.now();
+        setCategories(ordered);
 
-      statsModuleCache = { dueCount: calculatedDue, bankCount: calculatedBank, nextDueAt: calculatedNextDue };
-      setDueCount(calculatedDue);
-      setBankCount(calculatedBank);
-      setNextDueAt(calculatedNextDue);
+        const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
+        const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
+        const calculatedDue = Math.max(dueFromMistakes, dueFromStats);
+        const calculatedBank = Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0;
+        const calculatedNextDue = typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null;
 
-      const maxVar = variants.reduce((max, item) => Math.max(max, item.number), 0);
-      variantsModuleCache = maxVar;
-      setVariantCount(maxVar);
-    } catch {
-      if (!categoriesModuleCache[locale]) {
-        setCategories([]);
-        setVariantCount(0);
-        setDueCount(0);
-        setBankCount(0);
-        setNextDueAt(null);
-        setLoadError(true);
+        statsModuleCache = { dueCount: calculatedDue, bankCount: calculatedBank, nextDueAt: calculatedNextDue };
+        setDueCount(calculatedDue);
+        setBankCount(calculatedBank);
+        setNextDueAt(calculatedNextDue);
+
+        const maxVar = variants.reduce((max, item) => Math.max(max, item.number), 0);
+        variantsModuleCache = maxVar;
+        setVariantCount(maxVar);
+      } catch {
+        if (!categoriesModuleCache[locale]) {
+          setCategories([]);
+          setVariantCount(0);
+          setDueCount(0);
+          setBankCount(0);
+          setNextDueAt(null);
+          setLoadError(true);
+        }
+      } finally {
+        practiceInFlight.delete(locale);
+        setLoading(false);
       }
-    } finally {
-      setLoading(false);
-    }
+    })();
+
+    practiceInFlight.set(locale, task);
+    await task;
   }, [locale]);
 
   useEffect(() => {

@@ -7,7 +7,7 @@ import { useVariantCount } from "@/hooks/use-variant-count";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useSessionHistory, type SessionSummary } from "@/hooks/use-session-history";
 import { apiGet } from "@/lib/api-client";
-import { mistakesCountStore } from "@/lib/dashboard-stores";
+import { mistakesCountStore, savedQuestionsStore } from "@/lib/dashboard-stores";
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { GrandMockCard } from "@/components/mock/grand-mock-card";
@@ -116,6 +116,7 @@ export default function DashboardPage() {
   const { sessions, loading: historyLoading, error: historyError } = useSessionHistory(20);
   const [onboardingVisible, setOnboardingVisible] = useState(false);
   const [mistakesDueCount, setMistakesDueCount] = useState(() => mistakesCountStore.get());
+  const [savedCount, setSavedCount] = useState(() => savedQuestionsStore.get().size);
 
   // Hero and stats sections settle based on user profile & stats; session history
   // loads seamlessly in the background with in-memory caching.
@@ -153,20 +154,24 @@ export default function DashboardPage() {
   }, []);
 
   // Mistakes card must show me/mistakes.due_count (lapses>0), not FSRS me/stats.due_count.
+  // Both mistakes and saved questions stores load with 30s TTL in-memory caching.
   useEffect(() => {
-    let cancelled = false;
+    const unsubMistakes = mistakesCountStore.subscribe(setMistakesDueCount);
+    const unsubSaved = savedQuestionsStore.subscribe((set) => setSavedCount(set.size));
+
     void mistakesCountStore
       .load()
-      .then((count) => {
-        if (!cancelled) {
-          setMistakesDueCount(count);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setMistakesDueCount(0);
-      });
+      .then((count) => setMistakesDueCount(count))
+      .catch(() => setMistakesDueCount(0));
+
+    void savedQuestionsStore
+      .load()
+      .then((set) => setSavedCount(set.size))
+      .catch(() => setSavedCount(0));
+
     return () => {
-      cancelled = true;
+      unsubMistakes();
+      unsubSaved();
     };
   }, []);
 
@@ -668,7 +673,14 @@ export default function DashboardPage() {
                   <Bookmark aria-hidden="true" className="h-5 w-5 sm:h-7 sm:w-7" />
                 </div>
                 <div className="min-w-0">
-                  <h3 className="font-display text-sm font-bold sm:text-xl">{savedT("title")}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-display text-sm font-bold sm:text-xl">{savedT("title")}</h3>
+                    {savedCount > 0 && (
+                      <span className="rounded-md bg-gold/15 px-2 py-0.5 text-[10px] font-extrabold text-gold sm:text-xs">
+                        {savedT("countLabel", { count: savedCount })}
+                      </span>
+                    )}
+                  </div>
                   <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground sm:text-sm sm:leading-relaxed">
                     {savedT("subtitle")}
                   </p>

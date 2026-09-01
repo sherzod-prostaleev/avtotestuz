@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/config";
@@ -48,25 +48,10 @@ export function LocaleSwitcher({
   const t = useTranslations("LocaleSwitcher");
   const pathname = usePathname();
   const router = useRouter();
+  const [, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
-
-  /**
-   * Deliberately NOT prefetching the other locales.
-   *
-   * 72b9aee warmed /ru/<page> and /uz-Cyrl/<page> on mount and on hover to
-   * make the switch instant. Every one of those requests goes through
-   * proxy.ts, which runs next-intl's middleware, and that middleware sets
-   * NEXT_LOCALE to the locale of the path it just served. So warming the
-   * list rewrote the learner's stored language to whichever entry came last
-   * — "ru" — and the site opened in Russian on their next visit, for
-   * everyone, without anyone having chosen it.
-   *
-   * The warming did not even pay for itself: staleTimes.dynamic is 30s, so a
-   * prefetch taken at mount is stale long before anyone reaches for the
-   * switcher.
-   */
 
   const handleLanguageChange = (newLocale: Locale) => {
     if (newLocale === currentLocale) return;
@@ -74,10 +59,12 @@ export function LocaleSwitcher({
       typeof window !== "undefined"
         ? Object.fromEntries(new URLSearchParams(window.location.search))
         : {};
-    router.replace(
-      Object.keys(query).length > 0 ? { pathname, query } : pathname,
-      { locale: newLocale, scroll: false }
-    );
+    startTransition(() => {
+      router.replace(
+        Object.keys(query).length > 0 ? { pathname, query } : pathname,
+        { locale: newLocale, scroll: false }
+      );
+    });
     setOpen(false);
   };
 

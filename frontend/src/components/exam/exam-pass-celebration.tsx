@@ -83,9 +83,14 @@ export function ExamPassCelebration({
               <X className="h-5 w-5" aria-hidden="true" />
             </button>
 
-            <div className="exam-pass-medal relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-2 border-gold/60 bg-gold/15">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ delay: 0.1, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="exam-pass-medal relative mx-auto flex h-24 w-24 items-center justify-center rounded-full border-2 border-gold/60 bg-gold/15 shadow-[0_0_24px_rgba(234,179,8,0.25)]"
+            >
               <Award className="h-12 w-12 text-gold" aria-hidden="true" />
-            </div>
+            </motion.div>
 
             <p className="exam-pass-eyebrow relative mt-5 text-xs font-bold uppercase tracking-[0.22em] text-gold">
               {t("examPassCelebrationEyebrow")}

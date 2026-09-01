@@ -28,9 +28,8 @@ export function createSharedStore<T>(
 
   const store: SharedStore<T> = {
     load({ force = false } = {}) {
-      const isTest = typeof process !== "undefined" && process.env?.NODE_ENV === "test";
       if (inFlight) return inFlight;
-      if (!force && !isTest && fetchedAt > 0 && Date.now() - fetchedAt < ttlMs) {
+      if (!force && fetchedAt > 0 && Date.now() - fetchedAt < ttlMs) {
         return Promise.resolve(value);
       }
 
@@ -40,7 +39,7 @@ export function createSharedStore<T>(
           return next;
         })
         .catch((err) => {
-          if (!force && !isTest && fetchedAt > 0) return value;
+          if (!force && fetchedAt > 0) return value;
           throw err;
         })
         .finally(() => {

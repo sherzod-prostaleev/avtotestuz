@@ -113,11 +113,41 @@ function mapMe(me: MeResponseDTO): Pick<DashboardData, "user" | "entitlement"> {
   };
 }
 
+const categoriesCache: Record<string, CategoryDTO[]> = {};
+let streakCache: { data: StreakDTO; time: number } | null = null;
+let statsCache: { data: StatsResponseDTO; time: number } | null = null;
+
+export function clearUserStatsModuleCacheForTests(): void {
+  for (const k in categoriesCache) delete categoriesCache[k];
+  streakCache = null;
+  statsCache = null;
+}
+
 async function fetchUserStatsRest(locale: string): Promise<UserStatsRest> {
+  const now = Date.now();
+  const getStreak = async (): Promise<StreakDTO> => {
+    if (streakCache && now - streakCache.time < 30_000) return streakCache.data;
+    const data = await apiGet<StreakDTO>("me/streak");
+    streakCache = { data, time: Date.now() };
+    return data;
+  };
+  const getStats = async (): Promise<StatsResponseDTO> => {
+    if (statsCache && now - statsCache.time < 30_000) return statsCache.data;
+    const data = await apiGet<StatsResponseDTO>("me/stats");
+    statsCache = { data, time: Date.now() };
+    return data;
+  };
+  const getCategories = async (): Promise<CategoryDTO[]> => {
+    if (categoriesCache[locale]) return categoriesCache[locale];
+    const data = await apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`);
+    categoriesCache[locale] = data;
+    return data;
+  };
+
   const [streakDTO, statsDTO, categories] = await Promise.all([
-    apiGet<StreakDTO>("me/streak"),
-    apiGet<StatsResponseDTO>("me/stats"),
-    apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`),
+    getStreak(),
+    getStats(),
+    getCategories(),
   ]);
 
   const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
@@ -160,6 +190,7 @@ export function useUserStats() {
     queryKey: ["user-stats-rest", locale],
     queryFn: () => fetchUserStatsRest(locale),
     staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
     retry: false,
   });
 

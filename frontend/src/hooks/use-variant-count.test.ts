@@ -6,7 +6,7 @@ import {
   OFFICIAL_TICKET_COUNT,
   OFFICIAL_TOPIC_COUNT,
 } from "@/lib/content-counts";
-import { useCatalogCounts, useVariantCount } from "./use-variant-count";
+import { useCatalogCounts, useVariantCount, clearCatalogCountsCacheForTests } from "./use-variant-count";
 
 vi.mock("@/lib/api-client", async () => {
   const actual = await vi.importActual<typeof import("@/lib/api-client")>("@/lib/api-client");
@@ -35,6 +35,7 @@ function mockCatalog({
 
 describe("useVariantCount", () => {
   beforeEach(() => {
+    clearCatalogCountsCacheForTests();
     vi.mocked(apiClient.apiGet).mockReset();
   });
 
@@ -68,6 +69,7 @@ describe("useVariantCount", () => {
 
 describe("useCatalogCounts", () => {
   beforeEach(() => {
+    clearCatalogCountsCacheForTests();
     vi.mocked(apiClient.apiGet).mockReset();
   });
 

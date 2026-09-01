@@ -73,9 +73,9 @@ export function QuestionStage({
   const questionColumn = (
     <motion.div
       key={question.id}
-      initial={{ opacity: 0, y: 4 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
       className="session-question-copy flex min-h-0 w-full flex-col gap-1 sm:gap-3 lg:h-full"
     >
       <div className="shrink-0 space-y-0.5 sm:space-y-2">

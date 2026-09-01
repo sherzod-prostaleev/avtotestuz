@@ -42,8 +42,8 @@ export function AnswerOption({
     neutral:
       "border-border bg-card text-foreground shadow-raised-sm hover:border-accent hover:-translate-y-0.5",
     selected: "border-accent bg-accent/15 text-foreground font-bold shadow-3d ring-2 ring-accent/35",
-    correct: "answer-correct-pulse border-success bg-success/15 text-foreground font-bold shadow-3d-success ring-2 ring-success/35",
-    wrong: "answer-wrong-pulse border-danger bg-danger/15 text-foreground font-bold shadow-3d-danger ring-2 ring-danger/35",
+    correct: "answer-correct-pulse border-success bg-emerald-500/10 text-foreground font-bold shadow-3d-success ring-2 ring-success/35",
+    wrong: "answer-wrong-pulse border-danger bg-rose-500/10 text-foreground font-bold shadow-3d-danger ring-2 ring-danger/35",
   };
 
   const keyBadgeStyles: Record<string, string> = {

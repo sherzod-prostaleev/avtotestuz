@@ -78,7 +78,7 @@ export default async function LocaleLayout({
         {/* Default CSS is dark; script keeps next-themes class in sync before paint. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var t=localStorage.getItem("theme");if(t==="light"){d.classList.add("light");d.classList.remove("dark");d.style.colorScheme="light";d.style.backgroundColor="hsl(220 16% 96%)";}else{d.classList.add("dark");d.classList.remove("light");d.style.colorScheme="dark";d.style.backgroundColor="hsl(220 22% 7%)";}}catch(e){document.documentElement.classList.add("dark");document.documentElement.style.colorScheme="dark";document.documentElement.style.backgroundColor="hsl(220 22% 7%)";}})();`,
+            __html: `(function(){try{var d=document.documentElement;var t=localStorage.getItem("theme");if(t==="light"){d.classList.add("light");d.classList.remove("dark");}else{d.classList.add("dark");d.classList.remove("light");}}catch(e){document.documentElement.classList.add("dark");}})();`,
           }}
         />
         <link rel="icon" href="/favicon.ico" sizes="48x48" />
