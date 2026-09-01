@@ -482,7 +482,8 @@
     "nextTicketBest": "Eng yaxshi natija: {best}/{total}",
     "allDoneTitle": "Hammasi yopildi",
     "goToPractice": "Mavzularga o'tish",
-    "ticketQuestionsShort": "{count} savol"
+    "ticketQuestionsShort": "{count} savol",
+    "subtitleProgress": "{total} tadan {done} tasi yopildi"
   },
   "Signs": {
     "title": "Yo'l belgilari katalogi",

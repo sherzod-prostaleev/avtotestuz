@@ -188,7 +188,7 @@ export function Sidebar() {
         // sat still for ~0.5s after each click before anything moved.
         prefetch
         onClick={() => setMobileOpen(false)}
-        className={`sidebar-link relative max-md:min-h-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`sidebar-link relative max-md:min-h-12 max-md:rounded-none max-md:border-0 max-md:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
             ? "sidebar-link-active"
             : link.isGold
@@ -394,11 +394,13 @@ export function Sidebar() {
           <nav className="space-y-0.5 md:space-y-1.5">
             <div className="space-y-3 md:hidden">
               {mobileGroups.map((group) => (
-                <div key={group.label} className="space-y-0.5">
-                  <p className="px-1 pb-0.5 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                <div key={group.label}>
+                  <p className="px-1 pb-1 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
                     {group.label}
                   </p>
-                  {group.links.map(renderLink)}
+                  <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-background">
+                    {group.links.map(renderLink)}
+                  </div>
                 </div>
               ))}
             </div>

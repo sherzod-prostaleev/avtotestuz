@@ -63,10 +63,11 @@ describe("TicketsPage", () => {
     expect(
       screen.getByText(/Biletlarni bosqichma-bosqich yoping/i)
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Hammasi" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Tugallangan" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Jarayonda" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Qulflangan" })).toBeInTheDocument();
+    // The filter now carries its count, so the accessible name is "Hammasi 64".
+    expect(screen.getByRole("button", { name: /^Hammasi\b/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Tugallangan\b/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Jarayonda\b/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Qulflangan\b/ })).toBeInTheDocument();
     expect(screen.getAllByText("Bilet 1").length).toBeGreaterThan(0);
     // Twice on purpose: the tile carries a compact body for phones and the
     // rich card body for md and up, and both render the score.

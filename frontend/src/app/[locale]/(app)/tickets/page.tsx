@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefetchVariantDetail } from "@/lib/prefetch-variant";
 import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
-import { Search, Lock, Star, Play, RefreshCw, Check } from "lucide-react";
+import { Check, Lock, Play, RefreshCw, Search, Star, X } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
 
 
@@ -56,6 +56,8 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const sessionStartBase = kiosk ? `/${locale}/station/session/start` : `/${locale}/session/start`;
 
   const [search, setSearch] = useState("");
+  // The phone header has no room for a search row; it opens from a button.
+  const [searchOpen, setSearchOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [lockNotice, setLockNotice] = useState<string | null>(null);
 
@@ -109,25 +111,28 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
     handleStartTicket(ticket);
   };
 
-  const filterTabs: Array<{ key: FilterStatus; label: string }> = [
-    { key: "all", label: t("filterAll") },
-    { key: "completed", label: t("filterCompleted") },
-    { key: "in_progress", label: t("filterInProgress") },
-    { key: "locked", label: t("lockedText") },
+  const filterTabs: Array<{ key: FilterStatus; label: string; count: number }> = [
+    { key: "all", label: t("filterAll"), count: tickets.length },
+    { key: "completed", label: t("filterCompleted"), count: completedCount },
+    { key: "in_progress", label: t("filterInProgress"), count: inProgressCount },
+    { key: "locked", label: t("lockedText"), count: tickets.length - availableCount },
   ];
 
   return (
     <main className="page-shell space-y-6 sm:space-y-8">
-      <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
+      <header className="flex flex-col items-start justify-between gap-4 max-md:flex-row max-md:items-center sm:flex-row sm:items-center">
+        <div className="min-w-0 flex-1">
           <span className="max-md:hidden">
             <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
           </span>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle", { count: ticketCount })}</p>
+          <p className="text-sm text-muted-foreground max-md:hidden">{t("subtitle", { count: ticketCount })}</p>
+          <p className="text-sm text-muted-foreground md:hidden">
+            {t("subtitleProgress", { total: tickets.length, done: completedCount })}
+          </p>
         </div>
 
-        <div className="relative w-full sm:w-64">
+        <div className={`relative w-full sm:w-64 ${searchOpen ? "" : "max-md:hidden"}`}>
           <Search aria-hidden="true" className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
@@ -138,6 +143,16 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
             className="field-input pl-9"
           />
         </div>
+
+        <button
+          type="button"
+          aria-label={t("searchLabel")}
+          aria-expanded={searchOpen}
+          onClick={() => setSearchOpen((open) => !open)}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        >
+          {searchOpen ? <X aria-hidden="true" className="h-5 w-5" /> : <Search aria-hidden="true" className="h-5 w-5" />}
+        </button>
       </header>
 
       <section className="grid gap-4 max-md:hidden lg:grid-cols-[1.15fr_0.85fr]">
@@ -256,6 +271,31 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         </Card>
       </section>
 
+      {/* One recommendation, because nobody knows which of 64 to open. The wide
+          layout carries the same call to action inside its hero card. */}
+      {!loading && nextTicket && (
+        <button
+          type="button"
+          onClick={() => handleStartTicket(nextTicket.ticket)}
+          className="flex w-full items-center gap-3 rounded-2xl border border-accent/35 bg-accent/[0.06] p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-xs font-extrabold uppercase tracking-[0.06em] text-accent">
+              {t("nextTicketLabel")}
+            </span>
+            <span className="block font-display text-xl font-extrabold">
+              {t("ticketNumber", { number: nextTicket.ticket.number })}
+            </span>
+            <span className="block text-sm text-muted-foreground">
+              {t("ticketQuestionsShort", { count: nextTicket.totalQuestions })}
+            </span>
+          </span>
+          <span className="btn-3d-primary inline-flex min-h-12 shrink-0 items-center rounded-xl px-4 font-display text-base font-extrabold">
+            {t("solve")}
+          </span>
+        </button>
+      )}
+
       <div className="chip-scroll" role="group" aria-label={t("title")}>
         {filterTabs.map((tab) => {
           const isSelected = filterStatus === tab.key;
@@ -276,6 +316,9 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
                 />
               )}
               <span className="relative z-10">{tab.label}</span>
+              {/* Phone only: the wide layout already states these counts in its
+                  hero card, and its chips must not move. */}
+              <span className="relative z-10 ml-1.5 tabular-nums opacity-70 md:hidden">{tab.count}</span>
             </button>
           );
         })}

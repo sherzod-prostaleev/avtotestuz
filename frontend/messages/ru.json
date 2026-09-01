@@ -482,7 +482,8 @@
     "unlockHint": "VIP: 10 верных → следующий билет открывается",
     "lockedPrevRequired": "Сначала наберите минимум 10 верных в предыдущем билете — затем откроется этот.",
     "lockedPrevRequiredShort": "Сначала 10 верных",
-    "ticketQuestionsShort": "{count} вопр."
+    "ticketQuestionsShort": "{count} вопр.",
+    "subtitleProgress": "Закрыто {done} из {total}"
   },
   "Signs": {
     "title": "Каталог дорожных знаков",

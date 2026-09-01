@@ -482,7 +482,8 @@
     "nextTicketBest": "Энг яхши натижа: {best}/{total}",
     "allDoneTitle": "Ҳаммаси ёпилди",
     "goToPractice": "Мавзуларга ўтиш",
-    "ticketQuestionsShort": "{count} савол"
+    "ticketQuestionsShort": "{count} савол",
+    "subtitleProgress": "{total} тадан {done} таси ёпилди"
   },
   "Signs": {
     "title": "Йўл белгилари каталоги",
