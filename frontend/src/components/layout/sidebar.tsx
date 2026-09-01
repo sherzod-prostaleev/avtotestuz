@@ -147,7 +147,7 @@ export function Sidebar() {
       href: `/${currentLocale}/exam`,
       label: t("navTabExam"),
       icon: Award,
-      match: (path: string) => path.includes("/session"),
+      match: (path: string) => path.includes("/exam"),
     },
   ] as const;
 
@@ -434,6 +434,7 @@ export function Sidebar() {
               <Link
                 key={tab.href}
                 href={tab.href}
+                prefetch
                 className={`app-bottom-nav-item relative ${active ? "app-bottom-nav-item-active" : ""}`}
               >
                 <span className="relative flex h-7 w-12 items-center justify-center">
