@@ -21,6 +21,8 @@ type NavLink = {
   icon: typeof LayoutDashboard;
   isGold?: boolean;
   badge?: number;
+  /** Icon colour in the phone menu, as a full class so Tailwind emits it. */
+  tone?: string;
 };
 
 export function Sidebar() {
@@ -62,9 +64,9 @@ export function Sidebar() {
     { href: `/${currentLocale}/dashboard`, label: t("navDashboard"), icon: LayoutDashboard },
     { href: `/${currentLocale}/tickets`, label: t("navTickets", { count: ticketCount }), icon: BookOpen },
     { href: `/${currentLocale}/practice`, label: t("navPractice"), icon: Target },
-    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
+    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords, tone: "max-md:text-streak" },
     { href: `/${currentLocale}/exam`, label: t("navExam"), icon: Award },
-    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
+    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost, tone: "max-md:text-accent" },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
     {
       href: `/${currentLocale}/support`,
@@ -72,13 +74,13 @@ export function Sidebar() {
       icon: LifeBuoy,
       badge: supportUnread,
     },
-    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
+    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User, tone: "max-md:text-muted-foreground" },
   ];
 
   // Bottom tabs already cover home / tickets / practice / exam — drawer keeps the rest.
   const mobileDrawerLinks: NavLink[] = [
-    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
-    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
+    { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords, tone: "max-md:text-streak" },
+    { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost, tone: "max-md:text-accent" },
     { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
     {
       href: `/${currentLocale}/support`,
@@ -86,14 +88,14 @@ export function Sidebar() {
       icon: LifeBuoy,
       badge: supportUnread,
     },
-    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
+    { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User, tone: "max-md:text-muted-foreground" },
   ];
 
   const moreLinks: NavLink[] = [
-    { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
-    { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
-    { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy },
-    { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
+    { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle, tone: "max-md:text-danger" },
+    { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark, tone: "max-md:text-gold" },
+    { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy, tone: "max-md:text-gold" },
+    { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3, tone: "max-md:text-success" },
   ];
 
   // The phone menu is a full screen, so everything fits at once in three
@@ -102,24 +104,24 @@ export function Sidebar() {
     {
       label: t("menuGroupPractice"),
       links: [
-        { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
-        { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
-        { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
-        { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
+        { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords, tone: "max-md:text-streak" },
+        { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost, tone: "max-md:text-accent" },
+        { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle, tone: "max-md:text-danger" },
+        { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark, tone: "max-md:text-gold" },
       ],
     },
     {
       label: t("menuGroupResults"),
       links: [
-        { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
-        { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy },
+        { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3, tone: "max-md:text-success" },
+        { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy, tone: "max-md:text-gold" },
       ],
     },
     {
       label: t("menuGroupAccount"),
       links: [
-        { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
-        { href: `/${currentLocale}/support`, label: t("navSupport"), icon: LifeBuoy, badge: supportUnread },
+        { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User, tone: "max-md:text-muted-foreground" },
+        { href: `/${currentLocale}/support`, label: t("navSupport"), icon: LifeBuoy, tone: "max-md:text-success", badge: supportUnread },
       ],
     },
   ];
@@ -129,24 +131,32 @@ export function Sidebar() {
       href: `/${currentLocale}/dashboard`,
       label: t("navTabHome"),
       icon: LayoutDashboard,
+      tone: "text-accent",
+      pill: "bg-accent/20 dark:bg-accent/25",
       match: (path: string) => path.includes("/dashboard"),
     },
     {
       href: `/${currentLocale}/tickets`,
       label: t("navTabTickets"),
       icon: BookOpen,
+      tone: "text-success",
+      pill: "bg-success/20 dark:bg-success/25",
       match: (path: string) => path.includes("/tickets"),
     },
     {
       href: `/${currentLocale}/practice`,
       label: t("navTabPractice"),
       icon: Target,
+      tone: "text-streak",
+      pill: "bg-streak/20 dark:bg-streak/25",
       match: (path: string) => path.includes("/practice"),
     },
     {
       href: `/${currentLocale}/exam`,
       label: t("navTabExam"),
       icon: Award,
+      tone: "text-gold",
+      pill: "bg-gold/20 dark:bg-gold/25",
       match: (path: string) => path.includes("/exam"),
     },
   ] as const;
@@ -194,7 +204,12 @@ export function Sidebar() {
             className="nav-pill-in absolute inset-0 rounded-md bg-accent text-accent-foreground shadow-3d md:rounded-lg"
           />
         )}
-        <Icon aria-hidden="true" className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-90 max-md:h-5 max-md:w-5" />
+        <Icon
+          aria-hidden="true"
+          className={`relative z-10 h-3.5 w-3.5 shrink-0 opacity-90 max-md:h-5 max-md:w-5 ${
+            link.tone && !isActive ? link.tone : ""
+          }`}
+        />
         <span className="relative z-10 min-w-0 flex-1 leading-snug max-md:text-sm max-md:font-semibold">{link.label}</span>
         {link.badge && link.badge > 0 ? (
           <span className="relative z-10 ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground max-md:min-w-[1.5rem] max-md:text-xs">
@@ -435,18 +450,19 @@ export function Sidebar() {
                 key={tab.href}
                 href={tab.href}
                 prefetch
-                className={`app-bottom-nav-item relative ${active ? "app-bottom-nav-item-active" : ""}`}
+                className={`app-bottom-nav-item relative ${active ? `app-bottom-nav-item-active ${tab.tone}` : ""}`}
               >
                 <span className="relative flex h-7 w-12 items-center justify-center">
                   {active && (
-                    <span
-                      aria-hidden="true"
-                      className="nav-pill-in absolute inset-0 rounded-full bg-accent/20 dark:bg-accent/25"
-                    />
+                    <span aria-hidden="true" className={`nav-pill-in absolute inset-0 rounded-full ${tab.pill}`} />
                   )}
+                  {/* Idle icons keep their colour, dimmed — the pill and the
+                      full-strength label are what mark the current tab. */}
                   <Icon
                     aria-hidden="true"
-                    className={`relative h-5 w-5 transition-transform duration-200 ${active ? "scale-105" : ""}`}
+                    className={`relative h-5 w-5 transition-transform duration-200 ${
+                      active ? `scale-105 ${tab.tone}` : `${tab.tone} opacity-55`
+                    }`}
                   />
                 </span>
                 <span className="relative z-10 truncate">{tab.label}</span>
