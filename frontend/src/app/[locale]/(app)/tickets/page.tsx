@@ -120,7 +120,9 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
     <main className="page-shell space-y-6 sm:space-y-8">
       <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
+          <span className="max-md:hidden">
+            <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
+          </span>
           <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
           <p className="text-sm text-muted-foreground">{t("subtitle", { count: ticketCount })}</p>
         </div>
@@ -138,7 +140,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         </div>
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+      <section className="grid gap-4 max-md:hidden lg:grid-cols-[1.15fr_0.85fr]">
         <Card className="asphalt-hero overflow-hidden border-accent/20 p-5 md:p-8">
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center gap-2">
