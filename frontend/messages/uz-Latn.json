@@ -476,7 +476,8 @@
     "nextTicketLabel": "Keyingi bilet",
     "nextTicketBest": "Eng yaxshi natija: {best}/{total}",
     "allDoneTitle": "Hammasi yopildi",
-    "goToPractice": "Mavzularga o'tish"
+    "goToPractice": "Mavzularga o'tish",
+    "ticketQuestionsShort": "{count} savol"
   },
   "Signs": {
     "title": "Yo'l belgilari katalogi",

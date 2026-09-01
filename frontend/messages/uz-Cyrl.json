@@ -476,7 +476,8 @@
     "nextTicketLabel": "Кейинги билет",
     "nextTicketBest": "Энг яхши натижа: {best}/{total}",
     "allDoneTitle": "Ҳаммаси ёпилди",
-    "goToPractice": "Мавзуларга ўтиш"
+    "goToPractice": "Мавзуларга ўтиш",
+    "ticketQuestionsShort": "{count} савол"
   },
   "Signs": {
     "title": "Йўл белгилари каталоги",

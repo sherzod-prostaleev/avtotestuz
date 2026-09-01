@@ -568,6 +568,20 @@
       0 3px 0 0 hsl(var(--elev-lip)),
       0 12px 24px -16px hsl(var(--elev-ambient) / 0.5);
   }
+
+  /* Phones show the compact numeric tile from the approved design: five per
+     row, the number and one state line, 58px tall. The rich card body is
+     `max-md:hidden` in the page, so only the sizing changes here. */
+  @media (max-width: 767px) {
+    .ticket-tile {
+      min-height: 3.625rem;
+      border-radius: 0.75rem;
+      padding: 0.375rem 0.125rem;
+      align-items: center;
+      justify-content: center;
+      gap: 0.125rem;
+    }
+  }
   .light .ticket-tile {
     background-image:
       linear-gradient(

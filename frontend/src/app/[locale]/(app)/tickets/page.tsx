@@ -306,7 +306,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
       ) : filteredTickets.length === 0 ? (
         <div className="py-12 text-center text-sm text-muted-foreground">{t("emptyFiltered")}</div>
       ) : (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+        <div className="grid grid-cols-2 gap-3 max-md:grid-cols-5 max-md:gap-2 sm:grid-cols-3 sm:gap-3.5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {filteredTickets.map((ticket) => {
             const { bestCorrect, isCompleted, isLocked, attempts, totalQuestions, progressPercent } =
               getTicketState(ticket);
@@ -321,7 +321,30 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
                 aria-label={t("openTicket", { number: ticket.number })}
                 className={ticketTileClass(isCompleted, isLocked, attempts)}
               >
-                <div className="flex w-full items-center justify-between gap-2 pl-1">
+                <div className="flex flex-col items-center justify-center gap-0.5 md:hidden">
+                  <span
+                    className={`font-display text-lg font-extrabold leading-none tabular-nums ${
+                      isCompleted ? "text-gold" : isLocked ? "text-muted-foreground" : "text-foreground"
+                    }`}
+                  >
+                    {ticket.number}
+                  </span>
+                  {isLocked ? (
+                    <Lock aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+                  ) : (
+                    <span
+                      className={`whitespace-nowrap text-xs font-bold leading-none tabular-nums ${
+                        isCompleted ? "text-gold" : attempts > 0 ? "text-accent" : "text-muted-foreground"
+                      }`}
+                    >
+                      {attempts > 0 || isCompleted
+                        ? t("scoreShort", { score: bestCorrect, total: totalQuestions })
+                        : t("ticketQuestionsShort", { count: totalQuestions })}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex w-full items-center justify-between gap-2 pl-1 max-md:hidden">
                   <span className="text-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     {t("ticketNumber", { number: ticket.number })}
                   </span>
@@ -334,7 +357,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
                   ) : null}
                 </div>
 
-                <div className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-center">
+                <div className="flex flex-1 flex-col items-center justify-center gap-1 py-2 text-center max-md:hidden">
                   <span
                     className={`ticket-tile-number ${
                       isCompleted ? "text-gold" : isLocked ? "text-muted-foreground" : "text-foreground"
@@ -368,7 +391,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
                   )}
                 </div>
 
-                <div className="w-full pl-1">
+                <div className="w-full pl-1 max-md:hidden">
                   {isLocked ? (
                     <span className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/40 px-2 text-xs font-bold text-muted-foreground">
                       <Lock aria-hidden="true" className="h-3.5 w-3.5" />

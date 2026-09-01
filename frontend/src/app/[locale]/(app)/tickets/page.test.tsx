@@ -68,7 +68,9 @@ describe("TicketsPage", () => {
     expect(screen.getByRole("button", { name: "Jarayonda" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Qulflangan" })).toBeInTheDocument();
     expect(screen.getAllByText("Bilet 1").length).toBeGreaterThan(0);
-    expect(screen.getByText("19/20")).toBeInTheDocument();
+    // Twice on purpose: the tile carries a compact body for phones and the
+    // rich card body for md and up, and both render the score.
+    expect(screen.getAllByText("19/20")).toHaveLength(2);
     expect(screen.getByRole("button", { name: "2-biletni ochish" })).toBeInTheDocument();
     expect(screen.getByText(/10 ta to'g'ri → keyingi bilet/i)).toBeInTheDocument();
 
