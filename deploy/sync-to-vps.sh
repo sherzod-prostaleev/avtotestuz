@@ -14,6 +14,11 @@ ALLOWED_PATHS="${DEPLOY_ALLOWED_PATHS:-$DEFAULT_DEST}"
 EXCLUDE="${ROOT}/deploy/rsync-exclude.txt"
 MODE=dry-run
 ROLLBACK_ID=""
+# Every --apply leaves a ~75 MB snapshot behind. Without a cap they only ever
+# accumulate: 58 of them (4.4 GB) had piled up by 2026-09-01. Ten covers far
+# more history than a rollback is ever useful for, since older trees predate
+# database migrations that a code-only rollback cannot undo.
+ROLLBACK_KEEP="${DEPLOY_ROLLBACK_KEEP:-10}"
 SSH_OPTS=(-p 2222 -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
 
 usage() {
@@ -26,9 +31,13 @@ Default: validate local/remote state, show rsync changes, and write nothing.
 --apply: create a code-only rollback snapshot, sync, write provenance, and
          verify the already-running containers without restarting them.
 
+After a successful --apply, rollback snapshots older than the newest
+DEPLOY_ROLLBACK_KEEP (default 10) are removed. A dry-run only lists them.
+
 Allow additional exact targets only through explicit operator configuration:
   DEPLOY_ALLOWED_HOSTS='user@host user@staging'  # space/comma separated
   DEPLOY_ALLOWED_PATHS='/opt/drivergo /opt/drivergo-staging'
+  DEPLOY_ROLLBACK_KEEP=10                        # snapshots to retain, 1-999
 EOF
 }
 
@@ -241,6 +250,58 @@ fi
 REMOTE
 }
 
+# Emitted as a standalone payload rather than an inline heredoc so the test
+# suite can run this exact code against a temporary tree. This is the only
+# path in the script that deletes anything, so its selection logic is proven
+# by execution instead of asserted with grep.
+prune_payload() {
+  cat <<'REMOTE'
+set -euo pipefail
+dest="$1"
+keep="$2"
+mode="$3"
+rollback_root="$dest/.deploy-rollbacks"
+[[ "$keep" =~ ^[1-9][0-9]{0,2}$ ]] || { echo "prune: keep must be 1-999, got: $keep" >&2; exit 50; }
+[[ "$mode" == apply || "$mode" == dry-run ]] || { echo "prune: invalid mode: $mode" >&2; exit 50; }
+# A missing or symlinked rollback root is not an error worth failing a
+# finished deploy over; there is simply nothing safe to prune.
+[[ -d "$rollback_root" && ! -L "$rollback_root" ]] || exit 0
+# Snapshot ids start with a UTC timestamp, so a lexicographic sort is a
+# chronological one. mtime is deliberately not used: inspecting or restoring
+# a snapshot can touch it, and reading must never change what gets deleted.
+# -type d also drops symlinks, so a symlink named like a snapshot is ignored
+# rather than followed and deleted through.
+mapfile -t snapshots < <(
+  find "$rollback_root" -mindepth 1 -maxdepth 1 -type d -printf '%f\n' |
+    grep -xE '[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7,40}' | sort
+)
+total=${#snapshots[@]}
+(( total > keep )) || {
+  printf 'prune: %d snapshot(s), keeping %d, nothing to remove\n' "$total" "$keep"
+  exit 0
+}
+if [[ "$mode" == apply ]]; then verb=removed; else verb=would-remove; fi
+removed=0
+for name in "${snapshots[@]:0:total-keep}"; do
+  target="$rollback_root/$name"
+  # Re-validate immediately before deleting, not only when listing.
+  [[ "$name" =~ ^[0-9]{8}T[0-9]{6}Z-[0-9a-f]{7,40}$ ]] || continue
+  [[ -d "$target" && ! -L "$target" && "$(dirname "$target")" == "$rollback_root" ]] || continue
+  if [[ "$mode" == apply ]]; then
+    rm -rf -- "$target"
+  fi
+  printf 'prune: %s %s\n' "$verb" "$name"
+  removed=$((removed + 1))
+done
+printf 'prune: %d %s, %d kept (limit %d)\n' "$removed" "$verb" "$((total - removed))" "$keep"
+REMOTE
+}
+
+prune_snapshots() {
+  local keep="$1"
+  prune_payload | ssh "${SSH_OPTS[@]}" "$HOST" bash -s -- "$DEST" "$keep" "$MODE"
+}
+
 main() {
   while (($#)); do
     case "$1" in
@@ -256,6 +317,8 @@ main() {
 
   validate_host "$HOST" "$ALLOWED_HOSTS" || die "host is invalid or not allowlisted: $HOST"
   validate_path "$DEST" "$ALLOWED_PATHS" || die "path is invalid or not allowlisted: $DEST"
+  [[ "$ROLLBACK_KEEP" =~ ^[1-9][0-9]{0,2}$ ]] ||
+    die "DEPLOY_ROLLBACK_KEEP must be 1-999: $ROLLBACK_KEEP"
   [[ -f "$EXCLUDE" ]] || die "exclude file missing: $EXCLUDE"
   for cmd in git rsync ssh docker; do command -v "$cmd" >/dev/null || die "$cmd is required"; done
 
@@ -295,6 +358,7 @@ main() {
 
   if [[ "$MODE" == dry-run ]]; then
     rsync "${rsync_args[@]}" -n "$ROOT/" "$HOST:$DEST/"
+    prune_snapshots "$ROLLBACK_KEEP"
     printf 'dry-run only: no remote files changed; re-run with --apply after review\n'
     return 0
   fi
@@ -311,6 +375,12 @@ main() {
     printf 'post-sync health failed; running containers were NOT restarted\n' >&2
     printf 'review rollback: ./deploy/sync-to-vps.sh --rollback %s\n' "$snapshot_id" >&2
     return 1
+  fi
+  # Only after health passes: a failed deploy is exactly when the older
+  # snapshots still matter. Housekeeping must never fail a good deploy either,
+  # so a prune error is reported and swallowed.
+  if ! prune_snapshots "$ROLLBACK_KEEP"; then
+    printf 'warning: snapshot pruning failed; snapshots left untouched\n' >&2
   fi
   printf 'sync complete: %s:%s (commit %s)\n' "$HOST" "$DEST" "$commit"
   printf 'rollback snapshot: %s\n' "$snapshot_id"

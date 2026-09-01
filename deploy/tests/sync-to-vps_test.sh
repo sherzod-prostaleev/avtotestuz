@@ -86,4 +86,72 @@ rsync -a --exclude-from="$ROOT/deploy/rsync-exclude.txt" \
 [[ -f "$exclude_root/dst/backend/station/build/drivergo.ico" ]]
 [[ -f "$exclude_root/dst/backend/station/VERSION" ]]
 
+# Snapshot pruning is the only code in the script that deletes anything, so it
+# is run for real against a temporary tree instead of being grepped for. The
+# fixture deliberately mixes in entries that must survive at any age: a partial
+# snapshot still being written, an unrelated directory, a loose file, and a
+# symlink named exactly like the oldest snapshot. The symlink is the sharp case:
+# its name matches the id pattern, so only the type checks keep it off the
+# deletion list, and a future `rm -rf -- "$target"/` or `find -L` would reach
+# through it into whatever it points at.
+prune_root="$(mktemp -d)"
+trap 'rm -rf -- "$test_root" "$exclude_root" "$prune_root"' EXIT
+prune_dir="$prune_root/.deploy-rollbacks"
+mkdir -p "$prune_dir"
+for id in 20260810T073436Z-a0c51f61e20c \
+          20260812T184509Z-fd049848ef6a \
+          20260830T185846Z-66e8fcb22141 \
+          20260831T101305Z-7607200ba63d \
+          20260831T145332Z-22376a0dd34b; do
+  mkdir -p "$prune_dir/$id/tree"
+  : >"$prune_dir/$id/COMPLETE"
+done
+mkdir -p "$prune_dir/.partial-20260831T150000Z-abcdef123456"
+mkdir -p "$prune_dir/not-a-snapshot"
+: >"$prune_dir/loose-file"
+symlink_bait="$(mktemp -d)"
+: >"$symlink_bait/must-survive"
+ln -s "$symlink_bait" "$prune_dir/20260101T000000Z-deadbeefcafe"
+
+# A dry run reports but writes nothing.
+prune_payload | bash -s -- "$prune_root" 2 dry-run >/dev/null
+[[ -d "$prune_dir/20260810T073436Z-a0c51f61e20c" ]]
+[[ "$(find "$prune_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 7 ]]
+
+# --apply keeps the newest N by id and removes the oldest first.
+prune_payload | bash -s -- "$prune_root" 2 apply >/dev/null
+[[ ! -e "$prune_dir/20260810T073436Z-a0c51f61e20c" ]]
+[[ ! -e "$prune_dir/20260812T184509Z-fd049848ef6a" ]]
+[[ ! -e "$prune_dir/20260830T185846Z-66e8fcb22141" ]]
+[[ -d "$prune_dir/20260831T101305Z-7607200ba63d/tree" ]]
+[[ -d "$prune_dir/20260831T145332Z-22376a0dd34b/tree" ]]
+
+# Everything that is not a well-formed snapshot directory is untouched.
+[[ -d "$prune_dir/.partial-20260831T150000Z-abcdef123456" ]]
+[[ -d "$prune_dir/not-a-snapshot" ]]
+[[ -f "$prune_dir/loose-file" ]]
+[[ -L "$prune_dir/20260101T000000Z-deadbeefcafe" ]]
+[[ -f "$symlink_bait/must-survive" ]]
+rm -rf -- "$symlink_bait"
+
+# Re-running when already at the limit is a no-op, not an error.
+prune_payload | bash -s -- "$prune_root" 2 apply >/dev/null
+[[ -d "$prune_dir/20260831T101305Z-7607200ba63d" ]]
+
+# A missing rollback root is tolerated; a finished deploy must not fail on it.
+prune_payload | bash -s -- "$(mktemp -d)" 10 apply >/dev/null
+
+# Nonsense retention values and modes are rejected before anything is deleted.
+for bad in 0 -1 abc 1000 ''; do
+  if prune_payload | bash -s -- "$prune_root" "$bad" apply >/dev/null 2>&1; then
+    printf 'expected rejection of keep=%q\n' "$bad" >&2
+    exit 1
+  fi
+done
+if prune_payload | bash -s -- "$prune_root" 2 delete-everything >/dev/null 2>&1; then
+  printf 'expected rejection of unknown prune mode\n' >&2
+  exit 1
+fi
+[[ "$(find "$prune_dir" -mindepth 1 -maxdepth 1 -type d | wc -l)" -eq 4 ]]
+
 printf 'sync-to-vps guards: ok\n'
