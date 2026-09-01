@@ -245,7 +245,21 @@
     "onboardingBullet2": "Zaif mavzuni mashq qiling",
     "onboardingBullet3": "Aqlli takrorlash navbati kelganda ochiladi",
     "onboardingCta": "Mashqni boshlash",
-    "onboardingDismiss": "Yopish"
+    "onboardingDismiss": "Yopish",
+    "planTitle": "Bugungi reja",
+    "planProgress": "{done} / {total}",
+    "planStepDaily": "Kunlik {target} savol",
+    "planStepDailyProgress": "{done}/{target} bajarildi",
+    "planStepDailyWeak": "Zaif mavzu: {category} · {percent}%",
+    "planStepDailyAny": "Istalgan mavzudan boshlang",
+    "planStepReview": "Takrorlash navbati",
+    "planStepReviewReady": "{count} ta savol tayyor",
+    "planStepReviewEmpty": "Navbat bo'sh",
+    "planStepExam": "Sinov imtihoni",
+    "planStepExamMeta": "20 savol · 25 daqiqa",
+    "planStepExamDone": "Bugun topshirildi",
+    "planStart": "Boshlash",
+    "planAllDone": "Bugungi reja bajarildi. Zo'r!"
   },
   "Sidebar": {
     "brandName": "Driver Go",

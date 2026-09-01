@@ -245,7 +245,21 @@
     "onboardingBullet2": "Заиф мавзуни машқ қилинг",
     "onboardingBullet3": "Ақлли такрорлаш навбати келганда очилади",
     "onboardingCta": "Машқни бошлаш",
-    "onboardingDismiss": "Ёпиш"
+    "onboardingDismiss": "Ёпиш",
+    "planTitle": "Бугунги режа",
+    "planProgress": "{done} / {total}",
+    "planStepDaily": "Кунлик {target} савол",
+    "planStepDailyProgress": "{done}/{target} бажарилди",
+    "planStepDailyWeak": "Заиф мавзу: {category} · {percent}%",
+    "planStepDailyAny": "Исталган мавзудан бошланг",
+    "planStepReview": "Такрорлаш навбати",
+    "planStepReviewReady": "{count} та савол тайёр",
+    "planStepReviewEmpty": "Навбат бўш",
+    "planStepExam": "Синов имтиҳони",
+    "planStepExamMeta": "20 савол · 25 дақиқа",
+    "planStepExamDone": "Бугун топширилди",
+    "planStart": "Бошлаш",
+    "planAllDone": "Бугунги режа бажарилди. Зўр!"
   },
   "Sidebar": {
     "brandName": "Driver Go",

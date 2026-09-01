@@ -11,6 +11,7 @@ import { mistakesCountStore, savedQuestionsStore } from "@/lib/dashboard-stores"
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { GrandMockCard } from "@/components/mock/grand-mock-card";
+import { DailyPlanCard } from "@/components/dashboard/daily-plan-card";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -240,10 +241,27 @@ export default function DashboardPage() {
 
   return (
     <main suppressHydrationWarning className="page-shell space-y-3 sm:space-y-8">
+      {/* Phones get one screen with one decision: today's three steps and a
+          single button. Everything the wide dashboard shows below is hidden
+          under `md`, where learners were scrolling through eleven blocks and
+          three identical "start practice" buttons to find it. */}
+      <DailyPlanCard
+        // `md:hidden` alone still leaves the card counting as this page's first
+        // child, so `space-y` hands the next block a margin it never had on
+        // desktop. Cancelling it on the following sibling keeps the wide
+        // dashboard pixel-identical whichever block comes next.
+        className="md:hidden md:[&+*]:!mt-0"
+        todayAnswered={todayAnswered}
+        dailyTarget={dailyTarget}
+        dueCount={dueQuestionsCount}
+        weakest={weakest}
+        sessions={sessions}
+      />
+
       {showOnboarding && (
         <section
           aria-labelledby="onboarding-title"
-          className="surface-raised relative overflow-hidden rounded-2xl border border-accent/35 bg-card p-3.5 sm:rounded-3xl sm:p-5 md:p-6"
+          className="surface-raised relative hidden overflow-hidden rounded-2xl border border-accent/35 bg-card p-3.5 sm:rounded-3xl sm:p-5 md:block md:p-6"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-3">
@@ -290,7 +308,7 @@ export default function DashboardPage() {
         <section className="surface-raised relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card p-3 sm:rounded-3xl sm:p-6 md:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-3 sm:gap-6">
             <div className="space-y-2 sm:space-y-4">
-              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+              <div className="hidden flex-wrap items-center gap-1.5 md:flex sm:gap-2">
                 <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1 text-[10px] font-bold text-muted-foreground sm:gap-1.5 sm:px-3 sm:py-1.5 sm:text-xs">
                   <BrainCircuit aria-hidden="true" className="h-3.5 w-3.5 text-accent sm:h-4 sm:w-4" />
                   {t("todayTitle")}
@@ -432,7 +450,7 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        <aside className="surface-raised min-w-0 rounded-2xl border border-border bg-card p-3 sm:rounded-3xl sm:p-6 md:p-7">
+        <aside className="surface-raised hidden min-w-0 rounded-2xl border border-border bg-card p-3 md:block sm:rounded-3xl sm:p-6 md:p-7">
           {isPersonalizationLoading ? (
             // The recommendation below depends on stats + session history
             // together (readiness, weakest category, resumable session).
@@ -562,7 +580,7 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       {/* 4 Main Mode Cards — dense 2×2 on phones (competitor-style compact tiles) */}
-      <section className="space-y-2 sm:space-y-4">
+      <section className="hidden space-y-2 md:block sm:space-y-4">
         <h2 className="font-display text-lg font-bold tracking-tight sm:text-2xl">{t("modesTitle")}</h2>
         <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
           {/* 1. Biletlar Grid */}
@@ -635,12 +653,12 @@ export default function DashboardPage() {
       </section>
 
       {/* Grand Mock — gated full exam simulation */}
-      <section className="min-w-0">
+      <section className="hidden min-w-0 md:block">
         <GrandMockCard />
       </section>
 
       {/* Road Signs Banner */}
-      <section className="min-w-0">
+      <section className="hidden min-w-0 md:block">
         <Link href={`/${locale}/signs`}>
           <Card className="glass-card border-border p-3 hover:border-accent sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -664,7 +682,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Saved Questions Entry */}
-      <section className="min-w-0">
+      <section className="hidden min-w-0 md:block">
         <Link href={`/${locale}/saved`}>
           <Card className="glass-card border-gold/40 bg-card p-3 hover:border-gold sm:p-6">
             <div className="flex items-center justify-between gap-3">
@@ -699,7 +717,7 @@ export default function DashboardPage() {
           below the signs/saved banners once the fetch resolves. A skeleton
           of the same shape keeps that spot reserved instead. */}
       {loading ? (
-        <section className="min-w-0 space-y-2 sm:space-y-4" aria-hidden="true">
+        <section className="hidden min-w-0 space-y-2 md:block sm:space-y-4" aria-hidden="true">
           <div className="h-5 w-48 max-w-full animate-pulse rounded bg-border/60 sm:h-6 sm:w-64" />
           <Card className="overflow-hidden p-3 sm:p-6">
             <div className="grid min-w-0 animate-pulse gap-3 sm:grid-cols-2 sm:gap-4">
@@ -717,7 +735,7 @@ export default function DashboardPage() {
         </section>
       ) : (
         masteryCategories.length > 0 && (
-          <section className="min-w-0 space-y-2 sm:space-y-4">
+          <section className="hidden min-w-0 space-y-2 md:block sm:space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
               <h2 className="font-display text-lg font-bold tracking-tight sm:text-2xl">
                 {t("weakestCategoriesTitle", { count: masteryCategories.length })}

@@ -245,7 +245,21 @@
     "onboardingBullet2": "Тренируйте слабую тему",
     "onboardingBullet3": "Умное повторение откроется, когда придёт очередь",
     "onboardingCta": "Начать практику",
-    "onboardingDismiss": "Закрыть"
+    "onboardingDismiss": "Закрыть",
+    "planTitle": "План на сегодня",
+    "planProgress": "{done} / {total}",
+    "planStepDaily": "{target} вопросов за день",
+    "planStepDailyProgress": "Сделано {done}/{target}",
+    "planStepDailyWeak": "Слабая тема: {category} · {percent}%",
+    "planStepDailyAny": "Начните с любой темы",
+    "planStepReview": "Очередь повторения",
+    "planStepReviewReady": "{count} вопросов готовы",
+    "planStepReviewEmpty": "Очередь пуста",
+    "planStepExam": "Пробный экзамен",
+    "planStepExamMeta": "20 вопросов · 25 минут",
+    "planStepExamDone": "Сдан сегодня",
+    "planStart": "Начать",
+    "planAllDone": "План на сегодня выполнен. Отлично!"
   },
   "Sidebar": {
     "brandName": "Driver Go",
