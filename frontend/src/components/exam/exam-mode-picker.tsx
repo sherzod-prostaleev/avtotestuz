@@ -90,7 +90,11 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
       className={`relative flex flex-col items-center justify-center overflow-hidden text-white ${
         kiosk
           ? "min-h-screen bg-[#091726] px-4 py-10"
-          : "page-shell min-h-[calc(100dvh-5rem)] rounded-2xl sm:rounded-3xl bg-[#091726] px-4 py-8 sm:py-12 my-2 sm:my-4"
+          : // On a phone this is one screen and only one screen: `mobile-fit-screen`
+            // pins it to the gap between the app shell's top bar and tab bar, and
+            // the card grid below fills whatever is left. From `md` up the sidebar
+            // layout takes over and the page goes back to being content-sized.
+            "page-shell mobile-fit-screen exam-picker-page my-2 rounded-2xl bg-[#091726] px-4 sm:rounded-3xl md:my-4 md:min-h-[calc(100dvh-5rem)] md:py-12"
       }`}
     >
       {/* The same cube mesh the exam runner uses, so this reads as its front door. */}
@@ -110,7 +114,13 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
         aria-hidden="true"
       />
 
-      <div className="relative z-10 w-full max-w-4xl">
+      <div
+        className={`relative z-10 w-full max-w-4xl ${
+          // The learner app's copy owns a fixed height, so it becomes the column
+          // the card grid stretches inside. The kiosk keeps its content-sized box.
+          kiosk ? "" : "flex h-full min-h-0 flex-col md:block md:h-auto"
+        }`}
+      >
         {/* Kiosk only: this page fills a classroom screen that has no sidebar,
             no browser chrome and no keyboard shortcut out, so without this a
             student who opened the exam by mistake is stranded. In the learner
@@ -127,12 +137,16 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
           </Link>
         )}
 
-        <header className="text-center">
-          <h1 className="font-display text-3xl font-black tracking-tight sm:text-4xl">{t("title")}</h1>
-          <p className="mt-2 text-sm text-slate-300 sm:text-base">{t("subtitle")}</p>
+        <header className="shrink-0 text-center">
+          <h1 className="exam-picker-title font-display font-black tracking-tight md:text-4xl">{t("title")}</h1>
+          <p className="exam-picker-subtitle exam-picker-optional text-slate-300 md:mt-2 md:text-base">
+            {t("subtitle")}
+          </p>
         </header>
 
-        <div className="mt-8 grid gap-4 sm:mt-10 lg:grid-cols-2 lg:gap-6">
+        {/* `flex-1 min-h-0` is what makes the two cards divide the leftover phone
+            screen between them instead of running off the bottom of it. */}
+        <div className="exam-picker-grid grid min-h-0 flex-1 md:mt-10 md:flex-none md:gap-4 lg:grid-cols-2 lg:gap-6">
           {MODES.map((mode) => {
             const Icon = mode.icon;
             return (
@@ -141,39 +155,63 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
                 type="button"
                 data-testid={`exam-mode-${mode.key}`}
                 onClick={() => start(mode.count)}
-                className={`group flex min-h-[14rem] flex-col rounded-2xl border-2 bg-[#0d2e4d]/80 p-5 text-left shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#091726] sm:p-6 ${mode.accent}`}
+                className={`exam-picker-card group flex min-h-0 flex-col rounded-2xl border-2 bg-[#0d2e4d]/80 text-left shadow-lg transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-[#091726] md:min-h-[14rem] md:p-6 ${mode.accent}`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${mode.badge}`}>
-                    <Icon className="h-6 w-6" aria-hidden="true" />
+                {/* Phone: icon sits beside the title so the card costs one row
+                    instead of three. From `md` the wrapper turns back into a
+                    block and the pieces stack the way the desktop card always
+                    has — icon row, then title, then audience. */}
+                <div className="flex shrink-0 items-center gap-3 md:block">
+                  <div className="flex shrink-0 items-start justify-between gap-3 md:w-full">
+                    <div
+                      className={`exam-picker-badge flex shrink-0 items-center justify-center rounded-xl md:h-12 md:w-12 ${mode.badge}`}
+                    >
+                      <Icon className="exam-picker-badge-icon md:h-6 md:w-6" aria-hidden="true" />
+                    </div>
+                    <span
+                      aria-hidden="true"
+                      className="hidden rounded-md border border-[#2a4568] bg-[#081320] px-2 py-1 font-mono text-xs font-bold text-slate-300 lg:inline"
+                    >
+                      {mode.shortcut}
+                    </span>
                   </div>
-                  <span
-                    aria-hidden="true"
-                    className="hidden rounded-md border border-[#2a4568] bg-[#081320] px-2 py-1 font-mono text-xs font-bold text-slate-300 lg:inline"
-                  >
-                    {mode.shortcut}
-                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <h2 className="exam-picker-card-title font-display font-extrabold md:mt-4 md:text-2xl">
+                      {t(mode.titleKey)}
+                    </h2>
+                    <p className="exam-picker-audience exam-picker-optional text-slate-300 md:mt-1 md:text-sm">
+                      {t(mode.audienceKey)}
+                    </p>
+                  </div>
                 </div>
 
-                <h2 className="mt-4 font-display text-xl font-extrabold sm:text-2xl">{t(mode.titleKey)}</h2>
-                <p className="mt-1 text-sm text-slate-300">{t(mode.audienceKey)}</p>
-
-                <dl className="mt-4 space-y-1.5 text-sm font-semibold text-slate-200">
-                  <div className="flex items-center gap-2">
-                    <ListChecks className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                {/* Phone: the rules wrap into two lines and take the slack the
+                    card has left, centred between the title and the button, so a
+                    tall screen reads as breathing room instead of a hole. From
+                    `md` it is the plain one-rule-per-line list again. */}
+                <dl className="exam-picker-meta flex min-h-0 flex-1 flex-wrap content-center overflow-hidden font-semibold text-slate-200 md:mt-4 md:block md:flex-none md:space-y-1.5 md:overflow-visible md:text-sm">
+                  {/* Full width so the phone always breaks after the headline
+                      rule and the two mistake rules pair up on the next line.
+                      Inert from `md`, where every row is block-level anyway. */}
+                  <div className="flex w-full items-center gap-1.5 md:gap-2">
+                    <ListChecks className="exam-picker-meta-icon shrink-0 text-slate-400 md:h-4 md:w-4" aria-hidden="true" />
                     <dd>{t("questionsMeta", { count: mode.count, minutes: mode.minutes })}</dd>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <Clock className="exam-picker-meta-icon shrink-0 text-slate-400 md:h-4 md:w-4" aria-hidden="true" />
                     <dd>{t("errorsMeta", { count: mode.errors })}</dd>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <XCircle className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+                  <div className="flex items-center gap-1.5 md:gap-2">
+                    <XCircle className="exam-picker-meta-icon shrink-0 text-slate-400 md:h-4 md:w-4" aria-hidden="true" />
                     <dd>{t("stopMeta", { n: mode.errors + 1 })}</dd>
                   </div>
                 </dl>
 
-                <span className="mt-5 inline-flex min-h-14 w-full items-center justify-center gap-2 rounded-xl bg-[#183654] px-4 text-base font-extrabold transition-colors group-hover:bg-[#1f4a72]">
+                <span
+                  data-testid="exam-mode-cta"
+                  className="exam-picker-cta inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-[#183654] px-4 font-extrabold transition-colors group-hover:bg-[#1f4a72] md:mt-5 md:min-h-14 md:text-base"
+                >
                   {locked ? (
                     <>
                       <Lock className="h-4 w-4" aria-hidden="true" />
@@ -191,7 +229,7 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
           })}
         </div>
 
-        <p className="mt-6 hidden text-center text-xs text-slate-400 lg:block">{t("keyboardHint")}</p>
+        <p className="mt-6 hidden shrink-0 text-center text-xs text-slate-400 lg:block">{t("keyboardHint")}</p>
       </div>
     </main>
   );
