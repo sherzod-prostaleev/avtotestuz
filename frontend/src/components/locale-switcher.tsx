@@ -48,11 +48,33 @@ export function LocaleSwitcher({
   const t = useTranslations("LocaleSwitcher");
   const pathname = usePathname();
   const router = useRouter();
-  const [, startTransition] = useTransition();
+  const [isSwitching, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
+  /**
+   * Deliberately NOT prefetching the other locales.
+   *
+   * 72b9aee warmed /ru/<page> and /uz-Cyrl/<page> on mount and on hover to
+   * make the switch instant. Every one of those requests goes through
+   * proxy.ts, which runs next-intl's middleware, and that middleware sets
+   * NEXT_LOCALE to the locale of the path it just served. So warming the
+   * list rewrote the learner's stored language to whichever entry came last
+   * — "ru" — and the site opened in Russian on their next visit, for
+   * everyone, without anyone having chosen it.
+   *
+   * The warming did not even pay for itself: staleTimes.dynamic is 30s, so a
+   * prefetch taken at mount is stale long before anyone reaches for the
+   * switcher.
+   */
+
+  /**
+   * The replace runs inside a transition so React keeps the current page
+   * interactive instead of blanking it while the new locale renders. That
+   * also means nothing moves for as long as the render takes, so `isSwitching`
+   * has to be shown — an unannounced pause reads as a dead button.
+   */
   const handleLanguageChange = (newLocale: Locale) => {
     if (newLocale === currentLocale) return;
     const query =
@@ -107,8 +129,11 @@ export function LocaleSwitcher({
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={listId}
+          aria-busy={isSwitching}
           onClick={() => setOpen((v) => !v)}
-          className="inline-flex h-9 min-w-10 items-center gap-1 rounded-xl border border-border/80 bg-card px-2.5 text-xs font-bold text-foreground shadow-raised-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={`inline-flex h-9 min-w-10 items-center gap-1 rounded-xl border border-border/80 bg-card px-2.5 text-xs font-bold text-foreground shadow-raised-sm transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            isSwitching ? "opacity-60" : ""
+          }`}
         >
           {t(current.labelKey)}
           <ChevronDown
@@ -132,7 +157,8 @@ export function LocaleSwitcher({
                   <button
                     type="button"
                     onClick={() => handleLanguageChange(lang.code)}
-                    className={`relative flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                    disabled={isSwitching}
+                    className={`relative flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default ${
                       isSelected
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-background hover:text-foreground"
@@ -161,7 +187,8 @@ export function LocaleSwitcher({
     <div
       role="group"
       aria-label={t("languageSwitcher")}
-      className={`flex gap-0.5 ${fill ? "w-full" : ""} ${shell} ${className}`}
+      aria-busy={isSwitching}
+      className={`flex gap-0.5 transition-opacity ${isSwitching ? "opacity-70" : ""} ${fill ? "w-full" : ""} ${shell} ${className}`}
     >
       {LOCALES.map((lang) => {
         const isSelected = currentLocale === lang.code;
@@ -171,7 +198,8 @@ export function LocaleSwitcher({
             key={lang.code}
             onClick={() => handleLanguageChange(lang.code)}
             aria-pressed={isSelected}
-            className={`relative ${chip} ${fill ? "min-w-0 flex-1" : ""} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+            disabled={isSwitching}
+            className={`relative ${chip} ${fill ? "min-w-0 flex-1" : ""} transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default ${
               isSelected
                 ? "font-black text-accent-foreground"
                 : "font-bold text-muted-foreground hover:bg-background/80 hover:text-foreground"

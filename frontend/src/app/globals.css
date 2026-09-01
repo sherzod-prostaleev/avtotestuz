@@ -153,10 +153,15 @@
     animation: page-enter 380ms cubic-bezier(0.22, 1, 0.36, 1);
   }
 
+  /* The lift is deliberately small. A downward translate is visual overflow
+     and visual overflow grows the document's scrollable area, so on a page
+     whose content already fills the viewport the lift makes a scrollbar
+     appear for the length of the animation and then vanish. Eight pixels is
+     enough to read as a settle; it is not enough to be worth a flicker. */
   @keyframes page-enter {
     from {
       opacity: 0;
-      transform: translate3d(0, 14px, 0);
+      transform: translate3d(0, 8px, 0);
     }
     to {
       opacity: 1;
@@ -164,7 +169,16 @@
     }
   }
 
-  /* Opacity-only variant for layouts that must fit the viewport exactly. */
+  /* Translate-free variant for layouts that must fit the viewport exactly.
+     The session shell is `height: 100dvh` and is built never to scroll, and
+     nothing above it clips, so any downward lift lands straight in
+     documentElement.scrollHeight — that is a scrollbar flashing across a
+     driving test. 8ca335e already paid for this lesson once with 6px.
+     `e2e/session-viewport.spec.ts` holds the line at pageOverflow <= 1 across
+     four viewports.
+
+     A scale below 1 is safe where a translate is not: it shrinks the box
+     inward from its centre, so it can only ever take space away. */
   .page-enter-fade {
     animation: page-enter-fade 350ms cubic-bezier(0.22, 1, 0.36, 1);
   }
@@ -172,15 +186,18 @@
   @keyframes page-enter-fade {
     from {
       opacity: 0;
-      transform: translate3d(0, 10px, 0);
+      transform: scale(0.995);
     }
     to {
       opacity: 1;
-      transform: translate3d(0, 0, 0);
+      transform: none;
     }
   }
 
-  /* Active pill behind a nav item or a filter chip. */
+  /* Active pill behind a nav item or a filter chip. Framer's `layoutId` slid
+     this between siblings, but it had to measure the whole subtree to do it,
+     every projection pass, in components that stay mounted for the session.
+     It pops in instead — one composited animation on one element. */
   .nav-pill-in {
     animation: nav-pill-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
   }
@@ -789,9 +806,9 @@
   and reads as a full-window flicker ("pir-pir"). Color/ring pulse only.
 */
 @keyframes answerWrongPulse {
-  0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
-  70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+  0% { box-shadow: 0 0 0 0 hsl(var(--danger) / 0.45); }
+  70% { box-shadow: 0 0 0 10px hsl(var(--danger) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--danger) / 0); }
 }
 .answer-wrong-pulse {
   animation: answerWrongPulse 450ms cubic-bezier(0.16, 1, 0.3, 1) 1;
@@ -801,9 +818,9 @@
 }
 
 @keyframes answerCorrectPulse {
-  0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.45); }
-  70% { box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  0% { box-shadow: 0 0 0 0 hsl(var(--success) / 0.45); }
+  70% { box-shadow: 0 0 0 10px hsl(var(--success) / 0); }
+  100% { box-shadow: 0 0 0 0 hsl(var(--success) / 0); }
 }
 .answer-correct-pulse {
   animation: answerCorrectPulse 450ms cubic-bezier(0.16, 1, 0.3, 1) 1;

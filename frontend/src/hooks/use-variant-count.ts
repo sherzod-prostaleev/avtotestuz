@@ -35,6 +35,22 @@ export function clearCatalogCountsCacheForTests(): void {
 }
 
 /**
+ * Merges one response into the shared counts and hands back the result.
+ *
+ * The cache is written here rather than inside a `setCounts` updater: React
+ * treats updaters as pure and may call one twice (StrictMode) or throw its
+ * result away, so a module write in there runs an unpredictable number of
+ * times. Merging onto the cache instead of onto `prev` also makes the two
+ * responses order-independent — whichever lands second still sees the first.
+ */
+function mergeCatalogCounts(patch: Partial<CatalogCounts>): CatalogCounts {
+  const next = { ...(catalogCountsCache ?? FALLBACK), ...patch };
+  catalogCountsCache = next;
+  catalogCountsFetchedAt = Date.now();
+  return next;
+}
+
+/**
  * Live catalog sizes, read from the catalog itself rather than quoted from
  * constants, so imported biletlar, questions and topics show up in the copy
  * without a code change. Falls back to the static counts until the responses
@@ -55,16 +71,13 @@ export function useCatalogCounts(): CatalogCounts {
       .then((list) => {
         if (cancelled || !Array.isArray(list) || list.length === 0) return;
         const questions = list.reduce((sum, v) => sum + (v.question_count ?? 0), 0);
-        setCounts((prev) => {
-          const next = {
-            ...prev,
-            tickets: list.length,
-            questions: questions > 0 ? questions : prev.questions,
-          };
-          catalogCountsCache = next;
-          catalogCountsFetchedAt = Date.now();
-          return next;
-        });
+        setCounts(
+          mergeCatalogCounts(
+            questions > 0
+              ? { tickets: list.length, questions }
+              : { tickets: list.length },
+          ),
+        );
       })
       .catch(() => {
         // Keep the static fallback.
@@ -73,12 +86,7 @@ export function useCatalogCounts(): CatalogCounts {
     void apiGet<CategoryListItem[]>("categories")
       .then((list) => {
         if (cancelled || !Array.isArray(list) || list.length === 0) return;
-        setCounts((prev) => {
-          const next = { ...prev, topics: list.length };
-          catalogCountsCache = next;
-          catalogCountsFetchedAt = Date.now();
-          return next;
-        });
+        setCounts(mergeCatalogCounts({ topics: list.length }));
       })
       .catch(() => {
         // Keep the static fallback.

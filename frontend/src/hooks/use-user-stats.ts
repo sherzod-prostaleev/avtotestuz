@@ -113,41 +113,27 @@ function mapMe(me: MeResponseDTO): Pick<DashboardData, "user" | "entitlement"> {
   };
 }
 
-const categoriesCache: Record<string, CategoryDTO[]> = {};
-let streakCache: { data: StreakDTO; time: number } | null = null;
-let statsCache: { data: StatsResponseDTO; time: number } | null = null;
-
-export function clearUserStatsModuleCacheForTests(): void {
-  for (const k in categoriesCache) delete categoriesCache[k];
-  streakCache = null;
-  statsCache = null;
-}
-
+/**
+ * No module-level cache in here, on purpose.
+ *
+ * React Query already caches this exact call under ["user-stats-rest", locale]
+ * with the same 30s staleTime, and a second cache underneath it is not free.
+ * It sits below `refetch()` — which exists precisely to bypass staleTime — so
+ * the retry button on /stats would go on serving the copy it was pressed to
+ * replace. And `me/streak` / `me/stats` are per-learner, while module scope
+ * outlives a logout: logout is a router.push (profile/page.tsx), not a reload,
+ * so on a shared classroom PC the next learner would inherit the previous
+ * one's streak for half a minute.
+ *
+ * If the three requests ever need to survive a locale switch, split them into
+ * their own queries — `me/streak` and `me/stats` do not depend on the locale
+ * and do not belong under a locale-keyed key. Do not reach for a module cache.
+ */
 async function fetchUserStatsRest(locale: string): Promise<UserStatsRest> {
-  const now = Date.now();
-  const getStreak = async (): Promise<StreakDTO> => {
-    if (streakCache && now - streakCache.time < 30_000) return streakCache.data;
-    const data = await apiGet<StreakDTO>("me/streak");
-    streakCache = { data, time: Date.now() };
-    return data;
-  };
-  const getStats = async (): Promise<StatsResponseDTO> => {
-    if (statsCache && now - statsCache.time < 30_000) return statsCache.data;
-    const data = await apiGet<StatsResponseDTO>("me/stats");
-    statsCache = { data, time: Date.now() };
-    return data;
-  };
-  const getCategories = async (): Promise<CategoryDTO[]> => {
-    if (categoriesCache[locale]) return categoriesCache[locale];
-    const data = await apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`);
-    categoriesCache[locale] = data;
-    return data;
-  };
-
   const [streakDTO, statsDTO, categories] = await Promise.all([
-    getStreak(),
-    getStats(),
-    getCategories(),
+    apiGet<StreakDTO>("me/streak"),
+    apiGet<StatsResponseDTO>("me/stats"),
+    apiGet<CategoryDTO[]>(`categories?locale=${encodeURIComponent(locale)}`),
   ]);
 
   const namesByCode = new Map(categories.map((category) => [category.code, category.name]));

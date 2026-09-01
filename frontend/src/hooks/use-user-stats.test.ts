@@ -2,7 +2,7 @@ import { createElement, type ReactNode } from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { useUserStats, clearUserStatsModuleCacheForTests } from "./use-user-stats";
+import { useUserStats } from "./use-user-stats";
 import * as apiClient from "@/lib/api-client";
 import { createQueryClient } from "@/lib/query-client";
 
@@ -19,7 +19,6 @@ vi.mock("next-intl", () => ({
 
 describe("useUserStats", () => {
   beforeEach(() => {
-    clearUserStatsModuleCacheForTests();
     vi.restoreAllMocks();
   });
 
