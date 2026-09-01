@@ -344,11 +344,11 @@ export default function DashboardPage() {
                       t("welcomeUser", { name: userName })
                     )}
                   </h1>
-                  <p className="mt-1 max-w-2xl text-xs leading-snug text-muted-foreground sm:mt-2 sm:text-base sm:leading-relaxed">
+                  <p className="mt-1 max-w-2xl text-xs leading-snug text-muted-foreground max-md:hidden sm:mt-2 sm:text-base sm:leading-relaxed">
                     {t("welcomeSubtitle")}
                   </p>
                   {!loading ? (
-                    <div className="mt-2 max-w-xs space-y-1.5">
+                    <div className="mt-2 max-w-xs space-y-1.5 max-md:hidden">
                       <div
                         className="h-2 overflow-hidden rounded-full bg-border"
                         role="progressbar"
@@ -395,12 +395,12 @@ export default function DashboardPage() {
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                    <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground sm:gap-2 sm:text-sm">
                       <Flame aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-streak sm:h-5 sm:w-5" />
-                      <span className="truncate">{t("streakCount", { count: currentStreak })}</span>
+                      <span className="truncate max-md:overflow-visible max-md:whitespace-normal">{t("streakCount", { count: currentStreak })}</span>
                     </div>
                     <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{todayAnswered}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground max-md:hidden sm:mt-1 sm:text-sm">
                       {t("streakToday", { done: todayAnswered, goal: dailyTarget })}
                     </p>
                   </>
@@ -412,12 +412,12 @@ export default function DashboardPage() {
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                    <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground sm:gap-2 sm:text-sm">
                       <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-success sm:h-5 sm:w-5" />
-                      <span className="truncate">{t("readinessLabel")}</span>
+                      <span className="truncate max-md:overflow-visible max-md:whitespace-normal">{t("readinessLabel")}</span>
                     </div>
                     <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{readinessPct}%</p>
-                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground max-md:hidden sm:mt-1 sm:text-sm">
                       {readinessPct >= 80 ? t("readyBadge") : t("notReadyBadge")}
                       {passEstimate != null && (
                         <>
@@ -435,12 +435,12 @@ export default function DashboardPage() {
                   <StatCardSkeleton />
                 ) : (
                   <>
-                    <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground sm:gap-2 sm:text-sm">
+                    <div className="flex items-center gap-1 text-xs font-bold text-muted-foreground sm:gap-2 sm:text-sm">
                       <AlertTriangle aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-danger sm:h-5 sm:w-5" />
-                      <span className="truncate">{t("dueQuestionsLabel")}</span>
+                      <span className="truncate max-md:overflow-visible max-md:whitespace-normal">{t("dueQuestionsLabel")}</span>
                     </div>
                     <p className="mt-1 font-display text-xl font-extrabold sm:mt-2 sm:text-3xl">{dueQuestionsCount}</p>
-                    <p className="mt-0.5 line-clamp-2 text-[10px] leading-snug text-muted-foreground sm:mt-1 sm:text-sm">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-muted-foreground max-md:hidden sm:mt-1 sm:text-sm">
                       {weakest ? t("weakestCategory", { category: weakest.name, percent: weakest.mastery_pct }) : t("weakestCategoryEmpty")}
                     </p>
                   </>
