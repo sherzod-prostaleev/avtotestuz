@@ -119,7 +119,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   ];
 
   return (
-    <main className="page-shell space-y-6 sm:space-y-8">
+    <main className="page-shell space-y-6 max-md:space-y-2.5 sm:space-y-8">
       <header className="flex flex-col items-start justify-between gap-4 max-md:flex-row max-md:items-center sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <span className="max-md:hidden">
@@ -277,26 +277,32 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         <button
           type="button"
           onClick={() => handleStartTicket(nextTicket.ticket)}
-          className="flex w-full items-center gap-3 rounded-2xl border border-accent/35 bg-accent/[0.06] p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+          className="flex w-full items-center gap-3 rounded-xl border border-accent/35 bg-accent/[0.06] p-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
         >
           <span className="min-w-0 flex-1">
             <span className="block text-xs font-extrabold uppercase tracking-[0.06em] text-accent">
               {t("nextTicketLabel")}
             </span>
-            <span className="block font-display text-xl font-extrabold">
-              {t("ticketNumber", { number: nextTicket.ticket.number })}
-            </span>
-            <span className="block text-sm text-muted-foreground">
-              {t("ticketQuestionsShort", { count: nextTicket.totalQuestions })}
+            <span className="flex items-baseline gap-1.5">
+              <span className="font-display text-lg font-extrabold leading-tight">
+                {t("ticketNumber", { number: nextTicket.ticket.number })}
+              </span>
+              <span className="truncate text-xs text-muted-foreground">
+                {t("ticketQuestionsShort", { count: nextTicket.totalQuestions })}
+              </span>
             </span>
           </span>
-          <span className="btn-3d-primary inline-flex min-h-12 shrink-0 items-center rounded-xl px-4 font-display text-base font-extrabold">
+          <span className="btn-3d-primary inline-flex min-h-11 shrink-0 items-center rounded-xl px-3.5 font-display text-sm font-extrabold">
             {t("solve")}
           </span>
         </button>
       )}
 
-      <div className="chip-scroll" role="group" aria-label={t("title")}>
+      <div
+        className="chip-scroll max-md:grid max-md:grid-cols-2 max-md:gap-1.5 max-md:overflow-visible max-md:pb-0"
+        role="group"
+        aria-label={t("title")}
+      >
         {filterTabs.map((tab) => {
           const isSelected = filterStatus === tab.key;
           return (
