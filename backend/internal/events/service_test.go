@@ -135,18 +135,28 @@ func TestLogBatchRollsBackMarkerAndEarlierEventsOnInsertFailure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// The trigger goes on the partitioned parent, not on event_default.
+	// ensure_event_partitions leaves the current month in the default
+	// partition and pre-creates the next 18, so which partition an event
+	// written now lands in depends on the month the database was migrated:
+	// fresh today it is event_default, migrated any earlier month it is
+	// event_YYYYMM. CI builds a database per run and always saw the first
+	// case; testdb keeps package databases between runs, so a developer's
+	// machine hits the second one the moment a month rolls over, and the
+	// trigger silently never fires. Postgres 13 and up clone a row trigger
+	// created here onto every partition, present and future.
 	if _, err := pool.Exec(context.Background(), `
 		CREATE OR REPLACE FUNCTION test_fail_event_insert() RETURNS trigger AS $$
 		BEGIN
 		  IF NEW.name = 'force_failure' THEN RAISE EXCEPTION 'forced event failure'; END IF;
 		  RETURN NEW;
 		END $$ LANGUAGE plpgsql;
-		CREATE TRIGGER test_fail_event_insert_trigger BEFORE INSERT ON event_default
+		CREATE TRIGGER test_fail_event_insert_trigger BEFORE INSERT ON event
 		FOR EACH ROW EXECUTE FUNCTION test_fail_event_insert()`); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS test_fail_event_insert_trigger ON event_default`)
+		_, _ = pool.Exec(context.Background(), `DROP TRIGGER IF EXISTS test_fail_event_insert_trigger ON event`)
 		_, _ = pool.Exec(context.Background(), `DROP FUNCTION IF EXISTS test_fail_event_insert()`)
 	})
 	svc := events.NewService(q, pool)
