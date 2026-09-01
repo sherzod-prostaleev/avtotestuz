@@ -91,7 +91,11 @@ services:
       retries: 5
     # Internal only — no host publish (avoids clash with system Redis :6379).
     restart: unless-stopped
-    cpus: "0.50"
+    # Raised from 0.50 live via `docker update` on 2026-08-31, when Redis was
+    # throttling in 10-21% of periods and amplifying the web/BFF queue. Written
+    # down here so it survives: a recreate reads this file, not the live value,
+    # and would silently hand Redis back half a core with no error anywhere.
+    cpus: "1.00"
     mem_limit: 512m
     pids_limit: 128
     logging:
