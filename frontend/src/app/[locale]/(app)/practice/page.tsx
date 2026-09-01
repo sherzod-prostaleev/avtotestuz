@@ -341,21 +341,32 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
   const nextDueLabel = nextDueAt ? formatDateWithTime(nextDueAt) : null;
 
-  const allSources: { value: Source; icon: typeof BookOpen; label: string; hint: string; disabled?: boolean }[] = [
+  const allSources: {
+    value: Source;
+    icon: typeof BookOpen;
+    label: string;
+    /** Phone-length form, when the full label needs a chip row of its own. */
+    shortLabel?: string;
+    hint: string;
+    badge?: number;
+    disabled?: boolean;
+  }[] = [
     {
       value: "due",
       icon: BrainCircuit,
       label: t("sourceDue"),
       // Always selectable — empty queue shows a waiting notice instead of a dead button.
       hint: dueCount > 0 ? t("sourceDueHint", { count: dueCount }) : t("sourceDueEmpty"),
+      badge: dueCount > 0 ? dueCount : undefined,
     },
     { value: "category", icon: BookOpen, label: t("sourceCategory"), hint: t("sourceCategoryHint") },
     { value: "variant", icon: Layers, label: t("sourceVariant"), hint: t("sourceVariantHint") },
-    { value: "image", icon: ImageIcon, label: t("sourceImage"), hint: t("sourceImageHint") },
+    { value: "image", icon: ImageIcon, label: t("sourceImage"), shortLabel: t("sourceImageShort"), hint: t("sourceImageHint") },
     {
       value: "sign",
       icon: Signpost,
       label: t("sourceSign"),
+      shortLabel: t("sourceSignShort"),
       hint: signsAvailable ? t("sourceSignHint") : t("sourceSignUnavailable"),
       disabled: !signsAvailable,
     },
@@ -367,6 +378,26 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   // of leaving a tile that dead-ends at a login-gated route.
   const sources = kiosk ? allSources.filter((item) => item.value !== "sign") : allSources;
 
+  // Mastery per topic, for the phone card's progress bar. Fetched with the
+  // page's own apiGet rather than `useUserStats`, which is a react-query hook
+  // and would drag a QueryClientProvider into a page that has never needed one.
+  // A failure is not worth surfacing here: the bars simply read 0%.
+  const [masteryByCode, setMasteryByCode] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    let cancelled = false;
+    void apiGet<{ category_mastery?: { code: string; mastery_pct: number }[] }>("me/stats")
+      .then((data) => {
+        if (cancelled) return;
+        setMasteryByCode(new Map((data.category_mastery ?? []).map((item) => [item.code, item.mastery_pct])));
+      })
+      .catch(() => {
+        /* optional decoration */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <main
       className={`space-y-5 sm:space-y-6 ${
@@ -377,9 +408,17 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
       }`}
     >
       <div>
-        <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
-        <h1 className="font-display text-3xl font-extrabold tracking-tight sm:text-4xl">{t("title")}</h1>
-        <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground">{t("subtitle")}</p>
+        <span className="max-md:hidden">
+          <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
+        </span>
+        <h1 className="font-display text-3xl font-extrabold tracking-tight max-md:text-2xl sm:text-4xl">
+          <span className="max-md:hidden">{t("title")}</span>
+          <span className="md:hidden">{t("titleShort")}</span>
+        </h1>
+        <p className="mt-2 max-w-2xl text-base leading-relaxed text-muted-foreground max-md:hidden">{t("subtitle")}</p>
+        <p className="text-sm leading-snug text-muted-foreground md:hidden">
+          {t("subtitleShort", { count: categories.length })}
+        </p>
       </div>
 
       {loadError && (
@@ -397,10 +436,10 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
       {/* Source picker */}
       <section aria-label={t("sourceLabel")} className="space-y-3">
-        <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground sm:text-sm">
           {t("sourceLabel")}
         </h2>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div className="grid gap-3 max-md:flex max-md:flex-wrap max-md:gap-1.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           {sources.map((item) => {
             const Icon = item.icon;
             const isSelected = source === item.value;
@@ -411,18 +450,41 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                 disabled={item.disabled}
                 aria-pressed={isSelected}
                 onClick={() => setSource(item.value)}
-                className={`surface-raised-sm surface-interactive min-h-touch rounded-2xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 ${
+                className={`surface-raised-sm surface-interactive min-h-touch rounded-2xl border p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 max-md:inline-flex max-md:items-center max-md:rounded-xl max-md:px-2 max-md:py-0 ${
                   isSelected
-                    ? "border-accent bg-accent/10 shadow-3d"
+                    ? "border-accent bg-accent/10 shadow-3d max-md:border-transparent max-md:bg-accent"
                     : "border-border bg-card hover:border-accent/50"
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <Icon aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />
-                  <span className="font-display text-base font-bold">{item.label}</span>
-                  {isSelected && <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />}
+                <div className="flex items-center gap-2 max-md:gap-1">
+                  <Icon
+                    aria-hidden="true"
+                    className={`h-5 w-5 shrink-0 text-accent max-md:h-4 max-md:w-4 ${isSelected ? "max-md:text-accent-foreground" : ""}`}
+                  />
+                  <span
+                    className={`font-display text-base font-bold max-md:whitespace-nowrap max-md:font-sans max-md:text-sm ${
+                      isSelected ? "max-md:text-accent-foreground" : ""
+                    } ${item.shortLabel ? "max-md:hidden" : ""}`}
+                  >
+                    {item.label}
+                  </span>
+                  {item.shortLabel && (
+                    <span
+                      className={`hidden whitespace-nowrap text-sm font-bold max-md:inline ${
+                        isSelected ? "text-accent-foreground" : ""
+                      }`}
+                    >
+                      {item.shortLabel}
+                    </span>
+                  )}
+                  {item.badge !== undefined && (
+                    <span className="hidden shrink-0 items-center justify-center rounded-full bg-success px-1.5 text-xs font-extrabold tabular-nums text-success-foreground max-md:inline-flex">
+                      {item.badge}
+                    </span>
+                  )}
+                  {isSelected && <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0 text-accent max-md:hidden" />}
                 </div>
-                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{item.hint}</p>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground max-md:hidden">{item.hint}</p>
               </button>
             );
           })}
@@ -531,6 +593,13 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                         kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
                       }`}
                     >
+                      <span className="flex w-full items-center justify-between gap-2 text-xs font-bold text-muted-foreground md:hidden">
+                        <span className="tabular-nums">{cat.sort_order}</span>
+                        <span className="tabular-nums">
+                          {t("categoryQuestionCount", { count: cat.question_count })}
+                        </span>
+                      </span>
+
                       {section && SectionIcon && (
                         <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground max-md:hidden">
                           <SectionIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
@@ -544,13 +613,39 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                         </span>
                       )}
                       <span
-                        className={`line-clamp-2 font-bold leading-snug max-md:line-clamp-3 ${
+                        className={`line-clamp-2 font-bold leading-snug max-md:line-clamp-3 max-md:break-words ${
                           kiosk ? "text-base" : "text-sm"
                         }`}
                       >
                         {cat.name}
                       </span>
-                      <span className="flex items-center justify-between gap-2">
+                      <span className="flex w-full flex-col gap-1 md:hidden">
+                        <span className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+                          <span
+                            className={`block h-full rounded-full ${
+                              (masteryByCode.get(cat.code) ?? 0) >= 60
+                                ? "bg-success"
+                                : (masteryByCode.get(cat.code) ?? 0) > 0
+                                  ? "bg-accent"
+                                  : "bg-muted-foreground/40"
+                            }`}
+                            style={{ width: `${masteryByCode.get(cat.code) ?? 0}%` }}
+                          />
+                        </span>
+                        <span
+                          className={`text-xs font-bold tabular-nums ${
+                            (masteryByCode.get(cat.code) ?? 0) >= 60
+                              ? "text-success"
+                              : (masteryByCode.get(cat.code) ?? 0) > 0
+                                ? "text-accent"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {masteryByCode.get(cat.code) ?? 0}%
+                        </span>
+                      </span>
+
+                      <span className="flex items-center justify-between gap-2 max-md:hidden">
                         <span
                           className={`font-semibold tabular-nums text-muted-foreground ${
                             kiosk ? "text-sm" : "text-xs"

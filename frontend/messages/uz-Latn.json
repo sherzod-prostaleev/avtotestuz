@@ -583,7 +583,11 @@
     "sectionIntersections": "Chorrahalar",
     "sectionSpecialSectionsPriority": "Maxsus yo'l qismlari va imtiyozlar",
     "sectionVehicleCarriage": "Transport vositalari va tashishlar",
-    "sectionSafetyFirstAid": "Xavfsizlik va birinchi yordam"
+    "sectionSafetyFirstAid": "Xavfsizlik va birinchi yordam",
+    "subtitleShort": "{count} mavzu",
+    "sourceImageShort": "Rasm",
+    "sourceSignShort": "Belgilar",
+    "titleShort": "Mavzular"
   },
   "Session": {
     "loading": "Sessiya yuklanmoqda...",

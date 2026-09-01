@@ -105,8 +105,9 @@ describe("PracticePage", () => {
     mockEndpoints();
     renderWithIntl();
 
-    expect(await screen.findByText("334 ta savol")).toBeInTheDocument();
-    expect(screen.getByText("88 ta savol")).toBeInTheDocument();
+    // Once per body: the card renders a compact phone layout and the wide one.
+    expect(await screen.findAllByText("334 ta savol")).toHaveLength(2);
+    expect(screen.getAllByText("88 ta savol")).toHaveLength(2);
   });
 
   // Nine collapsed bands hid 38 of the 42 topics behind a tap. Every topic is
@@ -117,8 +118,9 @@ describe("PracticePage", () => {
     await screen.findByText("Umumiy qoidalar");
 
     expect(screen.getByText("Haydovchilarning vazifalari")).toBeInTheDocument();
-    // One card per topic, all of them rendered on the first paint.
-    expect(screen.getAllByText(/ta savol$/)).toHaveLength(2);
+    // One card per topic, all of them rendered on the first paint — twice each,
+    // because a card carries a compact phone body and the wide one.
+    expect(screen.getAllByText(/ta savol$/)).toHaveLength(4);
   });
 
   // The band is gone but the grouping is not: each card carries the section it
@@ -130,7 +132,8 @@ describe("PracticePage", () => {
 
     const card = screen.getByText("Umumiy qoidalar").closest("button")!;
     expect(within(card).getByText(messages.Practice.sectionGeneralRulesDuties)).toBeInTheDocument();
-    expect(within(card).getByText("1")).toBeInTheDocument();
+    // The topic number shows in both of the card's bodies (phone and wide).
+    expect(within(card).getAllByText("1")).toHaveLength(2);
   });
 
   // The from/to pair is gone: a size is the whole choice, and it draws across

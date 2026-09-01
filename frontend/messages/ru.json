@@ -583,7 +583,11 @@
     "sectionIntersections": "Перекрёстки",
     "sectionSpecialSectionsPriority": "Специальные участки и приоритет",
     "sectionVehicleCarriage": "Транспортные средства и перевозки",
-    "sectionSafetyFirstAid": "Безопасность и первая помощь"
+    "sectionSafetyFirstAid": "Безопасность и первая помощь",
+    "subtitleShort": "{count} тем",
+    "sourceImageShort": "Фото",
+    "sourceSignShort": "Знаки",
+    "titleShort": "Темы"
   },
   "Session": {
     "loading": "Загружаем сессию...",

@@ -583,7 +583,11 @@
     "sectionIntersections": "Чорраҳалар",
     "sectionSpecialSectionsPriority": "Махсус йўл қисмлари ва имтиёзлар",
     "sectionVehicleCarriage": "Транспорт воситалари ва ташишлар",
-    "sectionSafetyFirstAid": "Хавфсизлик ва биринчи ёрдам"
+    "sectionSafetyFirstAid": "Хавфсизлик ва биринчи ёрдам",
+    "subtitleShort": "{count} мавзу",
+    "sourceImageShort": "Расм",
+    "sourceSignShort": "Белгилар",
+    "titleShort": "Мавзулар"
   },
   "Session": {
     "loading": "Сессия юкланмоқда...",
