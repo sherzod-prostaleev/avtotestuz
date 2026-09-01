@@ -13,25 +13,7 @@ import { useUserStats } from "@/hooks/use-user-stats";
 import { useVariantCount } from "@/hooks/use-variant-count";
 import { supportUnreadCount } from "@/lib/badge-counts";
 import { useSharedCount } from "@/lib/shared-count";
-import {
-  LayoutDashboard,
-  BookOpen,
-  Award,
-  Target,
-  Signpost,
-  AlertTriangle,
-  BarChart3,
-  User,
-  Crown,
-  Flame,
-  Menu,
-  X,
-  Bookmark,
-  Trophy,
-  ChevronDown,
-  Swords,
-  LifeBuoy,
-} from "lucide-react";
+import { AlertTriangle, Award, BarChart3, BookOpen, Bookmark, ChevronDown, ChevronRight, Crown, Flame, LayoutDashboard, LifeBuoy, Menu, Signpost, Swords, Target, Trophy, User, X } from "lucide-react";
 
 type NavLink = {
   href: string;
@@ -130,7 +112,6 @@ export function Sidebar() {
       label: t("menuGroupAccount"),
       links: [
         { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
-        { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
         { href: `/${currentLocale}/support`, label: t("navSupport"), icon: LifeBuoy, badge: supportUnread },
       ],
     },
@@ -188,7 +169,7 @@ export function Sidebar() {
         // sat still for ~0.5s after each click before anything moved.
         prefetch
         onClick={() => setMobileOpen(false)}
-        className={`sidebar-link relative max-md:min-h-12 max-md:rounded-none max-md:border-0 max-md:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        className={`sidebar-link relative max-md:min-h-11 max-md:rounded-none max-md:py-2 max-md:border-0 max-md:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
           isActive
             ? "sidebar-link-active"
             : link.isGold
@@ -206,13 +187,14 @@ export function Sidebar() {
             className="nav-pill-in absolute inset-0 rounded-md bg-accent text-accent-foreground shadow-3d md:rounded-lg"
           />
         )}
-        <Icon aria-hidden="true" className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-90" />
-        <span className="relative z-10 min-w-0 flex-1 leading-snug">{link.label}</span>
+        <Icon aria-hidden="true" className="relative z-10 h-3.5 w-3.5 shrink-0 opacity-90 max-md:h-5 max-md:w-5" />
+        <span className="relative z-10 min-w-0 flex-1 leading-snug max-md:text-sm max-md:font-semibold">{link.label}</span>
         {link.badge && link.badge > 0 ? (
-          <span className="relative z-10 ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
+          <span className="relative z-10 ml-auto inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground max-md:min-w-[1.5rem] max-md:text-xs">
             {link.badge > 99 ? "99+" : link.badge}
           </span>
         ) : null}
+        <ChevronRight aria-hidden="true" className="relative z-10 hidden h-5 w-5 shrink-0 opacity-60 max-md:block" />
       </Link>
     );
   };
@@ -281,7 +263,7 @@ export function Sidebar() {
           type="button"
           aria-label={t("closeMenu")}
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm md:hidden"
+          className="fixed inset-x-0 top-0 z-40 bg-black/60 backdrop-blur-sm md:hidden bottom-[calc(3rem+env(safe-area-inset-bottom))]"
         />
       )}
 
@@ -290,7 +272,7 @@ export function Sidebar() {
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen ? true : undefined}
         aria-label={t("brandName")}
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 max-md:w-full max-md:border-r-0 max-md:p-3 md:w-64 md:translate-x-0 md:p-3 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 max-md:bottom-[calc(3rem+env(safe-area-inset-bottom))] max-md:w-full max-md:border-r-0 max-md:p-3 md:w-64 md:translate-x-0 md:p-3 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
         style={{
@@ -361,7 +343,7 @@ export function Sidebar() {
             // `md:hidden` still leaves this counting as a child of the panel's
             // `space-y`, which hands the nav below it a margin the wide rail
             // never had; cancel it there.
-            className="mb-3 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.06] p-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden md:[&+*]:!mt-0"
+            className="mb-2 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.06] p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden md:[&+*]:!mt-0"
           >
             <span
               suppressHydrationWarning
@@ -392,10 +374,10 @@ export function Sidebar() {
           </Link>
 
           <nav className="space-y-0.5 md:space-y-1.5">
-            <div className="space-y-3 md:hidden">
+            <div className="space-y-2 md:hidden">
               {mobileGroups.map((group) => (
                 <div key={group.label}>
-                  <p className="px-1 pb-1 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                  <p className="px-1 pb-0.5 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
                     {group.label}
                   </p>
                   <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-background">
@@ -410,8 +392,8 @@ export function Sidebar() {
         </div>
 
         <div className="relative z-20 mt-1.5 shrink-0 border-t border-border pt-1.5 md:mt-2 md:pt-2.5">
-          <div className="sidebar-panel overflow-hidden">
-            <div className="flex items-center gap-1 border-b border-border/80 bg-muted/25 p-1 md:gap-1.5 md:p-1.5">
+          <div className="sidebar-panel overflow-hidden max-md:border-0 max-md:bg-transparent max-md:shadow-none">
+            <div className="flex items-center gap-1 border-b border-border/80 bg-muted/25 p-1 max-md:gap-2 max-md:border-b-0 max-md:bg-transparent max-md:p-0 md:gap-1.5 md:p-1.5">
               <LocaleSwitcher size="sm" fill embedded className="min-w-0 flex-1 md:hidden" />
               <LocaleSwitcher size="md" fill embedded className="hidden min-w-0 flex-1 md:flex" />
               <ThemeToggle size="sm" embedded className="md:hidden" />

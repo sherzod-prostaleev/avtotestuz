@@ -729,12 +729,12 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
 
       {source === "sign" && signsAvailable && (
         <section className="space-y-3" aria-label={t("sourceSignPick")}>
-          <div className="flex items-end justify-between gap-3">
+          <div className="flex items-end justify-between gap-3 max-md:items-center">
             <div>
               <h2 className="text-sm font-extrabold uppercase tracking-wider text-muted-foreground">
                 {t("sourceSignPick")}
               </h2>
-              <p className="text-base text-muted-foreground">{t("sourceSignHint")}</p>
+              <p className="text-base text-muted-foreground max-md:hidden">{t("sourceSignHint")}</p>
             </div>
             {/* Unreachable today — sources filters out "sign" on the kiosk, so
                 source can never be "sign" there — but guarded so it stays
