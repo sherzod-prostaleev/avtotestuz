@@ -55,3 +55,16 @@ backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
 # Station logs dropped in for support triage — evidence from a school PC,
 # never repo content.
 station*.log
+
+# Work reports AI assistants drop in the repo root on their way out: 1ffca09
+# committed two of them (718 lines) and fd08718 had to delete them again. A
+# report is a trace of how the work went, not repo content. Anchored to the
+# root on purpose — real documents under docs/ stay tracked.
+/*HISOBOT*.txt
+/*HISOBOT*.md
+/*hisobot*.txt
+/*hisobot*.md
+/*_REPORT.txt
+/*_REPORT.md
+/*_SUMMARY.txt
+/*_SUMMARY.md
