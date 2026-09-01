@@ -532,7 +532,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                       }`}
                     >
                       {section && SectionIcon && (
-                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground">
+                        <span className="flex min-w-0 items-center gap-1.5 text-muted-foreground max-md:hidden">
                           <SectionIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
                           <span
                             className={`truncate font-bold uppercase tracking-wider ${
@@ -544,7 +544,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                         </span>
                       )}
                       <span
-                        className={`line-clamp-2 font-bold leading-snug ${
+                        className={`line-clamp-2 font-bold leading-snug max-md:line-clamp-3 ${
                           kiosk ? "text-base" : "text-sm"
                         }`}
                       >

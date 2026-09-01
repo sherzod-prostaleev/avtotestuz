@@ -259,7 +259,15 @@
     "planStepExamMeta": "20 савол · 25 дақиқа",
     "planStepExamDone": "Бугун топширилди",
     "planStart": "Бошлаш",
-    "planAllDone": "Бугунги режа бажарилди. Зўр!"
+    "planAllDone": "Бугунги режа бажарилди. Зўр!",
+    "homeGreeting": "Салом, {name}",
+    "homeStatus": "Имтиҳонга тайёрлик <b>{percent}%</b> · {days} кундан бери тўхтамадингиз",
+    "homeStatusNoStreak": "Имтиҳонга тайёрлик <b>{percent}%</b> · бугундан бошлаймиз",
+    "homeResume": "Тугалланмаган машқ",
+    "homeResumeCta": "Давом",
+    "homeTileStreak": "кун кетма-кет",
+    "homeTileAnswered": "савол ечилди",
+    "homeTileDue": "такрорлаш"
   },
   "Sidebar": {
     "brandName": "Driver Go",

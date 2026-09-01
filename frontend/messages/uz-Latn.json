@@ -259,7 +259,15 @@
     "planStepExamMeta": "20 savol · 25 daqiqa",
     "planStepExamDone": "Bugun topshirildi",
     "planStart": "Boshlash",
-    "planAllDone": "Bugungi reja bajarildi. Zo'r!"
+    "planAllDone": "Bugungi reja bajarildi. Zo'r!",
+    "homeGreeting": "Salom, {name}",
+    "homeStatus": "Imtihonga tayyorlik <b>{percent}%</b> · {days} kundan beri to'xtamadingiz",
+    "homeStatusNoStreak": "Imtihonga tayyorlik <b>{percent}%</b> · bugundan boshlaymiz",
+    "homeResume": "Tugallanmagan mashq",
+    "homeResumeCta": "Davom",
+    "homeTileStreak": "kun ketma-ket",
+    "homeTileAnswered": "savol yechildi",
+    "homeTileDue": "takrorlash"
   },
   "Sidebar": {
     "brandName": "Driver Go",

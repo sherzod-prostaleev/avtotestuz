@@ -71,7 +71,7 @@ export function DailyPlanCard({
       aria-label={t("planTitle")}
       className={`surface-raised overflow-hidden rounded-2xl border border-border bg-card ${className}`}
     >
-      <div className="flex items-center justify-between gap-2 px-3.5 pb-2.5 pt-3">
+      <div className="flex items-center justify-between gap-2 px-3 pb-2 pt-2.5">
         <h2 className="text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
           {t("planTitle")}
         </h2>
@@ -87,7 +87,7 @@ export function DailyPlanCard({
           return (
             // The one primary action on the screen. Everything else on this
             // card is a status line.
-            <div key={step.key} className="flex flex-col gap-2.5 bg-accent/5 p-3.5">
+            <div key={step.key} className="flex flex-col gap-2 bg-accent/5 p-3">
               <div className="flex items-start gap-2.5">
                 <span
                   aria-hidden="true"
@@ -115,7 +115,7 @@ export function DailyPlanCard({
           <Link
             key={step.key}
             href={href[step.key]}
-            className={`flex min-h-12 items-center gap-2.5 px-3.5 py-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
+            className={`flex min-h-11 items-center gap-2.5 px-3 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
               isLast ? "" : "border-b border-border"
             }`}
           >
@@ -152,7 +152,7 @@ export function DailyPlanCard({
       })}
 
       {plan.activeKey === null && (
-        <p className="border-t border-border px-3.5 py-2.5 text-sm font-bold text-success">
+        <p className="border-t border-border px-3 py-2 text-sm font-bold text-success">
           {t("planAllDone")}
         </p>
       )}

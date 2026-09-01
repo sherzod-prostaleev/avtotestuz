@@ -11,7 +11,7 @@ import { mistakesCountStore, savedQuestionsStore } from "@/lib/dashboard-stores"
 import { formatDateWithTime } from "@/lib/date-format";
 import { MasteryBar } from "@/components/shared/mastery-bar";
 import { GrandMockCard } from "@/components/mock/grand-mock-card";
-import { DailyPlanCard } from "@/components/dashboard/daily-plan-card";
+import { MobileHome } from "@/components/dashboard/mobile-home";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -241,21 +241,23 @@ export default function DashboardPage() {
 
   return (
     <main suppressHydrationWarning className="page-shell space-y-3 sm:space-y-8">
-      {/* Phones get one screen with one decision: today's three steps and a
-          single button. Everything the wide dashboard shows below is hidden
-          under `md`, where learners were scrolling through eleven blocks and
-          three identical "start practice" buttons to find it. */}
-      <DailyPlanCard
-        // `md:hidden` alone still leaves the card counting as this page's first
-        // child, so `space-y` hands the next block a margin it never had on
-        // desktop. Cancelling it on the following sibling keeps the wide
-        // dashboard pixel-identical whichever block comes next.
+      {/* Phones get their own home screen in the approved order — greeting,
+          today's plan, an open session, three numbers — rather than a reflow of
+          the wide dashboard, which keeps all eleven of its blocks and stays
+          pixel-identical because every one of them is `max-md:hidden`. */}
+      <MobileHome
         className="md:hidden md:[&+*]:!mt-0"
+        userName={userName}
+        readinessPct={readinessPct}
+        currentStreak={currentStreak}
         todayAnswered={todayAnswered}
         dailyTarget={dailyTarget}
         dueCount={dueQuestionsCount}
+        totalAnswered={stats?.total_answered ?? 0}
         weakest={weakest}
         sessions={sessions}
+        resumeSession={resumeSession}
+        loading={isPersonalizationLoading}
       />
 
       {showOnboarding && (
@@ -304,7 +306,7 @@ export default function DashboardPage() {
         </section>
       )}
 
-      <section className="grid gap-2.5 sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+      <section className="grid gap-2.5 max-md:hidden sm:gap-4 lg:grid-cols-[1.35fr_0.9fr]">
         <section className="surface-raised relative min-w-0 overflow-hidden rounded-2xl border border-border bg-card p-3 sm:rounded-3xl sm:p-6 md:p-8">
           <div className="relative z-10 flex h-full flex-col justify-between gap-3 sm:gap-6">
             <div className="space-y-2 sm:space-y-4">
@@ -537,7 +539,7 @@ export default function DashboardPage() {
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
             aria-labelledby="resume-session-title"
-            className="surface-raised relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 md:p-8"
+            className="surface-raised relative overflow-hidden rounded-3xl border border-accent/40 bg-card p-6 max-md:hidden md:p-8"
           >
             <div className="relative flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div className="flex items-start gap-4">

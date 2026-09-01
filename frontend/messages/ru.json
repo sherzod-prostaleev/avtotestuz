@@ -259,7 +259,15 @@
     "planStepExamMeta": "20 вопросов · 25 минут",
     "planStepExamDone": "Сдан сегодня",
     "planStart": "Начать",
-    "planAllDone": "План на сегодня выполнен. Отлично!"
+    "planAllDone": "План на сегодня выполнен. Отлично!",
+    "homeGreeting": "Привет, {name}",
+    "homeStatus": "Готовность к экзамену <b>{percent}%</b> · {days} дней без перерыва",
+    "homeStatusNoStreak": "Готовность к экзамену <b>{percent}%</b> · начнём сегодня",
+    "homeResume": "Незавершённая практика",
+    "homeResumeCta": "Продолжить",
+    "homeTileStreak": "дней подряд",
+    "homeTileAnswered": "вопросов решено",
+    "homeTileDue": "повторение"
   },
   "Sidebar": {
     "brandName": "Driver Go",
