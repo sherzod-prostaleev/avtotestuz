@@ -107,6 +107,35 @@ export function Sidebar() {
     { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
   ];
 
+  // The phone menu is a full screen, so everything fits at once in three
+  // groups instead of a flat list with a "Ko'proq" disclosure below it.
+  const mobileGroups: { label: string; links: NavLink[] }[] = [
+    {
+      label: t("menuGroupPractice"),
+      links: [
+        { href: `/${currentLocale}/arena`, label: t("navArena"), icon: Swords },
+        { href: `/${currentLocale}/signs`, label: t("navSigns"), icon: Signpost },
+        { href: `/${currentLocale}/mistakes`, label: t("navMistakes"), icon: AlertTriangle },
+        { href: `/${currentLocale}/saved`, label: t("navSaved"), icon: Bookmark },
+      ],
+    },
+    {
+      label: t("menuGroupResults"),
+      links: [
+        { href: `/${currentLocale}/stats`, label: t("navStats"), icon: BarChart3 },
+        { href: `/${currentLocale}/leaderboard`, label: t("navLeaderboard"), icon: Trophy },
+      ],
+    },
+    {
+      label: t("menuGroupAccount"),
+      links: [
+        { href: `/${currentLocale}/profile`, label: t("navProfile"), icon: User },
+        { href: `/${currentLocale}/premium`, label: t("navPremium"), icon: Crown, isGold: true },
+        { href: `/${currentLocale}/support`, label: t("navSupport"), icon: LifeBuoy, badge: supportUnread },
+      ],
+    },
+  ];
+
   const bottomTabs = [
     {
       href: `/${currentLocale}/dashboard`,
@@ -261,7 +290,7 @@ export function Sidebar() {
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen ? true : undefined}
         aria-label={t("brandName")}
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 md:w-64 md:translate-x-0 md:p-3 ${
+        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 max-md:w-full max-md:border-r-0 max-md:p-3 md:w-64 md:translate-x-0 md:p-3 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
         style={{
@@ -278,10 +307,11 @@ export function Sidebar() {
             >
               <BrandLogo
                 size={28}
-                className="h-7 w-7 shrink-0 rounded-xl object-cover md:h-9 md:w-9 md:rounded-2xl"
+                className="h-7 w-7 shrink-0 rounded-xl object-cover max-md:hidden md:h-9 md:w-9 md:rounded-2xl"
               />
-              <span className="truncate">{t("brandName")}</span>
+              <span className="truncate max-md:hidden">{t("brandName")}</span>
             </Link>
+            <span className="font-display text-xl font-extrabold md:hidden">{t("menuTitle")}</span>
 
             <div className="flex items-center gap-1">
               <div className="hidden md:block">
@@ -325,10 +355,55 @@ export function Sidebar() {
         <div className="mt-1.5 min-h-0 flex-1 space-y-1.5 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-gutter:stable] md:mt-2.5 md:space-y-2.5">
           <TrialCountdown isVip={isVip} validUntil={entitlement?.valid_until} loading={loading} compact />
 
+          <Link
+            href={`/${currentLocale}/${isVip ? "profile" : "premium"}`}
+            onClick={() => setMobileOpen(false)}
+            // `md:hidden` still leaves this counting as a child of the panel's
+            // `space-y`, which hands the nav below it a margin the wide rail
+            // never had; cancel it there.
+            className="mb-3 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.06] p-2.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden md:[&+*]:!mt-0"
+          >
+            <span
+              suppressHydrationWarning
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted font-display text-lg font-black text-accent"
+            >
+              {userName.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span suppressHydrationWarning className="block truncate font-display text-lg font-extrabold">
+                {userName}
+              </span>
+              {/* The tier is unknown until the entitlement lands; showing "free"
+                  and an upgrade button first, then correcting them, is worse
+                  than showing the shape. */}
+              {loading ? (
+                <span aria-hidden="true" className="mt-1 block h-3 w-24 animate-pulse rounded bg-border/60" />
+              ) : (
+                <span suppressHydrationWarning className="block truncate text-xs text-muted-foreground">
+                  {isVip ? t("vipBadge") : t("menuFreeTier")}
+                </span>
+              )}
+            </span>
+            {!loading && !isVip && (
+              <span className="btn-3d-gold inline-flex min-h-11 shrink-0 items-center rounded-xl px-3.5 text-sm font-extrabold">
+                {t("upgradeVip")}
+              </span>
+            )}
+          </Link>
+
           <nav className="space-y-0.5 md:space-y-1.5">
-            <div className="space-y-0.5 md:hidden">{mobileDrawerLinks.map(renderLink)}</div>
+            <div className="space-y-3 md:hidden">
+              {mobileGroups.map((group) => (
+                <div key={group.label} className="space-y-0.5">
+                  <p className="px-1 pb-0.5 text-xs font-extrabold uppercase tracking-[0.08em] text-muted-foreground">
+                    {group.label}
+                  </p>
+                  {group.links.map(renderLink)}
+                </div>
+              ))}
+            </div>
             <div className="hidden space-y-1.5 md:block">{primaryLinks.map(renderLink)}</div>
-            {moreSection}
+            <div className="max-md:hidden">{moreSection}</div>
           </nav>
         </div>
 
@@ -344,7 +419,7 @@ export function Sidebar() {
             <Link
               href={`/${currentLocale}/profile`}
               onClick={() => setMobileOpen(false)}
-              className="flex items-center gap-2 p-2 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:gap-2.5 md:p-2.5"
+              className="flex items-center gap-2 p-2 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring max-md:hidden md:gap-2.5 md:p-2.5"
             >
               <div suppressHydrationWarning className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm">
                 {userName.charAt(0).toUpperCase()}

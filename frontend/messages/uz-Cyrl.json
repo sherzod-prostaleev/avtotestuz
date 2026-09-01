@@ -301,7 +301,12 @@
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
     "languageRu": "Ru",
-    "navSupport": "Техник ёрдам"
+    "navSupport": "Техник ёрдам",
+    "menuTitle": "Меню",
+    "menuFreeTier": "Бепул тариф",
+    "menuGroupPractice": "Машқ",
+    "menuGroupResults": "Натижаларим",
+    "menuGroupAccount": "Ҳисоб"
   },
   "Header": {
     "brandName": "Driver Go",

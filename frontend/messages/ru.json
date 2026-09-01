@@ -301,7 +301,12 @@
     "languageUzLatn": "O'z",
     "languageUzCyrl": "Ўз",
     "languageRu": "Ru",
-    "navSupport": "Техподдержка"
+    "navSupport": "Техподдержка",
+    "menuTitle": "Меню",
+    "menuFreeTier": "Бесплатный тариф",
+    "menuGroupPractice": "Практика",
+    "menuGroupResults": "Мои результаты",
+    "menuGroupAccount": "Аккаунт"
   },
   "Header": {
     "brandName": "Driver Go",

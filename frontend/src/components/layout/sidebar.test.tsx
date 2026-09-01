@@ -110,11 +110,15 @@ describe("Sidebar i18n and accessibility", () => {
       `/${localeCase.locale}/tickets`
     );
     fireEvent.click(screen.getByRole("button", { name: localeCase.more }));
-    expect(screen.getByRole("link", { name: localeCase.saved })).toHaveAttribute(
-      "href",
-      `/${localeCase.locale}/saved`
-    );
-    expect(screen.getByText(localeCase.user)).toBeInTheDocument();
+    // Twice: the phone menu lists every destination in its three groups, the
+    // wide rail keeps the same one behind its "Ko'proq" disclosure.
+    const savedLinks = screen.getAllByRole("link", { name: localeCase.saved });
+    expect(savedLinks).toHaveLength(2);
+    for (const link of savedLinks) {
+      expect(link).toHaveAttribute("href", `/${localeCase.locale}/saved`);
+    }
+    // Twice: the phone menu's user card and the wide rail's profile row.
+    expect(screen.getAllByText(localeCase.user)).toHaveLength(2);
     expect(screen.getAllByRole("button", { name: localeCase.openMenu }).length).toBeGreaterThan(0);
     expect(container.textContent).not.toMatch(/[🚗👋🎉]/u);
   });
@@ -191,6 +195,7 @@ describe("Sidebar i18n and accessibility", () => {
 
     renderWithIntl(localeCases[2]);
 
-    expect(screen.getByText("VIP")).toBeInTheDocument();
+    // Twice: the phone menu's user card and the wide rail's streak panel.
+    expect(screen.getAllByText("VIP")).toHaveLength(2);
   });
 });
