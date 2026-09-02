@@ -2194,7 +2194,12 @@
     "retry": "Повторить",
     "close": "Закрыть",
     "back": "Назад",
-    "loadMore": "Загрузить ещё"
+    "loadMore": "Загрузить ещё",
+    "timeJustNow": "только что",
+    "timeMinutesAgo": "{count} мин",
+    "timeHoursAgo": "{count} ч",
+    "timeYesterday": "вчера",
+    "timeDaysAgo": "{count} дн."
   },
   "SupportBanner": {
     "cta": "Подробнее",

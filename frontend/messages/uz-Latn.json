@@ -2194,7 +2194,12 @@
     "retry": "Qayta urinish",
     "close": "Yopish",
     "back": "Orqaga",
-    "loadMore": "Yana yuklash"
+    "loadMore": "Yana yuklash",
+    "timeJustNow": "hozir",
+    "timeMinutesAgo": "{count} daq",
+    "timeHoursAgo": "{count} soat",
+    "timeYesterday": "kecha",
+    "timeDaysAgo": "{count} kun"
   },
   "SupportBanner": {
     "cta": "Batafsil",

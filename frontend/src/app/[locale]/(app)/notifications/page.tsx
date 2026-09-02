@@ -4,7 +4,25 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Award,
+  BarChart3,
+  Bell,
+  Bookmark,
+  BookOpen,
+  Crown,
+  LayoutDashboard,
+  LifeBuoy,
+  Loader2,
+  Signpost,
+  Swords,
+  Target,
+  Trophy,
+  User,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   listNotifications,
@@ -12,6 +30,61 @@ import {
   markNotificationRead,
   type NotificationItem,
 } from "@/lib/notifications-client";
+
+
+/**
+ * The API returns no `type` or `kind` for a notification — only an optional
+ * `url`. Until it does (the artboard's colours are semantic: a repeat prompt is
+ * red, a streak nudge orange, a referral payout green), the icon and its tone
+ * are read off the destination route, reusing the exact tokens the bottom tab
+ * bar and the phone menu already give that route so the two screens agree.
+ *
+ * Written out in full because Tailwind only emits a class it can read verbatim
+ * in the source — the same reason `sidebar.tsx` spells its `tone` field out.
+ */
+const NOTIFICATION_ICON_BY_SEGMENT: Record<string, { icon: LucideIcon; tone: string }> = {
+  dashboard: { icon: LayoutDashboard, tone: "text-accent" },
+  tickets: { icon: BookOpen, tone: "text-success" },
+  practice: { icon: Target, tone: "text-streak" },
+  arena: { icon: Swords, tone: "text-streak" },
+  exam: { icon: Award, tone: "text-gold" },
+  signs: { icon: Signpost, tone: "text-accent" },
+  premium: { icon: Crown, tone: "text-gold" },
+  mistakes: { icon: AlertTriangle, tone: "text-danger" },
+  saved: { icon: Bookmark, tone: "text-gold" },
+  leaderboard: { icon: Trophy, tone: "text-gold" },
+  stats: { icon: BarChart3, tone: "text-success" },
+  profile: { icon: User, tone: "text-muted-foreground" },
+  support: { icon: LifeBuoy, tone: "text-success" },
+};
+
+const DEFAULT_NOTIFICATION_ICON = { icon: Bell, tone: "text-muted-foreground" };
+
+/**
+ * "10 daq" / "2 soat" / "kecha" / "2 kun". A phone row is read at a glance, so
+ * relative time replaces the wide layout's full date. Computed by hand rather
+ * than through `Intl.RelativeTimeFormat` for the same reason the leaderboard
+ * groups its digits by hand: `uz-Latn` and `uz-Cyrl` are not tags every
+ * browser's ICU data resolves.
+ */
+function formatRelative(iso: string, t: (key: string, values?: Record<string, string | number>) => string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return "";
+  const minutes = Math.floor((Date.now() - then) / 60_000);
+  if (minutes < 1) return t("timeJustNow");
+  if (minutes < 60) return t("timeMinutesAgo", { count: minutes });
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return t("timeHoursAgo", { count: hours });
+  const days = Math.floor(hours / 24);
+  if (days < 2) return t("timeYesterday");
+  return t("timeDaysAgo", { count: days });
+}
+
+function iconForNotification(item: NotificationItem) {
+  // `url` is "/{locale}/{segment}/...", so the second part names the route.
+  const segment = item.url?.split("/").filter(Boolean)[1];
+  return (segment && NOTIFICATION_ICON_BY_SEGMENT[segment]) || DEFAULT_NOTIFICATION_ICON;
+}
 
 function formatWhen(iso: string, locale: string): string {
   try {
@@ -73,22 +146,28 @@ export default function NotificationsPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl space-y-4 px-4 py-5">
+    // Phone padding comes down to the design's 12px: at `px-4` the title and
+    // "Barchasini o'qilgan" are three pixels too wide for the row and the
+    // heading loses its last syllable to the ellipsis.
+    <main className="mx-auto max-w-2xl space-y-4 px-4 py-5 max-md:space-y-3 max-md:px-3 max-md:py-3">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <Link
             href={`/${locale}/dashboard`}
-            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border"
+            className="flex h-10 w-10 items-center justify-center rounded-xl border border-border max-md:h-auto max-md:w-auto max-md:border-0"
             aria-label={t("back")}
           >
-            <ArrowLeft className="h-4 w-4" aria-hidden />
+            <ArrowLeft className="h-4 w-4 max-md:h-[22px] max-md:w-[22px] max-md:text-muted-foreground" aria-hidden />
           </Link>
-          <h1 className="truncate text-lg font-black">{t("title")}</h1>
+          <h1 className="truncate text-lg font-black max-md:text-xl">{t("title")}</h1>
         </div>
+        {/* On the phone this is plain accent text, not a bordered button — the
+            design gives the row's weight to the title. */}
         <Button
           type="button"
           size="sm"
           variant="outline"
+          className="max-md:h-auto max-md:min-h-0 max-md:whitespace-nowrap max-md:border-0 max-md:bg-transparent max-md:p-0 max-md:text-[13px] max-md:font-bold max-md:text-accent max-md:shadow-none max-md:hover:bg-transparent"
           disabled={busy || loading}
           onClick={() => {
             setBusy(true);
@@ -121,7 +200,7 @@ export default function NotificationsPage() {
         </p>
       ) : null}
 
-      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card max-md:hidden">
         {items.map((item) => {
           const unread = !item.read_at;
           return (
@@ -165,12 +244,54 @@ export default function NotificationsPage() {
         })}
       </ul>
 
+      {/* Phone: icon-led rows. The row shape genuinely differs — an icon in
+          front instead of a picture behind, relative time instead of a full
+          date — so this is a second body rather than a reflow. */}
+      <ul className="divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card md:hidden">
+        {items.map((item) => {
+          const unread = !item.read_at;
+          const { icon: Icon, tone } = iconForNotification(item);
+          return (
+            <li key={item.id}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void onItemClick(item)}
+                className={`flex w-full items-start gap-2.5 px-3.5 py-[11px] text-left hover:bg-accent/10 ${
+                  unread ? "bg-accent/5" : ""
+                }`}
+              >
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${
+                    unread ? "bg-accent" : "bg-transparent"
+                  }`}
+                  aria-hidden
+                />
+                <Icon aria-hidden className={`mt-px h-[19px] w-[19px] shrink-0 ${tone}`} />
+                <span className="min-w-0 flex-1">
+                  <span className={`block text-[15px] leading-tight ${unread ? "font-bold" : "font-semibold"}`}>
+                    {item.title}
+                  </span>
+                  <span className="mt-px block truncate text-[13px] leading-tight text-muted-foreground">
+                    {item.body}
+                  </span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-xs text-muted-foreground/80">
+                  {formatRelative(item.created_at, t)}
+                </span>
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
       {items.length >= 30 ? (
-        <div className="flex justify-center">
+        <div className="flex justify-center max-md:block">
           <Button
             type="button"
             variant="outline"
             size="sm"
+            className="max-md:min-h-11 max-md:w-full max-md:rounded-xl max-md:text-sm max-md:font-bold"
             disabled={loadingMore}
             onClick={() => {
               const last = items[items.length - 1];

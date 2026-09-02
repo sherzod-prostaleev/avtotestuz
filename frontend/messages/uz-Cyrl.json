@@ -2194,7 +2194,12 @@
     "retry": "Қайта уриниш",
     "close": "Ёпиш",
     "back": "Орқага",
-    "loadMore": "Яна юклаш"
+    "loadMore": "Яна юклаш",
+    "timeJustNow": "ҳозир",
+    "timeMinutesAgo": "{count} дақ",
+    "timeHoursAgo": "{count} соат",
+    "timeYesterday": "кеча",
+    "timeDaysAgo": "{count} кун"
   },
   "SupportBanner": {
     "cta": "Батафсил",
