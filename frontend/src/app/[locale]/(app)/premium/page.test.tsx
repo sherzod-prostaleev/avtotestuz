@@ -48,17 +48,20 @@ describe("PremiumPage", () => {
   it("renders Matiz + all API tariffs with pricing and badges", async () => {
     mockApiGet({ active: false, until: null });
     renderWithIntl();
-    expect(await screen.findByText("Matiz")).toBeInTheDocument();
-    expect(screen.getByText("Nexia")).toBeInTheDocument();
-    expect(screen.getAllByText("Gentra").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Ommabop")).toBeInTheDocument(); // gentra's popular badge, translated
-    expect(screen.getByText("−40%")).toBeInTheDocument(); // gentra's discount_percent
+    // Two bodies render — the phone one (`md:hidden`) and the wide grid
+    // (`max-md:hidden`). jsdom applies no CSS, so both are in the DOM and each
+    // plan name and badge appears twice.
+    expect(await screen.findAllByText("Matiz")).toHaveLength(2);
+    expect(screen.getAllByText("Nexia")).toHaveLength(2);
+    expect(screen.getAllByText("Gentra").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText("Ommabop")).toHaveLength(2); // gentra's popular badge, translated
+    expect(screen.getByText("−40%")).toBeInTheDocument(); // wide card only
   });
 
   it("does not show the VIP banner when entitlement is inactive", async () => {
     mockApiGet({ active: false, until: null });
     renderWithIntl();
-    await screen.findByText("Nexia");
+    await screen.findAllByText("Nexia");
     expect(screen.queryByText(/VIP faol/)).not.toBeInTheDocument();
   });
 
@@ -123,11 +126,14 @@ describe("PremiumPage", () => {
     mockApiGet({ active: false, until: null });
     renderWithIntl();
 
+    // The boundary moved from `sm` to `md`: the phone body owns everything
+    // below 768px now, including its own bottom CTA, so the 640-767px band
+    // must show the phone CTA rather than the wide card's.
     const cardCta = await screen.findByText("Sotib olish");
     expect(cardCta).toHaveClass("hidden");
-    expect(cardCta).toHaveClass("sm:inline-flex");
+    expect(cardCta).toHaveClass("md:inline-flex");
 
-    const stickyCta = screen.getByText("Sotib olish — Gentra");
-    expect(stickyCta.closest("div")).toHaveClass("sm:hidden");
+    const phoneCta = screen.getByText("Sotib olish — Gentra");
+    expect(phoneCta.closest("div.md\\:hidden")).not.toBeNull();
   });
 });

@@ -37,7 +37,11 @@ export function ChatMessageList({
   }
 
   return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-3">
+    // Phone: a short thread sits on the composer instead of hanging from the
+    // header. `mt-auto` on the first bubble rather than `justify-end` because an
+    // auto margin collapses to 0 once the thread overflows, so the oldest
+    // message stays reachable at the top of the scroll.
+    <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-3 py-3 max-md:py-3.5 max-md:[&>*:first-child]:mt-auto">
       {ordered.map((m) => {
         const mine = m.sender_kind === selfKind;
         const url = resolveAttachmentUrl(m);
@@ -45,10 +49,10 @@ export function ChatMessageList({
         return (
           <div
             key={m.id}
-            className={`flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm shadow-sm ${
+            className={`flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm shadow-sm max-md:max-w-[82%] max-md:gap-[3px] max-md:rounded-[14px] max-md:py-[9px] max-md:text-[15px] max-md:leading-[20px] max-md:shadow-none ${
               mine
-                ? "ml-auto bg-accent text-accent-foreground"
-                : "mr-auto bg-muted text-foreground"
+                ? "ml-auto bg-accent text-accent-foreground max-md:rounded-br-[4px]"
+                : "mr-auto bg-muted text-foreground max-md:rounded-bl-[4px] max-md:border max-md:border-border max-md:bg-card"
             }`}
           >
             {m.body ? <p className="whitespace-pre-wrap break-words">{m.body}</p> : null}
@@ -72,10 +76,22 @@ export function ChatMessageList({
               </a>
             ) : null}
             <time
-              className={`text-[10px] tabular-nums opacity-70 ${mine ? "text-right" : "text-left"}`}
+              className={`text-[10px] tabular-nums opacity-70 max-md:text-[12px] max-md:leading-[16px] ${mine ? "text-right" : "text-left"}`}
               dateTime={m.created_at}
             >
-              {new Date(m.created_at).toLocaleString()}
+              {/* The stamp is the whole date on a wide screen, where the thread
+                  is one panel among many and the day matters; on a phone the
+                  artboard shows the clock alone, so both are rendered and the
+                  breakpoint picks one. `hourCycle` keeps it 24-hour whatever
+                  the browser's own locale would default to. */}
+              <span className="max-md:hidden">{new Date(m.created_at).toLocaleString()}</span>
+              <span className="hidden max-md:inline">
+                {new Date(m.created_at).toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hourCycle: "h23",
+                })}
+              </span>
             </time>
           </div>
         );

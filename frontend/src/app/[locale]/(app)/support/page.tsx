@@ -104,20 +104,37 @@ export default function SupportChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-3.5rem-4.25rem)] flex-col md:h-[calc(100dvh)] md:min-h-[32rem]">
-      <header className="flex items-center justify-between border-b border-border px-4 py-3">
+    // The shell's own reserve under the content (`pb-[4.25rem]`) is 20px taller
+    // than the tab bar it stands in for, and on a chat screen that reserve is
+    // dead space between the composer and the bar. Below `md` the column is
+    // measured against the bar itself — top bar 3.5rem, bar 3rem + its border
+    // and a hair of clearance — so the composer lands just above it the way the
+    // artboard draws it. `md:h-[calc(100dvh)]` still wins from 768px up.
+    <div className="flex h-[calc(100dvh-3.5rem-4.25rem)] flex-col max-md:h-[calc(100dvh-3.5rem-3.25rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh)] md:min-h-[32rem]">
+      <header className="flex items-center justify-between border-b border-border px-4 py-3 max-md:border-b-0 max-md:px-3 max-md:pb-0 max-md:pt-3">
         <div>
-          <h1 className="font-display text-lg font-bold">{t("title")}</h1>
-          <p className="text-xs text-muted-foreground">{t("subtitle")}</p>
+          <h1 className="font-display text-lg font-bold max-md:text-[24px] max-md:font-extrabold max-md:leading-[1.15]">
+            {t("title")}
+          </h1>
+          <p className="text-xs text-muted-foreground max-md:text-[15px]">{t("subtitle")}</p>
         </div>
         {conversation ? (
+          // Phone: the artboard's 28px pill — bordered, tinted, with a status
+          // dot. `!` on the two colours because `dark:` carries one more class
+          // of specificity than a `max-md:` media rule can answer.
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase ${
+            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase max-md:inline-flex max-md:h-[28px] max-md:items-center max-md:gap-1.5 max-md:border max-md:px-2.5 max-md:py-0 max-md:text-[13px] max-md:font-bold max-md:normal-case ${
               conversation.status === "closed"
-                ? "bg-muted text-muted-foreground"
-                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
+                ? "bg-muted text-muted-foreground max-md:border-border"
+                : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 max-md:!border-success/40 max-md:!bg-success/10 max-md:!text-success"
             }`}
           >
+            <span
+              className={`hidden h-[7px] w-[7px] flex-none rounded-full max-md:block ${
+                conversation.status === "closed" ? "bg-muted-foreground" : "bg-success"
+              }`}
+              aria-hidden
+            />
             {conversation.status === "closed" ? t("statusClosed") : t("statusOpen")}
           </span>
         ) : null}

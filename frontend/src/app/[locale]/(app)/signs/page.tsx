@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
+import { SignGroupPicker } from "@/components/signs/sign-group-picker";
 import { useSignDetail, useSigns, type SignItem } from "@/hooks/use-signs";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -47,6 +48,15 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
   const [activeGroup, setActiveGroup] = useState("all");
   const [search, setSearch] = useState("");
   const [activeModalSign, setActiveModalSign] = useState<SignItem | null>(null);
+  // The approved design opens this screen on a phone as a group picker rather
+  // than the catalog itself; picking a group (or the search box) hands off to
+  // the catalog for the rest of the visit. Desktop and the classroom kiosk
+  // never see the picker — it is `md:hidden` — so this flag only decides
+  // anything below 768px.
+  const [hasEnteredCatalog, setHasEnteredCatalog] = useState(false);
+  // Signs per group. No endpoint returns group totals, so they are counted from
+  // the catalog the page already fetched — see the effect below.
+  const [groupCounts, setGroupCounts] = useState<Record<string, number> | null>(null);
 
   const { signs, loading, error, refetch } = useSigns(locale, activeGroup, search);
   const {
@@ -66,6 +76,17 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [activeModalSign]);
 
+  // The picker's counts come from the page's own first fetch: it mounts with
+  // group "all" and an empty query, so the first list to arrive is the whole
+  // catalog. A later group or search fetch returns a subset and must not be
+  // counted, hence the guard.
+  useEffect(() => {
+    if (activeGroup !== "all" || search.trim() || loading || error || signs.length === 0) return;
+    const counts: Record<string, number> = {};
+    for (const item of signs) counts[item.group_code] = (counts[item.group_code] ?? 0) + 1;
+    setGroupCounts(counts);
+  }, [activeGroup, search, loading, error, signs]);
+
   const groups = [
     { code: "all", name: t("groupAll") },
     { code: "warning", name: t("groupWarning") },
@@ -77,6 +98,9 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
     { code: "supplementary", name: t("groupSupplementary") },
   ];
   const hasActiveQuery = activeGroup !== "all" || search.trim().length > 0;
+  const totalSignsCount = groupCounts
+    ? Object.values(groupCounts).reduce((sum, n) => sum + n, 0)
+    : null;
   const activeDetail =
     signDetail?.code === activeModalSign?.code ? signDetail : null;
   const modalImage = activeDetail?.image_url ?? activeModalSign?.image_url ?? null;
@@ -84,150 +108,182 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
 
   return (
     <main className="page-shell space-y-5 sm:space-y-6">
-      <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <BackLink href={backHref} kiosk={kiosk}>{t("backToPractice")}</BackLink>
-          <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
-          <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+      {/* Phone: the approved design's entry screen. A body of its own rather
+          than a reflow of the catalog below, because that catalog is what the
+          desktop and the classroom kiosk render at every width and must not
+          move. `md:[&+*]:!mt-0` because a `md:hidden` element is still a child
+          for `space-y-5`, and would otherwise hand the catalog a top margin the
+          wide layout never had.
+
+          Suppressed on `error` so the retry card below stays reachable on a
+          phone instead of a dead-end picker with nothing to pick. */}
+      {!hasEnteredCatalog && !error && (
+        <SignGroupPicker
+          className="md:hidden md:[&+*]:!mt-0"
+          groups={groups}
+          counts={groupCounts}
+          total={totalSignsCount}
+          onOpenSearch={() => setHasEnteredCatalog(true)}
+          onPickGroup={(code) => {
+            setActiveGroup(code);
+            setHasEnteredCatalog(true);
+          }}
+        />
+      )}
+
+      {/* Same children, same order, same spacing as `<main>` gave them
+          directly — only their parent changed, so the wide layout is
+          untouched. */}
+      <div
+        className={`space-y-5 sm:space-y-6 ${
+          hasEnteredCatalog || error ? "" : "max-md:hidden"
+        }`}
+      >
+        <header className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <BackLink href={backHref} kiosk={kiosk}>{t("backToPractice")}</BackLink>
+            <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
+            <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+          </div>
+
+          <label className="relative w-full sm:w-72">
+            <span className="sr-only">{t("searchPlaceholder")}</span>
+            <Search
+              className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              className="field-input pl-9"
+            />
+          </label>
+        </header>
+
+        <div className="chip-scroll" aria-label={t("groupFilterLabel")}>
+          {groups.map((group) => {
+            const isSelected = activeGroup === group.code;
+            return (
+              <button
+                key={group.code}
+                type="button"
+                onClick={() => setActiveGroup(group.code)}
+                aria-pressed={isSelected}
+                className={`filter-chip relative transition-colors ${
+                  isSelected ? "font-extrabold text-accent-foreground" : "filter-chip-idle font-bold"
+                }`}
+              >
+                {isSelected && (
+                  <span
+                    aria-hidden="true"
+                    className="nav-pill-in absolute inset-0 rounded-xl bg-accent shadow-3d"
+                  />
+                )}
+                <span className="relative z-10">{group.name}</span>
+              </button>
+            );
+          })}
         </div>
 
-        <label className="relative w-full sm:w-72">
-          <span className="sr-only">{t("searchPlaceholder")}</span>
-          <Search
-            className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t("searchPlaceholder")}
-            className="field-input pl-9"
-          />
-        </label>
-      </header>
+        {loading && (
+          <div className="flex min-h-40 items-center justify-center" role="status" aria-live="polite">
+            <RefreshCw className="mr-2 h-5 w-5 animate-spin text-accent" aria-hidden="true" />
+            <span className="text-sm text-muted-foreground">{t("loading")}</span>
+          </div>
+        )}
 
-      <div className="chip-scroll" aria-label={t("groupFilterLabel")}>
-        {groups.map((group) => {
-          const isSelected = activeGroup === group.code;
-          return (
-            <button
-              key={group.code}
-              type="button"
-              onClick={() => setActiveGroup(group.code)}
-              aria-pressed={isSelected}
-              className={`filter-chip relative transition-colors ${
-                isSelected ? "font-extrabold text-accent-foreground" : "filter-chip-idle font-bold"
-              }`}
-            >
-              {isSelected && (
-                <span
-                  aria-hidden="true"
-                  className="nav-pill-in absolute inset-0 rounded-xl bg-accent shadow-3d"
-                />
-              )}
-              <span className="relative z-10">{group.name}</span>
-            </button>
-          );
-        })}
-      </div>
+        {!loading && error && (
+          <Card className="border-destructive/40 bg-destructive/5 p-6 text-center" role="alert">
+            <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-destructive" aria-hidden="true" />
+            <p className="font-semibold">{t("loadError")}</p>
+            <Button className="mt-5" variant="outline" onClick={() => void refetch()}>
+              <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
+              {t("retry")}
+            </Button>
+          </Card>
+        )}
 
-      {loading && (
-        <div className="flex min-h-40 items-center justify-center" role="status" aria-live="polite">
-          <RefreshCw className="mr-2 h-5 w-5 animate-spin text-accent" aria-hidden="true" />
-          <span className="text-sm text-muted-foreground">{t("loading")}</span>
-        </div>
-      )}
+        {!loading && !error && signs.length === 0 && (
+          <Card className="p-8 text-center text-sm text-muted-foreground" role="status">
+            {hasActiveQuery ? t("noResults") : t("emptyCatalog")}
+          </Card>
+        )}
 
-      {!loading && error && (
-        <Card className="border-destructive/40 bg-destructive/5 p-6 text-center" role="alert">
-          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-destructive" aria-hidden="true" />
-          <p className="font-semibold">{t("loadError")}</p>
-          <Button className="mt-5" variant="outline" onClick={() => void refetch()}>
-            <RefreshCw className="mr-2 h-4 w-4" aria-hidden="true" />
-            {t("retry")}
-          </Button>
-        </Card>
-      )}
-
-      {!loading && !error && signs.length === 0 && (
-        <Card className="p-8 text-center text-sm text-muted-foreground" role="status">
-          {hasActiveQuery ? t("noResults") : t("emptyCatalog")}
-        </Card>
-      )}
-
-      {/* CSS enter animation, keyed by group. `AnimatePresence mode="popLayout"`
-          held the outgoing group in the DOM alongside the incoming one — up to
-          570 cards at once, every one of them re-registering its Link — and
-          measured the whole grid to place them. */}
-      {!loading && !error && signs.length > 0 && (
-        <div
-          key={activeGroup}
-          className="page-enter grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
-        >
-            {signs.map((sign) => {
-              const hasQuestions = sign.question_count > 0;
-              const content = (
-                <>
-                  {hasQuestions && (
-                    <span className="absolute right-2 top-2 inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-extrabold text-accent-foreground shadow-sm">
-                      {t("questionCountBadge", { count: sign.question_count })}
-                    </span>
-                  )}
-                  <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 p-2">
-                    {sign.image_url ? (
-                      // Dynamic media URLs are served by the backend and intentionally stay unoptimized.
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={sign.image_url}
-                        alt={hasQuestions ? "" : sign.name}
-                        className="max-h-full max-w-full object-contain"
-                      />
-                    ) : (
-                      <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
-                        <ImageOff className="h-6 w-6" aria-hidden="true" />
-                        {t("imageUnavailable")}
+        {/* CSS enter animation, keyed by group. `AnimatePresence mode="popLayout"`
+            held the outgoing group in the DOM alongside the incoming one — up to
+            570 cards at once, every one of them re-registering its Link — and
+            measured the whole grid to place them. */}
+        {!loading && !error && signs.length > 0 && (
+          <div
+            key={activeGroup}
+            className="page-enter grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+          >
+              {signs.map((sign) => {
+                const hasQuestions = sign.question_count > 0;
+                const content = (
+                  <>
+                    {hasQuestions && (
+                      <span className="absolute right-2 top-2 inline-flex min-h-7 min-w-7 items-center justify-center rounded-full bg-accent px-1.5 text-xs font-extrabold text-accent-foreground shadow-sm">
+                        {t("questionCountBadge", { count: sign.question_count })}
                       </span>
                     )}
-                  </div>
-                  <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-extrabold text-accent">
-                    {sign.code}
-                  </span>
-                  <span className="mt-2 line-clamp-2 text-sm font-bold text-foreground">{sign.name}</span>
-                </>
-              );
+                    <div className="mb-2 flex h-20 w-20 items-center justify-center rounded-xl bg-black/5 p-2">
+                      {sign.image_url ? (
+                        // Dynamic media URLs are served by the backend and intentionally stay unoptimized.
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={sign.image_url}
+                          alt={hasQuestions ? "" : sign.name}
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      ) : (
+                        <span className="flex flex-col items-center gap-1 text-xs text-muted-foreground">
+                          <ImageOff className="h-6 w-6" aria-hidden="true" />
+                          {t("imageUnavailable")}
+                        </span>
+                      )}
+                    </div>
+                    <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-extrabold text-accent">
+                      {sign.code}
+                    </span>
+                    <span className="mt-2 line-clamp-2 text-sm font-bold text-foreground">{sign.name}</span>
+                  </>
+                );
 
-              return (
-                <Card key={sign.code} className="surface-interactive relative overflow-hidden p-0 hover:border-accent">
-                  {hasQuestions ? (
-                    <Link
-                      href={practiceHref(sessionStartBase, sign.code, sign.question_count)}
-                      // Every card points at a different /session/start query, so
-                      // the default prefetch asked the server to render one RSC
-                      // payload per sign — 285 of them, re-fired on each remount.
-                      // The route is a client component that starts a session on
-                      // mount; there is nothing worth prefetching.
-                      prefetch={false}
-                      className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                      aria-label={`${sign.code}. ${sign.name}. ${t("questionCountLabel", { count: sign.question_count })}`}
-                    >
-                      {content}
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setActiveModalSign(sign)}
-                      className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
-                      aria-haspopup="dialog"
-                    >
-                      {content}
-                    </button>
-                  )}
-                </Card>
-              );
-            })}
-        </div>
-      )}
+                return (
+                  <Card key={sign.code} className="surface-interactive relative overflow-hidden p-0 hover:border-accent">
+                    {hasQuestions ? (
+                      <Link
+                        href={practiceHref(sessionStartBase, sign.code, sign.question_count)}
+                        // Every card points at a different /session/start query, so
+                        // the default prefetch asked the server to render one RSC
+                        // payload per sign — 285 of them, re-fired on each remount.
+                        // The route is a client component that starts a session on
+                        // mount; there is nothing worth prefetching.
+                        prefetch={false}
+                        className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        aria-label={`${sign.code}. ${sign.name}. ${t("questionCountLabel", { count: sign.question_count })}`}
+                      >
+                        {content}
+                      </Link>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setActiveModalSign(sign)}
+                        className="flex min-h-44 w-full flex-col items-center justify-between p-4 text-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        aria-haspopup="dialog"
+                      >
+                        {content}
+                      </button>
+                    )}
+                  </Card>
+                );
+              })}
+          </div>
+        )}
+      </div>
 
 
       <AnimatePresence>

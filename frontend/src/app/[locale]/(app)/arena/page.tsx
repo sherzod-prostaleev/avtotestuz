@@ -15,6 +15,7 @@ import {
 } from "@/lib/arena-protocol";
 import { Button } from "@/components/ui/button";
 import { useUserStats } from "@/hooks/use-user-stats";
+import { ArenaMobile } from "@/components/arena/arena-mobile";
 
 type RatingDTO = { rating: number; medal: string };
 type HistoryItem = {
@@ -31,7 +32,7 @@ type ScorePair = { you: number; opponent: number };
 export default function ArenaPage() {
   const t = useTranslations("Arena");
   const locale = useLocale();
-  const { entitlement, loading: statsLoading } = useUserStats();
+  const { entitlement, user, loading: statsLoading } = useUserStats();
   const isVip = entitlement?.is_vip ?? false;
 
   const socketRef = useRef<ArenaSocket | null>(null);
@@ -62,6 +63,39 @@ export default function ArenaPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [remaining, setRemaining] = useState(15);
   const [arenaEnabled, setArenaEnabled] = useState(true);
+
+  // Everything below derives from `phase` / `deadlineMs` transitions. It is
+  // deliberately NOT wired into `handleEnv`: the websocket dispatch table is
+  // the one part of this page a layout change must not perturb.
+  const [searchStartedMs, setSearchStartedMs] = useState(0);
+  useEffect(() => {
+    if (phase === "searching") setSearchStartedMs((s) => (s ? s : Date.now()));
+    else setSearchStartedMs(0);
+  }, [phase]);
+
+  // The server sends only an absolute deadline, so the window length is
+  // measured once, when a question arrives. 15s is the documented default.
+  const [questionWindowMs, setQuestionWindowMs] = useState(15000);
+  useEffect(() => {
+    if (!deadlineMs) return;
+    const span = deadlineMs - Date.now();
+    if (span > 1000) setQuestionWindowMs(span);
+  }, [deadlineMs]);
+
+  // The rating as it stood before this duel. Held in a ref that stops updating
+  // once the result screen is up, so the `refreshMeta()` that lands right after
+  // `match.end` supplies the *new* number without overwriting the old one.
+  const ratingBeforeRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (phase !== "result" && rating) ratingBeforeRef.current = rating.rating;
+  }, [phase, rating]);
+
+  const searchElapsedSec = searchStartedMs
+    ? Math.floor((nowMs - searchStartedMs) / 1000)
+    : 0;
+  const timerFraction = deadlineMs
+    ? Math.max(0, Math.min(1, (deadlineMs - nowMs) / questionWindowMs))
+    : 0;
 
   useEffect(() => {
     void apiGet<{ arena_enabled: boolean }>("flags")
@@ -336,7 +370,45 @@ export default function ArenaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:py-10">
+    <>
+      {/* The four approved artboards — lobby, searching, duel, result — as one
+          phone screen keyed off `phase`. The wide layout below keeps every
+          block and every class it has, and is simply `max-md:hidden`. */}
+      <ArenaMobile
+        phase={phase}
+        statusMsg={statusMsg}
+        userName={user?.name ?? ""}
+        opponentName={opponentName}
+        rating={rating}
+        history={history}
+        inviteCode={inviteCode}
+        joinCode={joinCode}
+        onJoinCodeChange={(v) => setJoinCode(v.toUpperCase())}
+        question={question}
+        qIndex={qIndex}
+        qTotal={qTotal}
+        score={score}
+        selected={selected}
+        revealCorrect={revealCorrect}
+        acked={acked}
+        remaining={remaining}
+        timerFraction={timerFraction}
+        searchElapsedSec={searchElapsedSec}
+        result={result}
+        ratingBefore={ratingBeforeRef.current}
+        onFindMatch={() => void findMatch()}
+        onCancelSearch={cancelSearch}
+        onCreateInvite={() => void createInvite()}
+        onJoinInvite={() => void joinInvite()}
+        onAnswer={answer}
+        onForfeit={leaveMatch}
+        onPlayAgain={playAgain}
+        onBackToLobby={() => {
+          setResult(null);
+          setPhase("lobby");
+        }}
+      />
+    <div data-testid="arena-wide" className="mx-auto max-w-3xl px-4 py-6 md:py-10 max-md:hidden">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <Link
           href={`/${locale}/dashboard`}
@@ -553,5 +625,6 @@ export default function ArenaPage() {
         </section>
       )}
     </div>
+    </>
   );
 }

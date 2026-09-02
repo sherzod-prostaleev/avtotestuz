@@ -171,6 +171,38 @@ describe("SignsPage", () => {
     expect(screen.getByText(testMessages.Signs.imageUnavailable)).toBeInTheDocument();
     expect(screen.queryByRole("img")).not.toBeInTheDocument();
   });
+
+  // Below `md` the page opens on the design's group picker and only then shows
+  // the catalog, so every group name is in the document twice — once on a
+  // picker card, once on a filter chip. jsdom applies no CSS, so both are
+  // queryable and these assertions say which one they mean instead of taking
+  // whichever came first.
+  it("hands the phone entry screen off to the catalog when a group card is picked", () => {
+    mockSigns();
+
+    renderWithIntl();
+
+    const cards = screen.getAllByRole("button", { name: /Ogohlantiruvchi/ });
+    expect(cards).toHaveLength(2);
+
+    // Document order: the picker is rendered above the catalog.
+    fireEvent.click(cards[0]);
+
+    expect(screen.getAllByRole("button", { name: /Ogohlantiruvchi/ })).toHaveLength(1);
+    expect(useSignsModule.useSigns).toHaveBeenLastCalledWith("uz-Latn", "warning", "");
+  });
+
+  it("does not put a guessed count on the entry screen before the catalog arrives", () => {
+    // No endpoint returns group totals; they are counted from the catalog
+    // itself, so until it lands the cards must show a skeleton, not a zero.
+    mockSigns({ signs: [], loading: true });
+
+    renderWithIntl();
+
+    for (const card of screen.getAllByRole("button", { name: /Ogohlantiruvchi/ })) {
+      expect(card.textContent).not.toMatch(/\d/);
+    }
+  });
 });
 
 // Walks every navigation this page can perform for a cookie-less classroom

@@ -318,6 +318,24 @@
     }
   }
 
+  /* Profile sub-screens (phone only). Same arithmetic as .mobile-fit-screen,
+     but this page's shell is `page-shell-narrow` — 0.75rem of top padding and
+     max(1rem, safe-area) at the bottom — rather than the picker's `my-2`.
+     min-height, not height: a screen taller than the viewport must scroll
+     instead of clipping its call to action. */
+  .profile-screen-fit {
+    min-height: calc(
+      100dvh - 3.75rem - 0.75rem - 4.25rem - env(safe-area-inset-bottom) -
+        max(1rem, env(safe-area-inset-bottom)) -
+        max(0px, env(safe-area-inset-top) - 0.5rem)
+    );
+  }
+  @media (min-width: 768px) {
+    .profile-screen-fit {
+      min-height: 0;
+    }
+  }
+
   /* Exam variety picker, phone tier only (`md` up is the desktop card, styled
      entirely by the utilities on the component and untouched by any of this).
      Because the page may not scroll, every box below has to shrink with the

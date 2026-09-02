@@ -9,6 +9,7 @@ import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
+import { PremiumMobile } from "@/components/premium/premium-mobile";
 import { PromoInput, ValidatePromoResult } from "@/components/checkout/promo-input";
 
 interface TariffDTO {
@@ -188,14 +189,14 @@ export default function PremiumPage() {
 
   const features = [t("feature1", { count: ticketCount }), t("feature2"), t("feature3"), t("feature4")];
 
-  const stickyBuyDisabled =
-    !selectedTariff ||
-    buyingCode === selectedTariff.code ||
-    (!selectedIsFree && !providerEnabled[provider]);
 
   return (
-    <main className="page-shell-tight">
-      <header className="mb-6">
+    // `max-md:!pb-0`: the shell's bottom padding stacks on the tab bar's own
+    // 4.25rem reserve, and the phone screen needs those pixels to fit.
+    <main className="page-shell-tight max-md:!pb-0">
+      {/* The phone rebuilds this header inside PremiumMobile — a back
+          button and the bare title, without the crown pill or the paragraph. */}
+      <header className="mb-6 max-md:hidden">
         <Link href={`/${locale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
@@ -253,7 +254,36 @@ export default function PremiumPage() {
 
       {!loading && !loadError && (
         <div className="space-y-6">
-          <ul className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+          {/* `md:[&+*]:!mt-0`: a `md:hidden` element still counts as a child for
+              `space-y-6`, and would otherwise hand the list below it a margin
+              the wide layout never had. */}
+          <PremiumMobile
+            className="md:hidden md:[&+*]:!mt-0"
+            tariffs={tariffs ?? []}
+            selectedCode={selectedCode}
+            onSelect={setSelectedCode}
+            promo={selectedPromo}
+            onPromoApplied={(res) => {
+              if (selectedTariff) {
+                setPromoMap((prev) => ({ ...prev, [selectedTariff.code]: res }));
+              }
+            }}
+            onReferralCode={(code) => {
+              if (selectedTariff) {
+                setReferralMap((prev) => ({ ...prev, [selectedTariff.code]: code }));
+              }
+            }}
+            provider={provider}
+            onProviderChange={setProvider}
+            providerEnabled={providerEnabled}
+            features={features}
+            badgeLabel={badgeLabel}
+            formatSom={formatSom}
+            buying={buyingCode === selectedCode}
+            buyError={buyError}
+            onBuy={(code) => void handleBuy(code)}
+          />
+          <ul className="grid gap-2 text-sm text-muted-foreground max-md:hidden sm:grid-cols-2">
             {features.map((feat) => (
               <li key={feat} className="flex items-start gap-2">
                 <CheckCircle2
@@ -265,7 +295,7 @@ export default function PremiumPage() {
             ))}
           </ul>
 
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 max-md:hidden sm:grid-cols-2 xl:grid-cols-4">
             <article className="flex flex-col rounded-2xl border border-border/70 bg-card/40 p-4">
               <span className="w-fit rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                 {t("matizFree")}
@@ -351,7 +381,7 @@ export default function PremiumPage() {
           </div>
 
           {selectedTariff && !paymentsOffline && (
-            <section className="rounded-2xl border border-border/80 bg-gradient-to-b from-card/80 to-background p-4 sm:p-5">
+            <section className="rounded-2xl border border-border/80 bg-gradient-to-b from-card/80 to-background p-4 max-md:hidden sm:p-5">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -401,7 +431,7 @@ export default function PremiumPage() {
                     type="button"
                     variant={selectedIsFree ? "success" : "gold"}
                     size="lg"
-                    className="hidden w-full sm:inline-flex"
+                    className="hidden w-full md:inline-flex"
                     disabled={
                       buyingCode === selectedTariff.code ||
                       (!selectedIsFree && !providerEnabled[provider])
@@ -421,24 +451,6 @@ export default function PremiumPage() {
         </div>
       )}
 
-      {!loading && !loadError && selectedTariff && (
-        <div className="sticky-cta-bar sm:hidden">
-          <Button
-            type="button"
-            variant={selectedIsFree ? "success" : "gold"}
-            size="lg"
-            className="w-full"
-            disabled={stickyBuyDisabled}
-            onClick={() => void handleBuy(selectedTariff.code)}
-          >
-            {buyingCode === selectedTariff.code
-              ? t("buyLoading")
-              : selectedIsFree
-                ? t("freeCheckoutButton")
-                : t("stickyBuy", { name: selectedTariff.name })}
-          </Button>
-        </div>
-      )}
     </main>
   );
 }

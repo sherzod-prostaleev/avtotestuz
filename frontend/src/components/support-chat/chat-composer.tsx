@@ -38,7 +38,9 @@ export function ChatComposer({
   }
 
   return (
-    <div className="border-t border-border bg-card/80 p-2 backdrop-blur">
+    // Phone: the artboard has no bar under the thread — the three controls sit
+    // straight on the page, 12px in from the edges and 12px above the tab bar.
+    <div className="border-t border-border bg-card/80 p-2 backdrop-blur max-md:border-t-0 max-md:bg-transparent max-md:p-0 max-md:px-3 max-md:pb-3 max-md:backdrop-blur-none">
       {file ? (
         <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
           <span className="truncate">{file.name}</span>
@@ -48,8 +50,8 @@ export function ChatComposer({
         </div>
       ) : null}
       <div className="flex items-end gap-2">
-        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted">
-          <Paperclip className="h-4 w-4" aria-hidden />
+        <label className="flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-border bg-background text-muted-foreground hover:bg-muted max-md:h-11 max-md:w-11 max-md:bg-card">
+          <Paperclip className="h-4 w-4 max-md:h-5 max-md:w-5" aria-hidden />
           <span className="sr-only">{attachLabel}</span>
           <input
             ref={inputRef}
@@ -71,16 +73,16 @@ export function ChatComposer({
           rows={1}
           placeholder={placeholder}
           disabled={busy || disabled}
-          className="min-h-10 max-h-32 flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="min-h-10 max-h-32 flex-1 resize-none rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring max-md:min-h-11 max-md:bg-card max-md:text-[15px]"
         />
         <button
           type="button"
           aria-label={sendLabel}
           disabled={busy || disabled || (!text.trim() && !file)}
           onClick={() => void submit()}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground disabled:opacity-40"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-accent-foreground disabled:opacity-40 max-md:h-11 max-md:w-11 max-md:shadow-3d"
         >
-          <Send className="h-4 w-4" aria-hidden />
+          <Send className="h-4 w-4 max-md:h-5 max-md:w-5" aria-hidden />
         </button>
       </div>
     </div>
