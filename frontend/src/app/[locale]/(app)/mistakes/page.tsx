@@ -8,8 +8,11 @@ import {
   AlertTriangle,
   ArrowLeft,
   BookOpen,
+  BarChart3,
   CalendarClock,
   CheckCircle2,
+  ChevronRight,
+  Clock,
   LockKeyhole,
   Play,
   RefreshCw,
@@ -56,7 +59,7 @@ function isEntitlementData(value: unknown): value is EntitlementData {
   );
 }
 
-import { formatDateWithTime } from "@/lib/date-format";
+import { daysUntil, formatDateWithTime } from "@/lib/date-format";
 
 function formatNextDue(value: string | null): string | null {
   if (!value) return null;
@@ -111,16 +114,35 @@ export default function MistakesPage() {
   };
 
   const nextDue = formatNextDue(data?.next_due_at ?? null);
+  // The one state the design draws for the phone: a bank with something due
+  // and an entitlement to review it. The other three keep today's cards.
+  const isReviewable = Boolean(
+    data && entitlement?.active && data.total_bank_count > 0 && data.due_count > 0
+  );
+  const dueInDays = daysUntil(data?.next_due_at ?? null);
+  const nextDueRelative =
+    dueInDays === null
+      ? t("nextDueNone")
+      : dueInDays <= 0
+        ? t("nextDueToday")
+        : dueInDays === 1
+          ? t("nextDueTomorrow")
+          : t("nextDueInDays", { days: dueInDays });
 
   return (
     <main className="page-shell-narrow space-y-6">
+      {/* The phone drops the back link the tab bar already provides, and names
+          the screen the way the menu does — "Xatolar banki" rather than the
+          desktop's longer "Xatolar ustida ishlash". */}
       <header>
-        <Link href={`/${locale}/dashboard`} className="back-link">
+        <Link href={`/${locale}/dashboard`} className="back-link max-md:hidden">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
           {t("back")}
         </Link>
-        <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+        <h1 className="font-display text-2xl font-bold tracking-tight max-md:hidden">{t("title")}</h1>
+        <p className="text-sm text-muted-foreground max-md:hidden">{t("subtitle")}</p>
+        <h1 className="font-display text-2xl font-bold tracking-tight md:hidden">{t("titleMobile")}</h1>
+        <p className="text-sm text-muted-foreground md:hidden">{t("subtitleMobile")}</p>
       </header>
 
       {loading && (
@@ -143,7 +165,13 @@ export default function MistakesPage() {
 
       {!loading && !error && data && entitlement && (
         <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2" aria-label={t("title")}>
+          {/* Hidden on the phone only in the review-ready state, where the red
+              card below carries both numbers; the other three states still
+              need this grid at every width. */}
+          <div
+            className={`grid gap-4 sm:grid-cols-2 ${isReviewable ? "max-md:hidden" : ""}`}
+            aria-label={t("title")}
+          >
             <Card className="border-accent/40 bg-accent/5 p-5">
               <CardHeader className="p-0 pb-2">
                 <CardTitle className="text-sm font-semibold text-muted-foreground">
@@ -204,24 +232,68 @@ export default function MistakesPage() {
               </p>
             </Card>
           ) : (
-            <Card className="p-5 sm:p-6">
-              <div className="flex flex-col items-stretch justify-between gap-5 sm:flex-row sm:items-center">
-                <div>
-                  <h2 className="font-display text-lg font-bold">{t("reviewTitle")}</h2>
-                  <p className="mt-1 text-sm text-muted-foreground">{t("fsrsNote")}</p>
+            <>
+              {/* `max-md:[&+*]:!mt-0`: on a phone this card and the grid above
+                  are both `display:none`, yet still count as siblings for the
+                  wrapper's `space-y`, so the block below would open with a
+                  margin and nothing above it to justify one. */}
+              <Card className="p-5 max-md:hidden max-md:[&+*]:!mt-0 sm:p-6">
+                <div className="flex flex-col items-stretch justify-between gap-5 sm:flex-row sm:items-center">
+                  <div>
+                    <h2 className="font-display text-lg font-bold">{t("reviewTitle")}</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">{t("fsrsNote")}</p>
+                  </div>
+                  <div className="w-full sm:w-auto">
+                    <Button variant="game" className="w-full sm:w-auto" onClick={handleStart} disabled={starting}>
+                      {starting ? (
+                        <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <Play className="mr-2 h-4 w-4" aria-hidden="true" />
+                      )}
+                      {starting ? t("starting") : t("start")}
+                    </Button>
+                  </div>
                 </div>
-                <div className="w-full sm:w-auto">
-                  <Button variant="game" className="w-full sm:w-auto" onClick={handleStart} disabled={starting}>
-                    {starting ? (
-                      <RefreshCw className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                    ) : (
-                      <Play className="mr-2 h-4 w-4" aria-hidden="true" />
-                    )}
+              </Card>
+
+              {/* Phone: the count, what it means and the button in one red
+                  card, with the bank total and the next return underneath. */}
+              <div className="space-y-3 md:hidden">
+                <div className="surface-raised space-y-3 rounded-2xl border border-danger/40 bg-danger/[0.06] p-3.5">
+                  <div className="flex items-center gap-3">
+                    <AlertTriangle className="h-[26px] w-[26px] shrink-0 text-danger" aria-hidden="true" />
+                    <div className="min-w-0 flex-1">
+                      <p className="font-display text-[34px] font-extrabold leading-none">{data.due_count}</p>
+                      <p className="mt-[3px] text-sm leading-snug text-muted-foreground">{t("dueReadyBody")}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="game"
+                    className="min-h-[50px] w-full gap-2 font-display text-lg"
+                    onClick={handleStart}
+                    disabled={starting}
+                  >
+                    {starting && <RefreshCw className="h-4 w-4 animate-spin" aria-hidden="true" />}
                     {starting ? t("starting") : t("start")}
+                    {!starting && <ChevronRight className="h-5 w-5" strokeWidth={2.5} aria-hidden="true" />}
                   </Button>
                 </div>
+
+                <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                  <div className="flex min-h-12 items-center gap-3 px-3.5">
+                    <BarChart3 className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t("totalBank")}</span>
+                    <span className="font-display text-lg font-extrabold">{data.total_bank_count}</span>
+                  </div>
+                  <div aria-hidden="true" className="ml-[46px] h-px bg-border" />
+                  <div className="flex min-h-12 items-center gap-3 px-3.5">
+                    <Clock className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                    <span className="min-w-0 flex-1 text-sm text-muted-foreground">{t("nextDueLabel")}</span>
+                    <span className="text-sm font-bold">{nextDueRelative}</span>
+                  </div>
+                </div>
               </div>
-            </Card>
+            </>
           )}
         </div>
       )}

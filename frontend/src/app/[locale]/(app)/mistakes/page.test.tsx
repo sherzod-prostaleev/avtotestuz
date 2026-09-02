@@ -42,16 +42,21 @@ describe("MistakesPage", () => {
 
     renderWithIntl();
 
+    // Two bodies render — the wide one and the phone one (`md:hidden`). jsdom
+    // applies no CSS, so both headings and both copies of each figure are in
+    // the DOM at once.
     expect(screen.getByText("Xatolar ustida ishlash")).toBeInTheDocument();
+    expect(screen.getByText("Xatolar banki")).toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByText("5")).toBeInTheDocument();
-      expect(screen.getByText("12")).toBeInTheDocument();
+      expect(screen.getAllByText("5")).toHaveLength(2);
+      expect(screen.getAllByText("12")).toHaveLength(2);
     });
 
     expect(apiClient.apiGet).toHaveBeenCalledWith("me/mistakes");
     expect(apiClient.apiGet).toHaveBeenCalledWith("me/entitlement");
-    fireEvent.click(screen.getByRole("button", { name: "Xatolarni takrorlash" }));
+    // Both CTAs share the name; clicking either must start the same session.
+    fireEvent.click(screen.getAllByRole("button", { name: "Xatolarni takrorlash" })[0]);
     expect(push).toHaveBeenCalledWith("/uz-Latn/session/start?mode=mistakes&count=5");
   });
 
@@ -124,7 +129,8 @@ describe("MistakesPage", () => {
     expect(await screen.findByText("Xatolar bankini yuklab bo'lmadi.")).toBeInTheDocument();
     expect(screen.queryByText("database exploded")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Qayta urinish" }));
-    await waitFor(() => expect(screen.getAllByText("1")).toHaveLength(2));
+    // Two in the wide grid, two more in the phone card and its info row.
+    await waitFor(() => expect(screen.getAllByText("1")).toHaveLength(4));
     expect(get.mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 });
