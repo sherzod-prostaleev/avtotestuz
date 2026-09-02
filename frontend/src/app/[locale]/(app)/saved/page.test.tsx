@@ -31,6 +31,8 @@ function isKioskReachable(hrefOrPush: string): boolean {
 
 const questionId = "11111111-1111-4111-8111-111111111111";
 const savedDTO = [{ question_id: questionId, created_at: "2026-07-22T12:00:00Z" }];
+/** The phone card names the category, so the page also asks for the list. */
+const categoriesDTO = [{ code: "priority_intersections", name: "Chorrahalarda harakatlanish" }];
 const questionDTO = {
   id: questionId,
   category_code: "priority_intersections",
@@ -48,18 +50,24 @@ describe("SavedPage", () => {
   it("loads the real saved DTO then localized question details without correctness", async () => {
     vi.spyOn(apiClient, "apiGet")
       .mockResolvedValueOnce(savedDTO)
+      .mockResolvedValueOnce(categoriesDTO)
       .mockResolvedValueOnce(questionDTO);
 
     renderWithIntl();
 
-    expect(await screen.findByText(questionDTO.text)).toBeInTheDocument();
+    // Two bodies render — the phone cards (`md:hidden`) and the wide grid
+    // (`max-md:hidden`). jsdom applies no CSS, so both are in the DOM.
+    expect(await screen.findAllByText(questionDTO.text)).toHaveLength(2);
     expect(apiClient.apiGet).toHaveBeenNthCalledWith(1, "me/saved");
+    expect(apiClient.apiGet).toHaveBeenNthCalledWith(2, "categories?locale=uz-Latn");
     expect(apiClient.apiGet).toHaveBeenNthCalledWith(
-      2,
+      3,
       `questions/${questionId}?locale=uz-Latn`
     );
+    // The wide grid still shows the raw code; the phone card shows the name.
     expect(screen.getByText("priority_intersections")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "1-saqlangan savol rasmi" })).toHaveAttribute(
+    expect(screen.getByText("Chorrahalarda harakatlanish")).toBeInTheDocument();
+    expect(screen.getAllByRole("img", { name: "1-saqlangan savol rasmi" })[1]).toHaveAttribute(
       "src",
       questionDTO.image_url
     );
@@ -95,19 +103,21 @@ describe("SavedPage", () => {
   it("keeps an item after a failed delete and removes it only after a successful retry", async () => {
     vi.spyOn(apiClient, "apiGet")
       .mockResolvedValueOnce(savedDTO)
+      .mockResolvedValueOnce(categoriesDTO)
       .mockResolvedValueOnce(questionDTO);
     vi.spyOn(apiClient, "apiDelete")
       .mockRejectedValueOnce(new Error("delete failed"))
       .mockResolvedValueOnce({ ok: true });
 
     renderWithIntl();
-    expect(await screen.findByText(questionDTO.text)).toBeInTheDocument();
+    expect(await screen.findAllByText(questionDTO.text)).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "Saqlanganlardan olib tashlash" }));
+    // Both bodies expose a remove control with this name; either one works.
+    fireEvent.click(screen.getAllByRole("button", { name: "Saqlanganlardan olib tashlash" })[0]);
     expect(await screen.findByText("Savolni olib tashlab bo'lmadi.")).toBeInTheDocument();
-    expect(screen.getByText(questionDTO.text)).toBeInTheDocument();
+    expect(screen.getAllByText(questionDTO.text)).toHaveLength(2);
 
-    fireEvent.click(screen.getByRole("button", { name: "Olib tashlashni qayta urinish" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Olib tashlashni qayta urinish" })[0]);
 
     await waitFor(() => expect(screen.queryByText(questionDTO.text)).not.toBeInTheDocument());
     expect(screen.getByText("Hali saqlangan savollar yo'q")).toBeInTheDocument();

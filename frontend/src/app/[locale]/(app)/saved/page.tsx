@@ -8,6 +8,7 @@ import { BackLink } from "@/components/layout/back-link";
 import { apiDelete, apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toBrowserMediaUrl } from "@/lib/question-image";
 
 interface SavedItemDTO {
   question_id: string;
@@ -21,10 +22,17 @@ interface QuestionDTO {
   image_url: string | null;
 }
 
+interface CategoryDTO {
+  code: string;
+  name: string;
+}
+
 interface SavedQuestion {
   questionId: string;
   createdAt: string;
   question: QuestionDTO;
+  /** Localized category name; falls back to the raw code if the list omits it. */
+  categoryName: string;
 }
 
 type LoadStatus = "loading" | "ready" | "error";
@@ -33,6 +41,24 @@ import { formatDateShort } from "@/lib/date-format";
 
 function formatSavedDate(value: string): string {
   return formatDateShort(value);
+}
+
+/**
+ * "bugun" / "kecha" / "N kun oldin" — compared by local calendar day, the same
+ * way `components/stats/mobile-stats.tsx` does it, with this screen's own keys.
+ */
+function relativeSavedDay(
+  value: string,
+  t: (key: string, values?: Record<string, string | number>) => string
+): string {
+  const startOfDay = (date: Date) =>
+    new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const then = new Date(value);
+  if (Number.isNaN(then.getTime())) return "";
+  const days = Math.round((startOfDay(new Date()) - startOfDay(then)) / 86_400_000);
+  if (days <= 0) return t("recentToday");
+  if (days === 1) return t("recentYesterday");
+  return t("recentDaysAgo", { count: days });
 }
 
 export interface SavedPageProps {
@@ -60,14 +86,29 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
     setDeleteErrors({});
     try {
       const saved = await apiGet<SavedItemDTO[]>("me/saved");
+      if (saved.length === 0) {
+        setItems([]);
+        setStatus("ready");
+        return;
+      }
+      // The phone card names the category instead of showing its code, which
+      // the saved list does not carry; one extra call covers every item.
+      const categories = await apiGet<CategoryDTO[]>(
+        `categories?locale=${encodeURIComponent(locale)}`
+      );
+      const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
       const loaded = await Promise.all(
-        saved.map(async (item) => ({
-          questionId: item.question_id,
-          createdAt: item.created_at,
-          question: await apiGet<QuestionDTO>(
+        saved.map(async (item) => {
+          const question = await apiGet<QuestionDTO>(
             `questions/${encodeURIComponent(item.question_id)}?locale=${encodeURIComponent(locale)}`
-          ),
-        }))
+          );
+          return {
+            questionId: item.question_id,
+            createdAt: item.created_at,
+            question,
+            categoryName: namesByCode.get(question.category_code) ?? question.category_code,
+          };
+        })
       );
       setItems(loaded);
       setStatus("ready");
@@ -105,20 +146,27 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
 
   return (
     <main className="page-shell-tight space-y-6 sm:space-y-8">
+      {/* The phone drops the back link and the icon badge, and says how many
+          questions are here instead of what saving is for. */}
       <header>
-        <BackLink href={backHref} kiosk={kiosk}>{t("backToDashboard")}</BackLink>
+        <span className="max-md:hidden">
+          <BackLink href={backHref} kiosk={kiosk}>{t("backToDashboard")}</BackLink>
+        </span>
         <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15 text-accent max-md:hidden">
             <Bookmark className="h-6 w-6" />
           </div>
           <div>
             <h1 className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">{t("title")}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
+            <p className="mt-1 text-sm text-muted-foreground max-md:hidden">{t("subtitle")}</p>
+            <p className="mt-1 text-sm text-muted-foreground md:hidden">
+              {t("subtitleCompact", { count: items.length })}
+            </p>
           </div>
         </div>
       </header>
 
-      <section className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+      <section className="grid gap-4 max-md:hidden lg:grid-cols-[1.1fr_0.9fr]">
         <Card className="overflow-hidden border-gold/30 bg-card p-5 md:p-8">
           <div className="flex flex-col gap-5">
             <div className="flex flex-wrap items-center gap-2">
@@ -196,7 +244,66 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
       )}
 
       {status === "ready" && items.length > 0 && (
-        <section className="grid gap-4 sm:grid-cols-2">
+        <>
+        {/* Phone: a compact card per question — the real category name, the day
+            it was saved, and the bookmark as the only tap target. The wide grid
+            below keeps its full-width image and its remove button, and is also
+            what the kiosk renders on a large screen. */}
+        <div className="flex flex-col gap-2 md:hidden">
+          {items.map((item, index) => {
+            const isDeleting = deleting.has(item.questionId);
+            const deleteFailed = deleteErrors[item.questionId] === true;
+            const removeLabel = isDeleting
+              ? t("removing")
+              : deleteFailed
+                ? t("retryRemove")
+                : t("remove");
+
+            return (
+              <Card key={item.questionId} className="flex flex-col gap-1.5 p-3">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-[22px] shrink items-center truncate rounded-full bg-accent/15 px-2 text-xs font-bold text-accent">
+                    {item.categoryName}
+                  </span>
+                  <span className="flex-1" />
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {relativeSavedDay(item.createdAt, t)}
+                  </span>
+                  <button
+                    type="button"
+                    aria-label={removeLabel}
+                    disabled={isDeleting}
+                    onClick={() => void removeSaved(item.questionId)}
+                    className="-mr-1 flex min-h-touch min-w-[2.75rem] shrink-0 items-center justify-center disabled:opacity-50"
+                  >
+                    <Bookmark
+                      aria-hidden="true"
+                      className={`h-[18px] w-[18px] ${deleteFailed ? "text-destructive" : "text-gold"}`}
+                      fill="currentColor"
+                    />
+                  </button>
+                </div>
+                {item.question.image_url ? (
+                  <div className="flex items-start gap-2.5">
+                    <span className="flex h-[42px] w-14 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-background/60">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={toBrowserMediaUrl(item.question.image_url)}
+                        alt={t("imageAlt", { number: index + 1 })}
+                        className="h-full w-full object-cover"
+                      />
+                    </span>
+                    <p className="min-w-0 flex-1 text-sm leading-5">{item.question.text}</p>
+                  </div>
+                ) : (
+                  <p className="text-sm leading-5">{item.question.text}</p>
+                )}
+              </Card>
+            );
+          })}
+        </div>
+
+        <section className="grid gap-4 max-md:hidden sm:grid-cols-2">
           {items.map((item, index) => {
             const isDeleting = deleting.has(item.questionId);
             const deleteFailed = deleteErrors[item.questionId] === true;
@@ -253,6 +360,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
             );
           })}
         </section>
+        </>
       )}
     </main>
   );
