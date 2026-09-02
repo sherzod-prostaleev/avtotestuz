@@ -32,6 +32,9 @@ function renderWithIntl() {
 }
 
 describe("LeaderboardPage", () => {
+  // The page renders two bodies — the phone one (`md:hidden`) and the wide one
+  // (`max-md:hidden`). jsdom applies no CSS, so both are in the DOM and every
+  // shared string appears twice; `*AllBy*` is the honest query here.
   beforeEach(() => {
     vi.restoreAllMocks();
   });
@@ -41,11 +44,14 @@ describe("LeaderboardPage", () => {
 
     renderWithIntl();
 
-    expect(await screen.findByText("Aziz Karimov")).toBeInTheDocument();
+    expect(await screen.findAllByText("Aziz Karimov")).toHaveLength(2);
     expect(apiClient.apiGet).toHaveBeenCalledWith("leaderboard?period=weekly");
-    expect(screen.getByText("#42")).toBeInTheDocument();
+    expect(screen.getAllByText("#42")).toHaveLength(2);
+    // The wide card shows the score on its own; the phone card folds it into a
+    // sentence, so this number is deliberately not duplicated.
     expect(screen.getByText("87")).toBeInTheDocument();
-    expect(screen.getByText("340")).toBeInTheDocument();
+    expect(screen.getByText("87 ball · bu hafta")).toBeInTheDocument();
+    expect(screen.getAllByText("340")).toHaveLength(2);
     // Around-you is empty here, so that section must not render at all.
     expect(screen.queryByText("Reytingdagi qo'shnilaringiz")).not.toBeInTheDocument();
   });
@@ -53,7 +59,7 @@ describe("LeaderboardPage", () => {
   it("switches periods when a tab is clicked and refetches", async () => {
     const get = vi.spyOn(apiClient, "apiGet").mockResolvedValue(makeResponse());
     renderWithIntl();
-    await screen.findByText("Aziz Karimov");
+    await screen.findAllByText("Aziz Karimov");
 
     fireEvent.click(screen.getByRole("radio", { name: "Kun" }));
 
@@ -88,10 +94,10 @@ describe("LeaderboardPage", () => {
 
     renderWithIntl();
 
-    expect(await screen.findByText("—")).toBeInTheDocument();
+    expect(await screen.findAllByText("—")).toHaveLength(2);
     expect(
-      screen.getByText("Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!")
-    ).toBeInTheDocument();
+      screen.getAllByText("Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!")
+    ).toHaveLength(2);
   });
 
   it("renders an empty state when nobody has scored in the period yet", async () => {
@@ -101,7 +107,9 @@ describe("LeaderboardPage", () => {
 
     renderWithIntl();
 
-    expect(await screen.findByText("Bu davrda hali hech kim ball to'plamadi. Birinchi bo'ling!")).toBeInTheDocument();
+    expect(
+      await screen.findAllByText("Bu davrda hali hech kim ball to'plamadi. Birinchi bo'ling!")
+    ).toHaveLength(2);
   });
 
   it("shows a loading state, then an error state with a working retry", async () => {
@@ -115,7 +123,7 @@ describe("LeaderboardPage", () => {
     get.mockResolvedValue(makeResponse());
     fireEvent.click(screen.getByRole("button", { name: "Qayta urinib ko'ring" }));
 
-    expect(await screen.findByText("Aziz Karimov")).toBeInTheDocument();
+    expect(await screen.findAllByText("Aziz Karimov")).toHaveLength(2);
   });
 });
 
@@ -158,7 +166,7 @@ describe("LeaderboardPage kiosk mode", () => {
   it("never renders a link into a protected segment, in any state", async () => {
     renderKiosk();
 
-    await screen.findByText("Aziz Karimov");
+    await screen.findAllByText("Aziz Karimov");
     const hrefs = screen.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
     expect(hrefs.length).toBeGreaterThan(0);
     for (const href of hrefs) {
@@ -169,7 +177,7 @@ describe("LeaderboardPage kiosk mode", () => {
   it("offers no premium, checkout, profile or dashboard surface", async () => {
     renderKiosk();
 
-    await screen.findByText("Aziz Karimov");
+    await screen.findAllByText("Aziz Karimov");
     expect(screen.queryByRole("link", { name: /premium/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /checkout/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /profile/i })).not.toBeInTheDocument();
@@ -182,10 +190,10 @@ describe("LeaderboardPage kiosk mode", () => {
   it("renders without error when the caller has no rank", async () => {
     renderKiosk({ you: { rank: null, score: 0, name: "PC-1" } });
 
-    expect(await screen.findByText("Aziz Karimov")).toBeInTheDocument();
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(await screen.findAllByText("Aziz Karimov")).toHaveLength(2);
+    expect(screen.getAllByText("—")).toHaveLength(2);
     expect(
-      screen.getByText("Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!")
-    ).toBeInTheDocument();
+      screen.getAllByText("Siz bu davrda hali ball to'plamadingiz. Reytingga kirish uchun to'g'ri javob bering!")
+    ).toHaveLength(2);
   });
 });
