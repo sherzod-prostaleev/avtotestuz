@@ -30,7 +30,6 @@ const APP_EXTRA = [
   "Stats",
   "Profile",
   "TelegramLink",
-  "WebPush",
   "Referral",
   "PaymentHistory",
   "Premium",

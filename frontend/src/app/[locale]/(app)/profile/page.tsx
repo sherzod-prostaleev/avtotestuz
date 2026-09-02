@@ -1,18 +1,16 @@
 "use client";
 
-import { startTransition, useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { apiGet, apiPatch } from "@/lib/api-client";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, User, Globe, LogOut, Check } from "lucide-react";
+import { ArrowLeft, User, LogOut, Check } from "lucide-react";
 import { ReferralCard } from "@/components/profile/referral-card";
 import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
-import { WebPushCard } from "@/components/profile/web-push-card";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
 
 interface UserProfileData {
@@ -39,7 +37,6 @@ export default function ProfilePage() {
   const t = useTranslations("Profile");
   const currentLocale = useLocale();
   const router = useRouter();
-  const pathname = usePathname();
 
   const [profile, setProfile] = useState<UserProfileData | null>(null);
   const [name, setName] = useState<string>("");
@@ -85,18 +82,6 @@ export default function ProfilePage() {
     }
   };
 
-  const handleLanguageChange = async (newLocale: string) => {
-    if (newLocale === currentLocale) return;
-    const newPath = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    try {
-      await apiPatch<UserProfileData>("me", { locale_pref: newLocale });
-    } finally {
-      // Soft client nav — FOUC script keeps dark class; replace avoids history churn.
-      startTransition(() => {
-        router.replace(newPath);
-      });
-    }
-  };
 
   const handleLogout = async () => {
     try {
@@ -201,53 +186,8 @@ export default function ProfilePage() {
 
         <ChangePasswordForm />
 
-        <Card className="p-5 sm:p-6">
-          <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
-            <Globe aria-hidden="true" className="h-5 w-5 text-accent" />
-            <CardTitle className="text-base font-bold">{t("appearanceSettings")}</CardTitle>
-          </CardHeader>
-
-          <div className="space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-bold">{t("language")}</p>
-                <p className="text-xs text-muted-foreground">{t("languageDescription")}</p>
-              </div>
-              <div role="group" aria-label={t("language")} className="flex w-full gap-1 rounded-xl border border-border bg-background p-1 sm:w-auto">
-                {[
-                  { code: "uz-Latn", label: t("languageUzLatn") },
-                  { code: "uz-Cyrl", label: t("languageUzCyrl") },
-                  { code: "ru", label: t("languageRu") },
-                ].map((lang) => (
-                  <button
-                    type="button"
-                    key={lang.code}
-                    onClick={() => void handleLanguageChange(lang.code)}
-                    aria-pressed={currentLocale === lang.code}
-                    className={`min-h-11 flex-1 rounded-lg px-3 text-xs font-bold transition-all sm:flex-none ${
-                      currentLocale === lang.code
-                        ? "bg-accent text-accent-foreground"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    {lang.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between border-t border-border pt-4">
-              <div>
-                <p className="text-sm font-bold">{t("theme")}</p>
-                <p className="text-xs text-muted-foreground">{t("themeDescription")}</p>
-              </div>
-              <ThemeToggle />
-            </div>
-          </div>
-        </Card>
 
         <TelegramLinkCard />
-        <WebPushCard />
         <ReferralCard />
         <PaymentHistoryCard />
 
