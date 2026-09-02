@@ -62,17 +62,76 @@ describe("StatsPage", () => {
 
     renderWithIntl();
 
+    // The page renders two bodies — the compact phone one (`md:hidden`) and
+    // the wide one (`max-md:hidden`). jsdom applies no CSS, so both are in the
+    // DOM and every figure they share appears twice.
     expect(screen.getByText("Statistika va Tahlil")).toBeInTheDocument();
-    expect(screen.getByText("88%")).toBeInTheDocument();
-    expect(screen.getByText("10")).toBeInTheDocument();
+    expect(screen.getAllByText("88%")).toHaveLength(2);
+    expect(screen.getAllByText("10")).toHaveLength(2);
     expect(screen.getByText("Yaxshi o‘zlashtirish")).toBeInTheDocument();
-    expect(screen.getByText("Imtihon")).toBeInTheDocument();
+    expect(screen.getAllByText("Imtihon")).toHaveLength(2);
+    expect(screen.getAllByText("18/20")).toHaveLength(2);
+    // Status word and duration are wide-table columns the compact rows drop.
     expect(screen.getByText("Muvaffaqiyatli")).toBeInTheDocument();
-    expect(screen.getByText("18/20")).toBeInTheDocument();
     expect(screen.getByText("20 daq")).toBeInTheDocument();
 
     const dueCta = screen.getByRole("link", { name: "Hozir takrorlash" });
     expect(dueCta).toHaveAttribute("href", "/uz-Latn/session/start?mode=review&count=3");
+  });
+
+  // The phone screen names the three topics worth working on rather than
+  // listing every category the way the wide grid does, so the ordering and the
+  // cut-off are the whole feature.
+  it("names only the three weakest topics on the phone, weakest first", () => {
+    const mastery = (code: string, name: string, pct: number) => ({
+      code,
+      name,
+      answered: 10,
+      correct: Math.round(pct / 10),
+      studied: 10,
+      total: 20,
+      mastery_pct: pct,
+    });
+    vi.spyOn(useUserStatsModule, "useUserStats").mockReturnValue({
+      user: { id: "u1", phone: "+998901234567" },
+      entitlement: null,
+      streak: { current_streak: 1, max_streak: 2, today_answered: 0, daily_target: 10 },
+      stats: {
+        readiness_pct: 50,
+        due_questions_count: 0,
+        total_answered: 40,
+        total_correct: 20,
+        category_mastery: [
+          mastery("a", "Yuqori", 90),
+          mastery("b", "Past", 12),
+          mastery("c", "O'rta", 55),
+          mastery("d", "Eng past", 5),
+          mastery("e", "Yaxshi", 70),
+        ],
+      },
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+    vi.spyOn(useSessionHistoryModule, "useSessionHistory").mockReturnValue({
+      sessions: [],
+      loading: false,
+      error: null,
+      refetch: vi.fn(),
+    });
+
+    renderWithIntl();
+
+    const list = screen.getByText("Eng zaif mavzular").parentElement!;
+    expect(list.textContent).toContain("Eng past");
+    expect(list.textContent).toContain("Past");
+    expect(list.textContent).toContain("O'rta");
+    // The two strongest never reach the phone list.
+    expect(list.textContent).not.toContain("Yaxshi");
+    expect(list.textContent).not.toContain("Yuqori");
+    // Weakest first: 5%, then 12%, then 55%.
+    expect(list.textContent!.indexOf("5%")).toBeLessThan(list.textContent!.indexOf("12%"));
+    expect(list.textContent!.indexOf("12%")).toBeLessThan(list.textContent!.indexOf("55%"));
   });
 
   it("hides the due sticky CTA when there are no due questions", () => {

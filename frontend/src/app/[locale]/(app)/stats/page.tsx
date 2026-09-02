@@ -11,6 +11,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Flame, RefreshCw } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
+import { MobileStats } from "@/components/stats/mobile-stats";
 
 export interface StatsPageProps {
   // Reused as-is under the login-free kiosk (frontend/src/app/[locale]/(kiosk)/station/stats/page.tsx):
@@ -52,6 +53,14 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
     review: t("modeReview"),
     placement: t("modePlacement"),
   };
+  // Weakest three, the same ordering the dashboard uses for its one weak
+  // topic — the phone screen names them instead of listing every category.
+  const weakestTopics = stats?.category_mastery
+    ? [...stats.category_mastery]
+        .sort((a, b) => a.mastery_pct - b.mastery_pct || a.name.localeCompare(b.name))
+        .slice(0, 3)
+    : [];
+
   const statusLabels: Record<SessionSummary["status"], string> = {
     in_progress: t("statusInProgress"),
     passed: t("statusPassed"),
@@ -61,11 +70,21 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
 
   return (
     <main className="page-shell-narrow">
-      <header className="mb-6">
-        <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
-        <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
-        <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
-        <p className="mt-1 text-xs text-muted-foreground/90">{t("disclaimer")}</p>
+      {/* The bottom tab bar and the menu already lead back on a phone, and the
+          two explanatory paragraphs cost more room than the figures they
+          explain — the design keeps the title alone there. */}
+      <header className="mb-6 max-md:mb-2">
+        <span className="max-md:hidden">
+          <BackLink href={backHref} kiosk={kiosk}>{t("backHome")}</BackLink>
+        </span>
+        {/* "Statistika va Tahlil" wraps to two lines on a 390px phone; the
+            design uses the bare noun there and keeps the full one on desktop. */}
+        <h1 className="font-display text-2xl font-bold tracking-tight">
+          <span className="max-md:hidden">{t("title")}</span>
+          <span className="md:hidden">{t("titleShort")}</span>
+        </h1>
+        <p className="text-sm text-muted-foreground max-md:hidden">{t("subtitle")}</p>
+        <p className="mt-1 text-xs text-muted-foreground/90 max-md:hidden">{t("disclaimer")}</p>
       </header>
 
       {loading ? (
@@ -81,8 +100,31 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
         </div>
       ) : (
       <div className="space-y-6">
+        {/* Phone: one column of compact cards. `md:[&+*]:!mt-0` because a
+            `md:hidden` element is still a child for `space-y-6`, and would
+            otherwise hand the grid below a top margin it never had. */}
+        <MobileStats
+          className="md:hidden md:[&+*]:!mt-0"
+          readinessPct={readinessPct}
+          passPct={passPct}
+          currentStreak={streak?.current_streak ?? 0}
+          maxStreak={streak?.max_streak ?? streak?.current_streak ?? 0}
+          accuracyPct={
+            stats && stats.total_answered > 0
+              ? Math.round((stats.total_correct / stats.total_answered) * 100)
+              : 0
+          }
+          totalAnswered={stats?.total_answered ?? 0}
+          dueCount={dueCount}
+          repeatHref={`${sessionStartBase}?mode=review&count=${Math.min(Math.max(dueCount, 1), 20)}`}
+          weakest={weakestTopics}
+          sessions={sessions}
+          modeLabels={modeLabels}
+          historyLoading={historyLoading}
+          historyError={Boolean(historyError)}
+        />
         {/* Top Summary: Readiness, pass estimate & Streak */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 max-md:hidden sm:grid-cols-2 lg:grid-cols-3">
           <Card className="flex flex-col items-center justify-center p-6 text-center">
             <ResultRing percent={readinessPct} label={t("readiness")} />
             <span
@@ -124,7 +166,7 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
 
         {/* Category Mastery List */}
         {stats?.category_mastery && stats.category_mastery.length > 0 && (
-          <Card className="p-6">
+          <Card className="p-6 max-md:hidden">
             <CardHeader className="p-0 mb-4">
               <CardTitle className="text-lg font-bold">{t("categoryMastery")}</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">{t("categoryMasteryHint")}</p>
@@ -145,7 +187,7 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
           </Card>
         )}
 
-        <Card className="p-6">
+        <Card className="p-6 max-md:hidden">
           <CardHeader className="p-0 mb-4">
             <CardTitle className="text-lg font-bold">{t("history")}</CardTitle>
           </CardHeader>
@@ -209,7 +251,7 @@ export default function StatsPage({ kiosk = false }: StatsPageProps = {}) {
         </Card>
 
         {dueCount > 0 && (
-          <div className="mt-6">
+          <div className="mt-6 max-md:hidden">
             <Link
               href={`${sessionStartBase}?mode=review&count=${Math.min(dueCount, 20)}`}
               className="inline-flex h-12 min-h-12 w-full items-center justify-center rounded-2xl border-b-4 border-accent-shadow bg-accent px-7 text-base font-bold tracking-wide text-accent-foreground shadow-3d transition-all hover:brightness-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
