@@ -34,10 +34,20 @@ describe("Checkout Status Pages", () => {
     vi.clearAllMocks();
   });
 
+  // The page renders two bodies — the phone one (`md:hidden`) and the wide
+  // card (`max-md:hidden`). jsdom applies no CSS, so both are in the DOM.
   it("renders CheckoutSuccessPage with title and practice button", () => {
     renderWithIntl(<CheckoutSuccessPage />);
-    expect(screen.getByText("To'lov muvaffaqiyatli o'tdi!")).toBeInTheDocument();
-    expect(screen.getByText("Mashqlarni boshlash")).toBeInTheDocument();
+    expect(screen.getAllByText("To'lov muvaffaqiyatli o'tdi!")).toHaveLength(2);
+    expect(screen.getAllByText("Mashqlarni boshlash")).toHaveLength(2);
+  });
+
+  // Without a plan in the query string the summary card must not appear at
+  // all — an empty "Tarif —" row would be a guess dressed as a fact.
+  it("omits the result summary when the redirect carried no plan", () => {
+    renderWithIntl(<CheckoutSuccessPage />);
+    expect(screen.queryByText("Tarif")).not.toBeInTheDocument();
+    expect(screen.queryByText("Amal qiladi")).not.toBeInTheDocument();
   });
 
   it("renders CheckoutFailurePage with try again button", () => {

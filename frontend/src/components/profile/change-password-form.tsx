@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Check, Lock } from "lucide-react";
+import { Check, Eye, EyeOff, Lock } from "lucide-react";
 import { ApiError, apiPost } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,8 +10,17 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 type Props = {
   /** When true, hide the card chrome (used on the mandatory change page). */
   bare?: boolean;
+  /**
+   * The phone profile screen's variant: a per-field eye toggle, the "we never
+   * store your password" note, and a full-width CTA pushed to the bottom edge.
+   * Off everywhere else, so the desktop card and the mandatory-change page keep
+   * exactly the form they have today.
+   */
+  reveal?: boolean;
   onSuccess?: () => void;
 };
+
+type PasswordField = "current" | "next" | "confirm";
 
 const ERROR_KEYS: Record<string, string> = {
   invalid_current_password: "passwordErrorCurrent",

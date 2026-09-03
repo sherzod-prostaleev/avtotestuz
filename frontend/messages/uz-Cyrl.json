@@ -1084,7 +1084,10 @@
     "manualName": "Humo карта",
     "manualBusy": "Ҳозир барча қабул карталар банд. Бироздан кейин қайта уриниб кўринг.",
     "planSelected": "Танланган",
-    "checkoutTitle": "Тўлов"
+    "checkoutTitle": "Тўлов",
+    "successTariffLabel": "Тариф",
+    "successUntilLabel": "Амал қилади",
+    "paymentsHistory": "Тўловлар тарихи"
   },
   "OpsUsers": {
     "back": "Бошқарувга қайтиш",

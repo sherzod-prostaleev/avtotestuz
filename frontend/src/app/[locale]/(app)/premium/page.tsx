@@ -158,7 +158,15 @@ export default function PremiumPage() {
         },
       );
       if (result.free) {
-        router.push(`/${locale}/checkout/success?free=true`);
+        // Carry the plan through so the result screen can name it instead of
+        // leaving its summary card empty.
+        const tariff = tariffs?.find((row) => row.code === code);
+        const params = new URLSearchParams({ free: "true" });
+        if (tariff) {
+          params.set("tariff_name", tariff.name);
+          params.set("granted", String(tariff.days + (promo?.bonus_days ?? 0)));
+        }
+        router.push(`/${locale}/checkout/success?${params.toString()}`);
       } else if (result.manual?.payment_id) {
         router.push(
           `/${locale}/checkout/manual?payment_id=${encodeURIComponent(result.manual.payment_id)}`,

@@ -1084,7 +1084,10 @@
     "manualName": "Humo karta",
     "manualBusy": "Hozir barcha qabul kartalar band. Bir ozdan keyin qayta urinib ko'ring.",
     "planSelected": "Tanlangan",
-    "checkoutTitle": "To'lov"
+    "checkoutTitle": "To'lov",
+    "successTariffLabel": "Tarif",
+    "successUntilLabel": "Amal qiladi",
+    "paymentsHistory": "To'lovlar tarixi"
   },
   "OpsUsers": {
     "back": "Boshqaruvga qaytish",

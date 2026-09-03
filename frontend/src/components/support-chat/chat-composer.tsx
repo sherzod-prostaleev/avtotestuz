@@ -39,8 +39,10 @@ export function ChatComposer({
 
   return (
     // Phone: the artboard has no bar under the thread — the three controls sit
-    // straight on the page, 12px in from the edges and 12px above the tab bar.
-    <div className="border-t border-border bg-card/80 p-2 backdrop-blur max-md:border-t-0 max-md:bg-transparent max-md:p-0 max-md:px-3 max-md:pb-3 max-md:backdrop-blur-none">
+    // straight on the page, 12px in from the side edges. No bottom padding of
+    // its own: the app shell already reserves 20px more under the column than
+    // the tab bar occupies, and that reserve is the gap the artboard draws.
+    <div className="border-t border-border bg-card/80 p-2 backdrop-blur max-md:border-t-0 max-md:bg-transparent max-md:p-0 max-md:px-3 max-md:backdrop-blur-none">
       {file ? (
         <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
           <span className="truncate">{file.name}</span>

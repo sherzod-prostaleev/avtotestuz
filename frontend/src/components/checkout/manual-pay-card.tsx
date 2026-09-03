@@ -17,16 +17,16 @@ export type ManualPayInfo = {
   payment_status?: string;
 };
 
-function formatSom(n: number): string {
+export function formatSom(n: number): string {
   return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
 }
 
-function formatPan(pan: string): string {
+export function formatPan(pan: string): string {
   const d = pan.replace(/\D/g, "");
   return d.replace(/(.{4})/g, "$1 ").trim();
 }
 
-function useCountdown(untilIso: string): number {
+export function useCountdown(untilIso: string): number {
   const until = useMemo(() => new Date(untilIso).getTime(), [untilIso]);
   const [left, setLeft] = useState(() => Math.max(0, Math.floor((until - Date.now()) / 1000)));
   useEffect(() => {

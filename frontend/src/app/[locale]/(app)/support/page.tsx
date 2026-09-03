@@ -104,13 +104,11 @@ export default function SupportChatPage() {
   }
 
   return (
-    // The shell's own reserve under the content (`pb-[4.25rem]`) is 20px taller
-    // than the tab bar it stands in for, and on a chat screen that reserve is
-    // dead space between the composer and the bar. Below `md` the column is
-    // measured against the bar itself — top bar 3.5rem, bar 3rem + its border
-    // and a hair of clearance — so the composer lands just above it the way the
-    // artboard draws it. `md:h-[calc(100dvh)]` still wins from 768px up.
-    <div className="flex h-[calc(100dvh-3.5rem-4.25rem)] flex-col max-md:h-[calc(100dvh-3.5rem-3.25rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh)] md:min-h-[32rem]">
+    // Same arithmetic as the class it overrides, plus the safe-area inset the
+    // shell's own `pb-[calc(4.25rem+env(safe-area-inset-bottom))]` adds — without
+    // it the column is that inset too tall on a phone with a home indicator and
+    // the page scrolls. `md:h-[calc(100dvh)]` still wins from 768px up.
+    <div className="flex h-[calc(100dvh-3.5rem-4.25rem)] flex-col max-md:h-[calc(100dvh-3.5rem-4.25rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh)] md:min-h-[32rem]">
       <header className="flex items-center justify-between border-b border-border px-4 py-3 max-md:border-b-0 max-md:px-3 max-md:pb-0 max-md:pt-3">
         <div>
           <h1 className="font-display text-lg font-bold max-md:text-[24px] max-md:font-extrabold max-md:leading-[1.15]">

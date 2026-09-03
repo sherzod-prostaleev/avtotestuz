@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api-client";
+import { ManualPayMobile } from "@/components/checkout/manual-pay-mobile";
 import { ManualPayCard, ManualPayInfo } from "@/components/checkout/manual-pay-card";
 import { Button } from "@/components/ui/button";
 
@@ -92,18 +93,38 @@ export default function ManualCheckoutPage() {
   }
 
   return (
-    <main className="mx-auto max-w-lg space-y-6 px-4 py-8">
-      <div>
+    <main className="mx-auto max-w-lg space-y-6 px-4 py-8 max-md:!pb-0 max-md:pt-3">
+      {/* The phone rebuilds this header inside ManualPayMobile, next to the
+          amount it belongs with. */}
+      <div className="max-md:hidden">
         <h1 className="font-display text-2xl font-bold tracking-tight">{t("title")}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{t("subtitle")}</p>
       </div>
       {error ? <p className="text-sm text-destructive">{error}</p> : null}
       {info ? (
-        <ManualPayCard info={info} onClaim={() => void claim()} claiming={claiming} claimed={claimed} />
+        <>
+          <ManualPayMobile
+            // `max-md:!mt-0` cancels the `space-y-6` margin this would inherit
+            // from the header above it, which is `display:none` on a phone.
+            className="md:hidden max-md:!mt-0"
+            info={info}
+            onClaim={() => void claim()}
+            claiming={claiming}
+            claimed={claimed}
+          />
+          <div className="max-md:hidden">
+            <ManualPayCard info={info} onClaim={() => void claim()} claiming={claiming} claimed={claimed} />
+          </div>
+        </>
       ) : (
         <p className="text-sm text-muted-foreground">{t("loading")}</p>
       )}
-      <Button type="button" variant="outline" className="w-full" onClick={() => void load()}>
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full max-md:hidden"
+        onClick={() => void load()}
+      >
         {t("refresh")}
       </Button>
     </main>

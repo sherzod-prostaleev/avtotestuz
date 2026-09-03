@@ -1084,7 +1084,10 @@
     "manualName": "Карта Humo",
     "manualBusy": "Все карты приёма заняты. Попробуйте чуть позже.",
     "planSelected": "Выбрано",
-    "checkoutTitle": "Оплата"
+    "checkoutTitle": "Оплата",
+    "successTariffLabel": "Тариф",
+    "successUntilLabel": "Действует до",
+    "paymentsHistory": "История платежей"
   },
   "OpsUsers": {
     "back": "Назад в кабинет",

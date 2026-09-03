@@ -49,7 +49,7 @@ export function ChatMessageList({
         return (
           <div
             key={m.id}
-            className={`flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm shadow-sm max-md:max-w-[82%] max-md:gap-[3px] max-md:rounded-[14px] max-md:py-[9px] max-md:text-[15px] max-md:leading-[20px] max-md:shadow-none ${
+            className={`flex max-w-[85%] flex-col gap-1 rounded-2xl px-3 py-2 text-sm shadow-sm max-md:max-w-[calc(82%+1.5rem)] max-md:gap-[3px] max-md:rounded-[14px] max-md:py-[9px] max-md:text-[15px] max-md:leading-[20px] max-md:shadow-none ${
               mine
                 ? "ml-auto bg-accent text-accent-foreground max-md:rounded-br-[4px]"
                 : "mr-auto bg-muted text-foreground max-md:rounded-bl-[4px] max-md:border max-md:border-border max-md:bg-card"
