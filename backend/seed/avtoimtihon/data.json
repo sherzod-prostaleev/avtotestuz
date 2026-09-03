@@ -53407,6 +53407,366 @@
    ],
    "source": "ptest",
    "image": "images/i1269_1.webp"
+  },
+  {
+   "ext_id": "avtoimtihon-1270",
+   "category": "general_rules",
+   "texts": {
+    "ru": "Пересечение проезжих частей — это ...",
+    "uz-Cyrl": "Қатнов қисмлари кесишмаси - бу ...",
+    "uz-Latn": "Qatnov qismlari kesishmasi - bu ..."
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "Территория, определяемая воображаемыми линиями, в пределах которой проезжие части дорог пересекаются между собой",
+      "uz-Cyrl": "Йўлларнинг қатнов қисмлари ўзаро кесишиб ўтадиган ва тасаввур қилинадиган чизиқлар билан аниқланган ҳудуд",
+      "uz-Latn": "Yo'llarning qatnov qismlari o'zaro kesishib o'tadigan va tasavvur qilinadigan chiziqlar bilan aniqlangan hudud"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Место пересечения, примыкания или разветвления дорог на одном уровне",
+      "uz-Cyrl": "Йўлларнинг ўзаро бир сатҳда кесишадиган, туташадиган ва айриладиган жойи",
+      "uz-Latn": "Yo'llarning o'zaro bir sathda kesishadigan, tutashadigan va ayriladigan joyi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Элемент дороги, разделяющий расположенные рядом проезжие части, не предназначенный для движения или остановки транспортных средств и выделенный конструктивно либо с помощью газона, канавы или специальных ограждений",
+      "uz-Cyrl": "Йўлнинг ёнма-ён жойлашган қатнов қисмларини ажратувчи, транспорт воситалари ҳаракатланиши ёки тўхташи учун мўлжалланмаган, йўл сатҳидан кўтарилган ёки майсазор, ариқ, махсус тўсиқлар билан ажратилган баланд қисми",
+      "uz-Latn": "Yo'lning yonma-yon joylashgan qatnov qismlarini ajratuvchi, transport vositalari harakatlanishi yoki to'xtashi uchun mo'ljallanmagan, yo'l sathidan ko'tarilgan yoki maysazor, ariq, maxsus to'siqlar bilan ajratilgan baland qismi"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1271",
+   "category": "vehicle_defects",
+   "texts": {
+    "ru": "Какое из следующих определений относится к категории N2?",
+    "uz-Cyrl": "Қуйидаги қайси таъриф N2 тоифага тегишли?",
+    "uz-Latn": "Quyidagi qaysi ta'rif N2 toifaga tegishli?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 12 т",
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 12 т дан ортиқ бўлган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 12 t dan ortiq bo'lgan avtotransport vositalari"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 3,5 т, но не превышает 12 т",
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 3,5 т дан ортиқ, лекин 12 т дан ошмайдиган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 3,5 t dan ortiq, lekin 12 t dan oshmaydigan avtotransport vositalari"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых не превышает 3,5 т",
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 3,5 т дан ошмайдиган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 3,5 t dan oshmaydigan avtotransport vositalari"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1272",
+   "category": "markings_horizontal",
+   "texts": {
+    "ru": "Какую из следующих сплошных линий разрешается пересекать?",
+    "uz-Cyrl": "Қуйидаги қайси сидирға чизиқларини босиб ўтиш мумкин?",
+    "uz-Latn": "Quyidagi qaysi sidirg'a chiziqlarini bosib o'tish mumkin?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "Сплошную линию, обозначающую край проезжей части, при вынужденной остановке на автомагистрали",
+      "uz-Cyrl": "Автомагистралда мажбурий тўхтаганда қатнов қисмининг четини билдирувчи сидирға чизиқни",
+      "uz-Latn": "Avtomagistralda majburiy to'xtaganda qatnov qismining chetini bildiruvchi sidirg'a chiziqn"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Сплошную линию, разделяющую проезжую часть на полосы движения",
+      "uz-Cyrl": "Қатнов қисмини тасмаларга ажратувчи сидирға чизиқни",
+      "uz-Latn": "Qatnov qismini tasmalarga ajratuvchi sidirg'a chiziqni"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Линии дорожной разметки 1.1 и 1.3",
+      "uz-Cyrl": "1.1, 1.3 йўл чизиқларини",
+      "uz-Latn": "1.1, 1.3 yo'l chiziqlarini"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "Линию дорожной разметки 1.3",
+      "uz-Cyrl": "1.3 йўл чизиғини",
+      "uz-Latn": "1.3 yo'l chizig'ini"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1273",
+   "category": "stopping_and_parking",
+   "texts": {
+    "ru": "Разрешается ли данному транспортному средству, пересекая сплошную линию, остановиться у края проезжей части?",
+    "uz-Cyrl": "Ушбу транспорт воситасига сидирға чизиқни босиб ўтиб, йўл ёқасида тўхташга рухсат бериладими?",
+    "uz-Latn": "Ushbu transport vositasiga sidirg'a chiziqni bosib o'tib, yo'l yoqasida to'xtashga ruxsat beriladimi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается только в населённых пунктах",
+      "uz-Cyrl": "Фақат аҳоли пунктларида рухсат берилади",
+      "uz-Latn": "Faqat aholi punktlarida ruxsat beriladi"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Разрешается",
+      "uz-Cyrl": "Рухсат этилади",
+      "uz-Latn": "Ruxsat etiladi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается только при вынужденной остановке",
+      "uz-Cyrl": "Фақат мажбурий тўхташ ҳолатида рухсат берилади",
+      "uz-Latn": "Faqat majburiy to'xtash holatida ruxsat beriladi"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "Запрещается",
+      "uz-Cyrl": "Тақиқланади",
+      "uz-Latn": "Taqiqlanadi"
+     }
+    }
+   ],
+   "source": "ptest",
+   "image": "images/i1273_1.webp"
+  },
+  {
+   "ext_id": "avtoimtihon-1274",
+   "category": "special_vehicle_priority",
+   "texts": {
+    "ru": "Разрешено ли в показанной ситуации специальному транспортному средству с включенными проблесковыми маячками синего и красного цветов двигаться по полосе «А»?",
+    "uz-Cyrl": "Кўрсатилган ҳолатда \"А\" тасма бўйлаб кўк ва қизил рангли ёнувчи махсус транспорт воситаси ҳаракатланишига рухсат этилдими?",
+    "uz-Latn": "Ko'rsatilgan holatda \"A\" tasma bo'ylab ko'k va qizil rangli yonuvchi maxsus transport vositasi harakatlanishiga ruxsat etildimi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается, если не создаёт помех маршрутным транспортным средствам",
+      "uz-Cyrl": "Йўналишли транспорт воситасига халақит бермаса рухсат этилади",
+      "uz-Latn": "Yo'nalishli transport vositasiga xalaqit bermasa ruxsat etiladi"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Запрещается",
+      "uz-Cyrl": "Тақиқланади",
+      "uz-Latn": "Taqiqlanadi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": true,
+     "texts": {
+      "ru": "Разрешается",
+      "uz-Cyrl": "Рухсат этилади",
+      "uz-Latn": "Ruxsat etiladi"
+     }
+    }
+   ],
+   "source": "ptest",
+   "image": "images/i1274_1.webp"
+  },
+  {
+   "ext_id": "avtoimtihon-1275",
+   "category": "speed_limits",
+   "texts": {
+    "ru": "В каких случаях водителю легкового автомобиля при езде вне населённых пунктов запрещается превышать установленную скорость?",
+    "uz-Cyrl": "Қандай ҳолларда аҳоли пунктларидан ташқарида енгил автомобиль ҳайдовчисига соатига 90 км дан юқори тезликда ҳаракатланиш тақиқланади?",
+    "uz-Latn": "Qanday hollarda aholi punktlaridan tashqarida yengil avtomobil haydovchisiga soatiga 90 km dan yuqori tezlikda harakatlanish taqiqlanadi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Только если на дороге установлены дорожные знаки; ограничивающие скорость движения",
+      "uz-Cyrl": "Фақат йўлда тезлик чекланган белгилар ўрнатилган бўлса",
+      "uz-Latn": "Faqat yo'lda tezlik cheklangan belgilar o'rnatilgan bo'lsa"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Только если он двигается с прицепом",
+      "uz-Cyrl": "Фақат ҳаракатланаётган тиркамали енгил автомобилларга",
+      "uz-Latn": "Faqat harakatlanayotgan tirkamali yengil avtomobillarga"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Если он буксирует другие транспортные средства",
+      "uz-Cyrl": "Агар у бошқа транспорт воситасини шатакка олган бўлса",
+      "uz-Latn": "Agar u boshqa transport vositasini shatakka olgan bo'lsa"
+     }
+    },
+    {
+     "position": 4,
+     "correct": true,
+     "texts": {
+      "ru": "Во всех перечисленных случаях",
+      "uz-Cyrl": "Санаб ўтилган барча ҳолларда",
+      "uz-Latn": "Sanab o'tilgan barcha hollarda"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1276",
+   "category": "officials_duties",
+   "texts": {
+    "ru": "В каком случае сотрудник ДПС может потребовать от водителя выйти из транспортного средства?",
+    "uz-Cyrl": "ЙПХ ходими қайси ҳолатда ҳайдовчидан транспорт воситасидан тушишини талаб қилиши мумкин?",
+    "uz-Latn": "YPX xodimi qaysi holatda haydovchidan transport vositasidan tushishini talab qilishi mumkin?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Если водитель отказывается предъявить водительское удостоверение",
+      "uz-Cyrl": "Ҳайдовчи ҳайдовчилик гувоҳномасини кўрсатишни истамаса",
+      "uz-Latn": "Haydovchi haydovchilik guvohnomasini ko'rsatishni istamasa"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Во всех перечисленных случаях",
+      "uz-Cyrl": "Санаб ўтилган барча ҳолларда",
+      "uz-Latn": "Sanab o'tilgan barcha hollarda"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Если водитель нарушил правила дорожного движения",
+      "uz-Cyrl": "Ҳайдовчи йўл ҳаракати қоидасини бузган бўлса",
+      "uz-Latn": "Haydovchi yo'l harakati qoidasini buzgan bo'lsa"
+     }
+    },
+    {
+     "position": 4,
+     "correct": true,
+     "texts": {
+      "ru": "Если имеются достаточные основания полагать, что водитель управляет транспортным средством в состоянии опьянения",
+      "uz-Cyrl": "Ҳайдовчининг маст ҳолатда транспорт воситасини бошқараётганлигини кўрсатувчи етарли асослар мавжуд бўлса",
+      "uz-Latn": "Haydovchining mast holatda transport vositasini boshqarayotganligini ko'rsatuvchi yetarli asoslar mavjud bo'lsa"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1277",
+   "category": "safety_basics",
+   "texts": {
+    "ru": "С какой стороны синий автомобиль должен объехать препятствие?",
+    "uz-Cyrl": "Кўк автомобил қайси томондан айланиб ўтиши керак?",
+    "uz-Latn": "Ko'k avtomobil qaysi tomondan aylanib o'tishi kerak?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "С левой стороны",
+      "uz-Cyrl": "Чап томонидан",
+      "uz-Latn": "Chap tomonidan"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается объехать с любой стороны",
+      "uz-Cyrl": "Ҳар икки томонидан рухсат этилади",
+      "uz-Latn": "Har ikki tomonidan ruxsat etiladi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Объезд с обеих сторон запрещён",
+      "uz-Cyrl": "Ҳар икки томонидан тақиқланади",
+      "uz-Latn": "Har ikki tomonidan taqiqlanadi"
+     }
+    },
+    {
+     "position": 4,
+     "correct": true,
+     "texts": {
+      "ru": "С правой стороны",
+      "uz-Cyrl": "Ўнг томонидан",
+      "uz-Latn": "O'ng tomonidan"
+     }
+    }
+   ],
+   "source": "ptest",
+   "image": "images/i1277_1.webp"
   }
  ],
  "variants": [
@@ -54992,7 +55352,15 @@
     "avtoimtihon-1266",
     "avtoimtihon-1267",
     "avtoimtihon-1268",
-    "avtoimtihon-1269"
+    "avtoimtihon-1269",
+    "avtoimtihon-1270",
+    "avtoimtihon-1271",
+    "avtoimtihon-1272",
+    "avtoimtihon-1273",
+    "avtoimtihon-1274",
+    "avtoimtihon-1275",
+    "avtoimtihon-1276",
+    "avtoimtihon-1277"
    ]
   }
  ],
