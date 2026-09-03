@@ -13,11 +13,11 @@ import {
   User,
 } from "lucide-react";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
-import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
-import { ReferralCard } from "@/components/profile/referral-card";
-import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
+import { MobilePayments } from "./mobile-payments";
 import { MobilePersonal } from "./mobile-personal";
+import { MobileReferral } from "./mobile-referral";
 import { MobileScreen } from "./mobile-screen";
+import { MobileTelegram } from "./mobile-telegram";
 
 type Panel = "personal" | "password" | "telegram" | "payments" | "referral";
 
@@ -93,21 +93,37 @@ export function ProfileMobile({
     );
   }
 
-  if (panel) {
-    const titles: Record<Exclude<Panel, "personal">, string> = {
-      password: t("passwordTitle"),
-      telegram: t("telegramTitle"),
-      payments: t("paymentsTitle"),
-      referral: t("referralTitle"),
-    };
+  if (panel === "password") {
     return (
       <div className={className}>
-        <MobileScreen title={titles[panel]} onBack={close}>
-          {panel === "password" && <ChangePasswordForm bare onSuccess={close} />}
-          {panel === "telegram" && <TelegramLinkCard />}
-          {panel === "payments" && <PaymentHistoryCard />}
-          {panel === "referral" && <ReferralCard />}
+        <MobileScreen title={t("passwordTitle")} onBack={close} gapClassName="gap-2.5">
+          <p className="text-sm leading-snug text-muted-foreground">{t("passwordSubtitle")}</p>
+          <ChangePasswordForm bare reveal onSuccess={close} />
         </MobileScreen>
+      </div>
+    );
+  }
+
+  if (panel === "telegram") {
+    return (
+      <div className={className}>
+        <MobileTelegram onBack={close} />
+      </div>
+    );
+  }
+
+  if (panel === "payments") {
+    return (
+      <div className={className}>
+        <MobilePayments onBack={close} />
+      </div>
+    );
+  }
+
+  if (panel === "referral") {
+    return (
+      <div className={className}>
+        <MobileReferral onBack={close} />
       </div>
     );
   }

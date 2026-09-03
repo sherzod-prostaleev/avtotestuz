@@ -924,7 +924,11 @@
     "telegramTitle": "Telegram",
     "paymentsTitle": "История платежей",
     "referralTitle": "Пригласить друзей",
-    "noName": "Имя не указано"
+    "noName": "Имя не указано",
+    "passwordShow": "Показать пароль",
+    "passwordHide": "Скрыть пароль",
+    "passwordNeverStored": "Исходный пароль никогда не сохраняется — его знаете только вы.",
+    "passwordSubtitle": "Введите текущий пароль, затем подтвердите новый (не менее 8 символов)."
   },
   "TelegramLink": {
     "title": "Привязка Telegram",
@@ -1000,7 +1004,14 @@
     "earningsTitle": "Источники комиссии",
     "earningsEmpty": "Комиссий пока нет.",
     "earningsLine": "{tariff} · {days} дн. · оплата {payment} сум · {percent}%",
-    "somSuffix": "сум"
+    "somSuffix": "сум",
+    "balanceShort": "Баланс",
+    "payoutShort": "Вывести",
+    "yourCodeShort": "Ваш код",
+    "statInvitedShort": "Приглашено",
+    "statRewardedShort": "Оплатили",
+    "statDaysShort": "VIP дней",
+    "noteShort": "Когда друг привяжется по коду и купит первый платный тариф, комиссия придёт на ваш баланс."
   },
   "PaymentHistory": {
     "title": "История платежей",
@@ -1019,7 +1030,9 @@
     "statusPending": "В ожидании",
     "statusCanceled": "Отменено",
     "statusRefunded": "Возвращён",
-    "statusFailed": "Ошибка"
+    "statusFailed": "Ошибка",
+    "planLine": "{name} — {days} дн.",
+    "retry": "Повторить"
   },
   "Premium": {
     "title": "Driver Go Премиум",

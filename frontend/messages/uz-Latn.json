@@ -924,7 +924,11 @@
     "telegramTitle": "Telegram",
     "paymentsTitle": "To'lovlar tarixi",
     "referralTitle": "Do'stlarni taklif qilish",
-    "noName": "Ism kiritilmagan"
+    "noName": "Ism kiritilmagan",
+    "passwordShow": "Parolni ko'rsatish",
+    "passwordHide": "Parolni yashirish",
+    "passwordNeverStored": "Asl parol hech qachon saqlanmaydi — faqat siz bilasiz.",
+    "passwordSubtitle": "Joriy parolingizni kiriting, keyin yangi parolni tasdiqlang (kamida 8 belgi)."
   },
   "TelegramLink": {
     "title": "Telegram bog'lash",
@@ -1000,7 +1004,14 @@
     "earningsTitle": "Komissiya manbalari",
     "earningsEmpty": "Hali komissiya tushmagan.",
     "earningsLine": "{tariff} · {days} kun · to'lov {payment} so'm · {percent}%",
-    "somSuffix": "so'm"
+    "somSuffix": "so'm",
+    "balanceShort": "Balans",
+    "payoutShort": "Pulni chiqarish",
+    "yourCodeShort": "Sizning kodingiz",
+    "statInvitedShort": "Taklif qilingan",
+    "statRewardedShort": "To'lov qilgan",
+    "statDaysShort": "VIP kun",
+    "noteShort": "Do'stingiz kod orqali biriktirilib birinchi pullik tarifni olsa, komissiya balansingizga tushadi."
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",
@@ -1019,7 +1030,9 @@
     "statusPending": "Kutilmoqda",
     "statusCanceled": "Bekor qilingan",
     "statusRefunded": "Qaytarilgan",
-    "statusFailed": "Xatolik"
+    "statusFailed": "Xatolik",
+    "planLine": "{name} — {days} kun",
+    "retry": "Qayta urinish"
   },
   "Premium": {
     "title": "Driver Go Premium",

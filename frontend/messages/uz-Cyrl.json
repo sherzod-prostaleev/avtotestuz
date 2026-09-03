@@ -924,7 +924,11 @@
     "telegramTitle": "Telegram",
     "paymentsTitle": "Тўловлар тарихи",
     "referralTitle": "Дўстларни таклиф қилиш",
-    "noName": "Исм киритилмаган"
+    "noName": "Исм киритилмаган",
+    "passwordShow": "Паролни кўрсатиш",
+    "passwordHide": "Паролни яшириш",
+    "passwordNeverStored": "Асл парол ҳеч қачон сақланмайди — фақат сиз биласиз.",
+    "passwordSubtitle": "Жорий паролингизни киритинг, кейин янги паролни тасдиқланг (камида 8 белги)."
   },
   "TelegramLink": {
     "title": "Telegram улаш",
@@ -1000,7 +1004,14 @@
     "earningsTitle": "Комиссия манбалари",
     "earningsEmpty": "Ҳали комиссия тушмаган.",
     "earningsLine": "{tariff} · {days} кун · тўлов {payment} сўм · {percent}%",
-    "somSuffix": "сўм"
+    "somSuffix": "сўм",
+    "balanceShort": "Баланс",
+    "payoutShort": "Пулни чиқариш",
+    "yourCodeShort": "Сизнинг кодингиз",
+    "statInvitedShort": "Таклиф қилинган",
+    "statRewardedShort": "Тўлов қилган",
+    "statDaysShort": "VIP кун",
+    "noteShort": "Дўстингиз код орқали бириктирилиб биринчи пуллик тарифни олса, комиссия балансингизга тушади."
   },
   "PaymentHistory": {
     "title": "Тўловлар Тарихи",
@@ -1019,7 +1030,9 @@
     "statusPending": "Кутилмоқда",
     "statusCanceled": "Бекор қилинган",
     "statusRefunded": "Қайтарилган",
-    "statusFailed": "Хатолик"
+    "statusFailed": "Хатолик",
+    "planLine": "{name} — {days} кун",
+    "retry": "Қайта уриниш"
   },
   "Premium": {
     "title": "Driver Go Премиум",

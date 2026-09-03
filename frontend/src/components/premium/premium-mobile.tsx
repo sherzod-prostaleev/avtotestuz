@@ -36,10 +36,11 @@ export interface PremiumMobileProps {
 }
 
 /**
- * The provider order the picker uses, so the phone tiles and the wide picker
- * agree. `manual` leads because it is the one that always works — the artboard
- * draws only Payme and Click, but dropping the card transfer would leave some
- * learners with no way to pay at all.
+ * The order and the filtering `provider-picker.tsx` uses, so the phone and the
+ * wide layout offer exactly the same methods. A provider switched off in the
+ * admin panel disappears from the list rather than sitting there greyed out,
+ * and with only one left the choice is not worth a control at all — the parent
+ * has already selected it.
  */
 const PROVIDER_ORDER: PaymentProvider[] = ["manual", "payme", "click"];
 
@@ -93,6 +94,7 @@ export function PremiumMobile({
   const finalPrice = promo ? promo.final_amount_uzs : (selected?.price_uzs ?? 0);
   const isFree = Boolean(promo && finalPrice === 0);
   const buyDisabled = !selected || buying || (!isFree && !providerEnabled[provider]);
+  const availableProviders = PROVIDER_ORDER.filter((id) => providerEnabled[id] !== false);
 
   const planSubtitle = (tariff: PremiumMobileTariff) =>
     `${tariff.days} ${t("daysLabel")} · ${formatSom(tariff.price_per_day_uzs)} ${t("somSuffix")} ${t("perDay")}`;
@@ -149,14 +151,13 @@ export function PremiumMobile({
           </div>
         )}
 
-        {!isFree && (
+        {!isFree && availableProviders.length > 1 && (
           <div>
             <p className="mb-1 text-xs font-extrabold uppercase leading-none tracking-[0.08em] text-muted-foreground">
               {t("selectProvider")}
             </p>
             <div role="radiogroup" aria-label={t("selectProvider")} className="flex flex-col gap-1.5">
-              {PROVIDER_ORDER.filter((id) => id in providerEnabled).map((id) => {
-                const enabled = providerEnabled[id] !== false;
+              {availableProviders.map((id) => {
                 const isSelected = provider === id;
                 return (
                   <button
@@ -164,14 +165,10 @@ export function PremiumMobile({
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
-                    aria-disabled={!enabled}
-                    disabled={!enabled}
                     onClick={() => onProviderChange(id)}
                     className={`flex min-h-[52px] items-center gap-2.5 rounded-xl border px-3 text-left ${
-                      isSelected
-                        ? "border-accent bg-accent/10"
-                        : "border-border bg-card"
-                    } ${enabled ? "" : "opacity-50"}`}
+                      isSelected ? "border-accent bg-accent/10" : "border-border bg-card"
+                    }`}
                   >
                     {isSelected ? (
                       <CircleDot aria-hidden="true" className="h-5 w-5 shrink-0 text-accent" />
@@ -181,11 +178,6 @@ export function PremiumMobile({
                     <span className="min-w-0 flex-1 truncate text-sm font-bold">
                       {t(PROVIDER_LABEL_KEY[id])}
                     </span>
-                    {!enabled && (
-                      <span className="shrink-0 text-xs text-muted-foreground">
-                        {t("providerTemporarilyOff")}
-                      </span>
-                    )}
                   </button>
                 );
               })}
