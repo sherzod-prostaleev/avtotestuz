@@ -515,7 +515,11 @@
     "questionCountLabel": "{count} ta savol",
     "practiceThisSign": "Shu belgi bo'yicha mashq",
     "noQuestionsForSign": "Bu belgi uchun bog'langan savol hali yo'q",
-    "backToPractice": "Mavzularga qaytish"
+    "backToPractice": "Mavzularga qaytish",
+    "entryHeading": "Yo'l belgilari",
+    "entrySummary": "{total} ta belgi · {groups} guruh",
+    "entrySearchPlaceholder": "Belgi nomi yoki raqami",
+    "groupSignCount": "{count} ta"
   },
   "Practice": {
     "backHome": "Bosh sahifaga qaytish",
@@ -910,7 +914,9 @@
     "passwordForcedBrand": "DriverGo",
     "passwordForcedTitle": "Parolni yangilang",
     "passwordForcedSubtitle": "Vaqtinchalik parol bilan kirdingiz. Davom etishdan oldin yangi parol o‘rnating.",
-    "passwordForcedSecureNote": "Asl parol hech qachon saqlanmaydi — faqat siz bilasiz"
+    "passwordForcedSecureNote": "Asl parol hech qachon saqlanmaydi — faqat siz bilasiz",
+    "back": "Orqaga",
+    "phoneLocked": "Telefon raqamini o'zgartirib bo'lmaydi — u hisobingiz kalitidir."
   },
   "TelegramLink": {
     "title": "Telegram bog'lash",
@@ -1278,7 +1284,21 @@
     "vipRequired": "VIP talab qilinadi",
     "questionLoadError": "Savol yuklanmadi. Qayta urinib ko'ring yoki o'yinni davom ettiring.",
     "opponentDisconnected": "Raqib uzildi",
-    "opponentConnected": "Raqib qaytdi"
+    "opponentConnected": "Raqib qaytdi",
+    "medalBrilliant": "Brilliant",
+    "medalDiamond": "Olmos",
+    "medalPlatinum": "Platina",
+    "medalGold": "Oltin",
+    "medalSilver": "Kumush",
+    "medalBronze": "Bronza",
+    "outcomeWon": "G'alaba",
+    "outcomeLost": "Mag'lubiyat",
+    "subtitleShort": "1v1 duel — 10 savol, har biri 15 soniya",
+    "historyScore": "{score} ball",
+    "you": "Siz",
+    "youWonShort": "Siz yutdingiz!",
+    "ratingLabel": "Reyting",
+    "backToLobbyFull": "Lobbiga qaytish"
   },
   "Legal": {
     "ofertaTitle": "Ommaviy oferta",
@@ -2365,7 +2385,12 @@
     "loading": "Yuklanmoqda...",
     "loadError": "To'lov ma'lumotini yuklab bo'lmadi",
     "missingPayment": "To'lov topilmadi",
-    "refresh": "Yangilash"
+    "refresh": "Yangilash",
+    "cardLabel": "Humo karta",
+    "holdLabelShort": "Karta band:",
+    "autoActivateNote": "Tasdiqlangach VIP avtomatik faollashadi.",
+    "copyAmountLabel": "Summani nusxalash",
+    "copyPanLabel": "Karta raqamini nusxalash"
   },
   "AdminManualPay": {
     "title": "Manual Humo to'lov",

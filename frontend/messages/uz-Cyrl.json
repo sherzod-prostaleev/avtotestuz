@@ -515,7 +515,11 @@
     "questionCountLabel": "{count} та савол",
     "practiceThisSign": "Шу белги бўйича машқ",
     "noQuestionsForSign": "Бу белги учун боғланган савол ҳали йўқ",
-    "backToPractice": "Мавзуларга қайтиш"
+    "backToPractice": "Мавзуларга қайтиш",
+    "entryHeading": "Йўл белгилари",
+    "entrySummary": "{total} та белги · {groups} гуруҳ",
+    "entrySearchPlaceholder": "Белги номи ёки рақами",
+    "groupSignCount": "{count} та"
   },
   "Practice": {
     "backHome": "Бош саҳифага қайтиш",
@@ -910,7 +914,9 @@
     "passwordForcedBrand": "DriverGo",
     "passwordForcedTitle": "Паролни янгиланг",
     "passwordForcedSubtitle": "Вақтинчалик парол билан кирдингиз. Давом этишдан олдин янги парол ўрнатинг.",
-    "passwordForcedSecureNote": "Асл парол ҳеч қачон сақланмайди — фақат сиз биласиз"
+    "passwordForcedSecureNote": "Асл парол ҳеч қачон сақланмайди — фақат сиз биласиз",
+    "back": "Орқага",
+    "phoneLocked": "Телефон рақамини ўзгартириб бўлмайди — у ҳисобингиз калитидир."
   },
   "TelegramLink": {
     "title": "Telegram улаш",
@@ -1278,7 +1284,21 @@
     "vipRequired": "VIP талаб қилинади",
     "questionLoadError": "Савол юкланмади. Қайта уриниб кўринг ёки ўйинни давом эттиринг.",
     "opponentDisconnected": "Рақиб узилди",
-    "opponentConnected": "Рақиб қайтди"
+    "opponentConnected": "Рақиб қайтди",
+    "medalBrilliant": "Бриллиант",
+    "medalDiamond": "Олмос",
+    "medalPlatinum": "Платина",
+    "medalGold": "Олтин",
+    "medalSilver": "Кумуш",
+    "medalBronze": "Бронза",
+    "outcomeWon": "Ғалаба",
+    "outcomeLost": "Мағлубият",
+    "subtitleShort": "1v1 дуэл — 10 савол, ҳар бири 15 сония",
+    "historyScore": "{score} балл",
+    "you": "Сиз",
+    "youWonShort": "Сиз ютдингиз!",
+    "ratingLabel": "Рейтинг",
+    "backToLobbyFull": "Лоббига қайтиш"
   },
   "Legal": {
     "ofertaTitle": "Оммавий оферта",
@@ -2365,7 +2385,12 @@
     "loading": "Yuklanmoqda...",
     "loadError": "To'lov ma'lumotini yuklab bo'lmadi",
     "missingPayment": "To'lov topilmadi",
-    "refresh": "Yangilash"
+    "refresh": "Yangilash",
+    "cardLabel": "Humo карта",
+    "holdLabelShort": "Карта банд:",
+    "autoActivateNote": "Тасдиқлангач VIP автоматик фаоллашади.",
+    "copyAmountLabel": "Суммани нусхалаш",
+    "copyPanLabel": "Карта рақамини нусхалаш"
   },
   "AdminManualPay": {
     "title": "Manual Humo to'lov",

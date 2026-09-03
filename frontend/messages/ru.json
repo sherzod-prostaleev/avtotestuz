@@ -515,7 +515,11 @@
     "questionCountLabel": "{count} вопросов",
     "practiceThisSign": "Практика по этому знаку",
     "noQuestionsForSign": "К этому знаку пока не привязаны вопросы",
-    "backToPractice": "Назад к темам"
+    "backToPractice": "Назад к темам",
+    "entryHeading": "Дорожные знаки",
+    "entrySummary": "{total} знаков · {groups} групп",
+    "entrySearchPlaceholder": "Название или номер знака",
+    "groupSignCount": "{count}"
   },
   "Practice": {
     "backHome": "Вернуться на главную",
@@ -910,7 +914,9 @@
     "passwordForcedBrand": "DriverGo",
     "passwordForcedTitle": "Обновите пароль",
     "passwordForcedSubtitle": "Вы вошли с временным паролем. Перед продолжением задайте новый.",
-    "passwordForcedSecureNote": "Исходный пароль никогда не хранится — его знаете только вы"
+    "passwordForcedSecureNote": "Исходный пароль никогда не хранится — его знаете только вы",
+    "back": "Назад",
+    "phoneLocked": "Номер телефона изменить нельзя — это ключ вашего аккаунта."
   },
   "TelegramLink": {
     "title": "Привязка Telegram",
@@ -1278,7 +1284,21 @@
     "vipRequired": "Нужен VIP",
     "questionLoadError": "Не удалось загрузить вопрос. Попробуйте ещё раз или продолжите матч.",
     "opponentDisconnected": "Соперник отключился",
-    "opponentConnected": "Соперник вернулся"
+    "opponentConnected": "Соперник вернулся",
+    "medalBrilliant": "Бриллиант",
+    "medalDiamond": "Алмаз",
+    "medalPlatinum": "Платина",
+    "medalGold": "Золото",
+    "medalSilver": "Серебро",
+    "medalBronze": "Бронза",
+    "outcomeWon": "Победа",
+    "outcomeLost": "Поражение",
+    "subtitleShort": "Дуэль 1 на 1 — 10 вопросов по 15 секунд",
+    "historyScore": "{score} баллов",
+    "you": "Вы",
+    "youWonShort": "Вы выиграли!",
+    "ratingLabel": "Рейтинг",
+    "backToLobbyFull": "Вернуться в лобби"
   },
   "Legal": {
     "ofertaTitle": "Публичная оферта",
@@ -2365,7 +2385,12 @@
     "loading": "Загрузка...",
     "loadError": "Не удалось загрузить платёж",
     "missingPayment": "Платёж не найден",
-    "refresh": "Обновить"
+    "refresh": "Обновить",
+    "cardLabel": "Карта Humo",
+    "holdLabelShort": "Карта занята:",
+    "autoActivateNote": "После подтверждения VIP активируется автоматически.",
+    "copyAmountLabel": "Скопировать сумму",
+    "copyPanLabel": "Скопировать номер карты"
   },
   "AdminManualPay": {
     "title": "Manual Humo оплата",
