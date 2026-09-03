@@ -12,6 +12,7 @@ import { ReferralCard } from "@/components/profile/referral-card";
 import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { ProfileMobile } from "@/components/profile/mobile/profile-mobile";
 
 interface UserProfileData {
   id: string;
@@ -45,6 +46,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState<boolean>(false);
   const [savedSuccess, setSavedSuccess] = useState<boolean>(false);
   const [errorKey, setErrorKey] = useState<"loadError" | "saveError" | null>(null);
+  const [isVip, setIsVip] = useState<boolean>(false);
 
   const loadProfile = useCallback(async () => {
     setLoading(true);
@@ -54,6 +56,7 @@ export default function ProfilePage() {
       setProfile(data.profile);
       setName(data.profile.name);
       setRegion(data.profile.region);
+      setIsVip(data.vip.active);
     } catch {
       setErrorKey("loadError");
     } finally {
@@ -96,8 +99,10 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="page-shell-narrow">
-      <header className="mb-6">
+    <main className="page-shell-narrow max-md:!pb-0">
+      {/* The phone rebuilds the header inside the list — the user card carries
+          the name, so a separate title and paragraph is a screen of chrome. */}
+      <header className="mb-6 max-md:hidden">
         <Link href={`/${currentLocale}/dashboard`} className="back-link">
           <ArrowLeft aria-hidden="true" className="h-4 w-4" /> {t("backHome")}
         </Link>
@@ -106,7 +111,27 @@ export default function ProfilePage() {
       </header>
 
       <div className="space-y-6">
-        <Card className="p-5 sm:p-6">
+        {/* `md:[&+*]:!mt-0`: a `md:hidden` element still counts as a child for
+            `space-y-6`, and would otherwise hand the first card below it a
+            margin the wide layout never had. */}
+        <ProfileMobile
+          className="md:hidden md:[&+*]:!mt-0"
+          name={name}
+          region={region}
+          phone={profile?.phone ?? ""}
+          referralCode={profile?.referral_code ?? ""}
+          isVip={isVip}
+          onNameChange={setName}
+          onRegionChange={setRegion}
+          onSave={handleSave}
+          saving={saving}
+          saved={savedSuccess}
+          errorKey={errorKey}
+          onRetry={() => void loadProfile()}
+          onLogout={() => void handleLogout()}
+          loading={loading}
+        />
+        <Card className="p-5 max-md:hidden sm:p-6">
           <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
             <User aria-hidden="true" className="h-5 w-5 text-accent" />
             <CardTitle className="text-base font-bold">{t("personalInfo")}</CardTitle>
@@ -184,14 +209,22 @@ export default function ProfilePage() {
           </form>
         </Card>
 
-        <ChangePasswordForm />
+        <div className="max-md:hidden">
+          <ChangePasswordForm />
+        </div>
 
 
-        <TelegramLinkCard />
-        <ReferralCard />
-        <PaymentHistoryCard />
+        <div className="max-md:hidden">
+          <TelegramLinkCard />
+        </div>
+        <div className="max-md:hidden">
+          <ReferralCard />
+        </div>
+        <div className="max-md:hidden">
+          <PaymentHistoryCard />
+        </div>
 
-        <Card className="border-destructive/30 bg-destructive/5 p-5 sm:p-6">
+        <Card className="border-destructive/30 bg-destructive/5 p-5 max-md:hidden sm:p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h3 className="font-display text-sm font-bold text-destructive">{t("logout")}</h3>

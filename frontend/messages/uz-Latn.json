@@ -916,7 +916,15 @@
     "passwordForcedSubtitle": "Vaqtinchalik parol bilan kirdingiz. Davom etishdan oldin yangi parol o‘rnating.",
     "passwordForcedSecureNote": "Asl parol hech qachon saqlanmaydi — faqat siz bilasiz",
     "back": "Orqaga",
-    "phoneLocked": "Telefon raqamini o'zgartirib bo'lmaydi — u hisobingiz kalitidir."
+    "phoneLocked": "Telefon raqamini o'zgartirib bo'lmaydi — u hisobingiz kalitidir.",
+    "accountGroup": "Hisob",
+    "connectionsGroup": "Ulanishlar",
+    "paymentGroup": "To'lov",
+    "passwordTitle": "Parolni o'zgartirish",
+    "telegramTitle": "Telegram",
+    "paymentsTitle": "To'lovlar tarixi",
+    "referralTitle": "Do'stlarni taklif qilish",
+    "noName": "Ism kiritilmagan"
   },
   "TelegramLink": {
     "title": "Telegram bog'lash",

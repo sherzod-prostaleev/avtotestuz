@@ -916,7 +916,15 @@
     "passwordForcedSubtitle": "Вақтинчалик парол билан кирдингиз. Давом этишдан олдин янги парол ўрнатинг.",
     "passwordForcedSecureNote": "Асл парол ҳеч қачон сақланмайди — фақат сиз биласиз",
     "back": "Орқага",
-    "phoneLocked": "Телефон рақамини ўзгартириб бўлмайди — у ҳисобингиз калитидир."
+    "phoneLocked": "Телефон рақамини ўзгартириб бўлмайди — у ҳисобингиз калитидир.",
+    "accountGroup": "Ҳисоб",
+    "connectionsGroup": "Уланишлар",
+    "paymentGroup": "Тўлов",
+    "passwordTitle": "Паролни ўзгартириш",
+    "telegramTitle": "Telegram",
+    "paymentsTitle": "Тўловлар тарихи",
+    "referralTitle": "Дўстларни таклиф қилиш",
+    "noName": "Исм киритилмаган"
   },
   "TelegramLink": {
     "title": "Telegram улаш",

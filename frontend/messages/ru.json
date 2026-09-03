@@ -916,7 +916,15 @@
     "passwordForcedSubtitle": "Вы вошли с временным паролем. Перед продолжением задайте новый.",
     "passwordForcedSecureNote": "Исходный пароль никогда не хранится — его знаете только вы",
     "back": "Назад",
-    "phoneLocked": "Номер телефона изменить нельзя — это ключ вашего аккаунта."
+    "phoneLocked": "Номер телефона изменить нельзя — это ключ вашего аккаунта.",
+    "accountGroup": "Аккаунт",
+    "connectionsGroup": "Подключения",
+    "paymentGroup": "Оплата",
+    "passwordTitle": "Смена пароля",
+    "telegramTitle": "Telegram",
+    "paymentsTitle": "История платежей",
+    "referralTitle": "Пригласить друзей",
+    "noName": "Имя не указано"
   },
   "TelegramLink": {
     "title": "Привязка Telegram",

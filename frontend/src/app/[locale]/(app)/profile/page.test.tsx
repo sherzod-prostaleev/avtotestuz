@@ -86,4 +86,43 @@ describe("ProfilePage", () => {
       expect(patchSpy).toHaveBeenCalledWith("me", { name: "Dilshod", region: "Toshkent" })
     );
   });
+
+  // The phone list opens its sub-screens as panels, and only one is mounted at
+  // a time. If they were all rendered and toggled with CSS, jsdom — which
+  // applies none — would show six screens at once and every query by text
+  // would find several of everything.
+  it("opens one profile panel at a time on the phone", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue({
+      profile: {
+        id: "u1",
+        phone: "+998901234567",
+        name: "Sardor",
+        region: "Toshkent",
+        district: "",
+        birth_date: null,
+        locale_pref: "uz-Latn",
+        theme_pref: "dark",
+        referral_code: "ABC123",
+        role: "user",
+        created_at: "2026-07-22T00:00:00Z",
+      },
+      vip: { active: true, until: "2026-12-31T00:00:00Z" },
+    });
+
+    renderWithIntl();
+
+    // The list is showing: its rows are there, no panel is.
+    const nameRow = await screen.findByRole("button", { name: /Ismingiz/ });
+    expect(screen.getByRole("button", { name: /Parolni o'zgartirish/ })).toBeInTheDocument();
+    // `personalInfo` is also the wide card's heading, which jsdom still shows,
+    // so the panel is identified by the note only it renders.
+    const panelNote = /Telefon raqamini o'zgartirib bo'lmaydi/;
+    expect(screen.queryByText(panelNote)).not.toBeInTheDocument();
+
+    fireEvent.click(nameRow);
+
+    // Now the panel is showing and the list is gone — not merely hidden.
+    expect(await screen.findByText(panelNote)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Parolni o'zgartirish/ })).not.toBeInTheDocument();
+  });
 });
