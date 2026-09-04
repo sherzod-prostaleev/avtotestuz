@@ -817,7 +817,7 @@
   },
   {
    "ext_id": "avtoimtihon-11",
-   "category": "lighting_devices",
+   "category": "special_vehicle_priority",
    "texts": {
     "ru": "Дает ли преимущество в движении включенный проблесковый маячок оранжевого цвета?",
     "uz-Cyrl": "Ёқилган зарғалдоқ рангли ялт-ялт этувчи чироқ-маёқча ҳаракатланиш учун имтиёз берадими?",
@@ -847,7 +847,7 @@
   },
   {
    "ext_id": "avtoimtihon-12",
-   "category": "signs_prohibitory",
+   "category": "signs_additional",
    "image": "images/i2_2.webp",
    "texts": {
     "ru": "Эти знаки разрешают движение:",
@@ -1473,7 +1473,7 @@
   },
   {
    "ext_id": "avtoimtihon-26",
-   "category": "intersections_equal",
+   "category": "intersections_regulated",
    "image": "images/i3_6.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -2053,7 +2053,7 @@
   },
   {
    "ext_id": "avtoimtihon-40",
-   "category": "driver_duties",
+   "category": "lighting_devices",
    "texts": {
     "ru": "Разрешается ли следовать к месту стоянки или ремонта в темное время суток на дорогах без искусственного освещения или в условиях недостаточной видимости с негорящими задними габаритными огням?",
     "uz-Cyrl": "Куннинг қоронғи вақтида сунъий ёритилмаган йўлларда ёки етарли кўринмаслик шароитида ёнмайдиган орқа габарит чироқлари билан тўхтаб туриш ёки таъмирлаш жойига боришга рухсат этиладими?",
@@ -3122,7 +3122,7 @@
   },
   {
    "ext_id": "avtoimtihon-65",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i7_5.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -3985,7 +3985,7 @@
   },
   {
    "ext_id": "avtoimtihon-85",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i9_5.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -6544,7 +6544,7 @@
   },
   {
    "ext_id": "avtoimtihon-142",
-   "category": "signs_mandatory",
+   "category": "signs_prohibitory",
    "image": "images/i15_2.webp",
    "texts": {
     "ru": "В каком направлении запрещено движение?",
@@ -7415,7 +7415,7 @@
   },
   {
    "ext_id": "avtoimtihon-162",
-   "category": "safety_basics",
+   "category": "signs_additional",
    "image": "images/i17_2.webp",
    "texts": {
     "ru": "В каких направлениях запрещено движение?",
@@ -7641,7 +7641,7 @@
   },
   {
    "ext_id": "avtoimtihon-167",
-   "category": "signs_additional",
+   "category": "overtaking",
    "texts": {
     "ru": "Разрешается ли обгон транспортных средств в зоне перекрестка на дороге, являющейся главной по отношению к пересекаемой?",
     "uz-Cyrl": "Чорраҳа қисмида кесиб ўтган йўлга нисбатан асосий бўлган йўлда транспорт воситаларини қувиб ўтишга рухсат этиладими?",
@@ -7846,7 +7846,7 @@
   },
   {
    "ext_id": "avtoimtihon-172",
-   "category": "safety_basics",
+   "category": "signs_prohibitory",
    "image": "images/i18_2.webp",
    "texts": {
     "ru": "Действует ли запрещающий знак на тот участок дороги, где остановился водитель?",
@@ -8365,7 +8365,7 @@
   },
   {
    "ext_id": "avtoimtihon-184",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i19_4.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -8396,7 +8396,7 @@
   },
   {
    "ext_id": "avtoimtihon-185",
-   "category": "intersections_equal",
+   "category": "intersections_main_straight",
    "image": "images/i19_5.webp",
    "texts": {
     "ru": "Первым проедет перекресток:",
@@ -9174,7 +9174,7 @@
   },
   {
    "ext_id": "avtoimtihon-204",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i21_4.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -9567,7 +9567,7 @@
   },
   {
    "ext_id": "avtoimtihon-213",
-   "category": "signs_priority",
+   "category": "signs_prohibitory",
    "image": "images/i22_3.webp",
    "texts": {
     "ru": "Какой знак запрещает стоянку только в чётные дни месяца?",
@@ -9625,7 +9625,7 @@
   },
   {
    "ext_id": "avtoimtihon-214",
-   "category": "signs_prohibitory",
+   "category": "signs_mandatory",
    "image": "images/i22_4.webp",
    "texts": {
     "ru": "Этот дорожный знак:",
@@ -10157,7 +10157,7 @@
   },
   {
    "ext_id": "avtoimtihon-227",
-   "category": "lighting_devices",
+   "category": "overtaking",
    "image": "images/i23_7.webp",
    "texts": {
     "ru": "Имеет ли право водитель совершить опережение с правой стороны в данной ситуации?",
@@ -10346,7 +10346,7 @@
   },
   {
    "ext_id": "avtoimtihon-232",
-   "category": "signs_prohibitory",
+   "category": "signs_information",
    "image": "images/i24_2.webp",
    "texts": {
     "ru": "Этот знак называется:",
@@ -10474,7 +10474,7 @@
   },
   {
    "ext_id": "avtoimtihon-235",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i24_5.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -10884,7 +10884,7 @@
   },
   {
    "ext_id": "avtoimtihon-244",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i25_4.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -10915,7 +10915,7 @@
   },
   {
    "ext_id": "avtoimtihon-245",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i25_5.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -11408,7 +11408,7 @@
   },
   {
    "ext_id": "avtoimtihon-257",
-   "category": "speed_limits",
+   "category": "overtaking",
    "texts": {
     "ru": "Прежде чем начать обгон, водитель должен убедиться в том, что:",
     "uz-Cyrl": "Қувиб ўтишни бошлашдан олдин ҳайдовчи шунга ишонч ҳосил қилиши керакки:",
@@ -11525,7 +11525,7 @@
   },
   {
    "ext_id": "avtoimtihon-260",
-   "category": "safety_basics",
+   "category": "vehicle_defects",
    "texts": {
     "ru": "В каком из указанных случаев разрешается эксплуатация транспортных средств ?",
     "uz-Cyrl": "Санаб ўтилган қайси холларда транспорт воситасидан фойдаланиш мумкин?",
@@ -11877,7 +11877,7 @@
   },
   {
    "ext_id": "avtoimtihon-268",
-   "category": "signs_additional",
+   "category": "stopping_and_parking",
    "image": "images/i27_8.webp",
    "texts": {
     "ru": "Разрешается ли стоянка автомобиля в этом месте?",
@@ -11986,7 +11986,7 @@
   },
   {
    "ext_id": "avtoimtihon-271",
-   "category": "intersections_equal",
+   "category": "special_vehicle_priority",
    "image": "images/i28_1.webp",
    "texts": {
     "ru": "Синий автомобиль проедет перекресток:",
@@ -12639,7 +12639,7 @@
   },
   {
    "ext_id": "avtoimtihon-285",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i29_5.webp",
    "texts": {
     "ru": "В каком порядке проедут перекресток транспортные средства?",
@@ -12867,7 +12867,7 @@
   },
   {
    "ext_id": "avtoimtihon-291",
-   "category": "intersections_regulated",
+   "category": "special_vehicle_priority",
    "image": "images/i30_1.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -13107,7 +13107,7 @@
   },
   {
    "ext_id": "avtoimtihon-297",
-   "category": "intersections_main_straight",
+   "category": "slopes",
    "image": "images/i30_7.webp",
    "texts": {
     "ru": "Кто должен уступить дорогу?",
@@ -13728,7 +13728,7 @@
   },
   {
    "ext_id": "avtoimtihon-312",
-   "category": "signs_prohibitory",
+   "category": "signs_information",
    "image": "images/i32_2.webp",
    "texts": {
     "ru": "Что означает этот знак?",
@@ -13976,7 +13976,7 @@
   },
   {
    "ext_id": "avtoimtihon-318",
-   "category": "signs_additional",
+   "category": "stopping_and_parking",
    "image": "images/i32_8.webp",
    "texts": {
     "ru": "Разрешена ли стоянка в этом месте?",
@@ -14262,7 +14262,7 @@
   },
   {
    "ext_id": "avtoimtihon-325",
-   "category": "signs_priority",
+   "category": "intersections_equal",
    "image": "images/i33_5.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства имеет право на первоочередное движение?",
@@ -14507,7 +14507,7 @@
   },
   {
    "ext_id": "avtoimtihon-331",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "image": "images/i34_1.webp",
    "texts": {
     "ru": "Что обозначает эта разметка?",
@@ -14645,7 +14645,7 @@
   },
   {
    "ext_id": "avtoimtihon-334",
-   "category": "intersections_main_straight",
+   "category": "intersections_equal",
    "image": "images/i34_4.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -14813,7 +14813,7 @@
   },
   {
    "ext_id": "avtoimtihon-338",
-   "category": "signs_additional",
+   "category": "motorways",
    "texts": {
     "ru": "Разрешается ли движение грузовых автомобилей по автомагистрали в крайнем левом полосы?",
     "uz-Cyrl": "Юк автомобиллари автомагистралда четки чап қаторида ҳаракатланишга рухсат этиладими?",
@@ -15194,7 +15194,7 @@
   },
   {
    "ext_id": "avtoimtihon-347",
-   "category": "safety_basics",
+   "category": "lane_position",
    "texts": {
     "ru": "По какой полосе разрешается движение грузовых автомобилей в населенных пунктах?",
     "uz-Cyrl": "Aҳоли пунктларида юк автомобилларнинг ҳаракатланишига қайси тасмадан рухсат етилади?",
@@ -16078,7 +16078,7 @@
   },
   {
    "ext_id": "avtoimtihon-368",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i37_8.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -17279,7 +17279,7 @@
   },
   {
    "ext_id": "avtoimtihon-396",
-   "category": "stopping_and_parking",
+   "category": "pedestrian_crossings_stops",
    "texts": {
     "ru": "Если за пешеходным переходом образовался затор, который вынудит водителя остановиться на пешеходном переходе, водитель обязан:",
     "uz-Cyrl": "Агар пиёдалар ўтиш жойида тирбандлик вужудга келиб, ҳайдовчини пиёдалар ўтиш жойида тўхташга мажбур қилса, ҳайдовчи мажбур:",
@@ -18027,7 +18027,7 @@
   },
   {
    "ext_id": "avtoimtihon-414",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i42_4.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -18393,7 +18393,7 @@
   },
   {
    "ext_id": "avtoimtihon-423",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "texts": {
     "ru": "Что обязан выполнить водитель транспортного средства, приблизившись к перекрестку, перед которым нанесена «Стоп-линия» и включен зеленый сигнал светофора?",
     "uz-Cyrl": "Транспорт воситасининг ҳайдовчиси олдида «Тўхташ чизиғи» чизилган ва светофорнинг яшил ёритгичи ёниқ бўлган чорраҳага яқинлашаётиб нима қилиши керак?",
@@ -18916,7 +18916,7 @@
   },
   {
    "ext_id": "avtoimtihon-436",
-   "category": "intersections_regulated",
+   "category": "slopes",
    "image": "images/i44_6.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -19177,7 +19177,7 @@
   },
   {
    "ext_id": "avtoimtihon-443",
-   "category": "signs_prohibitory",
+   "category": "signs_information",
    "image": "images/i45_3.webp",
    "texts": {
     "ru": "Что обозначает этот дорожный знак?",
@@ -19274,7 +19274,7 @@
   },
   {
    "ext_id": "avtoimtihon-445",
-   "category": "intersections_main_straight",
+   "category": "intersections_regulated",
    "image": "images/i45_5.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -19568,7 +19568,7 @@
   },
   {
    "ext_id": "avtoimtihon-452",
-   "category": "signs_mandatory",
+   "category": "signs_information",
    "image": "images/i46_2.webp",
    "texts": {
     "ru": "В каких направлениях, обозначенных стрелкам разрешено движение?",
@@ -20057,7 +20057,7 @@
   },
   {
    "ext_id": "avtoimtihon-463",
-   "category": "safety_basics",
+   "category": "markings_vertical",
    "image": "images/i47_3.webp",
    "texts": {
     "ru": "Эта вертикальная разметка применяется для обозначения:",
@@ -20176,7 +20176,7 @@
   },
   {
    "ext_id": "avtoimtihon-466",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i47_6.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -20481,7 +20481,7 @@
   },
   {
    "ext_id": "avtoimtihon-473",
-   "category": "safety_basics",
+   "category": "markings_vertical",
    "image": "images/i48_3.webp",
    "texts": {
     "ru": "Что обозначает эта вертикальная разметка?",
@@ -20945,7 +20945,7 @@
   },
   {
    "ext_id": "avtoimtihon-484",
-   "category": "signs_prohibitory",
+   "category": "signs_warning",
    "image": "images/i49_4.webp",
    "texts": {
     "ru": "Этот дорожный знак обозначает:",
@@ -21307,7 +21307,7 @@
   },
   {
    "ext_id": "avtoimtihon-492",
-   "category": "signs_priority",
+   "category": "signs_information",
    "image": "images/i50_2.webp",
    "texts": {
     "ru": "Какой из знаков указывает направление объезда закрытого для движения участка проезжей части на дороге с разделительной полосой?",
@@ -21757,7 +21757,7 @@
   },
   {
    "ext_id": "avtoimtihon-502",
-   "category": "signs_priority",
+   "category": "signs_prohibitory",
    "image": "images/i51_2.webp",
    "texts": {
     "ru": "Какой знак разрешает левый поворот?",
@@ -23605,7 +23605,7 @@
   },
   {
    "ext_id": "avtoimtihon-545",
-   "category": "signs_information",
+   "category": "traffic_lights",
    "image": "images/i55_5.webp",
    "texts": {
     "ru": "В каком направлении разрешено движение?",
@@ -23734,7 +23734,7 @@
   },
   {
    "ext_id": "avtoimtihon-548",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i55_8.webp",
    "texts": {
     "ru": "Транспортные средства проедут через перекресток в следующем порядке:",
@@ -23831,7 +23831,7 @@
   },
   {
    "ext_id": "avtoimtihon-550",
-   "category": "safety_basics",
+   "category": "vehicle_defects",
    "texts": {
     "ru": "При какой неисправности запрещается дальнейшее движение транспортных средств?",
     "uz-Cyrl": "Қандай носозлик бўлганда, транспорт воситаларининг ҳаракатланишни давом эттириши тақиқланади?",
@@ -24712,7 +24712,7 @@
   },
   {
    "ext_id": "avtoimtihon-570",
-   "category": "signs_prohibitory",
+   "category": "signs_information",
    "image": "images/i57_10.webp",
    "texts": {
     "ru": "Этот дорожный знак обозначает:",
@@ -24853,7 +24853,7 @@
   },
   {
    "ext_id": "avtoimtihon-574",
-   "category": "intersections_main_turns",
+   "category": "intersections_equal",
    "image": "images/i58_4.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -24893,7 +24893,7 @@
   },
   {
    "ext_id": "avtoimtihon-575",
-   "category": "intersections_equal",
+   "category": "intersections_regulated",
    "image": "images/i58_5.webp",
    "texts": {
     "ru": "Первым проедет перекресток:",
@@ -25575,7 +25575,7 @@
   },
   {
    "ext_id": "avtoimtihon-591",
-   "category": "intersections_main_straight",
+   "category": "special_vehicle_priority",
    "image": "images/i60_1.webp",
    "texts": {
     "ru": "Черный автомобиль проедет перекресток:",
@@ -25695,7 +25695,7 @@
   },
   {
    "ext_id": "avtoimtihon-594",
-   "category": "intersections_main_turns",
+   "category": "intersections_equal",
    "image": "images/i60_4.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -26496,7 +26496,7 @@
   },
   {
    "ext_id": "avtoimtihon-612",
-   "category": "signs_priority",
+   "category": "signs_prohibitory",
    "image": "images/i62_2.webp",
    "texts": {
     "ru": "Действие какого из знаков не распространяется на маршрутные транспортные средства?",
@@ -26585,7 +26585,7 @@
   },
   {
    "ext_id": "avtoimtihon-614",
-   "category": "intersections_equal",
+   "category": "intersections_main_straight",
    "image": "images/i62_4.webp",
    "texts": {
     "ru": "Автомобили проедут перекресток в следующем порядке:",
@@ -26970,7 +26970,7 @@
   },
   {
    "ext_id": "avtoimtihon-624",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i63_4.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -27263,7 +27263,7 @@
   },
   {
    "ext_id": "avtoimtihon-631",
-   "category": "starting_manoeuvring",
+   "category": "stopping_and_parking",
    "image": "images/i64_1.webp",
    "texts": {
     "ru": "В каком случае водитель неправильно остановил машину для высадки пассажиров?",
@@ -27383,7 +27383,7 @@
   },
   {
    "ext_id": "avtoimtihon-634",
-   "category": "intersections_regulated",
+   "category": "intersections_main_turns",
    "image": "images/i64_4.webp",
    "texts": {
     "ru": "Красный автомобиль проедет перекресток:",
@@ -27667,7 +27667,7 @@
   },
   {
    "ext_id": "avtoimtihon-641",
-   "category": "intersections_main_turns",
+   "category": "special_vehicle_priority",
    "image": "images/i65_1.webp",
    "texts": {
     "ru": "Синий автомобиль пересечет перекресток:",
@@ -28120,7 +28120,7 @@
   },
   {
    "ext_id": "avtoimtihon-652",
-   "category": "stopping_and_parking",
+   "category": "signs_additional",
    "image": "images/i66_2.webp",
    "texts": {
     "ru": "Водители каких транспортных средств нарушили правила стоянки?",
@@ -28356,7 +28356,7 @@
   },
   {
    "ext_id": "avtoimtihon-657",
-   "category": "overtaking",
+   "category": "markings_horizontal",
    "image": "images/i66_7.webp",
    "texts": {
     "ru": "Разрешается ли обгон на этом участке дороги?",
@@ -28632,7 +28632,7 @@
   },
   {
    "ext_id": "avtoimtihon-664",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i67_4.webp",
    "texts": {
     "ru": "Красный автомобиль проедет перекресток:",
@@ -29405,7 +29405,7 @@
   },
   {
    "ext_id": "avtoimtihon-682",
-   "category": "stopping_and_parking",
+   "category": "signs_additional",
    "image": "images/i69_2.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства нарушил правила стоянки?",
@@ -29494,7 +29494,7 @@
   },
   {
    "ext_id": "avtoimtihon-684",
-   "category": "intersections_main_turns",
+   "category": "intersections_main_straight",
    "image": "images/i69_4.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -29534,7 +29534,7 @@
   },
   {
    "ext_id": "avtoimtihon-685",
-   "category": "intersections_main_turns",
+   "category": "intersections_equal",
    "image": "images/i69_5.webp",
    "texts": {
     "ru": "Транспортные средства проедут перекресток в следующем порядке:",
@@ -29855,7 +29855,7 @@
   },
   {
    "ext_id": "avtoimtihon-692",
-   "category": "intersections_regulated",
+   "category": "signs_priority",
    "image": "images/i70_2.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -29926,7 +29926,7 @@
   },
   {
    "ext_id": "avtoimtihon-694",
-   "category": "intersections_main_turns",
+   "category": "intersections_main_straight",
    "image": "images/i70_4.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -29966,7 +29966,7 @@
   },
   {
    "ext_id": "avtoimtihon-695",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i70_5.webp",
    "texts": {
     "ru": "Водитель какого транспортного средства должен уступить дорогу?",
@@ -30263,7 +30263,7 @@
   },
   {
    "ext_id": "avtoimtihon-703",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "texts": {
     "ru": "Что означает дорожная разметка в виде надписи «STOP» на дороге?",
     "uz-Cyrl": "Йўлда «STOP»,  ёзуви кўринишдаги йўл чизиғи нимани билдиради?",
@@ -30390,7 +30390,7 @@
   },
   {
    "ext_id": "avtoimtihon-706",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i71_6.webp",
    "texts": {
     "ru": "Вы намерены повернуть налево. Кому следует уступить дорогу?",
@@ -34305,7 +34305,7 @@
   },
   {
    "ext_id": "avtoimtihon-805",
-   "category": "safety_basics",
+   "category": "general_rules",
    "texts": {
     "ru": "Дорожно-транспортное пооисшествие-",
     "uz-Cyrl": "Йўл-транспорт ҳодисаси - бу ...",
@@ -34619,7 +34619,7 @@
   },
   {
    "ext_id": "avtoimtihon-813",
-   "category": "safety_basics",
+   "category": "general_rules",
    "image": "images/i82_3.webp",
    "texts": {
     "ru": "Сколько проезжих частей имеют эти дороги?",
@@ -34981,7 +34981,7 @@
   },
   {
    "ext_id": "avtoimtihon-821",
-   "category": "signs_additional",
+   "category": "traffic_lights",
    "texts": {
     "ru": "Разрешается ли водителю продолжить движение после переключения зеленого сигнала светофора на желтый, если возможно остановиться перед перекрестком, только применив экстренное торможение?",
     "uz-Cyrl": "Aгар ҳайдовчи кескин тормоз бермасдан ҳаракатни тўхтата олмаса, светофорнинг яшил ишорасидан кейин ёнган сариқ ишорасида ҳаракатни давом еттиришга рухсат бериладими?",
@@ -35122,7 +35122,7 @@
   },
   {
    "ext_id": "avtoimtihon-825",
-   "category": "safety_basics",
+   "category": "first_aid",
    "texts": {
     "ru": "Признаки шока:",
     "uz-Cyrl": "Шокинг белгилари:",
@@ -35250,7 +35250,7 @@
   },
   {
    "ext_id": "avtoimtihon-828",
-   "category": "safety_basics",
+   "category": "signs_prohibitory",
    "image": "images/i83_8.webp",
    "texts": {
     "ru": "Какие знаки из указанных относятся к обгону?",
@@ -37842,7 +37842,7 @@
   },
   {
    "ext_id": "avtoimtihon-896",
-   "category": "safety_basics",
+   "category": "general_rules",
    "texts": {
     "ru": "Безопасность дорожного движения -",
     "uz-Cyrl": "Йўл ҳаракати хавфсизлиги - ...",
@@ -38160,7 +38160,7 @@
   },
   {
    "ext_id": "avtoimtihon-905",
-   "category": "intersections_regulated",
+   "category": "intersections_equal",
    "image": "images/i91_5.webp",
    "texts": {
     "ru": "Красный автомобиль проедет перекрёсток?",
@@ -38694,7 +38694,7 @@
   },
   {
    "ext_id": "avtoimtihon-918",
-   "category": "signs_information",
+   "category": "intersections_general",
    "image": "images/i92_8.webp",
    "texts": {
     "ru": "Когда вы поворачиваете направо в этой ситуации:",
@@ -39071,7 +39071,7 @@
   },
   {
    "ext_id": "avtoimtihon-927",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i93_7.webp",
    "texts": {
     "ru": "Синий автомобиль проедет перекресток:",
@@ -39583,7 +39583,7 @@
   },
   {
    "ext_id": "avtoimtihon-939",
-   "category": "signs_prohibitory",
+   "category": "signs_warning",
    "image": "images/i94_9.webp",
    "texts": {
     "ru": "С какой целью применяется этот дорожный знак?",
@@ -39759,7 +39759,7 @@
   },
   {
    "ext_id": "avtoimtihon-943",
-   "category": "speed_limits",
+   "category": "safety_basics",
    "texts": {
     "ru": "Какое расстояние проедет транспортное средство за одну секунду при скорости движения 108 км/ч?",
     "uz-Cyrl": "108 км/соат тезликда ҳаракатланаётган автомобиль 1 секундда қанча масофани босиб ўтади? ",
@@ -40283,7 +40283,7 @@
   },
   {
    "ext_id": "avtoimtihon-957",
-   "category": "intersections_main_straight",
+   "category": "intersections_equal",
    "image": "images/i96_7.webp",
    "texts": {
     "ru": "Последним проедет перекресток",
@@ -40932,7 +40932,7 @@
   },
   {
    "ext_id": "avtoimtihon-973",
-   "category": "intersections_equal",
+   "category": "intersections_main_turns",
    "image": "images/i98_3.webp",
    "texts": {
     "ru": "Вторым проедет перекресток:",
@@ -42913,7 +42913,7 @@
   },
   {
    "ext_id": "avtoimtihon-1022",
-   "category": "signs_prohibitory",
+   "category": "signs_warning",
    "image": "images/i103_2.webp",
    "texts": {
     "ru": "Как называется этот дорожный знак:",
@@ -43098,7 +43098,7 @@
   },
   {
    "ext_id": "avtoimtihon-1026",
-   "category": "overtaking",
+   "category": "signs_information",
    "image": "images/i103_6.webp",
    "texts": {
     "ru": "Какой из этих знаков установлен перед школами и дошкольными образовательными организациями?",
@@ -43697,7 +43697,7 @@
   },
   {
    "ext_id": "avtoimtihon-1041",
-   "category": "signs_prohibitory",
+   "category": "signs_warning",
    "image": "images/i105_1.webp",
    "texts": {
     "ru": "Как называется этот дорожный знак?",
@@ -44110,7 +44110,7 @@
   },
   {
    "ext_id": "avtoimtihon-1050",
-   "category": "intersections_main_straight",
+   "category": "residential_zones",
    "image": "images/i105_10.webp",
    "texts": {
     "ru": "Какой водитель автомобиля должен уступить дорогу?",
@@ -44141,7 +44141,7 @@
   },
   {
    "ext_id": "avtoimtihon-1051",
-   "category": "starting_manoeuvring",
+   "category": "pedestrian_duties",
    "image": "images/i106_1.webp",
    "texts": {
     "ru": "На каком изображении пешеходы движутся по проезжей части, не нарушая правила?",
@@ -44181,7 +44181,7 @@
   },
   {
    "ext_id": "avtoimtihon-1052",
-   "category": "signs_prohibitory",
+   "category": "signs_additional",
    "image": "images/i106_2.webp",
    "texts": {
     "ru": "Что означает этот знак?",
@@ -44221,7 +44221,7 @@
   },
   {
    "ext_id": "avtoimtihon-1053",
-   "category": "intersections_equal",
+   "category": "general_rules",
    "texts": {
     "ru": "Если водитель не может определить наличие покрытия дороги, по которой он движется (тёмное время суток, грязь, снег), и знаки приоритета отсутствуют?",
     "uz-Cyrl": "Агар ҳайдовчи ўзи харакатланаётган йўлнинг қопламасини бор- йўклигини аниклай олмаса (қоронғи вақт, лой, қор) ва имтиёз белгилари бўлмаса ?",
@@ -44260,7 +44260,7 @@
   },
   {
    "ext_id": "avtoimtihon-1054",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "image": "images/i106_4.webp",
    "texts": {
     "ru": "Какой водитель остановился, не нарушив требование знака?",
@@ -44349,7 +44349,7 @@
   },
   {
    "ext_id": "avtoimtihon-1056",
-   "category": "cargo_carriage",
+   "category": "traffic_lights",
    "image": "images/i106_6.webp",
    "texts": {
     "ru": "В каком направлени разрешено движение?",
@@ -44627,7 +44627,7 @@
   },
   {
    "ext_id": "avtoimtihon-1063",
-   "category": "general_rules",
+   "category": "signs_priority",
    "image": "images/i107_3.webp",
    "texts": {
     "ru": "В этой ситуации вы:",
@@ -44658,7 +44658,7 @@
   },
   {
    "ext_id": "avtoimtihon-1064",
-   "category": "overtaking",
+   "category": "signs_mandatory",
    "image": "images/i107_4.webp",
    "texts": {
     "ru": "В каком направлении вам разрешено проезжать перекресток?",
@@ -44778,7 +44778,7 @@
   },
   {
    "ext_id": "avtoimtihon-1067",
-   "category": "overtaking",
+   "category": "markings_horizontal",
    "image": "images/i107_7.webp",
    "texts": {
     "ru": "Какая горизонтальная разметка обозначает «3D»-приподнятый пешеходный переход?",
@@ -44858,7 +44858,7 @@
   },
   {
    "ext_id": "avtoimtihon-1069",
-   "category": "overtaking",
+   "category": "signs_mandatory",
    "image": "images/i107_9.webp",
    "texts": {
     "ru": "Разрешен ли разворот в указанной ситуации?",
@@ -44920,7 +44920,7 @@
   },
   {
    "ext_id": "avtoimtihon-1071",
-   "category": "signs_prohibitory",
+   "category": "intersections_main_straight",
    "image": "images/i108_1.webp",
    "texts": {
     "ru": "Вы движетесь прямо от перекрестка - ваше движение:",
@@ -45080,7 +45080,7 @@
   },
   {
    "ext_id": "avtoimtihon-1075",
-   "category": "traffic_lights",
+   "category": "signs_information",
    "image": "images/i108_5.webp",
    "texts": {
     "ru": "В каком направлении разрешено движение этого транспортного средства?",
@@ -45345,7 +45345,7 @@
   },
   {
    "ext_id": "avtoimtihon-1081",
-   "category": "safety_basics",
+   "category": "traffic_lights",
    "image": "images/i109_1.webp",
    "texts": {
     "ru": "В этой ситуации водителю автомобиля запрещено двигаться в каком направлении?",
@@ -45624,7 +45624,7 @@
   },
   {
    "ext_id": "avtoimtihon-1088",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "image": "images/i109_8.webp",
    "texts": {
     "ru": "На каком изображении водитель остановился, не нарушив требование знака?",
@@ -45664,7 +45664,7 @@
   },
   {
    "ext_id": "avtoimtihon-1089",
-   "category": "signs_information",
+   "category": "signs_prohibitory",
    "image": "images/i109_9.webp",
    "texts": {
     "ru": "Как называется этот знак?",
@@ -46135,7 +46135,7 @@
   },
   {
    "ext_id": "avtoimtihon-1099",
-   "category": "safety_basics",
+   "category": "signs_warning",
    "image": "images/i110_9.webp",
    "texts": {
     "ru": "Грызуны и пресмыкающиеся животные указаны в каком ответе?",
@@ -46732,7 +46732,7 @@
   },
   {
    "ext_id": "avtoimtihon-1111",
-   "category": "signs_information",
+   "category": "cargo_carriage",
    "image": "images/i112_1.webp",
    "texts": {
     "ru": "Как называется этот знак?",
@@ -46772,7 +46772,7 @@
   },
   {
    "ext_id": "avtoimtihon-1112",
-   "category": "lighting_devices",
+   "category": "pedestrian_crossings_stops",
    "image": "images/i112_2.webp",
    "texts": {
     "ru": "Должен ли водитель автомобиля продолжить движение в ситуации, показанной на рисунке?",
@@ -46843,7 +46843,7 @@
   },
   {
    "ext_id": "avtoimtihon-1114",
-   "category": "intersections_general",
+   "category": "intersections_main_straight",
    "image": "images/i112_4.webp",
    "texts": {
     "ru": "В каком ответе правильно указана очередность проезда перекрестка?",
@@ -46883,7 +46883,7 @@
   },
   {
    "ext_id": "avtoimtihon-1115",
-   "category": "safety_basics",
+   "category": "signs_priority",
    "texts": {
     "ru": "В каких местах знаки приоритета определяют очерёдность движения?",
     "uz-Cyrl": "Имтиёз белгилари қайси жайларда ҳаракатланиш навбатини белгилайди?",
@@ -47309,7 +47309,7 @@
   },
   {
    "ext_id": "avtoimtihon-1125",
-   "category": "signs_information",
+   "category": "signs_mandatory",
    "image": "images/i113_5.webp",
    "texts": {
     "ru": "В каком направлении разрешено движение?",
@@ -47583,7 +47583,7 @@
   },
   {
    "ext_id": "avtoimtihon-1132",
-   "category": "signs_prohibitory",
+   "category": "signs_additional",
    "image": "images/i114_2.webp",
    "texts": {
     "ru": "Под каким знаком водителю запрещен обгон?",
@@ -47663,7 +47663,7 @@
   },
   {
    "ext_id": "avtoimtihon-1134",
-   "category": "lighting_devices",
+   "category": "signs_priority",
    "image": "images/i114_4.webp",
    "texts": {
     "ru": "Должен ли водитель красной машины остановиться у знака «STOP», если он уже остановился за проезжающей машиной?",
@@ -47988,7 +47988,7 @@
   },
   {
    "ext_id": "avtoimtihon-1141",
-   "category": "signs_additional",
+   "category": "markings_horizontal",
    "image": "images/i115_1.webp",
    "texts": {
     "ru": "Водитель какого автомобиля остановился правильно на запрещающий сигнал светофора?",
@@ -48028,7 +48028,7 @@
   },
   {
    "ext_id": "avtoimtihon-1142",
-   "category": "driver_duties",
+   "category": "driver_training",
    "image": "images/i115_2.webp",
    "texts": {
     "ru": "По достижении какого возраста допускаются к сдаче экзаменов лица для получения права управления мототранспортными средствами категории «A»?",
@@ -48126,7 +48126,7 @@
   },
   {
    "ext_id": "avtoimtihon-1144",
-   "category": "traffic_lights",
+   "category": "traffic_controller",
    "image": "images/i115_4.webp",
    "texts": {
     "ru": "Какое транспортное средство может продолжить движение?",
@@ -48294,7 +48294,7 @@
   },
   {
    "ext_id": "avtoimtihon-1148",
-   "category": "starting_manoeuvring",
+   "category": "markings_horizontal",
    "image": "images/i115_8.webp",
    "texts": {
     "ru": "В каких направлениях разрешено движение?",
@@ -48334,7 +48334,7 @@
   },
   {
    "ext_id": "avtoimtihon-1149",
-   "category": "intersections_equal",
+   "category": "intersections_main_straight",
    "image": "images/i115_9.webp",
    "texts": {
     "ru": "Кому должен уступить дорогу красный автомобиль?",
@@ -48525,7 +48525,7 @@
   },
   {
    "ext_id": "avtoimtihon-1154",
-   "category": "starting_manoeuvring",
+   "category": "lane_position",
    "image": "images/i116_4.webp",
    "texts": {
     "ru": "По какой траектории разрешено выполнить поворот налево?",
@@ -48718,7 +48718,7 @@
   },
   {
    "ext_id": "avtoimtihon-1158",
-   "category": "markings_vertical",
+   "category": "markings_horizontal",
    "texts": {
     "ru": "На сколько групп делится дорожная разметка?",
     "uz-Cyrl": "Йўл чизиқлари нечта гуруҳдан иборат?",
@@ -48853,7 +48853,7 @@
   },
   {
    "ext_id": "avtoimtihon-1161",
-   "category": "safety_basics",
+   "category": "general_rules",
    "texts": {
     "ru": "В каком ответе указан термин «Создание аварийной обстановки»?",
     "uz-Cyrl": "Қайси жавобда \"Авария ҳолатини юзага келтириш\" атамаси кўрсатилган?",
@@ -48961,7 +48961,7 @@
   },
   {
    "ext_id": "avtoimtihon-1164",
-   "category": "signs_prohibitory",
+   "category": "traffic_lights",
    "image": "images/i117_4.webp",
    "texts": {
     "ru": "В каком из указанных направлений разрешено движение этому автомобилю?",
@@ -49010,7 +49010,7 @@
   },
   {
    "ext_id": "avtoimtihon-1165",
-   "category": "safety_basics",
+   "category": "signs_information",
    "image": "images/i117_5.webp",
    "texts": {
     "ru": "В каком направлении разрешено движение автомобилю?",
@@ -49147,7 +49147,7 @@
   },
   {
    "ext_id": "avtoimtihon-1168",
-   "category": "safety_basics",
+   "category": "markings_horizontal",
    "image": "images/i117_8.webp",
    "texts": {
     "ru": "На каком рисунке водитель остановился, не нарушая требование знака?",
@@ -49187,7 +49187,7 @@
   },
   {
    "ext_id": "avtoimtihon-1169",
-   "category": "signs_information",
+   "category": "lane_position",
    "image": "images/i117_9.webp",
    "texts": {
     "ru": "В каких направлениях разрешено движение грузовому автомобилю?",
@@ -49227,7 +49227,7 @@
   },
   {
    "ext_id": "avtoimtihon-1170",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i117_10.webp",
    "texts": {
     "ru": "На каком рисунке водитель желтого автомобиля должен уступить дорогу водителю красного автомобиля?",
@@ -49377,7 +49377,7 @@
   },
   {
    "ext_id": "avtoimtihon-1174",
-   "category": "starting_manoeuvring",
+   "category": "signs_prohibitory",
    "image": "images/i118_4.webp",
    "texts": {
     "ru": "В каких направлениях запрещено движение водителю синего автомобиля?",
@@ -49426,7 +49426,7 @@
   },
   {
    "ext_id": "avtoimtihon-1175",
-   "category": "signs_prohibitory",
+   "category": "signs_additional",
    "image": "images/i118_5.webp",
    "texts": {
     "ru": "Как называется этот дорожный знак?",
@@ -49554,7 +49554,7 @@
   },
   {
    "ext_id": "avtoimtihon-1178",
-   "category": "intersections_equal",
+   "category": "signs_mandatory",
    "image": "images/i118_8.webp",
    "texts": {
     "ru": "Какое транспортное средство поворачивает направо правильно?",
@@ -49612,7 +49612,7 @@
   },
   {
    "ext_id": "avtoimtihon-1179",
-   "category": "intersections_equal",
+   "category": "signs_mandatory",
    "image": "images/i118_9.webp",
    "texts": {
     "ru": "Какое транспортное средство поворачивает направо правильно?",
@@ -49661,7 +49661,7 @@
   },
   {
    "ext_id": "avtoimtihon-1180",
-   "category": "starting_manoeuvring",
+   "category": "public_transport_priority",
    "image": "images/i118_10.webp",
    "texts": {
     "ru": "Водитель какого автомобиля движется, не нарушая правила?",
@@ -49701,7 +49701,7 @@
   },
   {
    "ext_id": "avtoimtihon-1181",
-   "category": "lane_position",
+   "category": "general_rules",
    "image": "images/i119_1.webp",
    "texts": {
     "ru": "На каком рисунке изображена четырехполосная дорога?",
@@ -49838,7 +49838,7 @@
   },
   {
    "ext_id": "avtoimtihon-1184",
-   "category": "intersections_equal",
+   "category": "lane_position",
    "image": "images/i119_4.webp",
    "texts": {
     "ru": "Разрешено ли движение в указанных направлениях?",
@@ -49956,7 +49956,7 @@
   },
   {
    "ext_id": "avtoimtihon-1187",
-   "category": "starting_manoeuvring",
+   "category": "public_transport_priority",
    "image": "images/i119_7.webp",
    "texts": {
     "ru": "Водитель какого автомобиля движется, не нарушая правила?",
@@ -50027,7 +50027,7 @@
   },
   {
    "ext_id": "avtoimtihon-1189",
-   "category": "starting_manoeuvring",
+   "category": "signs_mandatory",
    "image": "images/i119_9.webp",
    "texts": {
     "ru": "В каком направлении разрешено движение?",
@@ -50076,7 +50076,7 @@
   },
   {
    "ext_id": "avtoimtihon-1190",
-   "category": "lane_position",
+   "category": "signs_priority",
    "image": "images/i119_10.webp",
    "texts": {
     "ru": "Кто проедет последним в данной ситуации?",
@@ -50125,7 +50125,7 @@
   },
   {
    "ext_id": "avtoimtihon-1191",
-   "category": "signs_warning",
+   "category": "signs_information",
    "image": "images/i120_1.webp",
    "texts": {
     "ru": "Данный знак устанавливается:",
@@ -50245,7 +50245,7 @@
   },
   {
    "ext_id": "avtoimtihon-1194",
-   "category": "intersections_main_turns",
+   "category": "lane_position",
    "image": "images/i120_4.webp",
    "texts": {
     "ru": "Какое транспортное средство должно уступить дорогу?",
@@ -50276,7 +50276,7 @@
   },
   {
    "ext_id": "avtoimtihon-1195",
-   "category": "starting_manoeuvring",
+   "category": "lane_position",
    "image": "images/i120_5.webp",
    "texts": {
     "ru": "В данной ситуации какое транспортное средство должно уступить дорогу?",
@@ -50465,7 +50465,7 @@
   },
   {
    "ext_id": "avtoimtihon-1200",
-   "category": "signs_additional",
+   "category": "traffic_lights",
    "image": "images/i120_10.webp",
    "texts": {
     "ru": "Разрешено ли водителям красного и зеленого автомобилей совершить поворот направо?",
@@ -50643,7 +50643,7 @@
   },
   {
    "ext_id": "avtoimtihon-1204",
-   "category": "safety_basics",
+   "category": "starting_manoeuvring",
    "image": "images/i121_4.webp",
    "texts": {
     "ru": "Как называется изменение направления движения водителем данного черного транспортного средства?",
@@ -50820,7 +50820,7 @@
   },
   {
    "ext_id": "avtoimtihon-1208",
-   "category": "signs_additional",
+   "category": "cargo_carriage",
    "image": "images/i121_8.webp",
    "texts": {
     "ru": "К каким веществам относится данный знак?",
@@ -50860,7 +50860,7 @@
   },
   {
    "ext_id": "avtoimtihon-1209",
-   "category": "cyclists_mopeds_animals",
+   "category": "safety_basics",
    "image": "images/i121_9.webp",
    "texts": {
     "ru": "Как вы должны поступить в данной ситуации?",
@@ -50998,7 +50998,7 @@
   },
   {
    "ext_id": "avtoimtihon-1212",
-   "category": "traffic_lights",
+   "category": "intersections_regulated",
    "image": "images/i122_2.webp",
    "texts": {
     "ru": "Какой водитель первым продолжит движение?",
@@ -51109,7 +51109,7 @@
   },
   {
    "ext_id": "avtoimtihon-1215",
-   "category": "intersections_general",
+   "category": "starting_manoeuvring",
    "image": "images/i122_5.webp",
    "texts": {
     "ru": "Какой водитель правильно выполнил поворот?",
@@ -51158,7 +51158,7 @@
   },
   {
    "ext_id": "avtoimtihon-1216",
-   "category": "signs_information",
+   "category": "overtaking",
    "image": "images/i122_6.webp",
    "texts": {
     "ru": "На каком рисунке показано правильное положение при обгоне?",
@@ -51207,7 +51207,7 @@
   },
   {
    "ext_id": "avtoimtihon-1217",
-   "category": "starting_manoeuvring",
+   "category": "signs_information",
    "image": "images/i122_7.webp",
    "texts": {
     "ru": "По какому направлению разрешено движение?",
@@ -51247,7 +51247,7 @@
   },
   {
    "ext_id": "avtoimtihon-1218",
-   "category": "traffic_lights",
+   "category": "signs_mandatory",
    "image": "images/i122_8.webp",
    "texts": {
     "ru": "В каких направлениях красному автомобилю разрешено движение?",
@@ -51385,7 +51385,7 @@
   },
   {
    "ext_id": "avtoimtihon-1221",
-   "category": "signs_mandatory",
+   "category": "starting_manoeuvring",
    "image": "images/i123_1.webp",
    "texts": {
     "ru": "Водителям на каком рисунке запрещен разворот?",
@@ -51443,7 +51443,7 @@
   },
   {
    "ext_id": "avtoimtihon-1222",
-   "category": "railway_crossings",
+   "category": "public_transport_priority",
    "image": "images/i123_2.webp",
    "texts": {
     "ru": "В такой ситуации какой водитель должен уступить дорогу?",
@@ -51474,7 +51474,7 @@
   },
   {
    "ext_id": "avtoimtihon-1223",
-   "category": "cyclists_mopeds_animals",
+   "category": "vehicle_defects",
    "texts": {
     "ru": "Категория L - это?",
     "uz-Cyrl": "L-тоифаси бу?",
@@ -51513,7 +51513,7 @@
   },
   {
    "ext_id": "avtoimtihon-1224",
-   "category": "safety_basics",
+   "category": "traffic_controller",
    "image": "images/i123_4.webp",
    "texts": {
     "ru": "При данном жесте регулировщика каким транспортным средствам разрешено движение?",
@@ -51562,7 +51562,7 @@
   },
   {
    "ext_id": "avtoimtihon-1225",
-   "category": "intersections_main_straight",
+   "category": "intersections_main_turns",
    "image": "images/i123_5.webp",
    "texts": {
     "ru": "Водитель какого автомобиля должен уступить дорогу?",
@@ -51593,7 +51593,7 @@
   },
   {
    "ext_id": "avtoimtihon-1226",
-   "category": "starting_manoeuvring",
+   "category": "signs_information",
    "image": "images/i123_6.webp",
    "texts": {
     "ru": "В каких направлениях разрешено движение?",
@@ -51642,7 +51642,7 @@
   },
   {
    "ext_id": "avtoimtihon-1227",
-   "category": "safety_basics",
+   "category": "stopping_and_parking",
    "image": "images/i123_7.webp",
    "texts": {
     "ru": "Разрешается ли остановка в данном месте для посадки или высадки пассажиров?",
@@ -51744,7 +51744,7 @@
   },
   {
    "ext_id": "avtoimtihon-1230",
-   "category": "safety_basics",
+   "category": "signs_mandatory",
    "image": "images/i123_10.webp",
    "texts": {
     "ru": "В каких направлениях запрещено движение грузовому автомобилю с разрешенной максимальной массой более 3,5 тонн?",
@@ -51784,7 +51784,7 @@
   },
   {
    "ext_id": "avtoimtihon-1231",
-   "category": "safety_basics",
+   "category": "lane_position",
    "texts": {
     "ru": "На двухсторонней дороге находится неподвижный объект (бочка, мешок, ...). С какой стороны вы его объедете?",
     "uz-Cyrl": "Икки томонлама йўлда ҳаракатсиз ҳолда бўлган жисм бор (бочка, мешок, ... ). Сиз бу нарсаларни қайси томонидан айланиб ўтасиз?",
@@ -51823,7 +51823,7 @@
   },
   {
    "ext_id": "avtoimtihon-1232",
-   "category": "safety_basics",
+   "category": "pedestrian_duties",
    "texts": {
     "ru": "Где пешеходы должны переходить дорогу?",
     "uz-Cyrl": "Пиёдалар йўлни кесиб ўтишда қаердан ўтишлари керак?",
@@ -51862,7 +51862,7 @@
   },
   {
    "ext_id": "avtoimtihon-1233",
-   "category": "safety_basics",
+   "category": "cyclists_mopeds_animals",
    "texts": {
     "ru": "До какого возраста разрешается перевозить детей на велосипеде и индивидуальных средствах передвижения на дополнительном сиденье, оборудованном подножками?",
     "uz-Cyrl": "Велосипед ҳамда индивидуал ҳаракатланиш воситалари оёқ қўйгич билан жиҳозланган қўшимча ўриндиқда неча ёшгача бўлган болаларни ташишга рухсат этилади?",
@@ -51910,7 +51910,7 @@
   },
   {
    "ext_id": "avtoimtihon-1234",
-   "category": "safety_basics",
+   "category": "vehicle_defects",
    "texts": {
     "ru": "В каком случае тормозная система легковых автомобилей считается неисправной и их эксплуатация запрещается (при торможении со скорости 40 км/ч)?",
     "uz-Cyrl": "Қайси ҳолатда енгил автомобилларнинг тормоз тизими носоз деб ҳисобланади ва улардан фойдаланиш тақиқланади (соатига 40 км тезликда тормоз берилганда)?",
@@ -52480,7 +52480,7 @@
   },
   {
    "ext_id": "avtoimtihon-1247",
-   "category": "officials_duties",
+   "category": "signs_information",
    "image": "images/i1247_1.webp",
    "texts": {
     "ru": "Какой знак обозначает полосу для велосипедистов и средств индивидуальной мобильности?",
@@ -52560,7 +52560,7 @@
   },
   {
    "ext_id": "avtoimtihon-1249",
-   "category": "safety_basics",
+   "category": "pedestrian_crossings_stops",
    "image": "images/i1249_1.webp",
    "texts": {
     "ru": "Какой автомобиль, остановившийся из-за затора, не нарушает правила?",
@@ -52609,7 +52609,7 @@
   },
   {
    "ext_id": "avtoimtihon-1250",
-   "category": "signs_additional",
+   "category": "officials_duties",
    "image": "images/i1250_1.webp",
    "texts": {
     "ru": "Какой из следующих опознавательных знаков может быть установлен по желанию водителя?",
@@ -52658,7 +52658,7 @@
   },
   {
    "ext_id": "avtoimtihon-1251",
-   "category": "signs_additional",
+   "category": "officials_duties",
    "image": "images/i1251_1.webp",
    "texts": {
     "ru": "Какой из следующих опознавательных знаков может быть установлен по желанию водителя?",
@@ -52707,7 +52707,7 @@
   },
   {
    "ext_id": "avtoimtihon-1252",
-   "category": "safety_basics",
+   "category": "lane_position",
    "image": "images/i1252_1.webp",
    "texts": {
     "ru": "Нарушает ли водитель красного автомобиля правила дорожного движения?",
@@ -52997,7 +52997,7 @@
   },
   {
    "ext_id": "avtoimtihon-1260",
-   "category": "safety_basics",
+   "category": "starting_manoeuvring",
    "image": "images/i1260_1.webp",
    "texts": {
     "ru": "Какое транспортное средство движется правильно?",
@@ -53086,7 +53086,7 @@
   },
   {
    "ext_id": "avtoimtihon-1262",
-   "category": "safety_basics",
+   "category": "starting_manoeuvring",
    "image": "images/i1262_1.webp",
    "texts": {
     "ru": "Разрешается ли водителю синего автомобиля в данной ситуации повернуть направо?",
@@ -53117,7 +53117,7 @@
   },
   {
    "ext_id": "avtoimtihon-1263",
-   "category": "safety_basics",
+   "category": "general_rules",
    "texts": {
     "ru": "Для чего разработаны Правила дорожного движения Республики Узбекистан?",
     "uz-Cyrl": "Ўзбекистон Республикаси йўл ҳаракати қоидалари нима учун ташкил этилган?",
@@ -53165,7 +53165,7 @@
   },
   {
    "ext_id": "avtoimtihon-1264",
-   "category": "signs_additional",
+   "category": "stopping_and_parking",
    "image": "images/i1264_1.webp",
    "texts": {
     "ru": "Разрешена ли остановка черному автомобилю в указанном месте?",
@@ -53536,7 +53536,7 @@
   },
   {
    "ext_id": "avtoimtihon-1273",
-   "category": "stopping_and_parking",
+   "category": "markings_horizontal",
    "texts": {
     "ru": "Разрешается ли данному транспортному средству, пересекая сплошную линию, остановиться у края проезжей части?",
     "uz-Cyrl": "Ушбу транспорт воситасига сидирға чизиқни босиб ўтиб, йўл ёқасида тўхташга рухсат бериладими?",
@@ -53721,7 +53721,7 @@
   },
   {
    "ext_id": "avtoimtihon-1277",
-   "category": "safety_basics",
+   "category": "lane_position",
    "texts": {
     "ru": "С какой стороны синий автомобиль должен объехать препятствие?",
     "uz-Cyrl": "Кўк автомобил қайси томондан айланиб ўтиши керак?",
