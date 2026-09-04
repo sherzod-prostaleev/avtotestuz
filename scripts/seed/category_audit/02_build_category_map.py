@@ -1,22 +1,37 @@
 #!/usr/bin/env python3
 """Build the canonical category map: our 42 codes <-> avtodrom topic # <-> osonprava topic name.
 
-avtodrom (yolharakatiqoidalari.uz local source) topics are 1..42 in the exact
-same order as our category.sort — verified 2026-09-03 by comparing each
-topic's question count against the live site's /main/mavzulashtirilgan_testlar
-list, in order. That verification is re-asserted here against the local JSON
-so a future change to the avtodrom data trips a loud error instead of silently
-mis-mapping.
+CORRECTED 2026-09-04: an earlier version of this script assumed avtodrom's
+`topic` field 1..42 followed the same order as our category.sort (both being
+"the 42 YHQ topics in document order"). That assumption was wrong — avtodrom
+groups general rules/signals/maneuvers/intersections/special-situations
+BEFORE signs, while ours puts signs right after general rules — and a
+same-length count list happened to validate anyway because it was checked
+against a snapshot read off the site in that same (wrong) assumed order, not
+independently. The bug produced nonsense: e.g. avtodrom id=1 (a disabled-
+parking sign question, unmistakably signs_additional) was mapped to
+cargo_carriage. A Stage 2 audit subagent caught this ("avtodrom's category
+field agrees with ours only 16%, even for questions confirmed identical by
+text") before any bad data reached the real seed files.
 
-osonprava.uz topics do NOT share our order (they're grouped into 9 sections on
-their /topics page) and are missing our `officials_duties` while carrying an
-extra "Taniqli belgilar" topic we don't have — so the osonprava side is a name
-lookup table, hand-built from the /topics page text captured 2026-09-03, with
-two rows deliberately absent (see NO_OSONPRAVA_MATCH / OSONPRAVA_ONLY below).
+avtodrom's TRUE topic id -> name table lives in its own frontend bundle
+(`/home/sher/Рабочий стол/avtodrom/assets/index-BzkTC_eo.js`, a `{id,title,
+count}` array literal) — extracted and hand-mapped to our codes by name
+below. Verified 2026-09-04: every one of the 42 counts in that JS array
+exactly matches a `Counter` over the local questions_uzl.json's `topic`
+field, so the JS array's ids ARE the ids the questions use — this is now a
+name lookup, exactly like the osonprava one below, not a positional guess.
+
+osonprava.uz topics do NOT share our order either (they're grouped into 9
+sections on their /topics page) and are missing our `officials_duties` while
+carrying an extra "Taniqli belgilar" topic we don't have — so the osonprava
+side is a name lookup table, hand-built from the /topics page text captured
+2026-09-03, with two rows deliberately absent (see NO_OSONPRAVA_MATCH /
+OSONPRAVA_ONLY below).
 
 ptest.uz maps by tag name too (its tag catalogue at group_id
 f8ef030a-71ff-4b3e-919d-6943186ba898), but that lookup happens in the ptest
-harvesting script (03_harvest_ptest.py) since it needs the live tag IDs, not
+harvesting script (04_harvest_ptest.py) since it needs the live tag IDs, not
 here.
 """
 import json
@@ -45,16 +60,67 @@ CATEGORY_ORDER = [
 ]
 assert len(CATEGORY_ORDER) == 42
 
-# Per-topic question counts read from https://www.yolharakatiqoidalari.uz/main/mavzulashtirilgan_testlar
-# on 2026-09-03, in the same top-to-bottom order as CATEGORY_ORDER. This is the
-# order-alignment proof: if the local JSON's per-topic counts (computed below)
-# don't match this list positionally, something has drifted and the script aborts.
-AVTODROM_LIVE_COUNTS_2026_09_03 = [
-    50, 13, 20, 11, 36, 29, 25, 56, 47, 35, 35, 74, 14, 21, 19, 48, 30, 15, 18,
-    14, 9, 4, 20, 22, 30, 6, 18, 17, 15, 15, 37, 19, 63, 34, 66, 1, 41, 74, 5,
-    49, 75, 34,
-]
-assert len(AVTODROM_LIVE_COUNTS_2026_09_03) == 42
+# avtodrom topic id (from its own app bundle's {id,title,count} array,
+# language "uz") -> our category code. Name-matched by hand 2026-09-04.
+AVTODROM_TOPIC_TO_CODE = {
+    1: "general_rules",
+    2: "driver_duties",
+    3: "pedestrian_duties",
+    4: "special_vehicle_priority",
+    5: "traffic_lights",
+    6: "traffic_controller",
+    7: "warning_hazard_signals",
+    8: "starting_manoeuvring",
+    9: "lane_position",
+    10: "speed_limits",
+    11: "overtaking",
+    12: "stopping_and_parking",
+    13: "intersections_general",
+    14: "intersections_regulated",
+    15: "intersections_main_straight",
+    16: "intersections_equal",
+    17: "intersections_main_turns",
+    18: "pedestrian_crossings_stops",
+    19: "railway_crossings",
+    20: "motorways",
+    21: "residential_zones",
+    22: "slopes",
+    23: "public_transport_priority",
+    24: "lighting_devices",
+    25: "towing",
+    26: "driver_training",
+    27: "passenger_carriage",
+    28: "cargo_carriage",
+    29: "cyclists_mopeds_animals",
+    30: "officials_duties",
+    31: "signs_warning",
+    32: "signs_priority",
+    33: "signs_prohibitory",
+    34: "signs_mandatory",
+    35: "signs_information",
+    36: "signs_service",
+    37: "signs_additional",
+    38: "markings_horizontal",
+    39: "markings_vertical",
+    40: "vehicle_defects",
+    41: "safety_basics",
+    42: "first_aid",
+}
+assert len(AVTODROM_TOPIC_TO_CODE) == 42
+assert set(AVTODROM_TOPIC_TO_CODE.values()) == set(CATEGORY_ORDER)
+
+# The same {id,title,count} rows, for self-consistency verification against
+# the local questions_uzl.json (does topic field N actually hold `count`
+# questions?) — independent of any assumption about order, since this checks
+# each id's own count against itself, not against a separately-read list.
+AVTODROM_TOPIC_COUNTS_2026_09_04 = {
+    1: 50, 2: 13, 3: 20, 4: 11, 5: 36, 6: 29, 7: 25, 8: 56, 9: 47, 10: 35,
+    11: 35, 12: 74, 13: 14, 14: 21, 15: 19, 16: 48, 17: 30, 18: 15, 19: 18,
+    20: 14, 21: 9, 22: 4, 23: 20, 24: 22, 25: 30, 26: 6, 27: 18, 28: 17,
+    29: 15, 30: 15, 31: 37, 32: 19, 33: 63, 34: 34, 35: 66, 36: 1, 37: 41,
+    38: 74, 39: 5, 40: 49, 41: 75, 42: 34,
+}
+assert set(AVTODROM_TOPIC_COUNTS_2026_09_04) == set(AVTODROM_TOPIC_TO_CODE)
 
 # osonprava.uz topic name (uz-Latn, as rendered on /topics 2026-09-03) -> our code.
 # Order here is irrelevant (name lookup, not positional). officials_duties has
@@ -112,22 +178,22 @@ def main():
     for q in avtodrom:
         counts[q["topic"]] = counts.get(q["topic"], 0) + 1
 
-    computed = [counts.get(i, 0) for i in range(1, 43)]
-    if computed != AVTODROM_LIVE_COUNTS_2026_09_03:
-        diffs = [
-            (i + 1, CATEGORY_ORDER[i], computed[i], AVTODROM_LIVE_COUNTS_2026_09_03[i])
-            for i in range(42) if computed[i] != AVTODROM_LIVE_COUNTS_2026_09_03[i]
-        ]
+    mismatches = [
+        (tid, counts.get(tid, 0), expected)
+        for tid, expected in AVTODROM_TOPIC_COUNTS_2026_09_04.items()
+        if counts.get(tid, 0) != expected
+    ]
+    if mismatches:
         raise SystemExit(
-            "avtodrom local data no longer matches the live-site order/count "
-            f"snapshot used to prove positional alignment: {diffs}\n"
-            "Re-verify topic order against https://www.yolharakatiqoidalari.uz/"
-            "main/mavzulashtirilgan_testlar before trusting the topic-number map."
+            "avtodrom local data's per-topic-id counts no longer match the "
+            f"app-bundle snapshot: {mismatches}\n"
+            "Re-extract the {id,title,count} array from the current "
+            "avtodrom frontend bundle before trusting AVTODROM_TOPIC_TO_CODE."
         )
 
     mapping = {
-        "avtodrom_topic_to_code": {str(i + 1): CATEGORY_ORDER[i] for i in range(42)},
-        "code_to_avtodrom_topic": {CATEGORY_ORDER[i]: i + 1 for i in range(42)},
+        "avtodrom_topic_to_code": {str(k): v for k, v in AVTODROM_TOPIC_TO_CODE.items()},
+        "code_to_avtodrom_topic": {v: k for k, v in AVTODROM_TOPIC_TO_CODE.items()},
         "osonprava_name_to_code": OSONPRAVA_NAME_TO_CODE,
         "code_to_osonprava_name": {v: k for k, v in OSONPRAVA_NAME_TO_CODE.items()},
         "no_osonprava_match": sorted(NO_OSONPRAVA_MATCH),
@@ -139,7 +205,7 @@ def main():
 
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(mapping, ensure_ascii=False, indent=1))
-    print(f"avtodrom order verified against {sum(AVTODROM_LIVE_COUNTS_2026_09_03)} live-site questions")
+    print(f"avtodrom topic-id map verified self-consistent against {sum(AVTODROM_TOPIC_COUNTS_2026_09_04.values())} local questions")
     print(f"osonprava name map: {len(OSONPRAVA_NAME_TO_CODE)} codes mapped, "
           f"{len(NO_OSONPRAVA_MATCH)} unmapped ({sorted(NO_OSONPRAVA_MATCH)})")
     print(f"wrote {OUT}")
