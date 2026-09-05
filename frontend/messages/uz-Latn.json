@@ -13,7 +13,7 @@
     "enable": "Ushbu avtomaktab kiosklarida yoqish",
     "save": "Saqlash",
     "saving": "Saqlanmoqda…",
-    "saved": "Saqlandi. Internetga ulangan, ochiq kiosk bosh sahifalari 90 soniya ichida yangilanadi.",
+    "saved": "Saqlandi. Kiosk bosh sahifasi keyingi ochilganda ko‘rinadi — talaba unga qaytganda, sahifa yangilanganda yoki kompyuter yoqilganda.",
     "loading": "Yuklanmoqda…",
     "retry": "Qayta urinish",
     "loadError": "QR sozlamalarini yuklab bo‘lmadi.",

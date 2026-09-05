@@ -144,17 +144,30 @@ export function StationMobilePromo() {
   const bannerRef = useRef<HTMLDivElement | null>(null);
   const [bannerOnScreen, setBannerOnScreen] = useState(false);
 
+  // Asked once, when this screen mounts. There is deliberately no polling loop.
+  //
+  // The first version of this polled every ~65 seconds so that flipping the
+  // switch in the admin console lit up an idle classroom on its own. That cost
+  // far more than it bought. The agent's updater only installs a staged build
+  // after the kiosk has made no proxied API call for 30 minutes -- that is how
+  // it knows the room is empty and nobody is mid-exam -- and a request every
+  // 65 seconds means that half-hour of quiet never arrives. Agent 1.3.1
+  // excludes this path from its idle clock, but 1.3.0 does not, so on the
+  // whole existing fleet the poll was holding back the very update that would
+  // have fixed it: on 2026-09-05 a Romitan PC downloaded 1.3.1 at 20:20:10 and
+  // was still running 1.3.0 afterwards, because the advert kept the room
+  // looking busy. One heartbeat is never worth blocking the channel that
+  // delivers fixes to a classroom.
+  //
+  // The trade is small: a school changes this once or twice a year, and a
+  // screen nobody has touched keeps yesterday's advert until a student comes
+  // back to it, the page reloads, or the PC boots. Every one of those remounts
+  // this component and asks again.
   useEffect(() => {
     let cancelled = false;
-    let timer: ReturnType<typeof setTimeout>;
-    let controller: AbortController | undefined;
-    async function refresh() {
-      if (document.visibilityState === "hidden") {
-        timer = setTimeout(refresh, 60000);
-        return;
-      }
-      controller = new AbortController();
-      const timeout = setTimeout(() => controller?.abort(), 10000);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    (async () => {
       try {
         const res = await fetch("/api/proxy/me/mobile-promo", {
           cache: "no-store",
@@ -164,19 +177,17 @@ export function StationMobilePromo() {
         const body = await res.json();
         if (!cancelled) setPromo(body.data);
       } catch {
-        // Advertising must never block a lesson or retain a stale referral
-        // after the school disabled it while this station was disconnected.
+        // Advertising must never block a lesson: an unreachable or unhappy
+        // backend leaves the station screen exactly as it is without it.
         if (!cancelled) setPromo(null);
       } finally {
         clearTimeout(timeout);
-        if (!cancelled) timer = setTimeout(refresh, 60000 + Math.random() * 15000);
       }
-    }
-    void refresh();
+    })();
     return () => {
       cancelled = true;
-      clearTimeout(timer);
-      controller?.abort();
+      clearTimeout(timeout);
+      controller.abort();
     };
   }, []);
 

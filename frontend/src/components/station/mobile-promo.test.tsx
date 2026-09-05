@@ -62,26 +62,49 @@ describe("station mobile promotion", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it.each(["disabled", "offline"])("removes the advert when the next poll is %s", async (mode) => {
+  // The load-bearing property of this component, and the reason it has a test
+  // of its own: it asks once and then stops. A poll here resets the station
+  // agent's idle clock, and the agent only installs a staged update after 30
+  // minutes with no proxied API call -- so a heartbeat on this screen quietly
+  // blocks agent updates for the whole fleet. Anyone reintroducing an interval
+  // "so the banner refreshes itself" has to delete this test to do it.
+  it("asks once and never polls, so the agent's idle clock can run", async () => {
     vi.useFakeTimers();
-    const fetcher = vi.fn().mockResolvedValueOnce(new Response(JSON.stringify({ data: promo })));
-    if (mode === "disabled")
-      fetcher.mockResolvedValueOnce(new Response(JSON.stringify({ data: { enabled: false, url: "" } })));
-    else fetcher.mockRejectedValueOnce(new Error("offline"));
+    const fetcher = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: promo })));
     vi.stubGlobal("fetch", fetcher);
-    const view = render(wrap(<StationMobilePromo />));
+    render(wrap(<StationMobilePromo />));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(0);
     });
-    expect(screen.getByRole("complementary")).toBeInTheDocument();
     expect(screen.getByTestId("mobile-promo-strip")).toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledWith("/api/proxy/me/mobile-promo", expect.anything());
+    // Well past any plausible poll interval, and past the agent's 30-minute
+    // idle window: still exactly one request.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(75000);
+      await vi.advanceTimersByTimeAsync(45 * 60 * 1000);
     });
-    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("mobile-promo-strip")).toBeInTheDocument();
+  });
+
+  it("shows nothing when the request fails, and asks again on the next mount", async () => {
+    const fetcher = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: promo })));
+    vi.stubGlobal("fetch", fetcher);
+    const view = render(wrap(<StationMobilePromo />));
+    await act(async () => {});
     expect(screen.queryByTestId("mobile-promo-strip")).not.toBeInTheDocument();
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
     view.unmount();
-    await vi.advanceTimersByTimeAsync(150000);
+
+    // Remounting is how the advert refreshes: a student returning to the home
+    // screen, a reload, or the PC booting. That is the whole refresh story.
+    render(wrap(<StationMobilePromo />));
+    await act(async () => {});
+    expect(await screen.findByTestId("mobile-promo-strip")).toBeInTheDocument();
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 });
