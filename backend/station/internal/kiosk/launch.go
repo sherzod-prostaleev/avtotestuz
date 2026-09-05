@@ -64,6 +64,16 @@ func candidates() []string {
 // the bookmarks, so there is nowhere else to browse, but keeps the ordinary
 // minimise / maximise / close controls.
 //
+// --start-maximized, replacing a hard-coded --window-size=1280,860 that opened
+// a small window in the middle of every classroom screen. Somebody was pressing
+// the maximise button by hand on every PC, every morning. Maximised is the
+// right answer rather than --start-fullscreen for the same reason --kiosk was
+// rejected above: it fills the screen but keeps the title bar, the window
+// controls and the Windows taskbar, so a teacher can still get out of it
+// without knowing F11. Verified against Chrome that --app does not override
+// it: on a 1920x1080 screen the flag produced a 1920x1048 window at (0,32),
+// where --window-size produced 1280x860 at (10,42).
+//
 // When no Chromium-family browser is found it falls back to the machine's
 // default browser, which loses the app window but is enormously better than
 // the previous behaviour: a single English line in a log nobody reads and a PC
@@ -76,7 +86,7 @@ func Launch(url string) (*exec.Cmd, error) {
 		}
 		cmd := exec.Command(path,
 			"--app="+url,
-			"--window-size=1280,860",
+			"--start-maximized",
 			"--no-first-run",
 			"--disable-session-crashed-bubble",
 			"--disable-features=TranslateUI",
