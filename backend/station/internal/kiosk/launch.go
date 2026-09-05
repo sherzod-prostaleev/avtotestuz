@@ -3,6 +3,7 @@ package kiosk
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -64,15 +65,24 @@ func candidates() []string {
 // the bookmarks, so there is nowhere else to browse, but keeps the ordinary
 // minimise / maximise / close controls.
 //
-// --start-maximized, replacing a hard-coded --window-size=1280,860 that opened
-// a small window in the middle of every classroom screen. Somebody was pressing
-// the maximise button by hand on every PC, every morning. Maximised is the
-// right answer rather than --start-fullscreen for the same reason --kiosk was
-// rejected above: it fills the screen but keeps the title bar, the window
-// controls and the Windows taskbar, so a teacher can still get out of it
-// without knowing F11. Verified against Chrome that --app does not override
-// it: on a 1920x1080 screen the flag produced a 1920x1048 window at (0,32),
-// where --window-size produced 1280x860 at (10,42).
+// The window fills the screen but stops at the taskbar, and keeps its title
+// bar and its minimise/maximise/close buttons -- the same reasoning that
+// rejected --kiosk above: a teacher has to be able to get back to Windows
+// without knowing F11. It replaces a hard-coded --window-size=1280,860 that
+// opened a small window in the middle of every classroom screen, which
+// somebody was maximising by hand on every PC, every morning.
+//
+// It asks for that in two ways on purpose, and the second one is the one that
+// matters. --start-maximized alone shipped in 1.3.2 and was not enough: on
+// Windows the first launch came up maximised and every launch after it was
+// small again, because Chrome restores the placement it saved for this app and
+// that flag does not reliably win against it. --window-size does win -- the
+// 1280x860 above proved it, every launch, for weeks -- so the size is also
+// stated explicitly, taken from the monitor's work area (see workArea).
+//
+// Do not "simplify" this back to one flag. The Linux desktop this is developed
+// on honours --start-maximized on every launch, so a local test cannot tell the
+// two apart; only a Windows classroom PC can.
 //
 // When no Chromium-family browser is found it falls back to the machine's
 // default browser, which loses the app window but is enormously better than
@@ -84,13 +94,7 @@ func Launch(url string) (*exec.Cmd, error) {
 		if err != nil {
 			continue
 		}
-		cmd := exec.Command(path,
-			"--app="+url,
-			"--start-maximized",
-			"--no-first-run",
-			"--disable-session-crashed-bubble",
-			"--disable-features=TranslateUI",
-		)
+		cmd := exec.Command(path, browserArgs(url)...)
 		if err := cmd.Start(); err != nil {
 			continue
 		}
@@ -100,4 +104,23 @@ func Launch(url string) (*exec.Cmd, error) {
 		return cmd, nil
 	}
 	return nil, ErrNoBrowser
+}
+
+// browserArgs is the command line Launch hands the browser, split out so the
+// window flags can be asserted without starting one.
+func browserArgs(url string) []string {
+	args := []string{
+		"--app=" + url,
+		"--start-maximized",
+		"--no-first-run",
+		"--disable-session-crashed-bubble",
+		"--disable-features=TranslateUI",
+	}
+	if x, y, w, h, ok := workArea(); ok {
+		args = append(args,
+			fmt.Sprintf("--window-position=%d,%d", x, y),
+			fmt.Sprintf("--window-size=%d,%d", w, h),
+		)
+	}
+	return args
 }
