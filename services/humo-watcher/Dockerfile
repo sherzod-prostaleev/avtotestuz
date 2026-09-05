@@ -9,9 +9,18 @@ LABEL org.opencontainers.image.source="https://github.com/sherzod-prostaleev/avt
 # 2026-08-27 while python:3.12-alpine still resolved to this very digest, so
 # the packages are upgraded here until upstream rebuilds the tag.
 #
+# libuuid joined the list on 2026-09-05, the same way and for the same reason:
+# util-linux 2.42-r0 -> 2.42.3-r0 closes seven HIGH findings (CVE-2026-53612,
+# -53613, -53614, -76642, -78408, -78409, -78410), all of them mount(8) and
+# nsenter(1) TOCTOU and privilege issues. Nothing in this image ever runs those
+# programs -- the watcher is one Python process -- but the gate scans what is
+# installed, not what is reachable, and the whole point of a policy gate is
+# that it does not take our word for reachability. Cheaper to upgrade than to
+# argue with, and the same daily-Trivy-refresh mechanism will do this again.
+#
 # Named packages, not a blanket upgrade, so nothing else the base ships moves
 # without being asked for.
-RUN apk upgrade --no-cache libcrypto3 libssl3
+RUN apk upgrade --no-cache libcrypto3 libssl3 libuuid
 
 WORKDIR /app
 COPY requirements.txt requirements.lock ./
