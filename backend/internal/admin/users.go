@@ -48,6 +48,7 @@ type LearnerDetail struct {
 	Status                string               `json:"status"`
 	ReferralCode          string               `json:"referral_code,omitempty"`
 	ReferredBy            *uuid.UUID           `json:"referred_by,omitempty"`
+	ReferralInviteURL     string               `json:"referral_invite_url,omitempty"`
 	VIPActive             bool                 `json:"vip_active"`
 	VIPEndsAt             *time.Time           `json:"vip_ends_at,omitempty"`
 	HasPassword           bool                 `json:"has_password"`

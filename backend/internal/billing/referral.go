@@ -152,6 +152,10 @@ func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, raw
 	return nil
 }
 
+func (s Service) ReferralInviteURL(code string) string {
+	return fmt.Sprintf("%s/r/%s", strings.TrimRight(s.publicBaseURL(), "/"), code)
+}
+
 func (s Service) GetReferralStats(ctx context.Context, userID uuid.UUID) (*ReferralStats, error) {
 	code, err := s.GetOrCreateReferralCode(ctx, userID)
 	if err != nil {
@@ -178,7 +182,7 @@ func (s Service) GetReferralStats(ctx context.Context, userID uuid.UUID) (*Refer
 
 	return &ReferralStats{
 		ReferralCode:        code,
-		InviteURL:           fmt.Sprintf("%s/r/%s", s.publicBaseURL(), code),
+		InviteURL:           s.ReferralInviteURL(code),
 		TotalInvited:        stats.TotalInvited,
 		TotalRewarded:       stats.TotalRewarded,
 		EarnedUzs:           earned,

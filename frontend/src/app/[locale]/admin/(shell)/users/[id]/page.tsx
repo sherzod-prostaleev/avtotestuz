@@ -40,6 +40,7 @@ type UserDetail = {
   role: string;
   status: string;
   referral_code?: string;
+  referral_invite_url?: string;
   referred_by?: string;
   vip_active: boolean;
   vip_ends_at?: string;
@@ -572,7 +573,7 @@ export default function AdminUserDetailPage() {
 
         {error ? <AdminErrorState message={error} /> : null}
         {okMsg ? (
-          <p className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm">{okMsg}</p>
+          <p role="status" className="rounded-xl border border-accent/30 bg-accent/10 px-3 py-2 text-sm">{okMsg}</p>
         ) : null}
 
         <div className="flex flex-wrap gap-1 border-b border-border/70 pb-2" role="tablist">
@@ -637,7 +638,31 @@ export default function AdminUserDetailPage() {
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">{t("referral")}</dt>
-                <dd className="font-mono text-xs">{user.referral_code || "—"}</dd>
+                <dd className="flex items-center gap-2 font-mono text-xs">
+                  {user.referral_code || "—"}
+                  {user.referral_invite_url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-10 w-10 shrink-0 p-0"
+                      aria-label={t("copyReferralLink")}
+                      title={t("copyReferralLink")}
+                      onClick={async () => {
+                        setError(null);
+                        setOkMsg(null);
+                        try {
+                          await navigator.clipboard.writeText(user.referral_invite_url!);
+                          setOkMsg(t("referralLinkCopied"));
+                        } catch {
+                          setError(t("referralCopyError"));
+                        }
+                      }}
+                    >
+                      <Copy className="h-4 w-4" aria-hidden="true" />
+                    </Button>
+                  )}
+                </dd>
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">{t("colCreated")}</dt>

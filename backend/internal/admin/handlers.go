@@ -654,6 +654,15 @@ func (h *Handler) getUser(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "user query failed")
 		return
 	}
+	referralService := h.Billing
+	referralService.Q = sqlc.New(h.Svc.Store.Pool)
+	code, err := referralService.GetOrCreateReferralCode(r.Context(), id)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "referral query failed")
+		return
+	}
+	out.ReferralCode = code
+	out.ReferralInviteURL = referralService.ReferralInviteURL(code)
 	httpx.Data(w, http.StatusOK, out)
 }
 

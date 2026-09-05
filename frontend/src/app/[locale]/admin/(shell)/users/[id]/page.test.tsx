@@ -62,6 +62,23 @@ afterEach(() => {
 });
 
 describe("Admin user hard delete", () => {
+  it.each([false, true])("copies the full referral link, clipboard failure=%s", async (fails) => {
+    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/sessions")) return Promise.resolve(json({ data: [] }));
+      if (url.endsWith("/referral") || url.endsWith("/ledger")) return Promise.resolve(json({}, 403));
+      return Promise.resolve(json({ data: { ...learner, referral_code: "REF-C62LC2", referral_invite_url: "https://drivergo.uz/r/REF-C62LC2" } }));
+    }));
+    const user = userEvent.setup();
+    const write = vi.spyOn(navigator.clipboard, "writeText");
+    if (fails) write.mockRejectedValueOnce(new Error("denied"));
+    renderPage();
+    await user.click(await screen.findByRole("button", { name: messages.AdminUsers.copyReferralLink }));
+    expect(write).toHaveBeenCalledWith("https://drivergo.uz/r/REF-C62LC2");
+    expect(await screen.findByText(fails ? messages.AdminUsers.referralCopyError : messages.AdminUsers.referralLinkCopied)).toBeInTheDocument();
+    write.mockRestore();
+  });
+
   it("shows the protected danger action and sends the typed phone confirmation", async () => {
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/testdb"
@@ -52,7 +53,7 @@ func TestAdminUsersListDetailBlockSessions(t *testing.T) {
 	}
 
 	svc := Service{Store: store, Secret: secret}
-	h := &Handler{Svc: svc, Pool: pool, Secret: secret}
+	h := &Handler{Svc: svc, Pool: pool, Secret: secret, Billing: billing.Service{PublicBaseURL: "https://drivergo.uz"}}
 	r := chi.NewRouter()
 	r.Route("/admin/v1", h.Routes)
 
@@ -100,8 +101,26 @@ func TestAdminUsersListDetailBlockSessions(t *testing.T) {
 		if err := json.Unmarshal(w.Body.Bytes(), &env); err != nil {
 			t.Fatal(err)
 		}
-		if env.Data.Phone != "+998901112233" || env.Data.ReferralCode != "ALI123" {
+		if env.Data.Phone != "+998901112233" || len(env.Data.ReferralCode) != 10 {
 			t.Fatalf("detail=%+v", env.Data)
+		}
+		code, err := (billing.Service{Q: sqlc.New(pool)}).GetOrCreateReferralCode(t.Context(), profileID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if env.Data.ReferralCode != code || env.Data.ReferralInviteURL != "https://drivergo.uz/r/"+code {
+			t.Fatalf("admin referral differs from learner referral: %+v", env.Data)
+		}
+		repeat := httptest.NewRecorder()
+		r.ServeHTTP(repeat, req.Clone(t.Context()))
+		var repeated struct {
+			Data LearnerDetail `json:"data"`
+		}
+		if err := json.Unmarshal(repeat.Body.Bytes(), &repeated); err != nil {
+			t.Fatal(err)
+		}
+		if repeat.Code != http.StatusOK || repeated.Data.ReferralCode != code {
+			t.Fatalf("repeat request changed referral: %s", repeat.Body.String())
 		}
 		raw := w.Body.String()
 		if containsStr(raw, "password_hash") || containsStr(raw, `"password":`) {
