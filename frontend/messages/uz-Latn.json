@@ -1,4 +1,27 @@
 {
+  "MobilePromo": {
+    "eyebrow": "Darsdan keyin ham birga",
+    "title": "Telefoningizda ham o‘rganishni davom ettiring",
+    "description": "Yo‘l qoidalari, biletlar va mashqlar — endi telefoningizda. Har kuni ozgina tayyorgarlik, imtihonga ko‘proq ishonch.",
+    "scan": "Telefon kamerasini QR-kodga qarating",
+    "caption": "Skanerlang · Oching · O‘rganing",
+    "qrAlt": "Telefonda o‘rganish havolasining QR-kodi",
+    "adminTitle": "Mobil ilova uchun",
+    "adminHint": "Ushbu avtomaktabning barcha kiosk bosh sahifalarida QR banner ko‘rsatiladi. Har bir avtomaktab alohida boshqariladi.",
+    "urlLabel": "QR-kod uchun to‘liq havola",
+    "urlHint": "Havola aynan kiritilgan holatda saqlanadi. HTTP yoki HTTPS havola kiriting; bo‘sh joy bo‘lmasin. Maksimum 512 bayt.",
+    "enable": "Ushbu avtomaktab kiosklarida yoqish",
+    "save": "Saqlash",
+    "saving": "Saqlanmoqda…",
+    "saved": "Saqlandi. Internetga ulangan, ochiq kiosk bosh sahifalari 90 soniya ichida yangilanadi.",
+    "loading": "Yuklanmoqda…",
+    "retry": "Qayta urinish",
+    "loadError": "QR sozlamalarini yuklab bo‘lmadi.",
+    "saveError": "Sozlamalar saqlanmadi. Qayta urinib ko‘ring.",
+    "invalidURL": "To‘liq HTTP(S) havola kiriting: bo‘sh joysiz, login/parolsiz, 512 baytdan oshmasin.",
+    "livePreview": "Kiosklarda yoqilgan · Saqlangan ko‘rinish",
+    "disabled": "Kiosklarda o‘chirilgan · Saqlangan namuna"
+  },
   "ThemeToggle": {
     "toLight": "Yorug' temaga o'tish",
     "toDark": "Qorong'i temaga o'tish"

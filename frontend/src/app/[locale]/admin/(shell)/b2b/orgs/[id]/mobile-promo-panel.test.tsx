@@ -1,0 +1,23 @@
+import { afterEach, expect, it, vi } from "vitest";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { NextIntlClientProvider } from "next-intl";
+import messages from "../../../../../../../../messages/uz-Latn.json";
+import MobilePromoPanel from "./mobile-promo-panel";
+vi.mock("@/components/admin/permission-gate", () => ({ PermissionGate: ({ children }: { children: React.ReactNode }) => children }));
+afterEach(() => vi.unstubAllGlobals());
+it("saves the original URL byte-for-byte and toggles the school banner", async () => {
+  const raw = "https://drivergo.uz/r/REF-C62LC2?x=%2f&x=A+b#Case";
+  const fetcher = vi.fn((_input: unknown, init?: RequestInit) => Promise.resolve(new Response(JSON.stringify({ data: init?.method === "PUT" ? { ...JSON.parse(init.body as string), qr_data_url: "data:image/png;base64,dGVzdA==" } : { enabled: false, url: "" } }))));
+  vi.stubGlobal("fetch", fetcher);
+  const user = userEvent.setup();
+  render(<NextIntlClientProvider locale="uz-Latn" messages={messages}><MobilePromoPanel orgId="school-a" /></NextIntlClientProvider>);
+  await user.type(await screen.findByLabelText(messages.MobilePromo.urlLabel), raw);
+  await user.click(screen.getByRole("switch"));
+  await user.click(screen.getByRole("button", { name: messages.MobilePromo.save }));
+  await waitFor(() => expect(fetcher).toHaveBeenCalledWith("/api/admin/b2b/orgs/school-a/mobile-promo", expect.objectContaining({ method: "PUT", body: JSON.stringify({ enabled: true, url: raw }) })));
+  expect(await screen.findByRole("status")).toHaveTextContent(messages.MobilePromo.saved);
+  await user.click(screen.getByRole("switch"));
+  await user.click(screen.getByRole("button", { name: messages.MobilePromo.save }));
+  await waitFor(() => expect(fetcher).toHaveBeenLastCalledWith("/api/admin/b2b/orgs/school-a/mobile-promo", expect.objectContaining({ body: JSON.stringify({ enabled: false, url: raw }) })));
+});

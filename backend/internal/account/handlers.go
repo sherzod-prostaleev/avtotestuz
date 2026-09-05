@@ -25,6 +25,7 @@ type Handler struct {
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me", h.getMe)
+	r.Get("/me/mobile-promo", h.getMobilePromo)
 	r.Post("/me/password", h.changePassword)
 	r.Patch("/me", h.patchMe)
 	r.Get("/me/entitlement", h.getEntitlement)

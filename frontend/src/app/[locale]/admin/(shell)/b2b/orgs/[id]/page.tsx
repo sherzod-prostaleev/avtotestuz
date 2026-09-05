@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { DangerConfirm } from "@/components/admin/danger-confirm";
 import { PermissionGate } from "@/components/admin/permission-gate";
 import InstallerPanel from "./installer-panel";
+import MobilePromoPanel from "./mobile-promo-panel";
 import { EnrollFailures, StationHealth } from "./station-health";
 
 type Station = {
@@ -326,6 +327,7 @@ export default function AdminB2BOrgDetailPage() {
           </section>
 
           <InstallerPanel orgId={params.id} />
+          <MobilePromoPanel key={params.id} orgId={params.id} />
 
           <section className="space-y-2 rounded-xl border border-border bg-card p-4">
             <h2 className="text-sm font-bold">{t("stationsTitle")}</h2>

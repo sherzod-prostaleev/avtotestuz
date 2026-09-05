@@ -20,6 +20,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { StationDiagnostics, useStationStatus } from "./station-status";
+import { StationMobilePromo } from "@/components/station/mobile-promo";
 
 // GET /me answers {"data":{"profile":{...},"vip":{...}}} and apiGet unwraps
 // only "data", so the profile is one level down -- the same shape
@@ -329,6 +330,7 @@ export default function StationPage() {
           );
         })}
       </section>
+      <StationMobilePromo />
     </main>
   );
 }

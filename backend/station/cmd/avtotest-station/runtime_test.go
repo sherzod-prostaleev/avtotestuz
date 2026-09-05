@@ -55,6 +55,7 @@ func TestIdleOnlyCountsProxiedAPICalls(t *testing.T) {
 	rt.lastCall.Store(time.Now().Add(-time.Hour).UnixNano())
 
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/_next/static/chunk.js", nil))
+	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/api/proxy/me/mobile-promo", nil))
 	if rt.idleFor() < 30*time.Minute {
 		t.Fatal("a static asset reset the idle clock; an empty classroom would never look idle")
 	}

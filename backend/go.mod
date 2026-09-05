@@ -4,6 +4,7 @@ go 1.26.7
 
 require (
 	github.com/SherClockHolmes/webpush-go v1.4.0
+	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc
 	github.com/coder/websocket v1.8.13
 	github.com/getsentry/sentry-go v0.33.0
 	github.com/go-chi/chi/v5 v5.3.1
@@ -20,7 +21,6 @@ require (
 )
 
 require (
-	github.com/boombuler/barcode v1.0.1-0.20190219062509-6c824513bacc // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa // indirect

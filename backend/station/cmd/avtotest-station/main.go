@@ -323,11 +323,11 @@ func (r *agentRuntime) setAgent(a *agent.Agent) {
 // trackIdle stamps every proxied API call so the updater can tell an empty
 // classroom from one in the middle of an exam. Only /api/proxy/ counts: the
 // browser fetches static assets on its own schedule and would keep the PC
-// looking busy forever.
+// looking busy forever. The mobile promotion poll is also background work.
 func (r *agentRuntime) trackIdle(next http.Handler) http.Handler {
 	r.lastCall.Store(time.Now().UnixNano())
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if strings.HasPrefix(req.URL.Path, "/api/proxy/") {
+		if strings.HasPrefix(req.URL.Path, "/api/proxy/") && req.URL.Path != "/api/proxy/me/mobile-promo" {
 			r.lastCall.Store(time.Now().UnixNano())
 		}
 		next.ServeHTTP(w, req)

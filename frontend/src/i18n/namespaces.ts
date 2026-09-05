@@ -70,6 +70,7 @@ const ADMIN_EXTRA = [
   "AdminInvestors",
   "AdminFlags",
   "AdminB2B",
+  "MobilePromo",
   "AdminRecon",
   "AdminAudit",
   "AdminRBAC",
@@ -100,4 +101,4 @@ export const APP_NAMESPACES = unique([...COMMON_NAMESPACES, ...APP_EXTRA]);
 export const SESSION_NAMESPACES = unique([...COMMON_NAMESPACES, ...SESSION_EXTRA]);
 export const ADMIN_NAMESPACES = unique([...COMMON_NAMESPACES, ...ADMIN_EXTRA]);
 /** Kiosk reuses learner tickets/practice/session screens. */
-export const KIOSK_NAMESPACES = unique([...APP_NAMESPACES, ...SESSION_NAMESPACES, "Station"]);
+export const KIOSK_NAMESPACES = unique([...APP_NAMESPACES, ...SESSION_NAMESPACES, "Station", "MobilePromo"]);
