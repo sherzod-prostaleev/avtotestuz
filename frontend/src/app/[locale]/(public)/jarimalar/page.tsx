@@ -1,6 +1,29 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { LegalDocShell, LegalSection } from "@/components/legal/legal-doc-shell";
+import { locales, type Locale } from "@/i18n/config";
+import { canonicalUrl, buildLanguageAlternates } from "@/lib/seo";
+
+export async function generateMetadata({ params }: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  if (!locales.includes(locale as Locale)) return {};
+  const t = await getTranslations({ locale, namespace: "Metadata.pages.jarimalar" });
+  const title = t("title");
+  const description = t("description");
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: canonicalUrl(locale as Locale, "jarimalar"),
+      languages: buildLanguageAlternates("jarimalar"),
+    },
+    openGraph: { title, description },
+    twitter: { title, description },
+  };
+}
 
 export default async function JarimalarPage() {
   const [t, tLanding, locale] = await Promise.all([

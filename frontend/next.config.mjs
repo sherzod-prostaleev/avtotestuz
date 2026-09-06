@@ -70,6 +70,12 @@ const nextConfig = {
         source: "/logo-48.webp",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+      {
+        // Defense in depth alongside robots.ts' /api/ disallow: these are JSON
+        // endpoints, never a search result.
+        source: "/api/:path*",
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
     ];
   },
   async rewrites() {

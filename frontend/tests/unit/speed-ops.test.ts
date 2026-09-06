@@ -8,7 +8,7 @@ const repoRoot = join(frontendRoot, "..");
 describe("origin speed plan contracts", () => {
   it("ensures landing page has valid navigation links", () => {
     const src = readFileSync(
-      join(frontendRoot, "src/app/[locale]/(public)/page.tsx"),
+      join(frontendRoot, "src/app/[locale]/(public)/home-client.tsx"),
       "utf8",
     );
     const linkCount = (src.match(/<Link\b/g) ?? []).length;

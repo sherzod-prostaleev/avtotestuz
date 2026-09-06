@@ -8,6 +8,7 @@ import { Providers } from "@/app/providers";
 import { locales, type Locale } from "@/i18n/config";
 import { COMMON_NAMESPACES } from "@/i18n/namespaces";
 import { pickMessages } from "@/i18n/pick-messages";
+import { SITE_URL, SITE_NAME, canonicalUrl, buildLanguageAlternates } from "@/lib/seo";
 import "../globals.css";
 
 /** Notch / home-indicator safe areas (landing sticky CTA + app chrome). */
@@ -39,10 +40,34 @@ export async function generateMetadata({ params }: {
 }): Promise<Metadata> {
   const { locale } = await params;
   if (!locales.includes(locale as Locale)) return {};
+  const loc = locale as Locale;
   const t = await getTranslations({ locale, namespace: "Metadata" });
+  const title = t("title");
+  const description = t("description");
+  const url = canonicalUrl(loc);
   return {
-    title: t("title"),
-    description: t("description"),
+    metadataBase: new URL(SITE_URL),
+    title: { default: title, template: `%s — ${SITE_NAME}` },
+    description,
+    alternates: {
+      canonical: url,
+      languages: buildLanguageAlternates(),
+    },
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      title,
+      description,
+      url,
+      locale: loc.replace("-", "_"),
+      images: [{ url: "/logo-512.png", width: 512, height: 512, alt: SITE_NAME }],
+    },
+    twitter: {
+      card: "summary",
+      title,
+      description,
+      images: ["/logo-512.png"],
+    },
     manifest: "/manifest.webmanifest",
     appleWebApp: {
       capable: true,
@@ -60,6 +85,21 @@ export async function generateMetadata({ params }: {
     },
   };
 }
+
+const ORGANIZATION_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  name: SITE_NAME,
+  url: SITE_URL,
+  logo: `${SITE_URL}/logo-512.png`,
+};
+
+const WEBSITE_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  name: SITE_NAME,
+  url: SITE_URL,
+};
 
 export default async function LocaleLayout({
   children,
@@ -85,6 +125,14 @@ export default async function LocaleLayout({
         <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
         <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(ORGANIZATION_JSON_LD) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(WEBSITE_JSON_LD) }}
+        />
       </head>
       <body className="min-h-screen overflow-x-clip bg-background text-foreground antialiased" suppressHydrationWarning>
         <NextIntlClientProvider messages={pickMessages(messages, COMMON_NAMESPACES)}>

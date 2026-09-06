@@ -34,7 +34,29 @@
   },
   "Metadata": {
     "title": "Driver Go — haydovchilik nazariy imtihoniga tayyorgarlik",
-    "description": "O'zbekiston YHQ savollari, rasmiy imtihon uslubidagi biletlar va aqlli takrorlash bilan nazariy imtihonga tayyorlaning."
+    "description": "O'zbekiston YHQ savollari, rasmiy imtihon uslubidagi biletlar va aqlli takrorlash bilan nazariy imtihonga tayyorlaning.",
+    "pages": {
+      "home": {
+        "title": "Avtoimtihon va Prava Test — Onlayn Nazariy Tayyorgarlik",
+        "description": "Haydovchilik guvohnomasi uchun avtoimtihon: rasmiy YHQ savollari, prava test biletlari va aqlli takrorlash. Bepul boshlang, birinchi bilet tekin."
+      },
+      "diagnostic": {
+        "title": "Bepul Avtoimtihon Sinov Testi",
+        "description": "10 soniyada boshlang: ro'yxatdan o'tmasdan bepul prava test sinovi. Bilim darajangizni aniqlang va imtihonga tayyorgarlikni boshlang."
+      },
+      "narxlar": {
+        "title": "Narxlar va Tariflar",
+        "description": "Driver Go Premium tariflari: barcha avtoimtihon biletlari, cheklovsiz mashq va aqlli takrorlash bir tarifda."
+      },
+      "maktab": {
+        "title": "Avtomaktablar uchun School Classroom",
+        "description": "Avtomaktab sinfxonalari uchun 20–50 kompyuterlik VIP litsenziya — o'quvchilar prava test va avtoimtihonga sinfda tayyorlanadi."
+      },
+      "jarimalar": {
+        "title": "YHQ Jarimalari — Yo'l Harakati Qoidalari Jarimalari",
+        "description": "O'zbekistonda yo'l harakati qoidabuzarliklari uchun joriy jarima miqdorlari va javobgarlik."
+      }
+    }
   },
   "Errors": {
     "genericTitle": "Kutilmagan xatolik yuz berdi",
