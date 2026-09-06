@@ -53767,6 +53767,37 @@
    ],
    "source": "ptest",
    "image": "images/i1277_1.webp"
+  },
+  {
+   "ext_id": "avtoimtihon-1278",
+   "category": "intersections_equal",
+   "image": "images/i1278_1.webp",
+   "texts": {
+    "ru": "Какой автомобиль должен уступить дорогу в данной ситуации?",
+    "uz-Cyrl": "Ушбу вазиятда қайси автомобиль йўл бериши керак?",
+    "uz-Latn": "Ushbu vaziyatda qaysi avtomobil yo'l berishi kerak?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Белый автомобиль",
+      "uz-Cyrl": "Оқ автомобиль",
+      "uz-Latn": "Oq avtomobil"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Красный автомобиль",
+      "uz-Cyrl": "Қизил автомобиль",
+      "uz-Latn": "Qizil avtomobil"
+     }
+    }
+   ],
+   "source": "osonprava"
   }
  ],
  "variants": [
@@ -55360,7 +55391,8 @@
     "avtoimtihon-1274",
     "avtoimtihon-1275",
     "avtoimtihon-1276",
-    "avtoimtihon-1277"
+    "avtoimtihon-1277",
+    "avtoimtihon-1278"
    ]
   }
  ],
