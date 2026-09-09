@@ -642,7 +642,8 @@
     "subtitleShort": "{count} тем",
     "sourceImageShort": "Фото",
     "sourceSignShort": "Знаки",
-    "titleShort": "Темы"
+    "titleShort": "Темы",
+    "memorizeButton": "Запомнить"
   },
   "Session": {
     "loading": "Загружаем сессию...",
@@ -802,6 +803,13 @@
     "backToTickets": "Вернуться к билетам",
     "previousTicketRequired": "Сначала наберите минимум 10 верных в предыдущем билете — затем откроется этот.",
     "backToStation": "Вернуться в класс"
+  },
+  "Memorize": {
+    "loading": "Загрузка...",
+    "emptyTitle": "В этой теме пока нет вопросов",
+    "emptyBody": "Пожалуйста, выберите другую тему.",
+    "finishedTitle": "Тема пройдена!",
+    "finishedBody": "Вы просмотрели все вопросы этой темы."
   },
   "Saved": {
     "navLabel": "Сохранённые вопросы",

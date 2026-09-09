@@ -642,7 +642,8 @@
     "subtitleShort": "{count} mavzu",
     "sourceImageShort": "Rasm",
     "sourceSignShort": "Belgilar",
-    "titleShort": "Mavzular"
+    "titleShort": "Mavzular",
+    "memorizeButton": "Yodlash"
   },
   "Session": {
     "loading": "Sessiya yuklanmoqda...",
@@ -802,6 +803,13 @@
     "backToDashboard": "Boshqaruv paneliga qaytish",
     "backToTickets": "Biletlarga qaytish",
     "backToStation": "Sinfxonaga qaytish"
+  },
+  "Memorize": {
+    "loading": "Yuklanmoqda...",
+    "emptyTitle": "Bu mavzuda hali savol yo'q",
+    "emptyBody": "Iltimos, boshqa mavzuni tanlang.",
+    "finishedTitle": "Mavzu tugadi!",
+    "finishedBody": "Siz ushbu mavzudagi barcha savollarni ko'rib chiqdingiz."
   },
   "Saved": {
     "navLabel": "Saqlangan savollar",

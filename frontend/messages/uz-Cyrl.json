@@ -642,7 +642,8 @@
     "subtitleShort": "{count} мавзу",
     "sourceImageShort": "Расм",
     "sourceSignShort": "Белгилар",
-    "titleShort": "Мавзулар"
+    "titleShort": "Мавзулар",
+    "memorizeButton": "Ёдлаш"
   },
   "Session": {
     "loading": "Сессия юкланмоқда...",
@@ -802,6 +803,13 @@
     "backToDashboard": "Бошқарув панелига қайтиш",
     "backToTickets": "Билетларга қайтиш",
     "backToStation": "Синфхонага қайтиш"
+  },
+  "Memorize": {
+    "loading": "Юкланмоқда...",
+    "emptyTitle": "Бу мавзуда ҳали савол йўқ",
+    "emptyBody": "Илтимос, бошқа мавзуни танланг.",
+    "finishedTitle": "Мавзу тугади!",
+    "finishedBody": "Сиз ушбу мавзудаги барча саволларни кўриб чиқдингиз."
   },
   "Saved": {
     "navLabel": "Сақланган саволлар",
