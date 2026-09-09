@@ -133,7 +133,7 @@ interface RawExplanationPayload {
   blocks: unknown;
 }
 
-interface QuestionDetailResponse {
+export interface QuestionDetailResponse {
   id: string;
   category_code: string;
   text: string;
@@ -195,7 +195,7 @@ interface SessionDetailResponse {
   certificate_share_code?: string;
 }
 
-function toSessionError(err: unknown): SessionError {
+export function toSessionError(err: unknown): SessionError {
   if (err instanceof ApiError) {
     return { code: err.code, message: err.message };
   }
@@ -289,7 +289,7 @@ function chooseDefined<T>(primary: T | null | undefined, fallback: T | null | un
 }
 
 /** Build a question using only the authenticated session-scoped response. */
-function toQuestionItem(
+export function toQuestionItem(
   detail: QuestionDetailResponse,
   persisted?: SessionAnswerResponse
 ): SessionQuestionItem {
