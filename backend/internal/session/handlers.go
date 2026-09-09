@@ -29,6 +29,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/sessions/{id}", h.getSession)
 	r.Get("/sessions/{id}/questions", h.listSessionQuestions)
 	r.Get("/sessions/{id}/questions/{questionID}", h.getSessionQuestion)
+	r.Get("/categories/{code}/memorize", h.categoryMemorize)
 	r.Get("/me/practice-allowance", h.practiceAllowance)
 	r.Get("/me/practice-progress", h.practiceProgress)
 	r.Post("/me/practice-progress/reset", h.resetPracticeProgress)
@@ -463,6 +464,89 @@ func needExplanations(accesses []SessionQuestionAccessItem) bool {
 		}
 	}
 	return false
+}
+
+// memorizeShuffleSeed is a fixed namespace for shuffleSessionAnswers when
+// building the memorize view, which has no real session id of its own. The
+// shuffle only reorders options cosmetically (it never affects scoring), so
+// any stable UUID works — it exists purely so a topic doesn't always show
+// the correct answer in whatever position the source data happens to store
+// it in.
+var memorizeShuffleSeed = uuid.MustParse("00000000-0000-0000-0000-000000000001")
+
+type memorizeQuestionResponse struct {
+	content.QuestionDetailDTO
+	Position        int    `json:"position"`
+	Answered        bool   `json:"answered"`
+	CorrectAnswerID string `json:"correct_answer_id"`
+}
+
+// categoryMemorize serves the whole topic at once, correct answers already
+// disclosed — the one deliberate exception to every other session-scoped
+// read in this file, which redacts correctness until answered or finished.
+// VIP-gated exactly like "mistakes": Billing.Status already resolves a
+// licensed classroom station as VIP too (see billing.StationVIPChecker), so
+// no separate kiosk handling is needed here.
+func (h *Handler) categoryMemorize(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	active, _, err := h.Svc.Billing.Status(r.Context(), claims.ProfileID)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "entitlement check failed")
+		return
+	}
+	if !active {
+		httpx.Error(w, http.StatusPaymentRequired, "vip_required", "active entitlement required")
+		return
+	}
+	loc, ok := i18n.Parse(r)
+	if !ok {
+		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
+		return
+	}
+	categoryID, err := h.Svc.ResolveCategoryID(r.Context(), chi.URLParam(r, "code"))
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	items, err := h.Svc.CategoryMemorize(r.Context(), categoryID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	if h.Content == nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question content is unavailable")
+		return
+	}
+
+	ids := make([]uuid.UUID, len(items))
+	for i, item := range items {
+		ids[i] = item.QuestionID
+	}
+	details, fallback, err := h.Content.LoadQuestionDetails(r.Context(), ids, loc, true)
+	if err != nil {
+		httpx.Error(w, http.StatusInternalServerError, "internal", "question query failed")
+		return
+	}
+
+	out := make([]memorizeQuestionResponse, 0, len(items))
+	for _, item := range items {
+		detail, ok := details[item.QuestionID]
+		if !ok {
+			httpx.Error(w, http.StatusInternalServerError, "internal", "question content missing")
+			return
+		}
+		detail.Answers = shuffleSessionAnswers(detail.Answers, memorizeShuffleSeed, item.QuestionID)
+		out = append(out, memorizeQuestionResponse{
+			QuestionDetailDTO: detail,
+			Position:          item.Position,
+			Answered:          true,
+			CorrectAnswerID:   item.CorrectAnswerID.String(),
+		})
+	}
+	httpx.DataMeta(w, http.StatusOK, out, content.LocaleMeta{Locale: loc, Fallback: fallback})
 }
 
 type finishSessionResponse struct {
