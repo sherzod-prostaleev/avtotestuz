@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, LoaderCircle, X } from "lucide-react";
@@ -36,17 +36,26 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
   const [explanationOpen, setExplanationOpen] = useState(false);
+  const activeChipRef = useRef<HTMLButtonElement | null>(null);
 
   const practiceHref = `/${locale}/${kiosk ? "station/practice" : "practice"}`;
 
-  const goPrev = () => {
+  // Keep the active chip in view while advancing through a long topic on
+  // mobile — same behaviour the live session runner has.
+  useEffect(() => {
+    activeChipRef.current?.scrollIntoView({
+      behavior: "smooth",
+      inline: "center",
+      block: "nearest",
+    });
+  }, [currentIndex]);
+
+  const goTo = (index: number) => {
     setExplanationOpen(false);
-    setCurrentIndex((i) => Math.max(0, i - 1));
+    setCurrentIndex(index);
   };
-  const goNext = () => {
-    setExplanationOpen(false);
-    setCurrentIndex((i) => Math.min(questions.length, i + 1));
-  };
+  const goPrev = () => goTo(Math.max(0, currentIndex - 1));
+  const goNext = () => goTo(Math.min(questions.length, currentIndex + 1));
 
   if (error) {
     let destination = practiceHref;
@@ -162,25 +171,62 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
         </div>
       </Card>
 
-      <footer className="session-actions flex shrink-0 items-center justify-between gap-2 rounded-xl border border-border bg-card p-2 sm:rounded-2xl sm:p-2.5 shadow-raised-sm">
-        <Button
-          variant="outline"
-          className="h-9 min-h-9 px-3 sm:h-11 sm:min-h-11 sm:px-5"
-          disabled={currentIndex === 0}
-          onClick={goPrev}
+      <footer className="session-actions flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:rounded-2xl sm:p-2.5 shadow-raised-sm">
+        <nav
+          className="session-navigator flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-h-24 sm:max-h-36 overflow-y-auto px-1 py-0.5"
+          aria-label={sessionT("questionNavigator")}
         >
-          <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
-          <span className="hidden xs:inline sm:inline">{sessionT("previous")}</span>
-        </Button>
+          {questions.map((question, index) => {
+            const isCurrent = index === currentIndex;
+            return (
+              <button
+                key={question.id}
+                ref={isCurrent ? activeChipRef : undefined}
+                type="button"
+                onClick={() => goTo(index)}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={sessionT("questionNavLabel", {
+                  number: index + 1,
+                  status: isCurrent ? sessionT("statusCurrent") : sessionT("statusCorrect"),
+                })}
+                className={`relative flex h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-lg border text-[11px] sm:text-xs md:text-sm tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${
+                  isCurrent
+                    ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30 font-black scale-105 shadow-md"
+                    : "border-border bg-background text-muted-foreground hover:border-accent/50 hover:text-foreground font-bold"
+                }`}
+              >
+                {index + 1}
+              </button>
+            );
+          })}
+        </nav>
 
-        <Button
-          variant="game"
-          className="h-9 min-h-9 px-4 sm:h-11 sm:min-h-11 sm:px-6"
-          onClick={goNext}
-        >
-          <span>{sessionT("next")}</span>
-          <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
-        </Button>
+        <div className="flex items-center justify-between gap-2 border-t border-border/60 pt-1.5">
+          <Button
+            variant="outline"
+            className="h-9 min-h-9 px-3 sm:h-11 sm:min-h-11 sm:px-5"
+            disabled={currentIndex === 0}
+            onClick={goPrev}
+          >
+            <ChevronLeft className="mr-1 h-4 w-4" aria-hidden="true" />
+            <span className="hidden xs:inline sm:inline">{sessionT("previous")}</span>
+          </Button>
+
+          <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground sm:text-sm">
+            <span className="tabular-nums font-extrabold text-foreground">
+              {currentIndex + 1} / {questions.length}
+            </span>
+          </div>
+
+          <Button
+            variant="game"
+            className="h-9 min-h-9 px-4 sm:h-11 sm:min-h-11 sm:px-6"
+            onClick={goNext}
+          >
+            <span>{sessionT("next")}</span>
+            <ChevronRight className="ml-1 h-4 w-4" aria-hidden="true" />
+          </Button>
+        </div>
       </footer>
 
       <ExplanationDialog

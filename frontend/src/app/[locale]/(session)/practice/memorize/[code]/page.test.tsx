@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../../../messages/uz-Latn.json";
@@ -77,6 +77,30 @@ describe("MemorizePage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Keyingisi/ }));
     expect(await screen.findByText(messages.Memorize.finishedTitle)).toBeInTheDocument();
+  });
+
+  // The whole point of the (session)-group move: a phone has to reach every
+  // question the way the live test screen does, from the numbered chips, not
+  // only through Keyingisi.
+  it("renders a numbered chip per question and jumps straight to the tapped one", async () => {
+    mockUseMemorize.mockReturnValue({
+      questions: [
+        question({ id: "q-1" }),
+        question({ id: "q-2", correct_answer_id: "a-1" }),
+        question({ id: "q-3", correct_answer_id: "a-1" }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderPage();
+
+    const navigator = await screen.findByRole("navigation", {
+      name: messages.Session.questionNavigator,
+    });
+    expect(within(navigator).getAllByRole("button")).toHaveLength(3);
+
+    fireEvent.click(within(navigator).getByRole("button", { name: /^3-savol/ }));
+    expect(await screen.findByText("Savol 3 / 3")).toBeInTheDocument();
   });
 
   it("sends a non-VIP user to premium on vip_required", () => {

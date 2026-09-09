@@ -41,9 +41,9 @@ describe("pickMessages", () => {
   // fail a component test — those wrap the full message file — it throws
   // MISSING_MESSAGE at runtime instead, which is how this was first missed.
   it("ships the memorize view strings to both shells that render it", () => {
-    expect(APP_NAMESPACES).toContain("Memorize");
+    expect(SESSION_NAMESPACES).toContain("Memorize");
     expect(KIOSK_NAMESPACES).toContain("Memorize");
-    expect(pickMessages(uzLatn, APP_NAMESPACES).Memorize).toEqual(uzLatn.Memorize);
+    expect(pickMessages(uzLatn, SESSION_NAMESPACES).Memorize).toEqual(uzLatn.Memorize);
   });
 
   it("covers chrome namespaces on every route group", () => {

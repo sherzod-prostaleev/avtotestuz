@@ -5,7 +5,7 @@
 // learner routes. See MemorizePageProps in the imported module, and
 // billing.StationVIPChecker for why a licensed station's Billing.Status
 // already comes back active without any kiosk-specific code on the server.
-import MemorizePage from "@/app/[locale]/(app)/practice/memorize/[code]/page";
+import MemorizePage from "@/app/[locale]/(session)/practice/memorize/[code]/page";
 
 export default function KioskMemorizePage() {
   return <MemorizePage kiosk />;

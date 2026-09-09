@@ -46,10 +46,13 @@ const APP_EXTRA = [
   "GrandMock",
   "SessionStart",
   "Session",
-  "Memorize",
 ] as const;
 
-const SESSION_EXTRA = ["Session", "GrandMock", "SessionStart", "Practice", "Saved"] as const;
+// Memorize lives here, not in APP_EXTRA: /practice/memorize/[code] renders in
+// the (session) group's bare full-screen shell, the same one the live session
+// runner uses, because the app shell's top bar and bottom tab bar left its
+// footer controls off-screen on a phone.
+const SESSION_EXTRA = ["Session", "GrandMock", "SessionStart", "Practice", "Saved", "Memorize"] as const;
 
 const ADMIN_EXTRA = [
   "AdminNav",
