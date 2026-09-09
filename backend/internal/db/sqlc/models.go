@@ -163,10 +163,12 @@ type AuditLog struct {
 }
 
 type B2bOrg struct {
-	ID        uuid.UUID          `json:"id"`
-	Name      string             `json:"name"`
-	Status    string             `json:"status"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                 uuid.UUID          `json:"id"`
+	Name               string             `json:"name"`
+	Status             string             `json:"status"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	MobilePromoEnabled bool               `json:"mobile_promo_enabled"`
+	MobilePromoUrl     string             `json:"mobile_promo_url"`
 }
 
 type B2bOrgEnrollCode struct {

@@ -274,6 +274,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				api.Post("/billing/click", cmh.ServeHTTP)
 
 				learningSvc := learning.NewService(deps.Queries)
+				// One cache for the process. Stats runs on every dashboard
+				// load and the histogram behind it is the same for everybody,
+				// so reading it live meant a full exam_session scan per page.
+				learningSvc.PassRates = learning.NewPassRateCache(learning.DefaultPassRateTTL)
 				progressSvc := progress.NewService(deps.Queries)
 				progressSvc.Learning = learningSvc
 				progressSvc.Billing = learnerBilling

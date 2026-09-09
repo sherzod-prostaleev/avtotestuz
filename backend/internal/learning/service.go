@@ -30,6 +30,10 @@ var ErrInvalidRating = errors.New("invalid rating")
 // question_memory/category_mastery persistence layer.
 type Service struct {
 	Q *sqlc.Queries
+	// PassRates memoises the global pass-rate histogram Stats needs. Nil is
+	// valid and means "read it live every time", which is what every caller
+	// that has not installed one does. See PassRateCache.
+	PassRates *PassRateCache
 }
 
 // NewService constructs a Service backed by the given sqlc queries.
@@ -301,7 +305,7 @@ func (s *Service) estimatePass(ctx context.Context, readiness int) (PassEstimate
 	if bucket > 90 {
 		bucket = 90
 	}
-	rows, err := s.Q.PassRateByReadinessBucket(ctx)
+	rows, err := s.PassRates.get(ctx, s.Q.PassRateByReadinessBucket)
 	if err != nil {
 		return PassEstimate{}, err
 	}

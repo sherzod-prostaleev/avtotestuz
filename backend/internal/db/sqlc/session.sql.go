@@ -351,6 +351,47 @@ func (q *Queries) GetExamSession(ctx context.Context, id uuid.UUID) (ExamSession
 	return i, err
 }
 
+const getExamSessionForUpdate = `-- name: GetExamSessionForUpdate :one
+SELECT id, profile_id, mode, variant_id, category_id, sign_id, locale, time_limit_sec, errors_allowed, started_at, finished_at, status, score, total, stopped_reason, readiness_pct_at_finish, ordered_from FROM exam_session WHERE id = $1 FOR UPDATE
+`
+
+// Locks the session row and returns it in one round trip.
+//
+// SubmitAnswer and FinishSession both have to serialise every mutation of one
+// session -- that is what stops an answer landing after a concurrent finish,
+// and what makes the duplicate-answer check ahead of the FSRS/streak writes
+// reliable. Both used to spend two statements on it, `SELECT id ... FOR
+// UPDATE` followed by GetExamSession, which is two waits on the network and
+// on the server's own scheduling for a row already in hand after the first.
+//
+// One statement, same lock. Answering is the busiest endpoint in the product,
+// and every round trip removed from it is one fewer place for a slow moment
+// on the host to land inside a transaction that is holding a row lock.
+func (q *Queries) GetExamSessionForUpdate(ctx context.Context, id uuid.UUID) (ExamSession, error) {
+	row := q.db.QueryRow(ctx, getExamSessionForUpdate, id)
+	var i ExamSession
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.Mode,
+		&i.VariantID,
+		&i.CategoryID,
+		&i.SignID,
+		&i.Locale,
+		&i.TimeLimitSec,
+		&i.ErrorsAllowed,
+		&i.StartedAt,
+		&i.FinishedAt,
+		&i.Status,
+		&i.Score,
+		&i.Total,
+		&i.StoppedReason,
+		&i.ReadinessPctAtFinish,
+		&i.OrderedFrom,
+	)
+	return i, err
+}
+
 const getLimitConfig = `-- name: GetLimitConfig :one
 SELECT key, free_value, vip_value, updated_at, updated_by FROM limit_config WHERE key = $1
 `

@@ -1,0 +1,33 @@
+-- CountPracticeAnswersToday asks how many practice answers one profile has
+-- recorded since midnight. Every index session_answer had was keyed by
+-- something else -- (session_id, question_id) for the primary key, question_id,
+-- answer_id, and a partial (answered_at) WHERE is_correct that belongs to the
+-- leaderboard and cannot serve a query with no is_correct in it. So the only
+-- plan available was a sequential scan of the whole table, and the whole table
+-- is every answer anyone has ever submitted: 206k rows and 1.8 seconds in
+-- production when this was written, growing by roughly 6,300 rows a day and
+-- never shrinking.
+--
+-- That query runs on GET /me/practice-allowance, which the practice picker
+-- loads, and on POST /sessions when a practice session starts -- so the cost
+-- of every answer ever given was being paid again each time a learner opened
+-- the practice screen.
+--
+-- (session_id, answered_at) is the pair that lets the planner start from the
+-- profile instead of from the table. exam_session_profile_idx yields this
+-- profile's sessions, and each one is then an index-only probe for "any answer
+-- since midnight". Measured in production: 23,072 buffers and 1797 ms became
+-- 232 buffers and 1.1 ms, with Heap Fetches: 0.
+--
+-- The alternative, a plain (answered_at), was measured too: 1,379 buffers and
+-- 37 ms. It loses because its cost is the number of answers everyone gave
+-- today, so it grows with the whole platform's traffic, while this one is
+-- bounded by the single profile's own session count.
+--
+-- Production already carries this index: it was built there with CREATE INDEX
+-- CONCURRENTLY, which does not lock out writes, before this migration shipped.
+-- IF NOT EXISTS is what makes that a no-op here rather than a second build --
+-- and a migration that cannot fail is a migration that cannot stop the API
+-- from starting, since cmd/api treats a failed migration as fatal.
+CREATE INDEX IF NOT EXISTS session_answer_session_answered_idx
+  ON session_answer (session_id, answered_at);

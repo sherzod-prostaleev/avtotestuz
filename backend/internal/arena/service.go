@@ -644,6 +644,7 @@ func (s *Service) FinishPersist(ctx context.Context, m *Match, da, db int) error
 	var learningSvc *learning.Service
 	if s.Learning != nil {
 		learningSvc = learning.NewService(q)
+		learningSvc.PassRates = s.Learning.PassRates
 	}
 	for i, qid := range m.questions {
 		for _, pid := range []uuid.UUID{m.a, m.b} {

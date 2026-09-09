@@ -54,6 +54,14 @@ func NewService(q *sqlc.Queries, pool *pgxpool.Pool, b billing.Service, l *learn
 // enablement semantics (notably Billing in tests).
 func (s *Service) transactional(q *sqlc.Queries) *Service {
 	l := learning.NewService(q)
+	// The pass-rate histogram is global and its cache is process-wide, so the
+	// transaction-scoped Service shares the one the request-scoped Service
+	// holds. Without this, finishInternal's readiness snapshot would be the
+	// one caller still running the full exam_session scan on every answer
+	// that ends an exam.
+	if s.Learning != nil {
+		l.PassRates = s.Learning.PassRates
+	}
 	p := progress.NewService(q)
 	p.Learning = l
 	if s.Progress != nil && s.Progress.Billing.Q != nil {
@@ -494,17 +502,14 @@ func (s *Service) SubmitAnswer(ctx context.Context, profileID, sessionID, questi
 	// Serialize every answer/finish mutation for one session. This prevents an
 	// answer from being inserted after a concurrent finish and makes the
 	// duplicate-answer check reliable before any FSRS/streak side effect.
-	var lockedID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM exam_session WHERE id = $1 FOR UPDATE`, sessionID).Scan(&lockedID); err != nil {
+	// Locking and reading are one statement: see GetExamSessionForUpdate.
+	q := sqlc.New(tx)
+	txSvc := s.transactional(q)
+	row, err := q.GetExamSessionForUpdate(ctx, sessionID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return AnswerResult{}, ErrNotFound
 		}
-		return AnswerResult{}, err
-	}
-	q := sqlc.New(tx)
-	txSvc := s.transactional(q)
-	row, err := q.GetExamSession(ctx, sessionID)
-	if err != nil {
 		return AnswerResult{}, err
 	}
 	if row.ProfileID != profileID {
@@ -802,16 +807,12 @@ func (s *Service) FinishSession(ctx context.Context, profileID, sessionID uuid.U
 		return FinishResult{}, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	var lockedID uuid.UUID
-	if err := tx.QueryRow(ctx, `SELECT id FROM exam_session WHERE id = $1 FOR UPDATE`, sessionID).Scan(&lockedID); err != nil {
+	q := sqlc.New(tx)
+	row, err := q.GetExamSessionForUpdate(ctx, sessionID)
+	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return FinishResult{}, ErrNotFound
 		}
-		return FinishResult{}, err
-	}
-	q := sqlc.New(tx)
-	row, err := q.GetExamSession(ctx, sessionID)
-	if err != nil {
 		return FinishResult{}, err
 	}
 	if row.ProfileID != profileID {

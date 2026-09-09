@@ -203,6 +203,21 @@ CROSS JOIN (SELECT count(*) FROM assigned) persisted;
 -- name: GetExamSession :one
 SELECT * FROM exam_session WHERE id = $1;
 
+-- name: GetExamSessionForUpdate :one
+-- Locks the session row and returns it in one round trip.
+--
+-- SubmitAnswer and FinishSession both have to serialise every mutation of one
+-- session -- that is what stops an answer landing after a concurrent finish,
+-- and what makes the duplicate-answer check ahead of the FSRS/streak writes
+-- reliable. Both used to spend two statements on it, `SELECT id ... FOR
+-- UPDATE` followed by GetExamSession, which is two waits on the network and
+-- on the server's own scheduling for a row already in hand after the first.
+--
+-- One statement, same lock. Answering is the busiest endpoint in the product,
+-- and every round trip removed from it is one fewer place for a slow moment
+-- on the host to land inside a transaction that is holding a row lock.
+SELECT * FROM exam_session WHERE id = $1 FOR UPDATE;
+
 -- name: FinishExamSession :one
 UPDATE exam_session
 SET finished_at = now(),

@@ -20,10 +20,12 @@ import (
 	"avtotest.uz/backend/internal/db"
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/events"
+	"avtotest.uz/backend/internal/learning"
 	"avtotest.uz/backend/internal/progress"
 	"avtotest.uz/backend/internal/redisx"
 	"avtotest.uz/backend/internal/sentryx"
 	"avtotest.uz/backend/internal/server"
+	"avtotest.uz/backend/internal/session"
 )
 
 func main() {
@@ -96,6 +98,12 @@ func main() {
 	// drops an event, and this never touches one.
 	go events.RunRetentionWorker(ctx, events.NewService(sqlc.New(pool), pool), logger)
 	go billing.RunManualExpireWorker(ctx, billing.Service{Q: sqlc.New(pool)}, logger)
+	// An exam whose clock ran out cannot be resumed, but nothing closed it
+	// either: it stayed 'in_progress' for good, showing in the learner's
+	// history as still running. Untimed sessions -- practice, variant, review,
+	// mistakes -- are outside this sweep and stay open, because reopening them
+	// where the class stopped is the feature. See ExpireTimedOutSessions.
+	go session.RunExpiryWorker(ctx, newExpirySessionService(pool), logger)
 	if broadcastSvc != nil {
 		go broadcast.RunWorker(ctx, broadcastSvc, logger)
 	}
@@ -153,6 +161,23 @@ func main() {
 	}
 	_ = srv.Shutdown(shutdownCtx)
 	logger.Info("stopped")
+}
+
+// newExpirySessionService builds the session service the expiry worker runs
+// on. It is its own instance, like every other worker's, rather than the one
+// the router holds.
+//
+// The pass-rate cache is not optional here: finishing an exam takes a
+// readiness snapshot, and one sweep finishes up to expirySweepLimit of them.
+// Without the cache that would be one full scan of exam_session per session
+// closed, which is the very cost this sweep exists to stop growing.
+func newExpirySessionService(pool *pgxpool.Pool) *session.Service {
+	q := sqlc.New(pool)
+	learningSvc := learning.NewService(q)
+	learningSvc.PassRates = learning.NewPassRateCache(learning.DefaultPassRateTTL)
+	progressSvc := progress.NewService(q)
+	progressSvc.Learning = learningSvc
+	return session.NewService(q, pool, billing.Service{Q: q}, learningSvc, progressSvc)
 }
 
 func maintainEventPartitions(ctx context.Context, pool *pgxpool.Pool, logger *zap.Logger) {
