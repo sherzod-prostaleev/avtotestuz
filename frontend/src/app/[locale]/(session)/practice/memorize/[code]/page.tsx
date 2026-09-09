@@ -11,6 +11,7 @@ import { useMemorize } from "@/hooks/use-memorize";
 import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
+import { readSessionOrigin } from "@/lib/session-origin";
 
 export interface MemorizePageProps {
   // Reused as-is under the login-free kiosk
@@ -39,6 +40,14 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
   const activeChipRef = useRef<HTMLButtonElement | null>(null);
 
   const practiceHref = `/${locale}/${kiosk ? "station/practice" : "practice"}`;
+  // Yodlash is opened from a topic card, but a learner can also reach the topic
+  // list from several places — go back where they actually came from, and fall
+  // back to the topic list when the tab has no record of it.
+  const [backHref, setBackHref] = useState(practiceHref);
+  useEffect(() => {
+    const origin = readSessionOrigin();
+    if (origin) setBackHref(origin);
+  }, []);
 
   // Keep the active chip in view while advancing through a long topic on
   // mobile — same behaviour the live session runner has.
@@ -143,7 +152,7 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
           size="sm"
           className="h-9 min-h-9 gap-1 rounded-lg border-border px-2.5 text-xs font-extrabold transition-transform active:scale-95 sm:h-11 sm:min-h-11 sm:rounded-xl sm:px-4 sm:text-sm"
           aria-label={sessionT("exit")}
-          onClick={() => router.push(practiceHref)}
+          onClick={() => router.push(backHref)}
         >
           <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{sessionT("exit")}</span>

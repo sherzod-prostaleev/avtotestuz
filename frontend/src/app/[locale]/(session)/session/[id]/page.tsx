@@ -42,6 +42,7 @@ import {
   upcomingQuestionImageUrls,
 } from "@/lib/question-image";
 import { AUTO_ADVANCE_MS, hasAnswer, nextUnansweredIndex } from "@/lib/session-navigation";
+import { readSessionOrigin } from "@/lib/session-origin";
 
 function ExamChunkFallback() {
   return (
@@ -131,6 +132,15 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   const exitHref = `/${locale}/${kiosk ? "station" : "dashboard"}`;
   const kioskTickets = `/${locale}/${kiosk ? "station/tickets" : "tickets"}`;
   const kioskPractice = `/${locale}/${kiosk ? "station/practice" : "practice"}`;
+  // Leaving a session returns to the hub it was opened from — the ticket list,
+  // the topic list, signs, stats — not to the home screen. Read once on mount
+  // so it cannot shift under the learner mid-session; falls back to the home
+  // screen when the tab has no record (a reload straight onto a session URL).
+  const [backHref, setBackHref] = useState(exitHref);
+  useEffect(() => {
+    const origin = readSessionOrigin();
+    if (origin) setBackHref(origin);
+  }, []);
   const { session, loading, submitting, error, loadSession, submitAnswer, finishSession } =
     useSessionEngine(sessionId);
 
@@ -779,7 +789,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         }
         submitting={submitting}
         finishing={finishing}
-        exitHref={exitHref}
+        exitHref={backHref}
       />
     );
   }
@@ -800,7 +810,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
             // interruption that was never there before — leave straight away.
             onClick={() =>
               kiosk || !isExamLikeMode(session.mode)
-                ? router.push(exitHref)
+                ? router.push(backHref)
                 : setExitConfirmOpen(true)
             }
           >
@@ -1110,7 +1120,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
                   variant="destructive"
                   onClick={() => {
                     setExitConfirmOpen(false);
-                    router.push(exitHref);
+                    router.push(backHref);
                   }}
                   className="transition-transform active:scale-95"
                 >

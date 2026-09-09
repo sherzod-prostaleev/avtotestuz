@@ -12,6 +12,7 @@ import {
 import * as apiClient from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics-events";
 import { QUESTION_IMAGE_PLACEHOLDER } from "@/lib/question-image";
+import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -121,6 +122,7 @@ function isKioskReachable(target: string): boolean {
 
 describe("SessionPage secure session flow", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     vi.restoreAllMocks();
     navigation.push.mockReset();
     navigation.replace.mockReset();
@@ -656,6 +658,7 @@ describe("SessionPage secure session flow", () => {
 // celebration's dashboard button, and the locale switcher.
 describe("SessionPage kiosk mode", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     vi.restoreAllMocks();
     navigation.push.mockReset();
     navigation.replace.mockReset();
@@ -674,6 +677,23 @@ describe("SessionPage kiosk mode", () => {
     expect(navigation.push).toHaveBeenCalledTimes(1);
     const target = navigation.push.mock.calls[0][0] as string;
     expect(target).toBe("/uz-Latn/station");
+    expect(isKioskReachable(target)).toBe(true);
+  });
+
+  // Drilling bilet 12 out of /station/tickets and leaving it used to drop a
+  // walk-up student on the station home, losing their place in the list.
+  it("returns to the kiosk hub the session was opened from", async () => {
+    window.sessionStorage.setItem(SESSION_ORIGIN_KEY, "/uz-Latn/station/tickets");
+    mockEngine(activeSession());
+    renderKioskPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Chiqish" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Chiqish" }));
+
+    const target = navigation.push.mock.calls[0][0] as string;
+    expect(target).toBe("/uz-Latn/station/tickets");
     expect(isKioskReachable(target)).toBe(true);
   });
 

@@ -5,6 +5,7 @@ import messages from "../../../../../../../messages/uz-Latn.json";
 import MemorizePage from "./page";
 import { useMemorize } from "@/hooks/use-memorize";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
+import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn() }));
 
@@ -45,8 +46,29 @@ const mockUseMemorize = vi.mocked(useMemorize);
 
 describe("MemorizePage", () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     navigation.push.mockReset();
     mockUseMemorize.mockReset();
+  });
+
+  it("exits back to the hub the learner opened Yodlash from", async () => {
+    window.sessionStorage.setItem(SESSION_ORIGIN_KEY, "/uz-Latn/dashboard");
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Chiqish" })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Chiqish" }));
+    expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/dashboard");
+  });
+
+  it("falls back to the topic list when the tab remembers no hub", async () => {
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Chiqish" }));
+    expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/practice");
   });
 
   it("shows a loading state while the topic is fetched", () => {
