@@ -36,6 +36,16 @@ describe("pickMessages", () => {
     expect(pickMessages(uzLatn, APP_NAMESPACES).ExamPicker).toEqual(uzLatn.ExamPicker);
   });
 
+  // /practice/memorize/[code] and /station/practice/memorize/[code] render
+  // the same MemorizePage. Left out of a route group's list, this does not
+  // fail a component test — those wrap the full message file — it throws
+  // MISSING_MESSAGE at runtime instead, which is how this was first missed.
+  it("ships the memorize view strings to both shells that render it", () => {
+    expect(APP_NAMESPACES).toContain("Memorize");
+    expect(KIOSK_NAMESPACES).toContain("Memorize");
+    expect(pickMessages(uzLatn, APP_NAMESPACES).Memorize).toEqual(uzLatn.Memorize);
+  });
+
   it("covers chrome namespaces on every route group", () => {
     for (const group of [PUBLIC_NAMESPACES, AUTH_NAMESPACES, APP_NAMESPACES, SESSION_NAMESPACES, ADMIN_NAMESPACES, KIOSK_NAMESPACES]) {
       for (const name of COMMON_NAMESPACES) {

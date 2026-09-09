@@ -46,6 +46,7 @@ const APP_EXTRA = [
   "GrandMock",
   "SessionStart",
   "Session",
+  "Memorize",
 ] as const;
 
 const SESSION_EXTRA = ["Session", "GrandMock", "SessionStart", "Practice", "Saved"] as const;
