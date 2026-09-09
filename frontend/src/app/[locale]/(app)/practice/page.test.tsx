@@ -94,7 +94,7 @@ describe("PracticePage", () => {
     expect(await screen.findByText("Umumiy qoidalar")).toBeInTheDocument();
     expect(apiClient.apiGet).toHaveBeenCalledWith("categories?locale=uz-Latn");
 
-    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]')!);
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]') as HTMLElement);
 
     expect(pushMock).toHaveBeenCalledWith(
       `/uz-Latn/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
@@ -106,7 +106,7 @@ describe("PracticePage", () => {
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
-    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]') as HTMLElement;
     fireEvent.click(within(card).getByRole("button", { name: messages.Practice.memorizeButton }));
 
     expect(pushMock).toHaveBeenCalledTimes(1);
@@ -142,7 +142,7 @@ describe("PracticePage", () => {
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
-    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]') as HTMLElement;
     expect(within(card).getByText(messages.Practice.sectionGeneralRulesDuties)).toBeInTheDocument();
     // The topic number shows in both of the card's bodies (phone and wide).
     expect(within(card).getAllByText("1")).toHaveLength(2);
@@ -268,7 +268,7 @@ describe("PracticePage kiosk mode", () => {
     renderKiosk();
     await screen.findByText("Umumiy qoidalar");
 
-    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]')!);
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]') as HTMLElement);
 
     expect(pushMock).toHaveBeenCalledWith(
       `/uz-Latn/station/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
@@ -281,7 +281,7 @@ describe("PracticePage kiosk mode", () => {
     renderKiosk();
     await screen.findByText("Umumiy qoidalar");
 
-    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]') as HTMLElement;
     fireEvent.click(within(card).getByRole("button", { name: messages.Practice.memorizeButton }));
 
     expect(pushMock).toHaveBeenCalledWith("/uz-Latn/station/practice/memorize/general_rules");
