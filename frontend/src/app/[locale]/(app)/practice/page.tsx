@@ -17,6 +17,7 @@ import {
   CalendarClock,
   CheckCircle2,
   Crown,
+  GraduationCap,
   Image as ImageIcon,
   Layers,
   Play,
@@ -321,6 +322,11 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
     );
   };
 
+  const handleMemorizeClick = (catCode: string) => {
+    const base = kiosk ? `/${locale}/station/practice` : `/${locale}/practice`;
+    router.push(`${base}/memorize/${encodeURIComponent(catCode)}`);
+  };
+
   // Ticket and image practice are a single tap: the size *is* the start button.
   // Both stay random draws — only "all questions of one topic" is ordered.
   const handleCountClick = (size: number) => {
@@ -585,11 +591,18 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                   const section = SECTION_BY_CODE.get(cat.code);
                   const SectionIcon = section?.icon;
                   return (
-                    <button
+                    <div
                       key={cat.code}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => handleCategoryClick(cat.code)}
-                      className={`surface-raised-sm surface-interactive flex flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          handleCategoryClick(cat.code);
+                        }
+                      }}
+                      className={`surface-raised-sm surface-interactive flex cursor-pointer flex-col justify-between gap-2 rounded-2xl border border-border bg-background p-3 text-left hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                         kiosk ? "min-h-[8.25rem] p-4" : "min-h-[7rem]"
                       }`}
                     >
@@ -661,7 +674,18 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                           {cat.sort_order}
                         </span>
                       </span>
-                    </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleMemorizeClick(cat.code);
+                        }}
+                        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-gold/30 bg-gold/10 px-2 py-1.5 text-[11px] font-bold text-gold transition-colors hover:bg-gold/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      >
+                        <GraduationCap aria-hidden="true" className="h-3.5 w-3.5" />
+                        {t("memorizeButton")}
+                      </button>
+                    </div>
                   );
                 })}
           </div>

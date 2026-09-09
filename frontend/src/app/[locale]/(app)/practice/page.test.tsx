@@ -94,11 +94,23 @@ describe("PracticePage", () => {
     expect(await screen.findByText("Umumiy qoidalar")).toBeInTheDocument();
     expect(apiClient.apiGet).toHaveBeenCalledWith("categories?locale=uz-Latn");
 
-    fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]')!);
 
     expect(pushMock).toHaveBeenCalledWith(
       `/uz-Latn/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
     );
+  });
+
+  it("opens memorize mode from a topic card without also starting a practice session", async () => {
+    mockEndpoints();
+    renderWithIntl();
+    await screen.findByText("Umumiy qoidalar");
+
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
+    fireEvent.click(within(card).getByRole("button", { name: messages.Practice.memorizeButton }));
+
+    expect(pushMock).toHaveBeenCalledTimes(1);
+    expect(pushMock).toHaveBeenCalledWith("/uz-Latn/practice/memorize/general_rules");
   });
 
   it("shows the real question count for each category", async () => {
@@ -130,7 +142,7 @@ describe("PracticePage", () => {
     renderWithIntl();
     await screen.findByText("Umumiy qoidalar");
 
-    const card = screen.getByText("Umumiy qoidalar").closest("button")!;
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
     expect(within(card).getByText(messages.Practice.sectionGeneralRulesDuties)).toBeInTheDocument();
     // The topic number shows in both of the card's bodies (phone and wide).
     expect(within(card).getAllByText("1")).toHaveLength(2);
@@ -256,11 +268,23 @@ describe("PracticePage kiosk mode", () => {
     renderKiosk();
     await screen.findByText("Umumiy qoidalar");
 
-    fireEvent.click(screen.getByText("Umumiy qoidalar").closest("button")!);
+    fireEvent.click(screen.getByText("Umumiy qoidalar").closest('[role="button"]')!);
 
     expect(pushMock).toHaveBeenCalledWith(
       `/uz-Latn/station/session/start?mode=practice&count=${VARIANT_QUESTIONS}&category_id=general_rules&ordered=true`
     );
+    expect(isKioskReachable(pushMock.mock.calls[0][0])).toBe(true);
+  });
+
+  it("opens memorize mode on a kiosk-reachable route", async () => {
+    mockEndpoints();
+    renderKiosk();
+    await screen.findByText("Umumiy qoidalar");
+
+    const card = screen.getByText("Umumiy qoidalar").closest('[role="button"]')!;
+    fireEvent.click(within(card).getByRole("button", { name: messages.Practice.memorizeButton }));
+
+    expect(pushMock).toHaveBeenCalledWith("/uz-Latn/station/practice/memorize/general_rules");
     expect(isKioskReachable(pushMock.mock.calls[0][0])).toBe(true);
   });
 });
