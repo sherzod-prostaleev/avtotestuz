@@ -68,3 +68,10 @@ station*.log
 /*_REPORT.md
 /*_SUMMARY.txt
 /*_SUMMARY.md
+
+# Marketing renders (Instagram reels, ads, quiz cards) that the content
+# scripts write next to the code. Product runtime lives in frontend/ and
+# backend/; these are a few hundred MB of video and images that belong in
+# neither git nor a deploy. Also excluded from the VPS rsync — see
+# deploy/rsync-exclude.txt.
+/output/

@@ -7,11 +7,11 @@ import { useMemorize } from "@/hooks/use-memorize";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
 import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
 
-const navigation = vi.hoisted(() => ({ push: vi.fn() }));
+const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ code: "signs" }),
-  useRouter: () => ({ push: navigation.push }),
+  useRouter: () => ({ push: navigation.push, replace: navigation.replace }),
 }));
 
 vi.mock("@/hooks/use-memorize", () => ({ useMemorize: vi.fn() }));
@@ -48,6 +48,7 @@ describe("MemorizePage", () => {
   beforeEach(() => {
     window.sessionStorage.clear();
     navigation.push.mockReset();
+    navigation.replace.mockReset();
     mockUseMemorize.mockReset();
   });
 
@@ -123,6 +124,110 @@ describe("MemorizePage", () => {
 
     fireEvent.click(within(navigator).getByRole("button", { name: /^3-savol/ }));
     expect(await screen.findByText("Savol 3 / 3")).toBeInTheDocument();
+  });
+
+  // A classroom PC is driven from the keyboard, not by tapping chips: the live
+  // test screen walks the list with the arrow keys, and Yodlash has to as well.
+  it("walks the topic with the left and right arrow keys", async () => {
+    mockUseMemorize.mockReturnValue({
+      questions: [
+        question({ id: "q-1" }),
+        question({ id: "q-2", correct_answer_id: "a-1" }),
+        question({ id: "q-3", correct_answer_id: "a-1" }),
+      ],
+      loading: false,
+      error: null,
+    });
+    renderPage();
+
+    expect(await screen.findByText("Savol 1 / 3")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 2 / 3")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 3 / 3")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(await screen.findByText("Savol 2 / 3")).toBeInTheDocument();
+  });
+
+  // The arrows walk questions; they must never run off either end — least of
+  // all into the finished screen, which Keyingisi alone is allowed to open.
+  it("keeps the arrow keys inside the topic at both ends", async () => {
+    mockUseMemorize.mockReturnValue({
+      questions: [question({ id: "q-1" }), question({ id: "q-2", correct_answer_id: "a-1" })],
+      loading: false,
+      error: null,
+    });
+    renderPage();
+
+    expect(await screen.findByText("Savol 1 / 2")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(await screen.findByText("Savol 1 / 2")).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 2 / 2")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 2 / 2")).toBeInTheDocument();
+    expect(screen.queryByText(messages.Memorize.finishedTitle)).not.toBeInTheDocument();
+  });
+
+  it("leaves the arrow keys to the browser while a dialog is open", async () => {
+    mockUseMemorize.mockReturnValue({
+      questions: [question({ id: "q-1" }), question({ id: "q-2", correct_answer_id: "a-1" })],
+      loading: false,
+      error: null,
+    });
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: messages.Session.zoomImage }));
+    expect(await screen.findByRole("dialog", { name: messages.Session.zoomDialog })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 1 / 2")).toBeInTheDocument();
+
+    // Escape closes the zoom, exactly like the live test screen.
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: messages.Session.zoomDialog })).not.toBeInTheDocument()
+    );
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 2 / 2")).toBeInTheDocument();
+  });
+
+  // On a kiosk this is the only language control on the screen — KioskChrome's
+  // floating bar steps aside for Yodlash rather than covering its header.
+  it("switches language from the header without leaving the topic", async () => {
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    renderPage();
+
+    const picker = await screen.findByLabelText(messages.Session.language);
+    fireEvent.change(picker, { target: { value: "ru" } });
+    expect(navigation.replace).toHaveBeenCalledWith("/ru/practice/memorize/signs");
+  });
+
+  it("keeps a kiosk language switch inside /station", async () => {
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    renderPage(true);
+
+    fireEvent.change(await screen.findByLabelText(messages.Session.language), {
+      target: { value: "uz-Cyrl" },
+    });
+    expect(navigation.replace).toHaveBeenCalledWith("/uz-Cyrl/station/practice/memorize/signs");
+  });
+
+  it("leaves the arrow keys to the language picker while it has focus", async () => {
+    mockUseMemorize.mockReturnValue({
+      questions: [question({ id: "q-1" }), question({ id: "q-2", correct_answer_id: "a-1" })],
+      loading: false,
+      error: null,
+    });
+    renderPage();
+
+    const picker = await screen.findByLabelText(messages.Session.language);
+    fireEvent.keyDown(picker, { key: "ArrowRight" });
+    expect(await screen.findByText("Savol 1 / 2")).toBeInTheDocument();
   });
 
   it("sends a non-VIP user to premium on vip_required", () => {

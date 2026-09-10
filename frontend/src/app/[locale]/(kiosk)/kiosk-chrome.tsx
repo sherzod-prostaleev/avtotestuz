@@ -30,7 +30,15 @@ export function KioskChrome() {
   // already owns. /station/session/start is the ordinary pre-exam page and
   // keeps the chrome — that is the last screen where picking a language is
   // still free.
-  if (/\/station\/session\/(?!start(?:\/|$))/.test(pathname)) return null;
+  //
+  // Yodlash (/station/practice/memorize/<topic>) is the same kind of screen:
+  // the same full-viewport session shell with its own header row. It was left
+  // out of this rule when it shipped, and on a classroom TV the floating bar
+  // landed squarely on the "Yodlash" badge. Its header carries the same
+  // language control the session runner does, so nothing is lost by stepping
+  // aside. /station/practice itself is the ordinary topic list and keeps the
+  // chrome.
+  if (/\/station\/(session|practice\/memorize)\/(?!start(?:\/|$))/.test(pathname)) return null;
 
   return (
     <div

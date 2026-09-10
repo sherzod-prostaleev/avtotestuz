@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { startTransition, useEffect, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useParams, useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight, LoaderCircle, X } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { locales } from "@/i18n/config";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useMemorize } from "@/hooks/use-memorize";
@@ -65,6 +66,46 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
   };
   const goPrev = () => goTo(Math.max(0, currentIndex - 1));
   const goNext = () => goTo(Math.min(questions.length, currentIndex + 1));
+
+  // A classroom PC is driven from the keyboard, and the live test screen walks
+  // its questions with the arrow keys (see session/[id]/page.tsx). Yodlash
+  // shipped without them, which left a mouse as the only way through a topic
+  // that can run past a hundred questions.
+  //
+  // Unlike Keyingisi, the right arrow stops at the last question instead of
+  // opening the finished screen: ending a topic should stay a deliberate press,
+  // not something an extra keystroke does behind the learner.
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape" && zoomImageUrl) {
+        setZoomImageUrl(null);
+        return;
+      }
+      // An open dialog owns the keyboard — including its own Escape handling.
+      if (zoomImageUrl || explanationOpen) return;
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      // Arrows belong to the language picker while it has focus; stealing them
+      // would change the question and the language on one keypress.
+      const target = event.target as HTMLElement | null;
+      if (target && /^(SELECT|INPUT|TEXTAREA)$/.test(target.tagName)) return;
+
+      if (event.key === "ArrowLeft" && currentIndex > 0) {
+        event.preventDefault();
+        goTo(currentIndex - 1);
+        return;
+      }
+      if (event.key === "ArrowRight" && currentIndex < questions.length - 1) {
+        event.preventDefault();
+        goTo(currentIndex + 1);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+    // goTo is left out on purpose: it is re-made every render and only calls
+    // two stable setters, so listing it would rebind the listener constantly
+    // without changing what a keypress does.
+  }, [currentIndex, explanationOpen, questions.length, zoomImageUrl]);
 
   if (error) {
     let destination = practiceHref;
@@ -157,9 +198,35 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
           <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
           <span>{sessionT("exit")}</span>
         </Button>
-        <span className="truncate rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent sm:px-3 sm:py-1.5 sm:text-xs">
-          {practiceT("memorizeButton")}
-        </span>
+        <div className="flex min-w-0 items-center gap-1.5 sm:gap-2">
+          <span className="truncate rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent sm:px-3 sm:py-1.5 sm:text-xs">
+            {practiceT("memorizeButton")}
+          </span>
+
+          {/* The live test screen keeps its language control in this row, and on
+              a kiosk that is the only one there is: KioskChrome's floating bar
+              steps aside for this screen rather than covering the header. */}
+          <label className="sr-only" htmlFor="memorize-locale">
+            {sessionT("language")}
+          </label>
+          <select
+            id="memorize-locale"
+            value={locale}
+            onChange={(event) => {
+              const next = event.target.value;
+              startTransition(() => {
+                router.replace(`/${next}/${kiosk ? "station/practice" : "practice"}/memorize/${code}`);
+              });
+            }}
+            className="h-9 min-w-[3.75rem] shrink-0 rounded-lg border border-border bg-background px-1.5 text-[11px] font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-11 sm:min-w-[4.5rem] sm:rounded-xl sm:px-2 sm:text-xs"
+          >
+            {locales.map((item) => (
+              <option key={item} value={item}>
+                {item === "uz-Latn" ? "O‘z" : item === "uz-Cyrl" ? "Ўз" : "Ru"}
+              </option>
+            ))}
+          </select>
+        </div>
       </header>
 
       <Card className="session-content-card flex min-h-0 flex-1 flex-col gap-1 overflow-hidden p-1.5 sm:gap-3 sm:p-5">
@@ -181,8 +248,12 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
       </Card>
 
       <footer className="session-actions flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:rounded-2xl sm:p-2.5 shadow-raised-sm">
+        {/* One scrolling row, not the live test screen's wrapping grid — a topic
+            carries its whole question list, so the grid would own a third of the
+            screen. See .session-chip-strip. The vertical padding is what keeps
+            the active chip's ring and scale-up from being shaved off. */}
         <nav
-          className="session-navigator flex flex-wrap items-center justify-center gap-1 sm:gap-1.5 max-h-24 sm:max-h-36 overflow-y-auto px-1 py-0.5"
+          className="session-navigator session-chip-strip flex items-center gap-1 sm:gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1"
           aria-label={sessionT("questionNavigator")}
         >
           {questions.map((question, index) => {

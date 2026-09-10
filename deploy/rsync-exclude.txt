@@ -70,3 +70,9 @@ backend/station/cmd/avtotest-station/rsrc_windows_amd64.syso
 # classroom PC. rsync copies the working tree, not git, so .gitignore does not
 # stop it -- and a driving school's log has no business on the production VPS.
 station*.log
+
+# Marketing renders (Instagram reels, ads, quiz cards) written next to the
+# code. Same reasoning as station*.log: rsync copies the working tree, so
+# .gitignore alone would still have shipped a few hundred MB of video to the
+# VPS. Anchored to the repo root -- an output/ inside a build tool stays.
+/output/

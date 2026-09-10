@@ -1003,6 +1003,36 @@
   height: 100vh;
   height: 100dvh;
 }
+/* Yodlash's chip strip — one sideways-scrolling row instead of the live test
+   screen's wrapping chip grid.
+   A topic hands back its whole question list (session.CategoryMemorize takes no
+   limit; the biggest categories run past a hundred) where a bilet has twenty,
+   so the same wrapping grid grew to five rows, pinned the footer at a third of
+   a classroom TV and squeezed the answers until the last one was cut in half.
+   One row costs the same height for an 8-question topic and a 200-question one,
+   and the active chip is kept centred by scrollIntoView.
+   `safe center` centres a strip that fits but falls back to the start edge once
+   it overflows, so question 1 stays reachable — plain `center` strands the
+   overflow outside the scroll origin, unreachable in either direction. The
+   plain value is declared first so a browser without the keyword drops only
+   the second line and still gets a usable strip. */
+.session-chip-strip {
+  justify-content: flex-start;
+  justify-content: safe center;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+.session-chip-strip::-webkit-scrollbar {
+  height: 6px;
+}
+.session-chip-strip::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: hsl(var(--border));
+}
+.session-chip-strip::-webkit-scrollbar-track {
+  background: transparent;
+}
 .session-question-image {
   display: flex;
   align-items: center;
