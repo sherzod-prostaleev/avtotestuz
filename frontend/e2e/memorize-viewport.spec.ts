@@ -150,7 +150,10 @@ async function layoutMetrics(page: Page) {
       footerHeight: footerRect.height,
       navBottom: navRect.bottom,
       navHeight: navRect.height,
-      // A wrapped chip grid scrolls vertically; the single strip must not.
+      // Nothing may run off the side. A number the learner has to drag into
+      // view is a number they do not know is there.
+      navHorizontalOverflow: navigator.scrollWidth - navigator.clientWidth,
+      // On a screen with room, every number is on screen: no hidden rows.
       navVerticalOverflow: navigator.scrollHeight - navigator.clientHeight,
       // How much of the answer list is cut off — the half-visible options.
       answersClipped: answers.scrollHeight - answers.clientHeight,
@@ -206,9 +209,44 @@ test.describe("memorize viewport fit", () => {
       expect(metrics.navBottom).toBeLessThanOrEqual(screen.height + 1);
 
       // The regression that shipped second: a whole topic's worth of chips
-      // wrapping into rows until they owned a third of the screen.
-      expect(metrics.navVerticalOverflow).toBeLessThanOrEqual(1);
+      // wrapping into rows until they owned a third of the screen. The cells
+      // shrink instead, so the footer stays a footer.
       expect(metrics.footerHeight).toBeLessThanOrEqual(screen.height * 0.25);
+
+      // The regression that shipped third, fixing the second: the chips became
+      // one sideways-scrolling row, so the last numbers were off the edge. They
+      // wrap and stay put, the way the live test screen's do.
+      expect(metrics.navHorizontalOverflow).toBeLessThanOrEqual(1);
+    });
+  }
+
+  // A screen with room shows every number at once — the exam view's rule for
+  // its fifty ("0 scroll, 0 dangling items"), held to for a topic's hundred-plus.
+  // A phone cannot: a hundred numbers at a tappable size do not fit any handset,
+  // so there the grid scrolls vertically under a cap, exactly as the live test
+  // screen's navigator does.
+  for (const screen of BIG_SCREENS) {
+    test(`${screen.name} shows every question number without scrolling`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width: screen.width, height: screen.height });
+      await seedSession(page, baseURL);
+      await stubApi(page);
+      await page.goto("/uz-Latn/practice/memorize/signs");
+      await expect(page.getByTestId("question-stage")).toBeVisible();
+
+      const metrics = await layoutMetrics(page);
+      await test.info().attach("memorize-chips", {
+        body: JSON.stringify({ screen, metrics }, null, 2),
+        contentType: "application/json",
+      });
+
+      expect(metrics.navVerticalOverflow).toBeLessThanOrEqual(1);
+      expect(metrics.navHorizontalOverflow).toBeLessThanOrEqual(1);
+
+      // The last chip is the one that fell off the edge, so name it directly.
+      const last = page
+        .getByRole("navigation", { name: "Savollar navigatori" })
+        .getByRole("button", { name: new RegExp(`^${QUESTION_COUNT}-savol`) });
+      await expect(last).toBeInViewport({ ratio: 0.9 });
     });
   }
 

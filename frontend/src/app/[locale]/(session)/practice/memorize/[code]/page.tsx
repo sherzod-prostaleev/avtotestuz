@@ -186,7 +186,7 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
   const currentQuestion = questions[currentIndex];
 
   return (
-    <main className="page-enter-fade session-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3">
+    <main className="page-enter-fade session-shell memorize-shell flex flex-col gap-1 overflow-hidden bg-background px-2 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-[max(0.35rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4 sm:py-3">
       <header className="session-header flex shrink-0 items-center justify-between gap-1.5 rounded-xl border border-border bg-card px-2 py-1.5 sm:gap-3 sm:rounded-2xl sm:p-3">
         <Button
           variant="outline"
@@ -248,12 +248,12 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
       </Card>
 
       <footer className="session-actions flex shrink-0 flex-col gap-2 rounded-xl border border-border bg-card p-2 sm:rounded-2xl sm:p-2.5 shadow-raised-sm">
-        {/* One scrolling row, not the live test screen's wrapping grid — a topic
-            carries its whole question list, so the grid would own a third of the
-            screen. See .session-chip-strip. The vertical padding is what keeps
-            the active chip's ring and scale-up from being shaved off. */}
+        {/* The live test screen's arrangement — wrapped and centred, every
+            number on screen. Only the cell size is tiered, because a topic
+            carries its whole question list; see .session-chip-grid. */}
         <nav
-          className="session-navigator session-chip-strip flex items-center gap-1 sm:gap-1.5 overflow-x-auto overflow-y-hidden px-1 py-1"
+          className="session-navigator session-chip-grid flex flex-wrap items-center justify-center px-1 py-0.5"
+          data-chips={questions.length > 70 ? "packed" : questions.length > 30 ? "dense" : "roomy"}
           aria-label={sessionT("questionNavigator")}
         >
           {questions.map((question, index) => {
@@ -269,7 +269,7 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
                   number: index + 1,
                   status: isCurrent ? sessionT("statusCurrent") : sessionT("statusCorrect"),
                 })}
-                className={`relative flex h-7 w-7 sm:h-8 sm:w-8 md:h-9 md:w-9 shrink-0 items-center justify-center rounded-lg border text-[11px] sm:text-xs md:text-sm tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${
+                className={`session-chip relative flex shrink-0 items-center justify-center rounded-lg border tabular-nums transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:scale-95 ${
                   isCurrent
                     ? "border-accent bg-accent text-accent-foreground ring-2 ring-accent/30 font-black scale-105 shadow-md"
                     : "border-border bg-background text-muted-foreground hover:border-accent/50 hover:text-foreground font-bold"
