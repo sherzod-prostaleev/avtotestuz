@@ -761,10 +761,10 @@ func (h *Handler) resetVariantProgress(w http.ResponseWriter, r *http.Request) {
 		writeSessionError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, variantResetDTO{
-		Cleared:       res.Cleared,
-		UnlockCeiling: res.UnlockCeiling,
-	})
+	// A conversion, not a field-by-field literal: the DTO is the service
+	// result plus JSON tags, so listing the fields again would only create a
+	// second place to forget one. Same shape as listVariantStatuses above.
+	httpx.Data(w, http.StatusOK, variantResetDTO(res))
 }
 
 func writeSessionError(w http.ResponseWriter, err error) {
