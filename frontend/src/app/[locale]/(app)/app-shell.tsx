@@ -6,6 +6,7 @@ import { DemoProgressCapture } from "@/components/demo/demo-progress-capture";
 import { SupportBanner } from "@/components/support/support-banner";
 import { MaintenanceBanner } from "@/components/support/maintenance-banner";
 import { MustChangePasswordGate } from "@/components/auth/must-change-password-gate";
+import { SessionExpiredGate } from "@/components/auth/session-expired-gate";
 import { PageTransition } from "@/components/layout/page-transition";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -13,6 +14,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <MustChangePasswordGate>
       {/* Mobile: column (top bar above content). Desktop: row with fixed sidebar. */}
       <div className="flex min-h-screen w-full flex-col bg-background md:flex-row">
+        {/* MustChangePasswordGate only ever sees the one /me call it makes at
+            mount; this catches a session that dies later, on any request. */}
+        <SessionExpiredGate />
         <ReferralCapture />
         <DemoProgressCapture />
         <Sidebar />

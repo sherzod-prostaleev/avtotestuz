@@ -246,6 +246,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				svc := auth.NewService(deps.Queries, deps.Pool, auth.Limiter{R: deps.Redis},
 					sender, []byte(cfg.JWTSecret), cfg.Env)
 				svc.DebugEcho = cfg.OTPDebugEcho
+				svc.Log = log
 				ah := &auth.Handler{
 					Svc:         svc,
 					ClientIPs:   auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),

@@ -71,12 +71,15 @@ describe("MustChangePasswordGate", () => {
     expect(await screen.findByText("dashboard-ready")).toBeInTheDocument();
   });
 
-  it("sends a 401 to login", async () => {
+  // 401 belongs to SessionExpiredGate alone — see that component's test and
+  // the note on this one about why two redirects raced each other.
+  it("leaves a 401 to SessionExpiredGate", async () => {
     apiGet.mockRejectedValue(new ApiError("unauthorized", "unauthorized", 401));
     renderGate();
+    expect(await screen.findByText("dashboard-ready")).toBeInTheDocument();
     await waitFor(() => {
-      expect(replaceMock).toHaveBeenCalledWith("/uz-Latn/login");
+      expect(apiGet).toHaveBeenCalled();
     });
-    expect(screen.getByText("dashboard-ready")).toBeInTheDocument();
+    expect(replaceMock).not.toHaveBeenCalled();
   });
 });

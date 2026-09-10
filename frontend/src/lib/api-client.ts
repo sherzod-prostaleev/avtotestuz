@@ -1,3 +1,5 @@
+import { notifySessionExpired } from "@/lib/session-expiry";
+
 export class ApiError extends Error {
   code: string;
   status: number;
@@ -33,6 +35,14 @@ async function handleResponse<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const errCode = envelope?.error?.code ?? fallbackCode(res.status);
     const errMessage = envelope?.error?.message ?? `HTTP ${res.status}`;
+    // A 401 here is always terminal: the BFF has already spent the refresh
+    // token (see app/api/proxy/[...path]/route.ts) and cleared the cookies
+    // before it lets this status through, so there is nothing left for the
+    // caller to retry. Announced rather than handled here because the
+    // transport must not know about routing — see @/lib/session-expiry.
+    if (res.status === 401) {
+      notifySessionExpired();
+    }
     throw new ApiError(errMessage, errCode, res.status);
   }
   if (envelope === null) {

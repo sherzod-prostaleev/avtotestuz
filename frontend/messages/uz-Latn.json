@@ -414,6 +414,7 @@
     "backHome": "Bosh sahifaga qaytish",
     "title": "Kirish",
     "subtitle": "Telefon raqam va parol bilan kiring",
+    "sessionExpiredNotice": "Sessiyangiz tugadi. Davom etish uchun qaytadan kiring.",
     "phoneLabel": "Telefon raqam",
     "passwordLabel": "Parol",
     "passwordPlaceholder": "Kamida 8 ta belgi",

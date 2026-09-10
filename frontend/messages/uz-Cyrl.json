@@ -414,6 +414,7 @@
     "backHome": "Бош саҳифага қайтиш",
     "title": "Кириш",
     "subtitle": "Телефон рақам ва парол билан киринг",
+    "sessionExpiredNotice": "Сессиянгиз тугади. Давом этиш учун қайтадан киринг.",
     "phoneLabel": "Телефон рақам",
     "passwordLabel": "Парол",
     "passwordPlaceholder": "Камида 8 та белги",

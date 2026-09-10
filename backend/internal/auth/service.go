@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 )
@@ -62,6 +63,18 @@ type Service struct {
 	AccessTTL  time.Duration
 	RefreshTTL time.Duration
 	CodeTTL    time.Duration
+
+	// Log records the one auth event that costs a learner every device they
+	// own: reuse detection revoking a whole profile. Optional — nil logs
+	// nowhere, which is what the unit tests want.
+	Log *zap.Logger
+}
+
+func (s *Service) logger() *zap.Logger {
+	if s == nil || s.Log == nil {
+		return zap.NewNop()
+	}
+	return s.Log
 }
 
 // NewService builds a Service with production-default TTLs.
@@ -661,6 +674,18 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 				return cached, nil
 			}
 		}
+		// Every device this profile owns is about to be signed out, and until
+		// now that happened without leaving a trace: production showed the
+		// wholesale revokes in refresh_token.revoked_at but nothing said which
+		// token caused one or how stale it was. Those two numbers separate a
+		// genuinely stolen token from a browser that simply never stored a
+		// rotation's Set-Cookie (an aborted fetch, a tab closed mid-flight) —
+		// the difference between a security event and a bug of ours.
+		s.logger().Warn("refresh token reuse: revoking every session for profile",
+			zap.String("profile_id", rt.ProfileID.String()),
+			zap.Duration("token_age", time.Since(rt.CreatedAt.Time)),
+			zap.Duration("revoked_ago", time.Since(rt.RevokedAt.Time)),
+		)
 		if err := s.Q.RevokeAllRefreshTokens(ctx, rt.ProfileID); err != nil {
 			return Tokens{}, err
 		}

@@ -36,9 +36,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
+    // Read the flag off location instead of useSearchParams: that hook opts
+    // the whole page into a client-render bailout at build time, which is a
+    // steep price for one line of reassurance. SessionExpiredGate sets it.
+    try {
+      setSessionExpired(new URLSearchParams(window.location.search).get("expired") === "1");
+    } catch {
+      /* a malformed query string just means no notice */
+    }
   }, []);
 
   async function finishAuth(mustChangePassword: boolean) {
@@ -151,6 +160,18 @@ export default function LoginPage() {
               {t("subtitle")}
             </p>
           </div>
+
+          {/* Someone who was thrown out mid-session arrives here without having
+              asked to; say why. Yields to a real submit error so the form never
+              shows two banners at once. */}
+          {sessionExpired && !error && (
+            <div
+              role="status"
+              className="rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs font-semibold text-foreground"
+            >
+              {t("sessionExpiredNotice")}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">

@@ -132,6 +132,7 @@ func main() {
 			logger.Fatal("otp sender", zap.Error(err))
 		}
 		authSvc := auth.NewService(q, pool, auth.Limiter{R: redisClient}, sender, []byte(cfg.JWTSecret), cfg.Env)
+		authSvc.Log = logger
 		botSvc := &bot.Bot{
 			Link:          linkSvc,
 			Quiz:          quizSvc,

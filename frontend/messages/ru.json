@@ -414,6 +414,7 @@
     "backHome": "Вернуться на главную",
     "title": "Вход",
     "subtitle": "Войдите с номером телефона и паролем",
+    "sessionExpiredNotice": "Сессия завершена. Войдите снова, чтобы продолжить.",
     "phoneLabel": "Номер телефона",
     "passwordLabel": "Пароль",
     "passwordPlaceholder": "Не менее 8 символов",
