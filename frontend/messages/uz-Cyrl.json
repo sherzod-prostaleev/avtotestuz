@@ -528,7 +528,20 @@
     "allDoneTitle": "Ҳаммаси ёпилди",
     "goToPractice": "Мавзуларга ўтиш",
     "ticketQuestionsShort": "{count} савол",
-    "subtitleProgress": "{total} тадан {done} таси ёпилди"
+    "subtitleProgress": "{total} тадан {done} таси ёпилди",
+    "clearAction": "Тозалаш",
+    "clearLabel": "Ишланган билетлар натижасини тозалаш",
+    "clearNothing": "Ҳозирча тозаланадиган натижа йўқ",
+    "clearTitle": "Натижаларни тозалаш",
+    "clearBody": "{count} та билетнинг натижаси ўчирилади ва улар қайтадан «бошланмаган» ҳолатга қайтади.",
+    "clearKeepsLocks": "Очиқ билетлар очиқлигича, ёпиқлари ёпиқлигича қолади.",
+    "clearIrreversible": "Бу амални қайтариб бўлмайди.",
+    "clearConfirm": "Ҳа, тозалаш",
+    "clearCancel": "Бекор қилиш",
+    "clearBusy": "Тозаланмоқда…",
+    "clearDone": "{count} та билетнинг натижаси тозаланди.",
+    "clearError": "Натижаларни тозалаб бўлмади. Қайта уриниб кўринг.",
+    "clearDismiss": "Хабарни ёпиш"
   },
   "Signs": {
     "title": "Йўл белгилари каталоги",

@@ -528,7 +528,20 @@
     "allDoneTitle": "Hammasi yopildi",
     "goToPractice": "Mavzularga o'tish",
     "ticketQuestionsShort": "{count} savol",
-    "subtitleProgress": "{total} tadan {done} tasi yopildi"
+    "subtitleProgress": "{total} tadan {done} tasi yopildi",
+    "clearAction": "Tozalash",
+    "clearLabel": "Ishlangan biletlar natijasini tozalash",
+    "clearNothing": "Hozircha tozalanadigan natija yo'q",
+    "clearTitle": "Natijalarni tozalash",
+    "clearBody": "{count} ta biletning natijasi o'chiriladi va ular qaytadan «boshlanmagan» holatga qaytadi.",
+    "clearKeepsLocks": "Ochiq biletlar ochiqligicha, yopiqlari yopiqligicha qoladi.",
+    "clearIrreversible": "Bu amalni qaytarib bo'lmaydi.",
+    "clearConfirm": "Ha, tozalash",
+    "clearCancel": "Bekor qilish",
+    "clearBusy": "Tozalanmoqda…",
+    "clearDone": "{count} ta biletning natijasi tozalandi.",
+    "clearError": "Natijalarni tozalab bo'lmadi. Qayta urinib ko'ring.",
+    "clearDismiss": "Xabarni yopish"
   },
   "Signs": {
     "title": "Yo'l belgilari katalogi",

@@ -290,6 +290,21 @@ RETURNING *;
 -- name: ListVariantProgressForProfile :many
 SELECT * FROM variant_progress WHERE profile_id = $1;
 
+-- name: DeleteVariantProgressForProfile :execrows
+-- Backs the tickets screen's "Tozalash": every bilet goes back to unstarted.
+-- Only this table -- session history, question_memory, category_mastery and
+-- the streak are deliberately left alone.
+DELETE FROM variant_progress WHERE profile_id = $1;
+
+-- name: RaiseVariantUnlockCeiling :exec
+-- GREATEST, never a plain assignment: the ceiling is a high-water mark, so a
+-- second Tozalash (whose freshly-computed chain is short, because the first
+-- one already emptied variant_progress) can never take back bilets the
+-- learner had already unlocked.
+UPDATE profile
+SET variant_unlock_ceiling = GREATEST(variant_unlock_ceiling, sqlc.arg(ceiling)::int)
+WHERE id = sqlc.arg(profile_id);
+
 -- name: GetVariantByID :one
 SELECT * FROM variant WHERE id = $1;
 

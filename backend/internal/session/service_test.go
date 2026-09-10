@@ -1128,6 +1128,289 @@ func TestBypassVariantProgressUnlocksAllForVIPOnly(t *testing.T) {
 	}
 }
 
+// completeVariantOne walks bilet #1 to a completed_at: the unlock threshold is
+// 10 correct answers, and finishing with that many upserts variant_progress
+// with a completion timestamp. Several reset tests need a chain that has
+// actually advanced, and this is the only way to produce one.
+func completeVariantOne(t *testing.T, q *sqlc.Queries, svc *session.Service, profileID uuid.UUID) {
+	t.Helper()
+	view := startVariantSession(t, q, svc, profileID)
+	for _, qid := range view.QuestionIDs[:10] {
+		correctID := correctAnswerID(t, q, qid)
+		if _, err := svc.SubmitAnswer(context.Background(), profileID, view.ID, qid, correctID, session.SubmitAnswerOpts{}); err != nil {
+			t.Fatalf("submit: %v", err)
+		}
+	}
+	if _, err := svc.FinishSession(context.Background(), profileID, view.ID); err != nil {
+		t.Fatalf("FinishSession: %v", err)
+	}
+}
+
+// TestResetVariantProgressKeepsUnlockedBiletsOpen is the whole point of the
+// feature: "Tozalash" wipes every score while the open/locked split the
+// learner sees does not move.
+func TestResetVariantProgressKeepsUnlockedBiletsOpen(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+
+	before, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses before: %v", err)
+	}
+	if !before[1].Unlocked {
+		t.Fatalf("precondition: #2 must be unlocked after #1 completed: %+v", before[1])
+	}
+
+	res, err := svc.ResetVariantProgress(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+	if res.Cleared != 1 {
+		t.Fatalf("cleared=%d want 1 (only #1 had progress)", res.Cleared)
+	}
+	if res.UnlockCeiling != 2 {
+		t.Fatalf("ceiling=%d want 2 (chain reached #2)", res.UnlockCeiling)
+	}
+
+	after, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses after: %v", err)
+	}
+	for i, s := range after {
+		if s.BestCorrect != 0 || s.Attempts != 0 || s.CompletedAt != nil {
+			t.Fatalf("bilet #%d must be back to unstarted: %+v", i+1, s)
+		}
+	}
+	if !after[0].Unlocked || after[0].LockReason != "" {
+		t.Fatalf("#1 must stay open: %+v", after[0])
+	}
+	if !after[1].Unlocked || after[1].LockReason != "" {
+		t.Fatalf("#2 was open before the reset and must stay open: %+v", after[1])
+	}
+}
+
+// TestStartSessionAcceptsBiletUnlockedOnlyByTheCeiling guards the one failure
+// this design can produce: the grid and StartSession gate a bilet in two
+// separate places, so a ceiling honoured by only one of them would render an
+// open tile that answers variant_locked when a learner taps it.
+func TestStartSessionAcceptsBiletUnlockedOnlyByTheCeiling(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+	if _, err := svc.ResetVariantProgress(context.Background(), profileID); err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+	// #1 has no completed_at any more, so only the ceiling can be opening this.
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != nil {
+		t.Fatalf("#2 shows as open after a reset, so it must start: %v", err)
+	}
+}
+
+// TestResetVariantProgressLeavesLockedBiletsLocked is the other half of the
+// promise. A free profile has nothing unlocked past #1, and clearing must not
+// hand it anything.
+func TestResetVariantProgressLeavesLockedBiletsLocked(t *testing.T) {
+	q, svc, profileID := seed(t)
+	// #1 is free, so a free learner can build real progress on it — and that
+	// progress is what makes this test meaningful: the chain reaches #2, so a
+	// ceiling of 2 is stored, and VIP must still keep #2 shut.
+	completeVariantOne(t, q, svc, profileID)
+
+	if _, err := svc.ResetVariantProgress(context.Background(), profileID); err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonVIPRequired {
+		t.Fatalf("free profile must keep #2 vip_required after a reset: %+v", statuses[1])
+	}
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+	if _, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	}); err != session.ErrRequiresVIP {
+		t.Fatalf("err=%v want ErrRequiresVIP — the ceiling must never stand in for VIP", err)
+	}
+}
+
+// TestResetVariantProgressCeilingSurvivesLapsedVIP covers why the ceiling is
+// computed from the completion chain rather than from what is unlocked right
+// now: reading "unlocked" would see a lapsed learner's bilets as locked and
+// freeze a ceiling of 1, losing their place permanently.
+func TestResetVariantProgressCeilingSurvivesLapsedVIP(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+
+	if _, err := svc.Pool.Exec(context.Background(),
+		`UPDATE entitlement SET starts_at = now() - interval '30 days', ends_at = now() - interval '1 day' WHERE profile_id = $1`,
+		profileID); err != nil {
+		t.Fatalf("expire entitlement: %v", err)
+	}
+
+	res, err := svc.ResetVariantProgress(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+	if res.UnlockCeiling != 2 {
+		t.Fatalf("ceiling=%d want 2 — VIP state must not shrink it", res.UnlockCeiling)
+	}
+
+	// While lapsed the learner still sees #2 shut, for the right reason.
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses lapsed: %v", err)
+	}
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonVIPRequired {
+		t.Fatalf("lapsed profile must see #2 vip_required: %+v", statuses[1])
+	}
+
+	// Renewing puts them back where they were, without replaying #1.
+	grantVIP(t, q, profileID)
+	statuses, err = svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses renewed: %v", err)
+	}
+	if !statuses[1].Unlocked || statuses[1].LockReason != "" {
+		t.Fatalf("renewed VIP must find #2 open again: %+v", statuses[1])
+	}
+}
+
+// TestResetVariantProgressCeilingNeverLowers: the second reset necessarily
+// computes a chain of length zero, because the first one emptied the table. A
+// plain assignment there would take the learner's bilets away.
+func TestResetVariantProgressCeilingNeverLowers(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+
+	first, err := svc.ResetVariantProgress(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("first reset: %v", err)
+	}
+	second, err := svc.ResetVariantProgress(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("second reset: %v", err)
+	}
+	if second.Cleared != 0 {
+		t.Fatalf("cleared=%d want 0 — nothing was left to clear", second.Cleared)
+	}
+	if second.UnlockCeiling != first.UnlockCeiling {
+		t.Fatalf("ceiling fell from %d to %d across resets", first.UnlockCeiling, second.UnlockCeiling)
+	}
+
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if !statuses[1].Unlocked {
+		t.Fatalf("#2 must survive a second reset: %+v", statuses[1])
+	}
+}
+
+// TestResetVariantProgressOnUntouchedProfile: the button is disabled with
+// nothing to clear, but a stale tab could still post. It must be a harmless
+// no-op, not an error and not a grant.
+func TestResetVariantProgressOnUntouchedProfile(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+
+	res, err := svc.ResetVariantProgress(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+	if res.Cleared != 0 {
+		t.Fatalf("cleared=%d want 0", res.Cleared)
+	}
+	// Nothing was ever completed, so the chain stops at #1 and #2 stays shut.
+	if res.UnlockCeiling != 1 {
+		t.Fatalf("ceiling=%d want 1", res.UnlockCeiling)
+	}
+	statuses, err := svc.ListVariantStatuses(context.Background(), profileID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses: %v", err)
+	}
+	if statuses[1].Unlocked || statuses[1].LockReason != session.LockReasonPrevRequired {
+		t.Fatalf("#2 must stay prev_required: %+v", statuses[1])
+	}
+}
+
+// TestResetVariantProgressIsScopedToOneProfile: the endpoint takes no body and
+// acts on the caller, so a bulk DELETE with a wrong or missing predicate is
+// the shape of mistake that would show up here.
+func TestResetVariantProgressIsScopedToOneProfile(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+
+	other, err := q.CreateProfile(context.Background(), sqlc.CreateProfileParams{Phone: "+998909998877"})
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+	grantVIP(t, q, other.ID)
+	completeVariantOne(t, q, svc, other.ID)
+
+	if _, err := svc.ResetVariantProgress(context.Background(), profileID); err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+
+	statuses, err := svc.ListVariantStatuses(context.Background(), other.ID)
+	if err != nil {
+		t.Fatalf("ListVariantStatuses other: %v", err)
+	}
+	if statuses[0].CompletedAt == nil || statuses[0].Attempts == 0 {
+		t.Fatalf("another learner's progress was cleared too: %+v", statuses[0])
+	}
+}
+
+// TestResetVariantProgressLeavesSessionHistoryAlone pins the agreed scope: the
+// tickets button clears bilet progress, not the learner's study record.
+func TestResetVariantProgressLeavesSessionHistoryAlone(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	completeVariantOne(t, q, svc, profileID)
+
+	var sessionsBefore, memoryBefore int
+	row := svc.Pool.QueryRow(context.Background(),
+		`SELECT (SELECT count(*) FROM exam_session WHERE profile_id = $1),
+		        (SELECT count(*) FROM question_memory WHERE profile_id = $1)`, profileID)
+	if err := row.Scan(&sessionsBefore, &memoryBefore); err != nil {
+		t.Fatalf("count before: %v", err)
+	}
+	if sessionsBefore == 0 || memoryBefore == 0 {
+		t.Fatalf("precondition: expected history to exist (sessions=%d memory=%d)", sessionsBefore, memoryBefore)
+	}
+
+	if _, err := svc.ResetVariantProgress(context.Background(), profileID); err != nil {
+		t.Fatalf("ResetVariantProgress: %v", err)
+	}
+
+	var sessionsAfter, memoryAfter int
+	row = svc.Pool.QueryRow(context.Background(),
+		`SELECT (SELECT count(*) FROM exam_session WHERE profile_id = $1),
+		        (SELECT count(*) FROM question_memory WHERE profile_id = $1)`, profileID)
+	if err := row.Scan(&sessionsAfter, &memoryAfter); err != nil {
+		t.Fatalf("count after: %v", err)
+	}
+	if sessionsAfter != sessionsBefore || memoryAfter != memoryBefore {
+		t.Fatalf("history changed: sessions %d→%d, memory %d→%d",
+			sessionsBefore, sessionsAfter, memoryBefore, memoryAfter)
+	}
+}
+
 func TestStartSessionVariantOneNeverRequiresVIP(t *testing.T) {
 	q, svc, profileID := seed(t)
 	v1, err := q.GetVariantByNumber(context.Background(), 1)

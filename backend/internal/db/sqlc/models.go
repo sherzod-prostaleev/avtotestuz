@@ -605,6 +605,7 @@ type Profile struct {
 	BypassVariantProgress     bool               `json:"bypass_variant_progress"`
 	Kind                      string             `json:"kind"`
 	MustChangePassword        bool               `json:"must_change_password"`
+	VariantUnlockCeiling      int32              `json:"variant_unlock_ceiling"`
 }
 
 type PromoCode struct {

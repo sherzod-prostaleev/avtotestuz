@@ -205,6 +205,50 @@ func TestFullVariantSessionOverHTTP(t *testing.T) {
 	}
 }
 
+// TestResetVariantProgressOverHTTP wires up the tickets screen's "Tozalash"
+// end to end: the route exists, it needs a token, and it reports what it did.
+func TestResetVariantProgressOverHTTP(t *testing.T) {
+	ts, tok, _ := setupServer(t)
+
+	status, env := doReq(t, ts, http.MethodPost, "/me/variants/reset", "", nil)
+	if status != http.StatusUnauthorized {
+		t.Fatalf("anonymous reset status=%d want 401 env=%+v", status, env)
+	}
+
+	status, env = doReq(t, ts, http.MethodPost, "/me/variants/reset", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("reset status=%d env=%+v", status, env)
+	}
+	var res struct {
+		Cleared       int `json:"cleared"`
+		UnlockCeiling int `json:"unlock_ceiling"`
+	}
+	if err := json.Unmarshal(env.Data, &res); err != nil {
+		t.Fatal(err)
+	}
+	if res.Cleared != 0 {
+		t.Fatalf("cleared=%d want 0 for a profile that never played", res.Cleared)
+	}
+	if res.UnlockCeiling != 1 {
+		t.Fatalf("unlock_ceiling=%d want 1", res.UnlockCeiling)
+	}
+
+	// The grid must still read the way it did before.
+	status, env = doReq(t, ts, http.MethodGet, "/me/variants", tok, nil)
+	if status != http.StatusOK {
+		t.Fatalf("me/variants status=%d", status)
+	}
+	var statuses []struct {
+		Unlocked bool `json:"unlocked"`
+	}
+	if err := json.Unmarshal(env.Data, &statuses); err != nil {
+		t.Fatal(err)
+	}
+	if !statuses[0].Unlocked || statuses[1].Unlocked {
+		t.Fatalf("reset must not change who is locked: %+v", statuses)
+	}
+}
+
 func TestSessionQuestionDetailRequiresAuthAndMembership(t *testing.T) {
 	ts, tok, q := setupServer(t)
 	body, _ := json.Marshal(map[string]any{"mode": "variant", "variant_id": "1", "locale": "uz-Latn"})

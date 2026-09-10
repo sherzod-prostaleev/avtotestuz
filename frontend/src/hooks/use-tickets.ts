@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { apiGet, ApiError } from "@/lib/api-client";
+import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 
 export type TicketLockReason = "vip_required" | "prev_required";
 
@@ -49,10 +49,18 @@ function toTicketStatus(variant: VariantStatusDTO): TicketStatus {
   };
 }
 
+interface VariantResetDTO {
+  cleared: number;
+  unlock_ceiling: number;
+}
+
 export function useTickets() {
   const [tickets, setTickets] = useState<TicketStatus[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [clearing, setClearing] = useState<boolean>(false);
+  const [clearError, setClearError] = useState<string | null>(null);
+  const [clearedCount, setClearedCount] = useState<number | null>(null);
 
   const fetchTickets = useCallback(async () => {
     setLoading(true);
@@ -71,6 +79,32 @@ export function useTickets() {
     }
   }, []);
 
+  // clearProgress backs the "Tozalash" control. The grid is re-read from the
+  // server afterwards rather than zeroed locally: the response says how many
+  // rows went, but only the server can say which bilets are open now, and
+  // that is precisely the part a learner would notice being wrong.
+  const clearProgress = useCallback(async (): Promise<boolean> => {
+    setClearing(true);
+    setClearError(null);
+    setClearedCount(null);
+    try {
+      const res = await apiPost<VariantResetDTO>("me/variants/reset");
+      await fetchTickets();
+      setClearedCount(res.cleared);
+      return true;
+    } catch (err: unknown) {
+      setClearError(err instanceof ApiError ? err.message : "Failed to clear ticket progress");
+      return false;
+    } finally {
+      setClearing(false);
+    }
+  }, [fetchTickets]);
+
+  const dismissClearNotice = useCallback(() => {
+    setClearedCount(null);
+    setClearError(null);
+  }, []);
+
   useEffect(() => {
     fetchTickets();
   }, [fetchTickets]);
@@ -80,5 +114,11 @@ export function useTickets() {
     loading,
     error,
     refetch: fetchTickets,
+    clearProgress,
+    clearing,
+    clearError,
+    /** Rows the last clear removed; null until one succeeds. */
+    clearedCount,
+    dismissClearNotice,
   };
 }

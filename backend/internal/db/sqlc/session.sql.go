@@ -226,6 +226,21 @@ func (q *Queries) CreateExamSession(ctx context.Context, arg CreateExamSessionPa
 	return i, err
 }
 
+const deleteVariantProgressForProfile = `-- name: DeleteVariantProgressForProfile :execrows
+DELETE FROM variant_progress WHERE profile_id = $1
+`
+
+// Backs the tickets screen's "Tozalash": every bilet goes back to unstarted.
+// Only this table -- session history, question_memory, category_mastery and
+// the streak are deliberately left alone.
+func (q *Queries) DeleteVariantProgressForProfile(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteVariantProgressForProfile, profileID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const finishExamSession = `-- name: FinishExamSession :one
 UPDATE exam_session
 SET finished_at = now(),
@@ -861,6 +876,26 @@ func (q *Queries) OrderedQuestionIDsByCategory(ctx context.Context, arg OrderedQ
 		return nil, err
 	}
 	return items, nil
+}
+
+const raiseVariantUnlockCeiling = `-- name: RaiseVariantUnlockCeiling :exec
+UPDATE profile
+SET variant_unlock_ceiling = GREATEST(variant_unlock_ceiling, $1::int)
+WHERE id = $2
+`
+
+type RaiseVariantUnlockCeilingParams struct {
+	Ceiling   int32     `json:"ceiling"`
+	ProfileID uuid.UUID `json:"profile_id"`
+}
+
+// GREATEST, never a plain assignment: the ceiling is a high-water mark, so a
+// second Tozalash (whose freshly-computed chain is short, because the first
+// one already emptied variant_progress) can never take back bilets the
+// learner had already unlocked.
+func (q *Queries) RaiseVariantUnlockCeiling(ctx context.Context, arg RaiseVariantUnlockCeilingParams) error {
+	_, err := q.db.Exec(ctx, raiseVariantUnlockCeiling, arg.Ceiling, arg.ProfileID)
+	return err
 }
 
 const randomQuestionIDs = `-- name: RandomQuestionIDs :many

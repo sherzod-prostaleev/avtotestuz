@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -31,6 +31,28 @@ vi.mock("@/lib/prefetch-variant", () => ({
   prefetchVariantDetail: prefetchMock,
 }));
 
+/**
+ * Stubs useTickets with a complete return value, so a test only states the
+ * part it is about. Spreading a full default here rather than at each call
+ * site means growing the hook does not break every test in the file.
+ */
+function mockUseTickets(
+  overrides: Partial<ReturnType<typeof useTicketsModule.useTickets>> = {}
+) {
+  return vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    tickets: [],
+    loading: false,
+    error: null,
+    refetch: vi.fn(),
+    clearProgress: vi.fn().mockResolvedValue(true),
+    clearing: false,
+    clearError: null,
+    clearedCount: null,
+    dismissClearNotice: vi.fn(),
+    ...overrides,
+  });
+}
+
 function renderWithIntl() {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
@@ -47,14 +69,11 @@ describe("TicketsPage", () => {
   });
 
   it("renders tickets header and grid", () => {
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [
         { number: 1, best_correct: 19, attempts: 1, unlocked: true },
         { number: 2, best_correct: 0, attempts: 0, unlocked: false },
       ] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderWithIntl();
@@ -81,7 +100,7 @@ describe("TicketsPage", () => {
   });
 
   it("shows previous-ticket guidance instead of premium for prev_required locks", () => {
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [
         {
           number: 1,
@@ -100,9 +119,6 @@ describe("TicketsPage", () => {
           status: "locked",
         },
       ] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderWithIntl();
@@ -112,6 +128,159 @@ describe("TicketsPage", () => {
     expect(
       screen.getByText(/Avval oldingi biletda kamida 10 ta to'g'ri/i)
     ).toBeInTheDocument();
+  });
+});
+
+// The header carries two clear controls that are never on screen together:
+// a labelled one for wide layouts and an icon-only twin for phones. Both are
+// in the DOM under jsdom, so each test names the one it means.
+const CLEAR_WIDE = { name: "Tozalash" };
+const CLEAR_PHONE = { name: "Ishlangan biletlar natijasini tozalash" };
+
+describe("TicketsPage clear-progress control", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    pushMock.mockReset();
+    prefetchMock.mockReset();
+  });
+
+  /** One played bilet and one untouched — so exactly one row is clearable. */
+  const playedAndUntouched = [
+    { number: 1, best_correct: 19, attempts: 1, unlocked: true },
+    { number: 2, best_correct: 0, attempts: 0, unlocked: true },
+  ] as any;
+
+  it("offers both the wide and the phone control when there is something to clear", () => {
+    mockUseTickets({ tickets: playedAndUntouched });
+    renderWithIntl();
+
+    expect(screen.getByRole("button", CLEAR_WIDE)).toBeEnabled();
+    expect(screen.getByRole("button", CLEAR_PHONE)).toBeEnabled();
+    // Both announce that they open a dialog rather than acting immediately.
+    expect(screen.getByRole("button", CLEAR_WIDE)).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.getByRole("button", CLEAR_PHONE)).toHaveAttribute("aria-haspopup", "dialog");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("disables the control when no bilet carries a result", () => {
+    mockUseTickets({
+      tickets: [
+        { number: 1, best_correct: 0, attempts: 0, unlocked: true },
+        { number: 2, best_correct: 0, attempts: 0, unlocked: false, lock_reason: "vip_required", status: "locked" },
+      ] as any,
+    });
+    renderWithIntl();
+
+    expect(screen.getByRole("button", CLEAR_WIDE)).toBeDisabled();
+    expect(screen.getByRole("button", CLEAR_PHONE)).toBeDisabled();
+  });
+
+  it("stays disabled while the grid is still loading", () => {
+    mockUseTickets({ tickets: [], loading: true });
+    renderWithIntl();
+
+    // Nothing has arrived yet, so the count on the confirmation would be a lie.
+    expect(screen.getByRole("button", CLEAR_WIDE)).toBeDisabled();
+  });
+
+  it("counts a completed bilet as clearable even once it is locked again", () => {
+    // A lapsed subscription can put a played bilet back behind the VIP gate.
+    // Its score is still a result, and refusing to clear it would strand it.
+    mockUseTickets({
+      tickets: [
+        {
+          number: 1,
+          best_correct: 18,
+          attempts: 2,
+          unlocked: false,
+          lock_reason: "vip_required",
+          status: "locked",
+          completed_at: "2026-07-20T12:00:00Z",
+        },
+      ] as any,
+    });
+    renderWithIntl();
+
+    expect(screen.getByRole("button", CLEAR_WIDE)).toBeEnabled();
+  });
+
+  it("asks before clearing, and cancelling changes nothing", async () => {
+    const clearProgress = vi.fn().mockResolvedValue(true);
+    mockUseTickets({ tickets: playedAndUntouched, clearProgress });
+    renderWithIntl();
+
+    fireEvent.click(screen.getByRole("button", CLEAR_WIDE));
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(within(dialog).getByText("Natijalarni tozalash")).toBeInTheDocument();
+    // The count is the number of bilets with results, not the grid size.
+    expect(within(dialog).getByText(/^1 ta biletning natijasi o'chiriladi/)).toBeInTheDocument();
+    expect(within(dialog).getByText(/Ochiq biletlar ochiqligicha/)).toBeInTheDocument();
+    expect(within(dialog).getByText("Bu amalni qaytarib bo'lmaydi.")).toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Bekor qilish" }));
+    expect(clearProgress).not.toHaveBeenCalled();
+    // Awaited, not asserted outright: the dialog animates out, so it survives
+    // a frame or two past the click.
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("clears on confirmation", async () => {
+    const clearProgress = vi.fn().mockResolvedValue(true);
+    mockUseTickets({ tickets: playedAndUntouched, clearProgress });
+    renderWithIntl();
+
+    fireEvent.click(screen.getByRole("button", CLEAR_WIDE));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Ha, tozalash" }));
+
+    expect(clearProgress).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("dismisses the dialog on Escape without clearing", async () => {
+    const clearProgress = vi.fn().mockResolvedValue(true);
+    mockUseTickets({ tickets: playedAndUntouched, clearProgress });
+    renderWithIntl();
+
+    fireEvent.click(screen.getByRole("button", CLEAR_WIDE));
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(clearProgress).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("puts initial focus on the way out, not on the destructive action", async () => {
+    mockUseTickets({ tickets: playedAndUntouched });
+    renderWithIntl();
+
+    fireEvent.click(screen.getByRole("button", CLEAR_WIDE));
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() =>
+      expect(within(dialog).getByRole("button", { name: "Bekor qilish" })).toHaveFocus()
+    );
+  });
+
+  it("locks both buttons while the request is in flight", () => {
+    mockUseTickets({ tickets: playedAndUntouched, clearing: true });
+    renderWithIntl();
+
+    // The header control cannot start a second reset...
+    expect(screen.getByRole("button", CLEAR_WIDE)).toBeDisabled();
+  });
+
+  it("reports how many bilets were cleared", () => {
+    mockUseTickets({ tickets: playedAndUntouched, clearedCount: 12 });
+    renderWithIntl();
+
+    expect(screen.getByRole("status")).toHaveTextContent("12 ta biletning natijasi tozalandi.");
+  });
+
+  it("surfaces a failed clear as an alert", () => {
+    mockUseTickets({ tickets: playedAndUntouched, clearError: "boom" });
+    renderWithIntl();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/Natijalarni tozalab bo'lmadi/);
   });
 });
 
@@ -135,11 +304,8 @@ describe("TicketsPage kiosk mode", () => {
   }
 
   it("keeps back and practice links under /station", () => {
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [{ number: 1, best_correct: 19, attempts: 1, unlocked: true }] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderKiosk();
@@ -150,14 +316,11 @@ describe("TicketsPage kiosk mode", () => {
   });
 
   it("starts a ticket on a kiosk-reachable session/start", () => {
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [
         { number: 1, best_correct: 19, attempts: 1, unlocked: true },
         { number: 2, best_correct: 0, attempts: 0, unlocked: false },
       ] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderKiosk();
@@ -177,7 +340,7 @@ describe("TicketsPage kiosk mode", () => {
     // the marker's claim checkable — if that guard were ever removed,
     // pushMock would be called with a /premium target and the assertion
     // below would fail.
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [
         {
           number: 1,
@@ -188,9 +351,6 @@ describe("TicketsPage kiosk mode", () => {
           status: "locked",
         },
       ] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderKiosk();
@@ -205,14 +365,11 @@ describe("TicketsPage kiosk mode", () => {
     // regress (back/practice links, the VIP-lock push). This sweeps every
     // link this render can produce as a backstop against a new one showing
     // up without a matching targeted test.
-    vi.spyOn(useTicketsModule, "useTickets").mockReturnValue({
+    mockUseTickets({
       tickets: [
         { number: 1, best_correct: 19, attempts: 1, unlocked: true },
         { number: 2, best_correct: 0, attempts: 0, unlocked: false, lock_reason: "vip_required", status: "locked" },
       ] as any,
-      loading: false,
-      error: null,
-      refetch: vi.fn(),
     });
 
     renderKiosk();

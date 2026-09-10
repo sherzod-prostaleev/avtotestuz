@@ -36,6 +36,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me/mock-eligibility", h.mockEligibility)
 	r.Get("/me/sessions", h.listMySessions)
 	r.Get("/me/variants", h.listVariantStatuses)
+	r.Post("/me/variants/reset", h.resetVariantProgress)
 }
 
 // PublicRoutes mounts unauthenticated certificate lookup.
@@ -734,6 +735,36 @@ func (h *Handler) listVariantStatuses(w http.ResponseWriter, r *http.Request) {
 		out[i] = variantStatusDTO(s)
 	}
 	httpx.Data(w, http.StatusOK, out)
+}
+
+type variantResetDTO struct {
+	// Cleared is what the confirmation message reports back — the count the
+	// server actually deleted, not the one the grid had on screen.
+	Cleared int `json:"cleared"`
+	// UnlockCeiling lets a client (and an operator reading the response) see
+	// that the open bilets were preserved, not merely promised.
+	UnlockCeiling int `json:"unlock_ceiling"`
+}
+
+// resetVariantProgress backs "Tozalash" on the tickets screen. POST, not
+// DELETE: it is not the removal of one addressable resource but a bulk
+// operation over the caller's own bilet progress, and it reports how much it
+// cleared. No body — the only thing it can act on is the caller's own profile,
+// so there is nothing for a client to get wrong.
+func (h *Handler) resetVariantProgress(w http.ResponseWriter, r *http.Request) {
+	claims, ok := claimsOrUnauthorized(w, r)
+	if !ok {
+		return
+	}
+	res, err := h.Svc.ResetVariantProgress(r.Context(), claims.ProfileID)
+	if err != nil {
+		writeSessionError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, variantResetDTO{
+		Cleared:       res.Cleared,
+		UnlockCeiling: res.UnlockCeiling,
+	})
 }
 
 func writeSessionError(w http.ResponseWriter, err error) {

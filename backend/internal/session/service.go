@@ -188,13 +188,15 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 			if !active {
 				return SessionView{}, ErrRequiresVIP
 			}
-			// QA/ops profiles with bypass_variant_progress skip sequential
-			// unlock; VIP entitlement is still required above.
-			bypass, bypassErr := s.bypassVariantProgress(ctx, profileID)
-			if bypassErr != nil {
-				return SessionView{}, bypassErr
+			// bypass_variant_progress (QA/ops, kiosk stations) and the
+			// variant_unlock_ceiling left behind by "Tozalash" both satisfy
+			// the sequential gate without a previous-bilet lookup. VIP
+			// entitlement is still required, and was checked above.
+			bypass, ceiling, ovErr := s.variantUnlockOverrides(ctx, profileID)
+			if ovErr != nil {
+				return SessionView{}, ovErr
 			}
-			if !bypass {
+			if !VariantPrevGateSatisfied(int(v.Number), bypass, ceiling) {
 				prev, prevErr := s.Q.GetVariantByNumber(ctx, v.Number-1)
 				if prevErr != nil {
 					return SessionView{}, prevErr
@@ -1120,24 +1122,30 @@ func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit
 	return summaries, nil
 }
 
-// bypassVariantProgress reports whether the profile may skip sequential
-// bilet unlock. Missing profile → false (fail closed for the bypass only).
-func (s *Service) bypassVariantProgress(ctx context.Context, profileID uuid.UUID) (bool, error) {
+// variantUnlockOverrides reads the two per-profile inputs to
+// VariantPrevGateSatisfied in one round trip: the QA/ops-and-kiosk bypass flag
+// and the unlock ceiling frozen by ResetVariantProgress.
+//
+// Missing profile → zero values (fail closed: no bypass, no ceiling), matching
+// the behaviour this replaced.
+func (s *Service) variantUnlockOverrides(ctx context.Context, profileID uuid.UUID) (bypass bool, ceiling int, err error) {
 	p, err := s.Q.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return false, nil
+			return false, 0, nil
 		}
-		return false, err
+		return false, 0, err
 	}
-	return p.BypassVariantProgress, nil
+	return p.BypassVariantProgress, int(p.VariantUnlockCeiling), nil
 }
 
 // ListVariantStatuses returns every bilet variant, in number order, with the
 // profile's progress against it and whether it's unlocked. Unlock matches
 // StartSession: #1 for everyone; #N+1 for VIP only after #N has completed_at —
-// unless profile.bypass_variant_progress (QA/ops) — via IsVariantUnlocked
-// (rules.go), never reimplemented here.
+// unless the sequential gate is overridden by profile.bypass_variant_progress
+// (QA/ops, kiosk stations) or profile.variant_unlock_ceiling ("Tozalash"), both
+// via VariantPrevGateSatisfied — through IsVariantUnlocked (rules.go), never
+// reimplemented here.
 func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) ([]VariantStatus, error) {
 	variants, err := s.Q.ListVariants(ctx)
 	if err != nil {
@@ -1157,15 +1165,15 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 	if statusErr != nil {
 		return nil, statusErr
 	}
-	bypass, bypassErr := s.bypassVariantProgress(ctx, profileID)
-	if bypassErr != nil {
-		return nil, bypassErr
+	bypass, ceiling, ovErr := s.variantUnlockOverrides(ctx, profileID)
+	if ovErr != nil {
+		return nil, ovErr
 	}
 
 	statuses := make([]VariantStatus, 0, len(variants))
 	prevCompleted := true // unused for #1; seeded so the first step is clean
 	for _, v := range variants {
-		gatePrev := prevCompleted || bypass
+		gatePrev := prevCompleted || VariantPrevGateSatisfied(int(v.Number), bypass, ceiling)
 		unlocked := IsVariantUnlocked(int(v.Number), active, gatePrev)
 		status := VariantStatus{
 			Number:        v.Number,
@@ -1189,6 +1197,101 @@ func (s *Service) ListVariantStatuses(ctx context.Context, profileID uuid.UUID) 
 		statuses = append(statuses, status)
 	}
 	return statuses, nil
+}
+
+// VariantResetResult reports what "Tozalash" did, so the tickets screen can
+// confirm the real number rather than the one it guessed before asking.
+type VariantResetResult struct {
+	// Cleared is the number of variant_progress rows deleted — bilets that
+	// had been attempted at least once.
+	Cleared int
+	// UnlockCeiling is the profile's ceiling after the reset. Bilets at or
+	// below it keep their sequential gate satisfied.
+	UnlockCeiling int
+}
+
+// ResetVariantProgress is the tickets screen's "Tozalash": every bilet goes
+// back to unstarted — no score, no attempt count, no completion — while the
+// set of open and locked bilets stays exactly as the learner left it.
+//
+// Those two halves fight each other, because a bilet unlocks off the previous
+// bilet's completed_at. Deleting the progress therefore has to leave something
+// behind, and that something is profile.variant_unlock_ceiling: the highest
+// bilet number the completion chain had reached. VariantPrevGateSatisfied
+// accepts it in place of "the previous bilet was completed" afterwards.
+//
+// The ceiling is computed from the completion chain ALONE, deliberately
+// ignoring VIP: a learner whose subscription has lapsed sees every bilet
+// locked as vip_required, and reading "currently unlocked" here would freeze a
+// ceiling of 1 and destroy their place for good. IsVariantUnlocked still ANDs
+// isVIP, so a lapsed learner gains nothing from the stored number until they
+// renew — at which point they resume exactly where they were.
+//
+// Both writes run in one transaction. Deleting the progress without raising
+// the ceiling is precisely the outcome this feature promises cannot happen, so
+// they must not be able to land separately.
+func (s *Service) ResetVariantProgress(ctx context.Context, profileID uuid.UUID) (VariantResetResult, error) {
+	if s.Pool == nil {
+		return VariantResetResult{}, errors.New("session transaction pool is not configured")
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
+		return VariantResetResult{}, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	variants, err := q.ListVariants(ctx)
+	if err != nil {
+		return VariantResetResult{}, err
+	}
+	progressRows, err := q.ListVariantProgressForProfile(ctx, profileID)
+	if err != nil {
+		return VariantResetResult{}, err
+	}
+	completed := make(map[uuid.UUID]bool, len(progressRows))
+	for _, p := range progressRows {
+		if p.CompletedAt.Valid {
+			completed[p.VariantID] = true
+		}
+	}
+
+	// Walk the chain from the first bilet and stop at the first one that was
+	// never completed: that bilet is the one the learner had open, so it is
+	// the ceiling. An unbroken run to the end leaves the last bilet's number,
+	// which is already every bilet there is.
+	ceiling := 0
+	for _, v := range variants {
+		ceiling = int(v.Number)
+		if !completed[v.ID] {
+			break
+		}
+	}
+
+	// GREATEST in SQL, so a later reset — which necessarily sees a short chain,
+	// the earlier one having emptied the table — cannot lower what is stored.
+	if err := q.RaiseVariantUnlockCeiling(ctx, sqlc.RaiseVariantUnlockCeilingParams{
+		ProfileID: profileID,
+		Ceiling:   int32(ceiling),
+	}); err != nil {
+		return VariantResetResult{}, err
+	}
+	cleared, err := q.DeleteVariantProgressForProfile(ctx, profileID)
+	if err != nil {
+		return VariantResetResult{}, err
+	}
+
+	p, err := q.GetProfileByID(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VariantResetResult{}, ErrNotFound
+		}
+		return VariantResetResult{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return VariantResetResult{}, err
+	}
+	return VariantResetResult{Cleared: int(cleared), UnlockCeiling: int(p.VariantUnlockCeiling)}, nil
 }
 
 // Grand Mock gate reasons, as reported by MockEligibility and consumed by the

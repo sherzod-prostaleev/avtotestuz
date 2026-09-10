@@ -100,6 +100,27 @@ func IsVariantUnlocked(number int, isVIP, prevCompleted bool) bool {
 	return isVIP && prevCompleted
 }
 
+// VariantPrevGateSatisfied reports whether a bilet clears the sequential gate
+// without anyone having to look up the previous bilet's progress:
+//
+//	bypass  — profile.bypass_variant_progress (QA/ops, and every kiosk station).
+//	ceiling — profile.variant_unlock_ceiling, the high-water mark frozen by
+//	          "Tozalash" so clearing scores cannot re-lock bilets the learner
+//	          had already opened (migration 0073).
+//
+// It stands in only for "the previous bilet was completed". VIP entitlement is
+// a separate, still-mandatory gate — callers pass the result of this into
+// IsVariantUnlocked's prevCompleted, which keeps ANDing isVIP.
+//
+// Both places that gate a bilet — ListVariantStatuses (the grid) and
+// StartSession (the server's own check) — call this, and neither reimplements
+// it. They compute prevCompleted differently (a walk versus a single lookup),
+// so an override applied to one and not the other would show an open tile that
+// answers variant_locked when tapped.
+func VariantPrevGateSatisfied(number int, bypass bool, ceiling int) bool {
+	return bypass || number <= ceiling
+}
+
 // VariantLockReason explains why a locked variant is locked. Empty when unlocked.
 func VariantLockReason(number int, isVIP, unlocked bool) string {
 	if unlocked || number <= 1 {

@@ -528,7 +528,20 @@
     "lockedPrevRequired": "Сначала наберите минимум 10 верных в предыдущем билете — затем откроется этот.",
     "lockedPrevRequiredShort": "Сначала 10 верных",
     "ticketQuestionsShort": "{count} вопр.",
-    "subtitleProgress": "Закрыто {done} из {total}"
+    "subtitleProgress": "Закрыто {done} из {total}",
+    "clearAction": "Очистить",
+    "clearLabel": "Очистить результаты по билетам",
+    "clearNothing": "Пока нечего очищать",
+    "clearTitle": "Очистить результаты",
+    "clearBody": "Результаты {count} билетов будут удалены, и они снова станут «не начатыми».",
+    "clearKeepsLocks": "Открытые билеты останутся открытыми, закрытые — закрытыми.",
+    "clearIrreversible": "Это действие нельзя отменить.",
+    "clearConfirm": "Да, очистить",
+    "clearCancel": "Отмена",
+    "clearBusy": "Очищаем…",
+    "clearDone": "Результаты {count} билетов очищены.",
+    "clearError": "Не удалось очистить результаты. Попробуйте снова.",
+    "clearDismiss": "Закрыть сообщение"
   },
   "Signs": {
     "title": "Каталог дорожных знаков",

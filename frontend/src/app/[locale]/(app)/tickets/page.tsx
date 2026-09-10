@@ -8,8 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { prefetchVariantDetail } from "@/lib/prefetch-variant";
 import { OFFICIAL_TICKET_COUNT } from "@/lib/content-counts";
-import { Check, Lock, Play, RefreshCw, Search, Star, X } from "lucide-react";
+import { Check, Eraser, Lock, Play, RefreshCw, Search, Star, X } from "lucide-react";
 import { BackLink } from "@/components/layout/back-link";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 
 type FilterStatus = "all" | "completed" | "in_progress" | "locked";
@@ -44,7 +45,17 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const t = useTranslations("Tickets");
   const locale = useLocale();
   const router = useRouter();
-  const { tickets, loading, error, refetch } = useTickets();
+  const {
+    tickets,
+    loading,
+    error,
+    refetch,
+    clearProgress,
+    clearing,
+    clearError,
+    clearedCount,
+    dismissClearNotice,
+  } = useTickets();
   // The page already has the real list — count it rather than quoting a number
   // that goes stale the next time a bilet is imported.
   const ticketCount = tickets.length || OFFICIAL_TICKET_COUNT;
@@ -60,6 +71,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
   const [lockNotice, setLockNotice] = useState<string | null>(null);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
 
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = search === "" || ticket.number.toString().includes(search);
@@ -80,6 +92,29 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
   const unstartedCount = ticketStates.filter(({ isLocked, attempts }) => !isLocked && attempts === 0).length;
   const nextTicket = ticketStates.find(({ isLocked, isCompleted }) => !isLocked && !isCompleted) ?? null;
   const completedPercent = tickets.length > 0 ? Math.min(100, Math.round((completedCount / tickets.length) * 100)) : 0;
+  // Bilets that carry a result. Locked ones are counted too: a bilet can be
+  // played and then fall back behind the VIP gate when a subscription lapses,
+  // and its score is still a result the learner asked to be rid of.
+  const clearableCount = ticketStates.filter(({ attempts, isCompleted }) => attempts > 0 || isCompleted).length;
+  const canClear = !loading && clearableCount > 0;
+
+  const handleConfirmClear = async () => {
+    const ok = await clearProgress();
+    // The dialog closes either way. On failure the page's alert region carries
+    // the reason, which a modal covering the page would hide.
+    setClearConfirmOpen(false);
+    if (ok) {
+      // A cleared grid has no partly-solved bilets left to filter to, so a
+      // filter that is now guaranteed empty would read as data loss.
+      setFilterStatus("all");
+      setLockNotice(null);
+    }
+  };
+
+  const openClearConfirm = () => {
+    dismissClearNotice();
+    setClearConfirmOpen(true);
+  };
 
   const handleStartTicket = (ticket: TicketItem) => {
     const { isLocked } = getTicketState(ticket);
@@ -144,6 +179,38 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
           />
         </div>
 
+        {/* Wide layout: a labelled control, since there is room for words and
+            a bare icon would leave the learner guessing what it erases. */}
+        <Button
+          type="button"
+          variant="outline"
+          aria-haspopup="dialog"
+          onClick={openClearConfirm}
+          disabled={!canClear || clearing}
+          title={canClear ? undefined : t("clearNothing")}
+          className="shrink-0 gap-2 max-md:hidden"
+        >
+          <Eraser aria-hidden="true" className="h-4 w-4" />
+          {t("clearAction")}
+        </Button>
+
+        {/* Phone: icon only, and the exact box the search toggle uses so the
+            two read as one pair rather than two nearly-matching buttons.
+            Hidden while the search row is open — that row already fills the
+            header at 390px, and squeezing a third control in wraps it. */}
+        <button
+          type="button"
+          aria-label={t("clearLabel")}
+          aria-haspopup="dialog"
+          onClick={openClearConfirm}
+          disabled={!canClear || clearing}
+          className={`h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-border bg-card text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 md:hidden ${
+            searchOpen ? "hidden" : "flex"
+          }`}
+        >
+          <Eraser aria-hidden="true" className="h-5 w-5" />
+        </button>
+
         <button
           type="button"
           aria-label={t("searchLabel")}
@@ -154,6 +221,34 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
           {searchOpen ? <X aria-hidden="true" className="h-5 w-5" /> : <Search aria-hidden="true" className="h-5 w-5" />}
         </button>
       </header>
+
+      {/* Directly under the header, and deliberately not down with the other
+          notices near the grid. A classroom TV is 720px tall: everything from
+          the filter chips down is below the fold there, so an outcome message
+          placed with them would leave a student who just pressed "Tozalash"
+          looking at a screen that answered nothing. */}
+      {clearError && (
+        <div role="alert" className="rounded-2xl border border-destructive/50 bg-destructive/10 p-4 text-sm font-medium text-destructive">
+          {t("clearError")}
+        </div>
+      )}
+
+      {clearedCount !== null && (
+        <div
+          role="status"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-foreground"
+        >
+          <span>{t("clearDone", { count: clearedCount })}</span>
+          <button
+            type="button"
+            onClick={dismissClearNotice}
+            aria-label={t("clearDismiss")}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <section className="grid gap-4 max-md:hidden lg:grid-cols-[1.15fr_0.85fr]">
         <Card className="asphalt-hero overflow-hidden border-accent/20 p-5 md:p-8">
@@ -349,6 +444,7 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
         </div>
       )}
 
+
       {/* Tickets grid */}
       {loading ? (
         <div role="status" className="py-12 text-center text-sm text-muted-foreground animate-pulse">{t("loading")}</div>
@@ -464,6 +560,25 @@ export default function TicketsPage({ kiosk = false }: TicketsPageProps = {}) {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        icon={<Eraser className="h-5 w-5" />}
+        title={t("clearTitle")}
+        description={
+          <>
+            <p>{t("clearBody", { count: clearableCount })}</p>
+            <p>{t("clearKeepsLocks")}</p>
+            <p className="font-semibold text-foreground">{t("clearIrreversible")}</p>
+          </>
+        }
+        confirmLabel={t("clearConfirm")}
+        cancelLabel={t("clearCancel")}
+        busy={clearing}
+        busyLabel={t("clearBusy")}
+        onConfirm={() => void handleConfirmClear()}
+        onCancel={() => setClearConfirmOpen(false)}
+      />
     </main>
   );
 }

@@ -24,6 +24,34 @@ func TestIsVariantUnlocked(t *testing.T) {
 	}
 }
 
+func TestVariantPrevGateSatisfied(t *testing.T) {
+	// Default profile: no bypass, ceiling 0 — nothing is waived, so the
+	// sequential rule is exactly what it was before migration 0073.
+	for n := 1; n <= 64; n++ {
+		if VariantPrevGateSatisfied(n, false, 0) {
+			t.Fatalf("#%d must not be waived with no bypass and no ceiling", n)
+		}
+	}
+	if !VariantPrevGateSatisfied(64, true, 0) {
+		t.Fatal("bypass must waive the sequential gate on its own")
+	}
+	// A ceiling of 11 means bilets #1..#11 were open when Tozalash ran.
+	if !VariantPrevGateSatisfied(11, false, 11) {
+		t.Fatal("the ceiling itself must be waived — it is an open bilet")
+	}
+	if VariantPrevGateSatisfied(12, false, 11) {
+		t.Fatal("a ceiling must not waive the bilet above it")
+	}
+
+	// Composed with the VIP gate: waiving the chain must never waive payment.
+	if IsVariantUnlocked(11, false, VariantPrevGateSatisfied(11, false, 11)) {
+		t.Fatal("a ceiling must not unlock a bilet for a non-VIP profile")
+	}
+	if !IsVariantUnlocked(11, true, VariantPrevGateSatisfied(11, false, 11)) {
+		t.Fatal("VIP plus a covering ceiling must unlock the bilet")
+	}
+}
+
 func TestVariantLockReason(t *testing.T) {
 	if got := VariantLockReason(1, false, true); got != "" {
 		t.Fatalf("unlocked #1 reason=%q", got)
