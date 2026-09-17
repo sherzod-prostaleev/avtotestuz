@@ -120,7 +120,8 @@ def main() -> int:
             filled += 1
         else:
             row["legal_refs"] = []
-    DATA.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # indent=1 is the committed layout; any other indent re-indents the whole bank.
+    DATA.write_text(json.dumps(data, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     print(f"explanations={len(explanations)} with_refs={filled}", file=sys.stderr)
     return 0
 
