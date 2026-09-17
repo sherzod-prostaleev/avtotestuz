@@ -1270,7 +1270,10 @@
   "avtoimtihon-1273": "markings_horizontal",
   "avtoimtihon-1274": "special_vehicle_priority",
   "avtoimtihon-1275": "speed_limits",
-  "avtoimtihon-1276": "officials_duties",
+  "avtoimtihon-1276": "driver_duties",
   "avtoimtihon-1277": "lane_position",
-  "avtoimtihon-1278": "intersections_equal"
+  "avtoimtihon-1278": "intersections_equal",
+  "avtoimtihon-1279": "starting_manoeuvring",
+  "avtoimtihon-1280": "intersections_equal",
+  "avtoimtihon-1281": "intersections_equal"
 }

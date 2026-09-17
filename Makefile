@@ -46,7 +46,7 @@ seed:
 seed-admin:
 	cd backend && go run ./cmd/seedadmin
 
-# Committed corpus parity gate (1260 Q / 63 bilets / 285 signs). Run after any
+# Committed corpus parity gate (1277 Q / 64 bilets / 285 signs). Run after any
 # convertavtoimtihon / gensigns regeneration before trusting wipe-restore.
 seed-verify:
 	python3 scripts/seed/verify-committed.py
@@ -86,7 +86,7 @@ seed-reset-content:
 # questions+bilets → signs → question_sign links → admin. CMS chrome/legal stay
 # empty (FE i18n fallback) until an operator saves them again — intentional.
 seed-dev: seed-reset-content seed-import seed-signs seed-link-signs seed-admin
-	@echo "seed-dev complete: 1260 questions, 63 bilets, 285 signs, question↔sign links, admin user"
+	@echo "seed-dev complete: 1277 questions, 64 bilets, 285 signs, question↔sign links, admin user"
 
 # Real, user-licensed avtoimtihon content. Regenerates canonical JSON from the
 # aaa/ source tree (1260 questions / 63 bilets after NEW+MAJOR fold), then imports

@@ -12,7 +12,7 @@ export const OFFICIAL_TICKET_COUNT = 64;
  * Official valid question-bank size (verified import). Cap custom practice
  * counts here — not at arbitrary UI ceilings like 200.
  */
-export const OFFICIAL_QUESTION_COUNT = 1265;
+export const OFFICIAL_QUESTION_COUNT = 1277;
 
 /** Topics (categories) the bank is filed under. Pre-fetch fallback, as above. */
 export const OFFICIAL_TOPIC_COUNT = 42;

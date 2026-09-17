@@ -53216,7 +53216,7 @@
      "position": 2,
      "correct": true,
      "texts": {
-      "ru": "Зелёный, жёлтый, красный и белый",
+      "ru": "Зелёный, жёлтый, красный и бело-лунный",
       "uz-Cyrl": "Яшил, сариқ, қизил ва оқ",
       "uz-Latn": "Yashil, sariq, qizil va oq"
      }
@@ -53226,8 +53226,8 @@
      "correct": false,
      "texts": {
       "ru": "Зелёный, жёлтый и красный",
-      "uz-Cyrl": "Яшил, сариқ, қизил",
-      "uz-Latn": "Yashil, sariq, qizi"
+      "uz-Cyrl": "Яшил, сариқ ва қизил",
+      "uz-Latn": "Yashil, sariq va qizil"
      }
     }
    ],
@@ -53282,9 +53282,9 @@
      "position": 5,
      "correct": true,
      "texts": {
-      "ru": "Случаи, указанные в ответах 1 и 2",
-      "uz-Cyrl": "1- ва 2-жавобларда кўрсатилган ҳолатлар",
-      "uz-Latn": "1- va 2-javoblarda ko'rsatilgan holatlar"
+      "ru": "Лица, указанные в ответах 1 и 2",
+      "uz-Cyrl": "1- ва 2-жавобларда кўрсатилган шахслар",
+      "uz-Latn": "1- va 2-javoblarda ko'rsatilgan shaxslar"
      }
     }
    ],
@@ -53294,9 +53294,9 @@
    "ext_id": "avtoimtihon-1267",
    "category": "vehicle_defects",
    "texts": {
-    "ru": "Какова минимальная глубина рисунка протектора шин транспортных средств категории L?",
-    "uz-Cyrl": "L тоифадаги транспорт воситалари шина протектори нақши неча мм бўлиши керак?",
-    "uz-Latn": "L toifadagi transport vositalari shina protektori naqshi necha mm bo'lishi kerak?"
+    "ru": "Какой должна быть минимальная остаточная высота рисунка протектора шин транспортных средств категории L?",
+    "uz-Cyrl": "L тоифадаги транспорт воситалари шина протектори нақшининг қолдиқ баландлиги камида неча мм бўлиши керак?",
+    "uz-Latn": "L toifadagi transport vositalari shina protektori naqshining qoldiq balandligi kamida necha mm bo'lishi kerak?"
    },
    "answers": [
     {
@@ -53305,7 +53305,7 @@
      "texts": {
       "ru": "0,8 мм",
       "uz-Cyrl": "0,8 мм",
-      "uz-Latn": "0.8 mm"
+      "uz-Latn": "0,8 mm"
      }
     },
     {
@@ -53314,7 +53314,7 @@
      "texts": {
       "ru": "0,6 мм",
       "uz-Cyrl": "0,6 мм",
-      "uz-Latn": "0.6 mm"
+      "uz-Latn": "0,6 mm"
      }
     },
     {
@@ -53323,7 +53323,7 @@
      "texts": {
       "ru": "0,4 мм",
       "uz-Cyrl": "0,4 мм",
-      "uz-Latn": "0.4 mm"
+      "uz-Latn": "0,4 mm"
      }
     }
    ],
@@ -53372,9 +53372,9 @@
    "ext_id": "avtoimtihon-1269",
    "category": "starting_manoeuvring",
    "texts": {
-    "ru": "Разрешается ли водителю движение задним ходом на мосту для высадки пассажира?",
+    "ru": "Разрешается ли водителю двигаться задним ходом, чтобы посадить пассажира, стоящего на мосту?",
     "uz-Cyrl": "Ҳайдовчига кўприкда турган йўловчини чиқариш учун орқага ҳаракатланишга рухсат этиладими?",
-    "uz-Latn": "Haydovchiga ko'prikda turgan yo'lovchini chiqarish uchun orqaga harakatlanishga ruxsat etiladimi"
+    "uz-Latn": "Haydovchiga ko'prikda turgan yo'lovchini chiqarish uchun orqaga harakatlanishga ruxsat etiladimi?"
    },
    "answers": [
     {
@@ -53421,7 +53421,7 @@
      "position": 1,
      "correct": true,
      "texts": {
-      "ru": "Территория, определяемая воображаемыми линиями, в пределах которой проезжие части дорог пересекаются между собой",
+      "ru": "Зона, в которой проезжие части дорог пересекаются, и границы которой определяются воображаемыми линиями",
       "uz-Cyrl": "Йўлларнинг қатнов қисмлари ўзаро кесишиб ўтадиган ва тасаввур қилинадиган чизиқлар билан аниқланган ҳудуд",
       "uz-Latn": "Yo'llarning qatnov qismlari o'zaro kesishib o'tadigan va tasavvur qilinadigan chiziqlar bilan aniqlangan hudud"
      }
@@ -53430,7 +53430,7 @@
      "position": 2,
      "correct": false,
      "texts": {
-      "ru": "Место пересечения, примыкания или разветвления дорог на одном уровне",
+      "ru": "Место пересечения, примыкания и разветвления дорог на одном уровне",
       "uz-Cyrl": "Йўлларнинг ўзаро бир сатҳда кесишадиган, туташадиган ва айриладиган жойи",
       "uz-Latn": "Yo'llarning o'zaro bir sathda kesishadigan, tutashadigan va ayriladigan joyi"
      }
@@ -53439,7 +53439,7 @@
      "position": 3,
      "correct": false,
      "texts": {
-      "ru": "Элемент дороги, разделяющий расположенные рядом проезжие части, не предназначенный для движения или остановки транспортных средств и выделенный конструктивно либо с помощью газона, канавы или специальных ограждений",
+      "ru": "Приподнятый участок дороги, разделяющий смежные проезжие части и не предназначенный для движения или остановки транспортных средств, расположенный выше уровня дороги или отделенный газонами, арыками, специальными ограждениями",
       "uz-Cyrl": "Йўлнинг ёнма-ён жойлашган қатнов қисмларини ажратувчи, транспорт воситалари ҳаракатланиши ёки тўхташи учун мўлжалланмаган, йўл сатҳидан кўтарилган ёки майсазор, ариқ, махсус тўсиқлар билан ажратилган баланд қисми",
       "uz-Latn": "Yo'lning yonma-yon joylashgan qatnov qismlarini ajratuvchi, transport vositalari harakatlanishi yoki to'xtashi uchun mo'ljallanmagan, yo'l sathidan ko'tarilgan yoki maysazor, ariq, maxsus to'siqlar bilan ajratilgan baland qismi"
      }
@@ -53461,8 +53461,8 @@
      "correct": false,
      "texts": {
       "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 12 т",
-      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 12 т дан ортиқ бўлган автотранспорт воситалари",
-      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 12 t dan ortiq bo'lgan avtotransport vositalari"
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг катта вазни 12 т дан ортиқ бўлган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng katta vazni 12 t dan ortiq bo'lgan avtotransport vositalari"
      }
     },
     {
@@ -53470,8 +53470,8 @@
      "correct": true,
      "texts": {
       "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 3,5 т, но не превышает 12 т",
-      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 3,5 т дан ортиқ, лекин 12 т дан ошмайдиган автотранспорт воситалари",
-      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 3,5 t dan ortiq, lekin 12 t dan oshmaydigan avtotransport vositalari"
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг катта вазни 3,5 т дан ортиқ, лекин 12 т дан ошмайдиган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng katta vazni 3,5 t dan ortiq, lekin 12 t dan oshmaydigan avtotransport vositalari"
      }
     },
     {
@@ -53479,8 +53479,8 @@
      "correct": false,
      "texts": {
       "ru": "Автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых не превышает 3,5 т",
-      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг юқори вазни 3,5 т дан ошмайдиган автотранспорт воситалари",
-      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng yuqori vazni 3,5 t dan oshmaydigan avtotransport vositalari"
+      "uz-Cyrl": "Юк ташиш учун мўлжалланган, энг катта вазни 3,5 т дан ошмайдиган автотранспорт воситалари",
+      "uz-Latn": "Yuk tashish uchun mo'ljallangan, eng katta vazni 3,5 t dan oshmaydigan avtotransport vositalari"
      }
     }
    ],
@@ -53501,7 +53501,7 @@
      "texts": {
       "ru": "Сплошную линию, обозначающую край проезжей части, при вынужденной остановке на автомагистрали",
       "uz-Cyrl": "Автомагистралда мажбурий тўхтаганда қатнов қисмининг четини билдирувчи сидирға чизиқни",
-      "uz-Latn": "Avtomagistralda majburiy to'xtaganda qatnov qismining chetini bildiruvchi sidirg'a chiziqn"
+      "uz-Latn": "Avtomagistralda majburiy to'xtaganda qatnov qismining chetini bildiruvchi sidirg'a chiziqni"
      }
     },
     {
@@ -53538,7 +53538,7 @@
    "ext_id": "avtoimtihon-1273",
    "category": "markings_horizontal",
    "texts": {
-    "ru": "Разрешается ли данному транспортному средству, пересекая сплошную линию, остановиться у края проезжей части?",
+    "ru": "Разрешается ли данному транспортному средству, пересекая сплошную линию, остановиться на обочине?",
     "uz-Cyrl": "Ушбу транспорт воситасига сидирға чизиқни босиб ўтиб, йўл ёқасида тўхташга рухсат бериладими?",
     "uz-Latn": "Ushbu transport vositasiga sidirg'a chiziqni bosib o'tib, yo'l yoqasida to'xtashga ruxsat beriladimi?"
    },
@@ -53588,8 +53588,8 @@
    "category": "special_vehicle_priority",
    "texts": {
     "ru": "Разрешено ли в показанной ситуации специальному транспортному средству с включенными проблесковыми маячками синего и красного цветов двигаться по полосе «А»?",
-    "uz-Cyrl": "Кўрсатилган ҳолатда \"А\" тасма бўйлаб кўк ва қизил рангли ёнувчи махсус транспорт воситаси ҳаракатланишига рухсат этилдими?",
-    "uz-Latn": "Ko'rsatilgan holatda \"A\" tasma bo'ylab ko'k va qizil rangli yonuvchi maxsus transport vositasi harakatlanishiga ruxsat etildimi?"
+    "uz-Cyrl": "Кўрсатилган ҳолатда кўк ва қизил рангли ялт-ялт этувчи маёқчалари ёқилган махсус транспорт воситасига «А» тасма бўйлаб ҳаракатланишга рухсат этиладими?",
+    "uz-Latn": "Ko'rsatilgan holatda ko'k va qizil rangli yalt-yalt etuvchi mayoqchalari yoqilgan maxsus transport vositasiga «A» tasma bo'ylab harakatlanishga ruxsat etiladimi?"
    },
    "answers": [
     {
@@ -53597,8 +53597,8 @@
      "correct": false,
      "texts": {
       "ru": "Разрешается, если не создаёт помех маршрутным транспортным средствам",
-      "uz-Cyrl": "Йўналишли транспорт воситасига халақит бермаса рухсат этилади",
-      "uz-Latn": "Yo'nalishli transport vositasiga xalaqit bermasa ruxsat etiladi"
+      "uz-Cyrl": "Йўналишли транспорт воситасига халақит бермаса, рухсат этилади",
+      "uz-Latn": "Yo'nalishli transport vositasiga xalaqit bermasa, ruxsat etiladi"
      }
     },
     {
@@ -53627,7 +53627,7 @@
    "ext_id": "avtoimtihon-1275",
    "category": "speed_limits",
    "texts": {
-    "ru": "В каких случаях водителю легкового автомобиля при езде вне населённых пунктов запрещается превышать установленную скорость?",
+    "ru": "В каких случаях водителю легкового автомобиля вне населённых пунктов запрещается двигаться со скоростью более 90 км/ч?",
     "uz-Cyrl": "Қандай ҳолларда аҳоли пунктларидан ташқарида енгил автомобиль ҳайдовчисига соатига 90 км дан юқори тезликда ҳаракатланиш тақиқланади?",
     "uz-Latn": "Qanday hollarda aholi punktlaridan tashqarida yengil avtomobil haydovchisiga soatiga 90 km dan yuqori tezlikda harakatlanish taqiqlanadi?"
    },
@@ -53636,9 +53636,9 @@
      "position": 1,
      "correct": false,
      "texts": {
-      "ru": "Только если на дороге установлены дорожные знаки; ограничивающие скорость движения",
-      "uz-Cyrl": "Фақат йўлда тезлик чекланган белгилар ўрнатилган бўлса",
-      "uz-Latn": "Faqat yo'lda tezlik cheklangan belgilar o'rnatilgan bo'lsa"
+      "ru": "Только если на дороге установлены знаки, ограничивающие скорость движения",
+      "uz-Cyrl": "Фақат йўлда тезликни чекловчи белгилар ўрнатилган бўлса",
+      "uz-Latn": "Faqat yo'lda tezlikni cheklovchi belgilar o'rnatilgan bo'lsa"
      }
     },
     {
@@ -53646,15 +53646,15 @@
      "correct": false,
      "texts": {
       "ru": "Только если он двигается с прицепом",
-      "uz-Cyrl": "Фақат ҳаракатланаётган тиркамали енгил автомобилларга",
-      "uz-Latn": "Faqat harakatlanayotgan tirkamali yengil avtomobillarga"
+      "uz-Cyrl": "Фақат тиркама билан ҳаракатланаётган бўлса",
+      "uz-Latn": "Faqat tirkama bilan harakatlanayotgan bo'lsa"
      }
     },
     {
      "position": 3,
      "correct": false,
      "texts": {
-      "ru": "Если он буксирует другие транспортные средства",
+      "ru": "Если он буксирует другое транспортное средство",
       "uz-Cyrl": "Агар у бошқа транспорт воситасини шатакка олган бўлса",
       "uz-Latn": "Agar u boshqa transport vositasini shatakka olgan bo'lsa"
      }
@@ -53673,7 +53673,7 @@
   },
   {
    "ext_id": "avtoimtihon-1276",
-   "category": "officials_duties",
+   "category": "driver_duties",
    "texts": {
     "ru": "В каком случае сотрудник ДПС может потребовать от водителя выйти из транспортного средства?",
     "uz-Cyrl": "ЙПХ ходими қайси ҳолатда ҳайдовчидан транспорт воситасидан тушишини талаб қилиши мумкин?",
@@ -53703,8 +53703,8 @@
      "correct": false,
      "texts": {
       "ru": "Если водитель нарушил правила дорожного движения",
-      "uz-Cyrl": "Ҳайдовчи йўл ҳаракати қоидасини бузган бўлса",
-      "uz-Latn": "Haydovchi yo'l harakati qoidasini buzgan bo'lsa"
+      "uz-Cyrl": "Ҳайдовчи йўл ҳаракати қоидаларини бузган бўлса",
+      "uz-Latn": "Haydovchi yo'l harakati qoidalarini buzgan bo'lsa"
      }
     },
     {
@@ -53724,7 +53724,7 @@
    "category": "lane_position",
    "texts": {
     "ru": "С какой стороны синий автомобиль должен объехать препятствие?",
-    "uz-Cyrl": "Кўк автомобил қайси томондан айланиб ўтиши керак?",
+    "uz-Cyrl": "Кўк автомобиль қайси томондан айланиб ўтиши керак?",
     "uz-Latn": "Ko'k avtomobil qaysi tomondan aylanib o'tishi kerak?"
    },
    "answers": [
@@ -53798,6 +53798,144 @@
     }
    ],
    "source": "osonprava"
+  },
+  {
+   "ext_id": "avtoimtihon-1279",
+   "category": "starting_manoeuvring",
+   "image": "images/i1279_1.webp",
+   "texts": {
+    "ru": "Разрешено ли водителю двигаться задним ходом на этом участке дороги для посадки пассажиров?",
+    "uz-Cyrl": "Йўлнинг ушбу қисмида йўловчиларни чиқариш учун ҳайдовчи орқага ҳаракатланишига рухсат этиладими?",
+    "uz-Latn": "Yo'lning ushbu qismida yo'lovchilarni chiqarish uchun haydovchi orqaga harakatlanishiga ruxsat etiladimi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Разрешается, если водитель управляет легковым такси, не работающим по установленному маршруту",
+      "uz-Cyrl": "Агар ҳайдовчи йўналишсиз енгил таксини бошқараётган бўлса, рухсат этилади",
+      "uz-Latn": "Agar haydovchi yo'nalishsiz yengil taksini boshqarayotgan bo'lsa, ruxsat etiladi"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Запрещается",
+      "uz-Cyrl": "Тақиқланади",
+      "uz-Latn": "Taqiqlanadi"
+     }
+    },
+    {
+     "position": 3,
+     "correct": true,
+     "texts": {
+      "ru": "Разрешается",
+      "uz-Cyrl": "Рухсат этилади",
+      "uz-Latn": "Ruxsat etiladi"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1280",
+   "category": "intersections_equal",
+   "image": "images/i1280_1.webp",
+   "texts": {
+    "ru": "Какое транспортное средство первым проедет перекрёсток?",
+    "uz-Cyrl": "Чорраҳани биринчи бўлиб қайси транспорт воситаси кесиб ўтади?",
+    "uz-Latn": "Chorrahani birinchi bo'lib qaysi transport vositasi kesib o'tadi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Все транспортные средства одновременно",
+      "uz-Cyrl": "Барча транспорт воситалари бир вақтда",
+      "uz-Latn": "Barcha transport vositalari bir vaqtda"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Грузовой автомобиль и автобус одновременно",
+      "uz-Cyrl": "Юк автомобили ва автобус бир вақтда",
+      "uz-Latn": "Yuk avtomobili va avtobus bir vaqtda"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Грузовой автомобиль",
+      "uz-Cyrl": "Юк автомобили",
+      "uz-Latn": "Yuk avtomobili"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "Легковой автомобиль",
+      "uz-Cyrl": "Енгил автомобиль",
+      "uz-Latn": "Yengil avtomobil"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1281",
+   "category": "intersections_equal",
+   "image": "images/i1281_1.webp",
+   "texts": {
+    "ru": "Какое транспортное средство проедет последним?",
+    "uz-Cyrl": "Қайси транспорт воситаси охирги бўлиб ҳаракатланади?",
+    "uz-Latn": "Qaysi transport vositasi oxirgi bo'lib harakatlanadi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Грузовой автомобиль",
+      "uz-Cyrl": "Юк автомобили",
+      "uz-Latn": "Yuk avtomobili"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "Легковой автомобиль",
+      "uz-Cyrl": "Енгил автомобиль",
+      "uz-Latn": "Yengil avtomobil"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Все одновременно",
+      "uz-Cyrl": "Барчаси бир вақтда",
+      "uz-Latn": "Barchasi bir vaqtda"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "Автобус",
+      "uz-Cyrl": "Автобус",
+      "uz-Latn": "Avtobus"
+     }
+    }
+   ],
+   "source": "ptest"
   }
  ],
  "variants": [
@@ -55392,7 +55530,10 @@
     "avtoimtihon-1275",
     "avtoimtihon-1276",
     "avtoimtihon-1277",
-    "avtoimtihon-1278"
+    "avtoimtihon-1278",
+    "avtoimtihon-1279",
+    "avtoimtihon-1280",
+    "avtoimtihon-1281"
    ]
   }
  ],
@@ -81175,30 +81316,6 @@
    }
   },
   {
-   "question": "avtoimtihon-851",
-   "legal_refs": [],
-   "blocks": {
-    "ru": [
-     {
-      "text": "Водяное скольжение - или так называемое аквапланирование - возникает при езде на легковом автомобиле при проливном дожде или при проезде скопления воды на дороге в низинах: осенью, весной или в оттепель. Зная об этом явлении, водитель не должен быть захвачен врасплох. Совет может быть только один - сразу же снизить скорость движения, применяя торможение двигателем. «Техника управления автомобилем»",
-      "type": "muhim"
-     }
-    ],
-    "uz-Cyrl": [
-     {
-      "text": "Сувда сирпаниш кучли ёмғир, сел ёки сув тошган йўл қисмларида содир бўлади бу ҳолда ҳаракат хавфсизлигини таъминлаш мақсадида автомобилни двигател билан тормозлаш яхши самара беради. Баҳорги, кузги ёмғирлар ва сув тошган йўлнинг пастқам қисмларида ҳаракатланишда юқоридаги усулда томозлаш тавсия этилади.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Latn": [
-     {
-      "text": "Suvda sirpanish kuchli yomg'ir, sel yoki suv toshgan yoʻl qismlarida sodir bo'ladi bu holda harakat xavfsizligini ta'minlash maqsadida avtomobilni dvigatel bilan tormozlash yaxshi samara beradi. Bahorgi, kuzgi yomg'irlar va suv toshgan yo'lning pastqam qismlarida harakatlanishda yuqoridagi usulda tomozlash tavsiya etiladi.",
-      "type": "muhim"
-     }
-    ]
-   }
-  },
-  {
    "question": "avtoimtihon-852",
    "legal_refs": [],
    "blocks": {
@@ -82461,30 +82578,6 @@
     "uz-Latn": [
      {
       "text": "YHQ 9-bobi 61-bandi: Yo'lga chiqish joyida tezlashish bo'lagi bo'lsa, haydovchi unda harakatlanishi va qo'shni bo'lakda harakatlanayotgan transport vositalariga yo'l berib, transport oqimiga qo'shilishi kerak.",
-      "type": "muhim"
-     }
-    ]
-   }
-  },
-  {
-   "question": "avtoimtihon-898",
-   "legal_refs": [],
-   "blocks": {
-    "ru": [
-     {
-      "text": "Такая ситуация опасна вследствие возникновения момента сил, стремящегося развернуть автомобиль. Старайтесь выполнить действия, указанные в третьем ответе.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Cyrl": [
-     {
-      "text": "Бундай ҳолатда автомобилни момент кучлар буриб юборишга мойил бўлади, шунинг учун учинчи жавобдаги усулни қўлланг.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Latn": [
-     {
-      "text": "Bunday holatda avtomobilni moment kuchlar burib yuborishga moyil bo'ladi, shuning uchun uchinchi javobdagi usulni qo'llang.",
       "type": "muhim"
      }
     ]
@@ -83944,39 +84037,6 @@
     "uz-Latn": [
      {
       "text": "YHQ 24-bobi 143-bandi: Qattiq yoki egiluvchan ulagich yordamida shatakka olingan avtobusda, trolleybusda va yuk avtomobili yukxonasida odam tashish, qisman ortish yo'li bilan shatakka olishda esa shatakka olingan transport vositasining kabinasida va yukxonasida, shuningdek shatakka olgan transport vositasining yukxonasida odamlar bo'lishi taqiqlanadi.",
-      "type": "muhim"
-     }
-    ]
-   }
-  },
-  {
-   "question": "avtoimtihon-950",
-   "legal_refs": [
-    {
-     "code": "YHQ 4-bob 19-band",
-     "title": "YHQ 4-bobi 19-bandi"
-    },
-    {
-     "code": "ПДД гл.4 п.19",
-     "title": "Пункта 19 главы 4 ПДД"
-    }
-   ],
-   "blocks": {
-    "ru": [
-     {
-      "text": "Пункта 19 главы 4 ПДД, гласит: Пешеходы при пересечении дороги обязаны обходить стоящий автобуси троллейбус сзади, а трамвай — спереди.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Cyrl": [
-     {
-      "text": "ЙҲҚ 4-боби 19-банди: Пиёдалар тўхтаб турган автобус ва троллейбуснинг орқа томонидан, трамвайнинг эса олди томонидан йўлни кесиб ўтишлари шарт.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Latn": [
-     {
-      "text": "YHQ 4-bobi 19-bandi: Piyodalar toʻxtab turgan avtobus va trolleybusning orqa tomonidan, tramvayning esa oldi tomonidan yo'lni kesib o'tishlari shart.",
       "type": "muhim"
      }
     ]
@@ -86054,39 +86114,6 @@
     "uz-Latn": [
      {
       "text": "Vaqtincha (ko'chma tirgakdagi) va doimiy belgilar ma’no jihatidan bir-biriga zid kelgan hollarda haydovchilar vaqtincha o'rnatilgan belgilarga amal qilishlari kerak. 1,8 1.15, 1.16, 1.31, 1.17, 1.18.1 — 1.18.3, 1.21, 1.30, 2.6, 2.7, 3.1, 3.2, 3.11 — 3.16, 3.18.1 — 3.18.25 yo'l belgilari vaqtincha yo'l belgilari sifatida belgilanishi mumkin. Vaqtincha yo'l belgilari sariq rangda bo'ladi.",
-      "type": "muhim"
-     }
-    ]
-   }
-  },
-  {
-   "question": "avtoimtihon-1020",
-   "legal_refs": [
-    {
-     "code": "YHQ 24-bob 145-band",
-     "title": "YHQ 24-bobi 145-bandi"
-    },
-    {
-     "code": "ПДД гл.24 п.145",
-     "title": "Пункта 145 главы 24 ПДД"
-    }
-   ],
-   "blocks": {
-    "ru": [
-     {
-      "text": "Пункта 145 главы 24 ПДД, гласит: Буксировка запрещается в следующих случаях: двух и более транспортных средств; при общей длине буксирующего и буксируемого транспортных средств вместе со связующим звеном, превышающей 20 м.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Cyrl": [
-     {
-      "text": "ЙҲҚ 24-боби 145-банди: Шатакка олиш қуйидаги ҳолатларда тақиқланади: Шатакка олинган ва шатакка олган транспорт воситаларининг улагич билан бирга умумий узунлиги 20 метрдан ортиқ бўлса.",
-      "type": "muhim"
-     }
-    ],
-    "uz-Latn": [
-     {
-      "text": "YHQ 24-bobi 145-bandi: Shatakka olish quyidagi holatlarda taqiqlanadi: Shatakka olingan va shatakka olgan transport vositalarining ulagich bilan birga umumiy uzunligi 20 metrdan ortiq bo'lsa.",
       "type": "muhim"
      }
     ]
@@ -91823,6 +91850,576 @@
      {
       "text": "------",
       "type": "muhim"
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1265",
+   "legal_refs": [
+    {
+     "code": "YHQ 7-bob 30-band",
+     "title": "YHQ 7-bobi 30-bandi"
+    },
+    {
+     "code": "ПДД гл.7 п.30",
+     "title": "Пункт 30 главы 7 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 30 главы 7 ПДД гласит: В светофорах применяются световые сигналы зеленого, желтого, красного и бело-лунного цветов."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 7-боби 30-банди: Светофорларда яшил, сариқ, қизил ва оқ рангли ёруғлик ишоралари қўлланилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 7-bobi 30-bandi: Svetoforlarda yashil, sariq, qizil va oq rangli yorugʻlik ishoralari qoʻllaniladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1266",
+   "legal_refs": [],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Статья 17¹ Кодекса об административной ответственности: В случае фиксации специальными автоматизированными техническими средствами фото- и видеофиксации нарушения правил дорожного движения административной ответственности подлежит собственник транспортного средства или лицо, использовавшее данное транспортное средство на основе гражданско-правовых отношений в установленном порядке.\nВ случае фиксации специальными автоматизированными техническими средствами фото- и видеофиксации нарушения правил дорожного движения, совершенного с использованием транспортного средства в соответствии с законодательством, принадлежащего юридическому лицу, административной ответственности подлежит лицо, ответственное за эксплуатацию транспортного средства юридического лица или лицо, использовавшее данное транспортное средство на основе гражданско-правовых отношений в установленном порядке.\nСледовательно, к административной ответственности привлекается собственник транспортного средства (ответ 1) или лицо, ответственное за эксплуатацию транспортного средства юридического лица (ответ 2)."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "Маъмурий жавобгарлик тўғрисидаги кодекснинг 17¹-моддаси: Махсус автоматлаштирилган фото- ва видео қайд этиш техника воситалари орқали йўл ҳаракати қоидалари бузилганлиги қайд этилган тақдирда, маъмурий жавобгарликка транспорт воситасининг мулкдори ёки мазкур транспорт воситасидан фуқаролик-ҳуқуқий муносабатлар асосида белгиланган тартибда фойдаланган шахс тортилади.\nЮридик шахсга қонунчиликка мувофиқ тегишли транспорт воситасидан фойдаланиб содир этилган йўл ҳаракати қоидалари бузилганлиги махсус автоматлаштирилган фото- ва видео қайд этиш техника воситалари орқали қайд этилган тақдирда, маъмурий жавобгарликка юридик шахснинг транспорт воситасидан фойдаланиш учун масъул бўлган шахси ёки мазкур транспорт воситасидан фуқаролик-ҳуқуқий муносабатлар асосида белгиланган тартибда фойдаланган шахс тортилади.\nДемак, маъмурий жавобгарликка транспорт воситасининг мулкдори (1-жавоб) ёки юридик шахснинг транспорт воситасидан фойдаланиш учун масъул шахси (2-жавоб) тортилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "Maʼmuriy javobgarlik toʻgʻrisidagi kodeksning 17¹-moddasi: Maxsus avtomatlashtirilgan foto- va video qayd etish texnika vositalari orqali yoʻl harakati qoidalari buzilganligi qayd etilgan taqdirda, maʼmuriy javobgarlikka transport vositasining mulkdori yoki mazkur transport vositasidan fuqarolik-huquqiy munosabatlar asosida belgilangan tartibda foydalangan shaxs tortiladi.\nYuridik shaxsga qonunchilikka muvofiq tegishli transport vositasidan foydalanib sodir etilgan yoʻl harakati qoidalari buzilganligi maxsus avtomatlashtirilgan foto- va video qayd etish texnika vositalari orqali qayd etilgan taqdirda, maʼmuriy javobgarlikka yuridik shaxsning transport vositasidan foydalanish uchun masʼul boʻlgan shaxsi yoki mazkur transport vositasidan fuqarolik-huquqiy munosabatlar asosida belgilangan tartibda foydalangan shaxs tortiladi.\nDemak, maʼmuriy javobgarlikka transport vositasining mulkdori (1-javob) yoki yuridik shaxsning transport vositasidan foydalanish uchun masʼul shaxsi (2-javob) tortiladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1267",
+   "legal_refs": [
+    {
+     "code": "ПДД Прил.№3",
+     "title": "Приложение № 3 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 3 к ПДД («Условия, при которых запрещается эксплуатация транспортных средств») пункт 5.1: Шины имеют остаточную высоту рисунка протектора для автотранспортных средств категорий N2, N3, О3, О4 менее 1,0 мм;\nдля автотранспортных средств категорий М1, N1, О1, О2 — менее 1,6 мм;\nдля автотранспортных средств категорий М2, М3 — менее 2,0 мм;\nдля мотоциклов, электромотоциклов, мопедов и скутеров — менее 0,8 мм.\nСогласно классификации в этом приложении: категория L — мототранспортные средства.\nСледовательно, остаточная высота рисунка протектора шин транспортных средств категории L должна быть не менее 0,8 мм."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 3-иловаси («Транспорт воситаларидан фойдаланишни тақиқловчи шартлар»): 5.1. Шина протектори нақшларининг қолдиқ баландлиги N2, N3, О3, О4 тоифадаги автотранспорт воситалари учун — 1,0 мм дан кам бўлса;\nМ1, N1, О1, О2 тоифадаги автотранспорт воситалари учун — 1,6 мм дан, кам бўлса;\nМ2, М3 тоифадаги автотранспорт воситалари учун — 2,0 мм дан кам бўлса;\nМотоцикл, электромотоцикл, мопед ва скутерлар, шунингдек, кичик ҳажмдаги мототранспорт воситалари учун — 0,8 мм дан кам бўлса.\nШу иловадаги таснифга кўра: L тоифаси — мототранспорт воситалари.\nДемак, L тоифадаги транспорт воситалари шиналари протектори нақшининг қолдиқ баландлиги камида 0,8 мм бўлиши керак."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 3-ilovasi («Transport vositalaridan foydalanishni taqiqlovchi shartlar»): 5.1. Shina protektori naqshlarining qoldiq balandligi N2, N3, O3, O4 toifadagi avtotransport vositalari uchun — 1,0 mm dan kam boʻlsa;\nM1, N1, O1, O2 toifadagi avtotransport vositalari uchun — 1,6 mm dan, kam boʻlsa;\nM2, M3 toifadagi avtotransport vositalari uchun — 2,0 mm dan kam boʻlsa;\nMototsikl, elektromototsikl, moped va skuterlar, shuningdek, kichik hajmdagi mototransport vositalari uchun — 0,8 mm dan kam boʻlsa.\nShu ilovadagi tasnifga koʻra: L toifasi — mototransport vositalari.\nDemak, L toifadagi transport vositalari shinalari protektori naqshining qoldiq balandligi kamida 0,8 mm boʻlishi kerak."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1268",
+   "legal_refs": [],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Статья 1 Закона «О дорожном движении» (от 19 января 2024 года № ЗРУ-900): Целью настоящего Закона является регулирование отношений в сфере дорожного движения."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "«Йўл ҳаракати тўғрисида»ги Қонуннинг (2024 йил 19 январдаги ЎРҚ-900-сон) 1-моддаси: Ушбу Қонуннинг мақсади йўл ҳаракати соҳасидаги муносабатларни тартибга солишдан иборат."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "«Yoʻl harakati toʻgʻrisida»gi Qonunning (2024-yil 19-yanvardagi OʻRQ-900-son) 1-moddasi: Ushbu Qonunning maqsadi yoʻl harakati sohasidagi munosabatlarni tartibga solishdan iborat."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1269",
+   "legal_refs": [
+    {
+     "code": "YHQ 9-bob 63-band",
+     "title": "YHQ 9-bobi 63-bandi"
+    },
+    {
+     "code": "YHQ 9-bob 62-band",
+     "title": "YHQ 9-bobi 62-bandi"
+    },
+    {
+     "code": "ПДД гл.9 п.63",
+     "title": "Пункт 63 главы 9 ПДД"
+    },
+    {
+     "code": "ПДД гл.9 п.62",
+     "title": "Пункт 62 главы 9 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 63 главы 9 ПДД гласит: При движении транспортного средства задним ходом водитель должен обеспечить безопасность движения и не создавать помех другим участникам движения. При необходимости водитель должен прибегнуть к помощи других лиц.\nДвижение задним ходом запрещается на перекрестках и в местах, где запрещен разворот согласно пункту 62 настоящих Правил.\nПункт 62 главы 9 ПДД гласит: Разворот запрещается:\nна пешеходных переходах;\nв тоннелях;\nна мостах, путепроводах, эстакадах и под ними (за исключением участков дорог, где соответствующие дорожные знаки разрешают такой маневр);\nна железнодорожных переездах;\nв местах с видимостью дороги хотя бы в одном направлении менее 100 м.\nПоскольку на мостах разворот запрещен, движение задним ходом там также запрещено."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 9-боби 63-банди: Транспорт воситасини орқага ҳаракатлантиришда ҳайдовчи йўл ҳаракати хавфсизлигини таъминлаши ва йўл ҳаракатининг бошқа иштирокчиларига халақит бермаслиги шарт. Зарурат туғилганда ҳайдовчи бошқа шахсларнинг ёрдамидан фойдаланиши керак.\nОрқага ҳаракатланиш чорраҳаларда ва ушбу Қоидаларнинг 62-бандига мувофиқ қайрилиб олиш мумкин бўлмаган жойларда тақиқланади.\nЙҲҚ 9-боби 62-банди: Қуйидаги жойларда қайрилиб олиш тақиқланади:\nпиёдаларнинг ўтиш жойларида;\nтуннелларда;\nкўприклар, йўл ўтказгичлар, эстакадалар ва уларнинг остида (тегишли йўл белгилари билан бундай манёврни бажариш рухсат берилган йўл қисмлари бундан мустасно);\nтемир йўл кесишмаларида;\nйўлнинг кўриниши бирор-бир йўналишда 100 метрдан кам бўлган жойларда.\nКўприкда қайрилиб олиш тақиқлангани учун у ерда орқага ҳаракатланиш ҳам тақиқланади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 9-bobi 63-bandi: Transport vositasini orqaga harakatlantirishda haydovchi yoʻl harakati xavfsizligini taʼminlashi va yoʻl harakatining boshqa ishtirokchilariga xalaqit bermasligi shart. Zarurat tugʻilganda haydovchi boshqa shaxslarning yordamidan foydalanishi kerak.\nOrqaga harakatlanish chorrahalarda va ushbu Qoidalarning 62-bandiga muvofiq qayrilib olish mumkin boʻlmagan joylarda taqiqlanadi.\nYHQ 9-bobi 62-bandi: Quyidagi joylarda qayrilib olish taqiqlanadi:\npiyodalarning oʻtish joylarida;\ntunnellarda;\nkoʻpriklar, yoʻl oʻtkazgichlar, estakadalar va ularning ostida (tegishli yoʻl belgilari bilan bunday manyovrni bajarish ruxsat berilgan yoʻl qismlari bundan mustasno);\ntemir yoʻl kesishmalarida;\nyoʻlning koʻrinishi biror-bir yoʻnalishda 100 metrdan kam boʻlgan joylarda.\nKoʻprikda qayrilib olish taqiqlangani uchun u yerda orqaga harakatlanish ham taqiqlanadi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1270",
+   "legal_refs": [
+    {
+     "code": "YHQ 1-bob 6-band",
+     "title": "YHQ 1-bobi 6-bandi"
+    },
+    {
+     "code": "ПДД гл.1 п.6",
+     "title": "Пункт 6 главы 1 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 6 главы 1 ПДД: пересечение проезжих частей — зона, в которой проезжие части дорог пересекаются, и границы которой определяются воображаемыми линиями;\nперекресток — место пересечения, примыкания и разветвления дорог на одном уровне;\nразделительная полоса — приподнятый участок дороги, разделяющий смежные проезжие части и не предназначенный для движения или остановки транспортных средств, расположенный выше уровня дороги или отделенный газонами, арыками, специальными ограждениями."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 1-боби 6-банди: қатнов қисмлари кесишмаси — йўлларнинг қатнов қисмлари ўзаро кесишиб ўтадиган ва тасаввур қилинадиган чизиқлар билан аниқланган ҳудуд;\nчорраҳа — йўлларнинг ўзаро бир сатҳда кесишадиган, туташадиган ва айриладиган жойи;\nажратувчи минтақа — йўлнинг ёнма-ён жойлашган қатнов қисмларини ажратувчи, транспорт воситалари ҳаракатланиши ёки тўхташи учун мўлжалланмаган, йўл сатҳидан кўтарилган ёки майсазор, ариқ, махсус тўсиқлар билан ажратилган баланд қисми."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 1-bobi 6-bandi: qatnov qismlari kesishmasi — yoʻllarning qatnov qismlari oʻzaro kesishib oʻtadigan va tasavvur qilinadigan chiziqlar bilan aniqlangan hudud;\nchorraha — yoʻllarning oʻzaro bir sathda kesishadigan, tutashadigan va ayriladigan joyi;\najratuvchi mintaqa — yoʻlning yonma-yon joylashgan qatnov qismlarini ajratuvchi, transport vositalari harakatlanishi yoki toʻxtashi uchun moʻljallanmagan, yoʻl sathidan koʻtarilgan yoki maysazor, ariq, maxsus toʻsiqlar bilan ajratilgan baland qismi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1271",
+   "legal_refs": [
+    {
+     "code": "ПДД Прил.№3",
+     "title": "Приложение № 3 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 3 к ПДД (классификация автотранспортных средств): Категория N1 — автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых не превышает 3,5 т.\nКатегория N2 — автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 3,5 т, но не превышает 12 т.\nКатегория N3 — автотранспортные средства, предназначенные для перевозки грузов, максимальная масса которых превышает 12 т."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 3-иловасидаги автотранспорт воситалари таснифи: N1 тоифаси — юк ташиш учун мўлжалланган, энг катта вазни 3,5 т дан ошмайдиган автотранспорт воситалари.\nN2 тоифаси — юк ташиш учун мўлжалланган, энг катта вазни 3,5 т дан ортиқ, лекин 12 т дан ошмайдиган автотранспорт воситалари.\nN3 тоифаси — юк ташиш учун мўлжалланган, энг катта вазни 12 т дан ортиқ бўлган автотранспорт воситалари."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 3-ilovasidagi avtotransport vositalari tasnifi: N1 toifasi — yuk tashish uchun moʻljallangan, eng katta vazni 3,5 t dan oshmaydigan avtotransport vositalari.\nN2 toifasi — yuk tashish uchun moʻljallangan, eng katta vazni 3,5 t dan ortiq, lekin 12 t dan oshmaydigan avtotransport vositalari.\nN3 toifasi — yuk tashish uchun moʻljallangan, eng katta vazni 12 t dan ortiq boʻlgan avtotransport vositalari."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1272",
+   "legal_refs": [
+    {
+     "code": "YHQ 19-bob 122-band",
+     "title": "YHQ 19-bobi 122-bandi"
+    },
+    {
+     "code": "ПДД гл.19 п.122",
+     "title": "Пункт 122 главы 19 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№2",
+     "title": "Приложение № 2 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 2 к ПДД (горизонтальная разметка): Линии 1.1 и 1.3 пересекать запрещается, кроме случая, когда линия 1.1 применена для обозначения края проезжей части.\nЛинии 1.2, 1.5 — 1.8 пересекать разрешается с любой стороны.\n1.2 — (широкая сплошная линия) — обозначает край проезжей части на автомагистралях.\nПункт 122 главы 19 ПДД гласит: При вынужденной остановке на проезжей части водитель должен обозначить транспортное средство в соответствии с требованиями главы 8 настоящих Правил и принять все меры для того, чтобы вывести его на предназначенную для этого полосу (правее линии, обозначающей границу проезжей части).\nСледовательно, при вынужденной остановке на автомагистрали сплошную линию, обозначающую край проезжей части, пересекать можно, а сплошную линию, разделяющую полосы, и линии 1.1 и 1.3 пересекать запрещено."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 2-иловаси (ётиқ чизиқлар): 1.1 ва 1.3 чизиқларини босиб ўтиш тақиқланади, қатнов қисмининг четини билдириш учун қўлланилган 1.1 чизиғи бундан мустасно.\n1.2, 1.5 — 1.8 чизиқларини исталган томондан босиб ўтиш мумкин.\n1.2 (энли сидирға чизиқ) — автомагистралларда қатнов қисми четини билдиради..\nЙҲҚ 19-боби 122-банди: Ҳайдовчи қатнов қисмида мажбурий тўхтаганда, транспорт воситасини ушбу Қоидаларнинг 8-боби талабларига мувофиқ белгилаши ва бундай ҳолатлар учун мўлжалланган тасмага (қатнов қисмининг четини билдирувчи чизиқдан ўнгроқда) олиб чиқишнинг барча чораларини кўриши керак.\nДемак, автомагистралда мажбурий тўхтаганда қатнов қисми четини билдирувчи сидирға чизиқни босиб ўтиш мумкин; тасмаларни ажратувчи сидирға чизиқни, 1.1 ва 1.3 чизиқларини эса босиб ўтиш тақиқланади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 2-ilovasi (yotiq chiziqlar): 1.1 va 1.3 chiziqlarini bosib oʻtish taqiqlanadi, qatnov qismining chetini bildirish uchun qoʻllanilgan 1.1 chizigʻi bundan mustasno.\n1.2, 1.5 — 1.8 chiziqlarini istalgan tomondan bosib oʻtish mumkin.\n1.2 (enli sidirgʻa chiziq) — avtomagistrallarda qatnov qismi chetini bildiradi..\nYHQ 19-bobi 122-bandi: Haydovchi qatnov qismida majburiy toʻxtaganda, transport vositasini ushbu Qoidalarning 8-bobi talablariga muvofiq belgilashi va bunday holatlar uchun moʻljallangan tasmaga (qatnov qismining chetini bildiruvchi chiziqdan oʻngroqda) olib chiqishning barcha choralarini koʻrishi kerak.\nDemak, avtomagistralda majburiy toʻxtaganda qatnov qismi chetini bildiruvchi sidirgʻa chiziqni bosib oʻtish mumkin; tasmalarni ajratuvchi sidirgʻa chiziqni, 1.1 va 1.3 chiziqlarini esa bosib oʻtish taqiqlanadi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1273",
+   "legal_refs": [
+    {
+     "code": "ПДД Прил.№2",
+     "title": "Приложение № 2 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 2 к ПДД (горизонтальная разметка): 1.1 — разделяет транспортные потоки противоположных направлений и обозначает границы полос движения в опасных местах на дорогах и границы полос для велосипедистов; обозначает границы проезжей части, на которые въезд запрещен; обозначает границы стояночных мест транспортных средств и край проезжей части дорог, не отнесенных по условиям движения к автомагистралям.\nЛинии 1.1 и 1.3 пересекать запрещается, кроме случая, когда линия 1.1 применена для обозначения края проезжей части.\nСплошная линия на рисунке обозначает край проезжей части, поэтому ее разрешается пересечь для остановки на обочине."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 2-иловаси (ётиқ чизиқлар): 1.1 — қарама-қарши йўналишларда ҳаракатланаётган транспорт оқимларини ажратади, йўлнинг хавфли жойларидаги ҳаракатланиш бўлаги чегарасини ва велосипедчилар учун бўлагининг чегарасини билдиради; йўлнинг кириш тақиқланган қисми чегарасини белгилайди; транспорт воситаларининг тўхтаб туриш жойи чегарасини ҳамда автомагистрал қаторига киритилмаган йўлнинг қатнов қисми чегарасини билдиради.\n1.1 ва 1.3 чизиқларини босиб ўтиш тақиқланади, қатнов қисмининг четини билдириш учун қўлланилган 1.1 чизиғи бундан мустасно.\nРасмдаги сидирға чизиқ қатнов қисмининг четини билдиради, шунинг учун йўл ёқасида тўхташ учун уни босиб ўтишга рухсат этилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 2-ilovasi (yotiq chiziqlar): 1.1 — qarama-qarshi yoʻnalishlarda harakatlanayotgan transport oqimlarini ajratadi, yoʻlning xavfli joylaridagi harakatlanish boʻlagi chegarasini va velosipedchilar uchun boʻlagining chegarasini bildiradi; yoʻlning kirish taqiqlangan qismi chegarasini belgilaydi; transport vositalarining toʻxtab turish joyi chegarasini hamda avtomagistral qatoriga kiritilmagan yoʻlning qatnov qismi chegarasini bildiradi.\n1.1 va 1.3 chiziqlarini bosib oʻtish taqiqlanadi, qatnov qismining chetini bildirish uchun qoʻllanilgan 1.1 chizigʻi bundan mustasno.\nRasmdagi sidirgʻa chiziq qatnov qismining chetini bildiradi, shuning uchun yoʻl yoqasida toʻxtash uchun uni bosib oʻtishga ruxsat etiladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1274",
+   "legal_refs": [
+    {
+     "code": "YHQ 6-bob 25-band",
+     "title": "YHQ 6-bobi 25-bandi"
+    },
+    {
+     "code": "ПДД гл.6 п.25",
+     "title": "Пункт 25 главы 6 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 115¹ главы 17¹ ПДД гласит: По дороге с полосой, выделенной для маршрутных транспортных средств, могут передвигаться маршрутные транспортные средства общественного пользования и запрещается движение других транспортных средств по этой полосе, за исключением транспортных средств оперативных и специальных служб.\nПункт 25 главы 6 ПДД гласит: Водители транспортных средств оперативных и специальных служб с включенным проблесковым маячком синего или красного либо синего и красного цветов, выполняя неотложное служебное задание, могут отступать от требований глав 7 (кроме сигналов регулировщика), 9 — 16, 19 — 20 и 22 настоящих Правил, приложений №№ 1 и 2 к настоящим Правилам, при условии обеспечения безопасности движения.\nПоэтому специальному транспортному средству с включенными проблесковыми маячками синего и красного цветов разрешается двигаться по полосе «А»."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 17¹-боби 115¹-банди: Йўналишли транспорт воситалари учун алоҳида ажратилган тасмаси бор йўлдан йўналишли жамоат транспорти воситалари ҳаракатланиши мумкин ва бошқа транспорт воситалари ушбу йўлакда ҳаракатланиши тақиқланади, бундан тезкор ва махсус хизматларнинг транспорт воситалари мустасно.\nЙҲҚ 6-боби 25-банди: Тезкор ва махсус хизматларнинг кўк ёки қизил ёхуд кўк ва қизил рангли ялт-ялт этувчи маёқчалар ёқилган транспорт воситаларининг ҳайдовчилари кечиктириб бўлмайдиган хизмат вазифаларини бажараётиб, ҳаракатланиш хавфсизлигини таъминлаш шарти билан ушбу Қоидаларнинг 7-боби (тартибга солувчининг ишораларидан ташқари), 9 — 16, 19-20 ва 22 боблари, 1 ва 2-иловалари талабларидан четга чиқишлари мумкин.\nШунинг учун кўк ва қизил рангли ялт-ялт этувчи маёқчалари ёқилган махсус транспорт воситасига «А» тасма бўйлаб ҳаракатланишга рухсат этилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 17¹-bobi 115¹-bandi: Yoʻnalishli transport vositalari uchun alohida ajratilgan tasmasi bor yoʻldan yoʻnalishli jamoat transporti vositalari harakatlanishi mumkin va boshqa transport vositalari ushbu yoʻlakda harakatlanishi taqiqlanadi, bundan tezkor va maxsus xizmatlarning transport vositalari mustasno.\nYHQ 6-bobi 25-bandi: Tezkor va maxsus xizmatlarning koʻk yoki qizil yoxud koʻk va qizil rangli yalt-yalt etuvchi mayoqchalar yoqilgan transport vositalarining haydovchilari kechiktirib boʻlmaydigan xizmat vazifalarini bajarayotib, harakatlanish xavfsizligini taʼminlash sharti bilan ushbu Qoidalarning 7-bobi (tartibga soluvchining ishoralaridan tashqari), 9 — 16, 19-20 va 22 boblari, 1 va 2-ilovalari talablaridan chetga chiqishlari mumkin.\nShuning uchun koʻk va qizil rangli yalt-yalt etuvchi mayoqchalari yoqilgan maxsus transport vositasiga «A» tasma boʻylab harakatlanishga ruxsat etiladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1275",
+   "legal_refs": [
+    {
+     "code": "YHQ 11-bob 79-band",
+     "title": "YHQ 11-bobi 79-bandi"
+    },
+    {
+     "code": "YHQ 11-bob 80-band",
+     "title": "YHQ 11-bobi 80-bandi"
+    },
+    {
+     "code": "ПДД гл.11 п.79",
+     "title": "Пункт 79 главы 11 ПДД"
+    },
+    {
+     "code": "ПДД гл.11 п.80",
+     "title": "Пункт 80 главы 11 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№1",
+     "title": "Приложение № 1 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 79 главы 11 ПДД гласит: Вне населенных пунктов разрешается движение:\nлегковым автомобилям и грузовым автомобилям с разрешенной максимальной массой не более 3,5 тн — со скоростью не более 100 км/ч;\nмеждугородным автобусам и микроавтобусам — не более 90 км/ч;\nдругим автобусам, легковым автомобилям при буксировке прицепа, мотоциклам, электромотоциклам, грузовым автомобилям с разрешенной максимальной массой более 3,5 тн — не более 80 км/ч;\nгрузовым автомобилям при буксировке прицепа — не более 70 км/ч.\nПункт 80 главы 11 ПДД гласит: На всех дорогах разрешается движение:\nгрузовым автомобилям, перевозящим людей в кузове, — со скоростью не более 60 км/ч;\nтранспортным средствам, осуществляющим организованные перевозки групп детей, — не более 60 км/ч;\nтранспортным средствам, буксирующим механические транспортные средства, — не более 50 км/ч;\nтранспортным средствам, перевозящим опасные, тяжеловесные и крупногабаритные грузы, а также движущимся в составе организованной колонны, — со скоростью, согласованной с ГСБДД.\nПриложение № 1 к ПДД (дорожные знаки): 3.24. «Ограничение максимальной скорости». Запрещается движение со скоростью (км/ч), превышающей указанную на знаке.\nПри буксировке прицепа — 80 км/ч, при буксировке механического транспортного средства — 50 км/ч, при установленном знаке ограничения скорости — скорость, указанная на знаке. Поэтому правильный ответ — во всех перечисленных случаях."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 11-боби 79-банди: Аҳоли пунктларидан ташқарида:\nенгил автомобилларга ва рухсат этилган тўлиқ вазни 3,5 тоннадан ошмайдиган юк автомобилларига тезликни соатига 100 километрдан оширмасдан;\nшаҳарлараро қатнайдиган автобусларга ва микроавтобусларга тезликни соатига 90 километрдан оширмасдан;\nбошқа автобуслар, тиркамали енгил автомобиллар, мотоцикллар, электромотоцикллар рухсат этилган тўлиқ вазни 3,5 тоннадан ортиқ бўлган юк автомобилларига тезликни соатига 80 километрдан оширмасдан;\nтиркамали юк автомобилларига тезликни соатига 70 километрдан оширмасдан ҳаракатланиш рухсат этилади.\nЙҲҚ 11-боби 80-банди: Ҳар қандай йўлларда:\nюкхонасида одам ташиётган юк автомобилларига тезликни соатига 60 километрдан оширмасдан;\nболалар гуруҳини ташкилий ташиётган транспорт воситаларига тезликни соатига 60 километрдан оширмасдан;\nмеханик транспорт воситаларини шатакка олган транспорт воситаларига тезликни соатига 50 километрдан оширмасдан;\nхавфли, оғир вазнли ва катта ўлчамли юкларни ташиётган, ташкилий жамланмада ҳаракатланаётган транспорт воситаларига ДЙҲХХ билан келишилган тезликдан оширмасдан ҳаракатланишга рухсат этилади.\nЙҲҚ 1-иловаси (йўл белгилари): 3.24. «Юқори тезлик чекланган». Белгида кўрсатилганидан ортиқ тезликда (км/с) ҳаракатланиш тақиқланишини билдиради.\nТиркама билан ҳаракатланганда — 80 км/соат, шатакка олганда — 50 км/соат, тезликни чекловчи белги ўрнатилган бўлса — белгида кўрсатилган тезлик энг юқори чегара ҳисобланади. Шунинг учун тўғри жавоб — санаб ўтилган барча ҳолларда."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 11-bobi 79-bandi: Aholi punktlaridan tashqarida:\nyengil avtomobillarga va ruxsat etilgan toʻliq vazni 3,5 tonnadan oshmaydigan yuk avtomobillariga tezlikni soatiga 100 kilometrdan oshirmasdan;\nshaharlararo qatnaydigan avtobuslarga va mikroavtobuslarga tezlikni soatiga 90 kilometrdan oshirmasdan;\nboshqa avtobuslar, tirkamali yengil avtomobillar, mototsikllar, elektromototsikllar ruxsat etilgan toʻliq vazni 3,5 tonnadan ortiq boʻlgan yuk avtomobillariga tezlikni soatiga 80 kilometrdan oshirmasdan;\ntirkamali yuk avtomobillariga tezlikni soatiga 70 kilometrdan oshirmasdan harakatlanish ruxsat etiladi.\nYHQ 11-bobi 80-bandi: Har qanday yoʻllarda:\nyukxonasida odam tashiyotgan yuk avtomobillariga tezlikni soatiga 60 kilometrdan oshirmasdan;\nbolalar guruhini tashkiliy tashiyotgan transport vositalariga tezlikni soatiga 60 kilometrdan oshirmasdan;\nmexanik transport vositalarini shatakka olgan transport vositalariga tezlikni soatiga 50 kilometrdan oshirmasdan;\nxavfli, ogʻir vaznli va katta oʻlchamli yuklarni tashiyotgan, tashkiliy jamlanmada harakatlanayotgan transport vositalariga DYHXX bilan kelishilgan tezlikdan oshirmasdan harakatlanishga ruxsat etiladi.\nYHQ 1-ilovasi (yoʻl belgilari): 3.24. “Yuqori tezlik cheklangan”. Belgida koʻrsatilganidan ortiq tezlikda (km/s) harakatlanish taqiqlanishini bildiradi.\nTirkama bilan harakatlanganda — 80 km/soat, shatakka olganda — 50 km/soat, tezlikni cheklovchi belgi oʻrnatilgan boʻlsa — belgida koʻrsatilgan tezlik eng yuqori chegara hisoblanadi. Shuning uchun toʻgʻri javob — sanab oʻtilgan barcha hollarda."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1276",
+   "legal_refs": [],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 13 Положения, утвержденного постановлением Кабинета Министров от 1 декабря 2018 года № 975: В нижеследующих случаях сотрудник ДПС вправе потребовать от водителя или пассажиров выйти из кабины транспортного средства: для устранения технических неисправностей транспортного средства или нарушений правил перевозки грузов; когда имеются достаточные основания полагать, что водитель находится в состоянии опьянения; для проведения сверки при непосредственном участии водителя, при выявлении отличий номеров двигателя и агрегатных узлов транспортного средств с номерами, записанными в регистрационных документах; при возникновении необходимости в проведении проверки документов транспортного средства либо наличия документов на перевозимый груз; когда водитель или пассажир подозреваются в совершении преступления; в случаях, когда нахождение водителя в кабине транспортного средства может создать угрозу безопасности дорожного движения (при наличии сомнения в душевном состоянии, возрасте водителя, подозрения о его нахождении под воздействием лекарственных препаратов, снижающих реакцию и внимание, усталости или болезненном состоянии, угрожающем безопасности дорожного движения, при наличии сомнений в возможности управления транспортным средством). Исключением являются случаи, когда водитель ограничен в возможности выхода из кабины транспортного средства в связи с физическим недостатком.\nОтказ предъявить водительское удостоверение или нарушение правил дорожного движения в этом перечне как основание не названы; правильный ответ — когда имеются достаточные основания полагать, что водитель находится в состоянии опьянения."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "Вазирлар Маҳкамасининг 2018 йил 1 декабрдаги 975-сон қарори билан тасдиқланган Низомнинг 13-банди: Қуйидаги ҳолларда ЙПХ ходими ҳайдовчи ёки йўловчилардан транспорт воситаси кабинасидан чиқишини талаб қилишга ҳақли: транспорт воситасидаги техник носозликни ва юк ташиш қоидаси бузилганлигини бартараф этиш мақсадида; ҳайдовчи транспорт воситасини маст ҳолда бошқараётган деб ҳисоблашга етарли асослар мавжуд бўлганда; транспорт воситасининг двигатель ва агрегат қисмлари рақамларини рўйхатлаш ҳужжатларида ёзилган рақамлар билан фарқ аниқланган тақдирда бевосита ҳайдовчи иштирокида солиштириш мақсадида; транспорт воситасига тегишли ҳужжатлар ёки унда олиб кетилаётган юк ҳужжатлари мавжудлигини текшириш зарурати юзага келганда; ҳайдовчи ёки йўловчи жиноят содир этганликда гумон қилинаётганда; ҳайдовчининг транспорт воситаси кабинасида бўлиши йўл ҳаракати хавфсизлигини таъминлашга таҳдид солиши мумкин бўлган ҳолларда (ҳайдовчининг руҳий ҳолатига, ёшига, сезгирлик ва эътиборни сусайтирадиган дори воситалари таъсирида, йўл ҳаракати хавфсизлигига таҳдид соладиган даражадаги чарчоқлик ва бетоблик ҳолатида, транспорт воситасини бошқара олишига шубҳа бўлганда). Жисмоний нуқсони сабабли ҳайдовчининг транспорт воситаси кабинасидан чиқиш имконияти чекланган ҳолатлар бундан мустасно.\nҲайдовчининг гувоҳномани кўрсатишни истамаслиги ёки йўл ҳаракати қоидаларини бузгани бу рўйхатда асос сифатида келтирилмаган; тўғри жавоб — ҳайдовчи маст ҳолатда бошқараётганига етарли асослар бўлганда."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "Vazirlar Mahkamasining 2018-yil 1-dekabrdagi 975-son qarori bilan tasdiqlangan Nizomning 13-bandi: Quyidagi hollarda YPX xodimi haydovchi yoki yoʻlovchilardan transport vositasi kabinasidan chiqishini talab qilishga haqli: transport vositasidagi texnik nosozlikni va yuk tashish qoidasi buzilganligini bartaraf etish maqsadida; haydovchi transport vositasini mast holda boshqarayotgan deb hisoblashga yetarli asoslar mavjud boʻlganda; transport vositasining dvigatel va agregat qismlari raqamlarini roʻyxatlash hujjatlarida yozilgan raqamlar bilan farq aniqlangan taqdirda bevosita haydovchi ishtirokida solishtirish maqsadida; transport vositasiga tegishli hujjatlar yoki unda olib ketilayotgan yuk hujjatlari mavjudligini tekshirish zarurati yuzaga kelganda; haydovchi yoki yoʻlovchi jinoyat sodir etganlikda gumon qilinayotganda; haydovchining transport vositasi kabinasida boʻlishi yoʻl harakati xavfsizligini taʼminlashga tahdid solishi mumkin boʻlgan hollarda (haydovchining ruhiy holatiga, yoshiga, sezgirlik va eʼtiborni susaytiradigan dori vositalari taʼsirida, yoʻl harakati xavfsizligiga tahdid soladigan darajadagi charchoqlik va betoblik holatida, transport vositasini boshqara olishiga shubha boʻlganda). Jismoniy nuqsoni sababli haydovchining transport vositasi kabinasidan chiqish imkoniyati cheklangan holatlar bundan mustasno.\nHaydovchining guvohnomani koʻrsatishni istamasligi yoki yoʻl harakati qoidalarini buzgani bu roʻyxatda asos sifatida keltirilmagan; toʻgʻri javob — haydovchi mast holatda boshqarayotganiga yetarli asoslar boʻlganda."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1277",
+   "legal_refs": [
+    {
+     "code": "YHQ 10-bob 65-band",
+     "title": "YHQ 10-bobi 65-bandi"
+    },
+    {
+     "code": "ПДД гл.10 п.65",
+     "title": "Пункт 65 главы 10 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№2",
+     "title": "Приложение № 2 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 65 главы 10 ПДД гласит: На дорогах с двусторонним движением, имеющих четыре полосы и более, запрещается выезжать на сторону дороги, предназначенную для встречного движения.\nПриложение № 2 к ПДД (горизонтальная разметка): 1.3 — разделяет транспортные потоки противоположных направлений на дорогах, имеющих четыре полосы движения и более.\nЛинии 1.1 и 1.3 пересекать запрещается, кроме случая, когда линия 1.1 применена для обозначения края проезжей части.\nПоэтому синий автомобиль не может объехать препятствие слева, пересекая линию 1.3 и выезжая на полосу встречного движения; объехать его можно только справа."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 10-боби 65-банди: Тўрт ва ундан ортиқ тасмали, ҳаракат икки томонлама бўлган йўлларда қарама-қарши йўналишда ҳаракатланиш учун мўлжалланган тасмаларга чиқиш тақиқланади.\nЙҲҚ 2-иловаси (ётиқ чизиқлар): 1.3 — тўрт ва ундан ортиқ ҳаракатланиш бўлаги бўлган йўлларда қарама-қарши йўналишдаги транспорт воситалари оқимини ажратади.\n1.1 ва 1.3 чизиқларини босиб ўтиш тақиқланади, қатнов қисмининг четини билдириш учун қўлланилган 1.1 чизиғи бундан мустасно.\nШунинг учун кўк автомобиль тўсиқни чап томондан — 1.3 чизиғини кесиб, қарама-қарши йўналиш тасмасига чиқиб — айланиб ўта олмайди; уни фақат ўнг томондан айланиб ўтиш мумкин."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 10-bobi 65-bandi: Toʻrt va undan ortiq tasmali, harakat ikki tomonlama boʻlgan yoʻllarda qarama-qarshi yoʻnalishda harakatlanish uchun moʻljallangan tasmalarga chiqish taqiqlanadi.\nYHQ 2-ilovasi (yotiq chiziqlar): 1.3 — toʻrt va undan ortiq harakatlanish boʻlagi boʻlgan yoʻllarda qarama-qarshi yoʻnalishdagi transport vositalari oqimini ajratadi.\n1.1 va 1.3 chiziqlarini bosib oʻtish taqiqlanadi, qatnov qismining chetini bildirish uchun qoʻllanilgan 1.1 chizigʻi bundan mustasno.\nShuning uchun koʻk avtomobil toʻsiqni chap tomondan — 1.3 chizigʻini kesib, qarama-qarshi yoʻnalish tasmasiga chiqib — aylanib oʻta olmaydi; uni faqat oʻng tomondan aylanib oʻtish mumkin."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1278",
+   "legal_refs": [
+    {
+     "code": "YHQ 16-bob 105-band",
+     "title": "YHQ 16-bobi 105-bandi"
+    },
+    {
+     "code": "ПДД гл.16 п.105",
+     "title": "Пункт 105 главы 16 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 105 главы 16 ПДД гласит: На перекрестке равнозначных дорог водитель безрельсового транспортного средства обязан уступить дорогу транспортным средствам, приближающимся справа. Этим же правилом должны руководствоваться между собой водители трамваев.\nРазворачивающийся белый автомобиль приближается к красному справа, поэтому уступить дорогу должен красный автомобиль."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 16-боби 105-банди: Тенг аҳамиятга эга бўлган йўллар кесишган чорраҳада рельссиз транспорт воситасининг ҳайдовчиси ўнгдан яқинлашаётган транспорт воситаларига йўл бериши шарт. Бу қоидага трамвай ҳайдовчилари ҳам ўзаро амал қилишлари керак.\nҚайрилиб олаётган оқ автомобиль қизил автомобилга нисбатан ўнг томондан яқинлашмоқда, шунинг учун қизил автомобиль йўл бериши керак."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 16-bobi 105-bandi: Teng ahamiyatga ega boʻlgan yoʻllar kesishgan chorrahada relssiz transport vositasining haydovchisi oʻngdan yaqinlashayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nQayrilib olayotgan oq avtomobil qizil avtomobilga nisbatan oʻng tomondan yaqinlashmoqda, shuning uchun qizil avtomobil yoʻl berishi kerak."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1279",
+   "legal_refs": [
+    {
+     "code": "YHQ 9-bob 63-band",
+     "title": "YHQ 9-bobi 63-bandi"
+    },
+    {
+     "code": "YHQ 9-bob 62-band",
+     "title": "YHQ 9-bobi 62-bandi"
+    },
+    {
+     "code": "ПДД гл.9 п.63",
+     "title": "Пункт 63 главы 9 ПДД"
+    },
+    {
+     "code": "ПДД гл.9 п.62",
+     "title": "Пункт 62 главы 9 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№1",
+     "title": "Приложение № 1 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 63 главы 9 ПДД гласит: При движении транспортного средства задним ходом водитель должен обеспечить безопасность движения и не создавать помех другим участникам движения. При необходимости водитель должен прибегнуть к помощи других лиц.\nДвижение задним ходом запрещается на перекрестках и в местах, где запрещен разворот согласно пункту 62 настоящих Правил.\nПункт 62 главы 9 ПДД гласит: Разворот запрещается:\nна пешеходных переходах;\nв тоннелях;\nна мостах, путепроводах, эстакадах и под ними (за исключением участков дорог, где соответствующие дорожные знаки разрешают такой маневр);\nна железнодорожных переездах;\nв местах с видимостью дороги хотя бы в одном направлении менее 100 м.\nПриложение № 1 к ПДД (дорожные знаки): 4.1.1. «Движение прямо».\nРазрешается движение только в направлениях, указанных на знаках стрелками.\nДействие знака 4.1.1, установленного в начале участка дороги, распространяется до ближайшего перекрестка. Знак не запрещает повороты направо во дворы и на другие прилегающие к дороге территории.\nМесто на рисунке не является перекрестком и не входит в перечень пункта 62, а знак 4.1.1 лишь определяет направление движения и не запрещает движение задним ходом. Поэтому, обеспечив безопасность и не создавая помех другим участникам движения, двигаться задним ходом разрешается."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 9-боби 63-банди: Транспорт воситасини орқага ҳаракатлантиришда ҳайдовчи йўл ҳаракати хавфсизлигини таъминлаши ва йўл ҳаракатининг бошқа иштирокчиларига халақит бермаслиги шарт. Зарурат туғилганда ҳайдовчи бошқа шахсларнинг ёрдамидан фойдаланиши керак.\nОрқага ҳаракатланиш чорраҳаларда ва ушбу Қоидаларнинг 62-бандига мувофиқ қайрилиб олиш мумкин бўлмаган жойларда тақиқланади.\nЙҲҚ 9-боби 62-банди: Қуйидаги жойларда қайрилиб олиш тақиқланади:\nпиёдаларнинг ўтиш жойларида;\nтуннелларда;\nкўприклар, йўл ўтказгичлар, эстакадалар ва уларнинг остида (тегишли йўл белгилари билан бундай манёврни бажариш рухсат берилган йўл қисмлари бундан мустасно);\nтемир йўл кесишмаларида;\nйўлнинг кўриниши бирор-бир йўналишда 100 метрдан кам бўлган жойларда.\nЙҲҚ 1-иловаси (йўл белгилари): 4.1.1. «Ҳаракатланиш тўғрига».\nФақат белгиларда кўрсатилган кўрсаткичлар йўналишларида ҳаракатланишга рухсат этилади.\nЙўлнинг қисми бошланишида ўрнатилган 4.1.1 белгисининг таъсири яқин чорраҳагача жорий қилинади. Белги ўнг томонда жойлашган ҳовлиларга ва йўлга ёндош бошқа ҳудудларга бурилишни тақиқламайди.\nРасмдаги жой чорраҳа ҳам, 62-бандда санаб ўтилган жойлардан бири ҳам эмас, 4.1.1 белгиси эса фақат ҳаракатланиш йўналишини белгилайди ва орқага ҳаракатланишни тақиқламайди. Шунинг учун хавфсизликни таъминлаб, бошқа иштирокчиларга халақит бермаган ҳолда орқага ҳаракатланишга рухсат этилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 9-bobi 63-bandi: Transport vositasini orqaga harakatlantirishda haydovchi yoʻl harakati xavfsizligini taʼminlashi va yoʻl harakatining boshqa ishtirokchilariga xalaqit bermasligi shart. Zarurat tugʻilganda haydovchi boshqa shaxslarning yordamidan foydalanishi kerak.\nOrqaga harakatlanish chorrahalarda va ushbu Qoidalarning 62-bandiga muvofiq qayrilib olish mumkin boʻlmagan joylarda taqiqlanadi.\nYHQ 9-bobi 62-bandi: Quyidagi joylarda qayrilib olish taqiqlanadi:\npiyodalarning oʻtish joylarida;\ntunnellarda;\nkoʻpriklar, yoʻl oʻtkazgichlar, estakadalar va ularning ostida (tegishli yoʻl belgilari bilan bunday manyovrni bajarish ruxsat berilgan yoʻl qismlari bundan mustasno);\ntemir yoʻl kesishmalarida;\nyoʻlning koʻrinishi biror-bir yoʻnalishda 100 metrdan kam boʻlgan joylarda.\nYHQ 1-ilovasi (yoʻl belgilari): 4.1.1. “Harakatlanish toʻgʻriga”.\nFaqat belgilarda koʻrsatilgan koʻrsatkichlar yoʻnalishlarida harakatlanishga ruxsat etiladi.\nYoʻlning qismi boshlanishida oʻrnatilgan 4.1.1 belgisining taʼsiri yaqin chorrahagacha joriy qilinadi. Belgi oʻng tomonda joylashgan hovlilarga va yoʻlga yondosh boshqa hududlarga burilishni taqiqlamaydi.\nRasmdagi joy chorraha ham, 62-bandda sanab oʻtilgan joylardan biri ham emas, 4.1.1 belgisi esa faqat harakatlanish yoʻnalishini belgilaydi va orqaga harakatlanishni taqiqlamaydi. Shuning uchun xavfsizlikni taʼminlab, boshqa ishtirokchilarga xalaqit bermagan holda orqaga harakatlanishga ruxsat etiladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1280",
+   "legal_refs": [
+    {
+     "code": "YHQ 16-bob 105-band",
+     "title": "YHQ 16-bobi 105-bandi"
+    },
+    {
+     "code": "ПДД гл.16 п.105",
+     "title": "Пункт 105 главы 16 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 105 главы 16 ПДД гласит: На перекрестке равнозначных дорог водитель безрельсового транспортного средства обязан уступить дорогу транспортным средствам, приближающимся справа. Этим же правилом должны руководствоваться между собой водители трамваев.\nЛегковой автомобиль, поворачивающий налево, должен уступить дорогу грузовому автомобилю, приближающемуся справа. Траектории автобуса, поворачивающего направо, и грузового автомобиля, движущегося прямо, не пересекаются, поэтому они проезжают перекресток первыми одновременно, а легковой автомобиль — после них."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 16-боби 105-банди: Тенг аҳамиятга эга бўлган йўллар кесишган чорраҳада рельссиз транспорт воситасининг ҳайдовчиси ўнгдан яқинлашаётган транспорт воситаларига йўл бериши шарт. Бу қоидага трамвай ҳайдовчилари ҳам ўзаро амал қилишлари керак.\nЧапга бурилаётган енгил автомобиль ўнг томондан яқинлашаётган юк автомобилига йўл бериши керак. Ўнгга бурилаётган автобус ва тўғрига ҳаракатланаётган юк автомобилининг йўллари кесишмайди, шунинг учун улар чорраҳани биринчи бўлиб бир вақтда кесиб ўтади, енгил автомобиль эса улардан кейин."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 16-bobi 105-bandi: Teng ahamiyatga ega boʻlgan yoʻllar kesishgan chorrahada relssiz transport vositasining haydovchisi oʻngdan yaqinlashayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nChapga burilayotgan yengil avtomobil oʻng tomondan yaqinlashayotgan yuk avtomobiliga yoʻl berishi kerak. Oʻngga burilayotgan avtobus va toʻgʻriga harakatlanayotgan yuk avtomobilining yoʻllari kesishmaydi, shuning uchun ular chorrahani birinchi boʻlib bir vaqtda kesib oʻtadi, yengil avtomobil esa ulardan keyin."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1281",
+   "legal_refs": [
+    {
+     "code": "YHQ 16-bob 105-band",
+     "title": "YHQ 16-bobi 105-bandi"
+    },
+    {
+     "code": "YHQ 16-bob 107-band",
+     "title": "YHQ 16-bobi 107-bandi"
+    },
+    {
+     "code": "ПДД гл.16 п.105",
+     "title": "Пункт 105 главы 16 ПДД"
+    },
+    {
+     "code": "ПДД гл.16 п.107",
+     "title": "Пункт 107 главы 16 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 105 главы 16 ПДД гласит: На перекрестке равнозначных дорог водитель безрельсового транспортного средства обязан уступить дорогу транспортным средствам, приближающимся справа. Этим же правилом должны руководствоваться между собой водители трамваев.\nПункт 107 главы 16 ПДД гласит: При повороте налево или развороте водитель безрельсового транспортного средства обязан уступить дорогу транспортным средствам, движущимся по равнозначной дороге со встречного направления прямо или направо. Этим же правилом должны руководствоваться между собой водители трамваев.\nЛегковой автомобиль, поворачивающий налево, должен уступить дорогу грузовому автомобилю, приближающемуся справа (пункт 105), и автобусу, движущемуся со встречного направления (пункт 107), поэтому он проезжает последним."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 16-боби 105-банди: Тенг аҳамиятга эга бўлган йўллар кесишган чорраҳада рельссиз транспорт воситасининг ҳайдовчиси ўнгдан яқинлашаётган транспорт воситаларига йўл бериши шарт. Бу қоидага трамвай ҳайдовчилари ҳам ўзаро амал қилишлари керак.\nЙҲҚ 16-боби 107-банди: Чапга бурилишда ёки қайрилиб олишда рельссиз транспорт воситасининг ҳайдовчиси тенг аҳамиятли йўлдан қарама-қарши йўналишдан тўғрига ёки ўнгга ҳаракатланаётган транспорт воситаларига йўл бериши шарт. Бу қоидага трамвай ҳайдовчилари ҳам ўзаро амал қилишлари керак.\nЧапга бурилаётган енгил автомобиль ўнг томондан яқинлашаётган юк автомобилига (105-банд) ва қарама-қарши йўналишдан келаётган автобусга (107-банд) йўл бериши керак, шунинг учун у охирги бўлиб ҳаракатланади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 16-bobi 105-bandi: Teng ahamiyatga ega boʻlgan yoʻllar kesishgan chorrahada relssiz transport vositasining haydovchisi oʻngdan yaqinlashayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nYHQ 16-bobi 107-bandi: Chapga burilishda yoki qayrilib olishda relssiz transport vositasining haydovchisi teng ahamiyatli yoʻldan qarama-qarshi yoʻnalishdan toʻgʻriga yoki oʻngga harakatlanayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nChapga burilayotgan yengil avtomobil oʻng tomondan yaqinlashayotgan yuk avtomobiliga (105-band) va qarama-qarshi yoʻnalishdan kelayotgan avtobusga (107-band) yoʻl berishi kerak, shuning uchun u oxirgi boʻlib harakatlanadi."
      }
     ]
    }

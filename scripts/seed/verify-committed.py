@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Verify committed content seeds match the live product counts.
 
-Canonical numbers (post NEW+MAJOR import / 63-bilet catalog):
-  - questions: 1260
-  - variants: 63
-  - explanations: 1219
+Canonical numbers (1260-question export + 17 hand-added questions, 42 topics):
+  - questions: 1277
+  - variants: 64 (bilet 64 is still filling)
+  - explanations: 1232
   - sign groups: 7
   - signs: 285
 
@@ -24,12 +24,12 @@ SIGNS = ROOT / "backend" / "seed" / "signs" / "data.json"
 QUESTION_SIGNS = ROOT / "backend" / "seed" / "avtoimtihon" / "question_signs.json"
 
 EXPECT = {
-    "questions": 1260,
-    "variants": 63,
-    "explanations": 1219,
+    "questions": 1277,
+    "variants": 64,
+    "explanations": 1232,  # 1215 original + 17 hand-added; the 4 orphans are gone
     "sign_groups": 7,
     "signs": 285,
-    "categories": 13,
+    "categories": 42,
 }
 
 
@@ -66,16 +66,26 @@ def main() -> None:
         if got[key] != want:
             fail(f"{key}: got {got[key]}, want {want}")
 
+    # Same rule as internal/importer/validate.go: only the highest-numbered bilet
+    # may still be filling; a short bilet anywhere else means a dropped question.
     assigned: set[str] = set()
+    last = max((variant.get("number") or 0) for variant in v) if v else 0
     for variant in v:
         qs = variant.get("questions") or []
-        if len(qs) != 20:
-            fail(f"variant {variant.get('number')}: {len(qs)} questions (want 20)")
+        filling = variant.get("number") == last and 1 <= len(qs) < 20
+        if len(qs) != 20 and not filling:
+            fail(f"variant {variant.get('number')}: {len(qs)} questions "
+                 f"(want 20; only the last bilet may still be filling)")
         assigned.update(qs)
 
     orphans = [item["ext_id"] for item in q if item.get("ext_id") not in assigned]
     if orphans:
         fail(f"{len(orphans)} questions not assigned to any variant (e.g. {orphans[:3]})")
+
+    bank_ids = {item.get("ext_id") for item in q}
+    stray = [item.get("question") for item in e if item.get("question") not in bank_ids]
+    if stray:
+        fail(f"{len(stray)} explanations point at questions not in the bank (e.g. {stray[:3]})")
 
     if QUESTION_SIGNS.is_file():
         links = json.loads(QUESTION_SIGNS.read_text(encoding="utf-8"))
