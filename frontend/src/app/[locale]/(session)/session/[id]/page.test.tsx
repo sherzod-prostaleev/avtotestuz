@@ -262,6 +262,20 @@ describe("SessionPage secure session flow", () => {
     );
   });
 
+  it("names the bilet being solved instead of a bare mode badge", () => {
+    mockEngine(activeSession({ variant_number: 13 }));
+    renderPage();
+
+    expect(screen.getByText("13-Bilet")).toBeInTheDocument();
+  });
+
+  it("keeps the plain bilet badge when the session reports no number", () => {
+    mockEngine(activeSession({ variant_number: null }));
+    renderPage();
+
+    expect(screen.getByText("Bilet")).toBeInTheDocument();
+  });
+
   it("paints a graded exam answer green and disables further choice", () => {
     mockEngine(
       activeSession({

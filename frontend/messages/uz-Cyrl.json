@@ -672,6 +672,7 @@
     "alreadyAnswered": "Бу саволга жавоб аввал серверда сақланган. Сессияни қайта юкланг.",
     "sessionFinished": "Бу сессия аллақачон якунланган. Натижани кўриш учун қайта юкланг.",
     "modeVariant": "Билет",
+    "modeVariantNumbered": "{number}-Билет",
     "modeExam": "Расмий имтиҳон",
     "modePractice": "Машқ",
     "modeMistakes": "Хатолар такрори",

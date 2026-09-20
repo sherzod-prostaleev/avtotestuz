@@ -106,6 +106,7 @@ type startSessionResponse struct {
 	ErrorsAllowed *int      `json:"errors_allowed"`
 	Total         int       `json:"total"`
 	StartedAt     time.Time `json:"started_at"`
+	VariantNumber *int      `json:"variant_number,omitempty"`
 }
 
 func toStartSessionResponse(v SessionView) startSessionResponse {
@@ -121,6 +122,7 @@ func toStartSessionResponse(v SessionView) startSessionResponse {
 		ErrorsAllowed: v.ErrorsAllowed,
 		Total:         v.Total,
 		StartedAt:     v.StartedAt,
+		VariantNumber: v.VariantNumber,
 	}
 }
 
@@ -597,6 +599,7 @@ type sessionDetailResponse struct {
 	FinishedAt           *time.Time            `json:"finished_at,omitempty"`
 	Answers              []answeredQuestionDTO `json:"answers"`
 	CertificateShareCode string                `json:"certificate_share_code,omitempty"`
+	VariantNumber        *int                  `json:"variant_number,omitempty"`
 }
 
 func toSessionDetailResponse(d SessionDetail) sessionDetailResponse {
@@ -631,6 +634,7 @@ func toSessionDetailResponse(d SessionDetail) sessionDetailResponse {
 		FinishedAt:           d.FinishedAt,
 		Answers:              answers,
 		CertificateShareCode: d.CertificateShareCode,
+		VariantNumber:        d.VariantNumber,
 	}
 }
 

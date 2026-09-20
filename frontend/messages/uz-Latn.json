@@ -672,6 +672,7 @@
     "alreadyAnswered": "Bu savolga javob avval serverda saqlangan. Sessiyani qayta yuklang.",
     "sessionFinished": "Bu sessiya allaqachon yakunlangan. Natijani ko'rish uchun qayta yuklang.",
     "modeVariant": "Bilet",
+    "modeVariantNumbered": "{number}-Bilet",
     "modeExam": "Rasmiy imtihon",
     "modePractice": "Mashq",
     "modeMistakes": "Xatolar takrori",

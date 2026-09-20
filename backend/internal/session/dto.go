@@ -48,6 +48,10 @@ type SessionView struct {
 	ErrorsAllowed *int
 	Total         int
 	StartedAt     time.Time
+	// VariantNumber is the bilet the session was drawn from ("13-Bilet"), set
+	// only for mode "variant". The runner header needs the number itself; the
+	// mode name alone cannot say which of the 62 bilets is on screen.
+	VariantNumber *int
 }
 
 // SubmitAnswerOpts carries optional FSRS grading hints for SubmitAnswer.

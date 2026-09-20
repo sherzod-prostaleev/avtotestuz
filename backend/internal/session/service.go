@@ -165,6 +165,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		timeLimit     pgtype.Int4
 		errorsAllowed pgtype.Int4
 		variantID     uuid.NullUUID
+		variantNumber *int
 		categoryID    uuid.NullUUID
 		signID        uuid.NullUUID
 		orderedFrom   pgtype.Int4
@@ -218,6 +219,8 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		}
 		ids, err = s.Q.ListVariantQuestionIDsOrdered(ctx, req.VariantID)
 		variantID = uuid.NullUUID{UUID: req.VariantID, Valid: true}
+		number := int(v.Number)
+		variantNumber = &number
 
 	case "exam":
 		// The size decides the whole rule set (questions, minutes, mistake
@@ -389,6 +392,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 	view := SessionView{
 		ID: row.ID, Mode: row.Mode, QuestionIDs: ids,
 		Total: int(row.Total), StartedAt: row.StartedAt.Time,
+		VariantNumber: variantNumber,
 	}
 	if timeLimit.Valid {
 		v := int(timeLimit.Int32)
@@ -1048,6 +1052,16 @@ func (s *Service) GetSession(ctx context.Context, profileID, sessionID uuid.UUID
 	if row.FinishedAt.Valid {
 		t := row.FinishedAt.Time
 		detail.FinishedAt = &t
+	}
+	// A resumed bilet must name itself the same way a freshly started one does.
+	// One primary-key lookup, and only for the mode that has a bilet at all.
+	if row.VariantID.Valid {
+		if variant, verr := s.Q.GetVariantByID(ctx, row.VariantID.UUID); verr == nil {
+			number := int(variant.Number)
+			detail.VariantNumber = &number
+		} else if !errors.Is(verr, pgx.ErrNoRows) {
+			return SessionDetail{}, verr
+		}
 	}
 	if row.Mode == "grand_mock" && row.Status == "passed" {
 		if cert, err := s.Q.GetGrandMockCertificateBySession(ctx, row.ID); err == nil {

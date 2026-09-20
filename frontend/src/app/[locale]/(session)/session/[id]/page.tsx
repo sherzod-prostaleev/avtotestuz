@@ -510,6 +510,15 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     return t(keys[mode]);
   };
 
+  // A bilet must say which bilet it is — "13-Bilet", not a bare "Bilet", which
+  // left the learner with no way to tell from the runner itself which of the
+  // 62 they were sitting. Only "variant" carries a number; anything else (and
+  // a session started before the backend reported it) keeps the mode name.
+  const sessionBadgeLabel = (mode: SessionMode, variantNumber?: number | null) =>
+    mode === "variant" && typeof variantNumber === "number"
+      ? t("modeVariantNumbered", { number: variantNumber })
+      : modeLabel(mode);
+
   const localizedError = () => {
     if (!error) return t("genericError");
     if (error.code === "network_error") return t("networkError");
@@ -820,7 +829,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
 
 
           <span className="truncate rounded-lg border border-accent/30 bg-accent/10 px-2 py-1 text-[11px] font-bold text-accent sm:px-3 sm:py-1.5 sm:text-xs">
-            {modeLabel(session.mode)}
+            {sessionBadgeLabel(session.mode, session.variant_number)}
           </span>
         </div>
 

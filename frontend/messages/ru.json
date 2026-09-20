@@ -672,6 +672,7 @@
     "alreadyAnswered": "Ответ на этот вопрос уже сохранён на сервере. Перезагрузите сессию.",
     "sessionFinished": "Эта сессия уже завершена. Перезагрузите её, чтобы увидеть результат.",
     "modeVariant": "Билет",
+    "modeVariantNumbered": "Билет {number}",
     "modeExam": "Официальный экзамен",
     "modePractice": "Практика",
     "modeMistakes": "Повтор ошибок",

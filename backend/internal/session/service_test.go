@@ -157,6 +157,64 @@ func TestStartSessionVariantMode(t *testing.T) {
 	}
 }
 
+// The runner header names the bilet it is running ("13-Bilet"), so the number
+// has to survive both the start call and a later resume — a reload must not
+// drop the learner back to a bare "Bilet".
+func TestVariantSessionCarriesItsBiletNumber(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	if err := q.SetBypassVariantProgress(context.Background(), sqlc.SetBypassVariantProgressParams{
+		ID: profileID, BypassVariantProgress: true,
+	}); err != nil {
+		t.Fatalf("set bypass: %v", err)
+	}
+	v2, err := q.GetVariantByNumber(context.Background(), 2)
+	if err != nil {
+		t.Fatalf("get variant 2: %v", err)
+	}
+
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "variant", VariantID: v2.ID, Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if view.VariantNumber == nil || *view.VariantNumber != 2 {
+		t.Fatalf("started bilet number = %v, want 2", view.VariantNumber)
+	}
+
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if detail.VariantNumber == nil || *detail.VariantNumber != 2 {
+		t.Fatalf("resumed bilet number = %v, want 2", detail.VariantNumber)
+	}
+}
+
+// Only a bilet has a number: an exam draws across the whole bank, so it must
+// report none rather than inventing one for the header.
+func TestNonVariantSessionHasNoBiletNumber(t *testing.T) {
+	q, svc, profileID := seed(t)
+	grantVIP(t, q, profileID)
+	view, err := svc.StartSession(context.Background(), profileID, session.StartRequest{
+		Mode: "exam", Locale: "uz-Latn",
+	})
+	if err != nil {
+		t.Fatalf("StartSession: %v", err)
+	}
+	if view.VariantNumber != nil {
+		t.Fatalf("exam start reported bilet %d, want none", *view.VariantNumber)
+	}
+	detail, err := svc.GetSession(context.Background(), profileID, view.ID)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if detail.VariantNumber != nil {
+		t.Fatalf("exam resume reported bilet %d, want none", *detail.VariantNumber)
+	}
+}
+
 func TestStartSessionExamMode(t *testing.T) {
 	q, svc, profileID := seed(t)
 	grantVIP(t, q, profileID)

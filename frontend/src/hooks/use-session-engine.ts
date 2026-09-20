@@ -89,6 +89,11 @@ export interface SessionState {
   completed_at: string | null;
   /** Present after a passed Grand Mock when the backend persisted a shareable id. */
   certificate_share_code?: string | null;
+  /**
+   * Which bilet this session was drawn from, so the runner header can say
+   * "13-Bilet" instead of a bare "Bilet". Only mode "variant" has one.
+   */
+  variant_number?: number | null;
 }
 
 /** Typed error surfaced to pages so they can branch on `.code`. */
@@ -126,6 +131,7 @@ interface StartSessionResponse {
   errors_allowed?: number | null;
   total: number;
   started_at: string;
+  variant_number?: number | null;
 }
 
 interface RawExplanationPayload {
@@ -193,6 +199,7 @@ interface SessionDetailResponse {
   finished_at?: string;
   answers: SessionAnswerResponse[];
   certificate_share_code?: string;
+  variant_number?: number | null;
 }
 
 export function toSessionError(err: unknown): SessionError {
@@ -416,6 +423,7 @@ async function fetchSessionState(sessionId: string, locale: string): Promise<Ses
     passed: completed ? detail.status === "passed" : null,
     completed_at: detail.finished_at ?? null,
     certificate_share_code: detail.certificate_share_code ?? null,
+    variant_number: detail.variant_number ?? null,
   };
 }
 
@@ -509,6 +517,7 @@ export function useSessionEngine(initialSessionId?: string) {
           stopped_reason: null,
           passed: null,
           completed_at: null,
+          variant_number: created.variant_number ?? null,
         };
         stashWarmSession(state, locale, created.started_at);
         commitSession(state);
