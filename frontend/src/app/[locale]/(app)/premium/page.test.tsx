@@ -45,17 +45,37 @@ describe("PremiumPage", () => {
     vi.restoreAllMocks();
   });
 
-  it("renders Matiz + all API tariffs with pricing and badges", async () => {
+  it("renders every API tariff with pricing and badges", async () => {
     mockApiGet({ active: false, until: null });
     renderWithIntl();
     // Two bodies render — the phone one (`md:hidden`) and the wide grid
     // (`max-md:hidden`). jsdom applies no CSS, so both are in the DOM and each
     // plan name and badge appears twice.
-    expect(await screen.findAllByText("Matiz")).toHaveLength(2);
-    expect(screen.getAllByText("Nexia")).toHaveLength(2);
+    expect(await screen.findAllByText("Nexia")).toHaveLength(2);
     expect(screen.getAllByText("Gentra").length).toBeGreaterThanOrEqual(2);
     expect(screen.getAllByText("Ommabop")).toHaveLength(2); // gentra's popular badge, translated
     expect(screen.getByText("−40%")).toBeInTheDocument(); // wide card only
+  });
+
+  // The free tier is where a visitor to this page already is, not a fourth
+  // thing to weigh up on the screen where they came to pay.
+  it("never offers the free Matiz tier among the plans", async () => {
+    mockApiGet({ active: false, until: null });
+    renderWithIntl();
+    await screen.findAllByText("Nexia");
+    expect(screen.queryByText("Matiz")).not.toBeInTheDocument();
+    expect(screen.queryByText("Hozirgi tarifingiz")).not.toBeInTheDocument();
+  });
+
+  // Checkout asks for nothing but the plan: referral credit rides in on the
+  // invite link, and the promo field was one more wall in front of a payment.
+  it("asks for no promo or referral code anywhere", async () => {
+    mockApiGet({ active: false, until: null });
+    renderWithIntl();
+    await screen.findAllByText("Nexia");
+    expect(screen.queryByPlaceholderText(/PROMO/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Qo'llash")).not.toBeInTheDocument();
+    expect(screen.queryByText(/referal kod/i)).not.toBeInTheDocument();
   });
 
   it("does not show the VIP banner when entitlement is inactive", async () => {
@@ -65,10 +85,13 @@ describe("PremiumPage", () => {
     expect(screen.queryByText(/VIP faol/)).not.toBeInTheDocument();
   });
 
-  it("shows the VIP banner when entitlement is active", async () => {
+  // Twice: the wide layout keeps its own banner and the phone body renders one
+  // inside its scroller, because anything stacked above that box on a phone is
+  // height taken from the buy button.
+  it("shows the VIP banner in both bodies when entitlement is active", async () => {
     mockApiGet({ active: true, until: "2026-08-24T00:00:00Z" });
     renderWithIntl();
-    expect(await screen.findByText(/VIP faol/)).toBeInTheDocument();
+    expect(await screen.findAllByText(/VIP faol/)).toHaveLength(2);
   });
 
   it("calls POST /me/checkout with the tariff code and redirects on buy", async () => {
@@ -100,6 +123,38 @@ describe("PremiumPage", () => {
     );
     await waitFor(() =>
       expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/manual?payment_id=p1")
+    );
+  });
+
+  // The phone used to stop at a summary screen with a promo field before the
+  // card details. One tap, one checkout call, straight to the card.
+  it("takes the phone CTA straight to the card screen", async () => {
+    mockApiGet({ active: false, until: null });
+    const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({
+      payment_id: "p9",
+      manual: {
+        payment_id: "p9",
+        amount_uzs: 59900,
+        pan_full: "9860246603626754",
+        pan_last4: "6754",
+        holder_name: "TEST",
+        network: "humo",
+        hold_until: new Date().toISOString(),
+        manual_state: "awaiting_transfer",
+      },
+    } as never);
+
+    renderWithIntl();
+    fireEvent.click(await screen.findByText("Sotib olish — Gentra"));
+
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("me/checkout?locale=uz-Latn", {
+        tariff_code: "gentra",
+        provider: "manual",
+      })
+    );
+    await waitFor(() =>
+      expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/manual?payment_id=p9")
     );
   });
 

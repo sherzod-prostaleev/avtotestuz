@@ -448,6 +448,16 @@
     }
   }
 
+  /* Card-transfer screen, short phones. The reassurance under the claim button
+     ("VIP activates by itself once we confirm") is the one line there that is
+     not an instruction, so it is what gives way to keep the exact sum and the
+     rounded sum beside it on screen — the pair this screen exists for. */
+  @media (max-width: 767px) and (max-height: 600px) {
+    .pay-screen-optional {
+      display: none;
+    }
+  }
+
   /* Sticky primary action — thumb zone on phones. Inside the app shell the
      fixed tab bar owns the bottom edge, so pin above it. Session screens have
      no tab bar and keep bottom: 0. */

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
 import { PremiumMobile } from "@/components/premium/premium-mobile";
-import { PromoInput, ValidatePromoResult } from "@/components/checkout/promo-input";
 
 interface TariffDTO {
   code: string;
@@ -69,8 +68,6 @@ export default function PremiumPage() {
 
   const [provider, setProvider] = useState<PaymentProvider>("manual");
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
-  const [promoMap, setPromoMap] = useState<Record<string, ValidatePromoResult | null>>({});
-  const [referralMap, setReferralMap] = useState<Record<string, string | null>>({});
   const [providerEnabled, setProviderEnabled] = useState<Partial<Record<PaymentProvider, boolean>>>({
     manual: true,
     payme: true,
@@ -132,18 +129,15 @@ export default function PremiumPage() {
     () => tariffs?.find((row) => row.code === selectedCode) ?? null,
     [tariffs, selectedCode],
   );
-  const selectedPromo = selectedTariff ? promoMap[selectedTariff.code] : null;
-  const selectedFinal = selectedPromo ? selectedPromo.final_amount_uzs : selectedTariff?.price_uzs ?? 0;
-  const selectedIsFree = Boolean(selectedPromo && selectedFinal === 0);
-  const selectedDays =
-    (selectedTariff?.days ?? 0) + (selectedPromo?.bonus_days ?? 0);
 
   const handleBuy = async (code: string) => {
+    // Every checkout mints a payment and reserves a card, so a double tap in
+    // the frame before `buyingCode` lands would burn a second one and leave a
+    // stray assignment holding a sum nobody will transfer.
+    if (buyingCode) return;
     setBuyError(null);
     setBuyingCode(code);
-    const promo = promoMap[code];
-    const isFree = Boolean(promo && promo.final_amount_uzs === 0);
-    if (!isFree && !providerEnabled[provider]) {
+    if (!providerEnabled[provider]) {
       setBuyError(t("providerUnavailable"));
       setBuyingCode(null);
       return;
@@ -151,12 +145,12 @@ export default function PremiumPage() {
     try {
       const result = await apiPost<CheckoutResult>(
         `me/checkout?locale=${encodeURIComponent(locale)}`,
-        {
-          tariff_code: code,
-          provider,
-          promo_code: promo?.code || referralMap[code] || undefined,
-        },
+        { tariff_code: code, provider },
       );
+      // No checkout here can currently come back free — that answer needs a
+      // promo worth 100%, and nothing on this page sends a code any more. It
+      // is still the API's documented response, and a redirect is a cheaper
+      // way to honour it than an error screen over a subscription we granted.
       if (result.free) {
         // Carry the plan through so the result screen can name it instead of
         // leaving its summary card empty.
@@ -164,7 +158,7 @@ export default function PremiumPage() {
         const params = new URLSearchParams({ free: "true" });
         if (tariff) {
           params.set("tariff_name", tariff.name);
-          params.set("granted", String(tariff.days + (promo?.bonus_days ?? 0)));
+          params.set("granted", String(tariff.days));
         }
         router.push(`/${locale}/checkout/success?${params.toString()}`);
       } else if (result.manual?.payment_id) {
@@ -220,10 +214,13 @@ export default function PremiumPage() {
         </p>
       </header>
 
+      {/* Both banners are `max-md:hidden` and the phone body renders its own
+          inside its scroller. Anything stacked above `mobile-fit-screen` eats
+          the height its buy button is standing on. */}
       {entitlement?.active && entitlement.until && (
         <div
           role="status"
-          className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success"
+          className="mb-6 flex items-center gap-3 rounded-2xl border border-success/40 bg-success/10 p-4 text-sm font-medium text-success max-md:hidden"
         >
           <ShieldCheck aria-hidden="true" className="h-5 w-5 shrink-0" />
           {t("vipActiveBanner", {
@@ -235,7 +232,7 @@ export default function PremiumPage() {
       {paymentsOffline && !loading && !loadError && (
         <div
           role="status"
-          className="mb-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm leading-6 text-foreground"
+          className="mb-6 rounded-2xl border border-border bg-muted/40 p-4 text-sm leading-6 text-foreground max-md:hidden"
         >
           <p className="font-display text-base font-bold">{t("paymentsAllOfflineTitle")}</p>
           <p className="mt-1 text-muted-foreground">{t("paymentsAllOfflineBody")}</p>
@@ -270,17 +267,8 @@ export default function PremiumPage() {
             tariffs={tariffs ?? []}
             selectedCode={selectedCode}
             onSelect={setSelectedCode}
-            promo={selectedPromo}
-            onPromoApplied={(res) => {
-              if (selectedTariff) {
-                setPromoMap((prev) => ({ ...prev, [selectedTariff.code]: res }));
-              }
-            }}
-            onReferralCode={(code) => {
-              if (selectedTariff) {
-                setReferralMap((prev) => ({ ...prev, [selectedTariff.code]: code }));
-              }
-            }}
+            vipUntil={entitlement?.active ? entitlement.until : null}
+            paymentsOffline={paymentsOffline}
             provider={provider}
             onProviderChange={setProvider}
             providerEnabled={providerEnabled}
@@ -303,25 +291,14 @@ export default function PremiumPage() {
             ))}
           </ul>
 
-          <div className="grid gap-3 max-md:hidden sm:grid-cols-2 xl:grid-cols-4">
-            <article className="flex flex-col rounded-2xl border border-border/70 bg-card/40 p-4">
-              <span className="w-fit rounded-md bg-muted px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
-                {t("matizFree")}
-              </span>
-              <h2 className="mt-3 font-display text-xl font-bold">{t("matizTitle")}</h2>
-              <p className="mt-1 flex-1 text-sm text-muted-foreground">{t("matizDescription")}</p>
-              <p className="mt-4 font-display text-2xl font-extrabold tabular-nums">0</p>
-              <p className="text-xs text-muted-foreground">{t("somSuffix")}</p>
-              <Button type="button" variant="outline" size="sm" className="mt-4 w-full" disabled>
-                {t("matizCurrentPlan")}
-              </Button>
-            </article>
-
+          {/* Paid plans only. The free tier used to head this grid, and on the
+              screen where someone came to pay it read as a fourth option to
+              weigh rather than the place they already are. */}
+          <div className="grid gap-3 max-md:hidden sm:grid-cols-2 xl:grid-cols-3">
             {tariffs?.map((tariff) => {
               const label = badgeLabel(tariff.badge);
-              const promo = promoMap[tariff.code];
-              const finalPrice = promo ? promo.final_amount_uzs : tariff.price_uzs;
-              const days = tariff.days + (promo?.bonus_days || 0);
+              const finalPrice = tariff.price_uzs;
+              const days = tariff.days;
               const perDay = Math.round(finalPrice / Math.max(days, 1));
               const selected = selectedCode === tariff.code;
               const popular = tariff.badge === "popular";
@@ -370,11 +347,7 @@ export default function PremiumPage() {
                     <p className="mt-1 text-xs text-muted-foreground">
                       {days} {t("daysLabel")} · {formatSom(perDay)} {t("somSuffix")}/{t("perDay")}
                     </p>
-                    {promo ? (
-                      <p className="mt-1 text-xs font-semibold text-success">
-                        −{formatSom(promo.discount_uzs)} {t("somSuffix")}
-                      </p>
-                    ) : tariff.old_price_uzs !== null ? (
+                    {tariff.old_price_uzs !== null ? (
                       <p className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="line-through tabular-nums">
                           {formatSom(tariff.old_price_uzs)}
@@ -390,7 +363,7 @@ export default function PremiumPage() {
 
           {selectedTariff && !paymentsOffline && (
             <section className="rounded-2xl border border-border/80 bg-gradient-to-b from-card/80 to-background p-4 max-md:hidden sm:p-5">
-              <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     {t("checkoutTitle")}
@@ -398,32 +371,10 @@ export default function PremiumPage() {
                   <p className="mt-1 font-display text-lg font-bold">
                     {selectedTariff.name}
                     <span className="ml-2 text-base font-semibold text-muted-foreground">
-                      {formatSom(selectedFinal)} {t("somSuffix")}
-                      {selectedDays > 0 ? ` · ${selectedDays} ${t("daysLabel")}` : ""}
+                      {formatSom(selectedTariff.price_uzs)} {t("somSuffix")}
+                      {selectedTariff.days > 0 ? ` · ${selectedTariff.days} ${t("daysLabel")}` : ""}
                     </span>
                   </p>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-                <div className="space-y-3">
-                  <PromoInput
-                    key={selectedTariff.code}
-                    tariffCode={selectedTariff.code}
-                    onApplied={(res) =>
-                      setPromoMap((prev) => ({ ...prev, [selectedTariff.code]: res }))
-                    }
-                    onReferralCode={(ref) =>
-                      setReferralMap((prev) => ({ ...prev, [selectedTariff.code]: ref }))
-                    }
-                  />
-                  {!selectedIsFree && (
-                    <ProviderPicker
-                      selected={provider}
-                      onChange={setProvider}
-                      enabled={providerEnabled}
-                    />
-                  )}
                 </div>
 
                 <div className="space-y-2 lg:w-56">
@@ -432,27 +383,30 @@ export default function PremiumPage() {
                       {buyError}
                     </p>
                   )}
-                  {/* Hidden below sm: on phones the sticky bottom bar is the
-                      CTA. Without this the card button and the sticky bar
-                      both rendered, showing two pay buttons at once. */}
+                  {/* Hidden below md: on phones PremiumMobile owns the CTA.
+                      Without this the card button and the phone button both
+                      rendered, showing two pay buttons at once. */}
                   <Button
                     type="button"
-                    variant={selectedIsFree ? "success" : "gold"}
+                    variant="gold"
                     size="lg"
                     className="hidden w-full md:inline-flex"
-                    disabled={
-                      buyingCode === selectedTariff.code ||
-                      (!selectedIsFree && !providerEnabled[provider])
-                    }
+                    disabled={buyingCode === selectedTariff.code || !providerEnabled[provider]}
                     onClick={() => void handleBuy(selectedTariff.code)}
                   >
-                    {buyingCode === selectedTariff.code
-                      ? t("buyLoading")
-                      : selectedIsFree
-                        ? t("freeCheckoutButton")
-                        : t("buyButton")}
+                    {buyingCode === selectedTariff.code ? t("buyLoading") : t("buyButton")}
                   </Button>
                 </div>
+              </div>
+
+              {/* `empty:hidden`: with one payment method left the picker renders
+                  nothing, and the row must not leave a gap behind it. */}
+              <div className="mt-4 empty:hidden">
+                <ProviderPicker
+                  selected={provider}
+                  onChange={setProvider}
+                  enabled={providerEnabled}
+                />
               </div>
             </section>
           )}

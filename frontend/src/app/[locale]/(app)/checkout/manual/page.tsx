@@ -5,7 +5,8 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { ManualPayMobile } from "@/components/checkout/manual-pay-mobile";
-import { ManualPayCard, ManualPayInfo } from "@/components/checkout/manual-pay-card";
+import { ManualPayCard } from "@/components/checkout/manual-pay-card";
+import type { ManualPayInfo } from "@/components/checkout/manual-pay-parts";
 import { Button } from "@/components/ui/button";
 
 export default function ManualCheckoutPage() {
