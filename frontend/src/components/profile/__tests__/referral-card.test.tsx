@@ -144,4 +144,46 @@ describe("ReferralCard", () => {
       expect(screen.queryByText("cannot apply your own referral code")).not.toBeInTheDocument();
     });
   });
+
+  // The network radio sat on its default while someone typed a Humo number,
+  // and the endpoint refuses a prefix that contradicts the network it is given
+  // — a card that was fine, reported as "Karta raqami noto'g'ri".
+  it("pays out through the network the card number names, not the radio's default", async () => {
+    mockReferralApis();
+    const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({} as never);
+
+    renderWithIntl();
+
+    const amount = await screen.findByPlaceholderText("Summa (so'm)");
+    fireEvent.change(amount, { target: { value: "10000" } });
+    fireEvent.change(screen.getByPlaceholderText("Karta raqami (16 raqam)"), {
+      target: { value: "9860 1234 5678 9012" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "So'rov yuborish" }));
+
+    await waitFor(() =>
+      expect(postSpy).toHaveBeenCalledWith("me/referral/payout", {
+        amount_uzs: 10000,
+        card_number: "9860123456789012",
+        card_network: "humo",
+      })
+    );
+  });
+
+  it("names a short card number instead of spending a request on it", async () => {
+    mockReferralApis();
+    const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({} as never);
+
+    renderWithIntl();
+
+    const amount = await screen.findByPlaceholderText("Summa (so'm)");
+    fireEvent.change(amount, { target: { value: "10000" } });
+    fireEvent.change(screen.getByPlaceholderText("Karta raqami (16 raqam)"), {
+      target: { value: "8600 1234 5678" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "So'rov yuborish" }));
+
+    expect(await screen.findByText(/16 ta raqam/)).toBeInTheDocument();
+    expect(postSpy).not.toHaveBeenCalled();
+  });
 });

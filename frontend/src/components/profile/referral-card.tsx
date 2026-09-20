@@ -4,6 +4,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  CARD_NUMBER_LENGTH,
+  cardDigits,
+  detectCardNetwork,
+} from "@/lib/card-network";
 import { Button } from "@/components/ui/button";
 import { formatDateWithTime } from "@/lib/date-format";
 import {
@@ -181,13 +186,21 @@ export function ReferralCard() {
       setPayoutMessage({ type: "error", text: t("payoutInvalidAmount") });
       return;
     }
+    const digits = cardDigits(cardNumber);
+    if (digits.length !== CARD_NUMBER_LENGTH) {
+      setPayoutMessage({ type: "error", text: t("payoutCardLength") });
+      return;
+    }
     setPayoutLoading(true);
     setPayoutMessage(null);
     try {
       await apiPost("me/referral/payout", {
         amount_uzs: amount,
-        card_number: cardNumber,
-        card_network: cardNetwork,
+        card_number: digits,
+        // The prefix wins where it says anything: the endpoint refuses a card
+        // whose first digits contradict the network it is given, and the radio
+        // still sat on its default while someone typed a Humo number.
+        card_network: detectCardNetwork(cardNumber) ?? cardNetwork,
       });
       setPayoutMessage({ type: "success", text: t("payoutSuccess") });
       setPayoutAmount("");
@@ -447,7 +460,12 @@ export function ReferralCard() {
                   type="text"
                   inputMode="numeric"
                   value={cardNumber}
-                  onChange={(e) => setCardNumber(e.target.value.replace(/[^\d\s]/g, ""))}
+                  onChange={(e) => {
+                    const next = e.target.value.replace(/[^\d\s]/g, "");
+                    setCardNumber(next);
+                    const detected = detectCardNetwork(next);
+                    if (detected) setCardNetwork(detected);
+                  }}
                   placeholder={t("payoutCardPlaceholder")}
                   maxLength={19}
                   disabled={payoutLoading || data.available_balance_uzs <= 0}

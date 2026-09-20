@@ -5,22 +5,17 @@ import { useTranslations } from "next-intl";
 import { Check, ChevronRight, Copy, Wallet } from "lucide-react";
 import { ApiError, apiGet, apiPost } from "@/lib/api-client";
 import type { ReferralResponse } from "@/components/profile/referral-card";
+import {
+  CARD_NUMBER_LENGTH,
+  canJudgeCardNetwork,
+  cardDigits,
+  detectCardNetwork,
+  type CardNetwork,
+} from "@/lib/card-network";
 import { MobileScreen } from "./mobile-screen";
 
 function groupDigits(value: number): string {
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
-}
-
-/**
- * Uzcard cards start 8600, Humo 9860. The payout endpoint requires the network
- * and the artboard drops the radio buttons, so it is read off the number —
- * and an unrecognised prefix is refused here rather than guessed and sent.
- */
-function networkForPan(pan: string): "uzcard" | "humo" | null {
-  const digits = pan.replace(/\D/g, "");
-  if (digits.startsWith("8600")) return "uzcard";
-  if (digits.startsWith("9860")) return "humo";
-  return null;
 }
 
 const PAYOUT_ERRORS: Record<string, string> = {
@@ -46,6 +41,8 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
 
   const [amount, setAmount] = useState("");
   const [pan, setPan] = useState("");
+  /** Only consulted for a prefix the endpoint itself cannot place. */
+  const [pickedNetwork, setPickedNetwork] = useState<CardNetwork | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
@@ -109,15 +106,25 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
     }
   }
 
+  const digits = cardDigits(pan);
+  const detected = detectCardNetwork(pan);
+  // Detected first, because the endpoint refuses a prefix that contradicts the
+  // network it is given; the choice below only fills a gap it cannot fill.
+  const network = detected ?? pickedNetwork;
+  const needsNetworkChoice = !detected && canJudgeCardNetwork(pan);
+
   async function submitPayout() {
     const value = Number(amount.replace(/\s/g, ""));
     if (!Number.isFinite(value) || value <= 0) {
       setMessage({ type: "error", text: t("payoutInvalidAmount") });
       return;
     }
-    const network = networkForPan(pan);
+    if (digits.length !== CARD_NUMBER_LENGTH) {
+      setMessage({ type: "error", text: t("payoutCardLength") });
+      return;
+    }
     if (!network) {
-      setMessage({ type: "error", text: t("payoutInvalidCard") });
+      setMessage({ type: "error", text: t("payoutPickNetwork") });
       return;
     }
     setSubmitting(true);
@@ -125,12 +132,13 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
     try {
       await apiPost("me/referral/payout", {
         amount_uzs: value,
-        card_number: pan.replace(/\D/g, ""),
+        card_number: digits,
         card_network: network,
       });
       setMessage({ type: "success", text: t("payoutSuccess") });
       setAmount("");
       setPan("");
+      setPickedNetwork(null);
       await load();
     } catch (err) {
       const code = err instanceof ApiError ? err.code : "";
@@ -188,6 +196,7 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
           <input
             id="payout-card"
             inputMode="numeric"
+            autoComplete="cc-number"
             value={pan}
             onChange={(e) => {
               setPan(e.target.value);
@@ -195,15 +204,53 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
             }}
             className="field-input tabular-nums"
           />
+
           {/* Named back to the sender, so a mistyped first four digits is
-              visible before the request rather than after it. */}
-          <p className="mt-1 text-xs text-muted-foreground">
-            {networkForPan(pan) === "uzcard"
-              ? "Uzcard"
-              : networkForPan(pan) === "humo"
-                ? "Humo"
-                : t("payoutInvalidNetwork")}
-          </p>
+              visible before the request rather than after it. Before there are
+              four digits to read there is nothing to say — the field used to
+              answer "Faqat Uzcard yoki Humo" while still empty, which reads as
+              a card being refused. */}
+          {detected ? (
+            <p className="mt-1 text-xs font-semibold text-success-ink">
+              {detected === "uzcard" ? "Uzcard" : "Humo"}
+            </p>
+          ) : !needsNetworkChoice ? (
+            <p className="mt-1 text-xs text-muted-foreground">{t("payoutCardHint")}</p>
+          ) : null}
+
+          {/* The endpoint accepts a prefix it cannot place, as long as it is
+              told which network to pay out through. So ask, rather than refuse
+              a card the desktop form pays out to. */}
+          {needsNetworkChoice && (
+            <div className="mt-2">
+              <p className="mb-1 text-xs font-bold text-muted-foreground">
+                {t("payoutPickNetwork")}
+              </p>
+              <div
+                role="radiogroup"
+                aria-label={t("payoutPickNetwork")}
+                className="grid grid-cols-2 gap-1.5"
+              >
+                {(["uzcard", "humo"] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={pickedNetwork === id}
+                    onClick={() => {
+                      setPickedNetwork(id);
+                      setMessage(null);
+                    }}
+                    className={`flex min-h-touch items-center justify-center rounded-xl border text-sm font-bold ${
+                      pickedNetwork === id ? "border-accent bg-accent/10" : "border-border bg-card"
+                    }`}
+                  >
+                    {id === "uzcard" ? "Uzcard" : "Humo"}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {message && (

@@ -1079,7 +1079,10 @@
     "statInvitedShort": "Taklif qilingan",
     "statRewardedShort": "To'lov qilgan",
     "statDaysShort": "VIP kun",
-    "noteShort": "Do'stingiz kod orqali biriktirilib birinchi pullik tarifni olsa, komissiya balansingizga tushadi."
+    "noteShort": "Do'stingiz kod orqali biriktirilib birinchi pullik tarifni olsa, komissiya balansingizga tushadi.",
+    "payoutCardLength": "Karta raqami 16 ta raqamdan iborat bo'lishi kerak",
+    "payoutPickNetwork": "Karta turini tanlang",
+    "payoutCardHint": "Uzcard yoki Humo karta raqamini kiriting"
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",
