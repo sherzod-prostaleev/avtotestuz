@@ -751,6 +751,18 @@
 }
 .animate-flame { animation: flamePulse 2s infinite ease-in-out; }
 
+/* Arena question clock: the bar drains over the question window. Started
+   with a negative delay so a resumed question picks up where it stands. */
+@keyframes arena-drain {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+.arena-drain {
+  animation-name: arena-drain;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
@@ -1396,6 +1408,7 @@
   .exam-pass-eyebrow,
   .exam-pass-title,
   .exam-pass-body,
+  .arena-drain,
   .bilet-praise-banner > div {
     animation: none !important;
   }

@@ -1,7 +1,9 @@
 package arena
 
 import (
+	"crypto/rand"
 	"math"
+	"strings"
 	"time"
 )
 
@@ -12,6 +14,12 @@ func Bucket(rating int) int {
 	}
 	return rating / 100
 }
+
+// MaxSearchSteps is how far (in ±100-rating buckets) a joining player looks
+// for someone already waiting. Wide on purpose: the arena is small, and a
+// duel against a player 500 points away beats no duel. The closest bucket
+// still wins whenever it has anyone in it.
+const MaxSearchSteps = 8
 
 // SearchBuckets returns bucket indices to scan at the given wait duration
 // (own bucket first, then widening ±1, ±2, …).
@@ -86,4 +94,66 @@ func MedalForRating(rating int) string {
 	default:
 		return "bronze"
 	}
+}
+
+// BotAccuracy is how often the practice bot answers correctly against a
+// player of the given rating: a beatable opponent for a beginner, a real one
+// for a strong player, never a wall.
+func BotAccuracy(rating int) float64 {
+	acc := 0.6 + float64(rating-1000)/1000*0.3
+	return math.Max(0.45, math.Min(0.85, acc))
+}
+
+// BotDelay maps a uniform r in [0,1) to the bot's thinking time: somewhere
+// between a quick and a slow human, always well inside the window.
+func BotDelay(r float64, window time.Duration) time.Duration {
+	lo, hi := 0.2, 0.7
+	if r < 0 {
+		r = 0
+	}
+	if r >= 1 {
+		r = 0.999
+	}
+	return time.Duration(float64(window) * (lo + (hi-lo)*r))
+}
+
+// inviteAlphabet has no 0/O, 1/I/L: the code is read aloud and typed by hand.
+const inviteAlphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+
+// InviteCodeLen keeps a code short enough to dictate; 31^6 ≈ 887M codes over
+// a 10-minute lifetime is far beyond what the rate limit lets anyone probe.
+const InviteCodeLen = 6
+
+func NewInviteCode() (string, error) {
+	buf := make([]byte, InviteCodeLen)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	out := make([]byte, InviteCodeLen)
+	for i, b := range buf {
+		// 256 % 31 != 0, so this is very slightly biased; irrelevant for a
+		// short-lived code that is not a secret credential.
+		out[i] = inviteAlphabet[int(b)%len(inviteAlphabet)]
+	}
+	return string(out), nil
+}
+
+// NormalizeInviteCode accepts what a person actually types or pastes:
+// lower case, spaces, dashes. It returns "" for anything that cannot be a code.
+func NormalizeInviteCode(raw string) string {
+	var b strings.Builder
+	for _, r := range strings.ToUpper(raw) {
+		switch {
+		case r == ' ' || r == '-' || r == '\t':
+			continue
+		case strings.ContainsRune(inviteAlphabet, r):
+			b.WriteRune(r)
+		default:
+			return ""
+		}
+	}
+	if b.Len() != InviteCodeLen {
+		return ""
+	}
+	return b.String()
 }

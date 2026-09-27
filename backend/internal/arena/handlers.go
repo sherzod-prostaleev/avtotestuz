@@ -12,7 +12,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/httpx"
+	"avtotest.uz/backend/internal/leaderboard"
 )
 
 // Handler exposes Arena HTTP endpoints.
@@ -123,17 +125,23 @@ func (h *Handler) serveWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	c := NewConn(profileID, conn, h.Svc, func() {
-		h.Svc.OnDisconnect(profileID)
+	var c *Conn
+	c = NewConn(profileID, conn, h.Svc, func() {
+		h.Svc.OnDisconnect(profileID, c)
 	})
 	h.Svc.Hub.Register(profileID, c)
 	_ = h.Svc.R.Set(r.Context(), "arena:conn:"+profileID.String(), h.Svc.Instance, 30*time.Second).Err()
+	_, inMatch := h.Svc.Hub.MatchOf(profileID)
 	hello, _ := Encode("hello", HelloData{
 		ProfileID:    profileID,
 		ServerTimeMs: time.Now().UTC().UnixMilli(),
 		Protocol:     ProtocolVersion,
+		Online:       h.Svc.Online(),
+		InMatch:      inMatch,
+		Invite:       h.Svc.OpenInvite(r.Context(), profileID),
 	})
 	_ = c.Enqueue(hello)
+	h.Svc.OnConnect(profileID)
 	c.Run(r.Context())
 	h.Svc.Hub.Unregister(profileID, c)
 }
@@ -158,6 +166,8 @@ func (h *Handler) listMatches(w http.ResponseWriter, r *http.Request) {
 		item := map[string]any{
 			"match_id":      row.ID,
 			"status":        row.Status,
+			"mode":          row.Mode,
+			"opponent_name": opponentName(row),
 			"end_reason":    textPtr(row.EndReason),
 			"created_at":    row.CreatedAt,
 			"finished_at":   tsPtr(row.FinishedAt),
@@ -211,6 +221,14 @@ func originPatterns(publicURL string) []string {
 		out = append(out, "www."+host)
 	}
 	return out
+}
+
+// opponentName is nil for a bot duel, which has no second player row.
+func opponentName(row sqlc.ListArenaMatchesForProfileRow) any {
+	if !row.OpponentID.Valid {
+		return nil
+	}
+	return leaderboard.DisplayName(row.OpponentName.String, row.OpponentID.UUID.String())
 }
 
 func textPtr(t pgtype.Text) any {

@@ -58,6 +58,13 @@ func (h *Hub) Send(profileID uuid.UUID, payload []byte) error {
 	return c.Enqueue(payload)
 }
 
+// Count is the number of players holding a live arena socket.
+func (h *Hub) Count() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.conns)
+}
+
 func (h *Hub) SetMatch(profileID, matchID uuid.UUID) {
 	h.mu.Lock()
 	h.inMatch[profileID] = matchID

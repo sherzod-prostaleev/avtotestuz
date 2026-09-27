@@ -1,6 +1,6 @@
 -- name: InsertArenaMatch :one
-INSERT INTO arena_match (question_ids, question_time_sec, status, started_at)
-VALUES ($1, $2, 'in_progress', now())
+INSERT INTO arena_match (question_ids, question_time_sec, mode, status, started_at)
+VALUES ($1, $2, $3, 'in_progress', now())
 RETURNING *;
 
 -- name: FinishArenaMatch :exec
@@ -20,11 +20,15 @@ INSERT INTO arena_answer (
 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: ListArenaMatchesForProfile :many
-SELECT m.id, m.status, m.finished_at, m.end_reason, m.created_at,
+-- The opponent is the other player row; a bot duel has none, so its name is NULL.
+SELECT m.id, m.status, m.finished_at, m.end_reason, m.created_at, m.mode,
        p.slot, p.score, p.correct_count, p.outcome,
-       p.rating_before, p.rating_after, p.rating_delta
+       p.rating_before, p.rating_after, p.rating_delta,
+       o.profile_id AS opponent_id, op.name AS opponent_name
 FROM arena_match_player p
 JOIN arena_match m ON m.id = p.match_id
+LEFT JOIN arena_match_player o ON o.match_id = p.match_id AND o.profile_id <> p.profile_id
+LEFT JOIN profile op ON op.id = o.profile_id
 WHERE p.profile_id = $1
 ORDER BY p.joined_at DESC
 LIMIT $2;

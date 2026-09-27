@@ -14,14 +14,42 @@ export type ArenaPhase =
   | "countdown"
   | "question"
   | "reveal"
+  | "waiting"
   | "result"
   | "error";
+
+/** ranked moves rating; friend (invite code) and bot practice do not. */
+export type ArenaMode = "ranked" | "friend" | "bot";
+
+/** One question's verdict for one player, as the progress bars draw it. */
+export type RoundMark = "correct" | "wrong" | "skipped";
+
+export type PlayerCard = {
+  name: string;
+  rating: number;
+  medal: string;
+  bot?: boolean;
+};
 
 export type QuestionPayload = {
   id: string;
   text: string;
   image_url?: string | null;
   answers: { id: string; position: number; text: string; image_url?: string | null }[];
+};
+
+/** Verdict on the player's own question (`answer.result`). */
+export type AnswerResult = {
+  index: number;
+  answered: boolean;
+  correct: boolean;
+  answer_id?: string;
+  correct_answer_id: string;
+  points: number;
+  score: number;
+  response_ms: number;
+  next_in_ms: number;
+  last: boolean;
 };
 
 /** True when a WS question payload is safe to render (avoids error-boundary crash). */
@@ -66,4 +94,29 @@ export function medalLabel(medal: string): string {
     default:
       return "Bronze";
   }
+}
+
+/** Mirrors the server's alphabet: no 0/O or 1/I/L, six characters. */
+const INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const INVITE_CODE_LEN = 6;
+
+/** What a person types or pastes → a code, or "" while it cannot be one yet. */
+export function normalizeInviteCode(raw: string): string {
+  let out = "";
+  for (const ch of raw.toUpperCase()) {
+    if (ch === " " || ch === "-") continue;
+    if (!INVITE_ALPHABET.includes(ch)) return "";
+    out += ch;
+  }
+  return out.length === INVITE_CODE_LEN ? out : "";
+}
+
+/** Keeps only characters a code can hold, for the input as the user types. */
+export function sanitizeInviteInput(raw: string): string {
+  let out = "";
+  for (const ch of raw.toUpperCase()) {
+    if (INVITE_ALPHABET.includes(ch)) out += ch;
+    if (out.length === INVITE_CODE_LEN) break;
+  }
+  return out;
 }

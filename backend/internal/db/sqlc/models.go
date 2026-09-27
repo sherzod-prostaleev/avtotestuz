@@ -132,6 +132,7 @@ type ArenaMatch struct {
 	StartedAt       pgtype.Timestamptz `json:"started_at"`
 	FinishedAt      pgtype.Timestamptz `json:"finished_at"`
 	EndReason       pgtype.Text        `json:"end_reason"`
+	Mode            string             `json:"mode"`
 }
 
 type ArenaMatchPlayer struct {

@@ -93,18 +93,19 @@ func (q *Queries) InsertArenaAnswer(ctx context.Context, arg InsertArenaAnswerPa
 }
 
 const insertArenaMatch = `-- name: InsertArenaMatch :one
-INSERT INTO arena_match (question_ids, question_time_sec, status, started_at)
-VALUES ($1, $2, 'in_progress', now())
-RETURNING id, status, question_ids, question_time_sec, created_at, started_at, finished_at, end_reason
+INSERT INTO arena_match (question_ids, question_time_sec, mode, status, started_at)
+VALUES ($1, $2, $3, 'in_progress', now())
+RETURNING id, status, question_ids, question_time_sec, created_at, started_at, finished_at, end_reason, mode
 `
 
 type InsertArenaMatchParams struct {
 	QuestionIds     []uuid.UUID `json:"question_ids"`
 	QuestionTimeSec int16       `json:"question_time_sec"`
+	Mode            string      `json:"mode"`
 }
 
 func (q *Queries) InsertArenaMatch(ctx context.Context, arg InsertArenaMatchParams) (ArenaMatch, error) {
-	row := q.db.QueryRow(ctx, insertArenaMatch, arg.QuestionIds, arg.QuestionTimeSec)
+	row := q.db.QueryRow(ctx, insertArenaMatch, arg.QuestionIds, arg.QuestionTimeSec, arg.Mode)
 	var i ArenaMatch
 	err := row.Scan(
 		&i.ID,
@@ -115,6 +116,7 @@ func (q *Queries) InsertArenaMatch(ctx context.Context, arg InsertArenaMatchPara
 		&i.StartedAt,
 		&i.FinishedAt,
 		&i.EndReason,
+		&i.Mode,
 	)
 	return i, err
 }
@@ -158,11 +160,14 @@ func (q *Queries) InsertArenaMatchPlayer(ctx context.Context, arg InsertArenaMat
 }
 
 const listArenaMatchesForProfile = `-- name: ListArenaMatchesForProfile :many
-SELECT m.id, m.status, m.finished_at, m.end_reason, m.created_at,
+SELECT m.id, m.status, m.finished_at, m.end_reason, m.created_at, m.mode,
        p.slot, p.score, p.correct_count, p.outcome,
-       p.rating_before, p.rating_after, p.rating_delta
+       p.rating_before, p.rating_after, p.rating_delta,
+       o.profile_id AS opponent_id, op.name AS opponent_name
 FROM arena_match_player p
 JOIN arena_match m ON m.id = p.match_id
+LEFT JOIN arena_match_player o ON o.match_id = p.match_id AND o.profile_id <> p.profile_id
+LEFT JOIN profile op ON op.id = o.profile_id
 WHERE p.profile_id = $1
 ORDER BY p.joined_at DESC
 LIMIT $2
@@ -179,6 +184,7 @@ type ListArenaMatchesForProfileRow struct {
 	FinishedAt   pgtype.Timestamptz `json:"finished_at"`
 	EndReason    pgtype.Text        `json:"end_reason"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	Mode         string             `json:"mode"`
 	Slot         int16              `json:"slot"`
 	Score        int32              `json:"score"`
 	CorrectCount int16              `json:"correct_count"`
@@ -186,8 +192,11 @@ type ListArenaMatchesForProfileRow struct {
 	RatingBefore pgtype.Int4        `json:"rating_before"`
 	RatingAfter  pgtype.Int4        `json:"rating_after"`
 	RatingDelta  pgtype.Int4        `json:"rating_delta"`
+	OpponentID   uuid.NullUUID      `json:"opponent_id"`
+	OpponentName pgtype.Text        `json:"opponent_name"`
 }
 
+// The opponent is the other player row; a bot duel has none, so its name is NULL.
 func (q *Queries) ListArenaMatchesForProfile(ctx context.Context, arg ListArenaMatchesForProfileParams) ([]ListArenaMatchesForProfileRow, error) {
 	rows, err := q.db.Query(ctx, listArenaMatchesForProfile, arg.ProfileID, arg.Limit)
 	if err != nil {
@@ -203,6 +212,7 @@ func (q *Queries) ListArenaMatchesForProfile(ctx context.Context, arg ListArenaM
 			&i.FinishedAt,
 			&i.EndReason,
 			&i.CreatedAt,
+			&i.Mode,
 			&i.Slot,
 			&i.Score,
 			&i.CorrectCount,
@@ -210,6 +220,8 @@ func (q *Queries) ListArenaMatchesForProfile(ctx context.Context, arg ListArenaM
 			&i.RatingBefore,
 			&i.RatingAfter,
 			&i.RatingDelta,
+			&i.OpponentID,
+			&i.OpponentName,
 		); err != nil {
 			return nil, err
 		}

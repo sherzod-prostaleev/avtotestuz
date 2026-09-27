@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { encodeClient, isPlayableQuestion, medalLabel, parseEnvelope } from "@/lib/arena-protocol";
+import {
+  encodeClient,
+  isPlayableQuestion,
+  medalLabel,
+  normalizeInviteCode,
+  parseEnvelope,
+  sanitizeInviteInput,
+} from "@/lib/arena-protocol";
 
 describe("arena-protocol", () => {
   it("round-trips encode/parse", () => {
@@ -32,5 +39,13 @@ describe("arena-protocol", () => {
         answers: [{ id: "a1", position: 1, text: "A" }],
       })
     ).toBe(true);
+  });
+
+  it("accepts invite codes the way people type them, like the server does", () => {
+    expect(normalizeInviteCode("abc234")).toBe("ABC234");
+    expect(normalizeInviteCode(" AB-C2 34")).toBe("ABC234");
+    expect(normalizeInviteCode("ABC23")).toBe("");
+    expect(normalizeInviteCode("ABC0O1")).toBe("");
+    expect(sanitizeInviteInput("ab-c0o1234xyz")).toBe("ABC234");
   });
 });
