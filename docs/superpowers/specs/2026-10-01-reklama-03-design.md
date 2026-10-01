@@ -55,6 +55,8 @@ Ekranda esa to'g'ri `ʻ`, "Driver Go" va raqamlar ko'rinadi. Har bir satr uchun 
 - **(c) Imtihon qoidasi tuzatildi.** Rasmiy qoida: 20 savoldan kamida 18 tasi to'g'ri bo'lsa — TOPSHIRDI (yim.uz, `reklama-01/evidence.json` → `official_exam_rules`). Demak 2 ta xatoga ruxsat bor va uchinchisi yiqitadi. 1-sahna dastlab "faqat uchta xato" deb yozilgan edi, bu noto'g'ri. U "Uchinchi xato — va siz yiqildingiz" ga almashtirildi.
 - **(d) "Har bir savolga izoh" deyilmaydi.** Seed'da 1277 savol va 1232 ta izoh bor (`backend/seed/avtoimtihon/data.json`). Shuning uchun 4-sahna umumiy da'vosiz yozildi: "Izoh sababini … tushuntiradi".
 
+**Yakuniy matn (2026-10-01):** Muxlisa sekin gapirgani uchun video 63 s chiqdi. Foydalanuvchi qarori bilan 6 ta satr qisqartirildi va video 54.6 s bo'ldi. Amaldagi matn — `output/instagram/reklama-03/senariy.md` (`script.py`). Yuqoridagi jadval dastlabki loyiha sifatida qoldirildi.
+
 ## Vizual uslub
 
 - **Kompozitsiya** (1080×1920):
