@@ -30,7 +30,7 @@ Ovoz: **Muxlisa AI, Asomiddin** (`speaker: 1`). Ko'r sinovda tanlangan (`output/
 
 | # | ~Vaqt | Diktor (ekrandagi subtitr) | Tepadagi belgi | Haqiqiy UI |
 |---|---|---|---|---|
-| 1 | 0–4 | Haydovchilik imtihoni: yigirma savol, yigirma besh daqiqa va faqat uchta xato. | IMTIHON QOIDASI | 20 katak, taymer 25:00, 3 ta "jon"; "uchta xato" so'zida ular qizaradi |
+| 1 | 0–4 | Haydovchilik imtihoni: yigirma savol, yigirma besh daqiqa. Uchinchi xato — va siz yiqildingiz. | IMTIHON QOIDASI | 20 katak va taymer 25:00; "uchinchi xato" so'zida 3 katak qizaradi, "yiqildingiz" da «TOPSHIRMADI» muhri |
 | 2 | 4–7 | Drayver Go sizni shu imtihonga qadam-baqadam tayyorlaydi. | — | Logo nur bilan ochiladi, telefon ichida `/dashboard` |
 | 3 | 7–12 | Avval bepul diagnostika: ro'yxatdan o'tmasdan darajangizni bilib olasiz. | BEPUL DIAGNOSTIKA | `/diagnostic`: savol → natija foizi |
 | 4 | 12–18 | Xato qildingizmi? Har bir savolga yo'l harakati qoidalari asosida izoh bor. | YHQ IZOHI | Sessiyada xato javob qizaradi → izoh paneli, YHQ bandi yonadi |
@@ -49,9 +49,10 @@ Ovoz: **Muxlisa AI, Asomiddin** (`speaker: 1`). Ko'r sinovda tanlangan (`output/
 
 Ekranda esa to'g'ri `ʻ`, "Driver Go" va raqamlar ko'rinadi. Har bir satr uchun ikkala shakl ham `script.json` da saqlanadi.
 
-**Yasashdan oldin tekshiriladigan ikki narsa:**
-- **(a)** `SignupTrialDuration` (24 soat, `backend/internal/auth/service.go:778`) beradigan entitlement Arena'ni ham ochadimi. Ochmasa, 8-sahnaga "VIP" belgisi qo'shiladi va 10-sahna matni "to'liq Premium" dan to'g'ri iboraga o'zgartiriladi.
-- **(b)** 9-sahnadagi "yangi savollar" da'vosi. Bazaga 2026-yilda qo'shilgan savollar (masalan 1279–1281) prod DB'dan sanaladi. Da'vo faqat ular haqiqatan bor bo'lsa aytiladi.
+**Yasashdan oldin tekshirilgan narsalar (2026-10-01):**
+- **(a) 24 soatlik sinov Arena'ni ochadi.** `SignupTrialDuration` (24 soat, `backend/internal/auth/service.go:778`) oddiy `entitlement` qatorini yozadi. Arena esa `billing.Service.Status` → `ActiveEntitlementEnd` orqali tekshiradi va manbani ajratmaydi (`backend/internal/billing/entitlement.go:78`, `backend/internal/arena/service.go:257`). Shuning uchun 10-sahnadagi "to'liq Premium" iborasi to'g'ri.
+- **(b) 2026-yilda yangi savollar qo'shilgan.** Seed tarixida `c1bf731` (2026-08-30), `f3e1e2b` (2026-09-03), `b611661` (2026-09-06) va `a9df26c` (2026-09-17) bor. Bazada 1277 savol va 64 bilet, eng katta ID — avtoimtihon-1281. 9-sahna da'vosi shu commitlar bilan asoslanadi.
+- **(c) Imtihon qoidasi tuzatildi.** Rasmiy qoida: 20 savoldan kamida 18 tasi to'g'ri bo'lsa — TOPSHIRDI (yim.uz, `reklama-01/evidence.json` → `official_exam_rules`). Demak 2 ta xatoga ruxsat bor va uchinchisi yiqitadi. 1-sahna dastlab "faqat uchta xato" deb yozilgan edi, bu noto'g'ri. U "Uchinchi xato — va siz yiqildingiz" ga almashtirildi.
 
 ## Vizual uslub
 
