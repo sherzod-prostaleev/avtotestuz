@@ -50,9 +50,13 @@ Mnemonika «o'ngdagi chiziq — chiqish yo'li, chapdagisi — taqiq» qoida emas
 8. Siz shu tasmada qolsangiz, chiziq o'ng tomoningizda. Darhol o'ngga o'ting — bu mumkin!
 9. Chiziq chap tomoningizda bo'lsa — kesib o'tmang: u yoqqa kirish taqiqlangan.
 10. Eslab qoling: o'ngdagi chiziq — chiqish yo'li, chapdagisi — taqiq.
-11. Bitta so'z — bitta xato. Uchinchi xato — va siz yiqildingiz.
+11. Bitta so'z — bitta xato. Bunday uchta xato — va siz yiqildingiz.
 12–13. reklama-05 CTA (xatoni imtihonda emas, Drayver Go'da qiling; tushuntirish; aqlli takrorlash; diagnostika
     bepul; Drayver Go).
+
+11–13 satrlar va sanoq satrlari reklama-05 dagi bilan so'zma-so'z bir xil, ularning yozuvlari qayta ishlatiladi.
+Birinchi yig'ishda video 79 s chiqdi; uzunlik va 10 MB yuklash limiti uchun reklama-05 dagi «Imtihon esa xuddi
+haqiqiysidek» satri (va imtihon ekrani) olib tashlandi, sahnalar orasidagi pauza 0.5 → 0.4 s — natija 74.4 s.
 
 ## Arxitektura
 
