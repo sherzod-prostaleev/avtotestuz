@@ -192,6 +192,7 @@ export function TelegramEntry() {
         setPhase("error");
         return;
       }
+      // cloudRemove has a 3s timeout, so await is safe: it will never hang.
       await cloudRemove(AUTOLOGIN_OFF_KEY);
       if (lifetime.aborted) return;
       goIn(json.data.must_change_password === true || me.mustChangePassword);

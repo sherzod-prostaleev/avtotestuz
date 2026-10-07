@@ -107,26 +107,36 @@ export async function cloudGet(key: string): Promise<string | null> {
   return result.status === "ok" ? result.value : null;
 }
 
+/**
+ * Helper to wrap a CloudStorage write (setItem or removeItem) with a timeout.
+ * Always resolves (never throws) and clears its timer, ensuring a stalled bridge
+ * never blocks the app.
+ */
+function withCloudWriteTimeout(
+  call: (cb: (err: string | null, ok?: boolean) => void) => void
+): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(), CLOUD_GET_TIMEOUT_MS);
+    const done = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    try {
+      call((err) => done());
+    } catch {
+      done();
+    }
+  });
+}
+
 export function cloudSet(key: string, value: string): Promise<void> {
   const storage = getWebApp()?.CloudStorage;
   if (!storage) return Promise.resolve();
-  return new Promise((resolve) => {
-    try {
-      storage.setItem(key, value, () => resolve());
-    } catch {
-      resolve();
-    }
-  });
+  return withCloudWriteTimeout((cb) => storage.setItem(key, value, cb));
 }
 
 export function cloudRemove(key: string): Promise<void> {
   const storage = getWebApp()?.CloudStorage;
   if (!storage) return Promise.resolve();
-  return new Promise((resolve) => {
-    try {
-      storage.removeItem(key, () => resolve());
-    } catch {
-      resolve();
-    }
-  });
+  return withCloudWriteTimeout((cb) => storage.removeItem(key, cb));
 }

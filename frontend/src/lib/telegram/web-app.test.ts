@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudGet, cloudGetResult, getWebApp, isTelegramMiniApp, markTelegramMiniApp, TG_SESSION_FLAG } from "./web-app";
+import { cloudGet, cloudGetResult, cloudRemove, cloudSet, getWebApp, isTelegramMiniApp, markTelegramMiniApp, TG_SESSION_FLAG } from "./web-app";
 import { haptics } from "./haptics";
 
 afterEach(() => {
@@ -87,5 +87,55 @@ describe("telegram detection", () => {
       haptics.result(false);
       haptics.select();
     }).not.toThrow();
+  });
+  it("cloudSet times out after 3s if the bridge never calls back", async () => {
+    vi.useFakeTimers();
+    try {
+      (window as { Telegram?: unknown }).Telegram = {
+        WebApp: { initData: "x", CloudStorage: { setItem: () => {} } },
+      };
+      const pending = cloudSet("k", "v");
+      await vi.advanceTimersByTimeAsync(2999);
+      // Still pending
+      let settled = false;
+      pending.then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(settled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("cloudSet resolves immediately if the bridge calls back", async () => {
+    (window as { Telegram?: unknown }).Telegram = {
+      WebApp: { initData: "x", CloudStorage: { setItem: (_k: string, _v: string, cb?: (e: null) => void) => cb?.(null) } },
+    };
+    await expect(cloudSet("k", "v")).resolves.toBeUndefined();
+  });
+  it("cloudRemove times out after 3s if the bridge never calls back", async () => {
+    vi.useFakeTimers();
+    try {
+      (window as { Telegram?: unknown }).Telegram = {
+        WebApp: { initData: "x", CloudStorage: { removeItem: () => {} } },
+      };
+      const pending = cloudRemove("k");
+      await vi.advanceTimersByTimeAsync(2999);
+      // Still pending
+      let settled = false;
+      pending.then(() => {
+        settled = true;
+      });
+      await vi.advanceTimersByTimeAsync(1);
+      expect(settled).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("cloudRemove resolves immediately if the bridge calls back", async () => {
+    (window as { Telegram?: unknown }).Telegram = {
+      WebApp: { initData: "x", CloudStorage: { removeItem: (_k: string, cb?: (e: null) => void) => cb?.(null) } },
+    };
+    await expect(cloudRemove("k")).resolves.toBeUndefined();
   });
 });

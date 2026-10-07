@@ -432,4 +432,23 @@ describe("TelegramEntry", () => {
     expect(await screen.findByRole("link", { name: "Kirish" })).toBeInTheDocument();
     expect(telegramCalls(fetchMock)).toHaveLength(1);
   });
+
+  it("navigates even if cloudRemove never calls back", async () => {
+    vi.useFakeTimers();
+    try {
+      const app = fakeWebApp();
+      app.CloudStorage = { ...app.CloudStorage!, removeItem: () => {} };
+      useWebApp(app);
+      mockFetch([ME_401, { status: 200, body: ME_OK }], [TOKENS_OK]);
+      renderEntry();
+      // Sign-in completes, probeMe succeeds, cloudRemove is called but never returns.
+      // After 3s, cloudRemove times out and navigation should proceed.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3100);
+      });
+      expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
