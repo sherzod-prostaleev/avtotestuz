@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, useTransition } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useRouter } from "@/i18n/navigation";
 import type { Locale } from "@/i18n/config";
+import { rememberTelegramLocale } from "@/lib/telegram/locale";
 import { ChevronDown } from "lucide-react";
 
 const LOCALES = [
@@ -77,6 +78,8 @@ export function LocaleSwitcher({
    */
   const handleLanguageChange = (newLocale: Locale) => {
     if (newLocale === currentLocale) return;
+    // The bot always opens /uz-Latn/tg; this is how /tg learns the choice.
+    rememberTelegramLocale(newLocale);
     const query =
       typeof window !== "undefined"
         ? Object.fromEntries(new URLSearchParams(window.location.search))

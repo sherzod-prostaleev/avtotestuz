@@ -12,7 +12,8 @@ const PUBLIC_EXTRA = [
   "Premium",
 ] as const;
 
-const AUTH_EXTRA = ["Login", "Register", "PasswordReset", "Verify", "Profile"] as const;
+// TelegramApp: the /tg Mini App entry screen lives in the (auth) group.
+const AUTH_EXTRA = ["Login", "Register", "PasswordReset", "Verify", "Profile", "TelegramApp"] as const;
 
 const APP_EXTRA = [
   "Dashboard",
@@ -30,6 +31,8 @@ const APP_EXTRA = [
   "Stats",
   "Profile",
   "TelegramLink",
+  // Mini App chrome inside the learner app (linked status, share-phone).
+  "TelegramApp",
   "Referral",
   "PaymentHistory",
   "Premium",

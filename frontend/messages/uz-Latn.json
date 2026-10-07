@@ -2635,5 +2635,28 @@
     "attach": "Fayl biriktirish",
     "emptyChat": "Salom! Savolingizni yozing — admin tez orada javob beradi.",
     "loading": "Yuklanmoqda…"
+  },
+  "TelegramApp": {
+    "loading": "Kirilmoqda…",
+    "welcome": "Xush kelibsiz!",
+    "welcomeNamed": "Xush kelibsiz, {name}!",
+    "welcomeHint": "Telefon raqamingiz bilan kiring yoki ro'yxatdan o'ting. Keyingi safar ilova o'zi ochiladi.",
+    "continueAs": "{name} sifatida davom etish",
+    "login": "Kirish",
+    "register": "Ro'yxatdan o'tish",
+    "outsideTitle": "Botdan oching",
+    "outsideBody": "Bu sahifa Telegram'dagi DriverGo boti orqali ochiladi. Botni qayta oching.",
+    "cookieTitle": "Telefoningizda oching",
+    "cookieBody": "Bu brauzer kirishni saqlay olmadi. Telegram ilovasida (telefon yoki kompyuter) oching.",
+    "unavailableTitle": "Vaqtincha mavjud emas",
+    "unavailableBody": "Birozdan so'ng qayta urinib ko'ring yoki drivergo.uz saytidan foydalaning.",
+    "rateLimitedTitle": "Juda ko'p urinish",
+    "rateLimitedBody": "Birozdan so'ng qayta urinib ko'ring.",
+    "blockedTitle": "Hisob bloklangan",
+    "errorTitle": "Ulanib bo'lmadi",
+    "errorBody": "Internet aloqasini tekshirib, qayta urinib ko'ring.",
+    "retry": "Qayta urinish",
+    "sharePhone": "Raqamni Telegram'dan olish",
+    "linkedStatus": "Telegram ulangan"
   }
 }
