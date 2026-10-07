@@ -46,6 +46,8 @@ const (
 // Bot dispatches inbound Telegram updates. Link redeem stays in-process
 // (M4-06); quiz sessions are handled by QuizService (M4-07).
 type Bot struct {
+	// WebAppURL is the Mini App entry point; empty means no launcher button.
+	WebAppURL     string
 	Link          *LinkService
 	Quiz          *QuizService
 	Billing       billing.Service
@@ -170,6 +172,15 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		if reply == "" {
 			return nil
+		}
+		// Only the plain /start (no link or reset payload) gets the launcher;
+		// the group case returned above, because Telegram rejects web_app
+		// buttons outside private chats.
+		if arg == "" && b.WebAppURL != "" {
+			_, err := b.TG.SendText(ctx, chatID, reply, &InlineKeyboardMarkup{InlineKeyboard: [][]InlineKeyboardButton{{
+				{Text: "📱 DriverGo'ni ochish", WebApp: &WebAppInfo{URL: b.WebAppURL}},
+			}}})
+			return err
 		}
 		return b.TG.SendMessage(ctx, chatID, reply)
 	case "/link", "/status":

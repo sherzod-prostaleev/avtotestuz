@@ -86,6 +86,12 @@ func (c *Client) SendMessage(ctx context.Context, chatID int64, text string) err
 	return err
 }
 
+// SetChatMenuButton sets the bot's default menu button for every private
+// chat (no chat_id = default for all users).
+func (c *Client) SetChatMenuButton(ctx context.Context, button any) error {
+	return c.call(ctx, "setChatMenuButton", map[string]any{"menu_button": button}, nil)
+}
+
 // SendText sends a text message and returns Telegram's message_id.
 func (c *Client) SendText(ctx context.Context, chatID int64, text string, markup *InlineKeyboardMarkup) (int64, error) {
 	var m any

@@ -28,6 +28,7 @@ var configEnvKeys = []string{
 	"TELEGRAM_BOT_API_BASE_URL",
 	"TELEGRAM_BOT_USERNAME",
 	"TELEGRAM_BOT_MODE",
+	"TELEGRAM_WEBAPP_URL",
 	"TELEGRAM_WEBHOOK_SECRET",
 	"TELEGRAM_QUIZ_WINNER_STICKER",
 	"OPS_ADMIN_TOKEN",
@@ -341,6 +342,28 @@ func TestLoadValidation(t *testing.T) {
 				"TELEGRAM_BOT_USERNAME":      "AvtoTestBot",
 			},
 			wantErr: "TELEGRAM_BOT_MODE longpoll is not allowed when ENV=prod",
+		},
+		{
+			name:    "webapp url must be absolute",
+			env:     map[string]string{"TELEGRAM_WEBAPP_URL": "/uz-Latn/tg"},
+			wantErr: "TELEGRAM_WEBAPP_URL must be an absolute http(s) URL",
+		},
+		{
+			name: "webapp url may be http in development",
+			env:  map[string]string{"TELEGRAM_WEBAPP_URL": "http://localhost:3000/uz-Latn/tg"},
+		},
+		{
+			name: "webapp url must be https in prod",
+			env: map[string]string{
+				"ENV":                        "prod",
+				"JWT_SECRET":                 validSecret,
+				"OTP_CHANNEL":                "telegram",
+				"TELEGRAM_GATEWAY_TOKEN":     "token",
+				"CLIENT_IP_ASSERTION_SECRET": validAssertionSecret,
+				"PUBLIC_BASE_URL":            "https://avtotest.uz",
+				"TELEGRAM_WEBAPP_URL":        "http://drivergo.uz/uz-Latn/tg",
+			},
+			wantErr: "TELEGRAM_WEBAPP_URL must use https when ENV=prod",
 		},
 		{
 			name: "webhook mode is valid in prod",

@@ -102,6 +102,9 @@ type Config struct {
 	TelegramBotAPIBaseURL string
 	TelegramBotUsername   string // no leading '@'
 	TelegramBotMode       string // off | webhook | longpoll
+	// TelegramWebAppURL is the Mini App entry point (menu button and /start
+	// launcher). Empty disables both: the kill switch is clear it and restart.
+	TelegramWebAppURL     string
 	TelegramWebhookSecret string
 	// Optional file_id for the group winner sticker. Empty skips the sticker
 	// entirely — an unverified file_id would fail on every finished game.
@@ -233,6 +236,7 @@ func Load() (Config, error) {
 		TelegramBotAPIBaseURL:     getenv("TELEGRAM_BOT_API_BASE_URL", "https://api.telegram.org"),
 		TelegramBotUsername:       getenv("TELEGRAM_BOT_USERNAME", ""),
 		TelegramBotMode:           getenv("TELEGRAM_BOT_MODE", "off"),
+		TelegramWebAppURL:         strings.TrimSpace(getenv("TELEGRAM_WEBAPP_URL", "")),
 		TelegramWebhookSecret:     getenv("TELEGRAM_WEBHOOK_SECRET", ""),
 		TelegramQuizWinnerSticker: getenv("TELEGRAM_QUIZ_WINNER_STICKER", ""),
 
@@ -373,6 +377,18 @@ func (c Config) validate() error {
 		}
 	default:
 		return fmt.Errorf("invalid TELEGRAM_BOT_MODE %q: must be off, webhook, or longpoll", c.TelegramBotMode)
+	}
+
+	if c.TelegramWebAppURL != "" {
+		u, err := url.Parse(c.TelegramWebAppURL)
+		if err != nil || u.Host == "" || (u.Scheme != "http" && u.Scheme != "https") {
+			return fmt.Errorf("TELEGRAM_WEBAPP_URL must be an absolute http(s) URL")
+		}
+		// Telegram only opens https Mini Apps; plain http is tolerated in dev
+		// so a local tunnel-less setup still boots.
+		if (c.Env == "staging" || c.Env == "prod") && u.Scheme != "https" {
+			return fmt.Errorf("TELEGRAM_WEBAPP_URL must use https when ENV=%s", c.Env)
+		}
 	}
 
 	pub := strings.TrimSpace(c.VAPIDPublicKey)

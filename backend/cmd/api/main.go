@@ -108,6 +108,19 @@ func main() {
 		go broadcast.RunWorker(ctx, broadcastSvc, logger)
 	}
 
+	// Menu button sync is best-effort and off the startup path: a slow or
+	// unreachable Telegram API must never delay or fail boot.
+	if cfg.TelegramBotMode != "off" && cfg.TelegramBotToken != "" {
+		go func() {
+			syncCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			tg := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
+			if err := bot.SyncMenuButton(syncCtx, tg, cfg.TelegramWebAppURL); err != nil {
+				logger.Warn("telegram bot: menu button sync failed", zap.Error(err))
+			}
+		}()
+	}
+
 	// Long-poll is the dev-only alternative to the webhook route server.New
 	// registers — see docs/superpowers/specs/2026-07-25-m4-06-telegram-bot-design.md
 	// §5.1. config.validate() already rejects this mode when ENV=prod.
@@ -134,6 +147,7 @@ func main() {
 		authSvc := auth.NewService(q, pool, auth.Limiter{R: redisClient}, sender, []byte(cfg.JWTSecret), cfg.Env)
 		authSvc.Log = logger
 		botSvc := &bot.Bot{
+			WebAppURL:     cfg.TelegramWebAppURL,
 			Link:          linkSvc,
 			Quiz:          quizSvc,
 			Billing:       billing.Service{Q: q},

@@ -69,6 +69,13 @@ type InlineKeyboardButton struct {
 	Text         string `json:"text"`
 	CallbackData string `json:"callback_data,omitempty"`
 	URL          string `json:"url,omitempty"`
+	// WebApp opens a Mini App; Telegram accepts it only in private chats.
+	WebApp *WebAppInfo `json:"web_app,omitempty"`
+}
+
+// WebAppInfo points a button or menu button at a Mini App URL.
+type WebAppInfo struct {
+	URL string `json:"url"`
 }
 
 type ReplyKeyboardMarkup struct {

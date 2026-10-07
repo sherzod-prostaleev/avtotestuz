@@ -28,7 +28,9 @@ import (
 type fakeTelegram struct {
 	mu   sync.Mutex
 	sent []string
-	srv  *httptest.Server
+	// markups holds the raw reply_markup JSON per sendMessage ("" when none).
+	markups []string
+	srv     *httptest.Server
 }
 
 func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
@@ -40,8 +42,9 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 		path := r.URL.Path
 		if strings.Contains(path, "sendMessage") || strings.Contains(path, "sendPhoto") {
 			var body struct {
-				Text    string `json:"text"`
-				Caption string `json:"caption"`
+				Text    string          `json:"text"`
+				Caption string          `json:"caption"`
+				Markup  json.RawMessage `json:"reply_markup"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			text := body.Text
@@ -50,6 +53,7 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			}
 			f.mu.Lock()
 			f.sent = append(f.sent, text)
+			f.markups = append(f.markups, string(body.Markup))
 			f.mu.Unlock()
 			msgID++
 			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, msgID)
@@ -365,5 +369,65 @@ func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
 	}
 	if !strings.Contains(fake.lastMessage(), "Tasdiqlandi") {
 		t.Fatalf("contact reply=%q", fake.lastMessage())
+	}
+}
+
+func (f *fakeTelegram) lastMarkup() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.markups) == 0 {
+		return ""
+	}
+	return f.markups[len(f.markups)-1]
+}
+
+func TestHandleUpdate_StartPrivateShowsWebAppButton(t *testing.T) {
+	b, _, fake := newTestBot(t)
+	b.WebAppURL = "https://drivergo.uz/uz-Latn/tg"
+	u := update("/start", 301, "mini")
+	u.Message.Chat.Type = "private"
+	if err := b.HandleUpdate(context.Background(), u); err != nil {
+		t.Fatalf("HandleUpdate: %v", err)
+	}
+	var m InlineKeyboardMarkup
+	if err := json.Unmarshal([]byte(fake.lastMarkup()), &m); err != nil {
+		t.Fatalf("markup = %q: %v", fake.lastMarkup(), err)
+	}
+	btn := m.InlineKeyboard[0][0]
+	if btn.WebApp == nil || btn.WebApp.URL != "https://drivergo.uz/uz-Latn/tg" || btn.Text != "📱 DriverGo'ni ochish" {
+		t.Fatalf("button = %+v", btn)
+	}
+}
+
+func TestHandleUpdate_StartWithoutWebAppURLHasNoMarkup(t *testing.T) {
+	b, _, fake := newTestBot(t)
+	if err := b.HandleUpdate(context.Background(), update("/start", 302, "plain")); err != nil {
+		t.Fatalf("HandleUpdate: %v", err)
+	}
+	if mk := fake.lastMarkup(); mk != "" && mk != "null" {
+		t.Errorf("markup = %q, want none", mk)
+	}
+}
+
+func TestHandleUpdate_StartPayloadAndGroupGetNoWebAppButton(t *testing.T) {
+	b, _, fake := newTestBot(t)
+	b.WebAppURL = "https://drivergo.uz/uz-Latn/tg"
+
+	// Link payload flow stays unchanged.
+	if err := b.HandleUpdate(context.Background(), update("/start no-such-token", 303, "p")); err != nil {
+		t.Fatalf("HandleUpdate: %v", err)
+	}
+	if strings.Contains(fake.lastMarkup(), "web_app") {
+		t.Errorf("payload /start markup = %q, want no web_app", fake.lastMarkup())
+	}
+
+	// Telegram rejects web_app buttons in groups.
+	g := update("/start", 304, "g")
+	g.Message.Chat = Chat{ID: -1002, Type: "supergroup", Title: "G"}
+	if err := b.HandleUpdate(context.Background(), g); err != nil {
+		t.Fatalf("HandleUpdate: %v", err)
+	}
+	if strings.Contains(fake.lastMarkup(), "web_app") {
+		t.Errorf("group /start markup = %q, want no web_app", fake.lastMarkup())
 	}
 }
