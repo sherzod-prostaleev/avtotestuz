@@ -3,6 +3,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { InitSentry } from "@/components/monitoring/init-sentry";
+import { TelegramProvider } from "@/components/telegram/telegram-provider";
 import { RegisterServiceWorker } from "@/components/pwa/register-sw";
 import { getQueryClient } from "@/lib/query-client";
 
@@ -19,9 +20,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
         disableTransitionOnChange
         value={{ light: "light", dark: "dark" }}
       >
-        <InitSentry />
-        <RegisterServiceWorker />
-        {children}
+        <TelegramProvider>
+          <InitSentry />
+          <RegisterServiceWorker />
+          {children}
+        </TelegramProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

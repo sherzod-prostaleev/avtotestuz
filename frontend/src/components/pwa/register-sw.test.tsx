@@ -76,3 +76,19 @@ describe("RegisterServiceWorker", () => {
     expect(register).toHaveBeenCalled();
   });
 });
+
+describe("RegisterServiceWorker inside Telegram", () => {
+  it("does not register a service worker in the Mini App", () => {
+    vi.stubEnv("NODE_ENV", "production");
+    const register = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "serviceWorker", {
+      value: { register, getRegistrations: vi.fn().mockResolvedValue([]) },
+      configurable: true,
+    });
+    sessionStorage.setItem("tg-webapp", "1");
+    render(<RegisterServiceWorker />);
+    expect(register).not.toHaveBeenCalled();
+    sessionStorage.clear();
+    vi.unstubAllEnvs();
+  });
+});

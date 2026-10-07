@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { defaultLocale } from "@/i18n/config";
+import { haptics } from "@/lib/telegram/haptics";
 
 export type SessionMode =
   | "variant"
@@ -619,6 +620,7 @@ export function useSessionEngine(initialSessionId?: string) {
         });
 
         if (response.recorded) {
+          if (response.correct !== undefined) haptics.result(response.correct);
           const current = sessionRef.current;
           if (current) {
             commitSession({

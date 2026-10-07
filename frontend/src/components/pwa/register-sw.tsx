@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 /**
  * isClassroomKiosk reports whether this page is being served by the local
@@ -33,6 +34,10 @@ function isClassroomKiosk(): boolean {
 export function RegisterServiceWorker() {
   useEffect(() => {
     if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+
+    // The Mini App lives in Telegram's webview; an SW there only adds a
+    // stale-cache risk and an install prompt nobody can use.
+    if (isTelegramMiniApp()) return;
 
     if (process.env.NODE_ENV !== "production" || isClassroomKiosk()) {
       void navigator.serviceWorker.getRegistrations().then((regs) => {
