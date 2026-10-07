@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { AUTH_COOKIE, readCookie, REFRESH_COOKIE } from "./auth-cookies";
+import { NextResponse } from "next/server";
+import {
+  AUTH_COOKIE,
+  clearAuthCookies,
+  cookieModeFor,
+  modeForBody,
+  readCookie,
+  REFRESH_COOKIE,
+  setAuthCookies,
+  TG_MODE_COOKIE,
+} from "./auth-cookies";
 
 describe("readCookie", () => {
   it("reads and decodes the requested cookie", () => {
@@ -16,5 +26,72 @@ describe("readCookie", () => {
 
     expect(() => readCookie(request, REFRESH_COOKIE)).not.toThrow();
     expect(readCookie(request, REFRESH_COOKIE)).toBeUndefined();
+  });
+});
+
+const tokens = { accessToken: "a", refreshToken: "r" };
+
+function setCookies(res: NextResponse): string[] {
+  return res.headers.getSetCookie();
+}
+
+describe("telegram cookie mode", () => {
+  it("site mode stays lax and never writes the marker", () => {
+    const res = NextResponse.json({});
+    setAuthCookies(res, tokens);
+    const all = setCookies(res).join("\n").toLowerCase();
+    expect(all).toContain("samesite=lax");
+    expect(all).not.toContain("partitioned");
+    expect(all).not.toContain(`${TG_MODE_COOKIE}=`);
+  });
+
+  it("site clear stays lax and never touches the marker", () => {
+    const res = NextResponse.json({});
+    clearAuthCookies(res);
+    const all = setCookies(res).join("\n").toLowerCase();
+    expect(all).toContain("samesite=lax");
+    expect(all).not.toContain("partitioned");
+    expect(all).not.toContain(`${TG_MODE_COOKIE}=`);
+  });
+
+  it("telegram mode writes None+Secure+Partitioned for at, rt and the marker", () => {
+    const res = NextResponse.json({});
+    setAuthCookies(res, tokens, "telegram");
+    const cookies = setCookies(res);
+    for (const name of ["at=", "rt=", `${TG_MODE_COOKIE}=`]) {
+      const c = cookies.find((x) => x.startsWith(name))!.toLowerCase();
+      expect(c).toContain("samesite=none");
+      expect(c).toContain("secure");
+      expect(c).toContain("partitioned");
+      expect(c).toContain("httponly");
+    }
+  });
+
+  it("telegram clear repeats Partitioned so the partitioned cookie is really removed", () => {
+    const res = NextResponse.json({});
+    clearAuthCookies(res, "telegram");
+    const cookies = setCookies(res);
+    expect(cookies).toHaveLength(3);
+    for (const c of cookies) {
+      expect(c.toLowerCase()).toContain("partitioned");
+      expect(c.toLowerCase()).toContain("max-age=0");
+    }
+  });
+
+  it("cookieModeFor reads the marker", () => {
+    expect(cookieModeFor(new Request("https://x/", { headers: { cookie: "at=1" } }))).toBe("site");
+    expect(cookieModeFor(new Request("https://x/"))).toBe("site");
+    expect(cookieModeFor(new Request("https://x/", { headers: { cookie: `at=1; ${TG_MODE_COOKIE}=1` } }))).toBe(
+      "telegram"
+    );
+  });
+
+  it("modeForBody switches to telegram only for a non-empty tg_init_data string", () => {
+    expect(modeForBody(JSON.stringify({ phone: "1", tg_init_data: "query_id=1" }))).toBe("telegram");
+    expect(modeForBody(JSON.stringify({ phone: "1" }))).toBe("site");
+    expect(modeForBody(JSON.stringify({ tg_init_data: "" }))).toBe("site");
+    expect(modeForBody(JSON.stringify({ tg_init_data: 1 }))).toBe("site");
+    expect(modeForBody("null")).toBe("site");
+    expect(modeForBody("not json")).toBe("site");
   });
 });

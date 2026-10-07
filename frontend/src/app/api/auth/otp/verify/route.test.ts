@@ -77,4 +77,43 @@ describe("POST /api/auth/otp/verify", () => {
     expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
     expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
   });
+
+  it("keeps an existing Telegram cookie jar in Telegram mode", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify({ data: { access_token: "abc.def", refresh_token: "xyz.123" } }), { status: 200 })
+        )
+    );
+
+    const response = await POST(
+      new Request("http://localhost/api/auth/otp/verify", {
+        method: "POST",
+        headers: { Cookie: "tgp=1" },
+        body: JSON.stringify({ phone: "901112233", code: "123456" }),
+      })
+    );
+
+    const cookies = response.headers.getSetCookie();
+    expect(cookies).toHaveLength(3);
+    for (const c of cookies) expect(c.toLowerCase()).toContain("partitioned");
+  });
+
+  it("refuses a foreign Origin with 403 before calling the backend", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      new Request("http://localhost/api/auth/otp/verify", {
+        method: "POST",
+        headers: { host: "drivergo.uz", origin: "https://evil.example" },
+        body: JSON.stringify({ phone: "901112233", code: "123456" }),
+      })
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

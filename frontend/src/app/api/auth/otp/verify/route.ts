@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 import { extractTokenPair, readBackendJson } from "@/lib/backend-response";
-import { setAuthCookies } from "@/lib/auth-cookies";
+import { cookieModeFor, setAuthCookies } from "@/lib/auth-cookies";
+import { rejectCrossSite } from "@/lib/same-origin";
 
 function unavailableResponse() {
   return NextResponse.json(
@@ -11,6 +12,9 @@ function unavailableResponse() {
 }
 
 export async function POST(request: Request) {
+  const refused = rejectCrossSite(request);
+  if (refused) return refused;
+
   const body = await request.text();
   let backendRes: Response;
   let data: unknown;
@@ -38,6 +42,7 @@ export async function POST(request: Request) {
   }
 
   const response = NextResponse.json({ data: { ok: true } }, { status: 200 });
-  setAuthCookies(response, tokens);
+  // OTP carries no Telegram launch data; keep whatever jar the caller has.
+  setAuthCookies(response, tokens, cookieModeFor(request));
   return response;
 }

@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 import { readBackendJson } from "@/lib/backend-response";
-import { setAuthCookies, clearAuthCookies, readCookie, AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import {
+  setAuthCookies,
+  clearAuthCookies,
+  cookieModeFor,
+  readCookie,
+  AUTH_COOKIE,
+  REFRESH_COOKIE,
+  type CookieMode,
+} from "@/lib/auth-cookies";
+import { rejectCrossSite } from "@/lib/same-origin";
 import { refreshOnce } from "@/lib/refresh-lock";
 import { callBackendRefresh } from "@/lib/backend-refresh";
 
@@ -35,7 +44,7 @@ function safePath(path: string[]): string | null {
   return unsafe ? null : path.map(encodeURIComponent).join("/");
 }
 
-function unavailableResponse(tokens?: TokenPair | null) {
+function unavailableResponse(mode: CookieMode, tokens?: TokenPair | null) {
   const response = NextResponse.json(
     { error: { code: "network_error", message: "service temporarily unavailable" } },
     { status: 502 }
@@ -43,7 +52,7 @@ function unavailableResponse(tokens?: TokenPair | null) {
   if (tokens) {
     // Refresh rotation may have succeeded before the downstream request
     // failed. Preserve the rotated pair so the next retry remains usable.
-    setAuthCookies(response, tokens);
+    setAuthCookies(response, tokens, mode);
   }
   return response;
 }
@@ -77,6 +86,12 @@ async function forward(
 }
 
 async function handle(request: Request, context: { params: Promise<{ path: string[] }> }) {
+  const refused = rejectCrossSite(request);
+  if (refused) return refused;
+  // A Telegram session's cookies are Partitioned; rotating or clearing them
+  // with site attributes would leave the old partitioned pair in place.
+  const mode = cookieModeFor(request);
+
   const { path } = await context.params;
   if (!safePath(path)) {
     return NextResponse.json(
@@ -106,7 +121,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     try {
       newTokens = await refreshOnce(refreshToken, callBackendRefresh);
     } catch {
-      return unavailableResponse();
+      return unavailableResponse(mode);
     }
     if (newTokens) {
       accessToken = newTokens.accessToken;
@@ -122,7 +137,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     try {
       backendRes = await forward(request, path, accessToken, body);
     } catch {
-      return unavailableResponse(newTokens);
+      return unavailableResponse(mode, newTokens);
     }
   }
 
@@ -131,14 +146,14 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     try {
       newTokens = await refreshOnce(refreshToken, callBackendRefresh);
     } catch {
-      return unavailableResponse();
+      return unavailableResponse(mode);
     }
     if (newTokens) {
       accessToken = newTokens.accessToken;
       try {
         backendRes = await forward(request, path, accessToken, body);
       } catch {
-        return unavailableResponse(newTokens);
+        return unavailableResponse(mode, newTokens);
       }
     }
   }
@@ -159,9 +174,9 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     // AT expiry; one sibling may setAuthCookies while another clearAuthCookies
     // — last Set-Cookie wins and intermittently logs the user out.
     if (newTokens) {
-      setAuthCookies(response, newTokens);
+      setAuthCookies(response, newTokens, mode);
     } else if (refreshToken || accessToken) {
-      clearAuthCookies(response);
+      clearAuthCookies(response, mode);
     }
     return response;
   }
@@ -185,9 +200,9 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
         : "";
     const response = NextResponse.json(data, { status: 403 });
     if (code === "account_blocked" && (refreshToken || accessToken)) {
-      clearAuthCookies(response);
+      clearAuthCookies(response, mode);
     } else if (newTokens) {
-      setAuthCookies(response, newTokens);
+      setAuthCookies(response, newTokens, mode);
     }
     return response;
   }
@@ -204,20 +219,20 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     const cd = backendRes.headers.get("content-disposition");
     if (cd) response.headers.set("Content-Disposition", cd);
     if (newTokens) {
-      setAuthCookies(response, newTokens);
+      setAuthCookies(response, newTokens, mode);
     }
     return response;
   }
   try {
     data = await readBackendJson(backendRes);
   } catch {
-    return unavailableResponse(newTokens);
+    return unavailableResponse(mode, newTokens);
   }
   const response = NextResponse.json(data, { status: backendRes.status });
   applyPublicCacheHeaders(request, path, backendRes, response, newTokens);
 
   if (newTokens) {
-    setAuthCookies(response, newTokens);
+    setAuthCookies(response, newTokens, mode);
   }
 
   return response;

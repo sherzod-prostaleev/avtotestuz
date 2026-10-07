@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 import { extractTokenPair, readBackendJson } from "@/lib/backend-response";
-import { cookieModeFor, modeForBody, setAuthCookies } from "@/lib/auth-cookies";
+import { setAuthCookies } from "@/lib/auth-cookies";
 import { buildClientIPAssertionHeaders } from "@/lib/client-ip-assertion";
 import { rejectCrossSite } from "@/lib/same-origin";
 
@@ -14,36 +14,40 @@ function unavailableResponse() {
   );
 }
 
+// Exchanges Telegram Mini App launch data for a session. A linked Telegram
+// account gets Telegram-mode cookies; an unlinked one gets need_phone and goes
+// through the ordinary phone sign-in.
 export async function POST(request: Request) {
   const refused = rejectCrossSite(request);
   if (refused) return refused;
 
-  const body = await request.text();
-  // tg_init_data means the Mini App is signing in: the backend links the
-  // Telegram account and the cookies must work inside Telegram's iframe. A jar
-  // that is already Telegram-mode stays so, or its partitioned cookies would
-  // linger beside new lax ones. Without either, the website path is untouched.
-  const linkRequested = modeForBody(body) === "telegram";
-  const mode = linkRequested ? "telegram" : cookieModeFor(request);
   let backendRes: Response;
   let data: unknown;
-
   try {
-    backendRes = await backendFetch("/auth/register", {
+    backendRes = await backendFetch("/auth/telegram/webapp", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...buildClientIPAssertionHeaders(request, "/auth/register"),
+        ...buildClientIPAssertionHeaders(request, "/auth/telegram/webapp"),
       },
-      body,
+      body: await request.text(),
     });
     data = await readBackendJson(backendRes);
   } catch {
     return unavailableResponse();
   }
-
   if (!backendRes.ok) {
     return NextResponse.json(data, { status: backendRes.status });
+  }
+
+  const payload = (
+    data as { data?: { need_phone?: unknown; first_name?: unknown; must_change_password?: unknown } }
+  ).data;
+  if (payload?.need_phone === true) {
+    return NextResponse.json(
+      { data: { need_phone: true, first_name: typeof payload.first_name === "string" ? payload.first_name : "" } },
+      { status: 200 }
+    );
   }
 
   let tokens: { accessToken: string; refreshToken: string };
@@ -52,14 +56,10 @@ export async function POST(request: Request) {
   } catch {
     return unavailableResponse();
   }
-
-  // Same contract as login: telegram_linked only for Mini App sign-ups, so the
-  // website response is unchanged.
-  const linked = (data as { data?: { telegram_linked?: unknown } }).data?.telegram_linked === true;
   const response = NextResponse.json(
-    { data: linkRequested ? { ok: true, telegram_linked: linked } : { ok: true } },
-    { status: 201 }
+    { data: { ok: true, must_change_password: payload?.must_change_password === true } },
+    { status: 200 }
   );
-  setAuthCookies(response, tokens, mode);
+  setAuthCookies(response, tokens, "telegram");
   return response;
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
-import { setAuthCookies, clearAuthCookies, readCookie, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import { setAuthCookies, clearAuthCookies, cookieModeFor, readCookie, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import { rejectCrossSite } from "@/lib/same-origin";
 import { refreshOnce } from "@/lib/refresh-lock";
 import { callBackendRefresh } from "@/lib/backend-refresh";
 
@@ -11,13 +12,17 @@ function unavailableResponse() {
 }
 
 export async function POST(request: Request) {
+  const refused = rejectCrossSite(request);
+  if (refused) return refused;
+
+  const mode = cookieModeFor(request);
   const refreshToken = readCookie(request, REFRESH_COOKIE);
   if (!refreshToken) {
     const response = NextResponse.json(
       { error: { code: "invalid_refresh", message: "no refresh token" } },
       { status: 401 }
     );
-    clearAuthCookies(response);
+    clearAuthCookies(response, mode);
     return response;
   }
 
@@ -34,11 +39,11 @@ export async function POST(request: Request) {
       { error: { code: "invalid_refresh", message: "refresh failed" } },
       { status: 401 }
     );
-    clearAuthCookies(response);
+    clearAuthCookies(response, mode);
     return response;
   }
 
   const response = NextResponse.json({ data: { ok: true } }, { status: 200 });
-  setAuthCookies(response, tokens);
+  setAuthCookies(response, tokens, mode);
   return response;
 }

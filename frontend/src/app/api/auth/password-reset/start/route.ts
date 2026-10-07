@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 import { readBackendJson } from "@/lib/backend-response";
 import { buildClientIPAssertionHeaders } from "@/lib/client-ip-assertion";
+import { rejectCrossSite } from "@/lib/same-origin";
 
 export const runtime = "nodejs";
 
@@ -13,6 +14,9 @@ function unavailableResponse() {
 }
 
 export async function POST(request: Request) {
+  const refused = rejectCrossSite(request);
+  if (refused) return refused;
+
   const body = await request.text();
 
   try {

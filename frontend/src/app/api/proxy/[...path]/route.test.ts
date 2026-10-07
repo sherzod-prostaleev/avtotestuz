@@ -308,4 +308,97 @@ describe("proxy route", () => {
     expect(await response.json()).toEqual({ data: { ok: true, count: 0 } });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("refuses a cross-site write with 403 before touching the backend or cookies", async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      requestWithCookies("at=good-token; rt=valid-rt", {
+        method: "POST",
+        headers: { host: "drivergo.uz", origin: "https://evil.example" },
+        body: "{}",
+      }),
+      routeContext(["me", "profile"])
+    );
+
+    expect(response.status).toBe(403);
+    expect((await response.json()).error.code).toBe("cross_site");
+    expect(response.headers.getSetCookie()).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("forwards a same-origin write", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      requestWithCookies("at=good-token", {
+        method: "POST",
+        headers: { host: "drivergo.uz", origin: "https://drivergo.uz" },
+        body: "{}",
+      }),
+      routeContext(["me", "profile"])
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rotates a Telegram session with Partitioned cookies", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { access_token: "fresh-at", refresh_token: "fresh-rt" } }), {
+          status: 200,
+        })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { id: "profile-1" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=expired; rt=valid-rt; tgp=1"), routeContext(["me"]));
+
+    expect(response.status).toBe(200);
+    const cookies = response.headers.getSetCookie();
+    expect(cookies).toHaveLength(3);
+    for (const c of cookies) expect(c.toLowerCase()).toContain("partitioned");
+  });
+
+  it("clears a Telegram session with Partitioned cookies when refresh fails", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "unauthorized" } }), { status: 401 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: { code: "refresh_reused" } }), { status: 401 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("at=expired; rt=stolen; tgp=1"), routeContext(["me"]));
+
+    expect(response.status).toBe(401);
+    const cookies = response.headers.getSetCookie();
+    expect(cookies).toHaveLength(3);
+    for (const c of cookies) {
+      expect(c.toLowerCase()).toContain("partitioned");
+      expect(c.toLowerCase()).toContain("max-age=0");
+    }
+  });
+
+  it("preserves a rotated Telegram pair as Partitioned on a downstream network failure", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { access_token: "fresh-at", refresh_token: "fresh-rt" } }), {
+          status: 200,
+        })
+      )
+      .mockRejectedValueOnce(new Error("down"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(requestWithCookies("rt=valid-rt; tgp=1"), routeContext(["me"]));
+
+    expect(response.status).toBe(502);
+    const cookies = response.headers.getSetCookie();
+    expect(cookies).toHaveLength(3);
+    for (const c of cookies) expect(c.toLowerCase()).toContain("partitioned");
+  });
 });
