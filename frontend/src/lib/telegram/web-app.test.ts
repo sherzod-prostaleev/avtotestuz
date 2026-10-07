@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cloudGet, getWebApp, isTelegramMiniApp, markTelegramMiniApp, TG_SESSION_FLAG } from "./web-app";
+import { cloudGet, cloudGetResult, getWebApp, isTelegramMiniApp, markTelegramMiniApp, TG_SESSION_FLAG } from "./web-app";
 import { haptics } from "./haptics";
 
 afterEach(() => {
@@ -40,6 +40,30 @@ describe("telegram detection", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  it("cloudGetResult is ok/null without CloudStorage, ok/value when it answers", async () => {
+    expect(await cloudGetResult("k")).toEqual({ status: "ok", value: null });
+    (window as { Telegram?: unknown }).Telegram = {
+      WebApp: { initData: "x", CloudStorage: { getItem: (_k: string, cb: (e: null, v: string) => void) => cb(null, "1") } },
+    };
+    expect(await cloudGetResult("k")).toEqual({ status: "ok", value: "1" });
+  });
+  it("cloudGetResult reports unavailable on timeout and on error", async () => {
+    vi.useFakeTimers();
+    try {
+      (window as { Telegram?: unknown }).Telegram = {
+        WebApp: { initData: "x", CloudStorage: { getItem: () => {} } },
+      };
+      const pending = cloudGetResult("k");
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await pending).toEqual({ status: "unavailable" });
+    } finally {
+      vi.useRealTimers();
+    }
+    (window as { Telegram?: unknown }).Telegram = {
+      WebApp: { initData: "x", CloudStorage: { getItem: (_k: string, cb: (e: string) => void) => cb("ERR") } },
+    };
+    expect(await cloudGetResult("k")).toEqual({ status: "unavailable" });
   });
   it("haptics are silent no-ops outside Telegram", () => {
     expect(() => {

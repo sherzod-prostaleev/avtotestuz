@@ -75,21 +75,36 @@ export function getWebApp(): TelegramWebApp | null {
 // silent forever, and callers sit on a spinner until it does.
 const CLOUD_GET_TIMEOUT_MS = 3000;
 
-export function cloudGet(key: string): Promise<string | null> {
+export type CloudGetResult = { status: "ok"; value: string | null } | { status: "unavailable" };
+
+/**
+ * Like cloudGet, but a timeout or an error is "unavailable", not "no value":
+ * a caller reading a sign-out flag must not mistake a slow bridge for "never
+ * signed out". A client without CloudStorage is "ok, null": nothing could ever
+ * have been stored there.
+ */
+export function cloudGetResult(key: string): Promise<CloudGetResult> {
   const storage = getWebApp()?.CloudStorage;
-  if (!storage) return Promise.resolve(null);
+  if (!storage) return Promise.resolve({ status: "ok", value: null });
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), CLOUD_GET_TIMEOUT_MS);
-    const done = (value: string | null) => {
+    const timer = setTimeout(() => resolve({ status: "unavailable" }), CLOUD_GET_TIMEOUT_MS);
+    const done = (result: CloudGetResult) => {
       clearTimeout(timer);
-      resolve(value);
+      resolve(result);
     };
     try {
-      storage.getItem(key, (err, value) => done(err ? null : value || null));
+      storage.getItem(key, (err, value) =>
+        done(err ? { status: "unavailable" } : { status: "ok", value: value || null })
+      );
     } catch {
-      done(null);
+      done({ status: "unavailable" });
     }
   });
+}
+
+export async function cloudGet(key: string): Promise<string | null> {
+  const result = await cloudGetResult(key);
+  return result.status === "ok" ? result.value : null;
 }
 
 export function cloudSet(key: string, value: string): Promise<void> {

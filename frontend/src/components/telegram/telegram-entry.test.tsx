@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -266,16 +267,125 @@ describe("TelegramEntry", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/ru/tg"));
   });
 
-  it("reaches a retry button when the /me probe stalls", async () => {
+  it("falls through to sign-in after the 8s /me probe timeout", async () => {
     vi.useFakeTimers();
     const fetchMock = mockFetch(["hang", ME_401], [{ status: 200, body: { data: { need_phone: true } } }]);
     renderEntry();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(16000);
+      await vi.advanceTimersByTimeAsync(7900);
     });
-    // The stalled probe counts as "failed": sign-in is attempted and reports.
+    // Still probing: a shorter probe budget than the 15s sign-in one.
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(200);
+    });
     expect(telegramCalls(fetchMock)).toHaveLength(1);
+    expect(screen.getByRole("link", { name: "Kirish" })).toBeInTheDocument();
     expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows the welcome with continue-as when CloudStorage times out, never auto sign-in", async () => {
+    vi.useFakeTimers();
+    const app = fakeWebApp();
+    app.CloudStorage = { ...app.CloudStorage!, getItem: () => {} };
+    useWebApp(app);
+    const fetchMock = mockFetch([ME_401], [TOKENS_OK]);
+    renderEntry();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3100);
+    });
+    expect(screen.getByRole("button", { name: "Ali sifatida davom etish" })).toBeInTheDocument();
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("shows the welcome with continue-as when CloudStorage errors", async () => {
+    const app = fakeWebApp();
+    app.CloudStorage = { ...app.CloudStorage!, getItem: (_k, cb) => cb("STORAGE_ERROR") };
+    useWebApp(app);
+    const fetchMock = mockFetch([ME_401], [TOKENS_OK]);
+    renderEntry();
+    expect(await screen.findByRole("button", { name: "Ali sifatida davom etish" })).toBeInTheDocument();
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("auto signs in when the client has no CloudStorage at all", async () => {
+    const app = fakeWebApp();
+    delete app.CloudStorage;
+    useWebApp(app);
+    const fetchMock = mockFetch([ME_401, { status: 200, body: ME_OK }], [TOKENS_OK]);
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(telegramCalls(fetchMock)).toHaveLength(1);
+  });
+
+  it("offers the way back to the bot on the cookie_blocked and blocked screens", async () => {
+    const close = vi.fn();
+    const app = fakeWebApp();
+    app.close = close;
+    useWebApp(app);
+    mockFetch([ME_401], [TOKENS_OK]);
+    const first = renderEntry();
+    fireEvent.click(await screen.findByRole("button", { name: "Botga qaytish" }));
+    expect(close).toHaveBeenCalledTimes(1);
+    first.unmount();
+    mockFetch([ME_401], [{ status: 403, body: { error: { code: "account_blocked" } } }]);
+    renderEntry();
+    expect(await screen.findByRole("button", { name: "Botga qaytish" })).toBeInTheDocument();
+  });
+
+  it("aborts in-flight work on unmount and never navigates afterwards", async () => {
+    vi.useFakeTimers();
+    const signals: AbortSignal[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: unknown, init?: RequestInit) => {
+        signals.push(init!.signal!);
+        // Ignores the abort on purpose: a late answer must still be dropped.
+        return new Promise<Response>((resolve) => setTimeout(() => resolve(json(200, ME_OK)), 5000));
+      })
+    );
+    const view = renderEntry();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    expect(signals).toHaveLength(1);
+    view.unmount();
+    expect(signals[0].aborted).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20000);
+    });
+    expect(replace).not.toHaveBeenCalled();
+    expect(signals).toHaveLength(1);
+  });
+
+  it("clears the request timers on unmount", async () => {
+    vi.useFakeTimers();
+    mockFetch(["hang"]);
+    const view = renderEntry();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    view.unmount();
+    // The aborted fetch rejects on a microtask; its finally then clears the timer.
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("still signs in under StrictMode's mount, unmount, mount", async () => {
+    // The aborted first run consumes one /me reply, so every reply is a live session.
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }]);
+    render(
+      <StrictMode>
+        <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+          <TelegramEntry />
+        </NextIntlClientProvider>
+      </StrictMode>
+    );
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(replace).toHaveBeenCalledTimes(1);
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
   });
 
   it("reaches a retry button when the sign-in call stalls", async () => {

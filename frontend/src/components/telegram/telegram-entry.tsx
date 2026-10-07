@@ -11,7 +11,7 @@ import { useTelegram } from "@/components/telegram/telegram-provider";
 import type { Locale } from "@/i18n/config";
 import {
   AUTOLOGIN_OFF_KEY,
-  cloudGet,
+  cloudGetResult,
   cloudRemove,
   isTelegramMiniApp,
   markTelegramMiniApp,
@@ -40,24 +40,39 @@ const SDK_LAUNCH_WAIT_MS = 10000;
 
 // A stalled mobile connection must end on the retry screen, never on an
 // endless spinner.
-const REQUEST_TIMEOUT_MS = 15000;
+const SIGN_IN_TIMEOUT_MS = 15000;
+// The probe only decides "already signed in?" and its failure falls through to
+// sign-in anyway, so it must not hold the spinner for the full sign-in budget.
+const ME_PROBE_TIMEOUT_MS = 8000;
 
-/** Runs `run` with a signal that aborts after the timeout (fake-timer friendly, unlike AbortSignal.timeout). */
-async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+/**
+ * Runs `run` with a signal that aborts after `timeoutMs` (fake-timer friendly,
+ * unlike AbortSignal.timeout) or as soon as `lifetime` aborts, i.e. the page
+ * unmounted. The timer is always cleared so nothing outlives the component.
+ */
+async function withTimeout<T>(
+  lifetime: AbortSignal,
+  timeoutMs: number,
+  run: (signal: AbortSignal) => Promise<T>
+): Promise<T> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  const abort = () => controller.abort();
+  if (lifetime.aborted) abort();
+  else lifetime.addEventListener("abort", abort, { once: true });
+  const timer = setTimeout(abort, timeoutMs);
   try {
     return await run(controller.signal);
   } finally {
     clearTimeout(timer);
+    lifetime.removeEventListener("abort", abort);
   }
 }
 
 type MeProbe = { kind: "ok"; mustChangePassword: boolean } | { kind: "unauthorized" } | { kind: "failed" };
 
-async function probeMe(): Promise<MeProbe> {
+async function probeMe(lifetime: AbortSignal): Promise<MeProbe> {
   try {
-    return await withTimeout(async (signal): Promise<MeProbe> => {
+    return await withTimeout(lifetime, ME_PROBE_TIMEOUT_MS, async (signal): Promise<MeProbe> => {
       const res = await fetch("/api/proxy/me", { cache: "no-store", signal });
       if (res.status === 401) return { kind: "unauthorized" };
       if (!res.ok) return { kind: "failed" };
@@ -112,6 +127,10 @@ export function TelegramEntry() {
   // A retry after "continue as" must not bounce the learner back to welcome.
   const explicitSignIn = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
+  // Aborted on unmount so in-flight fetches stop and nothing navigates or sets
+  // state afterwards. Created in an effect, not in render: StrictMode runs
+  // mount, unmount, mount, and the second mount needs a live controller.
+  const lifetimeRef = useRef<AbortController | null>(null);
 
   const goIn = useCallback(
     (mustChangePassword: boolean) => {
@@ -128,11 +147,11 @@ export function TelegramEntry() {
   );
 
   const signIn = useCallback(
-    async (app: TelegramWebApp) => {
+    async (app: TelegramWebApp, lifetime: AbortSignal) => {
       setPhase("loading");
       let reply: { ok: boolean; status: number; json: SignInBody | null };
       try {
-        reply = await withTimeout(async (signal) => {
+        reply = await withTimeout(lifetime, SIGN_IN_TIMEOUT_MS, async (signal) => {
           const res = await fetch("/api/auth/telegram", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -142,9 +161,10 @@ export function TelegramEntry() {
           return { ok: res.ok, status: res.status, json: (await res.json().catch(() => null)) as SignInBody | null };
         });
       } catch {
-        setPhase("error");
+        if (!lifetime.aborted) setPhase("error");
         return;
       }
+      if (lifetime.aborted) return;
       const { json } = reply;
       if (!reply.ok) {
         setPhase(phaseForError(reply.status, json?.error?.code));
@@ -162,7 +182,8 @@ export function TelegramEntry() {
       }
       // Safari on web.telegram.org refuses third-party cookies even when
       // partitioned; prove the cookie stuck before handing over to the app.
-      const me = await probeMe();
+      const me = await probeMe(lifetime);
+      if (lifetime.aborted) return;
       if (me.kind === "unauthorized") {
         setPhase("cookie_blocked");
         return;
@@ -172,13 +193,14 @@ export function TelegramEntry() {
         return;
       }
       await cloudRemove(AUTOLOGIN_OFF_KEY);
+      if (lifetime.aborted) return;
       goIn(json.data.must_change_password === true || me.mustChangePassword);
     },
     [goIn]
   );
 
   const enter = useCallback(
-    async (app: TelegramWebApp) => {
+    async (app: TelegramWebApp, lifetime: AbortSignal) => {
       if (busy.current) return;
       busy.current = true;
       try {
@@ -186,37 +208,60 @@ export function TelegramEntry() {
         // A live session means they never signed out: go straight in, with no
         // sign-in call (saves a rate-limit slot on shared carrier IPs) and
         // regardless of autologin_off.
-        const me = await probeMe();
+        const me = await probeMe(lifetime);
+        if (lifetime.aborted) return;
         if (me.kind === "ok") {
           goIn(me.mustChangePassword);
           return;
         }
         // "failed" falls through: the sign-in call reports the real error.
-        if (!explicitSignIn.current && (await cloudGet(AUTOLOGIN_OFF_KEY)) === "1") {
-          // Signed out on purpose last time (D6): offer, never force, the way back.
-          setFirstName(app.initDataUnsafe.user?.first_name || "");
-          setCanContinue(true);
-          setPhase("welcome");
-          return;
+        if (!explicitSignIn.current) {
+          const flag = await cloudGetResult(AUTOLOGIN_OFF_KEY);
+          if (lifetime.aborted) return;
+          // A flag that could not be read is unknown, not absent: signing in
+          // anyway would silently undo a deliberate sign-out (D6), so offer
+          // the choice instead.
+          if (flag.status === "unavailable" || flag.value === "1") {
+            setFirstName(app.initDataUnsafe.user?.first_name || "");
+            setCanContinue(true);
+            setPhase("welcome");
+            return;
+          }
         }
-        await signIn(app);
+        await signIn(app, lifetime);
       } finally {
-        busy.current = false;
+        // An aborted run was already reset by the unmount cleanup; a newer
+        // run (StrictMode's second mount) may own the flag by now.
+        if (!lifetime.aborted) busy.current = false;
       }
     },
     [goIn, signIn]
   );
 
   const continueAsTelegramUser = useCallback(async () => {
-    if (!webApp || busy.current) return;
+    const lifetime = lifetimeRef.current?.signal;
+    if (!webApp || !lifetime || busy.current) return;
     explicitSignIn.current = true;
     busy.current = true;
     try {
-      await signIn(webApp);
+      await signIn(webApp, lifetime);
     } finally {
-      busy.current = false;
+      if (!lifetime.aborted) busy.current = false;
     }
   }, [signIn, webApp]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    lifetimeRef.current = controller;
+    return () => {
+      controller.abort();
+      lifetimeRef.current = null;
+      // Let a StrictMode remount start over instead of finding the first
+      // run's flags still set.
+      started.current = false;
+      busy.current = false;
+    };
+  }, []);
 
   // Only real launch data may flag the tab as Telegram: a plain browser visit
   // to /tg must leave the website untouched.
@@ -235,7 +280,8 @@ export function TelegramEntry() {
   }, [webApp]);
 
   useEffect(() => {
-    if (!webApp || started.current) return;
+    const lifetime = lifetimeRef.current?.signal;
+    if (!webApp || !lifetime || started.current) return;
     started.current = true;
     const target = resolveTelegramLocale(locale, webApp.initDataUnsafe.user?.language_code);
     if (target !== locale) {
@@ -253,7 +299,7 @@ export function TelegramEntry() {
       router.replace(`/${target}/tg${query ? `?${query}` : ""}`);
       return;
     }
-    void enter(webApp);
+    void enter(webApp, lifetime);
   }, [enter, locale, router, webApp]);
 
   // Screen readers and keyboards land on the new state's heading, not on
@@ -267,7 +313,8 @@ export function TelegramEntry() {
   const backToBot = webApp ? <BackToBotButton label={t("backToBot")} onClick={() => webApp.close()} /> : undefined;
 
   const retry = () => {
-    if (webApp) void enter(webApp);
+    const lifetime = lifetimeRef.current?.signal;
+    if (webApp && lifetime) void enter(webApp, lifetime);
   };
 
   return (
@@ -343,6 +390,7 @@ export function TelegramEntry() {
               icon={<Smartphone className="h-6 w-6" />}
               title={t("cookieTitle")}
               body={t("cookieBody")}
+              action={backToBot}
             />
           )}
           {phase === "unavailable" && (
@@ -361,6 +409,7 @@ export function TelegramEntry() {
               icon={<ShieldAlert className="h-6 w-6" />}
               title={t("blockedTitle")}
               body={loginT("errorAccountBlocked")}
+              action={backToBot}
             />
           )}
           {phase === "rate_limited" && (

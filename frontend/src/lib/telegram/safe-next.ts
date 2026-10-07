@@ -5,7 +5,9 @@
  */
 export function safeNextPath(raw: string | null, locale: string): string {
   const fallback = `/${locale}/dashboard`;
-  if (!raw || raw.includes("\\")) return fallback;
+  // new URL() would happily resolve "http://x/l/foo" or "l/foo" against the
+  // dummy base; only a leading slash is an app path.
+  if (!raw || !raw.startsWith("/") || raw.includes("\\")) return fallback;
   // Normalise first: "/l/x/../tg" and "/l/%2e%2e/tg" would pass a prefix check
   // yet resolve to /l/tg, looping the learner back into this page.
   let url: URL;

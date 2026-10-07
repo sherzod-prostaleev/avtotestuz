@@ -8,6 +8,8 @@ describe("safeNextPath", () => {
     ["/uz-Latn/session/abc?x=1", "/uz-Latn/session/abc?x=1"],
     ["//evil.example", "/uz-Latn/dashboard"],
     ["/uz-Latn//evil.example", "/uz-Latn/dashboard"],
+    ["http://x/uz-Latn/foo", "/uz-Latn/dashboard"],
+    ["uz-Latn/foo", "/uz-Latn/dashboard"],
     ["https://evil.example", "/uz-Latn/dashboard"],
     ["/ru/tickets", "/uz-Latn/dashboard"],
     ["/uz-Latn/tg", "/uz-Latn/dashboard"],
