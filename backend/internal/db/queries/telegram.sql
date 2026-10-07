@@ -50,3 +50,9 @@ ON CONFLICT (profile_id) DO UPDATE SET
   tg_user_id = EXCLUDED.tg_user_id,
   username   = EXCLUDED.username,
   linked_at  = now();
+
+-- name: DeleteTelegramAccountForOtherProfiles :exec
+-- Mini App phone sign-in moves a Telegram account to the profile the person
+-- just proved they own (spec D7). Runs in the same tx as the upsert, so the
+-- tg_user_id unique constraint is never transiently violated by us.
+DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2;

@@ -20,6 +20,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/register", h.register)
 	r.Post("/auth/login", h.login)
+	r.Post("/auth/telegram/webapp", h.telegramWebApp)
 	// OTP kept for sandbox/admin tooling; learner UI uses password auth.
 	r.Post("/auth/otp/request", h.requestOTP)
 	r.Post("/auth/otp/verify", h.verifyOTP)
@@ -42,11 +43,14 @@ type registerBody struct {
 	Phone    string `json:"phone"`
 	Password string `json:"password"`
 	Name     string `json:"name"`
+	// TgInitData is the Mini App launch payload; absent outside Telegram.
+	TgInitData string `json:"tg_init_data"`
 }
 
 type loginBody struct {
-	Phone    string `json:"phone"`
-	Password string `json:"password"`
+	Phone      string `json:"phone"`
+	Password   string `json:"password"`
+	TgInitData string `json:"tg_init_data"`
 }
 
 type otpRequestBody struct {
@@ -67,6 +71,7 @@ type tokensResponse struct {
 	AccessToken        string `json:"access_token"`
 	RefreshToken       string `json:"refresh_token"`
 	MustChangePassword bool   `json:"must_change_password"`
+	TelegramLinked     bool   `json:"telegram_linked"`
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
@@ -79,6 +84,8 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		Password: body.Password,
 		Name:     body.Name,
 		IP:       h.ClientIPs.Resolve(r),
+
+		TgInitData: body.TgInitData,
 	})
 	if err != nil {
 		writeAuthError(w, err)
@@ -88,6 +95,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		AccessToken:        res.Access,
 		RefreshToken:       res.Refresh,
 		MustChangePassword: res.Profile.MustChangePassword,
+		TelegramLinked:     res.TelegramLinked,
 	})
 }
 
@@ -100,6 +108,8 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		Phone:    body.Phone,
 		Password: body.Password,
 		IP:       h.ClientIPs.Resolve(r),
+
+		TgInitData: body.TgInitData,
 	})
 	if err != nil {
 		writeAuthError(w, err)
@@ -109,6 +119,41 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		AccessToken:        res.Access,
 		RefreshToken:       res.Refresh,
 		MustChangePassword: res.Profile.MustChangePassword,
+		TelegramLinked:     res.TelegramLinked,
+	})
+}
+
+type telegramWebAppBody struct {
+	InitData string `json:"init_data"`
+}
+
+type telegramNeedPhoneResponse struct {
+	NeedPhone bool   `json:"need_phone"`
+	FirstName string `json:"first_name"`
+}
+
+// telegramWebApp answers with tokens only when the Telegram account is
+// already linked; the body never carries profile data beyond what /auth/login
+// returns, so an attacker holding valid init data learns nothing extra.
+func (h *Handler) telegramWebApp(w http.ResponseWriter, r *http.Request) {
+	var body telegramWebAppBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	res, err := h.Svc.TelegramWebAppLogin(r.Context(), body.InitData, h.ClientIPs.Resolve(r))
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	if res.NeedPhone {
+		httpx.Data(w, http.StatusOK, telegramNeedPhoneResponse{NeedPhone: true, FirstName: res.FirstName})
+		return
+	}
+	httpx.Data(w, http.StatusOK, tokensResponse{
+		AccessToken:        res.Access,
+		RefreshToken:       res.Refresh,
+		MustChangePassword: res.Profile.MustChangePassword,
+		TelegramLinked:     true,
 	})
 }
 
@@ -243,6 +288,8 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusUnauthorized, "invalid_refresh", "refresh token is invalid or expired")
 	case errors.Is(err, ErrTelegramBotUnconfigured):
 		httpx.Error(w, http.StatusServiceUnavailable, "telegram_bot_unconfigured", "telegram bot is not configured")
+	case errors.Is(err, ErrInitDataInvalid), errors.Is(err, ErrInitDataExpired):
+		httpx.Error(w, http.StatusUnauthorized, "invalid_init_data", "telegram launch data is invalid or expired")
 	case errors.Is(err, ErrResetNotVerified):
 		httpx.Error(w, http.StatusBadRequest, "reset_not_verified", "confirm the reset in Telegram first")
 	case errors.Is(err, ErrResetInvalid):

@@ -247,6 +247,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 					sender, []byte(cfg.JWTSecret), cfg.Env)
 				svc.DebugEcho = cfg.OTPDebugEcho
 				svc.Log = log
+				svc.TelegramBotToken = cfg.TelegramBotToken
 				ah := &auth.Handler{
 					Svc:         svc,
 					ClientIPs:   auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),

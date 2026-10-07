@@ -36,6 +36,23 @@ func (q *Queries) CreateLinkToken(ctx context.Context, arg CreateLinkTokenParams
 	return i, err
 }
 
+const deleteTelegramAccountForOtherProfiles = `-- name: DeleteTelegramAccountForOtherProfiles :exec
+DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2
+`
+
+type DeleteTelegramAccountForOtherProfilesParams struct {
+	TgUserID  int64     `json:"tg_user_id"`
+	ProfileID uuid.UUID `json:"profile_id"`
+}
+
+// Mini App phone sign-in moves a Telegram account to the profile the person
+// just proved they own (spec D7). Runs in the same tx as the upsert, so the
+// tg_user_id unique constraint is never transiently violated by us.
+func (q *Queries) DeleteTelegramAccountForOtherProfiles(ctx context.Context, arg DeleteTelegramAccountForOtherProfilesParams) error {
+	_, err := q.db.Exec(ctx, deleteTelegramAccountForOtherProfiles, arg.TgUserID, arg.ProfileID)
+	return err
+}
+
 const deleteUnusedLinkTokensForProfile = `-- name: DeleteUnusedLinkTokensForProfile :exec
 DELETE FROM telegram_link_token WHERE profile_id = $1 AND used_at IS NULL
 `

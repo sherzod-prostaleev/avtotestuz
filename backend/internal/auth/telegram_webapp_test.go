@@ -194,3 +194,14 @@ func TestValidateInitDataAcceptsUnknownFields(t *testing.T) {
 		t.Fatalf("user ID = %d, want 279058397", u.ID)
 	}
 }
+
+func TestValidateInitDataRejectsOversizedInput(t *testing.T) {
+	now := time.Unix(1_760_000_000, 0)
+	// Padding is signed along with everything else, so only the size bound can reject it.
+	fields := baseFields(now)
+	fields["padding"] = strings.Repeat("a", InitDataMaxBytes)
+	raw := signInitData(t, testBotToken, fields)
+	if _, err := ValidateInitData(raw, testBotToken, now, InitDataMaxAge); !errors.Is(err, ErrInitDataInvalid) {
+		t.Fatalf("err = %v, want ErrInitDataInvalid", err)
+	}
+}

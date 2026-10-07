@@ -68,6 +68,19 @@ type Service struct {
 	// own: reuse detection revoking a whole profile. Optional — nil logs
 	// nowhere, which is what the unit tests want.
 	Log *zap.Logger
+
+	// TelegramBotToken verifies Mini App initData (the same bot hosts the
+	// Mini App, spec D2). Empty disables Telegram sign-in only.
+	TelegramBotToken string
+	// now is injectable for initData age checks; nil means time.Now.
+	now func() time.Time
+}
+
+func (s *Service) clock() time.Time {
+	if s.now != nil {
+		return s.now()
+	}
+	return time.Now()
 }
 
 func (s *Service) logger() *zap.Logger {
@@ -164,6 +177,9 @@ type VerifyResult struct {
 	Tokens
 	Profile sqlc.Profile
 	Created bool
+	// TelegramLinked reports that this sign-in wrote the Mini App's Telegram
+	// link, so the client knows to clear its "auto-login off" flag (spec D6).
+	TelegramLinked bool
 }
 
 // VerifyOTP checks the latest challenge for phone, provisions a profile on
@@ -261,6 +277,8 @@ type RegisterInput struct {
 	Password string
 	Name     string
 	IP       string
+	// TgInitData is the optional Mini App launch payload to link on success.
+	TgInitData string
 }
 
 // Register creates a profile with phone + password and issues a session.
@@ -309,16 +327,19 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 	if err != nil {
 		return VerifyResult{}, err
 	}
+	linked := s.linkTelegramInTx(ctx, tx, profile.ID, in.TgInitData)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	return VerifyResult{Tokens: toks, Profile: profile, Created: true}, nil
+	return VerifyResult{Tokens: toks, Profile: profile, Created: true, TelegramLinked: linked}, nil
 }
 
 type LoginInput struct {
 	Phone    string
 	Password string
 	IP       string
+	// TgInitData is the optional Mini App launch payload to link on success.
+	TgInitData string
 }
 
 // Login authenticates phone + password and issues a session.
@@ -359,10 +380,11 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error
 	if err != nil {
 		return VerifyResult{}, err
 	}
+	linked := s.linkTelegramInTx(ctx, tx, profile.ID, in.TgInitData)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	return VerifyResult{Tokens: toks, Profile: profile, Created: false}, nil
+	return VerifyResult{Tokens: toks, Profile: profile, Created: false, TelegramLinked: linked}, nil
 }
 
 func (s *Service) rateLimitAuth(ctx context.Context, action, phone, ip string) error {

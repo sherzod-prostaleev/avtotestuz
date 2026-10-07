@@ -23,6 +23,10 @@ var (
 // how stale a re-auth (session expired while the Mini App stayed open) may be.
 const InitDataMaxAge = 24 * time.Hour
 
+// InitDataMaxBytes bounds the launch payload we will HMAC and parse; real
+// payloads are well under 1 KiB, so a larger one is abuse, not a user.
+const InitDataMaxBytes = 4096
+
 // initDataClockSkew tolerates a phone clock slightly ahead of ours.
 const initDataClockSkew = time.Minute
 
@@ -39,6 +43,9 @@ type WebAppUser struct {
 func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration) (WebAppUser, error) {
 	if strings.TrimSpace(botToken) == "" {
 		return WebAppUser{}, ErrTelegramBotUnconfigured
+	}
+	if len(raw) > InitDataMaxBytes {
+		return WebAppUser{}, ErrInitDataInvalid
 	}
 	values, err := url.ParseQuery(raw)
 	if err != nil || len(values) == 0 {

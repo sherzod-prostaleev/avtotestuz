@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
@@ -27,6 +28,7 @@ func setupHandlerServer(t *testing.T) *httptest.Server {
 	// needs the echo to learn it. Opt in explicitly — the echo is off by
 	// default now (see TestRequestOTPNeverEchoesCodeByDefault).
 	svc.DebugEcho = true
+	svc.TelegramBotToken = testBotToken
 
 	r := chi.NewRouter()
 	h := &Handler{Svc: svc}
@@ -180,5 +182,38 @@ func TestRegisterPasswordOnlyAndSetPasswordRouteIsAbsent(t *testing.T) {
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("set-password status=%d, want 404", resp.StatusCode)
+	}
+}
+
+func TestTelegramWebAppHandlerNeedPhoneAndInvalid(t *testing.T) {
+	ts := setupHandlerServer(t)
+	raw := signInitData(t, testBotToken, webAppFields(6001, time.Now()))
+	status, env := postJSON(t, ts, "/auth/telegram/webapp", map[string]string{"init_data": raw})
+	if status != http.StatusOK || !strings.Contains(string(env.Data), `"need_phone":true`) {
+		t.Fatalf("status=%d data=%s", status, env.Data)
+	}
+	status, env = postJSON(t, ts, "/auth/telegram/webapp", map[string]string{"init_data": "hash=00"})
+	if status != http.StatusUnauthorized || env.Error == nil || env.Error.Code != "invalid_init_data" {
+		t.Fatalf("status=%d env=%+v", status, env)
+	}
+}
+
+func TestTelegramWebAppHandlerLinkedResponseHasOnlyTokens(t *testing.T) {
+	ts := setupHandlerServer(t)
+	raw := signInitData(t, testBotToken, webAppFields(6002, time.Now()))
+	status, env := postJSON(t, ts, "/auth/register", map[string]string{"phone": "+998901110020", "password": "handler-password-1", "name": "A", "tg_init_data": raw})
+	if status != http.StatusCreated || !strings.Contains(string(env.Data), `"telegram_linked":true`) {
+		t.Fatalf("register status=%d data=%s", status, env.Data)
+	}
+	status, env = postJSON(t, ts, "/auth/telegram/webapp", map[string]string{"init_data": raw})
+	if status != http.StatusOK {
+		t.Fatalf("status=%d env=%+v", status, env)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(env.Data, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 4 || got["access_token"] == "" || got["telegram_linked"] != true {
+		t.Fatalf("response keys = %v", got)
 	}
 }
