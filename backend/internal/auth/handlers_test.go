@@ -217,3 +217,18 @@ func TestTelegramWebAppHandlerLinkedResponseHasOnlyTokens(t *testing.T) {
 		t.Fatalf("response keys = %v", got)
 	}
 }
+
+// Website and native clients never send tg_init_data; their responses must not
+// grow a telegram_linked key.
+func TestPlainLoginResponseHasNoTelegramLinkedKey(t *testing.T) {
+	ts := setupHandlerServer(t)
+	body := map[string]string{"phone": "+998901110021", "password": "plain-handler-pw-1", "name": "A"}
+	status, env := postJSON(t, ts, "/auth/register", body)
+	if status != http.StatusCreated || strings.Contains(string(env.Data), "telegram_linked") {
+		t.Fatalf("register status=%d data=%s", status, env.Data)
+	}
+	status, env = postJSON(t, ts, "/auth/login", map[string]string{"phone": body["phone"], "password": body["password"]})
+	if status != http.StatusOK || strings.Contains(string(env.Data), "telegram_linked") {
+		t.Fatalf("login status=%d data=%s", status, env.Data)
+	}
+}

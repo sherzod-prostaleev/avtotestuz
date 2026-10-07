@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"avtotest.uz/backend/internal/testdb"
 )
 
@@ -70,7 +72,9 @@ func TestLoginWithInitDataLinksThenWebAppLoginIssuesSession(t *testing.T) {
 		t.Fatalf("webapp login = %+v", res)
 	}
 	var sessions int
-	_ = pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM refresh_token WHERE profile_id=$1 AND revoked_at IS NULL`, login.Profile.ID).Scan(&sessions)
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM refresh_token WHERE profile_id=$1 AND revoked_at IS NULL`, login.Profile.ID).Scan(&sessions); err != nil {
+		t.Fatal(err)
+	}
 	if sessions != 3 { // register + login + webapp: each a separate device, none revoked
 		t.Fatalf("active sessions = %d, want 3", sessions)
 	}
@@ -95,7 +99,9 @@ func TestRegisterWithInitDataMovesLinkFromOtherProfile(t *testing.T) {
 		t.Fatalf("tg id = %d", tgID)
 	}
 	var left int
-	_ = pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE profile_id=$1`, first.Profile.ID).Scan(&left)
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE profile_id=$1`, first.Profile.ID).Scan(&left); err != nil {
+		t.Fatal(err)
+	}
 	if left != 0 {
 		t.Fatal("link must move off the first profile")
 	}
@@ -133,7 +139,9 @@ func TestLoginWithoutInitDataDoesNotTouchTelegramAccount(t *testing.T) {
 		t.Fatal(err)
 	}
 	var n int
-	_ = pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE profile_id=$1`, reg.Profile.ID).Scan(&n)
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE profile_id=$1`, reg.Profile.ID).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 1 {
 		t.Fatalf("plain login changed telegram_account rows: %d", n)
 	}
@@ -169,13 +177,13 @@ func TestTelegramWebAppLoginRateLimitsGarbageByIP(t *testing.T) {
 	svc, _ := newTestService(t, pool)
 	svc.TelegramBotToken = testBotToken
 	ctx := context.Background()
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 300; i++ {
 		if _, err := svc.TelegramWebAppLogin(ctx, "hash=00", "203.0.113.9"); !errors.Is(err, ErrInitDataInvalid) {
 			t.Fatalf("call %d: err = %v", i, err)
 		}
 	}
 	if _, err := svc.TelegramWebAppLogin(ctx, "hash=00", "203.0.113.9"); !errors.Is(err, ErrRateLimited) {
-		t.Fatalf("61st garbage call must be throttled before validation, err = %v", err)
+		t.Fatalf("301st garbage call must be throttled before validation, err = %v", err)
 	}
 }
 
@@ -225,8 +233,61 @@ func TestConcurrentMiniAppLoginsLinkSameTelegramAccountOnce(t *testing.T) {
 		}
 	}
 	var n int
-	_ = pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE tg_user_id=5008`).Scan(&n)
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE tg_user_id=5008`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 1 {
 		t.Fatalf("telegram_account rows for tg 5008 = %d, want 1", n)
+	}
+	// Linking is a move (delete-others + upsert), so logins that commit one
+	// after another each report linked; the survivor is the last committer.
+	// What must hold: the surviving row belongs to a profile that reported
+	// TelegramLinked, and at least one did.
+	var owner uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT profile_id FROM telegram_account WHERE tg_user_id=5008`).Scan(&owner); err != nil {
+		t.Fatal(err)
+	}
+	ownerLinked, linked := false, 0
+	for i := range res {
+		if res[i].TelegramLinked {
+			linked++
+			ownerLinked = ownerLinked || res[i].Profile.ID == owner
+		}
+	}
+	if linked == 0 || !ownerLinked {
+		t.Fatalf("linked results=%d, surviving owner %s reported linked=%v", linked, owner, ownerLinked)
+	}
+}
+
+// Init data is a 24h bearer token for sign-in, but creating or moving a link
+// demands fresher data: a stale payload still signs the person in, unlinked.
+func TestLinkRequiresFresherInitDataThanSignIn(t *testing.T) {
+	pool := testdb.New(t)
+	svc, _ := newTestService(t, pool)
+	svc.TelegramBotToken = testBotToken
+	ctx := context.Background()
+	const phone, pw = "+998901110012", "freshness-password-1"
+	if _, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: pw, Name: "A"}); err != nil {
+		t.Fatal(err)
+	}
+	count := func() int {
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT COUNT(*)::int FROM telegram_account WHERE tg_user_id=5012`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	stale := signInitData(t, testBotToken, webAppFields(5012, time.Now().Add(-2*time.Hour)))
+	res, err := svc.Login(ctx, LoginInput{Phone: phone, Password: pw, TgInitData: stale})
+	if err != nil || res.Access == "" || res.TelegramLinked {
+		t.Fatalf("2h-old init data: res=%+v err=%v", res, err)
+	}
+	if count() != 0 {
+		t.Fatal("2h-old init data must not write a link")
+	}
+	fresh := signInitData(t, testBotToken, webAppFields(5012, time.Now().Add(-30*time.Minute)))
+	res, err = svc.Login(ctx, LoginInput{Phone: phone, Password: pw, TgInitData: fresh})
+	if err != nil || !res.TelegramLinked || count() != 1 {
+		t.Fatalf("30min-old init data: res=%+v err=%v rows=%d", res, err, count())
 	}
 }

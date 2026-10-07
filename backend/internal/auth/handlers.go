@@ -71,7 +71,7 @@ type tokensResponse struct {
 	AccessToken        string `json:"access_token"`
 	RefreshToken       string `json:"refresh_token"`
 	MustChangePassword bool   `json:"must_change_password"`
-	TelegramLinked     bool   `json:"telegram_linked"`
+	TelegramLinked     bool   `json:"telegram_linked,omitempty"`
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {

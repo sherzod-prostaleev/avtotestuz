@@ -23,6 +23,12 @@ var (
 // how stale a re-auth (session expired while the Mini App stayed open) may be.
 const InitDataMaxAge = 24 * time.Hour
 
+// InitDataLinkMaxAge is the stricter bound for creating or moving a Telegram
+// link through login/register. A leaked launch payload must not let someone
+// re-point a victim's Telegram account at their own profile for a whole day;
+// legitimate users link within minutes of opening the Mini App.
+const InitDataLinkMaxAge = time.Hour
+
 // InitDataMaxBytes bounds the launch payload we will HMAC and parse; real
 // payloads are well under 1 KiB, so a larger one is abuse, not a user.
 const InitDataMaxBytes = 4096

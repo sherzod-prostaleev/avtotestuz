@@ -73,7 +73,10 @@ func (s *Service) rateLimitTelegramIP(ctx context.Context, ip string) error {
 	if ip == "" {
 		return nil
 	}
-	ok, err := s.Lim.Allow(ctx, "tgwebapp:ip:"+ip, 60, time.Hour)
+	// Generous on purpose: Uzbek mobile carriers put many phones behind one
+	// CGNAT IP and a classroom shares one Wi-Fi IP. The per-Telegram-user limit
+	// (30/h) is the real per-person brake; this only caps garbage floods.
+	ok, err := s.Lim.Allow(ctx, "tgwebapp:ip:"+ip, 300, time.Hour)
 	if err != nil {
 		return err
 	}
@@ -106,7 +109,7 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profileID uui
 	if initData == "" {
 		return false
 	}
-	u, err := ValidateInitData(initData, s.TelegramBotToken, s.clock(), InitDataMaxAge)
+	u, err := ValidateInitData(initData, s.TelegramBotToken, s.clock(), InitDataLinkMaxAge)
 	if err != nil {
 		s.logLinkSkipped(profileID, err)
 		return false
