@@ -248,15 +248,41 @@ launcher. Configuration lives next to the other `TELEGRAM_BOT_*` variables in
 - `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_BOT_MODE` - the bot
   itself (the Mini App's sign-in validates Telegram's signed launch data with
   the bot token; without it `/tg` shows "vaqtincha mavjud emas").
+  `TELEGRAM_BOT_USERNAME` is also passed to the **web** service: the payment
+  return page `/checkout/done/<bot>` shows its "back to the bot" button only
+  when `<bot>` is this username; unset, the page is text-only.
 - `TELEGRAM_WEBAPP_URL` - the Mini App entry, `https://drivergo.uz/uz-Latn/tg`.
-  **Kill switch:** set it empty and restart the API. Note that an empty value
-  also resets any menu button set by hand in BotFather on that restart.
+  It must be an absolute URL; the API refuses to start with anything but
+  `https://` when `ENV=staging|prod` (Telegram opens only https Mini Apps).
+  **Kill switch:** set it empty and restart the API. That stops Mini App
+  sign-in (`/auth/telegram/webapp` answers `telegram_bot_unconfigured`, `/tg`
+  shows "vaqtincha mavjud emas") and all Telegram linking, and resets the
+  menu button to the default - also with `TELEGRAM_BOT_MODE=off`, as long as
+  `TELEGRAM_BOT_TOKEN` is set (the menu button lives on Telegram's side and
+  would otherwise outlive the switch). An empty value also resets any menu
+  button set by hand in BotFather on that restart.
 - Optional: BotFather "Configure Mini App" (`/newapp` or `/mybots` -> Bot
   Settings -> Configure Mini App) with the same URL, for the `t.me/<bot>/<app>`
   direct link.
 
+Linking: a Telegram account is linked to a profile only when Telegram itself
+vouches for the profile's phone - the learner shares their number through
+Telegram's own sheet (`requestContact`), whose signed response must belong to
+the same Telegram user and equal the profile phone. Launch data alone never
+links (it can be copied into a phishing link). A learner who typed their
+number is asked once, after sign-in, to share it; declining just leaves the
+account unlinked (`auth.telegram_link_skipped` logs the reason).
+
+Shared phones: logout inside the Mini App is **advisory**. It turns
+auto-login off for that Telegram account (CloudStorage `autologin_off`) and
+clears the cookies, but the account stays linked (bot digests and the bot
+password reset rely on it) and "continue as" signs back in with one tap.
+Anyone holding the same unlocked Telegram account can do that. To really
+take a Telegram account off a profile, unlink it in the bot (`/unlink`).
+
 Framing: learner pages send CSP `frame-ancestors 'self' https://web.telegram.org`
-and no `X-Frame-Options`; `/admin` keeps `frame-ancestors 'none'` + `DENY`.
+and no `X-Frame-Options`; `/admin` keeps `frame-ancestors 'none'` + `DENY`
+and does not allow the Telegram SDK origin in `script-src`.
 
 ### Manual device checklist (before announcing)
 
@@ -264,10 +290,14 @@ Run on Android, iOS, Telegram Desktop and web.telegram.org:
 
 1. Open from the bot (menu button and `/start`).
 2. Linked account: auto-login lands on the dashboard.
-3. Unlinked: phone login (and "Raqamni Telegram'dan olish"), which links the account.
+3. Unlinked: phone login with "Raqamni Telegram'dan olish" links the account;
+   a typed phone gets Telegram's share-number sheet once after sign-in.
+   Sharing it links; declining stays unlinked without an error.
 4. Logout, then reopen: "continue as" is offered, not forced.
 5. Start an exam, press the system/back close: the closing confirmation appears.
 6. Payment hand-off: the checkout opens Payme/Click in the external browser and the return page (`/checkout/done/<bot>`) leads back to the bot.
+7. Phishing check: open `https://drivergo.uz/uz-Latn/login#tgWebAppData=x` in
+   a normal browser: no "Raqamni Telegram'dan olish" button, website as usual.
 
 A real **staging Payme/Click payment from inside the Mini App must be done
 once** before announcing; the e2e suite stubs the backend and cannot prove it.

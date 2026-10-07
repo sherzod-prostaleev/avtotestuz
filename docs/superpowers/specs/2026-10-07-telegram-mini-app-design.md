@@ -15,11 +15,11 @@ existing account, never a second kind of account.
 |---|---|---|
 | D1 | Payments inside the Mini App keep today's card / Payme / Click flow | Owner's call. Telegram policy wants Stars for digital goods; the risk is to the bot, not the website. Revisit later. |
 | D2 | Host the Mini App on the existing bot (`TELEGRAM_BOT_USERNAME`) | Its token already validates the link flow; users already know it. |
-| D3 | Unlinked user: welcome screen → normal login/register forms, each with a «Raqamni Telegram'dan olish» button that pre-fills the phone | Fewer typos, same validation. No "does this phone exist" endpoint (no new enumeration surface). |
+| D3 | Unlinked user: welcome screen → normal login/register forms, each with a «Raqamni Telegram'dan olish» button that pre-fills the phone **and supplies Telegram's signed contact** (the link proof, see D7) | Fewer typos, same validation. No "does this phone exist" endpoint (no new enumeration surface). |
 | D4 | Keep the DriverGo design; follow Telegram's light/dark scheme and paint Telegram's header/background with our tokens | One design system; the Mini App looks like the site. |
 | D5 | Sessions in Telegram use the same `at`/`rt` cookies issued `SameSite=None; Secure; Partitioned`, plus an `Origin` check on every unsafe BFF request | Only way to work inside web.telegram.org's iframe without weakening the site's `lax` cookies. |
 | D6 | Logout inside the Mini App does **not** unlink Telegram; it turns auto-login off for that Telegram user | Bot digests and bot password reset depend on `telegram_account`; logout must not silently cost them. |
-| D7 | Phone login/register from inside the Mini App **moves** the Telegram link to that profile | The person proved both the Telegram account and the profile's password; "this Telegram = this account" is their intent. |
+| D7 | A Telegram account is linked to a profile **only** when (a) fresh initData (≤ 1 h), (b) a fresh Telegram-signed `requestContact` response, (c) of the same Telegram user, (d) whose phone equals the profile's phone. Then the link may move from another profile and replace the profile's previous link (revised 2026-10-08, final review C1) | initData alone proves only "some Telegram account": anyone can paste their own into a phishing link (`#tgWebAppData=`), and the victim's sign-in would hand the attacker the account and the bot password reset. Telegram's signature over the profile's own phone cannot be phished. |
 
 ## Non-goals
 
@@ -66,30 +66,51 @@ Nothing outside the signed string is trusted. Empty bot token →
 `issueSession` adds one refresh-token row, exactly like a new device. No other
 session is touched, so this cannot reintroduce the revoke-all logouts.
 
-### 1.3 `/auth/login` and `/auth/register` accept optional `tg_init_data`
+### 1.3 `/auth/login` and `/auth/register` accept optional `tg_init_data` + `tg_contact`
 
 Absent → byte-for-byte today's behaviour (site, native app, tests unchanged).
 
-Present → validated with 1.1. On success the link is written **in the same
-transaction** as the session (`linkTelegramInTx`):
+`tg_contact` is the raw `response` string of `WebApp.requestContact`
+(`contact=<json {user_id, phone_number, ...}>&auth_date=…&hash=…`), signed by
+Telegram exactly like initData. `ValidateContact(raw, botToken, now, maxAge)`
+shares the initData HMAC code. Telegram contact phones are normalised strictly
+(`998` + 9 digits, optional `+`), never as a bare 9-digit national number.
+
+The link (`linkTelegramInTx`, in the sign-in transaction, inside a SAVEPOINT)
+is written only when D7 holds: initData valid and ≤ `InitDataLinkMaxAge` (1 h),
+contact valid and ≤ 1 h, `contact.user_id == initData user.id`, and the
+contact phone == `profile.phone`. Then:
 
 ```
-DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2;  -- D7
-UpsertTelegramAccount(profile_id, tg_user_id, username)
+DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2;  -- move (D7)
+UpsertTelegramAccount(profile_id, tg_user_id, username)                      -- replace
 ```
 
-A moved link is logged (`auth.telegram_link_moved`, profile ids only). Invalid
-init data never fails the login: the user is signed in, the link is skipped,
-`auth.telegram_link_skipped` is logged with the reason. The response gains
-`telegram_linked: bool` so the client knows whether to clear D6's flag.
+A move logs `auth.telegram_link_moved`, a replacement
+`auth.telegram_link_replaced` (profile ids only). Anything else never fails
+the sign-in: the user is signed in, the link is skipped and
+`auth.telegram_link_skipped` is logged with the reason. With
+`TELEGRAM_WEBAPP_URL` empty (kill switch) linking is skipped silently. The
+response gains `telegram_linked: bool` so the client knows whether to clear
+D6's flag.
+
+`POST /me/telegram/link-webapp {init_data, contact}` (learner auth; 20/h per
+profile + the 30/h per-Telegram-user bucket) applies the same rule for a
+learner who typed the phone: `200 {linked}` (a failed proof is `linked:false`,
+never 401, which the BFF would read as an expired session);
+`503 telegram_bot_unconfigured` when switched off. `GET /me/telegram` also
+returns the linked `tg_user_id` (the learner's own data, used by §4.2/§4.4).
 
 ### 1.4 Bot menu button — `backend/internal/bot`
 
 New config `TELEGRAM_WEBAPP_URL` (e.g. `https://drivergo.uz/uz-Latn/tg`). When
-the bot is enabled, startup always calls `setChatMenuButton` once,
-best-effort (failure is logged, never fatal): `{type:"web_app", text:"Ochish",
-web_app:{url}}` when the URL is set, `{type:"default"}` when it is empty. So
-clearing the variable and restarting is the kill switch. `/start` replies gain
+a bot token exists (whatever `TELEGRAM_BOT_MODE` is — the button lives on
+Telegram's side and must follow the switch even with the bot off), startup
+always calls `setChatMenuButton` once, best-effort (failure is logged, never
+fatal): `{type:"web_app", text:"Ochish", web_app:{url}}` when the URL is set,
+`{type:"default"}` when it is empty. So clearing the variable and restarting
+is the kill switch; it also turns Mini App sign-in off
+(`503 telegram_bot_unconfigured`) and all Telegram linking. `/start` replies gain
 an inline `web_app` button with the same URL when configured.
 
 No migration. `telegram_account` already has `UNIQUE(tg_user_id)` and
@@ -151,9 +172,15 @@ register routes use `"telegram"` mode when the JSON body carries
 
 ### 4.1 Detection and SDK loading — `lib/telegram/`
 
-- `isTelegramMiniApp()`: `sessionStorage["tg-webapp"] === "1"` or the launch
-  URL hash carries `tgWebAppData`. Set by `/tg` on first load; a webview reload
-  keeps sessionStorage; the plain website never sets it.
+- `hasTelegramHost()`: one of the channels telegram-web-app.js itself posts
+  through — `window.TelegramWebviewProxy` (Android/iOS/new Desktop),
+  `window.external.notify` (legacy Desktop) or a parent frame (web.telegram.org;
+  CSP frame-ancestors admits no one else).
+- `isTelegramMiniApp()`: a Telegram host **and** (`sessionStorage["tg-webapp"]
+  === "1"` or the launch hash carries `tgWebAppData`). The hash alone is never
+  enough: a planted `#tgWebAppData=` link in a plain browser is the website
+  (C1). The flag is set by `/tg` only once the SDK is ready inside a host;
+  `getWebApp()` also returns null without a host.
 - `TelegramProvider` (mounted once in `app/providers.tsx`): when detected,
   injects `https://telegram.org/js/telegram-web-app.js` and exposes a typed
   `useTelegram()` (`webApp | null`). Outside Telegram it renders children and
@@ -175,6 +202,12 @@ Splash (logo + spinner) while it:
    the cookie (Safari on web.telegram.org) → "Telefoningizdagi Telegram'da
    oching" screen instead of a broken app.
 
+Fast path and identity: a live cookie session (`/api/proxy/me` 200) goes
+straight in, unless `GET me/telegram` says the profile is linked to a
+**different** `tg_user_id` than the launching user — then step 4 runs (the
+launching user's linked profile replaces the session, or the welcome screen
+on `need_phone`). Unlinked or unknown keeps the fast path.
+
 Welcome screen: greeting with `first_name`, «Kirish» and «Ro'yxatdan o'tish»
 buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 `autologin_off` is set and the account is linked.
@@ -184,9 +217,17 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 ### 4.3 Existing login / register pages in Mini App mode
 
 - A «Raqamni Telegram'dan olish» button calls `WebApp.requestContact`; the
-  shared `phone_number` is normalised and dropped into the phone field.
-- The submitted body adds `tg_init_data: WebApp.initData`.
+  shared `phone_number` is normalised and dropped into the phone field, and
+  the signed `response` is kept.
+- The submitted body adds `tg_init_data: WebApp.initData` and, when the phone
+  was shared, `tg_contact: response`.
 - On success with `telegram_linked`, CloudStorage `autologin_off` is removed.
+- On success without a link and without a shared phone (and no forced
+  password change), Telegram's share sheet is offered once, fire-and-forget
+  after navigation; a shared number is posted to
+  `/api/proxy/me/telegram/link-webapp`, and on `linked` `autologin_off` is
+  removed. Declining is silent. (Telegram also drops the shared contact into
+  the bot chat; with no password reset pending the bot stays quiet.)
 
 ### 4.4 Chrome inside Telegram (`TelegramChrome`, client only)
 
@@ -222,13 +263,17 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 | Situation | Behaviour |
 |---|---|
 | Opened as a plain URL in a browser | `/tg` shows "Botdan oching"; nothing else changes |
+| Plain browser with a planted `#tgWebAppData=` (phishing) | No Telegram host → website: no SDK, no `tg_init_data`; `/tg` shows "Botdan oching" (C1, client) |
+| Mini App sign-in with someone else's launch data | No signed matching phone → signed in, not linked (C1, server) |
 | init data older than 24 h, refresh token alive | No impact: requests use cookies; `/tg` only needed on re-auth |
 | init data expired and session dead | `/tg` → `invalid_init_data` → "Botni qayta oching" |
 | Cookie refused (Safari + web.telegram.org) | Probe catches it → "open on phone" screen |
 | Link conflict race (two profiles at once) | DELETE+UPSERT in one tx; unique violation → link skipped, login succeeds, logged |
 | Bot token missing | `/tg` shows "vaqtincha mavjud emas"; site unaffected |
 | CloudStorage unavailable (old client) | Treated as auto-login on |
-| Several Telegram accounts in one app share the webview cookie jar | The live session wins (fast path): `/tg` goes straight in on `/api/proxy/me` 200 |
+| Several Telegram accounts in one app share the webview cookie jar | The launching identity wins when the session's profile is linked to another `tg_user_id`; otherwise the live session's fast path |
+| Kill switch (`TELEGRAM_WEBAPP_URL` empty) | `/tg` "vaqtincha mavjud emas", no linking, menu button reset |
+| Shared phone after logout | Advisory: "continue as" signs back in with one tap; real removal = bot `/unlink` |
 
 ## 6. Testing
 
@@ -236,9 +281,12 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
   token), tampered field, wrong token, missing hash, duplicate key, expired,
   future-dated, bad `user` JSON, `signature` field included in the check string.
 - **Go integration (testdb):** webapp login linked / unlinked / banned / rate
-  limited; login + register with `tg_init_data` link; link moves from another
-  profile; invalid init data still logs in without linking; absent field leaves
-  `telegram_account` untouched.
+  limited; each D7 condition failing alone → no link; matching proof links;
+  phishing (attacker initData + attacker contact + victim phone/password) →
+  signed in, not linked, attacker gets `need_phone`; move + replace; kill
+  switch; `link-webapp`; invalid init data still logs in without linking;
+  absent field leaves `telegram_account` untouched. `ValidateContact` has an
+  independently computed known-answer vector.
 - **Vitest:** cookie modes (attributes on set and clear); `cookieModeFor`;
   refresh keeps telegram mode; origin guard matrix; telegram route; login route
   picks mode from body; headers config (admin DENY, others Telegram-only);
