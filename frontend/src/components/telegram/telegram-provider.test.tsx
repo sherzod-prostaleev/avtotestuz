@@ -3,6 +3,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TelegramProvider, useTelegram, useTelegramStatus } from "./telegram-provider";
 import { TELEGRAM_SDK_URL, markTelegramMiniApp } from "@/lib/telegram/web-app";
 
+// The chrome has its own tests; here only WHEN it mounts matters.
+vi.mock("./telegram-chrome", () => ({
+  TelegramChrome: () => <span data-testid="tg-chrome" />,
+}));
+
 afterEach(() => {
   vi.useRealTimers();
   delete window.Telegram;
@@ -33,6 +38,11 @@ describe("TelegramProvider", () => {
     expect(screen.getByText("still here")).toBeInTheDocument();
     expect(screen.getByTestId("probe")).toHaveTextContent("null");
     expect(document.documentElement.classList.contains("tg-webapp")).toBe(false);
+    expect(screen.queryByTestId("tg-chrome")).toBeNull();
+  });
+  it("mounts no Telegram chrome on the website", () => {
+    render(<TelegramProvider><p>site</p></TelegramProvider>);
+    expect(screen.queryByTestId("tg-chrome")).toBeNull();
   });
 
   describe("SDK status", () => {
@@ -71,6 +81,7 @@ describe("TelegramProvider", () => {
       fakeSdk("signed");
       mount();
       expect(screen.getByTestId("status")).toHaveTextContent("ready");
+      expect(screen.getByTestId("tg-chrome")).toBeInTheDocument();
     });
     it("fails when the script errors", () => {
       markTelegramMiniApp();

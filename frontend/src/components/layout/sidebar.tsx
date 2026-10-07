@@ -244,11 +244,8 @@ export function Sidebar() {
     <>
       {/* Compact top chrome — brand + streak; full nav lives in bottom tabs + drawer */}
       <div
-        className="sticky top-0 z-40 flex w-full items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-md md:hidden"
-        style={{
-          paddingTop: "max(0.5rem, env(safe-area-inset-top))",
-          minHeight: "3.5rem",
-        }}
+        className="app-top-bar sticky top-0 z-40 flex w-full items-center justify-between gap-2 border-b border-border bg-background/95 px-3 backdrop-blur-md md:hidden"
+        style={{ minHeight: "3.5rem" }}
       >
         <Link
           href={`/${currentLocale}/dashboard`}
@@ -285,7 +282,7 @@ export function Sidebar() {
           type="button"
           aria-label={t("closeMenu")}
           onClick={() => setMobileOpen(false)}
-          className="fixed inset-x-0 top-0 z-40 bg-black/60 backdrop-blur-sm md:hidden bottom-[calc(3rem+env(safe-area-inset-bottom))]"
+          className="app-drawer-scrim fixed inset-x-0 top-0 z-40 bg-black/60 backdrop-blur-sm md:hidden bottom-[calc(3rem+env(safe-area-inset-bottom))]"
         />
       )}
 
@@ -294,13 +291,9 @@ export function Sidebar() {
         role={mobileOpen ? "dialog" : undefined}
         aria-modal={mobileOpen ? true : undefined}
         aria-label={t("brandName")}
-        className={`fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 max-md:bottom-[calc(3rem+env(safe-area-inset-bottom))] max-md:w-full max-md:border-r-0 max-md:p-3 md:w-64 md:translate-x-0 md:p-3 ${
+        className={`app-drawer fixed bottom-0 left-0 top-0 z-50 flex w-[min(15.5rem,78vw)] flex-col overflow-hidden border-r border-border bg-card p-2.5 shadow-[6px_0_28px_-18px_hsl(var(--elev-ambient)/0.65)] transition-transform duration-300 max-md:bottom-[calc(3rem+env(safe-area-inset-bottom))] max-md:w-full max-md:border-r-0 max-md:p-3 md:w-64 md:translate-x-0 md:p-3 ${
           mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
-        style={{
-          paddingTop: "max(0.5rem, env(safe-area-inset-top))",
-          paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))",
-        }}
       >
         <div className="shrink-0 space-y-1.5 md:space-y-2.5">
           <div className="flex items-center justify-between gap-1 px-0.5">

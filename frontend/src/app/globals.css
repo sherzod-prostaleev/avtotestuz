@@ -1422,3 +1422,94 @@
     transform: none;
   }
 }
+
+/* Safe-area padding moved out of inline styles so the Telegram rules below
+   can extend it. On the website these are exactly the old inline values. */
+.app-top-bar {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+/* Was inline on the drawer. Tailwind appends its responsive variants after
+   this file's own rules, so the element selector is what still outranks the
+   drawer's max-md:p-3 / md:p-3, exactly as the inline style did. */
+aside.app-drawer {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+}
+.auth-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+.auth-safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Telegram Mini App (html.tg-webapp is set by TelegramProvider only when
+   Telegram launched us). Telegram publishes the device safe area as
+   --tg-safe-area-inset-* — iOS webviews may report env() as 0 inside it — and
+   the strip its own controls cover (fullscreen clients) as
+   --tg-content-safe-area-inset-*, which lies inside the device safe area, so
+   the two add up. Each rule below restates an env()-based padding of the
+   website with that combined inset; the media queries keep each override to
+   the breakpoints where the original value applies. */
+html.tg-webapp {
+  --tg-inset-top: calc(
+    max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px)) +
+      var(--tg-content-safe-area-inset-top, 0px)
+  );
+  --tg-inset-bottom: calc(
+    max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px)) +
+      var(--tg-content-safe-area-inset-bottom, 0px)
+  );
+}
+html.tg-webapp .auth-safe-top {
+  padding-top: var(--tg-inset-top);
+}
+html.tg-webapp .auth-safe-bottom {
+  padding-bottom: var(--tg-inset-bottom);
+}
+@media (max-width: 767px) {
+  html.tg-webapp .app-top-bar {
+    padding-top: max(0.5rem, var(--tg-inset-top));
+  }
+  html.tg-webapp .app-bottom-nav {
+    padding-bottom: var(--tg-inset-bottom);
+  }
+  /* AppShell's reserve for the fixed tab bar, and the drawer that stops at it. */
+  html.tg-webapp .app-shell-main {
+    padding-bottom: calc(4.25rem + var(--tg-inset-bottom));
+  }
+  html.tg-webapp .app-drawer,
+  html.tg-webapp .app-drawer-scrim {
+    bottom: calc(3rem + var(--tg-inset-bottom));
+  }
+  html.tg-webapp .app-drawer {
+    padding-top: max(0.5rem, var(--tg-inset-top));
+  }
+  html.tg-webapp .mobile-fit-screen {
+    height: calc(
+      100dvh - 3.75rem - 4.25rem - 1rem - var(--tg-inset-bottom) -
+        max(0px, var(--tg-inset-top) - 0.5rem)
+    );
+  }
+  html.tg-webapp .profile-screen-fit {
+    min-height: calc(
+      100dvh - 3.75rem - 0.75rem - 4.25rem - var(--tg-inset-bottom) -
+        max(1rem, var(--tg-inset-bottom)) - max(0px, var(--tg-inset-top) - 0.5rem)
+    );
+  }
+}
+/* Full-screen runners: the practice/memorize shell below `sm`, the official
+   exam view's bars below `lg` — where their env() paddings apply. */
+@media (max-width: 639px) {
+  html.tg-webapp .session-shell {
+    padding-top: max(0.35rem, var(--tg-inset-top));
+    padding-bottom: max(0.35rem, var(--tg-inset-bottom));
+  }
+}
+@media (max-width: 1023px) {
+  html.tg-webapp .exam-top-bar {
+    padding-top: max(0.2rem, var(--tg-inset-top));
+  }
+  html.tg-webapp .exam-bottom-bar {
+    padding-bottom: max(0.35rem, var(--tg-inset-bottom));
+  }
+}

@@ -320,8 +320,7 @@ export function TelegramEntry() {
 
   return (
     <div
-      className="asphalt-hero flex min-h-[100dvh] flex-col bg-background"
-      style={{ paddingTop: "env(safe-area-inset-top)", paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="asphalt-hero auth-safe-top auth-safe-bottom flex min-h-[100dvh] flex-col bg-background"
     >
       <main className="flex flex-1 items-center justify-center p-4">
         <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-5 text-center sm:p-8">

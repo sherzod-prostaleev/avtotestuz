@@ -126,12 +126,10 @@ function ResetPasswordInner() {
 
   return (
     <div
-      className="asphalt-hero flex min-h-screen flex-col bg-background"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="asphalt-hero flex min-h-screen flex-col bg-background auth-safe-bottom"
     >
       <header
-        className="flex h-14 items-center justify-between gap-2 border-b border-border px-3 sm:px-4"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="flex h-14 items-center justify-between gap-2 border-b border-border px-3 sm:px-4 auth-safe-top"
       >
         <Link
           href={`/${locale}`}

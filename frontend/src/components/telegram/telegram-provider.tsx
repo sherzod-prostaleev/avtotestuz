@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { getWebApp, isTelegramMiniApp, TELEGRAM_SDK_URL, type TelegramWebApp } from "@/lib/telegram/web-app";
+import { TelegramChrome } from "./telegram-chrome";
 
 export type TelegramStatus = "off" | "loading" | "ready" | "failed";
 
@@ -87,10 +88,14 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     if (webApp.isVersionAtLeast("7.7")) webApp.disableVerticalSwipes?.();
   }, [webApp]);
 
-  // Task 9 mounts <TelegramChrome /> here, next to the children.
+  // The chrome exists only once Telegram launched us: on the website, and
+  // while the SDK loads or after it fails, nothing Telegram-specific runs.
   return (
     <TelegramStatusContext.Provider value={status}>
-      <TelegramContext.Provider value={webApp}>{children}</TelegramContext.Provider>
+      <TelegramContext.Provider value={webApp}>
+        {webApp && <TelegramChrome webApp={webApp} />}
+        {children}
+      </TelegramContext.Provider>
     </TelegramStatusContext.Provider>
   );
 }

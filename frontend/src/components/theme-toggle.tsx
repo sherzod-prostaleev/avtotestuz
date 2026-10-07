@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useTranslations } from "next-intl";
 import { Moon, Sun } from "lucide-react";
+import { useTelegram } from "@/components/telegram/telegram-provider";
 
 type Props = {
   /** Smaller control for cramped mobile drawers. */
@@ -17,6 +18,7 @@ export function ThemeToggle({ size = "md", embedded = false, className = "" }: P
   const { theme, setTheme } = useTheme();
   const t = useTranslations("ThemeToggle");
   const [mounted, setMounted] = useState(false);
+  const inMiniApp = useTelegram() !== null;
   const box = embedded
     ? size === "sm"
       ? "h-10 w-10 min-h-10 min-w-10 rounded-lg"
@@ -31,6 +33,10 @@ export function ThemeToggle({ size = "md", embedded = false, className = "" }: P
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Inside the Mini App Telegram's light/dark scheme drives the theme (spec
+  // D4); a toggle here would fight it and lose on the next launch.
+  if (inMiniApp) return null;
 
   if (!mounted) {
     return <span className={`inline-block ${box} ${className}`} aria-hidden />;

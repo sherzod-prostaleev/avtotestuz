@@ -190,7 +190,7 @@ export function OfficialAvtotestExamView({
       />
 
       {/* ═══ TOP HEADER BAR ═══ */}
-      <header className="relative z-10 flex h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554] max-lg:h-10 max-lg:gap-1.5 max-lg:px-2 max-lg:pt-[max(0.2rem,env(safe-area-inset-top))]">
+      <header className="exam-top-bar relative z-10 flex h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554] max-lg:h-10 max-lg:gap-1.5 max-lg:px-2 max-lg:pt-[max(0.2rem,env(safe-area-inset-top))]">
         {/* Left: Driver Go logo */}
         <div className="flex items-center gap-3 max-lg:gap-1.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] overflow-hidden max-lg:h-7 max-lg:w-7">
@@ -346,7 +346,7 @@ export function OfficialAvtotestExamView({
       </main>
 
       {/* ═══ BOTTOM BAR ═══ */}
-      <footer className="relative z-10 flex shrink-0 flex-col gap-1.5 border-t border-[#1c3554] bg-[#081320]/95 px-2 py-1.5 pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:min-h-[64px] lg:flex-row lg:items-center lg:justify-between lg:px-5 lg:py-1">
+      <footer className="exam-bottom-bar relative z-10 flex shrink-0 flex-col gap-1.5 border-t border-[#1c3554] bg-[#081320]/95 px-2 py-1.5 pb-[max(0.35rem,env(safe-area-inset-bottom))] lg:min-h-[64px] lg:flex-row lg:items-center lg:justify-between lg:px-5 lg:py-1">
         {/* Mobile top sub-row / Desktop Left + Right HUD */}
         <div className="flex w-full items-center justify-between gap-2 lg:contents">
           {/* Left: Finish button */}
