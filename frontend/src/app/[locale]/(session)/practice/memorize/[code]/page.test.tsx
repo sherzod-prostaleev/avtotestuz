@@ -6,6 +6,7 @@ import MemorizePage from "./page";
 import { useMemorize } from "@/hooks/use-memorize";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
 import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
+import { useSessionRunning } from "@/lib/session-running";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -70,6 +71,24 @@ describe("MemorizePage", () => {
 
     fireEvent.click(await screen.findByRole("button", { name: "Chiqish" }));
     expect(navigation.push).toHaveBeenCalledWith("/uz-Latn/practice");
+  });
+
+  it("reports running only between the first question and the finished screen", async () => {
+    function RunningProbe() {
+      return <span data-testid="running">{String(useSessionRunning())}</span>;
+    }
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    const view = render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <MemorizePage />
+        <RunningProbe />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByTestId("running")).toHaveTextContent("true");
+    fireEvent.click(screen.getByRole("button", { name: /Keyingisi/ }));
+    expect(await screen.findByText(messages.Memorize.finishedTitle)).toBeInTheDocument();
+    expect(screen.getByTestId("running")).toHaveTextContent("false");
+    view.unmount();
   });
 
   it("shows a loading state while the topic is fetched", () => {

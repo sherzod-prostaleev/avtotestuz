@@ -2,8 +2,8 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
 import type { TelegramWebApp } from "@/lib/telegram/web-app";
+import { useSessionRunning } from "@/lib/session-running";
 import { cssColorToHex } from "@/lib/telegram/color";
 import { canGoBackInApp, installHistoryDepth } from "@/lib/telegram/history-depth";
 import { telegramLinkKind } from "@/lib/telegram/links";
@@ -20,33 +20,30 @@ function attempt(fn: () => void): void {
 }
 
 /**
- * Makes the app behave like a native Mini App: Telegram's theme, frame colour,
+ * Makes the app behave like a native Mini App: Telegram's frame colour,
  * BackButton, closing guard and link handling. Mounted by TelegramProvider
- * only when Telegram launched us, so none of this runs on the website.
+ * only when Telegram launched us, so none of this runs on the website. The
+ * theme itself is not set here: the provider wiring forces next-themes to
+ * Telegram's `colorScheme` (forcedTheme), which never writes localStorage.
  */
-export function TelegramChrome({ webApp }: { webApp: TelegramWebApp }) {
+export function TelegramChrome({
+  webApp,
+  colorScheme,
+}: {
+  webApp: TelegramWebApp;
+  colorScheme: "light" | "dark" | null;
+}) {
   const pathname = usePathname() ?? "/";
   const router = useRouter();
-  const { setTheme, resolvedTheme } = useTheme();
-
-  // Follow Telegram's light/dark scheme (spec D4) and keep following it.
-  // setTheme persists to localStorage("theme"), but the webview's storage is
-  // its own (Android WebView, WKWebView, Telegram Desktop, a partitioned
-  // web.telegram.org iframe), so the website's saved choice is untouched; and
-  // since Telegram wins on every launch, what is stored here never matters.
-  useEffect(() => {
-    const apply = () => {
-      const scheme = webApp.colorScheme;
-      if (scheme === "light" || scheme === "dark") setTheme(scheme);
-    };
-    apply();
-    webApp.onEvent("themeChanged", apply);
-    return () => webApp.offEvent("themeChanged", apply);
-  }, [setTheme, webApp]);
+  // The route alone cannot tell a running attempt from its result screen
+  // (same /session/<id>), so the guard also needs the runner's own word.
+  const sessionRunning = useSessionRunning();
+  const guarded = needsClosingGuard(pathname) && sessionRunning;
 
   // Paint Telegram's header/background with our page colour so the frame and
   // the page read as one surface. next-themes swaps the <html> class in its
-  // own effect, which runs after this child's, so read the token a frame later.
+  // own effect, which runs after this one (the ThemeProvider subtree commits
+  // after this sibling), so read the token a frame later.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       let hex: string | null = null;
@@ -64,7 +61,7 @@ export function TelegramChrome({ webApp }: { webApp: TelegramWebApp }) {
       if (webApp.isVersionAtLeast("7.10")) attempt(() => webApp.setBottomBarColor?.(color));
     });
     return () => cancelAnimationFrame(frame);
-  }, [resolvedTheme, webApp]);
+  }, [colorScheme, webApp]);
 
   useEffect(() => installHistoryDepth(), []);
 
@@ -73,8 +70,9 @@ export function TelegramChrome({ webApp }: { webApp: TelegramWebApp }) {
   // tests hide it too: their own exit control asks before abandoning the
   // attempt, and a Telegram Back would skip that question. With it hidden,
   // Android's back key tries to close the app and meets the closing guard.
+  // A finished attempt's result screen gets Back again.
   useEffect(() => {
-    if (isTabRoot(pathname) || needsClosingGuard(pathname)) {
+    if (isTabRoot(pathname) || guarded) {
       attempt(() => webApp.BackButton.hide());
       return;
     }
@@ -87,12 +85,12 @@ export function TelegramChrome({ webApp }: { webApp: TelegramWebApp }) {
     attempt(() => webApp.BackButton.onClick(onBack));
     attempt(() => webApp.BackButton.show());
     return () => attempt(() => webApp.BackButton.offClick(onBack));
-  }, [pathname, router, webApp]);
+  }, [guarded, pathname, router, webApp]);
 
   useEffect(() => {
-    if (needsClosingGuard(pathname)) attempt(() => webApp.enableClosingConfirmation());
+    if (guarded) attempt(() => webApp.enableClosingConfirmation());
     else attempt(() => webApp.disableClosingConfirmation());
-  }, [pathname, webApp]);
+  }, [guarded, webApp]);
 
   // Inside Telegram a plain external <a> would navigate the webview away from
   // the app (and payment pages refuse to be framed on Telegram Web). Modified
@@ -107,9 +105,15 @@ export function TelegramChrome({ webApp }: { webApp: TelegramWebApp }) {
       if (!(anchor instanceof HTMLAnchorElement) || anchor.hasAttribute("download")) return;
       const kind = telegramLinkKind(anchor.href, window.location.href);
       if (!kind) return;
+      // Open first, cancel only once Telegram took it: a client too old for
+      // the opener throws, and the click must then still go ahead natively.
+      try {
+        if (kind === "telegram") webApp.openTelegramLink(anchor.href);
+        else webApp.openLink(anchor.href);
+      } catch {
+        return;
+      }
       event.preventDefault();
-      if (kind === "telegram") attempt(() => webApp.openTelegramLink(anchor.href));
-      else attempt(() => webApp.openLink(anchor.href));
     };
     // Bubble phase, after React's root listener: a component that handles its
     // own link click and calls preventDefault keeps that click.

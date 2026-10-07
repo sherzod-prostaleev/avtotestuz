@@ -1,6 +1,6 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { TelegramProvider, useTelegram, useTelegramStatus } from "./telegram-provider";
+import { TelegramProvider, useTelegram, useTelegramColorScheme, useTelegramStatus } from "./telegram-provider";
 import { TELEGRAM_SDK_URL, markTelegramMiniApp } from "@/lib/telegram/web-app";
 
 // The chrome has its own tests; here only WHEN it mounts matters.
@@ -58,6 +58,8 @@ describe("TelegramProvider", () => {
           ready: vi.fn(),
           expand: vi.fn(),
           isVersionAtLeast: () => false,
+          onEvent: vi.fn(),
+          offEvent: vi.fn(),
         } as never,
       };
     };
@@ -125,6 +127,51 @@ describe("TelegramProvider", () => {
         vi.advanceTimersByTime(20_000);
       });
       expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    });
+  });
+
+  describe("colour scheme", () => {
+    type Handler = () => void;
+    function sdk(colorScheme: string) {
+      const handlers = new Set<Handler>();
+      const webApp = {
+        initData: "signed",
+        colorScheme,
+        ready: vi.fn(),
+        expand: vi.fn(),
+        isVersionAtLeast: () => false,
+        onEvent: vi.fn((name: string, cb: Handler) => name === "themeChanged" && handlers.add(cb)),
+        offEvent: vi.fn((name: string, cb: Handler) => name === "themeChanged" && handlers.delete(cb)),
+      };
+      window.Telegram = { WebApp: webApp as never };
+      return { webApp, fire: () => handlers.forEach((cb) => cb()), handlers };
+    }
+    function SchemeProbe() {
+      return <span data-testid="scheme">{useTelegramColorScheme() ?? "none"}</span>;
+    }
+
+    it("is null on the website", () => {
+      render(<TelegramProvider><SchemeProbe /></TelegramProvider>);
+      expect(screen.getByTestId("scheme")).toHaveTextContent("none");
+    });
+
+    it("follows Telegram's scheme at launch and on themeChanged, and unsubscribes", () => {
+      markTelegramMiniApp();
+      const tg = sdk("light");
+      const view = render(<TelegramProvider><SchemeProbe /></TelegramProvider>);
+      expect(screen.getByTestId("scheme")).toHaveTextContent("light");
+      tg.webApp.colorScheme = "dark";
+      act(() => tg.fire());
+      expect(screen.getByTestId("scheme")).toHaveTextContent("dark");
+      view.unmount();
+      expect(tg.handlers.size).toBe(0);
+    });
+
+    it("ignores an unknown scheme", () => {
+      markTelegramMiniApp();
+      sdk("sepia");
+      render(<TelegramProvider><SchemeProbe /></TelegramProvider>);
+      expect(screen.getByTestId("scheme")).toHaveTextContent("none");
     });
   });
 });

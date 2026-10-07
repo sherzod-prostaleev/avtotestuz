@@ -1,15 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
-import { apiGet } from "@/lib/api-client";
+import { ApiError, apiGet } from "@/lib/api-client";
+import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
 import { postLogoutPath } from "@/lib/telegram/logout";
+import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 type MeResponse = {
   profile: { must_change_password?: boolean };
@@ -20,14 +22,27 @@ export default function ChangePasswordPage() {
   const locale = useLocale();
   const router = useRouter();
   const [checking, setChecking] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const retry = useCallback(() => {
+    setLoadFailed(false);
+    setChecking(true);
+    setAttempt((n) => n + 1);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         await apiGet<MeResponse>("me");
-      } catch {
-        if (!cancelled) {
+      } catch (err) {
+        if (cancelled) return;
+        // In the Mini App /tg signs the learner straight back in and lands
+        // here again, so only a dead session (401) may go there; a degraded
+        // backend would otherwise loop between the two screens.
+        if (isTelegramMiniApp() && !(err instanceof ApiError && err.status === 401)) {
+          setLoadFailed(true);
+        } else {
           router.replace(postLogoutPath(locale, `/${locale}/login`));
           return;
         }
@@ -38,7 +53,7 @@ export default function ChangePasswordPage() {
     return () => {
       cancelled = true;
     };
-  }, [locale, router]);
+  }, [attempt, locale, router]);
 
   async function handleSuccess() {
     try {
@@ -77,7 +92,14 @@ export default function ChangePasswordPage() {
           </div>
 
           {checking ? (
-            <p className="text-sm text-muted-foreground">{t("loading")}</p>
+            <p role="status" className="text-sm text-muted-foreground">{t("loading")}</p>
+          ) : loadFailed ? (
+            <div role="alert" className="space-y-3 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+              <p>{t("loadError")}</p>
+              <Button type="button" variant="outline" size="sm" className="min-h-11" onClick={retry}>
+                {t("retry")}
+              </Button>
+            </div>
           ) : (
             <ChangePasswordForm bare onSuccess={() => void handleSuccess()} />
           )}

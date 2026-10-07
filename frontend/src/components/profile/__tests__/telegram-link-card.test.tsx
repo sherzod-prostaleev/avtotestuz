@@ -78,8 +78,13 @@ describe("TelegramLinkCard", () => {
   });
 
   describe("inside the Mini App", () => {
-    function enterMiniApp() {
-      const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
+    function enterMiniApp(username: string | null = "sherzod") {
+      const webApp = {
+        initData: "x",
+        initDataUnsafe: { user: { id: 42, username: username ?? undefined } },
+        openLink: vi.fn(),
+        openTelegramLink: vi.fn(),
+      };
       tg.webApp = webApp;
       (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
       return webApp;
@@ -88,14 +93,38 @@ describe("TelegramLinkCard", () => {
     // The Mini App is itself the link; offering to (re)link from inside it
     // would only send the learner out to the bot and back.
     it("shows the linked status without link actions", async () => {
-      enterMiniApp();
-      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: "sherzod" });
+      enterMiniApp("Sherzod");
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: "@sherzod" });
 
       renderWithIntl();
 
       expect(await screen.findByText("Telegram ulangan")).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Qayta bog'lash" })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Telegramni bog'lash" })).not.toBeInTheDocument();
+    });
+
+    // The profile is linked, but to another Telegram account than the one that
+    // opened the app (or we cannot tell): the learner must be able to relink.
+    it.each([
+      ["linked to a different account", "aziz", "sherzod"],
+      ["the current user has no username", null, "sherzod"],
+      ["the linked account has no username", "sherzod", undefined],
+    ] as const)("offers relinking when %s", async (_name, current, linked) => {
+      const webApp = enterMiniApp(current);
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: linked });
+      vi.spyOn(apiClient, "apiPost").mockResolvedValue({
+        token: "tok123",
+        deep_link: "https://t.me/AvtoTestBot?start=tok123",
+        expires_at: "2026-07-26T01:00:00Z",
+      });
+
+      renderWithIntl();
+
+      fireEvent.click(await screen.findByRole("button", { name: "Qayta bog'lash" }));
+      expect(screen.queryByText("Telegram ulangan")).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(webApp.openTelegramLink).toHaveBeenCalledWith("https://t.me/AvtoTestBot?start=tok123"),
+      );
     });
 
     // Launch data 1–24 h old signs in but skips linking: the learner must

@@ -44,6 +44,7 @@ import {
 } from "@/lib/question-image";
 import { AUTO_ADVANCE_MS, hasAnswer, nextUnansweredIndex } from "@/lib/session-navigation";
 import { readSessionOrigin } from "@/lib/session-origin";
+import { useReportSessionRunning } from "@/lib/session-running";
 
 function ExamChunkFallback() {
   return (
@@ -137,6 +138,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   }, []);
   const { session, loading, submitting, error, loadSession, submitAnswer, finishSession } =
     useSessionEngine(sessionId);
+  // Tells the Telegram chrome an attempt is in progress (closing guard, Back
+  // hidden); the result screen keeps this URL but has nothing left to lose.
+  useReportSessionRunning(session?.status === "active");
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);

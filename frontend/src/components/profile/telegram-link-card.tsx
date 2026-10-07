@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Check, Copy, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
 import { useTelegram } from "@/components/telegram/telegram-provider";
 import { openExternalUrl } from "@/lib/telegram/links";
+import { isLinkedToCurrentUser } from "@/lib/telegram/linked-account";
 
 interface TelegramStatus {
   linked: boolean;
@@ -24,7 +25,7 @@ interface LinkTokenResult {
 export function TelegramLinkCard() {
   const t = useTranslations("TelegramLink");
   const tApp = useTranslations("TelegramApp");
-  const inMiniApp = useTelegram() !== null;
+  const webApp = useTelegram();
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
@@ -84,10 +85,11 @@ export function TelegramLinkCard() {
 
   const usernameLabel = status?.username ? `@${status.username.replace(/^@/, "")}` : null;
 
-  // Inside the Mini App a linked account needs no actions: the app was opened
-  // from that very Telegram account. Unlinked (launch data too old to link on
-  // sign-in) keeps the normal card so the learner can still link.
-  if (inMiniApp && status?.linked) {
+  // Inside the Mini App an account linked to the Telegram user who opened it
+  // needs no actions. Unlinked (launch data too old to link on sign-in), or
+  // linked to another / an unidentifiable account, keeps the normal card so
+  // the learner can still (re)link.
+  if (webApp && status?.linked && isLinkedToCurrentUser(status.username, webApp)) {
     return (
       <Card className="border-success/40 bg-card p-5 sm:p-6">
         <div role="status" className="flex items-center gap-3 text-success">

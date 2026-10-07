@@ -13,6 +13,7 @@ import * as apiClient from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics-events";
 import { QUESTION_IMAGE_PLACEHOLDER } from "@/lib/question-image";
 import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
+import { useSessionRunning } from "@/lib/session-running";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -549,6 +550,34 @@ describe("SessionPage secure session flow", () => {
       "aria-pressed",
       "true"
     );
+  });
+
+  // The Telegram chrome guards closing and hides Back only while an attempt
+  // runs; the result screen shares the URL, so the runner has to say so.
+  it("reports running while active and stops on the result screen", () => {
+    function RunningProbe() {
+      return <span data-testid="running">{String(useSessionRunning())}</span>;
+    }
+    const engine = mockEngine(activeSession());
+    const view = render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <SessionPage />
+        <RunningProbe />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByTestId("running")).toHaveTextContent("true");
+
+    mockEngine(activeSession({ status: "completed", score: 1, total: 1, passed: false }), {
+      loadSession: engine.loadSession,
+    });
+    view.rerender(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <SessionPage />
+        <RunningProbe />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByTestId("running")).toHaveTextContent("false");
+    view.unmount();
   });
 
   it("renders a calm completed result and per-question review", () => {

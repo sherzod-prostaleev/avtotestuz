@@ -6,6 +6,7 @@ import { Check, ExternalLink, RefreshCw, Send } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api-client";
 import { useTelegram } from "@/components/telegram/telegram-provider";
 import { openExternalUrl } from "@/lib/telegram/links";
+import { isLinkedToCurrentUser } from "@/lib/telegram/linked-account";
 import { MobileScreen } from "./mobile-screen";
 
 interface TelegramStatus {
@@ -28,7 +29,7 @@ interface LinkTokenResult {
 export function MobileTelegram({ onBack }: { onBack: () => void }) {
   const t = useTranslations("TelegramLink");
   const tApp = useTranslations("TelegramApp");
-  const inMiniApp = useTelegram() !== null;
+  const webApp = useTelegram();
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -67,9 +68,10 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
   }
 
   const linked = status?.linked === true;
-  // Inside the Mini App a linked account needs no link/relink: the app was
-  // opened from that very Telegram account. Unlinked keeps the actions.
-  const statusOnly = inMiniApp && linked;
+  // Inside the Mini App an account linked to the Telegram user who opened it
+  // needs no link/relink. Unlinked, or linked to another / an unidentifiable
+  // account, keeps the actions.
+  const statusOnly = webApp !== null && linked && isLinkedToCurrentUser(status?.username, webApp);
 
   return (
     <MobileScreen title={t("title")} onBack={onBack}>

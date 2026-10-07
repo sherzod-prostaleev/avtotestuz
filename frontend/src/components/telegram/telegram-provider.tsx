@@ -5,9 +5,15 @@ import { getWebApp, isTelegramMiniApp, TELEGRAM_SDK_URL, type TelegramWebApp } f
 import { TelegramChrome } from "./telegram-chrome";
 
 export type TelegramStatus = "off" | "loading" | "ready" | "failed";
+export type TelegramColorScheme = "light" | "dark";
 
 const TelegramContext = createContext<TelegramWebApp | null>(null);
 const TelegramStatusContext = createContext<TelegramStatus>("off");
+const TelegramColorSchemeContext = createContext<TelegramColorScheme | null>(null);
+
+function knownScheme(value: unknown): TelegramColorScheme | null {
+  return value === "light" || value === "dark" ? value : null;
+}
 
 // A blocked or hung SDK must not trap the learner on a disabled form.
 const SDK_TIMEOUT_MS = 10_000;
@@ -29,6 +35,15 @@ export function useTelegramStatus(): TelegramStatus {
 }
 
 /**
+ * Telegram's current light/dark scheme (spec D4), kept live through
+ * themeChanged; null on the website, before the SDK is ready, or for a scheme
+ * we do not know.
+ */
+export function useTelegramColorScheme(): TelegramColorScheme | null {
+  return useContext(TelegramColorSchemeContext);
+}
+
+/**
  * Loads Telegram's SDK only when Telegram launched us. On the website this
  * renders its children and does nothing else — no script request, no work.
  * Detection lives in effects so server and first client render match.
@@ -37,6 +52,7 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
   const [webApp, setWebApp] = useState<TelegramWebApp | null>(null);
   // "off" on the server and the first client render; the effect below decides.
   const [status, setStatus] = useState<TelegramStatus>("off");
+  const [colorScheme, setColorScheme] = useState<TelegramColorScheme | null>(null);
 
   useEffect(() => {
     if (!isTelegramMiniApp()) return;
@@ -88,13 +104,23 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     if (webApp.isVersionAtLeast("7.7")) webApp.disableVerticalSwipes?.();
   }, [webApp]);
 
+  useEffect(() => {
+    if (!webApp) return;
+    const sync = () => setColorScheme(knownScheme(webApp.colorScheme));
+    sync();
+    webApp.onEvent("themeChanged", sync);
+    return () => webApp.offEvent("themeChanged", sync);
+  }, [webApp]);
+
   // The chrome exists only once Telegram launched us: on the website, and
   // while the SDK loads or after it fails, nothing Telegram-specific runs.
   return (
     <TelegramStatusContext.Provider value={status}>
       <TelegramContext.Provider value={webApp}>
-        {webApp && <TelegramChrome webApp={webApp} />}
-        {children}
+        <TelegramColorSchemeContext.Provider value={colorScheme}>
+          {webApp && <TelegramChrome webApp={webApp} colorScheme={colorScheme} />}
+          {children}
+        </TelegramColorSchemeContext.Provider>
       </TelegramContext.Provider>
     </TelegramStatusContext.Provider>
   );
