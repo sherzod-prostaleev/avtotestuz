@@ -2637,6 +2637,7 @@
     "loading": "Загрузка…"
   },
   "TelegramApp": {
+    "connecting": "Подключаемся к Telegram…",
     "loading": "Входим…",
     "welcome": "Добро пожаловать!",
     "welcomeNamed": "Добро пожаловать, {name}!",

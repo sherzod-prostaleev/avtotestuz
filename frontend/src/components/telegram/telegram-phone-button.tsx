@@ -29,6 +29,7 @@ export function TelegramPhoneButton({ onPhone }: { onPhone: (national: string) =
   if (!webApp || typeof webApp.requestContact !== "function") return null;
 
   function share() {
+    setForeign(false);
     webApp!.requestContact((shared, res) => {
       if (!mounted.current || !shared) return;
       const raw = res?.responseUnsafe?.contact?.phone_number;

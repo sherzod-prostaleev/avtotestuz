@@ -8,11 +8,11 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { ArrowLeft, Lock, Phone, User } from "lucide-react";
+import { ArrowLeft, Loader2, Lock, Phone, User } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
-import { useTelegram } from "@/components/telegram/telegram-provider";
+import { useTelegram, useTelegramStatus } from "@/components/telegram/telegram-provider";
 import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-body";
 import {
   NATIONAL_PHONE_INPUT_MAX_LENGTH,
@@ -40,6 +40,9 @@ export default function RegisterPage() {
   const locale = useLocale();
   const router = useRouter();
   const webApp = useTelegram();
+  const tgStatus = useTelegramStatus();
+  const tgT = useTranslations("TelegramApp");
+  const waitingForTelegram = tgStatus === "loading";
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -53,6 +56,9 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    // The disabled button does not stop an Enter-key submit; without tg_init_data
+    // the BFF would issue lax cookies the Mini App iframe drops.
+    if (waitingForTelegram) return;
     setError(null);
     const localPhone = normalizePhone(phone);
     if (localPhone.length !== 9) {
@@ -259,12 +265,18 @@ export default function RegisterPage() {
               </div>
             )}
 
+            {waitingForTelegram && (
+              <p role="status" className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" /> {tgT("connecting")}
+              </p>
+            )}
+
             <Button
               type="submit"
               variant="game"
               size="lg"
               className="w-full py-3 text-sm font-extrabold"
-              disabled={submitting}
+              disabled={submitting || waitingForTelegram}
             >
               {submitting ? t("submitting") : t("submit")}
             </Button>

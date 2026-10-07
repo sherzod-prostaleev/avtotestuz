@@ -2637,6 +2637,7 @@
     "loading": "Юкланмоқда…"
   },
   "TelegramApp": {
+    "connecting": "Telegram билан уланмоқда…",
     "loading": "Кирилмоқда…",
     "welcome": "Хуш келибсиз!",
     "welcomeNamed": "Хуш келибсиз, {name}!",

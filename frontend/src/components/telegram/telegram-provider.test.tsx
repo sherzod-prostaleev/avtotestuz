@@ -1,9 +1,11 @@
-import { render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import { TelegramProvider, useTelegram } from "./telegram-provider";
+import { act, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { TelegramProvider, useTelegram, useTelegramStatus } from "./telegram-provider";
 import { TELEGRAM_SDK_URL, markTelegramMiniApp } from "@/lib/telegram/web-app";
 
 afterEach(() => {
+  vi.useRealTimers();
+  delete window.Telegram;
   sessionStorage.clear();
   document.head.querySelectorAll("script").forEach((s) => s.remove());
 });
@@ -31,5 +33,87 @@ describe("TelegramProvider", () => {
     expect(screen.getByText("still here")).toBeInTheDocument();
     expect(screen.getByTestId("probe")).toHaveTextContent("null");
     expect(document.documentElement.classList.contains("tg-webapp")).toBe(false);
+  });
+
+  describe("SDK status", () => {
+    function StatusProbe() {
+      return <span data-testid="status">{useTelegramStatus()}</span>;
+    }
+    const mount = () => render(<TelegramProvider><StatusProbe /></TelegramProvider>);
+    const sdkScript = () => document.querySelector(`script[src="${TELEGRAM_SDK_URL}"]`)!;
+    const fakeSdk = (initData: string) => {
+      window.Telegram = {
+        WebApp: {
+          initData,
+          ready: vi.fn(),
+          expand: vi.fn(),
+          isVersionAtLeast: () => false,
+        } as never,
+      };
+    };
+
+    it("is off on the website", () => {
+      mount();
+      expect(screen.getByTestId("status")).toHaveTextContent("off");
+    });
+    it("is loading until the SDK script loads, then ready", () => {
+      markTelegramMiniApp();
+      mount();
+      expect(screen.getByTestId("status")).toHaveTextContent("loading");
+      fakeSdk("signed");
+      act(() => {
+        sdkScript().dispatchEvent(new Event("load"));
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    });
+    it("is ready at once when the SDK is already present", () => {
+      markTelegramMiniApp();
+      fakeSdk("signed");
+      mount();
+      expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    });
+    it("fails when the script errors", () => {
+      markTelegramMiniApp();
+      mount();
+      act(() => {
+        sdkScript().dispatchEvent(new Event("error"));
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("failed");
+    });
+    it("fails when the SDK loads with empty initData", () => {
+      markTelegramMiniApp();
+      mount();
+      fakeSdk("");
+      act(() => {
+        sdkScript().dispatchEvent(new Event("load"));
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("failed");
+    });
+    it("fails after 10 s of silence", () => {
+      vi.useFakeTimers();
+      markTelegramMiniApp();
+      mount();
+      act(() => {
+        vi.advanceTimersByTime(9_999);
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("loading");
+      act(() => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("failed");
+    });
+    it("does not time out once ready", () => {
+      vi.useFakeTimers();
+      markTelegramMiniApp();
+      mount();
+      fakeSdk("signed");
+      act(() => {
+        sdkScript().dispatchEvent(new Event("load"));
+      });
+      act(() => {
+        vi.advanceTimersByTime(20_000);
+      });
+      expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    });
   });
 });

@@ -26,7 +26,11 @@ vi.mock("@/lib/demo-progress-storage", () => ({
 }));
 
 let currentWebApp: TelegramWebApp | null = null;
-vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => currentWebApp }));
+let currentStatus: "off" | "loading" | "ready" | "failed" = "off";
+vi.mock("@/components/telegram/telegram-provider", () => ({
+  useTelegram: () => currentWebApp,
+  useTelegramStatus: () => currentStatus,
+}));
 
 const cloudRemove = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/telegram/web-app", async (importOriginal) => {
@@ -36,6 +40,7 @@ vi.mock("@/lib/telegram/web-app", async (importOriginal) => {
 
 afterEach(() => {
   currentWebApp = null;
+  currentStatus = "off";
   cloudRemove.mockClear();
   vi.unstubAllGlobals();
   pushMock.mockClear();
@@ -166,6 +171,39 @@ describe("RegisterPage", () => {
         new Response(JSON.stringify({ data: { telegram_linked: true } }), { status: 200 }),
       );
       await submit(fetchMock);
+    });
+  });
+
+  describe("while the Telegram SDK is not ready", () => {
+    function fill() {
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+    }
+
+    it("disables submit, announces the wait and blocks Enter-key submits while loading", () => {
+      currentStatus = "loading";
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      const { container } = renderWithIntl();
+      fill();
+      expect(screen.getByRole("button", { name: "Ro'yxatdan o'tish" })).toBeDisabled();
+      expect(screen.getByRole("status")).toHaveTextContent("Telegram bilan ulanmoqda…");
+      fireEvent.submit(container.querySelector("form")!);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it("lets the learner sign in as on the website once the SDK failed", async () => {
+      currentStatus = "failed";
+      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      renderWithIntl();
+      fill();
+      expect(screen.queryByRole("status")).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.tg_init_data).toBeUndefined();
     });
   });
 });
