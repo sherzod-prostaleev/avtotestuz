@@ -26,7 +26,9 @@ const siteOptions = {
 // are never sent. Partitioned (CHIPS) keys them to the telegram.org top level,
 // so they cannot be replayed from any other site; the Origin guard in
 // same-origin.ts covers other Mini Apps inside the same top level. Secure is
-// unconditional because browsers reject SameSite=None without it.
+// unconditional because browsers reject SameSite=None without it — so a Mini
+// App under development must be served over https (a tunnel) or localhost;
+// on a plain-http LAN IP the browser silently drops these cookies.
 const telegramOptions = {
   httpOnly: true,
   sameSite: "none" as const,
@@ -60,6 +62,34 @@ export function modeForBody(body: string): CookieMode {
   return typeof initData === "string" && initData !== "" ? "telegram" : "site";
 }
 
+/**
+ * In Telegram's Android WebView drivergo.uz is the top level, so the jar may
+ * already hold the website's unpartitioned lax at/rt (an in-app browser login,
+ * an OTP sign-in). CHIPS keeps those beside the new partitioned pair and the
+ * browser sends both under the same names; the BFF would then keep reading and
+ * rotating the stale lax rt while it lingers revoked-but-present, and the next
+ * replay trips refresh-token reuse detection, revoking the whole session.
+ * Telegram-mode issuance therefore expires the lax pair in the same response.
+ *
+ * ResponseCookies keys by name, so it cannot hold a lax and a partitioned "at"
+ * at once; the expiries are raw headers. Its set() rewrites every Set-Cookie
+ * header from its own map, which drops them — hence this runs after the last
+ * set() and re-applies after every later one (each telegram setAuthCookies
+ * call does). The expiries go first: WebKit ignores Partitioned and treats
+ * both as one cookie, so an expiry after the set would delete the new pair.
+ * In the web.telegram.org iframe the lax expiry is refused as a cross-site
+ * write, which is harmless: lax cookies are never sent there either.
+ */
+function expireSiteSessionFirst(res: NextResponse): void {
+  const attrs = `Path=/; Max-Age=0; HttpOnly; SameSite=Lax${siteOptions.secure ? "; Secure" : ""}`;
+  const issued = res.headers.getSetCookie();
+  res.headers.delete("set-cookie");
+  for (const name of [AUTH_COOKIE, REFRESH_COOKIE]) {
+    res.headers.append("set-cookie", `${name}=; ${attrs}`);
+  }
+  for (const cookie of issued) res.headers.append("set-cookie", cookie);
+}
+
 export function setAuthCookies(
   res: NextResponse,
   tokens: { accessToken: string; refreshToken: string },
@@ -70,6 +100,7 @@ export function setAuthCookies(
   res.cookies.set(REFRESH_COOKIE, tokens.refreshToken, { ...options, maxAge: RT_MAX_AGE });
   if (mode === "telegram") {
     res.cookies.set(TG_MODE_COOKIE, "1", { ...options, maxAge: RT_MAX_AGE });
+    expireSiteSessionFirst(res);
   }
 }
 

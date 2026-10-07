@@ -42,7 +42,12 @@ describe("POST /api/auth/telegram", () => {
 
     expect(response.cookies.get(AUTH_COOKIE)?.value).toBe("abc.def");
     expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("xyz.123");
-    const all = response.headers.getSetCookie().join("\n").toLowerCase();
+    const [atExpiry, rtExpiry, ...issued] = response.headers.getSetCookie();
+    // A lax session the Android WebView jar may already hold is expired first.
+    expect(atExpiry).toMatch(/^at=; Path=\/; Max-Age=0; HttpOnly; SameSite=Lax/);
+    expect(rtExpiry).toMatch(/^rt=; Path=\/; Max-Age=0; HttpOnly; SameSite=Lax/);
+    const all = issued.join("\n").toLowerCase();
+    expect(issued).toHaveLength(3);
     expect(all).toContain("partitioned");
     expect(all).toContain(`${TG_MODE_COOKIE}=1`);
     expect(all).not.toContain("samesite=lax");

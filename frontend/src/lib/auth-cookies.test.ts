@@ -59,12 +59,46 @@ describe("telegram cookie mode", () => {
     setAuthCookies(res, tokens, "telegram");
     const cookies = setCookies(res);
     for (const name of ["at=", "rt=", `${TG_MODE_COOKIE}=`]) {
-      const c = cookies.find((x) => x.startsWith(name))!.toLowerCase();
+      const c = cookies.find((x) => x.startsWith(name) && !x.includes("Max-Age=0"))!.toLowerCase();
       expect(c).toContain("samesite=none");
       expect(c).toContain("secure");
       expect(c).toContain("partitioned");
       expect(c).toContain("httponly");
     }
+  });
+
+  it("telegram issuance first expires the unpartitioned lax at/rt, then sets the partitioned pair", () => {
+    const res = NextResponse.json({});
+    setAuthCookies(res, tokens, "telegram");
+    const cookies = setCookies(res);
+    // Expiries come first: browsers that ignore Partitioned (WebKit) treat both
+    // as the same cookie, so an expiry after the set would delete the new pair.
+    expect(cookies.slice(0, 2)).toEqual([
+      "at=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+      "rt=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+    ]);
+    expect(cookies).toHaveLength(5);
+    for (const c of cookies.slice(2)) expect(c.toLowerCase()).toContain("partitioned");
+    expect(res.cookies.get(AUTH_COOKIE)?.value).toBe("a");
+    expect(res.cookies.get(REFRESH_COOKIE)?.value).toBe("r");
+  });
+
+  it("repeated telegram issuance on one response keeps exactly one pair of expiries", () => {
+    const res = NextResponse.json({});
+    setAuthCookies(res, tokens, "telegram");
+    setAuthCookies(res, { accessToken: "a2", refreshToken: "r2" }, "telegram");
+    const cookies = setCookies(res);
+    expect(cookies).toHaveLength(5);
+    expect(cookies.filter((c) => c.includes("Max-Age=0"))).toHaveLength(2);
+    expect(cookies.find((c) => c.startsWith("at=a2"))).toBeDefined();
+  });
+
+  it("site issuance emits no extra expiry", () => {
+    const res = NextResponse.json({});
+    setAuthCookies(res, tokens);
+    const cookies = setCookies(res);
+    expect(cookies).toHaveLength(2);
+    for (const c of cookies) expect(c.toLowerCase()).not.toContain("max-age=0");
   });
 
   it("telegram clear repeats Partitioned so the partitioned cookie is really removed", () => {

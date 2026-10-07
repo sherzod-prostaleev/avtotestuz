@@ -52,6 +52,26 @@ describe("rejectCrossSite", () => {
     expect(rejectCrossSite(noHost)?.status).toBe(403);
   });
 
+  it("requires the Origin scheme to match X-Forwarded-Proto when the proxy sends it", () => {
+    expect(
+      rejectCrossSite(req("POST", { origin: "https://drivergo.uz", "x-forwarded-proto": "https" }))
+    ).toBeNull();
+    expect(
+      rejectCrossSite(req("POST", { origin: "http://drivergo.uz", "x-forwarded-proto": "https" }))?.status
+    ).toBe(403);
+    expect(
+      rejectCrossSite(req("POST", { origin: "https://drivergo.uz", "x-forwarded-proto": "http" }))?.status
+    ).toBe(403);
+    // A proxy chain may append; the first hop is the client-facing scheme.
+    expect(
+      rejectCrossSite(req("POST", { origin: "https://drivergo.uz", "x-forwarded-proto": "HTTPS, http" }))
+    ).toBeNull();
+  });
+
+  it("falls back to host-only when no X-Forwarded-Proto is present", () => {
+    expect(rejectCrossSite(req("POST", { origin: "http://drivergo.uz" }))).toBeNull();
+  });
+
   it("without Origin, blocks Sec-Fetch-Site cross-site and allows the rest", () => {
     expect(rejectCrossSite(req("POST", { "sec-fetch-site": "cross-site" }))?.status).toBe(403);
     expect(rejectCrossSite(req("POST", { "sec-fetch-site": "same-origin" }))).toBeNull();

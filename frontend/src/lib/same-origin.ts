@@ -20,16 +20,21 @@ export function rejectCrossSite(request: Request): NextResponse | null {
   if (SAFE_METHODS.has(request.method.toUpperCase())) return null;
   const origin = request.headers.get("origin");
   if (origin !== null) {
-    let originHost: string;
+    let originURL: URL;
     try {
-      originHost = new URL(origin).host;
+      originURL = new URL(origin);
     } catch {
       return forbidden(); // "null" from sandboxed frames, or garbage
     }
     // URL already lowercases the origin's host; nginx's $host is lowercase
     // too, but the dev server passes the browser's Host through verbatim.
     const host = request.headers.get("host")?.toLowerCase();
-    return host && originHost === host ? null : forbidden();
+    if (!host || originURL.host !== host) return forbidden();
+    // Same host over a different scheme is a different origin. nginx pins
+    // X-Forwarded-Proto to https on location /, and Next fills it from the
+    // socket when absent; only a bare request (unit tests) falls back to host.
+    const proto = request.headers.get("x-forwarded-proto")?.split(",")[0].trim().toLowerCase();
+    return proto && originURL.protocol !== `${proto}:` ? forbidden() : null;
   }
   // Browsers always send Origin on cross-site POSTs; a missing Origin plus an
   // explicit cross-site fetch-metadata header is still refused. Non-browser

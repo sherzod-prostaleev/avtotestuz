@@ -97,8 +97,10 @@ describe("POST /api/auth/otp/verify", () => {
     );
 
     const cookies = response.headers.getSetCookie();
-    expect(cookies).toHaveLength(3);
-    for (const c of cookies) expect(c.toLowerCase()).toContain("partitioned");
+    // The stale lax at/rt expiries lead, then the partitioned at/rt/tgp.
+    expect(cookies).toHaveLength(5);
+    expect(cookies.slice(0, 2).map((c) => c.split(";")[0])).toEqual(["at=", "rt="]);
+    for (const c of cookies.slice(2)) expect(c.toLowerCase()).toContain("partitioned");
   });
 
   it("refuses a foreign Origin with 403 before calling the backend", async () => {
