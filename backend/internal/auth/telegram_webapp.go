@@ -44,8 +44,8 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 	if err != nil || len(values) == 0 {
 		return WebAppUser{}, ErrInitDataInvalid
 	}
-	pairs := make([]string, 0, len(values))
 	var gotHash string
+	keys := make([]string, 0, len(values))
 	for k, vs := range values {
 		// A repeated key makes "which value was signed" ambiguous.
 		if len(vs) != 1 {
@@ -55,12 +55,16 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 			gotHash = vs[0]
 			continue
 		}
-		pairs = append(pairs, k+"="+vs[0])
+		keys = append(keys, k)
 	}
 	if gotHash == "" {
 		return WebAppUser{}, ErrInitDataInvalid
 	}
-	sort.Strings(pairs)
+	sort.Strings(keys)
+	pairs := make([]string, 0, len(keys))
+	for _, k := range keys {
+		pairs = append(pairs, k+"="+values.Get(k))
+	}
 
 	secret := hmac.New(sha256.New, []byte("WebAppData"))
 	secret.Write([]byte(botToken))
