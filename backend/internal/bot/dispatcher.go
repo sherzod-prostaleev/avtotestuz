@@ -376,9 +376,14 @@ func (b *Bot) handlePasswordResetContact(ctx context.Context, chatID, tgUserID i
 		b.logger().Error("bot: password reset contact failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
 		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 	}
-	if res.Outcome == auth.TelegramResetVerified {
+	switch res.Outcome {
+	case auth.TelegramResetVerified:
 		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
 		return err
+	case auth.TelegramResetNone:
+		// Most likely the Mini App's "share phone" sheet, which also posts
+		// the contact here; nobody is waiting for a reset answer.
+		return nil
 	}
 	return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
 }

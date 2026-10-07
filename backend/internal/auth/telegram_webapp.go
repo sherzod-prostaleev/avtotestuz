@@ -43,26 +43,29 @@ type WebAppUser struct {
 	LanguageCode string
 }
 
-// ValidateInitData verifies a Telegram Mini App initData string with the
-// algorithm from core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app
-// and returns the signed user. Nothing outside the signed string is trusted.
-func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration) (WebAppUser, error) {
+// verifyWebAppSignature checks a Telegram-signed query string (Mini App
+// initData, or the requestContact response, which Telegram signs the same
+// way) with the algorithm from
+// core.telegram.org/bots/webapps#validating-data-received-via-the-mini-app,
+// then bounds its auth_date by maxAge. It returns the parsed fields; nothing
+// outside the signed string is trusted.
+func verifyWebAppSignature(raw, botToken string, now time.Time, maxAge time.Duration) (url.Values, error) {
 	if strings.TrimSpace(botToken) == "" {
-		return WebAppUser{}, ErrTelegramBotUnconfigured
+		return nil, ErrTelegramBotUnconfigured
 	}
 	if len(raw) > InitDataMaxBytes {
-		return WebAppUser{}, ErrInitDataInvalid
+		return nil, ErrInitDataInvalid
 	}
 	values, err := url.ParseQuery(raw)
 	if err != nil || len(values) == 0 {
-		return WebAppUser{}, ErrInitDataInvalid
+		return nil, ErrInitDataInvalid
 	}
 	var gotHash string
 	keys := make([]string, 0, len(values))
 	for k, vs := range values {
 		// A repeated key makes "which value was signed" ambiguous.
 		if len(vs) != 1 {
-			return WebAppUser{}, ErrInitDataInvalid
+			return nil, ErrInitDataInvalid
 		}
 		if k == "hash" {
 			gotHash = vs[0]
@@ -71,7 +74,7 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 		keys = append(keys, k)
 	}
 	if gotHash == "" {
-		return WebAppUser{}, ErrInitDataInvalid
+		return nil, ErrInitDataInvalid
 	}
 	sort.Strings(keys)
 	pairs := make([]string, 0, len(keys))
@@ -86,18 +89,27 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 	want := mac.Sum(nil)
 	got, err := hex.DecodeString(gotHash)
 	if err != nil || !hmac.Equal(got, want) {
-		return WebAppUser{}, ErrInitDataInvalid
+		return nil, ErrInitDataInvalid
 	}
 
 	authUnix, err := strconv.ParseInt(values.Get("auth_date"), 10, 64)
 	if err != nil {
-		return WebAppUser{}, ErrInitDataInvalid
+		return nil, ErrInitDataInvalid
 	}
 	authAt := time.Unix(authUnix, 0)
 	if authAt.After(now.Add(initDataClockSkew)) || now.Sub(authAt) > maxAge {
-		return WebAppUser{}, ErrInitDataExpired
+		return nil, ErrInitDataExpired
 	}
+	return values, nil
+}
 
+// ValidateInitData verifies a Telegram Mini App initData string and returns
+// the signed user.
+func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration) (WebAppUser, error) {
+	values, err := verifyWebAppSignature(raw, botToken, now, maxAge)
+	if err != nil {
+		return WebAppUser{}, err
+	}
 	var u struct {
 		ID           int64  `json:"id"`
 		FirstName    string `json:"first_name"`
@@ -108,4 +120,52 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 		return WebAppUser{}, ErrInitDataInvalid
 	}
 	return WebAppUser{ID: u.ID, FirstName: u.FirstName, Username: u.Username, LanguageCode: u.LanguageCode}, nil
+}
+
+// WebAppContact is the phone number a Telegram user shared with the bot
+// through WebApp.requestContact, as Telegram signed it.
+type WebAppContact struct {
+	UserID int64
+	Phone  string
+}
+
+// ValidateContact verifies the `response` string WebApp.requestContact hands
+// the Mini App: a query string `contact=<json>&auth_date=<unix>&hash=<hex>`
+// that Telegram's server signs exactly like initData (same WebAppData HMAC).
+// The format is not in Telegram's prose docs; it is what telegram-web-app.js
+// returns from its getRequestedContact custom method (see the final-fix
+// report for the sources). Because Telegram, not the client, vouches for the
+// phone, this is the proof that a Telegram account owns a phone number.
+func ValidateContact(raw, botToken string, now time.Time, maxAge time.Duration) (WebAppContact, error) {
+	values, err := verifyWebAppSignature(raw, botToken, now, maxAge)
+	if err != nil {
+		return WebAppContact{}, err
+	}
+	var c struct {
+		UserID      int64  `json:"user_id"`
+		PhoneNumber string `json:"phone_number"`
+	}
+	if err := json.Unmarshal([]byte(values.Get("contact")), &c); err != nil || c.UserID <= 0 || c.PhoneNumber == "" {
+		return WebAppContact{}, ErrInitDataInvalid
+	}
+	return WebAppContact{UserID: c.UserID, Phone: c.PhoneNumber}, nil
+}
+
+// NormalizeTelegramContactPhone turns a phone number Telegram reports for an
+// account (always international, digits with an optional leading "+") into
+// our +998XXXXXXXXX form. It is stricter than NormalizePhone on purpose: that
+// one also accepts a bare 9-digit national number, and a 9-digit foreign
+// number (e.g. an old Myanmar +95 9xxxxxx) would then be read as a UZ phone
+// and could "prove" ownership of someone else's profile.
+func NormalizeTelegramContactPhone(raw string) (string, error) {
+	d := strings.TrimPrefix(strings.TrimSpace(raw), "+")
+	if len(d) != 12 || !strings.HasPrefix(d, "998") {
+		return "", ErrInvalidPhone
+	}
+	for _, r := range d {
+		if r < '0' || r > '9' {
+			return "", ErrInvalidPhone
+		}
+	}
+	return "+" + d, nil
 }

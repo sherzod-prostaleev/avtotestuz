@@ -29,10 +29,12 @@ func setupHandlerServer(t *testing.T) *httptest.Server {
 	// default now (see TestRequestOTPNeverEchoesCodeByDefault).
 	svc.DebugEcho = true
 	svc.TelegramBotToken = testBotToken
+	svc.TelegramWebAppURL = testWebAppURL
 
 	r := chi.NewRouter()
 	h := &Handler{Svc: svc}
 	h.Routes(r)
+	h.AuthedRoutes(r.With(Required([]byte(handlerSecret))))
 	r.With(Required([]byte(handlerSecret))).Get("/probe", func(w http.ResponseWriter, req *http.Request) {
 		claims, _ := FromContext(req.Context())
 		_, _ = w.Write([]byte(claims.ProfileID.String()))
@@ -200,8 +202,8 @@ func TestTelegramWebAppHandlerNeedPhoneAndInvalid(t *testing.T) {
 
 func TestTelegramWebAppHandlerLinkedResponseHasOnlyTokens(t *testing.T) {
 	ts := setupHandlerServer(t)
-	raw := signInitData(t, testBotToken, webAppFields(6002, time.Now()))
-	status, env := postJSON(t, ts, "/auth/register", map[string]string{"phone": "+998901110020", "password": "handler-password-1", "name": "A", "tg_init_data": raw})
+	raw, contact := proof(t, 6002, "+998901110020")
+	status, env := postJSON(t, ts, "/auth/register", map[string]string{"phone": "+998901110020", "password": "handler-password-1", "name": "A", "tg_init_data": raw, "tg_contact": contact})
 	if status != http.StatusCreated || !strings.Contains(string(env.Data), `"telegram_linked":true`) {
 		t.Fatalf("register status=%d data=%s", status, env.Data)
 	}
@@ -230,5 +232,68 @@ func TestPlainLoginResponseHasNoTelegramLinkedKey(t *testing.T) {
 	status, env = postJSON(t, ts, "/auth/login", map[string]string{"phone": body["phone"], "password": body["password"]})
 	if status != http.StatusOK || strings.Contains(string(env.Data), "telegram_linked") {
 		t.Fatalf("login status=%d data=%s", status, env.Data)
+	}
+}
+
+func postJSONAuthed(t *testing.T, ts *httptest.Server, path, access string, body any) (int, respEnvelope) {
+	t.Helper()
+	b, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodPost, ts.URL+path, bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if access != "" {
+		req.Header.Set("Authorization", "Bearer "+access)
+	}
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	var env respEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&env); err != nil {
+		t.Fatal(err)
+	}
+	return resp.StatusCode, env
+}
+
+// Launch data alone over HTTP links nothing (C1); with the signed phone it
+// links, through login and through the authenticated link-webapp route.
+func TestLoginHandlerLinksOnlyWithSignedContact(t *testing.T) {
+	ts := setupHandlerServer(t)
+	const phone, pw = "+998901110022", "handler-password-2"
+	status, env := postJSON(t, ts, "/auth/register", map[string]string{"phone": phone, "password": pw, "name": "A"})
+	if status != http.StatusCreated {
+		t.Fatalf("register status=%d env=%+v", status, env)
+	}
+	raw, contact := proof(t, 6003, phone)
+	status, env = postJSON(t, ts, "/auth/login", map[string]string{"phone": phone, "password": pw, "tg_init_data": raw})
+	if status != http.StatusOK || strings.Contains(string(env.Data), "telegram_linked") {
+		t.Fatalf("init data alone: status=%d data=%s", status, env.Data)
+	}
+	var toks struct {
+		AccessToken string `json:"access_token"`
+	}
+	if err := json.Unmarshal(env.Data, &toks); err != nil {
+		t.Fatal(err)
+	}
+	if status, env := postJSONAuthed(t, ts, "/me/telegram/link-webapp", "", map[string]string{"init_data": raw, "contact": contact}); status != http.StatusUnauthorized {
+		t.Fatalf("link-webapp without auth: status=%d env=%+v", status, env)
+	}
+	status, env = postJSONAuthed(t, ts, "/me/telegram/link-webapp", toks.AccessToken, map[string]string{"init_data": raw, "contact": signContact(t, testBotToken, 6003, "998901110099", time.Now())})
+	if status != http.StatusOK || string(env.Data) != `{"linked":false}` {
+		t.Fatalf("wrong phone: status=%d data=%s", status, env.Data)
+	}
+	status, env = postJSONAuthed(t, ts, "/me/telegram/link-webapp", toks.AccessToken, map[string]string{"init_data": raw, "contact": contact})
+	if status != http.StatusOK || string(env.Data) != `{"linked":true}` {
+		t.Fatalf("matching proof: status=%d data=%s", status, env.Data)
+	}
+	status, env = postJSON(t, ts, "/auth/login", map[string]string{"phone": phone, "password": pw, "tg_init_data": raw, "tg_contact": contact})
+	if status != http.StatusOK || !strings.Contains(string(env.Data), `"telegram_linked":true`) {
+		t.Fatalf("login with proof: status=%d data=%s", status, env.Data)
 	}
 }

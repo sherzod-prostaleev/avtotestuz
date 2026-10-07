@@ -372,6 +372,28 @@ func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
 	}
 }
 
+// Sharing a phone from the Mini App (WebApp.requestContact) sends the contact
+// to this chat too; with no reset pending the bot must stay quiet instead of
+// answering "link invalid" to someone who never asked for a reset.
+func TestHandleUpdate_ContactWithoutPendingResetIsSilent(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	attachAuth(t, b, q)
+	u := Update{
+		UpdateID: 3,
+		Message: &Message{
+			From:    &User{ID: 2222, Username: "miniapp"},
+			Chat:    Chat{ID: 2222, Type: "private"},
+			Contact: &Contact{PhoneNumber: "998901000022", UserID: 2222},
+		},
+	}
+	if err := b.HandleUpdate(context.Background(), u); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.allMessages(); len(got) != 0 {
+		t.Fatalf("bot replied %q", got)
+	}
+}
+
 func (f *fakeTelegram) lastMarkup() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()

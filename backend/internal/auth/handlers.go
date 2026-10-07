@@ -31,6 +31,12 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/auth/password-reset/complete", h.passwordResetComplete)
 }
 
+// AuthedRoutes mounts the routes that act on the signed-in learner; r must
+// already carry the learner auth middleware.
+func (h *Handler) AuthedRoutes(r chi.Router) {
+	r.Post("/me/telegram/link-webapp", h.linkTelegramWebApp)
+}
+
 func decodeBody(w http.ResponseWriter, r *http.Request, v any) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
 		httpx.Error(w, http.StatusBadRequest, "invalid_body", "malformed JSON body")
@@ -45,12 +51,16 @@ type registerBody struct {
 	Name     string `json:"name"`
 	// TgInitData is the Mini App launch payload; absent outside Telegram.
 	TgInitData string `json:"tg_init_data"`
+	// TgContact is the Telegram-signed requestContact response; the link
+	// needs it (see Service.linkTelegramInTx).
+	TgContact string `json:"tg_contact"`
 }
 
 type loginBody struct {
 	Phone      string `json:"phone"`
 	Password   string `json:"password"`
 	TgInitData string `json:"tg_init_data"`
+	TgContact  string `json:"tg_contact"`
 }
 
 type otpRequestBody struct {
@@ -86,6 +96,7 @@ func (h *Handler) register(w http.ResponseWriter, r *http.Request) {
 		IP:       h.ClientIPs.Resolve(r),
 
 		TgInitData: body.TgInitData,
+		TgContact:  body.TgContact,
 	})
 	if err != nil {
 		writeAuthError(w, err)
@@ -110,6 +121,7 @@ func (h *Handler) login(w http.ResponseWriter, r *http.Request) {
 		IP:       h.ClientIPs.Resolve(r),
 
 		TgInitData: body.TgInitData,
+		TgContact:  body.TgContact,
 	})
 	if err != nil {
 		writeAuthError(w, err)
@@ -155,6 +167,37 @@ func (h *Handler) telegramWebApp(w http.ResponseWriter, r *http.Request) {
 		MustChangePassword: res.Profile.MustChangePassword,
 		TelegramLinked:     true,
 	})
+}
+
+type linkWebAppBody struct {
+	InitData string `json:"init_data"`
+	Contact  string `json:"contact"`
+}
+
+type linkWebAppResponse struct {
+	Linked bool `json:"linked"`
+}
+
+// linkTelegramWebApp links the launching Telegram account to the signed-in
+// learner when Telegram vouches for the profile's phone. A proof that does
+// not hold is 200 {linked:false}, never 401: the BFF proxy reads a 401 as an
+// expired session and would sign the learner out.
+func (h *Handler) linkTelegramWebApp(w http.ResponseWriter, r *http.Request) {
+	claims, ok := FromContext(r.Context())
+	if !ok {
+		httpx.Error(w, http.StatusUnauthorized, "unauthorized", "missing auth")
+		return
+	}
+	var body linkWebAppBody
+	if !decodeBody(w, r, &body) {
+		return
+	}
+	linked, err := h.Svc.LinkTelegramWebApp(r.Context(), claims.ProfileID, body.InitData, body.Contact)
+	if err != nil {
+		writeAuthError(w, err)
+		return
+	}
+	httpx.Data(w, http.StatusOK, linkWebAppResponse{Linked: linked})
 }
 
 func (h *Handler) requestOTP(w http.ResponseWriter, r *http.Request) {

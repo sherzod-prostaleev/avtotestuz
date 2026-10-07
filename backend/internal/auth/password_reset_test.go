@@ -188,12 +188,35 @@ func TestPasswordReset_ContactMustMatchAccountPhone(t *testing.T) {
 		t.Fatalf("spoofed contact user_id accepted: %s", spoof.Outcome)
 	}
 
+	// Telegram always reports an international number; a bare 9-digit one is
+	// a foreign number and must not match the national digits of a UZ phone.
+	bare, err := svc.ConfirmTelegramPasswordResetContact(ctx, 77, 77, phone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bare.Outcome != TelegramResetInvalid {
+		t.Fatalf("9-digit contact accepted: %s", bare.Outcome)
+	}
+
 	ok, err := svc.ConfirmTelegramPasswordResetContact(ctx, 77, 77, "998"+phone)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if ok.Outcome != TelegramResetVerified {
 		t.Fatalf("matching contact=%s", ok.Outcome)
+	}
+}
+
+// The Mini App's requestContact also drops the learner's contact into the
+// bot chat. With no reset waiting for it, that is not a failed reset.
+func TestPasswordReset_ContactWithoutPendingResetIsNone(t *testing.T) {
+	svc, _ := resetTestService(t)
+	res, err := svc.ConfirmTelegramPasswordResetContact(context.Background(), 78, 78, "998901000012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetNone {
+		t.Fatalf("outcome=%s want none", res.Outcome)
 	}
 }
 

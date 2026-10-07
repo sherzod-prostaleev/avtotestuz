@@ -72,6 +72,9 @@ type Service struct {
 	// TelegramBotToken verifies Mini App initData (the same bot hosts the
 	// Mini App, spec D2). Empty disables Telegram sign-in only.
 	TelegramBotToken string
+	// TelegramWebAppURL is TELEGRAM_WEBAPP_URL, the Mini App kill switch:
+	// empty turns Mini App sign-in and linking off even with a bot token.
+	TelegramWebAppURL string
 	// now is injectable for initData age checks; nil means time.Now.
 	now func() time.Time
 }
@@ -279,6 +282,9 @@ type RegisterInput struct {
 	IP       string
 	// TgInitData is the optional Mini App launch payload to link on success.
 	TgInitData string
+	// TgContact is the Telegram-signed requestContact response; linking
+	// needs it to prove the Telegram account owns this phone.
+	TgContact string
 }
 
 // Register creates a profile with phone + password and issues a session.
@@ -327,7 +333,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	linked := s.linkTelegramInTx(ctx, tx, profile.ID, in.TgInitData)
+	linked := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
@@ -340,6 +346,8 @@ type LoginInput struct {
 	IP       string
 	// TgInitData is the optional Mini App launch payload to link on success.
 	TgInitData string
+	// TgContact: see RegisterInput.TgContact.
+	TgContact string
 }
 
 // Login authenticates phone + password and issues a session.
@@ -380,7 +388,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	linked := s.linkTelegramInTx(ctx, tx, profile.ID, in.TgInitData)
+	linked := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}

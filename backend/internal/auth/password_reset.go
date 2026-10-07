@@ -52,6 +52,9 @@ const (
 	TelegramResetInvalid     = "invalid"
 	TelegramResetNeedContact = "need_contact"
 	TelegramResetVerified    = "verified"
+	// TelegramResetNone: a contact arrived with no reset waiting for it (the
+	// Mini App's phone share lands in the bot chat too). Not an error.
+	TelegramResetNone = "none"
 )
 
 type TelegramResetBegin struct {
@@ -253,11 +256,6 @@ func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUse
 	if tgUserID == 0 || contactUserID != tgUserID {
 		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
 	}
-	normalized, err := NormalizePhone(contactPhone)
-	if err != nil {
-		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
-	}
-
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return TelegramResetBegin{}, err
@@ -268,11 +266,15 @@ func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUse
 	row, err := q.GetLivePasswordResetByPendingTgForUpdate(ctx, pgtype.Int8{Int64: tgUserID, Valid: true})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
+			return TelegramResetBegin{Outcome: TelegramResetNone}, nil
 		}
 		return TelegramResetBegin{}, err
 	}
 	if !resetTokenLive(row) {
+		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
+	}
+	normalized, err := NormalizeTelegramContactPhone(contactPhone)
+	if err != nil {
 		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
 	}
 

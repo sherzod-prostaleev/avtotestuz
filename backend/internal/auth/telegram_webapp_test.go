@@ -105,8 +105,13 @@ func TestValidateInitDataRejects(t *testing.T) {
 	delete(noAuthDate, "auth_date")
 	badAuthDate := baseFields(now)
 	badAuthDate["auth_date"] = "not-a-number"
-	badHash := baseFields(now)
-	badHash["hash"] = "zz"
+	// The hash is replaced AFTER signing: setting it in the field map would
+	// only sign a "hash" field and then overwrite it with a valid one.
+	badHash := func() string {
+		v, _ := url.ParseQuery(genuine)
+		v.Set("hash", "zz"+v.Get("hash")[2:])
+		return v.Encode()
+	}()
 	noSigInCheck := func() string {
 		// A hash computed WITHOUT the signature field must not validate:
 		// Telegram includes every field but hash in data_check_string.
@@ -136,7 +141,7 @@ func TestValidateInitDataRejects(t *testing.T) {
 		{"missing user field", signInitData(t, testBotToken, noUserField), testBotToken, ErrInitDataInvalid},
 		{"missing auth_date", signInitData(t, testBotToken, noAuthDate), testBotToken, ErrInitDataInvalid},
 		{"non-numeric auth_date", signInitData(t, testBotToken, badAuthDate), testBotToken, ErrInitDataInvalid},
-		{"non-hex hash", signInitData(t, testBotToken, badHash), testBotToken, ErrInitDataInvalid},
+		{"non-hex hash", badHash, testBotToken, ErrInitDataInvalid},
 		{"signature excluded from check", noSigInCheck, testBotToken, ErrInitDataInvalid},
 		{"no bot token", genuine, "", ErrTelegramBotUnconfigured},
 	}
@@ -203,5 +208,87 @@ func TestValidateInitDataRejectsOversizedInput(t *testing.T) {
 	raw := signInitData(t, testBotToken, fields)
 	if _, err := ValidateInitData(raw, testBotToken, now, InitDataMaxAge); !errors.Is(err, ErrInitDataInvalid) {
 		t.Fatalf("err = %v, want ErrInitDataInvalid", err)
+	}
+}
+
+// signContact builds a requestContact response the way Telegram signs it:
+// contact JSON + auth_date, same WebAppData HMAC as initData.
+func signContact(t *testing.T, botToken string, tgID int64, phone string, at time.Time) string {
+	t.Helper()
+	return signInitData(t, botToken, map[string]string{
+		"contact":   `{"user_id":` + strconv.FormatInt(tgID, 10) + `,"phone_number":"` + phone + `","first_name":"Ali"}`,
+		"auth_date": strconv.FormatInt(at.Unix(), 10),
+	})
+}
+
+func TestValidateContactKnownAnswerVector(t *testing.T) {
+	// Computed independently with Python's hmac/hashlib (WebAppData secret,
+	// sorted "key=value" lines) over the public SDK test bot token, in the
+	// format telegram-web-app.js's getRequestedContact returns.
+	botToken := "5768337691:AAH5YkoiEuPk8-FZa32hStHTqXiLPtAEhx8"
+	raw := "contact=%7B%22user_id%22%3A279058397%2C%22phone_number%22%3A%22998901234567%22%2C%22first_name%22%3A%22Vladislav%22%2C%22last_name%22%3A%22Kibenko%22%7D&auth_date=1662771700&hash=2e24c6752581361f420fdb406a8618397a9e83dc11ebc0032850d56e0cbda7ce"
+	now := time.Unix(1662771700, 0).Add(time.Minute)
+	c, err := ValidateContact(raw, botToken, now, InitDataLinkMaxAge)
+	if err != nil {
+		t.Fatalf("valid contact rejected: %v", err)
+	}
+	if c.UserID != 279058397 || c.Phone != "998901234567" {
+		t.Fatalf("contact = %+v", c)
+	}
+	tampered := strings.Replace(raw, "998901234567", "998901234568", 1)
+	if _, err := ValidateContact(tampered, botToken, now, InitDataLinkMaxAge); !errors.Is(err, ErrInitDataInvalid) {
+		t.Fatalf("tampered phone accepted, err = %v", err)
+	}
+}
+
+func TestValidateContactRejects(t *testing.T) {
+	now := time.Unix(1_760_000_000, 0)
+	genuine := signContact(t, testBotToken, 5001, "998901234567", now)
+	initDataNotContact := signInitData(t, testBotToken, baseFields(now))
+	noPhone := signInitData(t, testBotToken, map[string]string{
+		"contact": `{"user_id":5001}`, "auth_date": strconv.FormatInt(now.Unix(), 10),
+	})
+	zeroUser := signInitData(t, testBotToken, map[string]string{
+		"contact": `{"user_id":0,"phone_number":"998901234567"}`, "auth_date": strconv.FormatInt(now.Unix(), 10),
+	})
+	cases := []struct {
+		name string
+		raw  string
+		tok  string
+		at   time.Time
+		want error
+	}{
+		{"wrong token", genuine, "999:other", now, ErrInitDataInvalid},
+		{"expired", genuine, testBotToken, now.Add(InitDataLinkMaxAge + time.Second), ErrInitDataExpired},
+		{"init data is not a contact", initDataNotContact, testBotToken, now, ErrInitDataInvalid},
+		{"no phone", noPhone, testBotToken, now, ErrInitDataInvalid},
+		{"zero user", zeroUser, testBotToken, now, ErrInitDataInvalid},
+		{"empty", "", testBotToken, now, ErrInitDataInvalid},
+		{"no bot token", genuine, "", now, ErrTelegramBotUnconfigured},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if _, err := ValidateContact(tc.raw, tc.tok, tc.at, InitDataLinkMaxAge); !errors.Is(err, tc.want) {
+				t.Fatalf("err = %v, want %v", err, tc.want)
+			}
+		})
+	}
+}
+
+func TestNormalizeTelegramContactPhone(t *testing.T) {
+	for in, want := range map[string]string{
+		"998901234567":  "+998901234567",
+		"+998901234567": "+998901234567",
+	} {
+		got, err := NormalizeTelegramContactPhone(in)
+		if err != nil || got != want {
+			t.Fatalf("%q -> %q, %v", in, got, err)
+		}
+	}
+	// A 9-digit foreign number must never be read as a national UZ number.
+	for _, in := range []string{"959012345", "901234567", "79001234567", "+7 900 123-45-67", "99890123456a", ""} {
+		if _, err := NormalizeTelegramContactPhone(in); err == nil {
+			t.Fatalf("%q accepted", in)
+		}
 	}
 }

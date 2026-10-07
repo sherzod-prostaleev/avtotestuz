@@ -249,6 +249,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				svc.DebugEcho = cfg.OTPDebugEcho
 				svc.Log = log
 				svc.TelegramBotToken = cfg.TelegramBotToken
+				svc.TelegramWebAppURL = cfg.TelegramWebAppURL
 				ah := &auth.Handler{
 					Svc:         svc,
 					ClientIPs:   auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
@@ -267,6 +268,8 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
 				acc.Routes(learnerAuth)
+
+				ah.AuthedRoutes(learnerAuth)
 
 				bh.AuthedRoutes(learnerAuth)
 
