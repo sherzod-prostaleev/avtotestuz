@@ -197,12 +197,13 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 			bh := &billing.Handler{
 				// PublicBaseURL only matters on this Service — it serves
 				// GET /me/referral, the one endpoint that builds a shareable link.
-				Svc:               learnerBilling,
-				PaymeMerchantID:   cfg.PaymeMerchantID,
-				PaymeCheckoutHost: cfg.PaymeCheckoutHost(),
-				ClickServiceID:    cfg.ClickServiceID,
-				ClickMerchantID:   cfg.ClickMerchantID,
-				ManualIngestToken: cfg.ManualPayIngestToken,
+				Svc:                 learnerBilling,
+				PaymeMerchantID:     cfg.PaymeMerchantID,
+				PaymeCheckoutHost:   cfg.PaymeCheckoutHost(),
+				ClickServiceID:      cfg.ClickServiceID,
+				ClickMerchantID:     cfg.ClickMerchantID,
+				ManualIngestToken:   cfg.ManualPayIngestToken,
+				TelegramBotUsername: cfg.TelegramBotUsername,
 			}
 			bh.Routes(api)
 			bh.InternalRoutes(api)

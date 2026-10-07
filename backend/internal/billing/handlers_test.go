@@ -203,4 +203,81 @@ func TestCheckoutEndpointReturnURL(t *testing.T) {
 			t.Errorf("click return_url = %q, want %q", got, wantReturn)
 		}
 	})
+
+	// Mini App checkouts return to a public page (the external browser that
+	// Payme/Click opened has no session); anything else keeps the website flow.
+	h.TelegramBotUsername = "avtotest_bot"
+	clickReturn := func(t *testing.T, payload string) string {
+		t.Helper()
+		req := httptest.NewRequest(http.MethodPost, "/me/checkout?locale=ru", strings.NewReader(payload))
+		req.Header.Set("Authorization", "Bearer "+tok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body=%s", w.Code, w.Body.String())
+		}
+		var res struct {
+			Data CheckoutResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+			t.Fatal(err)
+		}
+		parsed, err := url.Parse(res.Data.CheckoutURL)
+		if err != nil {
+			t.Fatalf("parse click url: %v", err)
+		}
+		return parsed.Query().Get("return_url")
+	}
+	wantDone := publicBase + "/ru/checkout/done?bot=avtotest_bot"
+
+	t.Run("telegram click", func(t *testing.T) {
+		if got := clickReturn(t, `{"tariff_code":"gentra","provider":"click","return_context":"telegram"}`); got != wantDone {
+			t.Errorf("click return_url = %q, want %q", got, wantDone)
+		}
+	})
+
+	t.Run("telegram payme", func(t *testing.T) {
+		body := strings.NewReader(`{"tariff_code":"gentra","provider":"payme","return_context":"telegram"}`)
+		req := httptest.NewRequest(http.MethodPost, "/me/checkout?locale=ru", body)
+		req.Header.Set("Authorization", "Bearer "+tok)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("status = %d, want 200; body=%s", w.Code, w.Body.String())
+		}
+		var res struct {
+			Data CheckoutResult `json:"data"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &res); err != nil {
+			t.Fatal(err)
+		}
+		raw, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(res.Data.CheckoutURL, "https://checkout.paycom.uz/"))
+		if err != nil {
+			t.Fatalf("decode payme url: %v", err)
+		}
+		if !strings.Contains(string(raw), "c="+wantDone) {
+			t.Errorf("payme callback = %q, want c=%s", string(raw), wantDone)
+		}
+	})
+
+	t.Run("unknown context ignored", func(t *testing.T) {
+		for _, payload := range []string{
+			`{"tariff_code":"gentra","provider":"click","return_context":"https://evil.example"}`,
+			`{"tariff_code":"gentra","provider":"click","return_context":"Telegram"}`,
+			`{"tariff_code":"gentra","provider":"click","return_context":""}`,
+		} {
+			if got := clickReturn(t, payload); got != wantReturn {
+				t.Errorf("payload %s: return_url = %q, want %q", payload, got, wantReturn)
+			}
+		}
+	})
+
+	t.Run("telegram without bot username", func(t *testing.T) {
+		h.TelegramBotUsername = ""
+		t.Cleanup(func() { h.TelegramBotUsername = "avtotest_bot" })
+		want := publicBase + "/ru/checkout/done"
+		if got := clickReturn(t, `{"tariff_code":"gentra","provider":"click","return_context":"telegram"}`); got != want {
+			t.Errorf("click return_url = %q, want %q", got, want)
+		}
+	})
 }

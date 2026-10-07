@@ -27,6 +27,9 @@ type Handler struct {
 	ClickMerchantID   string
 	// ManualIngestToken authenticates humo-watcher → POST /internal/manual-pay/ingest.
 	ManualIngestToken string
+	// TelegramBotUsername (no '@') lets the Mini App return page link back to
+	// the bot. Empty = the page shows text only.
+	TelegramBotUsername string
 }
 
 // Routes mounts the public, unauthenticated billing endpoints.
@@ -144,7 +147,14 @@ type checkoutBody struct {
 	TariffCode string `json:"tariff_code"`
 	Provider   string `json:"provider"`
 	PromoCode  string `json:"promo_code,omitempty"`
+	// ReturnContext "telegram" = started inside the Mini App. Any other value
+	// is ignored (website flow); it only selects between two server-built
+	// URLs, so it can never become a redirect target.
+	ReturnContext string `json:"return_context,omitempty"`
 }
+
+// returnContextTelegram is the only recognised checkoutBody.ReturnContext.
+const returnContextTelegram = "telegram"
 
 // checkout starts a checkout (Payme or Click) for the authed profile:
 // creates a 'created' payment for the requested tariff and returns its
@@ -212,6 +222,9 @@ func (h *Handler) checkout(w http.ResponseWriter, r *http.Request) {
 	// pending page can poll entitlement. Never taken from the client — that
 	// would be an open-redirect vector.
 	returnURL := h.Svc.checkoutPendingReturnURL(loc)
+	if body.ReturnContext == returnContextTelegram {
+		returnURL = h.Svc.checkoutDoneReturnURL(loc, h.TelegramBotUsername)
+	}
 	result, err := h.Svc.StartCheckout(r.Context(), claims.ProfileID, body.TariffCode, provider, cfg, loc, returnURL, body.PromoCode)
 	if err != nil {
 		if errors.Is(err, ErrProviderDisabled) {

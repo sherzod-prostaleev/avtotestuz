@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -78,6 +79,26 @@ func (s Service) checkoutPendingReturnURL(locale string) string {
 		locale = i18n.Default
 	}
 	return fmt.Sprintf("%s/%s/checkout/pending", s.publicBaseURL(), locale)
+}
+
+// telegramBotUsername matches Telegram's username rules; anything else is a
+// misconfiguration and is dropped rather than echoed into a payer's URL.
+var telegramBotUsername = regexp.MustCompile(`^[A-Za-z0-9_]{5,32}$`)
+
+// checkoutDoneReturnURL is the return target for a checkout started inside the
+// Telegram Mini App. Payme/Click open in an external browser that has no
+// session, so the session-gated /checkout/pending would bounce the payer to
+// "session expired" right after paying; /checkout/done is public and only
+// offers a way back to the bot (bot param, when configured).
+func (s Service) checkoutDoneReturnURL(locale, bot string) string {
+	if !webCheckoutLocales[locale] {
+		locale = i18n.Default
+	}
+	u := fmt.Sprintf("%s/%s/checkout/done", s.publicBaseURL(), locale)
+	if telegramBotUsername.MatchString(bot) {
+		u += "?" + url.Values{"bot": {bot}}.Encode()
+	}
+	return u
 }
 
 // StartCheckout creates a 'created' payment for the tariff and returns the

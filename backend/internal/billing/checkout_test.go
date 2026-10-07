@@ -65,6 +65,29 @@ func TestCheckoutPendingReturnURL(t *testing.T) {
 	}
 }
 
+func TestCheckoutDoneReturnURL(t *testing.T) {
+	svc := Service{PublicBaseURL: "https://avtotest.uz"}
+	cases := []struct {
+		name, locale, bot, want string
+	}{
+		{"with bot", "ru", "avtotest_bot", "https://avtotest.uz/ru/checkout/done?bot=avtotest_bot"},
+		{"no bot", "uz-Latn", "", "https://avtotest.uz/uz-Latn/checkout/done"},
+		{"kaa clamps", "kaa", "avtotest_bot", "https://avtotest.uz/uz-Latn/checkout/done?bot=avtotest_bot"},
+		// A misconfigured username must never smuggle extra params or a
+		// different host into the payer's return URL.
+		{"bad bot dropped", "ru", "evil&next=//x.com", "https://avtotest.uz/ru/checkout/done"},
+		{"short bot dropped", "ru", "abc", "https://avtotest.uz/ru/checkout/done"},
+		{"at-prefixed dropped", "ru", "@avtotest_bot", "https://avtotest.uz/ru/checkout/done"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := svc.checkoutDoneReturnURL(tc.locale, tc.bot); got != tc.want {
+				t.Errorf("checkoutDoneReturnURL(%q, %q) = %q, want %q", tc.locale, tc.bot, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBuildClickURL(t *testing.T) {
 	orderID := uuid.New().String()
 	got := BuildClickURL("12345", "67890", orderID, 59900, "https://avtotest.uz/checkout/success")
