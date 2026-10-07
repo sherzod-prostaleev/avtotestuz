@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -110,7 +111,7 @@ func main() {
 
 	// Menu button sync is best-effort and off the startup path: a slow or
 	// unreachable Telegram API must never delay or fail boot.
-	if cfg.TelegramBotMode != "off" && cfg.TelegramBotToken != "" {
+	if menuButtonSyncWanted(cfg) {
 		go func() {
 			syncCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 			defer cancel()
@@ -186,6 +187,14 @@ func main() {
 // readiness snapshot, and one sweep finishes up to expirySweepLimit of them.
 // Without the cache that would be one full scan of exam_session per session
 // closed, which is the very cost this sweep exists to stop growing.
+// menuButtonSyncWanted ignores TELEGRAM_BOT_MODE on purpose: the menu button
+// lives on Telegram's side and outlives our process, so with the bot switched
+// off (mode=off) a stale web_app button would keep opening the Mini App. Any
+// token is enough to reset it to match TELEGRAM_WEBAPP_URL (the kill switch).
+func menuButtonSyncWanted(cfg config.Config) bool {
+	return strings.TrimSpace(cfg.TelegramBotToken) != ""
+}
+
 func newExpirySessionService(pool *pgxpool.Pool) *session.Service {
 	q := sqlc.New(pool)
 	learningSvc := learning.NewService(q)
