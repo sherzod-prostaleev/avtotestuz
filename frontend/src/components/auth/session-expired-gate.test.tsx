@@ -3,6 +3,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, apiGet } from "@/lib/api-client";
 import { createQueryClient } from "@/lib/query-client";
+import { markTelegramMiniApp } from "@/lib/telegram/web-app";
 import { SessionExpiredGate } from "./session-expired-gate";
 
 const replaceMock = vi.fn();
@@ -34,6 +35,9 @@ describe("SessionExpiredGate", () => {
   beforeEach(() => {
     replaceMock.mockReset();
     vi.unstubAllGlobals();
+    sessionStorage.clear();
+    delete (window as { Telegram?: unknown }).Telegram;
+    window.history.replaceState(null, "", "/");
   });
 
   it("keeps the shell painted while every call succeeds", async () => {
@@ -115,5 +119,34 @@ describe("SessionExpiredGate", () => {
 
     await expect(apiGet("me/stats")).rejects.toBeInstanceOf(ApiError);
     expect(replaceMock).not.toHaveBeenCalled();
+  });
+
+  // In the Mini App the launch data can sign the learner straight back in, so
+  // expiry goes to /tg with the screen they were on — and, unlike a logout,
+  // never switches Telegram auto-login off.
+  it("sends a Mini App learner to /tg with the current screen as next", async () => {
+    markTelegramMiniApp();
+    const setItem = vi.fn();
+    (window as { Telegram?: unknown }).Telegram = {
+      WebApp: { initData: "x", CloudStorage: { setItem, getItem: vi.fn(), removeItem: vi.fn() } },
+    };
+    window.history.replaceState(null, "", "/uz-Latn/tickets/12?mode=x");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        if (String(input) === "/api/auth/logout") return jsonResponse(200, { data: { ok: true } });
+        return jsonResponse(401, { error: { code: "unauthorized", message: "session expired" } });
+      }),
+    );
+    renderGate();
+
+    await expect(apiGet("me")).rejects.toBeInstanceOf(ApiError);
+
+    await waitFor(() => {
+      expect(replaceMock).toHaveBeenCalledWith(
+        `/uz-Latn/tg?next=${encodeURIComponent("/uz-Latn/tickets/12?mode=x")}`,
+      );
+    });
+    expect(setItem).not.toHaveBeenCalled();
   });
 });

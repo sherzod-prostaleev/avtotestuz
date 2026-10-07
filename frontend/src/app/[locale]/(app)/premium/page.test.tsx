@@ -43,6 +43,8 @@ function renderWithIntl() {
 describe("PremiumPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    pushMock.mockReset();
+    delete (window as { Telegram?: unknown }).Telegram;
   });
 
   it("renders every API tariff with pricing and badges", async () => {
@@ -190,5 +192,46 @@ describe("PremiumPage", () => {
 
     const phoneCta = screen.getByText("Sotib olish — Gentra");
     expect(phoneCta.closest("div.md\\:hidden")).not.toBeNull();
+  });
+
+  // Payme/Click refuse to be framed on Telegram Web and would replace the Mini
+  // App on phones; inside Telegram the hand-off opens in Telegram's browser
+  // and the app waits on the pending screen, which polls the entitlement.
+  describe("hosted checkout inside the Mini App", () => {
+    const CHECKOUT = "https://checkout.paycom.uz/abc";
+    function enterMiniApp() {
+      const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
+      (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
+      return webApp;
+    }
+
+    it("opens the provider page through Telegram and waits on the pending screen", async () => {
+      const webApp = enterMiniApp();
+      mockApiGet({ active: false, until: null });
+      vi.spyOn(apiClient, "apiPost").mockResolvedValue({ payment_id: "p1", checkout_url: CHECKOUT } as never);
+      const before = window.location.href;
+
+      renderWithIntl();
+      fireEvent.click((await screen.findAllByText("Sotib olish"))[0]);
+
+      await waitFor(() => expect(webApp.openLink).toHaveBeenCalledWith(CHECKOUT));
+      expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/pending");
+      expect(window.location.href).toBe(before);
+    });
+
+    // The pending screen calls an already-active VIP "paid" at once; a
+    // renewal that has not been paid yet must not be congratulated.
+    it("stays on the plans for a VIP renewing, with the button usable again", async () => {
+      const webApp = enterMiniApp();
+      mockApiGet({ active: true, until: "2026-12-31T00:00:00Z" });
+      vi.spyOn(apiClient, "apiPost").mockResolvedValue({ payment_id: "p1", checkout_url: CHECKOUT } as never);
+
+      renderWithIntl();
+      fireEvent.click((await screen.findAllByText("Sotib olish"))[0]);
+
+      await waitFor(() => expect(webApp.openLink).toHaveBeenCalledWith(CHECKOUT));
+      expect(pushMock).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.getAllByText("Sotib olish")[0]).toBeInTheDocument());
+    });
   });
 });

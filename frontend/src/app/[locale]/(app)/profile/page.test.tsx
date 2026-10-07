@@ -4,13 +4,16 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import ProfilePage from "./page";
 import * as apiClient from "@/lib/api-client";
+import { AUTOLOGIN_OFF_KEY, markTelegramMiniApp } from "@/lib/telegram/web-app";
+
+const nav = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: React.ReactNode; href: string }) => <a href={href}>{children}</a>,
 }));
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
+  useRouter: () => ({ push: nav.push, replace: nav.replace }),
   usePathname: () => "/uz-Latn/profile",
 }));
 
@@ -25,6 +28,11 @@ function renderWithIntl() {
 describe("ProfilePage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    nav.push.mockReset();
+    nav.replace.mockReset();
+    sessionStorage.clear();
+    delete (window as { Telegram?: unknown }).Telegram;
   });
 
   it("renders profile header and user info fields", async () => {
@@ -124,5 +132,69 @@ describe("ProfilePage", () => {
     // Now the panel is showing and the list is gone — not merely hidden.
     expect(await screen.findByText(panelNote)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Parolni o'zgartirish/ })).not.toBeInTheDocument();
+  });
+
+  describe("logout", () => {
+    const profileResponse = {
+      profile: {
+        id: "u1",
+        phone: "+998901234567",
+        name: "Sardor",
+        region: "Toshkent",
+        district: "",
+        birth_date: null,
+        locale_pref: "uz-Latn",
+        theme_pref: "dark",
+        referral_code: "ABC123",
+        role: "user",
+        created_at: "2026-07-22T00:00:00Z",
+      },
+      vip: { active: false, until: null },
+    };
+
+    it("signs out to the login screen on the website", async () => {
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue(profileResponse);
+      const fetchMock = vi.fn(async () => new Response("{}", { status: 200 }));
+      vi.stubGlobal("fetch", fetchMock);
+      renderWithIntl();
+      await screen.findByDisplayValue("Sardor");
+
+      // Desktop card and phone list both render in jsdom; both use one handler.
+      fireEvent.click(screen.getAllByRole("button", { name: /Tizimdan chiqish|Chiqish/ })[0]);
+
+      await waitFor(() => expect(nav.push).toHaveBeenCalledWith("/uz-Latn/login"));
+      expect(fetchMock).toHaveBeenCalledWith("/api/auth/logout", { method: "POST" });
+      expect(nav.replace).not.toHaveBeenCalled();
+    });
+
+    // Spec D6: logout keeps the Telegram link and turns auto-login off
+    // instead, then lands on /tg's welcome screen rather than /login.
+    it("turns Telegram auto-login off first and lands on /tg inside the Mini App", async () => {
+      markTelegramMiniApp();
+      const order: string[] = [];
+      const setItem = vi.fn((key: string, value: string, cb?: (err: string | null) => void) => {
+        order.push(`cloud:${key}=${value}`);
+        cb?.(null);
+      });
+      (window as { Telegram?: unknown }).Telegram = {
+        WebApp: { initData: "x", CloudStorage: { setItem, getItem: vi.fn(), removeItem: vi.fn() } },
+      };
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue(profileResponse);
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (input: RequestInfo | URL) => {
+          order.push(`fetch:${String(input)}`);
+          return new Response("{}", { status: 200 });
+        }),
+      );
+      renderWithIntl();
+      await screen.findByDisplayValue("Sardor");
+
+      fireEvent.click(screen.getAllByRole("button", { name: /Tizimdan chiqish|Chiqish/ })[0]);
+
+      await waitFor(() => expect(nav.replace).toHaveBeenCalledWith("/uz-Latn/tg"));
+      expect(order).toEqual([`cloud:${AUTOLOGIN_OFF_KEY}=1`, "fetch:/api/auth/logout"]);
+      expect(nav.push).not.toHaveBeenCalled();
+    });
   });
 });

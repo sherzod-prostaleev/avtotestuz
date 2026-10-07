@@ -13,6 +13,8 @@ import { PaymentHistoryCard } from "@/components/profile/payment-history-card";
 import { TelegramLinkCard } from "@/components/profile/telegram-link-card";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
 import { ProfileMobile } from "@/components/profile/mobile/profile-mobile";
+import { markTelegramLogout, postLogoutPath } from "@/lib/telegram/logout";
+import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 interface UserProfileData {
   id: string;
@@ -87,14 +89,26 @@ export default function ProfilePage() {
 
 
   const handleLogout = async () => {
+    const inTelegram = isTelegramMiniApp();
     try {
+      // Spec D6: inside the Mini App, logout keeps the Telegram link and turns
+      // auto-login off instead — before the cookies go, so a slow bridge can
+      // never leave /tg signing the learner straight back in. Bounded at 3 s.
+      if (inTelegram) await markTelegramLogout();
       await fetch("/api/auth/logout", { method: "POST" });
     } finally {
-      if ("serviceWorker" in navigator) {
-        const registration = await navigator.serviceWorker.getRegistration("/");
-        registration?.active?.postMessage({ type: "CLEAR_PRIVATE_CACHES" });
+      try {
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.getRegistration("/");
+          registration?.active?.postMessage({ type: "CLEAR_PRIVATE_CACHES" });
+        }
+      } catch {
+        /* best-effort: a webview without a usable SW must still leave */
       }
-      router.push(`/${currentLocale}/login`);
+      // /tg's welcome screen offers "continue as" instead of a bare login
+      // form; replace, so Telegram's Back cannot return to a dead profile.
+      if (inTelegram) router.replace(postLogoutPath(currentLocale, `/${currentLocale}/login`));
+      else router.push(`/${currentLocale}/login`);
     }
   };
 

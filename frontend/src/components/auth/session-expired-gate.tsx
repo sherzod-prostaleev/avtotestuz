@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { onSessionExpired } from "@/lib/session-expiry";
 import { clearSessionHistoryCache } from "@/hooks/use-session-history";
 import { mistakesCountStore, mockEligibilityStore, savedQuestionsStore } from "@/lib/dashboard-stores";
+import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 /**
  * Turns the first unauthorized answer into a trip to the login screen.
@@ -62,6 +63,14 @@ export function SessionExpiredGate() {
         /* best-effort */
       }
 
+      // In the Mini App the launch data can sign the learner straight back
+      // in; /tg does that silently and returns them to where they were. This
+      // is not a deliberate logout, so auto-login is left as it was.
+      if (isTelegramMiniApp()) {
+        const here = window.location.pathname + window.location.search;
+        router.replace(`/${locale}/tg?next=${encodeURIComponent(here)}`);
+        return;
+      }
       // `expired=1` is what tells the login screen to explain itself. Without
       // it the learner is dropped on a sign-in form with no idea why.
       router.replace(`/${locale}/login?expired=1`);

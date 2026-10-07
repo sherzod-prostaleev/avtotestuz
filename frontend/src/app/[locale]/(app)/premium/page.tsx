@@ -6,6 +6,8 @@ import Link from "next/link";
 import { useVariantCount } from "@/hooks/use-variant-count";
 import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
+import { openExternalUrl } from "@/lib/telegram/links";
+import { getWebApp } from "@/lib/telegram/web-app";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
@@ -166,7 +168,18 @@ export default function PremiumPage() {
           `/${locale}/checkout/manual?payment_id=${encodeURIComponent(result.manual.payment_id)}`,
         );
       } else if (result.checkout_url) {
-        window.location.href = result.checkout_url;
+        if (getWebApp()) {
+          // Inside Telegram, Payme/Click refuse to be framed (Telegram Web)
+          // and a top-level navigation would replace the Mini App on phones,
+          // so the hand-off opens in Telegram's browser and the app waits on
+          // the pending screen, which polls the entitlement. An active VIP
+          // renewing would read as "paid" there at once, so they stay here.
+          openExternalUrl(result.checkout_url);
+          if (entitlement?.active) setBuyingCode(null);
+          else router.push(`/${locale}/checkout/pending`);
+        } else {
+          window.location.href = result.checkout_url;
+        }
       } else {
         setBuyError(t("buyError"));
         setBuyingCode(null);

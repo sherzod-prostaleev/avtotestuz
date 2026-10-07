@@ -9,6 +9,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
 import { apiGet } from "@/lib/api-client";
 import { ShieldCheck } from "lucide-react";
+import { postLogoutPath } from "@/lib/telegram/logout";
 
 type MeResponse = {
   profile: { must_change_password?: boolean };
@@ -27,7 +28,7 @@ export default function ChangePasswordPage() {
         await apiGet<MeResponse>("me");
       } catch {
         if (!cancelled) {
-          router.replace(`/${locale}/login`);
+          router.replace(postLogoutPath(locale, `/${locale}/login`));
           return;
         }
       } finally {
@@ -45,17 +46,18 @@ export default function ChangePasswordPage() {
     } catch {
       /* best-effort */
     }
-    router.replace(`/${locale}/login`);
+    // In the Mini App /tg signs the learner back in with the launch data —
+    // the forced change is done, so there is no reason to type the new
+    // password again. Not a deliberate logout: auto-login stays on.
+    router.replace(postLogoutPath(locale, `/${locale}/login`));
   }
 
   return (
     <div
-      className="asphalt-hero flex min-h-screen flex-col bg-background"
-      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+      className="asphalt-hero flex min-h-screen flex-col bg-background auth-safe-bottom"
     >
       <header
-        className="flex h-14 items-center justify-between border-b border-border px-3 sm:px-4"
-        style={{ paddingTop: "env(safe-area-inset-top)" }}
+        className="flex h-14 items-center justify-between border-b border-border px-3 sm:px-4 auth-safe-top"
       >
         <Link
           href={`/${locale}`}

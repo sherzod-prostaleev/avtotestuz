@@ -6,6 +6,8 @@ import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Check, Copy, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
+import { useTelegram } from "@/components/telegram/telegram-provider";
+import { openExternalUrl } from "@/lib/telegram/links";
 
 interface TelegramStatus {
   linked: boolean;
@@ -21,6 +23,8 @@ interface LinkTokenResult {
 
 export function TelegramLinkCard() {
   const t = useTranslations("TelegramLink");
+  const tApp = useTranslations("TelegramApp");
+  const inMiniApp = useTelegram() !== null;
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [linking, setLinking] = useState(false);
@@ -54,7 +58,8 @@ export function TelegramLinkCard() {
       const result = await apiPost<LinkTokenResult>("me/telegram/link-token");
       setDeepLink(result.deep_link);
       setExpiresAt(result.expires_at);
-      window.open(result.deep_link, "_blank", "noopener,noreferrer");
+      // Inside Telegram the bot link opens natively instead of a blocked popup.
+      openExternalUrl(result.deep_link);
     } catch (err) {
       if (err instanceof ApiError && err.code === "telegram_bot_unconfigured") {
         setErrorKey("unconfigured");
@@ -78,6 +83,23 @@ export function TelegramLinkCard() {
   };
 
   const usernameLabel = status?.username ? `@${status.username.replace(/^@/, "")}` : null;
+
+  // Inside the Mini App a linked account needs no actions: the app was opened
+  // from that very Telegram account. Unlinked (launch data too old to link on
+  // sign-in) keeps the normal card so the learner can still link.
+  if (inMiniApp && status?.linked) {
+    return (
+      <Card className="border-success/40 bg-card p-5 sm:p-6">
+        <div role="status" className="flex items-center gap-3 text-success">
+          <Check aria-hidden="true" className="h-5 w-5 shrink-0" />
+          <div className="min-w-0">
+            <p className="font-bold">{tApp("linkedStatus")}</p>
+            {usernameLabel && <p className="truncate text-xs text-success/90">{usernameLabel}</p>}
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="border-accent/20 bg-card p-5 sm:p-6">

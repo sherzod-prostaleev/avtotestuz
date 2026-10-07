@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Check, ExternalLink, RefreshCw, Send } from "lucide-react";
 import { apiGet, apiPost } from "@/lib/api-client";
+import { useTelegram } from "@/components/telegram/telegram-provider";
+import { openExternalUrl } from "@/lib/telegram/links";
 import { MobileScreen } from "./mobile-screen";
 
 interface TelegramStatus {
@@ -25,6 +27,8 @@ interface LinkTokenResult {
  */
 export function MobileTelegram({ onBack }: { onBack: () => void }) {
   const t = useTranslations("TelegramLink");
+  const tApp = useTranslations("TelegramApp");
+  const inMiniApp = useTelegram() !== null;
   const [status, setStatus] = useState<TelegramStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -53,7 +57,8 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
     try {
       const result = await apiPost<LinkTokenResult>("me/telegram/link-token");
       setDeepLink(result.deep_link);
-      window.open(result.deep_link, "_blank", "noopener");
+      // Inside Telegram the bot link opens natively instead of a blocked popup.
+      openExternalUrl(result.deep_link);
     } catch {
       setErrorKey("linkError");
     } finally {
@@ -62,6 +67,9 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
   }
 
   const linked = status?.linked === true;
+  // Inside the Mini App a linked account needs no link/relink: the app was
+  // opened from that very Telegram account. Unlinked keeps the actions.
+  const statusOnly = inMiniApp && linked;
 
   return (
     <MobileScreen title={t("title")} onBack={onBack}>
@@ -83,7 +91,7 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
           ) : (
             <>
               <p className="truncate text-sm font-bold">
-                {linked ? t("linkedTitle") : t("notLinked")}
+                {statusOnly ? tApp("linkedStatus") : linked ? t("linkedTitle") : t("notLinked")}
               </p>
               <p className="truncate text-xs text-muted-foreground">
                 {linked && status?.username
@@ -96,25 +104,27 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
         {linked && <Check aria-hidden="true" className="h-5 w-5 shrink-0 text-success" />}
       </div>
 
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => void load()}
-          disabled={loading}
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-bold disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
-          {t("refresh")}
-        </button>
-        <button
-          type="button"
-          onClick={() => void startLink()}
-          disabled={busy}
-          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-bold text-muted-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          {linked ? t("relinkButton") : t("linkButton")}
-        </button>
-      </div>
+      {!statusOnly && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading}
+            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-bold disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <RefreshCw aria-hidden="true" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+            {t("refresh")}
+          </button>
+          <button
+            type="button"
+            onClick={() => void startLink()}
+            disabled={busy}
+            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card text-sm font-bold text-muted-foreground disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {linked ? t("relinkButton") : t("linkButton")}
+          </button>
+        </div>
+      )}
 
       {errorKey && (
         <p role="alert" className="text-sm text-destructive">

@@ -6,6 +6,9 @@ import { TelegramLinkCard } from "../telegram-link-card";
 import * as apiClient from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
 
+const tg = vi.hoisted(() => ({ webApp: null as null | Record<string, unknown> }));
+vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => tg.webApp }));
+
 function renderWithIntl() {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
@@ -17,6 +20,8 @@ function renderWithIntl() {
 describe("TelegramLinkCard", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    tg.webApp = null;
+    delete (window as { Telegram?: unknown }).Telegram;
   });
 
   it("shows not-linked state and mints a deep link", async () => {
@@ -70,5 +75,48 @@ describe("TelegramLinkCard", () => {
     expect(
       await screen.findByText(/Telegram bot hozircha sozlanmagan/)
     ).toBeInTheDocument();
+  });
+
+  describe("inside the Mini App", () => {
+    function enterMiniApp() {
+      const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
+      tg.webApp = webApp;
+      (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
+      return webApp;
+    }
+
+    // The Mini App is itself the link; offering to (re)link from inside it
+    // would only send the learner out to the bot and back.
+    it("shows the linked status without link actions", async () => {
+      enterMiniApp();
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: "sherzod" });
+
+      renderWithIntl();
+
+      expect(await screen.findByText("Telegram ulangan")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Qayta bog'lash" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Telegramni bog'lash" })).not.toBeInTheDocument();
+    });
+
+    // Launch data 1–24 h old signs in but skips linking: the learner must
+    // still be able to link, and the bot link opens inside Telegram.
+    it("keeps the link action when not linked and opens the bot through Telegram", async () => {
+      const webApp = enterMiniApp();
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: false });
+      vi.spyOn(apiClient, "apiPost").mockResolvedValue({
+        token: "tok123",
+        deep_link: "https://t.me/AvtoTestBot?start=tok123",
+        expires_at: "2026-07-26T01:00:00Z",
+      });
+      const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+
+      renderWithIntl();
+      fireEvent.click(await screen.findByRole("button", { name: "Telegramni bog'lash" }));
+
+      await waitFor(() =>
+        expect(webApp.openTelegramLink).toHaveBeenCalledWith("https://t.me/AvtoTestBot?start=tok123"),
+      );
+      expect(openSpy).not.toHaveBeenCalled();
+    });
   });
 });
