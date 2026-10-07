@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { useRouter } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
@@ -8,6 +8,9 @@ import { Card } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { useTelegram } from "@/components/telegram/telegram-provider";
+import { openExternalUrl } from "@/lib/telegram/links";
+import { forgetCheckoutUrl, readCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 
 interface EntitlementDTO {
   active: boolean;
@@ -24,6 +27,12 @@ export default function CheckoutPendingPage() {
   const t = useTranslations("Premium");
   const locale = useLocale();
   const router = useRouter();
+  const inMiniApp = useTelegram() !== null;
+  // Read after mount: sessionStorage does not exist during the server render.
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (inMiniApp) setCheckoutUrl(readCheckoutUrl());
+  }, [inMiniApp]);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -47,6 +56,7 @@ export default function CheckoutPendingPage() {
         attempt = 0;
         if (ent.active) {
           stopped = true;
+          forgetCheckoutUrl();
           const params = new URLSearchParams();
           if (ent.proration?.applied) {
             params.set("prorated", "1");
@@ -97,6 +107,19 @@ export default function CheckoutPendingPage() {
         </p>
         <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{t("checkoutPendingHelp")}</p>
         <div className="mt-6 flex w-full flex-col gap-2">
+          {/* The hand-off ran after an await and may have been dropped as a
+              popup; reopening it from this tap is a real user gesture. */}
+          {inMiniApp && checkoutUrl && (
+            <Button
+              type="button"
+              variant="game"
+              size="lg"
+              className="w-full"
+              onClick={() => openExternalUrl(checkoutUrl)}
+            >
+              {t("checkoutReopenPayment")}
+            </Button>
+          )}
           <Link href={`/${locale}/premium`} className="w-full">
             <Button as="span" variant="outline" size="lg" className="w-full">
               {t("checkoutTryAgain")}

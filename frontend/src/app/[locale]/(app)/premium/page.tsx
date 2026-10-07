@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { openExternalUrl } from "@/lib/telegram/links";
 import { getWebApp } from "@/lib/telegram/web-app";
+import { CHECKOUT_RETURN_CONTEXT, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
@@ -145,9 +146,13 @@ export default function PremiumPage() {
       return;
     }
     try {
+      // Inside Telegram the provider returns the payer in an external browser
+      // without our session, so ask for the public /checkout/done page.
       const result = await apiPost<CheckoutResult>(
         `me/checkout?locale=${encodeURIComponent(locale)}`,
-        { tariff_code: code, provider },
+        getWebApp()
+          ? { tariff_code: code, provider, return_context: CHECKOUT_RETURN_CONTEXT }
+          : { tariff_code: code, provider },
       );
       // No checkout here can currently come back free — that answer needs a
       // promo worth 100%, and nothing on this page sends a code any more. It
@@ -174,6 +179,7 @@ export default function PremiumPage() {
           // so the hand-off opens in Telegram's browser and the app waits on
           // the pending screen, which polls the entitlement. An active VIP
           // renewing would read as "paid" there at once, so they stay here.
+          rememberCheckoutUrl(result.checkout_url);
           openExternalUrl(result.checkout_url);
           if (entitlement?.active) setBuyingCode(null);
           else router.push(`/${locale}/checkout/pending`);

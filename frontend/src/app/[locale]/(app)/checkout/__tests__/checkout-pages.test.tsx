@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../../messages/uz-Latn.json";
@@ -6,6 +6,10 @@ import CheckoutSuccessPage from "../success/page";
 import CheckoutFailurePage from "../failure/page";
 import CheckoutPendingPage from "../pending/page";
 import * as apiClient from "@/lib/api-client";
+import { CHECKOUT_URL_KEY } from "@/lib/telegram/checkout-handoff";
+
+const tg = vi.hoisted(() => ({ webApp: null as null | Record<string, unknown> }));
+vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => tg.webApp }));
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -32,6 +36,9 @@ function renderWithIntl(component: React.ReactNode) {
 describe("Checkout Status Pages", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    tg.webApp = null;
+    delete (window as { Telegram?: unknown }).Telegram;
+    sessionStorage.clear();
   });
 
   // The page renders two bodies — the phone one (`md:hidden`) and the wide
@@ -79,6 +86,63 @@ describe("Checkout Status Pages", () => {
       expect(pushMock).toHaveBeenCalledWith(
         "/uz-Latn/checkout/success?prorated=1&granted=12&tariff=30"
       );
+    });
+  });
+
+  // The hand-off after the checkout call can be popup-blocked inside
+  // Telegram; the pending screen must let the learner open it again from a
+  // real tap.
+  describe("pending screen inside the Mini App", () => {
+    const CHECKOUT = "https://checkout.paycom.uz/abc";
+    function enterMiniApp() {
+      const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
+      tg.webApp = webApp;
+      (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
+      return webApp;
+    }
+
+    it("reopens the stored checkout page through Telegram from the click", async () => {
+      const webApp = enterMiniApp();
+      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
+      renderWithIntl(<CheckoutPendingPage />);
+
+      fireEvent.click(await screen.findByRole("button", { name: "To'lov sahifasini ochish" }));
+      expect(webApp.openLink).toHaveBeenCalledWith(CHECKOUT);
+    });
+
+    it("offers no reopen button without a stored URL", async () => {
+      enterMiniApp();
+      vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
+      renderWithIntl(<CheckoutPendingPage />);
+      await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "To'lov sahifasini ochish" })).toBeNull();
+    });
+
+    it("ignores a stored URL that is not http(s)", async () => {
+      enterMiniApp();
+      sessionStorage.setItem(CHECKOUT_URL_KEY, "javascript:alert(1)");
+      vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
+      renderWithIntl(<CheckoutPendingPage />);
+      await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "To'lov sahifasini ochish" })).toBeNull();
+    });
+
+    it("forgets the URL once the payment is confirmed", async () => {
+      enterMiniApp();
+      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      vi.mocked(apiClient.apiGet).mockResolvedValueOnce({ active: true, until: "2026-08-24T00:00:00Z" });
+      renderWithIntl(<CheckoutPendingPage />);
+      await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/success"));
+      expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBeNull();
+    });
+
+    it("shows no reopen button on the website", async () => {
+      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
+      renderWithIntl(<CheckoutPendingPage />);
+      await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "To'lov sahifasini ochish" })).toBeNull();
     });
   });
 });

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { CHECKOUT_URL_KEY } from "@/lib/telegram/checkout-handoff";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -45,6 +46,7 @@ describe("PremiumPage", () => {
     vi.restoreAllMocks();
     pushMock.mockReset();
     delete (window as { Telegram?: unknown }).Telegram;
+    sessionStorage.clear();
   });
 
   it("renders every API tariff with pricing and badges", async () => {
@@ -126,6 +128,7 @@ describe("PremiumPage", () => {
     await waitFor(() =>
       expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/manual?payment_id=p1")
     );
+    expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBeNull();
   });
 
   // The phone used to stop at a summary screen with a promo field before the
@@ -217,6 +220,29 @@ describe("PremiumPage", () => {
       await waitFor(() => expect(webApp.openLink).toHaveBeenCalledWith(CHECKOUT));
       expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/pending");
       expect(window.location.href).toBe(before);
+    });
+
+    // The provider returns the payer in an external browser without our
+    // session; return_context makes the backend send them to the public
+    // /checkout/done page instead of the session-gated pending screen. The
+    // URL is kept so the pending screen can reopen a popup-blocked hand-off.
+    it("asks for the Telegram return page and keeps the checkout URL for the pending screen", async () => {
+      enterMiniApp();
+      mockApiGet({ active: false, until: null });
+      const postSpy = vi
+        .spyOn(apiClient, "apiPost")
+        .mockResolvedValue({ payment_id: "p1", checkout_url: CHECKOUT } as never);
+
+      renderWithIntl();
+      fireEvent.click((await screen.findAllByText("Sotib olish"))[0]);
+
+      await waitFor(() =>
+        expect(postSpy).toHaveBeenCalledWith(
+          "me/checkout?locale=uz-Latn",
+          expect.objectContaining({ return_context: "telegram" }),
+        ),
+      );
+      await waitFor(() => expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBe(CHECKOUT));
     });
 
     // The pending screen calls an already-active VIP "paid" at once; a

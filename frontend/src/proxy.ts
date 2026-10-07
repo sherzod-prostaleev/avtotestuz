@@ -4,7 +4,7 @@ import { locales, type Locale } from "@/i18n/config";
 import { routing } from "@/i18n/routing";
 import { AUTH_COOKIE, REFRESH_COOKIE } from "@/lib/auth-cookies";
 import { ADMIN_AUTH_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-auth-cookies";
-import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
+import { PROTECTED_SEGMENTS, isProtectedPath, matchesAny } from "@/lib/protected-segments";
 
 export { PROTECTED_SEGMENTS, matchesAny };
 
@@ -63,7 +63,7 @@ export default function proxy(request: NextRequest) {
     return intlMiddleware(request);
   }
 
-  if (matchesAny(pathname, PROTECTED_SEGMENTS) && !hasSession) {
+  if (isProtectedPath(pathname) && !hasSession) {
     return NextResponse.redirect(new URL(`/${locale}/login`, request.url));
   }
   if (matchesAny(pathname, AUTH_SEGMENTS) && hasSession) {
