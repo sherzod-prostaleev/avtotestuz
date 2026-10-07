@@ -6,7 +6,7 @@ import CheckoutSuccessPage from "../success/page";
 import CheckoutFailurePage from "../failure/page";
 import CheckoutPendingPage from "../pending/page";
 import * as apiClient from "@/lib/api-client";
-import { CHECKOUT_URL_KEY } from "@/lib/telegram/checkout-handoff";
+import { CHECKOUT_URL_KEY, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 
 const tg = vi.hoisted(() => ({ webApp: null as null | Record<string, unknown> }));
 vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => tg.webApp }));
@@ -103,7 +103,7 @@ describe("Checkout Status Pages", () => {
 
     it("reopens the stored checkout page through Telegram from the click", async () => {
       const webApp = enterMiniApp();
-      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      rememberCheckoutUrl(CHECKOUT);
       vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
       renderWithIntl(<CheckoutPendingPage />);
 
@@ -121,7 +121,7 @@ describe("Checkout Status Pages", () => {
 
     it("ignores a stored URL that is not http(s)", async () => {
       enterMiniApp();
-      sessionStorage.setItem(CHECKOUT_URL_KEY, "javascript:alert(1)");
+      sessionStorage.setItem(CHECKOUT_URL_KEY, JSON.stringify({ url: "javascript:alert(1)", at: Date.now() }));
       vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
       renderWithIntl(<CheckoutPendingPage />);
       await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());
@@ -130,15 +130,28 @@ describe("Checkout Status Pages", () => {
 
     it("forgets the URL once the payment is confirmed", async () => {
       enterMiniApp();
-      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      rememberCheckoutUrl(CHECKOUT);
       vi.mocked(apiClient.apiGet).mockResolvedValueOnce({ active: true, until: "2026-08-24T00:00:00Z" });
       renderWithIntl(<CheckoutPendingPage />);
       await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/checkout/success"));
       expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBeNull();
     });
 
+    it("ignores a stored URL older than 30 minutes", async () => {
+      enterMiniApp();
+      sessionStorage.setItem(
+        CHECKOUT_URL_KEY,
+        JSON.stringify({ url: CHECKOUT, at: Date.now() - 31 * 60 * 1000 }),
+      );
+      vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
+      renderWithIntl(<CheckoutPendingPage />);
+      await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());
+      expect(screen.queryByRole("button", { name: "To'lov sahifasini ochish" })).toBeNull();
+      expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBeNull();
+    });
+
     it("shows no reopen button on the website", async () => {
-      sessionStorage.setItem(CHECKOUT_URL_KEY, CHECKOUT);
+      rememberCheckoutUrl(CHECKOUT);
       vi.mocked(apiClient.apiGet).mockResolvedValue({ active: false, until: null });
       renderWithIntl(<CheckoutPendingPage />);
       await waitFor(() => expect(apiClient.apiGet).toHaveBeenCalled());

@@ -31,12 +31,15 @@ export function matchesAny(pathname: string, segments: string[]): boolean {
   return segments.some((seg) => pathname === `/${seg}` || pathname.startsWith(`/${seg}/`));
 }
 
-// Exact paths that sit under a protected segment but must open without a
-// session. /checkout/done is where Payme/Click return a Mini App payer: they
-// land in an external browser that never had our cookies.
-export const PUBLIC_EXCEPTIONS = ["/checkout/done"];
+// /checkout/done sits under a protected segment but must open without a
+// session: Payme/Click return a Mini App payer there in an external browser
+// that never had our cookies. The bot username rides as ONE path segment
+// (/checkout/done/<bot>) because Payme embeds the return URL raw in its
+// ';'-joined key=value payload, so no '?' or '=' can be used. Anything deeper
+// or any sibling (/checkout/pending, /checkout/done/a/b) stays protected.
+const PUBLIC_CHECKOUT_DONE = /^\/checkout\/done(?:\/[^/]+)?$/;
 
 /** The proxy's login gate: a protected segment that is not a public exception. */
 export function isProtectedPath(pathname: string): boolean {
-  return matchesAny(pathname, PROTECTED_SEGMENTS) && !PUBLIC_EXCEPTIONS.includes(pathname);
+  return matchesAny(pathname, PROTECTED_SEGMENTS) && !PUBLIC_CHECKOUT_DONE.test(pathname);
 }

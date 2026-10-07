@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { CHECKOUT_URL_KEY } from "@/lib/telegram/checkout-handoff";
+import { CHECKOUT_URL_KEY, readCheckoutUrl, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
@@ -99,6 +99,8 @@ describe("PremiumPage", () => {
   });
 
   it("calls POST /me/checkout with the tariff code and redirects on buy", async () => {
+    // A hand-off URL left by an earlier checkout must not survive a new one.
+    rememberCheckoutUrl("https://checkout.paycom.uz/stale");
     mockApiGet({ active: false, until: null });
     const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({
       payment_id: "p1",
@@ -242,7 +244,7 @@ describe("PremiumPage", () => {
           expect.objectContaining({ return_context: "telegram" }),
         ),
       );
-      await waitFor(() => expect(sessionStorage.getItem(CHECKOUT_URL_KEY)).toBe(CHECKOUT));
+      await waitFor(() => expect(readCheckoutUrl()).toBe(CHECKOUT));
     });
 
     // The pending screen calls an already-active VIP "paid" at once; a

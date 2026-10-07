@@ -147,11 +147,15 @@ describe("proxy auth guard", () => {
   // Payme/Click return a Mini App payer here in an external browser that has
   // no session; the rest of /checkout stays behind the login redirect.
   it("leaves the Mini App payment return page public, and only that page", () => {
-    expect(proxy(makeRequest("/uz-Latn/checkout/done?bot=avtotest_bot")).headers.get("location")).toBeNull();
+    expect(proxy(makeRequest("/uz-Latn/checkout/done")).headers.get("location")).toBeNull();
+    expect(proxy(makeRequest("/uz-Latn/checkout/done/avtotest_bot")).headers.get("location")).toBeNull();
     expect(proxy(makeRequest("/ru/checkout/pending")).headers.get("location")).toBe(
       "http://localhost:3000/ru/login"
     );
-    expect(proxy(makeRequest("/ru/checkout/done/extra")).headers.get("location")).toBe(
+    expect(proxy(makeRequest("/ru/checkout/done/a/b")).headers.get("location")).toBe(
+      "http://localhost:3000/ru/login"
+    );
+    expect(proxy(makeRequest("/ru/checkout/pending/avtotest_bot")).headers.get("location")).toBe(
       "http://localhost:3000/ru/login"
     );
   });

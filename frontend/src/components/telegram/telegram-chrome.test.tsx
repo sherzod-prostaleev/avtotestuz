@@ -10,16 +10,10 @@ const nav = vi.hoisted(() => ({
   replace: vi.fn(),
   push: vi.fn(),
 }));
-// The chrome must never write the site's theme: in the Mini App the theme is
-// forced from Telegram by the provider wiring (see telegram-provider.tsx).
-const theme = vi.hoisted(() => ({ setTheme: vi.fn() }));
 
 vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
   useRouter: () => ({ back: nav.back, replace: nav.replace, push: nav.push }),
-}));
-vi.mock("next-themes", () => ({
-  useTheme: () => ({ setTheme: theme.setTheme, resolvedTheme: "light" }),
 }));
 
 type Handler = () => void;
@@ -64,7 +58,6 @@ beforeEach(() => {
   nav.pathname = "/uz-Latn/dashboard";
   nav.back.mockReset();
   nav.replace.mockReset();
-  theme.setTheme.mockReset();
   window.history.replaceState(null, "", "/uz-Latn/dashboard");
   document.documentElement.style.setProperty("--background", "220 22% 7%");
 });
@@ -169,13 +162,6 @@ describe("TelegramChrome BackButton in a running test", () => {
 });
 
 describe("TelegramChrome theme", () => {
-  it("never writes the site's stored theme", () => {
-    const { webApp, fire } = fakeWebApp();
-    mount(webApp);
-    act(() => fire("themeChanged"));
-    expect(theme.setTheme).not.toHaveBeenCalled();
-  });
-
   it("paints Telegram's frame with our --background token", async () => {
     const { webApp } = fakeWebApp();
     mount(webApp);

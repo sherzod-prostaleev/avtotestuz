@@ -70,9 +70,9 @@ func TestCheckoutDoneReturnURL(t *testing.T) {
 	cases := []struct {
 		name, locale, bot, want string
 	}{
-		{"with bot", "ru", "avtotest_bot", "https://avtotest.uz/ru/checkout/done?bot=avtotest_bot"},
+		{"with bot", "ru", "avtotest_bot", "https://avtotest.uz/ru/checkout/done/avtotest_bot"},
 		{"no bot", "uz-Latn", "", "https://avtotest.uz/uz-Latn/checkout/done"},
-		{"kaa clamps", "kaa", "avtotest_bot", "https://avtotest.uz/uz-Latn/checkout/done?bot=avtotest_bot"},
+		{"kaa clamps", "kaa", "avtotest_bot", "https://avtotest.uz/uz-Latn/checkout/done/avtotest_bot"},
 		// A misconfigured username must never smuggle extra params or a
 		// different host into the payer's return URL.
 		{"bad bot dropped", "ru", "evil&next=//x.com", "https://avtotest.uz/ru/checkout/done"},
@@ -85,6 +85,43 @@ func TestCheckoutDoneReturnURL(t *testing.T) {
 				t.Errorf("checkoutDoneReturnURL(%q, %q) = %q, want %q", tc.locale, tc.bot, got, tc.want)
 			}
 		})
+	}
+}
+
+// Payme carries the return URL raw inside "k=v;k=v": the URL itself must
+// contain no '?' or '=' or the payload could be misparsed.
+func TestCheckoutDoneReturnURLSurvivesProviderEmbedding(t *testing.T) {
+	svc := Service{PublicBaseURL: "https://avtotest.uz"}
+	for _, bot := range []string{"avtotest_bot", ""} {
+		ret := svc.checkoutDoneReturnURL("ru", bot)
+
+		payme := BuildPaymeURL("https://checkout.paycom.uz", "merch", uuid.New().String(), 59900, "ru", ret)
+		enc := payme[strings.LastIndex(payme, "/")+1:]
+		raw, err := base64.StdEncoding.DecodeString(enc)
+		if err != nil {
+			t.Fatalf("bot %q: decode payme payload: %v", bot, err)
+		}
+		var c string
+		for _, kv := range strings.Split(string(raw), ";") {
+			if v, ok := strings.CutPrefix(kv, "c="); ok {
+				c = v
+			}
+		}
+		if c != ret {
+			t.Errorf("bot %q: payme c = %q, want %q", bot, c, ret)
+		}
+		if strings.ContainsAny(c, "?=") {
+			t.Errorf("bot %q: payme c = %q contains ? or =", bot, c)
+		}
+
+		click := BuildClickURL("1", "2", uuid.New().String(), 59900, ret)
+		parsed, err := url.Parse(click)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := parsed.Query().Get("return_url"); got != ret {
+			t.Errorf("bot %q: click return_url = %q, want %q", bot, got, ret)
+		}
 	}
 }
 

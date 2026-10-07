@@ -89,14 +89,16 @@ var telegramBotUsername = regexp.MustCompile(`^[A-Za-z0-9_]{5,32}$`)
 // Telegram Mini App. Payme/Click open in an external browser that has no
 // session, so the session-gated /checkout/pending would bounce the payer to
 // "session expired" right after paying; /checkout/done is public and only
-// offers a way back to the bot (bot param, when configured).
+// offers a way back to the bot. The bot rides in a path segment, not a query
+// string: Payme embeds this URL raw inside its ';'-joined key=value payload,
+// and a '?' or '=' there is unverified against its parser.
 func (s Service) checkoutDoneReturnURL(locale, bot string) string {
 	if !webCheckoutLocales[locale] {
 		locale = i18n.Default
 	}
 	u := fmt.Sprintf("%s/%s/checkout/done", s.publicBaseURL(), locale)
 	if telegramBotUsername.MatchString(bot) {
-		u += "?" + url.Values{"bot": {bot}}.Encode()
+		u += "/" + bot // [A-Za-z0-9_] only: safe to embed unescaped
 	}
 	return u
 }

@@ -228,7 +228,7 @@ func TestCheckoutEndpointReturnURL(t *testing.T) {
 		}
 		return parsed.Query().Get("return_url")
 	}
-	wantDone := publicBase + "/ru/checkout/done?bot=avtotest_bot"
+	wantDone := publicBase + "/ru/checkout/done/avtotest_bot"
 
 	t.Run("telegram click", func(t *testing.T) {
 		if got := clickReturn(t, `{"tariff_code":"gentra","provider":"click","return_context":"telegram"}`); got != wantDone {

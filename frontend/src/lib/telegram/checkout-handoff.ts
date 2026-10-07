@@ -6,6 +6,14 @@
  */
 export const CHECKOUT_URL_KEY = "tg-checkout-url";
 
+/**
+ * A hosted Payme/Click page is only worth reopening for a short while: the
+ * payer either finished or abandoned it, and an old URL would send them to a
+ * dead or already-settled payment. 30 minutes comfortably outlasts a card
+ * entry plus the bank's SMS confirmation.
+ */
+export const CHECKOUT_URL_MAX_AGE_MS = 30 * 60 * 1000;
+
 /** Sent with POST me/checkout from the Mini App; see backend checkoutBody. */
 export const CHECKOUT_RETURN_CONTEXT = "telegram";
 
@@ -23,7 +31,7 @@ export function rememberCheckoutUrl(url: string): void {
   const safe = httpUrl(url);
   if (!safe) return;
   try {
-    sessionStorage.setItem(CHECKOUT_URL_KEY, safe);
+    sessionStorage.setItem(CHECKOUT_URL_KEY, JSON.stringify({ url: safe, at: Date.now() }));
   } catch {
     /* storage blocked: the pending screen simply offers no reopen button */
   }
@@ -31,8 +39,20 @@ export function rememberCheckoutUrl(url: string): void {
 
 export function readCheckoutUrl(): string | null {
   try {
-    return httpUrl(sessionStorage.getItem(CHECKOUT_URL_KEY));
+    const raw = sessionStorage.getItem(CHECKOUT_URL_KEY);
+    if (!raw) return null;
+    const entry: unknown = JSON.parse(raw);
+    if (typeof entry !== "object" || entry === null) return null;
+    const { url, at } = entry as { url?: unknown; at?: unknown };
+    if (typeof url !== "string" || typeof at !== "number") return null;
+    const age = Date.now() - at;
+    if (age < 0 || age > CHECKOUT_URL_MAX_AGE_MS) {
+      forgetCheckoutUrl();
+      return null;
+    }
+    return httpUrl(url);
   } catch {
+    // Storage blocked or a value this code did not write.
     return null;
   }
 }

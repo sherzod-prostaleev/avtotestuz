@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { openExternalUrl } from "@/lib/telegram/links";
 import { getWebApp } from "@/lib/telegram/web-app";
-import { CHECKOUT_RETURN_CONTEXT, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
+import { CHECKOUT_RETURN_CONTEXT, forgetCheckoutUrl, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
@@ -140,6 +140,9 @@ export default function PremiumPage() {
     if (buyingCode) return;
     setBuyError(null);
     setBuyingCode(code);
+    // A new checkout supersedes any earlier hand-off: its URL must not be
+    // offered again on the pending screen.
+    forgetCheckoutUrl();
     if (!providerEnabled[provider]) {
       setBuyError(t("providerUnavailable"));
       setBuyingCode(null);

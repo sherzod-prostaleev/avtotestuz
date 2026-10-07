@@ -18,11 +18,11 @@ function renderPanel() {
 
 function enterMiniApp(username: string | null = "sherzod") {
   const webApp = {
-        initData: "x",
-        initDataUnsafe: { user: { id: 42, username: username ?? undefined } },
-        openLink: vi.fn(),
-        openTelegramLink: vi.fn(),
-      };
+    initData: "x",
+    initDataUnsafe: { user: { id: 42, username: username ?? undefined } },
+    openLink: vi.fn(),
+    openTelegramLink: vi.fn(),
+  };
   tg.webApp = webApp;
   (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
   return webApp;
