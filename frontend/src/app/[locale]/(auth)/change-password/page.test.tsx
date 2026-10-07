@@ -5,6 +5,7 @@ import messages from "../../../../../messages/uz-Latn.json";
 import ChangePasswordPage from "./page";
 import { ApiError, apiGet } from "@/lib/api-client";
 import { markTelegramMiniApp } from "@/lib/telegram/web-app";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const nav = vi.hoisted(() => ({ replace: vi.fn(), push: vi.fn() }));
 
@@ -49,6 +50,7 @@ describe("ChangePasswordPage /me check", () => {
   });
 
   it("sends a Mini App learner to /tg only when the session is gone (401)", async () => {
+    installTelegramHost();
     markTelegramMiniApp();
     vi.mocked(apiGet).mockRejectedValue(new ApiError("expired", "unauthorized", 401));
     renderPage();
@@ -58,6 +60,7 @@ describe("ChangePasswordPage /me check", () => {
   // /tg would sign the learner straight back in and land here again: a
   // degraded backend must show an error, not loop between the two screens.
   it("shows a retryable error in the Mini App when the backend is degraded", async () => {
+    installTelegramHost();
     markTelegramMiniApp();
     vi.mocked(apiGet).mockRejectedValueOnce(new ApiError("down", "network_error", 502));
     renderPage();
@@ -72,6 +75,7 @@ describe("ChangePasswordPage /me check", () => {
   });
 
   it("shows the error for a plain network failure (not an ApiError) in the Mini App", async () => {
+    installTelegramHost();
     markTelegramMiniApp();
     vi.mocked(apiGet).mockRejectedValueOnce(new TypeError("Failed to fetch"));
     renderPage();

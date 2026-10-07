@@ -5,6 +5,7 @@ import { ApiError, apiGet } from "@/lib/api-client";
 import { createQueryClient } from "@/lib/query-client";
 import { markTelegramMiniApp } from "@/lib/telegram/web-app";
 import { SessionExpiredGate } from "./session-expired-gate";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const replaceMock = vi.fn();
 
@@ -125,8 +126,10 @@ describe("SessionExpiredGate", () => {
   // expiry goes to /tg with the screen they were on — and, unlike a logout,
   // never switches Telegram auto-login off.
   it("sends a Mini App learner to /tg with the current screen as next", async () => {
+    installTelegramHost();
     markTelegramMiniApp();
     const setItem = vi.fn();
+    installTelegramHost();
     (window as { Telegram?: unknown }).Telegram = {
       WebApp: { initData: "x", CloudStorage: { setItem, getItem: vi.fn(), removeItem: vi.fn() } },
     };

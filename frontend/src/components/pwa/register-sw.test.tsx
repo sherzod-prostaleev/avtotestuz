@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render } from "@testing-library/react";
 import { RegisterServiceWorker } from "./register-sw";
+import { installTelegramHost } from "@/test/telegram-host";
 
 /**
  * The kiosk must never get a service worker.
@@ -90,6 +91,7 @@ describe("RegisterServiceWorker inside Telegram", () => {
       value: { register, getRegistrations: vi.fn().mockResolvedValue([]) },
       configurable: true,
     });
+    installTelegramHost();
     sessionStorage.setItem("tg-webapp", "1");
     render(<RegisterServiceWorker />);
     expect(register).not.toHaveBeenCalled();

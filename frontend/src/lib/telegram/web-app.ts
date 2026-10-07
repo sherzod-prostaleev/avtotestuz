@@ -18,8 +18,13 @@ export interface TelegramWebApp {
   offEvent(event: string, cb: () => void): void;
   openLink(url: string): void;
   openTelegramLink(url: string): void;
+  // `response` is the raw query string Telegram signed (contact JSON +
+  // auth_date + hash); `responseUnsafe` is the SDK's unverified parse of it.
   requestContact(
-    cb: (shared: boolean, res?: { responseUnsafe?: { contact?: { phone_number?: string } } }) => void,
+    cb: (
+      shared: boolean,
+      res?: { response?: string; responseUnsafe?: { contact?: { phone_number?: string } } },
+    ) => void,
   ): void;
   BackButton: { show(): void; hide(): void; onClick(cb: () => void): void; offClick(cb: () => void): void };
   HapticFeedback: {
@@ -45,8 +50,43 @@ declare global {
   }
 }
 
-/** Remembers, for this webview's lifetime, that we were launched by Telegram. */
+/**
+ * Whether a Telegram client actually hosts this page. These are exactly the
+ * three channels telegram-web-app.js's own postEvent() can talk through:
+ * `TelegramWebviewProxy` (Android, iOS, new Desktop), `window.external.notify`
+ * (legacy Desktop) and a parent frame (web.telegram.org; CSP frame-ancestors
+ * lets no one else frame the learner app).
+ *
+ * The #tgWebAppData hash is NOT a host: anyone can paste their own fresh
+ * launch data into a link, and in a plain browser the SDK happily reads it
+ * into WebApp.initData. Trusting it let an attacker's Telegram be linked to a
+ * victim who signed in through such a link.
+ */
+export function hasTelegramHost(): boolean {
+  if (typeof window === "undefined") return false;
+  const w = window as Window & { TelegramWebviewProxy?: unknown };
+  if (w.TelegramWebviewProxy !== undefined) return true;
+  try {
+    const external = (window as { external?: unknown }).external;
+    if (external && typeof external === "object" && "notify" in external) return true;
+  } catch {
+    /* some engines throw on window.external access: not a Telegram host */
+  }
+  try {
+    return window.parent != null && window.parent !== window;
+  } catch {
+    // A cross-origin parent can throw on access; it still is a parent frame.
+    return true;
+  }
+}
+
+/**
+ * Remembers, for this webview's lifetime, that Telegram launched us — only
+ * when a Telegram client is really around, so a planted link cannot turn a
+ * plain browser tab into a "Mini App" for the rest of the session.
+ */
 export function markTelegramMiniApp(): void {
+  if (!hasTelegramHost()) return;
   try {
     sessionStorage.setItem(TG_SESSION_FLAG, "1");
   } catch {
@@ -55,7 +95,7 @@ export function markTelegramMiniApp(): void {
 }
 
 export function isTelegramMiniApp(): boolean {
-  if (typeof window === "undefined") return false;
+  if (!hasTelegramHost()) return false;
   try {
     if (sessionStorage.getItem(TG_SESSION_FLAG) === "1") return true;
   } catch {
@@ -64,9 +104,9 @@ export function isTelegramMiniApp(): boolean {
   return window.location.hash.includes("tgWebAppData=");
 }
 
-/** The SDK object, but only when Telegram actually launched us. */
+/** The SDK object, but only when a Telegram client actually launched us. */
 export function getWebApp(): TelegramWebApp | null {
-  if (typeof window === "undefined") return null;
+  if (!hasTelegramHost()) return null;
   const webApp = window.Telegram?.WebApp;
   return webApp && webApp.initData ? webApp : null;
 }

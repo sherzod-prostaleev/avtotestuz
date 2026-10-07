@@ -4,6 +4,7 @@ import { useTheme } from "next-themes";
 import { markTelegramMiniApp } from "@/lib/telegram/web-app";
 import { TelegramProvider } from "./telegram-provider";
 import { TelegramThemeProvider } from "./telegram-theme-provider";
+import { installTelegramHost } from "@/test/telegram-host";
 
 vi.mock("./telegram-chrome", () => ({ TelegramChrome: () => null }));
 
@@ -20,6 +21,7 @@ function sdk(colorScheme: "light" | "dark") {
     onEvent: vi.fn((_: string, cb: Handler) => handlers.add(cb)),
     offEvent: vi.fn((_: string, cb: Handler) => handlers.delete(cb)),
   };
+  installTelegramHost();
   window.Telegram = { WebApp: webApp as never };
   return { webApp, fire: () => handlers.forEach((cb) => cb()) };
 }
@@ -51,6 +53,7 @@ afterEach(() => {
 
 describe("TelegramThemeProvider", () => {
   it("forces Telegram's scheme without ever writing the stored theme", () => {
+    installTelegramHost();
     markTelegramMiniApp();
     const tg = sdk("light");
     mount();

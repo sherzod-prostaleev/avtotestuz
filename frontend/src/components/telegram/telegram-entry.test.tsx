@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/uz-Latn.json";
 import type { TelegramWebApp } from "@/lib/telegram/web-app";
 import { TelegramEntry } from "./telegram-entry";
+import { installTelegramHost, removeTelegramHost } from "@/test/telegram-host";
 
 const replace = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ replace }) }));
@@ -41,8 +42,11 @@ function fakeWebApp(languageCode?: string): TelegramWebApp {
 
 function useWebApp(webApp: TelegramWebApp | null) {
   currentWebApp = webApp;
-  // cloud* helpers read the SDK off window, like in the real Mini App.
+  // cloud* helpers read the SDK off window, like in the real Mini App, and
+  // only trust it with a Telegram client around the page.
   window.Telegram = webApp ? { WebApp: webApp } : undefined;
+  if (webApp) installTelegramHost();
+  else removeTelegramHost();
 }
 
 type Reply = { status: number; body?: unknown } | "throw" | "hang";
@@ -399,9 +403,27 @@ describe("TelegramEntry", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 
+  // C1: a plain browser opening a planted /tg#tgWebAppData=<someone else's>
+  // link must not sign in as that account (login CSRF) or flag the tab.
+  it("treats injected launch data in a plain browser as outside Telegram", () => {
+    vi.useFakeTimers();
+    useWebApp(null);
+    window.history.replaceState(null, "", "/uz-Latn/tg#tgWebAppData=attacker&tgWebAppVersion=8.0");
+    const fetchMock = mockFetch([ME_401]);
+    renderEntry();
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByRole("heading", { name: "Botdan oching" })).toBeInTheDocument();
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(markSpy).not.toHaveBeenCalled();
+  });
+
   it("offers a reload when the SDK never arrives despite launch data", () => {
     vi.useFakeTimers();
     useWebApp(null);
+    installTelegramHost();
     window.history.replaceState(null, "", "/uz-Latn/tg#tgWebAppData=x");
     mockFetch([ME_401]);
     renderEntry();

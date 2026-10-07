@@ -40,6 +40,8 @@ export default function LoginPage() {
   const tgT = useTranslations("TelegramApp");
   const waitingForTelegram = tgStatus === "loading";
   const [phone, setPhone] = useState("");
+  // Telegram's signed share of the phone (Mini App only): the link proof.
+  const [tgContact, setTgContact] = useState<string | null>(null);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -98,7 +100,7 @@ export default function LoginPage() {
         res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(withTelegramInitData({ phone: localPhone, password }, webApp)),
+          body: JSON.stringify(withTelegramInitData({ phone: localPhone, password }, webApp, tgContact)),
         });
       } catch {
         setError("network_error");
@@ -127,8 +129,10 @@ export default function LoginPage() {
         setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
         return;
       }
-      // Fire and forget: CloudStorage can take its 3 s timeout and must never hold up sign-in.
-      void afterTelegramAuth(linked).catch(() => {});
+      // Fire and forget: CloudStorage and Telegram's phone sheet must never
+      // hold up sign-in. No shared number yet → offer the sheet once; one
+      // that was shared and still did not link would only be repeated.
+      void afterTelegramAuth(linked, { webApp, askForContact: !tgContact && !mustChangePassword }).catch(() => {});
       await finishAuth(mustChangePassword);
     } finally {
       setSubmitting(false);
@@ -186,7 +190,12 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <TelegramPhoneButton onPhone={setPhone} />
+            <TelegramPhoneButton
+              onPhone={(national, signed) => {
+                setPhone(national);
+                setTgContact(signed);
+              }}
+            />
             <div className="space-y-1.5">
               <label
                 htmlFor="login-phone"

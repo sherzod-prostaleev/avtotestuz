@@ -8,11 +8,17 @@ import { useTelegram } from "@/components/telegram/telegram-provider";
 import { nationalPhoneFromShared } from "@/lib/phone-format";
 
 /**
- * Telegram's own "share your number" sheet. Only pre-fills the field: the
- * number still goes through the same validation and password check as typing
- * it (spec D3), so this adds no new trust.
+ * Telegram's own "share your number" sheet. Pre-fills the field — the number
+ * still goes through the same validation and password check as typing it
+ * (spec D3) — and hands over Telegram's signed response, which the server
+ * needs to link this Telegram account (it checks the signature itself; the
+ * client's copy is never trusted).
  */
-export function TelegramPhoneButton({ onPhone }: { onPhone: (national: string) => void }) {
+export function TelegramPhoneButton({
+  onPhone,
+}: {
+  onPhone: (national: string, signedContact: string | null) => void;
+}) {
   const t = useTranslations("TelegramApp");
   const webApp = useTelegram();
   const [foreign, setForeign] = useState(false);
@@ -36,7 +42,7 @@ export function TelegramPhoneButton({ onPhone }: { onPhone: (national: string) =
       if (!raw) return;
       const national = nationalPhoneFromShared(raw);
       setForeign(national === null);
-      if (national) onPhone(national);
+      if (national) onPhone(national, typeof res?.response === "string" && res.response ? res.response : null);
     });
   }
 

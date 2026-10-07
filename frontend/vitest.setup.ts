@@ -16,6 +16,9 @@ configure({ asyncUtilTimeout: 5000 });
 // must be wired up here or DOM nodes leak across tests within a file.
 afterEach(() => {
   cleanup();
+  // A Telegram host installed by one test must not make the next one a
+  // Mini App (see src/test/telegram-host.ts).
+  delete (window as { TelegramWebviewProxy?: unknown }).TelegramWebviewProxy;
 });
 
 // next-themes (and other libraries) call matchMedia even when enableSystem

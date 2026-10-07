@@ -8,13 +8,18 @@ import { TelegramPhoneButton } from "./telegram-phone-button";
 let currentWebApp: TelegramWebApp | null = null;
 vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => currentWebApp }));
 
-type Cb = (shared: boolean, res?: { responseUnsafe?: { contact?: { phone_number?: string } } }) => void;
+type Cb = (
+  shared: boolean,
+  res?: { response?: string; responseUnsafe?: { contact?: { phone_number?: string } } },
+) => void;
 let pending: Cb | null;
 
 function webAppWithContact(): TelegramWebApp {
   return { initData: "signed", requestContact: (cb: Cb) => (pending = cb) } as unknown as TelegramWebApp;
 }
-const share = (phone?: string) => act(() => pending!(true, { responseUnsafe: { contact: { phone_number: phone } } }));
+// Telegram hands back both the parsed contact and the signed raw string.
+const share = (phone?: string, response: string | undefined = `signed:${phone}`) =>
+  act(() => pending!(true, { response, responseUnsafe: { contact: { phone_number: phone } } }));
 
 function renderButton(onPhone = vi.fn()) {
   const view = render(
@@ -48,14 +53,23 @@ describe("TelegramPhoneButton", () => {
     const { onPhone } = renderButton();
     click();
     share("+998901234567");
-    expect(onPhone).toHaveBeenCalledWith("901234567");
+    expect(onPhone).toHaveBeenCalledWith("901234567", "signed:+998901234567");
   });
 
   it("pre-fills the national number from a number without a plus", () => {
     const { onPhone } = renderButton();
     click();
     share("998901234567");
-    expect(onPhone).toHaveBeenCalledWith("901234567");
+    expect(onPhone).toHaveBeenCalledWith("901234567", "signed:998901234567");
+  });
+
+  // The signed string is what lets the server link this Telegram account;
+  // without it the number is still a convenient pre-fill.
+  it("pre-fills without a proof when Telegram returned no signed response", () => {
+    const { onPhone } = renderButton();
+    click();
+    share("998901234567", "");
+    expect(onPhone).toHaveBeenCalledWith("901234567", null);
   });
 
   it("does nothing when the user declines", () => {
@@ -80,7 +94,7 @@ describe("TelegramPhoneButton", () => {
     share("+1415555");
     click();
     share("+998901234567");
-    expect(onPhone).toHaveBeenCalledWith("901234567");
+    expect(onPhone).toHaveBeenCalledWith("901234567", "signed:+998901234567");
     expect(screen.queryByRole("alert")).toBeNull();
   });
 

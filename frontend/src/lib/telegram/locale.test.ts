@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { rememberTelegramLocale, resolveTelegramLocale, TG_LOCALE_KEY } from "./locale";
 import { markTelegramMiniApp } from "./web-app";
+import { installTelegramHost } from "@/test/telegram-host";
 
 afterEach(() => {
   localStorage.clear();
@@ -38,6 +39,7 @@ describe("rememberTelegramLocale", () => {
   });
 
   it("records an in-app language switch", () => {
+    installTelegramHost();
     markTelegramMiniApp();
     rememberTelegramLocale("ru");
     expect(localStorage.getItem(TG_LOCALE_KEY)).toBe("ru");

@@ -160,9 +160,19 @@ describe("LoginPage", () => {
     const webApp = () =>
       ({
         initData: "signed",
-        requestContact: (cb: (ok: boolean, r: unknown) => void) =>
-          cb(true, { responseUnsafe: { contact: { phone_number: "+998901112233" } } }),
+        isVersionAtLeast: () => true,
+        requestContact: vi.fn((cb: (ok: boolean, r: unknown) => void) =>
+          cb(true, { response: "contact=signed", responseUnsafe: { contact: { phone_number: "+998901112233" } } }),
+        ),
       }) as unknown as TelegramWebApp;
+    // Each call gets a fresh Response: a body can only be read once.
+    const replies = (...bodies: unknown[]) => {
+      let i = 0;
+      return vi.fn(
+        async (_url?: string, _init?: RequestInit) =>
+          new Response(JSON.stringify(bodies[Math.min(i++, bodies.length - 1)]), { status: 200 }),
+      );
+    };
 
     async function submit(fetchMock: ReturnType<typeof vi.fn>) {
       vi.stubGlobal("fetch", fetchMock);
@@ -187,12 +197,49 @@ describe("LoginPage", () => {
       const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
       expect(body.phone).toBe("901112233");
       expect(body.tg_init_data).toBe("signed");
+      expect(body.tg_contact).toBe("contact=signed");
       expect(cloudRemove).toHaveBeenCalledWith("autologin_off");
+      // Linked already: nothing more to ask.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    // Typed the number instead of sharing it: the server cannot link without
+    // Telegram's signature, so Telegram's sheet is offered once afterwards.
+    it("asks Telegram for the number after a typed-phone sign-in and links with it", async () => {
+      const app = webApp();
+      currentWebApp = app;
+      const fetchMock = replies({ data: { ok: true, telegram_linked: false } }, { data: { linked: true } });
+      vi.stubGlobal("fetch", fetchMock);
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Kirish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.tg_init_data).toBe("signed");
+      expect(body.tg_contact).toBeUndefined();
+      await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+      expect(app.requestContact).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+      expect(url).toBe("/api/proxy/me/telegram/link-webapp");
+      expect(JSON.parse(init.body as string)).toEqual({ init_data: "signed", contact: "contact=signed" });
+      await waitFor(() => expect(cloudRemove).toHaveBeenCalledWith("autologin_off"));
+    });
+
+    // A shared number that still did not link (not the profile's phone) is
+    // the answer already; asking again would only repeat it.
+    it("does not ask again after a shared number that did not link", async () => {
+      const app = webApp();
+      currentWebApp = app;
+      const fetchMock = replies({ data: { ok: true, telegram_linked: false } });
+      await submit(fetchMock);
+      expect(app.requestContact).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
     it("still succeeds quietly when linking was skipped", async () => {
       currentWebApp = webApp();
-      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+      const fetchMock = replies({ data: { ok: true } });
       await submit(fetchMock);
       expect(cloudRemove).not.toHaveBeenCalled();
       expect(screen.queryByRole("alert")).toBeNull();

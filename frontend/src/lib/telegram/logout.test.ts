@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { markTelegramLogout, postLogoutPath } from "./logout";
 import { openExternalUrl, telegramLinkKind } from "./links";
 import { AUTOLOGIN_OFF_KEY, markTelegramMiniApp } from "./web-app";
+import { installTelegramHost } from "@/test/telegram-host";
 
 afterEach(() => {
   sessionStorage.clear();
@@ -12,6 +13,7 @@ afterEach(() => {
 
 function fakeWebApp(extra: Record<string, unknown> = {}) {
   const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn(), ...extra };
+  installTelegramHost();
   (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
   return webApp;
 }
@@ -21,6 +23,7 @@ describe("telegram logout helpers", () => {
     expect(postLogoutPath("ru", "/ru/login")).toBe("/ru/login");
   });
   it("postLogoutPath lands on /tg inside the Mini App", () => {
+    installTelegramHost();
     markTelegramMiniApp();
     expect(postLogoutPath("ru", "/ru/login")).toBe("/ru/tg");
   });

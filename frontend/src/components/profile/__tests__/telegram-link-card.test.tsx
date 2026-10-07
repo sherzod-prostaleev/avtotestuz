@@ -5,6 +5,7 @@ import messages from "../../../../messages/uz-Latn.json";
 import { TelegramLinkCard } from "../telegram-link-card";
 import * as apiClient from "@/lib/api-client";
 import { ApiError } from "@/lib/api-client";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const tg = vi.hoisted(() => ({ webApp: null as null | Record<string, unknown> }));
 vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => tg.webApp }));
@@ -86,6 +87,7 @@ describe("TelegramLinkCard", () => {
         openTelegramLink: vi.fn(),
       };
       tg.webApp = webApp;
+      installTelegramHost();
       (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
       return webApp;
     }

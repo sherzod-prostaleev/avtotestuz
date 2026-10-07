@@ -5,6 +5,7 @@ import messages from "../../../../../messages/uz-Latn.json";
 import ProfilePage from "./page";
 import * as apiClient from "@/lib/api-client";
 import { AUTOLOGIN_OFF_KEY, markTelegramMiniApp } from "@/lib/telegram/web-app";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const nav = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -170,12 +171,14 @@ describe("ProfilePage", () => {
     // Spec D6: logout keeps the Telegram link and turns auto-login off
     // instead, then lands on /tg's welcome screen rather than /login.
     it("turns Telegram auto-login off first and lands on /tg inside the Mini App", async () => {
+      installTelegramHost();
       markTelegramMiniApp();
       const order: string[] = [];
       const setItem = vi.fn((key: string, value: string, cb?: (err: string | null) => void) => {
         order.push(`cloud:${key}=${value}`);
         cb?.(null);
       });
+      installTelegramHost();
       (window as { Telegram?: unknown }).Telegram = {
         WebApp: { initData: "x", CloudStorage: { setItem, getItem: vi.fn(), removeItem: vi.fn() } },
       };

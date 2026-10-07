@@ -2,6 +2,7 @@ import { act, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TelegramProvider, useTelegram, useTelegramColorScheme, useTelegramStatus } from "./telegram-provider";
 import { TELEGRAM_SDK_URL, markTelegramMiniApp } from "@/lib/telegram/web-app";
+import { installTelegramHost } from "@/test/telegram-host";
 
 // The chrome has its own tests; here only WHEN it mounts matters.
 vi.mock("./telegram-chrome", () => ({
@@ -21,13 +22,33 @@ describe("TelegramProvider", () => {
     expect(screen.getByText("site")).toBeInTheDocument();
     expect(document.querySelector(`script[src="${TELEGRAM_SDK_URL}"]`)).toBeNull();
   });
+  // C1: a planted #tgWebAppData link (or a leftover session flag) in a plain
+  // browser must not load Telegram's SDK — it would read the planted data
+  // into initData and the forms would send it.
+  it("requests no SDK for injected launch data or a stale flag without a Telegram host", () => {
+    window.history.replaceState(null, "", "/uz-Latn/login#tgWebAppData=attacker&tgWebAppVersion=8.0");
+    sessionStorage.setItem("tg-webapp", "1");
+    (window as { Telegram?: unknown }).Telegram = { WebApp: { initData: "attacker" } };
+    function Probe() {
+      return <span data-testid="probe">{useTelegram() === null ? "null" : "set"}:{useTelegramStatus()}</span>;
+    }
+    try {
+      render(<TelegramProvider><Probe /></TelegramProvider>);
+      expect(document.querySelector(`script[src="${TELEGRAM_SDK_URL}"]`)).toBeNull();
+      expect(screen.getByTestId("probe")).toHaveTextContent("null:off");
+    } finally {
+      window.history.replaceState(null, "", "/");
+    }
+  });
   it("injects the SDK once inside the Mini App", () => {
+    installTelegramHost();
     markTelegramMiniApp();
     const { rerender } = render(<TelegramProvider><p>tg</p></TelegramProvider>);
     rerender(<TelegramProvider><p>tg</p></TelegramProvider>);
     expect(document.querySelectorAll(`script[src="${TELEGRAM_SDK_URL}"]`)).toHaveLength(1);
   });
   it("keeps rendering children when the SDK script fails to load", () => {
+    installTelegramHost();
     markTelegramMiniApp();
     function Probe() {
       return <span data-testid="probe">{useTelegram() === null ? "null" : "set"}</span>;
@@ -52,6 +73,7 @@ describe("TelegramProvider", () => {
     const mount = () => render(<TelegramProvider><StatusProbe /></TelegramProvider>);
     const sdkScript = () => document.querySelector(`script[src="${TELEGRAM_SDK_URL}"]`)!;
     const fakeSdk = (initData: string) => {
+      installTelegramHost();
       window.Telegram = {
         WebApp: {
           initData,
@@ -69,6 +91,7 @@ describe("TelegramProvider", () => {
       expect(screen.getByTestId("status")).toHaveTextContent("off");
     });
     it("is loading until the SDK script loads, then ready", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       mount();
       expect(screen.getByTestId("status")).toHaveTextContent("loading");
@@ -79,6 +102,7 @@ describe("TelegramProvider", () => {
       expect(screen.getByTestId("status")).toHaveTextContent("ready");
     });
     it("is ready at once when the SDK is already present", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       fakeSdk("signed");
       mount();
@@ -86,6 +110,7 @@ describe("TelegramProvider", () => {
       expect(screen.getByTestId("tg-chrome")).toBeInTheDocument();
     });
     it("fails when the script errors", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       mount();
       act(() => {
@@ -94,6 +119,7 @@ describe("TelegramProvider", () => {
       expect(screen.getByTestId("status")).toHaveTextContent("failed");
     });
     it("fails when the SDK loads with empty initData", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       mount();
       fakeSdk("");
@@ -104,6 +130,7 @@ describe("TelegramProvider", () => {
     });
     it("fails after 10 s of silence", () => {
       vi.useFakeTimers();
+      installTelegramHost();
       markTelegramMiniApp();
       mount();
       act(() => {
@@ -117,6 +144,7 @@ describe("TelegramProvider", () => {
     });
     it("does not time out once ready", () => {
       vi.useFakeTimers();
+      installTelegramHost();
       markTelegramMiniApp();
       mount();
       fakeSdk("signed");
@@ -143,6 +171,7 @@ describe("TelegramProvider", () => {
         onEvent: vi.fn((name: string, cb: Handler) => name === "themeChanged" && handlers.add(cb)),
         offEvent: vi.fn((name: string, cb: Handler) => name === "themeChanged" && handlers.delete(cb)),
       };
+      installTelegramHost();
       window.Telegram = { WebApp: webApp as never };
       return { webApp, fire: () => handlers.forEach((cb) => cb()), handlers };
     }
@@ -156,6 +185,7 @@ describe("TelegramProvider", () => {
     });
 
     it("follows Telegram's scheme at launch and on themeChanged, and unsubscribes", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       const tg = sdk("light");
       const view = render(<TelegramProvider><SchemeProbe /></TelegramProvider>);
@@ -168,6 +198,7 @@ describe("TelegramProvider", () => {
     });
 
     it("ignores an unknown scheme", () => {
+      installTelegramHost();
       markTelegramMiniApp();
       sdk("sepia");
       render(<TelegramProvider><SchemeProbe /></TelegramProvider>);

@@ -44,6 +44,8 @@ export default function RegisterPage() {
   const tgT = useTranslations("TelegramApp");
   const waitingForTelegram = tgStatus === "loading";
   const [phone, setPhone] = useState("");
+  // Telegram's signed share of the phone (Mini App only): the link proof.
+  const [tgContact, setTgContact] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -81,7 +83,7 @@ export default function RegisterPage() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(
-            withTelegramInitData({ phone: localPhone, password, name: name.trim() || undefined }, webApp),
+            withTelegramInitData({ phone: localPhone, password, name: name.trim() || undefined }, webApp, tgContact),
           ),
         });
       } catch {
@@ -109,8 +111,9 @@ export default function RegisterPage() {
         return;
       }
 
-      // Fire and forget: CloudStorage can take its 3 s timeout and must never hold up sign-up.
-      void afterTelegramAuth(linked).catch(() => {});
+      // Fire and forget: CloudStorage and Telegram's phone sheet must never
+      // hold up sign-up. No shared number yet → offer the sheet once.
+      void afterTelegramAuth(linked, { webApp, askForContact: !tgContact }).catch(() => {});
       try {
         await applyPendingReferralCode();
       } catch {
@@ -162,7 +165,12 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <TelegramPhoneButton onPhone={setPhone} />
+            <TelegramPhoneButton
+              onPhone={(national, signed) => {
+                setPhone(national);
+                setTgContact(signed);
+              }}
+            />
             <div className="space-y-1.5">
               <label
                 htmlFor="register-phone"

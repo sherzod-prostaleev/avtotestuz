@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import messages from "../../../../../messages/uz-Latn.json";
 import PremiumPage from "./page";
 import * as apiClient from "@/lib/api-client";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -206,6 +207,7 @@ describe("PremiumPage", () => {
     const CHECKOUT = "https://checkout.paycom.uz/abc";
     function enterMiniApp() {
       const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
+      installTelegramHost();
       (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
       return webApp;
     }

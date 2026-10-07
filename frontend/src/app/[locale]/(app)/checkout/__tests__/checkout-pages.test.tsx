@@ -7,6 +7,7 @@ import CheckoutFailurePage from "../failure/page";
 import CheckoutPendingPage from "../pending/page";
 import * as apiClient from "@/lib/api-client";
 import { CHECKOUT_URL_KEY, rememberCheckoutUrl } from "@/lib/telegram/checkout-handoff";
+import { installTelegramHost } from "@/test/telegram-host";
 
 const tg = vi.hoisted(() => ({ webApp: null as null | Record<string, unknown> }));
 vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => tg.webApp }));
@@ -97,6 +98,7 @@ describe("Checkout Status Pages", () => {
     function enterMiniApp() {
       const webApp = { initData: "x", openLink: vi.fn(), openTelegramLink: vi.fn() };
       tg.webApp = webApp;
+      installTelegramHost();
       (window as { Telegram?: unknown }).Telegram = { WebApp: webApp };
       return webApp;
     }

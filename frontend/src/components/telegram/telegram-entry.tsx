@@ -264,10 +264,11 @@ export function TelegramEntry() {
     };
   }, []);
 
-  // Only real launch data may flag the tab as Telegram: a plain browser visit
-  // to /tg must leave the website untouched.
+  // Only a Telegram client may flag the tab as Telegram. A #tgWebAppData hash
+  // proves nothing (anyone can plant their own in a link), and webApp is only
+  // non-null when a real Telegram host is around (getWebApp).
   useEffect(() => {
-    if (webApp || window.location.hash.includes("tgWebAppData=")) markTelegramMiniApp();
+    if (webApp) markTelegramMiniApp();
   }, [webApp]);
 
   useEffect(() => {
