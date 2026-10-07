@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
+import type { TelegramWebApp } from "@/lib/telegram/web-app";
 import messages from "../../../../../messages/uz-Latn.json";
 import RegisterPage from "./page";
 
@@ -24,7 +25,18 @@ vi.mock("@/lib/demo-progress-storage", () => ({
   migrateDemoProgressOnLogin: vi.fn().mockResolvedValue(undefined),
 }));
 
+let currentWebApp: TelegramWebApp | null = null;
+vi.mock("@/components/telegram/telegram-provider", () => ({ useTelegram: () => currentWebApp }));
+
+const cloudRemove = vi.fn().mockResolvedValue(undefined);
+vi.mock("@/lib/telegram/web-app", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/telegram/web-app")>();
+  return { ...actual, cloudRemove: (key: string) => cloudRemove(key) };
+});
+
 afterEach(() => {
+  currentWebApp = null;
+  cloudRemove.mockClear();
   vi.unstubAllGlobals();
   pushMock.mockClear();
 });
@@ -102,5 +114,58 @@ describe("RegisterPage", () => {
       expect(screen.getByText("Telefon raqam noto'g'ri formatda")).toBeInTheDocument(),
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  describe("inside the Telegram Mini App", () => {
+    const webApp = () =>
+      ({
+        initData: "signed",
+        requestContact: (cb: (ok: boolean, r: unknown) => void) =>
+          cb(true, { responseUnsafe: { contact: { phone_number: "+998901112233" } } }),
+      }) as unknown as TelegramWebApp;
+
+    async function submit(fetchMock: ReturnType<typeof vi.fn>) {
+      vi.stubGlobal("fetch", fetchMock);
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Raqamni Telegram'dan olish" }));
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+    }
+
+    it("shows no Telegram button on the website", () => {
+      renderWithIntl();
+      expect(screen.queryByRole("button", { name: "Raqamni Telegram'dan olish" })).toBeNull();
+    });
+
+    it("pre-fills the phone, sends tg_init_data and re-enables auto-login after a link", async () => {
+      currentWebApp = webApp();
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: { ok: true, telegram_linked: true } }), { status: 200 }),
+      );
+      await submit(fetchMock);
+      const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.phone).toBe("901112233");
+      expect(body.tg_init_data).toBe("signed");
+      expect(cloudRemove).toHaveBeenCalledWith("autologin_off");
+    });
+
+    it("still succeeds quietly when linking was skipped", async () => {
+      currentWebApp = webApp();
+      const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+      await submit(fetchMock);
+      expect(cloudRemove).not.toHaveBeenCalled();
+      expect(screen.queryByRole("alert")).toBeNull();
+    });
+
+    it("does not wait for CloudStorage before navigating", async () => {
+      currentWebApp = webApp();
+      cloudRemove.mockReturnValueOnce(new Promise(() => {}));
+      const fetchMock = vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ data: { telegram_linked: true } }), { status: 200 }),
+      );
+      await submit(fetchMock);
+    });
   });
 });

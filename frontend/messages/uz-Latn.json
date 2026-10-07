@@ -2658,6 +2658,7 @@
     "errorBody": "Internet aloqasini tekshirib, qayta urinib ko'ring.",
     "retry": "Qayta urinish",
     "sharePhone": "Raqamni Telegram'dan olish",
+    "phoneNotUzbek": "Telegram'dagi raqam O'zbekiston raqami emas. Raqamni qo'lda kiriting.",
     "linkedStatus": "Telegram ulangan"
   }
 }

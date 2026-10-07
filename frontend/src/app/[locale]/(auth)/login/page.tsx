@@ -11,6 +11,9 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Lock, Phone, ShieldCheck } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
+import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
+import { useTelegram } from "@/components/telegram/telegram-provider";
+import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-body";
 import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
@@ -32,6 +35,7 @@ export default function LoginPage() {
   const t = useTranslations("Login");
   const locale = useLocale();
   const router = useRouter();
+  const webApp = useTelegram();
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -88,7 +92,7 @@ export default function LoginPage() {
         res = await fetch("/api/auth/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ phone: localPhone, password }),
+          body: JSON.stringify(withTelegramInitData({ phone: localPhone, password }, webApp)),
         });
       } catch {
         setError("network_error");
@@ -97,13 +101,15 @@ export default function LoginPage() {
 
       let code = "unknown";
       let mustChangePassword = false;
+      let linked = false;
       try {
         const json = (await res.json()) as {
           error?: { code?: string };
-          data?: { must_change_password?: boolean };
+          data?: { must_change_password?: boolean; telegram_linked?: boolean };
         };
         code = json.error?.code ?? "unknown";
         mustChangePassword = json.data?.must_change_password === true;
+        linked = json.data?.telegram_linked === true;
       } catch {
         if (!res.ok) {
           setError("network_error");
@@ -115,6 +121,8 @@ export default function LoginPage() {
         setError(code === "unknown" && res.status >= 500 ? "network_error" : code);
         return;
       }
+      // Fire and forget: CloudStorage can take its 3 s timeout and must never hold up sign-in.
+      void afterTelegramAuth(linked).catch(() => {});
       await finishAuth(mustChangePassword);
     } finally {
       setSubmitting(false);
@@ -174,6 +182,7 @@ export default function LoginPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <TelegramPhoneButton onPhone={setPhone} />
             <div className="space-y-1.5">
               <label
                 htmlFor="login-phone"

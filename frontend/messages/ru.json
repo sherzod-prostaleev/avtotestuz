@@ -2658,6 +2658,7 @@
     "errorBody": "Проверьте интернет и попробуйте снова.",
     "retry": "Повторить",
     "sharePhone": "Взять номер из Telegram",
+    "phoneNotUzbek": "Номер в Telegram не узбекский. Введите номер вручную.",
     "linkedStatus": "Telegram подключён"
   }
 }

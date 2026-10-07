@@ -31,3 +31,14 @@ export function parsePasswordResetTokenFromBotURL(botURL: string): string | null
     return null;
   }
 }
+
+/**
+ * National 9 digits from a number Telegram shared, or null when it is not an
+ * Uzbek one. normalizeNationalPhone() would keep the first 9 digits of
+ * "+7 999 123 45 67" and put a stranger's number in the field, so a shared
+ * number must carry the +998 code to be accepted (with or without the "+").
+ */
+export function nationalPhoneFromShared(raw: string): string | null {
+  const digits = raw.replace(/\D/g, "");
+  return /^998\d{9}$/.test(digits) ? digits.slice(3) : null;
+}

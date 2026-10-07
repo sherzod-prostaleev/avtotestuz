@@ -11,6 +11,9 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Lock, Phone, User } from "lucide-react";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
+import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
+import { useTelegram } from "@/components/telegram/telegram-provider";
+import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-body";
 import {
   NATIONAL_PHONE_INPUT_MAX_LENGTH,
   formatNationalPhone,
@@ -36,6 +39,7 @@ export default function RegisterPage() {
   const loginT = useTranslations("Login");
   const locale = useLocale();
   const router = useRouter();
+  const webApp = useTelegram();
   const [phone, setPhone] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -70,11 +74,9 @@ export default function RegisterPage() {
         res = await fetch("/api/auth/register", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            phone: localPhone,
-            password,
-            name: name.trim() || undefined,
-          }),
+          body: JSON.stringify(
+            withTelegramInitData({ phone: localPhone, password, name: name.trim() || undefined }, webApp),
+          ),
         });
       } catch {
         setError("network_error");
@@ -82,9 +84,11 @@ export default function RegisterPage() {
       }
 
       let responseCode = "unknown";
+      let linked = false;
       try {
-        const json = (await res.json()) as { error?: { code?: string } };
+        const json = (await res.json()) as { error?: { code?: string }; data?: { telegram_linked?: boolean } };
         responseCode = json.error?.code ?? "unknown";
+        linked = json.data?.telegram_linked === true;
       } catch {
         if (!res.ok) {
           setError("network_error");
@@ -99,6 +103,8 @@ export default function RegisterPage() {
         return;
       }
 
+      // Fire and forget: CloudStorage can take its 3 s timeout and must never hold up sign-up.
+      void afterTelegramAuth(linked).catch(() => {});
       try {
         await applyPendingReferralCode();
       } catch {
@@ -152,6 +158,7 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <TelegramPhoneButton onPhone={setPhone} />
             <div className="space-y-1.5">
               <label
                 htmlFor="register-phone"
