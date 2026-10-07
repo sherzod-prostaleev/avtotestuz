@@ -228,6 +228,7 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 | Link conflict race (two profiles at once) | DELETE+UPSERT in one tx; unique violation → link skipped, login succeeds, logged |
 | Bot token missing | `/tg` shows "vaqtincha mavjud emas"; site unaffected |
 | CloudStorage unavailable (old client) | Treated as auto-login on |
+| Several Telegram accounts in one app share the webview cookie jar | The live session wins (fast path): `/tg` goes straight in on `/api/proxy/me` 200 |
 
 ## 6. Testing
 

@@ -239,6 +239,39 @@ from the admin panel once more and run it; it reuses the existing
 `station.key`, so no seat is consumed and no re-enrolment happens. After that
 one manual step they keep themselves current.
 
+## Telegram Mini App
+
+The learner app opens inside Telegram from the bot's menu button and `/start`
+launcher. Configuration lives next to the other `TELEGRAM_BOT_*` variables in
+`deploy/app.prod.env.example`:
+
+- `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_BOT_MODE` - the bot
+  itself (the Mini App's sign-in validates Telegram's signed launch data with
+  the bot token; without it `/tg` shows "vaqtincha mavjud emas").
+- `TELEGRAM_WEBAPP_URL` - the Mini App entry, `https://drivergo.uz/uz-Latn/tg`.
+  **Kill switch:** set it empty and restart the API. Note that an empty value
+  also resets any menu button set by hand in BotFather on that restart.
+- Optional: BotFather "Configure Mini App" (`/newapp` or `/mybots` -> Bot
+  Settings -> Configure Mini App) with the same URL, for the `t.me/<bot>/<app>`
+  direct link.
+
+Framing: learner pages send CSP `frame-ancestors 'self' https://web.telegram.org`
+and no `X-Frame-Options`; `/admin` keeps `frame-ancestors 'none'` + `DENY`.
+
+### Manual device checklist (before announcing)
+
+Run on Android, iOS, Telegram Desktop and web.telegram.org:
+
+1. Open from the bot (menu button and `/start`).
+2. Linked account: auto-login lands on the dashboard.
+3. Unlinked: phone login (and "Raqamni Telegram'dan olish"), which links the account.
+4. Logout, then reopen: "continue as" is offered, not forced.
+5. Start an exam, press the system/back close: the closing confirmation appears.
+6. Payment hand-off: the checkout opens Payme/Click in the external browser and the return page (`/checkout/done/<bot>`) leads back to the bot.
+
+A real **staging Payme/Click payment from inside the Mini App must be done
+once** before announcing; the e2e suite stubs the backend and cannot prove it.
+
 ## CI implications
 
 - Image builds are not yet a required CI job (keep PRs light). Operators build
