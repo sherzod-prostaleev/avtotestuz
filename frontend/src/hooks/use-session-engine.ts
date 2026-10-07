@@ -12,6 +12,14 @@ export type SessionMode =
   | "review"
   | "placement";
 
+/** Modes that share the strict timed/anti-cheat exam pipeline — timer,
+ * answer redaction until finish, F-key exam UI. Currently "exam",
+ * "grand_mock", and "placement" (mirrors backend session.IsExamLike).
+ * Single source of truth: the session page and the answer haptics both use it. */
+export function isExamLikeMode(mode: SessionMode): boolean {
+  return mode === "exam" || mode === "grand_mock" || mode === "placement";
+}
+
 export interface AnswerOptionItem {
   id: string;
   text: string;
@@ -620,8 +628,16 @@ export function useSessionEngine(initialSessionId?: string) {
         });
 
         if (response.recorded) {
-          if (response.correct !== undefined) haptics.result(response.correct);
           const current = sessionRef.current;
+          // The backend returns `correct` in exam-like modes too, but the UI
+          // withholds it until finish; a success/error buzz would leak every
+          // answer on a phone. There we only acknowledge the tap, neutrally.
+          // Unknown mode (no session) fails safe to the neutral tick.
+          if (response.correct !== undefined && current && !isExamLikeMode(current.mode)) {
+            haptics.result(response.correct);
+          } else {
+            haptics.select();
+          }
           if (current) {
             commitSession({
               ...current,

@@ -78,6 +78,11 @@ describe("RegisterServiceWorker", () => {
 });
 
 describe("RegisterServiceWorker inside Telegram", () => {
+  afterEach(() => {
+    sessionStorage.clear();
+    vi.unstubAllEnvs();
+  });
+
   it("does not register a service worker in the Mini App", () => {
     vi.stubEnv("NODE_ENV", "production");
     const register = vi.fn().mockResolvedValue(undefined);
@@ -88,7 +93,5 @@ describe("RegisterServiceWorker inside Telegram", () => {
     sessionStorage.setItem("tg-webapp", "1");
     render(<RegisterServiceWorker />);
     expect(register).not.toHaveBeenCalled();
-    sessionStorage.clear();
-    vi.unstubAllEnvs();
   });
 });

@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "@/lib/api-client";
 import * as apiClient from "@/lib/api-client";
+import { haptics } from "@/lib/telegram/haptics";
 import { clearSessionQuestionWarmCache, useSessionEngine } from "./use-session-engine";
 
 const LOCALE = "uz-Latn";
@@ -419,6 +420,40 @@ describe("useSessionEngine", () => {
       question_id: "q-1",
       answer_id: "q-1-a1",
     });
+  });
+
+  describe("answer haptics", () => {
+    async function answer(mode: "variant" | "exam" | "grand_mock" | "placement" | "practice") {
+      vi.spyOn(apiClient, "apiPost")
+        .mockResolvedValueOnce(startResponse({ mode }) as never)
+        .mockResolvedValueOnce({ recorded: true, correct: true, correct_answer_id: "q-1-a1" } as never);
+      mockOnlyScopedQuestions();
+      const result_ = vi.spyOn(haptics, "result");
+      const select = vi.spyOn(haptics, "select");
+      const { result } = renderHook(() => useSessionEngine());
+      await act(async () => {
+        await result.current.startSession(mode as never, { locale: LOCALE });
+      });
+      await act(async () => {
+        await result.current.submitAnswer("sess-99", "q-1", "q-1-a1");
+      });
+      return { result: result_, select };
+    }
+
+    it("vibrates the verdict in practice, where the UI shows it", async () => {
+      const { result, select } = await answer("practice");
+      expect(result).toHaveBeenCalledWith(true);
+      expect(select).not.toHaveBeenCalled();
+    });
+
+    it.each(["exam", "grand_mock", "placement"] as const)(
+      "never vibrates correctness in %s (backend returns it but the UI withholds it)",
+      async (mode) => {
+        const { result, select } = await answer(mode);
+        expect(result).not.toHaveBeenCalled();
+        expect(select).toHaveBeenCalledTimes(1);
+      }
+    );
   });
 
   it("forwards optional FSRS fields on submitAnswer", async () => {

@@ -25,6 +25,7 @@ import { trackEvent, type SafeAnalyticsProps } from "@/lib/analytics-events";
 import { AnimatePresence, motion } from "motion/react";
 
 import {
+  isExamLikeMode,
   useSessionEngine,
   type SessionMode,
   type SessionQuestionItem,
@@ -80,13 +81,6 @@ const GrandMockCertificateDialog = dynamic(
     })),
   { ssr: false },
 );
-
-/** Modes that share the strict timed/anti-cheat exam pipeline — timer,
- * answer redaction until finish, F-key exam UI. Currently "exam",
- * "grand_mock", and "placement" (mirrors backend session.IsExamLike). */
-function isExamLikeMode(mode: SessionMode): boolean {
-  return mode === "exam" || mode === "grand_mock" || mode === "placement";
-}
 
 interface SavedItemDTO {
   question_id: string;

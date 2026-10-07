@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { TelegramProvider } from "./telegram-provider";
+import { TelegramProvider, useTelegram } from "./telegram-provider";
 import { TELEGRAM_SDK_URL, markTelegramMiniApp } from "@/lib/telegram/web-app";
 
 afterEach(() => {
@@ -22,9 +22,14 @@ describe("TelegramProvider", () => {
   });
   it("keeps rendering children when the SDK script fails to load", () => {
     markTelegramMiniApp();
-    render(<TelegramProvider><p>still here</p></TelegramProvider>);
+    function Probe() {
+      return <span data-testid="probe">{useTelegram() === null ? "null" : "set"}</span>;
+    }
+    render(<TelegramProvider><p>still here</p><Probe /></TelegramProvider>);
     const script = document.querySelector(`script[src="${TELEGRAM_SDK_URL}"]`)!;
     script.dispatchEvent(new Event("error"));
     expect(screen.getByText("still here")).toBeInTheDocument();
+    expect(screen.getByTestId("probe")).toHaveTextContent("null");
+    expect(document.documentElement.classList.contains("tg-webapp")).toBe(false);
   });
 });

@@ -5,6 +5,8 @@ import { getWebApp, isTelegramMiniApp, TELEGRAM_SDK_URL, type TelegramWebApp } f
 
 const TelegramContext = createContext<TelegramWebApp | null>(null);
 
+// null means "not Telegram", "SDK still loading" or "SDK failed": consumers
+// must treat it as the plain website and never wait for it.
 export function useTelegram(): TelegramWebApp | null {
   return useContext(TelegramContext);
 }
