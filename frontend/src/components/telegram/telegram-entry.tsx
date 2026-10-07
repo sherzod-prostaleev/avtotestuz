@@ -38,21 +38,37 @@ const SDK_WAIT_MS = 3000;
 // longer before calling the SDK lost.
 const SDK_LAUNCH_WAIT_MS = 10000;
 
+// A stalled mobile connection must end on the retry screen, never on an
+// endless spinner.
+const REQUEST_TIMEOUT_MS = 15000;
+
+/** Runs `run` with a signal that aborts after the timeout (fake-timer friendly, unlike AbortSignal.timeout). */
+async function withTimeout<T>(run: (signal: AbortSignal) => Promise<T>): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await run(controller.signal);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 type MeProbe = { kind: "ok"; mustChangePassword: boolean } | { kind: "unauthorized" } | { kind: "failed" };
 
 async function probeMe(): Promise<MeProbe> {
-  let res: Response;
   try {
-    res = await fetch("/api/proxy/me", { cache: "no-store" });
+    return await withTimeout(async (signal): Promise<MeProbe> => {
+      const res = await fetch("/api/proxy/me", { cache: "no-store", signal });
+      if (res.status === 401) return { kind: "unauthorized" };
+      if (!res.ok) return { kind: "failed" };
+      const json = (await res.json().catch(() => null)) as
+        | { data?: { profile?: { must_change_password?: boolean } } }
+        | null;
+      return { kind: "ok", mustChangePassword: json?.data?.profile?.must_change_password === true };
+    });
   } catch {
     return { kind: "failed" };
   }
-  if (res.status === 401) return { kind: "unauthorized" };
-  if (!res.ok) return { kind: "failed" };
-  const json = (await res.json().catch(() => null)) as
-    | { data?: { profile?: { must_change_password?: boolean } } }
-    | null;
-  return { kind: "ok", mustChangePassword: json?.data?.profile?.must_change_password === true };
 }
 
 type SignInBody = {
@@ -114,20 +130,24 @@ export function TelegramEntry() {
   const signIn = useCallback(
     async (app: TelegramWebApp) => {
       setPhase("loading");
-      let res: Response;
+      let reply: { ok: boolean; status: number; json: SignInBody | null };
       try {
-        res = await fetch("/api/auth/telegram", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ init_data: app.initData }),
+        reply = await withTimeout(async (signal) => {
+          const res = await fetch("/api/auth/telegram", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ init_data: app.initData }),
+            signal,
+          });
+          return { ok: res.ok, status: res.status, json: (await res.json().catch(() => null)) as SignInBody | null };
         });
       } catch {
         setPhase("error");
         return;
       }
-      const json = (await res.json().catch(() => null)) as SignInBody | null;
-      if (!res.ok) {
-        setPhase(phaseForError(res.status, json?.error?.code));
+      const { json } = reply;
+      if (!reply.ok) {
+        setPhase(phaseForError(reply.status, json?.error?.code));
         return;
       }
       if (json?.data?.need_phone) {
@@ -221,7 +241,16 @@ export function TelegramEntry() {
     if (target !== locale) {
       // replace, never a Link/prefetch: fetching another locale's URL in the
       // background rewrites the saved NEXT_LOCALE.
-      router.replace(`/${target}/tg${window.location.search}`);
+      // A `next` for this locale is rewritten to the target one so it still
+      // passes safeNextPath there; anything else is dropped.
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      if (next !== null) {
+        if (next.startsWith(`/${locale}/`)) params.set("next", `/${target}/${next.slice(locale.length + 2)}`);
+        else params.delete("next");
+      }
+      const query = params.toString();
+      router.replace(`/${target}/tg${query ? `?${query}` : ""}`);
       return;
     }
     void enter(webApp);
@@ -232,6 +261,10 @@ export function TelegramEntry() {
   useEffect(() => {
     if (phase !== "loading") headingRef.current?.focus();
   }, [phase]);
+
+  // Inside Telegram the learner can always close back to the chat; in a plain
+  // browser there is no bot to return to, so those states stay text-only.
+  const backToBot = webApp ? <BackToBotButton label={t("backToBot")} onClick={() => webApp.close()} /> : undefined;
 
   const retry = () => {
     if (webApp) void enter(webApp);
@@ -302,7 +335,7 @@ export function TelegramEntry() {
           )}
 
           {phase === "outside" && (
-            <Notice headingRef={headingRef} icon={<Send className="h-6 w-6" />} title={t("outsideTitle")} body={t("outsideBody")} />
+            <Notice headingRef={headingRef} icon={<Send className="h-6 w-6" />} title={t("outsideTitle")} body={t("outsideBody")} action={backToBot} />
           )}
           {phase === "cookie_blocked" && (
             <Notice
@@ -318,6 +351,7 @@ export function TelegramEntry() {
               icon={<Clock className="h-6 w-6" />}
               title={t("unavailableTitle")}
               body={t("unavailableBody")}
+              action={backToBot}
             />
           )}
           {phase === "blocked" && (
@@ -362,6 +396,15 @@ export function TelegramEntry() {
         </div>
       </main>
     </div>
+  );
+}
+
+function BackToBotButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <Button variant="game" size="lg" className="w-full text-sm font-extrabold" onClick={onClick}>
+      <Send aria-hidden="true" className="mr-2 h-4 w-4" />
+      {label}
+    </Button>
   );
 }
 

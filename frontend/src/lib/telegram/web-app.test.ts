@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cloudGet, getWebApp, isTelegramMiniApp, markTelegramMiniApp, TG_SESSION_FLAG } from "./web-app";
 import { haptics } from "./haptics";
 
@@ -27,6 +27,19 @@ describe("telegram detection", () => {
   });
   it("cloudGet resolves null when CloudStorage is missing", async () => {
     expect(await cloudGet("k")).toBeNull();
+  });
+  it("cloudGet gives up on a CloudStorage that never answers", async () => {
+    vi.useFakeTimers();
+    try {
+      (window as { Telegram?: unknown }).Telegram = {
+        WebApp: { initData: "x", CloudStorage: { getItem: () => {} } },
+      };
+      const pending = cloudGet("k");
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(await pending).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
   it("haptics are silent no-ops outside Telegram", () => {
     expect(() => {

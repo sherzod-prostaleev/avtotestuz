@@ -2644,6 +2644,7 @@
     "continueAs": "Продолжить как {name}",
     "login": "Войти",
     "register": "Зарегистрироваться",
+    "backToBot": "Вернуться в бота",
     "outsideTitle": "Откройте через бота",
     "outsideBody": "Эта страница открывается из бота DriverGo в Telegram. Откройте бота заново.",
     "cookieTitle": "Откройте на телефоне",

@@ -6,6 +6,7 @@ export interface TelegramWebApp {
   platform: string;
   ready(): void;
   expand(): void;
+  close(): void;
   isVersionAtLeast(v: string): boolean;
   disableVerticalSwipes?(): void;
   enableClosingConfirmation(): void;
@@ -70,14 +71,23 @@ export function getWebApp(): TelegramWebApp | null {
   return webApp && webApp.initData ? webApp : null;
 }
 
+// CloudStorage answers over the Telegram bridge; on a bad link it can stay
+// silent forever, and callers sit on a spinner until it does.
+const CLOUD_GET_TIMEOUT_MS = 3000;
+
 export function cloudGet(key: string): Promise<string | null> {
   const storage = getWebApp()?.CloudStorage;
   if (!storage) return Promise.resolve(null);
   return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), CLOUD_GET_TIMEOUT_MS);
+    const done = (value: string | null) => {
+      clearTimeout(timer);
+      resolve(value);
+    };
     try {
-      storage.getItem(key, (err, value) => resolve(err ? null : value || null));
+      storage.getItem(key, (err, value) => done(err ? null : value || null));
     } catch {
-      resolve(null);
+      done(null);
     }
   });
 }

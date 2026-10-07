@@ -5,8 +5,19 @@
  */
 export function safeNextPath(raw: string | null, locale: string): string {
   const fallback = `/${locale}/dashboard`;
-  if (!raw) return fallback;
-  if (!raw.startsWith(`/${locale}/`) || raw.includes("//") || raw.includes("\\")) return fallback;
-  if (raw === `/${locale}/tg` || raw.startsWith(`/${locale}/tg?`) || raw.startsWith(`/${locale}/tg/`)) return fallback;
-  return raw;
+  if (!raw || raw.includes("\\")) return fallback;
+  // Normalise first: "/l/x/../tg" and "/l/%2e%2e/tg" would pass a prefix check
+  // yet resolve to /l/tg, looping the learner back into this page.
+  let url: URL;
+  try {
+    url = new URL(raw, "http://x");
+  } catch {
+    return fallback;
+  }
+  if (url.origin !== "http://x") return fallback;
+  const path = url.pathname;
+  if (!path.startsWith(`/${locale}/`) || raw.includes("//") || path.includes("//")) return fallback;
+  const tg = `/${locale}/tg`;
+  if (path === tg || path.startsWith(`${tg}/`)) return fallback;
+  return path + url.search;
 }

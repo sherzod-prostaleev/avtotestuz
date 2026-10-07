@@ -2644,6 +2644,7 @@
     "continueAs": "{name} сифатида давом этиш",
     "login": "Кириш",
     "register": "Рўйхатдан ўтиш",
+    "backToBot": "Ботга қайтиш",
     "outsideTitle": "Ботдан очинг",
     "outsideBody": "Бу саҳифа Telegram'даги DriverGo боти орқали очилади. Ботни қайта очинг.",
     "cookieTitle": "Телефонингизда очинг",

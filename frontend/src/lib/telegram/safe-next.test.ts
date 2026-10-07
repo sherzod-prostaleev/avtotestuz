@@ -12,6 +12,10 @@ describe("safeNextPath", () => {
     ["/ru/tickets", "/uz-Latn/dashboard"],
     ["/uz-Latn/tg", "/uz-Latn/dashboard"],
     ["/uz-Latn\\evil", "/uz-Latn/dashboard"],
+    ["/uz-Latn/x/../tg?next=%2Fuz-Latn%2Ftickets", "/uz-Latn/dashboard"],
+    ["/uz-Latn/a/./b", "/uz-Latn/a/b"],
+    ["/uz-Latn/%2e%2e/tg", "/uz-Latn/dashboard"],
+    ["/uz-Latn/x/../../evil", "/uz-Latn/dashboard"],
   ])("%s → %s", (raw, want) => {
     expect(safeNextPath(raw, "uz-Latn")).toBe(want);
   });
