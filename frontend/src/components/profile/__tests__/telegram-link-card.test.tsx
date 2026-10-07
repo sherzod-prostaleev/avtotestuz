@@ -105,6 +105,23 @@ describe("TelegramLinkCard", () => {
       expect(screen.queryByRole("button", { name: "Telegramni bog'lash" })).not.toBeInTheDocument();
     });
 
+    // The linked Telegram id decides when the API sends it: usernames change
+    // and can be missing, ids cannot.
+    it("compares the linked tg_user_id, not usernames, when it is known", async () => {
+      enterMiniApp("new_name");
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: "old_name", tg_user_id: 42 });
+      renderWithIntl();
+      expect(await screen.findByText("Telegram ulangan")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Qayta bog'lash" })).not.toBeInTheDocument();
+    });
+
+    it("offers relinking for another tg_user_id even with the same username", async () => {
+      enterMiniApp("sherzod");
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: true, username: "sherzod", tg_user_id: 7 });
+      renderWithIntl();
+      expect(await screen.findByRole("button", { name: "Qayta bog'lash" })).toBeInTheDocument();
+    });
+
     // The profile is linked, but to another Telegram account than the one that
     // opened the app (or we cannot tell): the learner must be able to relink.
     it.each([

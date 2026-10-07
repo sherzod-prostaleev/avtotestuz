@@ -13,6 +13,7 @@ import { isLinkedToCurrentUser } from "@/lib/telegram/linked-account";
 interface TelegramStatus {
   linked: boolean;
   username?: string;
+  tg_user_id?: number;
   linked_at?: string;
 }
 
@@ -89,7 +90,7 @@ export function TelegramLinkCard() {
   // needs no actions. Unlinked (launch data too old to link on sign-in), or
   // linked to another / an unidentifiable account, keeps the normal card so
   // the learner can still (re)link.
-  if (webApp && status?.linked && isLinkedToCurrentUser(status.username, webApp)) {
+  if (webApp && status?.linked && isLinkedToCurrentUser(status, webApp)) {
     return (
       <Card className="border-success/40 bg-card p-5 sm:p-6">
         <div role="status" className="flex items-center gap-3 text-success">

@@ -12,6 +12,7 @@ import { MobileScreen } from "./mobile-screen";
 interface TelegramStatus {
   linked: boolean;
   username?: string;
+  tg_user_id?: number;
   linked_at?: string;
 }
 
@@ -71,7 +72,7 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
   // Inside the Mini App an account linked to the Telegram user who opened it
   // needs no link/relink. Unlinked, or linked to another / an unidentifiable
   // account, keeps the actions.
-  const statusOnly = webApp !== null && linked && isLinkedToCurrentUser(status?.username, webApp);
+  const statusOnly = webApp !== null && linked && isLinkedToCurrentUser(status, webApp);
 
   return (
     <MobileScreen title={t("title")} onBack={onBack}>

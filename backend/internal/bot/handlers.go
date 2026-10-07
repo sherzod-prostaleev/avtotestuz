@@ -27,6 +27,7 @@ type telegramStatusResponse struct {
 	Linked   bool   `json:"linked"`
 	Username string `json:"username,omitempty"`
 	LinkedAt string `json:"linked_at,omitempty"`
+	TgUserID int64  `json:"tg_user_id,omitempty"`
 }
 
 func (h *Handler) getStatus(w http.ResponseWriter, r *http.Request) {

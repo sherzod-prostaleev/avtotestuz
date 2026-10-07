@@ -160,3 +160,35 @@ func TestCreateLinkTokenReturnsRedeemableToken(t *testing.T) {
 		t.Fatalf("ProfileID = %v, want %v", res.ProfileID, claims.ProfileID)
 	}
 }
+
+// The Mini App compares the launching Telegram user with the linked one by id
+// (usernames are optional and changeable), so the learner's own status
+// carries the linked tg_user_id.
+func TestGetTelegramStatusLinkedIncludesTgUserID(t *testing.T) {
+	ts, tok, link := setupLinkHandlerServer(t)
+	claims, err := auth.ParseAccess([]byte(handlerTestSecret), tok)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lt, err := link.GenerateLinkToken(context.Background(), claims.ProfileID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := link.RedeemLinkToken(context.Background(), lt.Token, 424242, "someone"); err != nil {
+		t.Fatal(err)
+	}
+	req, err := http.NewRequest(http.MethodGet, ts.URL+"/me/telegram", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Header.Set("Authorization", "Bearer "+tok)
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != http.StatusOK || !strings.Contains(string(body), `"tg_user_id":424242`) {
+		t.Fatalf("status=%d body=%s", resp.StatusCode, body)
+	}
+}

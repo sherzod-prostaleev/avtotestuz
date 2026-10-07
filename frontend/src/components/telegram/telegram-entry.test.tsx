@@ -60,10 +60,23 @@ const ME_401 = { status: 401, body: { error: { code: "unauthorized" } } };
 const TOKENS_OK = { status: 200, body: { data: { ok: true, must_change_password: false } } };
 
 /** /me answers are consumed in order; the last one repeats. */
-function mockFetch(me: Reply[], telegram: Reply[] = []) {
+const LINKED_NONE: Reply = { status: 200, body: { data: { linked: false } } };
+const linkedTo = (tgUserId: number): Reply => ({
+  status: 200,
+  body: { data: { linked: true, username: "someone", tg_user_id: tgUserId } },
+});
+
+function mockFetch(me: Reply[], telegram: Reply[] = [], meTelegram: Reply[] = [LINKED_NONE]) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
-    const queue = url === "/api/proxy/me" ? me : url === "/api/auth/telegram" ? telegram : null;
+    const queue =
+      url === "/api/proxy/me"
+        ? me
+        : url === "/api/auth/telegram"
+          ? telegram
+          : url === "/api/proxy/me/telegram"
+            ? meTelegram
+            : null;
     if (!queue || queue.length === 0) throw new Error(`unexpected fetch ${url}`);
     const reply = queue.length > 1 ? queue.shift()! : queue[0];
     if (reply === "throw") throw new TypeError("Failed to fetch");
@@ -114,6 +127,47 @@ describe("TelegramEntry", () => {
     const [, init] = telegramCalls(fetchMock)[0];
     expect(JSON.parse(String(init?.body))).toEqual({ init_data: "signed" });
     expect(markSpy).toHaveBeenCalled();
+  });
+
+  it("keeps a live session already linked to the launching Telegram user", async () => {
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }], [], [linkedTo(1)]);
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+  });
+
+  it("keeps a live session when its link status cannot be read", async () => {
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }], [], [{ status: 500, body: {} }]);
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+  });
+
+  // I4: a shared phone or webview keeps someone else's cookie session. When
+  // that profile is linked to ANOTHER Telegram account, the launching user's
+  // signed identity wins: sign in with it instead of opening a stranger's app.
+  it("signs the launching user in over a session linked to another Telegram account", async () => {
+    const fetchMock = mockFetch(
+      [{ status: 200, body: ME_OK }, { status: 200, body: ME_OK }],
+      [TOKENS_OK],
+      [linkedTo(999)],
+    );
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    const calls = telegramCalls(fetchMock);
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(String(calls[0][1]?.body))).toEqual({ init_data: "signed" });
+  });
+
+  it("shows the welcome when the launching user is unlinked and the session is someone else's", async () => {
+    mockFetch(
+      [{ status: 200, body: ME_OK }],
+      [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }],
+      [linkedTo(999)],
+    );
+    renderEntry();
+    expect(await screen.findByRole("heading", { name: /Ali/ })).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalled();
   });
 
   it("skips the Telegram sign-in entirely when the session is still alive", async () => {

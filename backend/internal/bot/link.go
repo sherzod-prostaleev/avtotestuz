@@ -164,6 +164,10 @@ type TelegramStatus struct {
 	Linked   bool   `json:"linked"`
 	Username string `json:"username,omitempty"`
 	LinkedAt string `json:"linked_at,omitempty"`
+	// TgUserID is the linked Telegram account's id: the learner's own data,
+	// which the Mini App compares with the launching user (usernames are
+	// optional and can change, ids cannot).
+	TgUserID int64 `json:"tg_user_id,omitempty"`
 }
 
 // Unlink removes the telegram_account row for tgUserID. Idempotent: missing
@@ -188,7 +192,7 @@ func (s *LinkService) Status(ctx context.Context, profileID uuid.UUID) (Telegram
 		}
 		return TelegramStatus{}, err
 	}
-	out := TelegramStatus{Linked: true, Username: acc.Username}
+	out := TelegramStatus{Linked: true, Username: acc.Username, TgUserID: acc.TgUserID}
 	if acc.LinkedAt.Valid {
 		out.LinkedAt = acc.LinkedAt.Time.UTC().Format(time.RFC3339)
 	}

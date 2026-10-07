@@ -86,6 +86,27 @@ async function probeMe(lifetime: AbortSignal): Promise<MeProbe> {
   }
 }
 
+/**
+ * The Telegram user id the signed-in profile is linked to, or null when it
+ * is not linked or we cannot tell (failure, timeout, older API without the
+ * field). Only a definite other id changes what /tg does.
+ */
+async function probeLinkedTelegramId(lifetime: AbortSignal): Promise<number | null> {
+  try {
+    return await withTimeout(lifetime, ME_PROBE_TIMEOUT_MS, async (signal) => {
+      const res = await fetch("/api/proxy/me/telegram", { cache: "no-store", signal });
+      if (!res.ok) return null;
+      const json = (await res.json().catch(() => null)) as
+        | { data?: { linked?: boolean; tg_user_id?: unknown } }
+        | null;
+      const id = json?.data?.linked === true ? json.data.tg_user_id : null;
+      return typeof id === "number" && id > 0 ? id : null;
+    });
+  } catch {
+    return null;
+  }
+}
+
 type SignInBody = {
   data?: { need_phone?: boolean; first_name?: string; must_change_password?: boolean };
   error?: { code?: string };
@@ -212,8 +233,18 @@ export function TelegramEntry() {
         const me = await probeMe(lifetime);
         if (lifetime.aborted) return;
         if (me.kind === "ok") {
-          goIn(me.mustChangePassword);
-          return;
+          // A shared phone or webview can hold someone else's session. If
+          // that profile is linked to a DIFFERENT Telegram account than the
+          // one launching us, the launching identity wins: sign in with it
+          // below (or offer phone sign-in) instead of opening a stranger's
+          // account. Unlinked or unknown keeps the fast path.
+          const linkedId = await probeLinkedTelegramId(lifetime);
+          if (lifetime.aborted) return;
+          const launchingId = app.initDataUnsafe.user?.id;
+          if (linkedId === null || launchingId === undefined || linkedId === launchingId) {
+            goIn(me.mustChangePassword);
+            return;
+          }
         }
         // "failed" falls through: the sign-in call reports the real error.
         if (!explicitSignIn.current) {
