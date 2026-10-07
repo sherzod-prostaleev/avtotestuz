@@ -10,6 +10,9 @@ const fakeTelegram = (opts: { autologinOff?: boolean }) => `
     const store = ${opts.autologinOff ? `{ autologin_off: "1" }` : `{}`};
     window.__tg = { calls: [] };
     const rec = (name) => (...args) => window.__tg.calls.push([name, ...args]);
+    // The bridge a real Telegram client injects: without a host the app
+    // ignores launch data and the SDK object entirely.
+    window.TelegramWebviewProxy = { postEvent: rec("proxy") };
     sessionStorage.setItem("tg-webapp", "1");
     window.Telegram = { WebApp: {
       initData: "query_id=x&user=%7B%22id%22%3A1%7D&auth_date=1&hash=00",
@@ -22,7 +25,10 @@ const fakeTelegram = (opts: { autologinOff?: boolean }) => `
       setHeaderColor: rec("setHeaderColor"), setBackgroundColor: rec("setBackgroundColor"), setBottomBarColor: rec("setBottomBarColor"),
       onEvent: () => {}, offEvent: () => {},
       openLink: rec("openLink"), openTelegramLink: rec("openTelegramLink"),
-      requestContact: (cb) => cb(true, { responseUnsafe: { contact: { phone_number: "998901234567" } } }),
+      requestContact: (cb) => cb(true, {
+        response: "contact=%7B%22user_id%22%3A1%2C%22phone_number%22%3A%22998901234567%22%7D&auth_date=1&hash=00",
+        responseUnsafe: { contact: { phone_number: "998901234567" } },
+      }),
       BackButton: { show: rec("back.show"), hide: rec("back.hide"), onClick: () => {}, offClick: () => {} },
       HapticFeedback: { impactOccurred: rec("impact"), notificationOccurred: rec("notify"), selectionChanged: rec("select") },
       CloudStorage: {
@@ -84,15 +90,39 @@ test.describe("Telegram Mini App", () => {
     await page.locator('input[type="password"]').fill("secret123");
     await page.locator("form button[type=submit]").click();
     await expect.poll(() => loginBody).not.toBeNull();
-    expect(loginBody).toMatchObject({ tg_init_data: expect.stringContaining("hash=00") });
+    expect(loginBody).toMatchObject({
+      tg_init_data: expect.stringContaining("hash=00"),
+      tg_contact: expect.stringContaining("contact="),
+    });
+  });
+
+  test("linked user without a session signs in silently with the launch data", async ({ page, context }) => {
+    await openInFakeTelegram(page);
+    let meCalls = 0;
+    await page.route("**/api/proxy/**", (r) => {
+      if (!r.request().url().endsWith("/api/proxy/me")) return r.fulfill({ json: { data: [] } });
+      // First probe: no session yet; after sign-in: the cookie works.
+      return meCalls++ === 0 ? r.fulfill({ status: 401, json: unauthorized }) : r.fulfill({ json: meOk });
+    });
+    let signInBody: Record<string, unknown> | null = null;
+    await page.route("**/api/auth/telegram", async (r) => {
+      signInBody = r.request().postDataJSON();
+      await context.addCookies([{ name: "at", value: "x", url: "http://localhost:" + (process.env.PORT || 3000) }]);
+      return r.fulfill({ json: { data: { ok: true, must_change_password: false } } });
+    });
+    await page.goto("/uz-Latn/tg");
+    await expect(page).toHaveURL(/\/uz-Latn\/dashboard/);
+    expect(signInBody).toEqual({ init_data: expect.stringContaining("hash=00") });
   });
 
   test("autologin_off: offers 'continue as' and does not sign in until tapped", async ({ page }) => {
     await openInFakeTelegram(page, { autologinOff: true });
     await page.route("**/api/proxy/me", (r) => r.fulfill({ status: 401, json: unauthorized }));
     let signIns = 0;
+    let signInBody: Record<string, unknown> | null = null;
     await page.route("**/api/auth/telegram", (r) => {
       signIns++;
+      signInBody = r.request().postDataJSON();
       return r.fulfill({ json: needPhone });
     });
     await page.goto("/uz-Latn/tg");
@@ -101,6 +131,7 @@ test.describe("Telegram Mini App", () => {
     expect(signIns).toBe(0);
     await button.click();
     await expect.poll(() => signIns).toBe(1);
+    expect(signInBody).toEqual({ init_data: expect.stringContaining("hash=00") });
   });
 
   test("invalid_init_data inside Telegram offers 'Botga qaytish' which closes the Mini App", async ({ page }) => {
@@ -112,6 +143,46 @@ test.describe("Telegram Mini App", () => {
     await page.goto("/uz-Latn/tg");
     await page.getByRole("button", { name: "Botga qaytish" }).click();
     expect(await tgCalls(page)).toContain("close");
+  });
+
+  // C1: an attacker sends a link carrying THEIR fresh launch data. Opened in
+  // a plain browser it must stay the website: no SDK, no Telegram button,
+  // and the victim's phone sign-in carries no Telegram data to link.
+  test("planted #tgWebAppData in a plain browser is ignored by login and /tg", async ({ page }) => {
+    const sdk: string[] = [];
+    page.on("request", (r) => {
+      if (r.url().includes("telegram-web-app.js")) sdk.push(r.url());
+    });
+    const planted =
+      "#tgWebAppData=" +
+      encodeURIComponent("query_id=x&user=%7B%22id%22%3A7001%7D&auth_date=1&hash=00") +
+      "&tgWebAppVersion=8.0&tgWebAppPlatform=weba";
+    let loginBody: Record<string, unknown> | null = null;
+    await page.route("**/api/auth/login", (r) => {
+      loginBody = r.request().postDataJSON();
+      return r.fulfill({ status: 401, json: { error: { code: "invalid_credentials" } } });
+    });
+    let telegramSignIns = 0;
+    await page.route("**/api/auth/telegram", (r) => {
+      telegramSignIns++;
+      return r.fulfill({ json: { data: { ok: true, must_change_password: false } } });
+    });
+
+    await page.goto("/uz-Latn/login" + planted);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByRole("button", { name: "Raqamni Telegram'dan olish" })).toHaveCount(0);
+    await page.locator('input[type="tel"], input[inputmode="tel"]').first().fill("901234567");
+    await page.locator('input[type="password"]').fill("victim-password");
+    await page.locator("form button[type=submit]").click();
+    await expect.poll(() => loginBody).not.toBeNull();
+    expect(loginBody).not.toHaveProperty("tg_init_data");
+    expect(loginBody).not.toHaveProperty("tg_contact");
+
+    await page.goto("/uz-Latn/tg" + planted);
+    await expect(page.getByRole("heading", { name: "Botdan oching" })).toBeVisible();
+    expect(telegramSignIns).toBe(0);
+    expect(sdk).toEqual([]);
+    expect(await page.evaluate(() => sessionStorage.getItem("tg-webapp"))).toBeNull();
   });
 
   test("website visit never loads the SDK and shows no Telegram UI", async ({ page }) => {

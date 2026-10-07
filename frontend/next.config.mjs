@@ -11,9 +11,11 @@ const mediaRewriteDestination = (
   process.env.MEDIA_REWRITE_DESTINATION || "http://127.0.0.1:9000/media"
 ).replace(/\/$/, "");
 
-// One directive list, two policies: only frame-ancestors differs between the
-// learner app and the admin panel, so they cannot drift apart.
-const buildContentSecurityPolicy = (frameAncestors) => [
+// One directive list, two policies: only frame-ancestors and the Telegram SDK
+// origin differ between the learner app and the admin panel, so they cannot
+// drift apart. The SDK (telegram.org) is a learner Mini App dependency; admin
+// never loads it, so its CSP does not allow it.
+const buildContentSecurityPolicy = (frameAncestors, { telegramSdk }) => [
   "default-src 'self'",
   "base-uri 'self'",
   "object-src 'none'",
@@ -21,9 +23,12 @@ const buildContentSecurityPolicy = (frameAncestors) => [
   "form-action 'self' https://checkout.paycom.uz",
   // React Dev (and some Next.js HMR helpers) need eval() in development.
   // Keep production strict: never allow unsafe-eval there.
-  isProd
-    ? "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com https://telegram.org"
-    : "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://telegram.org",
+  [
+    "script-src 'self' 'unsafe-inline'",
+    ...(isProd ? [] : ["'unsafe-eval'"]),
+    "https://static.cloudflareinsights.com",
+    ...(telegramSdk ? ["https://telegram.org"] : []),
+  ].join(" "),
   "style-src 'self' 'unsafe-inline'",
   // Production: same-origin /media (nginx) + https CDNs.
   // Development: also allow the raw MinIO ports for leftover absolute URLs
@@ -42,11 +47,12 @@ const buildContentSecurityPolicy = (frameAncestors) => [
 // webview and need nothing.
 const contentSecurityPolicy = buildContentSecurityPolicy(
   "frame-ancestors 'self' https://web.telegram.org",
+  { telegramSdk: true },
 );
 // A later matching headers() entry replaces an earlier one with the same key,
 // so admin needs the FULL policy with frame-ancestors 'none', not just that
 // directive, or it would lose script-src and the rest.
-const adminContentSecurityPolicy = buildContentSecurityPolicy("frame-ancestors 'none'");
+const adminContentSecurityPolicy = buildContentSecurityPolicy("frame-ancestors 'none'", { telegramSdk: false });
 
 const securityHeaders = [
   { key: "Content-Security-Policy", value: contentSecurityPolicy },

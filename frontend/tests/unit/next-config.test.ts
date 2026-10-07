@@ -28,10 +28,12 @@ describe("next.config framing", () => {
     expect(config).not.toContain('{ key: "X-Frame-Options", value: "DENY" },\n  { key: "Referrer-Policy"');
   });
 
-  it("loads the Telegram SDK only from telegram.org", () => {
-    expect(config).toMatch(
-      /script-src 'self' 'unsafe-inline' https:\/\/static\.cloudflareinsights\.com https:\/\/telegram\.org/,
-    );
+  it("loads the Telegram SDK only from telegram.org", async () => {
+    const mod = await import("../../next.config.mjs");
+    const rules = await mod.default.headers!();
+    const csp = rules.find((r) => r.source === "/:path*")!.headers.find((h) => h.key === "Content-Security-Policy")!.value;
+    const scriptSrc = csp.split("; ").find((d) => d.startsWith("script-src "))!;
+    expect(scriptSrc).toMatch(/^script-src 'self' 'unsafe-inline'( 'unsafe-eval')? https:\/\/static\.cloudflareinsights\.com https:\/\/telegram\.org$/);
   });
 
   it("keeps admin unframeable", () => {
@@ -57,11 +59,15 @@ describe("next.config framing", () => {
       "frame-ancestors 'self' https://web.telegram.org",
     );
     expect(learner.has("X-Frame-Options")).toBe(false);
+    expect(learner.get("Content-Security-Policy")).toMatch(/script-src [^;]*https:\/\/telegram\.org/);
     for (const src of ["/:locale/admin/:path*", "/api/admin/:path*"]) {
       const admin = headersFor(src);
       const csp = admin.get("Content-Security-Policy") ?? "";
       expect(csp).toContain("frame-ancestors 'none'");
       expect(csp).not.toContain("web.telegram.org");
+      // The Telegram SDK is a learner-app dependency only; admin must not be
+      // able to load scripts from telegram.org.
+      expect(csp).not.toContain("https://telegram.org");
       expect(csp).toContain("script-src 'self'");
       expect(csp).toContain("default-src 'self'");
       expect(admin.get("X-Frame-Options")).toBe("DENY");
