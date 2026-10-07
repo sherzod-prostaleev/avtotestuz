@@ -139,6 +139,10 @@ test.describe("Telegram Mini App", () => {
     await page.goto("/uz-Latn/checkout/done/DriverGouzBot");
     await expect(page).toHaveURL(/\/checkout\/done\/DriverGouzBot$/);
     await expect(page.locator('a[href="https://t.me/DriverGouzBot"]')).toBeVisible();
+    // Someone else's bot in the path: the page stays text-only.
+    await page.goto("/uz-Latn/checkout/done/Evil_payment_bot");
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.locator('a[href^="https://t.me/"]')).toHaveCount(0);
     await page.goto("/uz-Latn/checkout/done/a/b");
     await expect(page).toHaveURL(/login/);
   });

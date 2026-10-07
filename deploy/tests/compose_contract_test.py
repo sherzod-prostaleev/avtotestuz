@@ -63,6 +63,8 @@ class ComposeContractTest(unittest.TestCase):
                 "CLIENT_IP_ASSERTION_SECRET",
                 "KEEP_ALIVE_TIMEOUT",
                 "NEXT_PUBLIC_SENTRY_DSN",
+                # Public bot name for /checkout/done/<bot>; never the token.
+                "TELEGRAM_BOT_USERNAME",
                 "TRUSTED_PROXY_HOPS",
                 "WEB_WORKERS",
             },

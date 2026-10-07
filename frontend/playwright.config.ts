@@ -34,6 +34,8 @@ export default defineConfig({
   webServer: {
     command: "npm run dev",
     port: PORT,
+    // /checkout/done/<bot> links back only to the configured bot.
+    env: { TELEGRAM_BOT_USERNAME: process.env.TELEGRAM_BOT_USERNAME ?? "DriverGouzBot" },
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,
   },

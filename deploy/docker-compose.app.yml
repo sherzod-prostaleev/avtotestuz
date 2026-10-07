@@ -170,6 +170,9 @@ services:
     ports:
       - "127.0.0.1:${WEB_HOST_PORT:-3000}:3000"
     environment:
+      # /checkout/done/<bot> (Mini App payment return) links back to t.me
+      # only when the path names THIS bot; empty = text-only page.
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       # Server-side BFF → API (compose DNS name, not localhost).
       BACKEND_URL: ${BACKEND_URL:-http://api:8080}
       # Required in the production Next image; must match API.

@@ -325,6 +325,9 @@ services:
     ports:
       - "127.0.0.1:${WEB_HOST_PORT:-3010}:3000"
     environment:
+      # /checkout/done/<bot> (Mini App payment return) links back to t.me
+      # only when the path names THIS bot; empty = text-only page.
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
       BACKEND_URL: ${BACKEND_URL:-http://api:8080}
       CLIENT_IP_ASSERTION_SECRET: ${CLIENT_IP_ASSERTION_SECRET}
       TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-2}

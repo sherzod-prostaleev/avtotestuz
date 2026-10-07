@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../../messages/uz-Latn.json";
 import CheckoutDonePage from "./page";
 import CheckoutDoneBotPage from "./[bot]/page";
@@ -24,11 +24,35 @@ function renderBare() {
 }
 
 describe("/checkout/done (Mini App payment return)", () => {
+  beforeEach(() => vi.stubEnv("TELEGRAM_BOT_USERNAME", "AvtoTest_bot"));
+  afterEach(() => vi.unstubAllEnvs());
+
   it("confirms the payment and links back to the bot", async () => {
     await renderBot("AvtoTest_bot");
     expect(screen.getByRole("heading", { name: messages.Premium.checkoutDoneTitle })).toBeInTheDocument();
     const back = screen.getByRole("link", { name: messages.Premium.checkoutDoneBackToBot });
     expect(back).toHaveAttribute("href", "https://t.me/AvtoTest_bot");
+  });
+
+  it("matches the configured bot case-insensitively and links to the configured name", async () => {
+    await renderBot("avtotest_BOT");
+    const back = screen.getByRole("link", { name: messages.Premium.checkoutDoneBackToBot });
+    expect(back).toHaveAttribute("href", "https://t.me/AvtoTest_bot");
+  });
+
+  // The path is attacker-editable: our page must never vouch for someone
+  // else's bot ("payment done, continue in @evil_bot").
+  it("shows text only for a bot that is not ours", async () => {
+    await renderBot("Evil_payment_bot");
+    expect(screen.getByText(messages.Premium.checkoutDoneNoBot)).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("shows text only when no bot is configured", async () => {
+    vi.stubEnv("TELEGRAM_BOT_USERNAME", "");
+    await renderBot("AvtoTest_bot");
+    expect(screen.getByText(messages.Premium.checkoutDoneNoBot)).toBeInTheDocument();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   it("shows text only without a bot segment", () => {
