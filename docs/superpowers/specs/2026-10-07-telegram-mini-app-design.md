@@ -159,7 +159,7 @@ register routes use `"telegram"` mode when the JSON body carries
   `useTelegram()` (`webApp | null`). Outside Telegram it renders children and
   nothing else — no script, no work on the website.
 
-### 4.2 Entry route `/[locale]/tg` — new public group `(telegram)`
+### 4.2 Entry route `/[locale]/tg` — in the existing public `(auth)` group
 
 Splash (logo + spinner) while it:
 
@@ -179,8 +179,7 @@ Welcome screen: greeting with `first_name`, «Kirish» and «Ro'yxatdan o'tish»
 buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 `autologin_off` is set and the account is linked.
 
-`(telegram)` joins `(public)/(auth)/(kiosk)` in the proxy-guard test's public
-list; `tg` is not a protected segment.
+`(auth)` is already public in the proxy guard; `tg` is not a protected segment.
 
 ### 4.3 Existing login / register pages in Mini App mode
 
