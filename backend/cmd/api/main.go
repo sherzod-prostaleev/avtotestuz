@@ -179,14 +179,6 @@ func main() {
 	logger.Info("stopped")
 }
 
-// newExpirySessionService builds the session service the expiry worker runs
-// on. It is its own instance, like every other worker's, rather than the one
-// the router holds.
-//
-// The pass-rate cache is not optional here: finishing an exam takes a
-// readiness snapshot, and one sweep finishes up to expirySweepLimit of them.
-// Without the cache that would be one full scan of exam_session per session
-// closed, which is the very cost this sweep exists to stop growing.
 // menuButtonSyncWanted ignores TELEGRAM_BOT_MODE on purpose: the menu button
 // lives on Telegram's side and outlives our process, so with the bot switched
 // off (mode=off) a stale web_app button would keep opening the Mini App. Any
@@ -195,6 +187,14 @@ func menuButtonSyncWanted(cfg config.Config) bool {
 	return strings.TrimSpace(cfg.TelegramBotToken) != ""
 }
 
+// newExpirySessionService builds the session service the expiry worker runs
+// on. It is its own instance, like every other worker's, rather than the one
+// the router holds.
+//
+// The pass-rate cache is not optional here: finishing an exam takes a
+// readiness snapshot, and one sweep finishes up to expirySweepLimit of them.
+// Without the cache that would be one full scan of exam_session per session
+// closed, which is the very cost this sweep exists to stop growing.
 func newExpirySessionService(pool *pgxpool.Pool) *session.Service {
 	q := sqlc.New(pool)
 	learningSvc := learning.NewService(q)

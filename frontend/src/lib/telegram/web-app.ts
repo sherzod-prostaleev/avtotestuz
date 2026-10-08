@@ -54,8 +54,10 @@ declare global {
  * Whether a Telegram client actually hosts this page. These are exactly the
  * three channels telegram-web-app.js's own postEvent() can talk through:
  * `TelegramWebviewProxy` (Android, iOS, new Desktop), `window.external.notify`
- * (legacy Desktop) and a parent frame (web.telegram.org; CSP frame-ancestors
- * lets no one else frame the learner app).
+ * (legacy Desktop) and a parent frame (web.telegram.org). "Framed" is only a
+ * safe signal because of CSP frame-ancestors: learner pages can be framed by
+ * web.telegram.org or same-origin alone, and nothing same-origin frames them,
+ * so a hostile page cannot fake a host by embedding us.
  *
  * The #tgWebAppData hash is NOT a host: anyone can paste their own fresh
  * launch data into a link, and in a plain browser the SDK happily reads it

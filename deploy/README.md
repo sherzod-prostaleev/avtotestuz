@@ -261,6 +261,9 @@ launcher. Configuration lives next to the other `TELEGRAM_BOT_*` variables in
   `TELEGRAM_BOT_TOKEN` is set (the menu button lives on Telegram's side and
   would otherwise outlive the switch). An empty value also resets any menu
   button set by hand in BotFather on that restart.
+- Never share the production bot token with staging or dev: any process that
+  boots with the token resets the bot's global menu button to its own
+  `TELEGRAM_WEBAPP_URL`. Give each environment its own bot.
 - Optional: BotFather "Configure Mini App" (`/newapp` or `/mybots` -> Bot
   Settings -> Configure Mini App) with the same URL, for the `t.me/<bot>/<app>`
   direct link.
