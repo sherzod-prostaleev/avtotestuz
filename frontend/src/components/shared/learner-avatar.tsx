@@ -41,7 +41,7 @@ export function LearnerAvatar({ name, src, className }: LearnerAvatarProps) {
         <img
           src={photo}
           alt=""
-          loading="lazy"
+          loading="eager"
           decoding="async"
           draggable={false}
           onError={() => setFailedSrc(photo)}

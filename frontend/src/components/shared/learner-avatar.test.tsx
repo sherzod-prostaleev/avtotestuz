@@ -13,7 +13,7 @@ describe("LearnerAvatar", () => {
     expect(img?.getAttribute("src")).toBe(PHOTO);
     // Decorative: the name is always printed next to it.
     expect(img?.getAttribute("alt")).toBe("");
-    expect(img?.getAttribute("loading")).toBe("lazy");
+    expect(img?.getAttribute("loading")).toBe("eager");
     expect(img?.getAttribute("decoding")).toBe("async");
     expect(img?.className).toContain("object-cover");
   });
