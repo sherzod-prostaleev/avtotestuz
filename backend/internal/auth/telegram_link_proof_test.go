@@ -261,3 +261,70 @@ func TestPasswordResetDropsVerifiedLinkOfAnotherTelegramUser(t *testing.T) {
 		t.Fatalf("reset confirmed by 6008 kept 6009's link (%d)", tg)
 	}
 }
+
+// The confirmer's own Telegram account survives a reset only while its link
+// is still phone-verified. Here the owner confirmed, then /unlink'ed and
+// re-linked the same Telegram account through a legacy token (no phone
+// proof): same tg_user_id as the confirmer, but unverified, so it goes.
+func TestPasswordResetDropsConfirmersLinkWhenRelinkedWithoutProof(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	const phone = "+998901170005"
+	reg, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: "yyyyyyy1", Name: "Y"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const tg = 7108
+	raw := linkedReset(t, svc, phone, tg)
+	if _, err := svc.Pool.Exec(ctx, `DELETE FROM telegram_account WHERE tg_user_id = $1`, tg); err != nil {
+		t.Fatal(err)
+	}
+	legacyLink(t, svc, reg.Profile.ID, tg)
+	if err := svc.CompletePasswordReset(ctx, raw, "yyyyyyy-new", "7.7.7.4"); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := tgLinkOf(t, svc, reg.Profile.ID); ok {
+		t.Fatalf("confirmer's unverified re-link %d survived the reset", got)
+	}
+}
+
+// A Telegram user phone-verified-linked to profile O who resets profile P (a
+// second account whose phone they also own) proves P's phone in the bot and
+// taps «Ha, men». That must finish the reset — it used to answer "stale" and
+// leave it pending for good — and the link follows the proof to P.
+func TestPasswordResetFromTelegramLinkedToAnotherProfileCompletes(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	const pPhone, oPhone = "+998901170001", "+998901170002"
+	p, err := svc.Register(ctx, RegisterInput{Phone: pPhone, Password: "ppppppp1", Name: "P"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	o, err := svc.Register(ctx, RegisterInput{Phone: oPhone, Password: "ooooooo1", Name: "O"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const tg = 7101
+	if err := svc.Q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
+		ProfileID: o.Profile.ID, TgUserID: tg, PhoneVerified: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// linkedReset goes begin → (need_contact) contact → «Ha, men» and fails
+	// unless the tap verifies.
+	raw := linkedReset(t, svc, pPhone, tg)
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != ResetStateVerified {
+		t.Fatalf("status=%s want verified", st)
+	}
+	if err := svc.CompletePasswordReset(ctx, raw, "ppppppp-new", "7.7.7.1"); err != nil {
+		t.Fatal(err)
+	}
+	if got, verified, ok := phoneVerifiedOf(t, svc, p.Profile.ID); !ok || got != tg || !verified {
+		t.Fatalf("P's link: tg=%d verified=%v ok=%v", got, verified, ok)
+	}
+	if _, ok := tgLinkOf(t, svc, o.Profile.ID); ok {
+		t.Fatal("O kept the link")
+	}
+	res, err := svc.TelegramWebAppLogin(ctx, signInitData(t, testBotToken, webAppFields(tg, time.Now())), "")
+	if err != nil || res.Access == "" {
+		t.Fatalf("Mini App sign-in after reset: %+v %v", res, err)
+	}
+}

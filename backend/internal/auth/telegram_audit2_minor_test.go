@@ -192,12 +192,13 @@ func TestBotResetContactPathLogsLinkReplaced(t *testing.T) {
 	}
 }
 
-// M8: a Telegram user who reached the «Ha, men» question through the contact
-// path but meanwhile got linked to ANOTHER profile must not verify this reset
-// (nor have the contact-path upsert move them).
-func TestPasswordResetConfirmRefusesUserLinkedToAnotherProfile(t *testing.T) {
-	svc, _ := resetTestService(t)
-	ctx := context.Background()
+// M8, revised: a Telegram user who reached the «Ha, men» question through
+// the contact path but meanwhile got linked to ANOTHER profile has still
+// proven this profile's phone. Answering "stale" left the reset pending with
+// no way forward; instead the tap moves the link here, exactly like the Mini
+// App's phone share does (linkTelegramInTx), and verifies the reset.
+func TestPasswordResetConfirmMovesLinkFromAnotherProfile(t *testing.T) {
+	svc, ctx, logs := observedService(t, zap.InfoLevel)
 	raw, nonce := contactMatchedReset(t, svc, "901150006", 8601, "+998901150006")
 	other, err := svc.Register(ctx, RegisterInput{Phone: "901150007", Password: "otherpass1", Name: "O"})
 	if err != nil {
@@ -209,11 +210,18 @@ func TestPasswordResetConfirmRefusesUserLinkedToAnotherProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Outcome != TelegramResetStale {
-		t.Fatalf("yes from a user linked elsewhere=%s want stale", res.Outcome)
+	if res.Outcome != TelegramResetVerified {
+		t.Fatalf("yes from a user linked elsewhere=%s want verified", res.Outcome)
 	}
-	assertResetState(t, svc, raw, ResetStatePending)
-	if tg, ok := tgLinkOf(t, svc, other.Profile.ID); !ok || tg != 8601 {
-		t.Fatalf("other profile's link changed: %d %v", tg, ok)
+	assertResetState(t, svc, raw, ResetStateVerified)
+	if _, ok := tgLinkOf(t, svc, other.Profile.ID); ok {
+		t.Fatal("other profile kept the link")
+	}
+	if !phoneVerified(t, svc, 8601) {
+		t.Fatal("moved link is not phone-verified")
+	}
+	entries := logs.FilterMessage("auth.telegram_link_moved").AllUntimed()
+	if len(entries) != 1 || entries[0].ContextMap()["from_profile_id"] != other.Profile.ID.String() {
+		t.Fatalf("moved entries=%+v", entries)
 	}
 }

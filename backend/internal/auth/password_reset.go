@@ -375,8 +375,9 @@ func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUse
 // AnswerTelegramPasswordResetConfirm handles a «Ha, men» (accept) or «Yo'q»
 // tap. Only the Telegram user the reset is pending for, with the current
 // nonce, on a live unverified reset, changes anything; every other tap is
-// TelegramResetStale and a no-op. «Ha, men» verifies (and links the account
-// if the contact path got here); «Yo'q» spends the reset.
+// TelegramResetStale and a no-op. «Ha, men» verifies and leaves this
+// Telegram account phone-verified-linked to the profile (moving it off any
+// other profile); «Yo'q» spends the reset.
 func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUserID int64, nonce string, accept bool) (TelegramResetBegin, error) {
 	stale := TelegramResetBegin{Outcome: TelegramResetStale}
 	if tgUserID == 0 || strings.TrimSpace(nonce) == "" {
@@ -420,10 +421,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 
 	account, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID)
 	switch {
-	case err == nil:
-		if account.ProfileID != row.ProfileID {
-			return stale, nil
-		}
+	case err == nil && account.ProfileID == row.ProfileID:
 		if !account.PhoneVerifiedAt.Valid {
 			// A legacy link that got here passed the contact step, so the
 			// phone is now proven for this very Telegram user.
@@ -436,10 +434,29 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 				return TelegramResetBegin{}, err
 			}
 		}
-	case errors.Is(err, pgx.ErrNoRows):
-		// Contact path: the confirmed contact also links this Telegram account.
-		// ConfirmTelegramPasswordResetContact matched Telegram's contact (of
-		// this same user) to the profile phone, so the link is phone-verified.
+	case err == nil || errors.Is(err, pgx.ErrNoRows):
+		// This Telegram user is not linked to the profile (any more), yet a
+		// pending reset with their current nonce is proof they own its phone:
+		// either the contact step matched Telegram's contact of this very user
+		// to the profile phone, or Begin took the shortcut through a
+		// phone-verified link to this profile that has since been unlinked or
+		// re-pointed. Either way the account is linked here, phone-verified.
+		username := ""
+		if err == nil {
+			// Linked to another profile (e.g. the learner's second account).
+			// Proving this phone moves the link, exactly as the Mini App's
+			// phone share does (linkTelegramInTx); refusing left the reset
+			// pending with no way to finish it.
+			s.logger().Info("auth.telegram_link_moved",
+				zap.String("from_profile_id", account.ProfileID.String()),
+				zap.String("to_profile_id", row.ProfileID.String()))
+			if err := q.DeleteTelegramAccountForOtherProfiles(ctx, sqlc.DeleteTelegramAccountForOtherProfilesParams{
+				TgUserID: tgUserID, ProfileID: row.ProfileID,
+			}); err != nil {
+				return TelegramResetBegin{}, err
+			}
+			username = account.Username
+		}
 		if prev, err := q.GetTelegramAccountByProfileID(ctx, row.ProfileID); err == nil && prev.TgUserID != tgUserID {
 			s.logger().Info("auth.telegram_link_replaced", zap.String("profile_id", row.ProfileID.String()))
 		} else if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -448,7 +465,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 		if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
 			ProfileID:     row.ProfileID,
 			TgUserID:      tgUserID,
-			Username:      "",
+			Username:      username,
 			PhoneVerified: true,
 		}); err != nil {
 			if isUniqueViolation(err) {
