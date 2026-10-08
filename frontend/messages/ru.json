@@ -1009,7 +1009,7 @@
     "refresh": "Обновить",
     "notLinked": "Telegram ещё не привязан.",
     "linkedTitle": "Telegram привязан",
-    "linkedAs": "Аккаунт: {username}",
+    "linkedAs": "Привязанный аккаунт: {username}",
     "linkedAnonymous": "Telegram-аккаунт привязан.",
     "linkButton": "Привязать Telegram",
     "relinkButton": "Привязать заново",
