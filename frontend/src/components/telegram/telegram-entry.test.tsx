@@ -69,6 +69,7 @@ const linkedTo = (tgUserId: number): Reply => ({
 function mockFetch(me: Reply[], telegram: Reply[] = [], meTelegram: Reply[] = [LINKED_NONE]) {
   const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
     const url = String(input);
+    if (url === "/api/auth/logout") return json(200, { data: { ok: true } });
     const queue =
       url === "/api/proxy/me"
         ? me
@@ -94,6 +95,10 @@ function mockFetch(me: Reply[], telegram: Reply[] = [], meTelegram: Reply[] = [L
 
 function telegramCalls(fetchMock: ReturnType<typeof mockFetch>) {
   return fetchMock.mock.calls.filter(([url]) => String(url) === "/api/auth/telegram");
+}
+
+function logoutCalls(fetchMock: ReturnType<typeof mockFetch>) {
+  return fetchMock.mock.calls.filter(([url]) => String(url) === "/api/auth/logout");
 }
 
 function renderEntry() {
@@ -160,7 +165,7 @@ describe("TelegramEntry", () => {
   });
 
   it("shows the welcome when the launching user is unlinked and the session is someone else's", async () => {
-    mockFetch(
+    const fetchMock = mockFetch(
       [{ status: 200, body: ME_OK }],
       [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }],
       [linkedTo(999)],
@@ -168,6 +173,45 @@ describe("TelegramEntry", () => {
     renderEntry();
     expect(await screen.findByRole("heading", { name: /Ali/ })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
+    // The stranger's cookies must be gone before Kirish can be tapped.
+    expect(logoutCalls(fetchMock)).toHaveLength(1);
+    expect(cloud.has("autologin_off")).toBe(false);
+  });
+
+  it("logs the stranger out before the autologin_off welcome", async () => {
+    cloud.set("autologin_off", "1");
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }], [], [linkedTo(999)]);
+    renderEntry();
+    await screen.findByRole("button", { name: "Ali sifatida davom etish" });
+    expect(logoutCalls(fetchMock)).toHaveLength(1);
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+    expect(cloud.get("autologin_off")).toBe("1");
+  });
+
+  it("shows a retry, not the welcome, when the stranger's logout fails", async () => {
+    cloud.set("autologin_off", "1");
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }], [], [linkedTo(999)]);
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) =>
+      String(input) === "/api/auth/logout" ? json(500) : base(input, init),
+    );
+    renderEntry();
+    await waitFor(() => expect(logoutCalls(fetchMock)).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: "Ali sifatida davom etish" })).not.toBeInTheDocument();
+  });
+
+  it("does not log out for an unlinked session or the same Telegram user", async () => {
+    const same = mockFetch([{ status: 200, body: ME_OK }], [], [linkedTo(1)]);
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalled());
+    expect(logoutCalls(same)).toHaveLength(0);
+  });
+
+  it("does not log out when there is no session at all", async () => {
+    const fetchMock = mockFetch([ME_401], [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }]);
+    renderEntry();
+    await screen.findByRole("heading", { name: /Ali/ });
+    expect(logoutCalls(fetchMock)).toHaveLength(0);
   });
 
   it("skips the Telegram sign-in entirely when the session is still alive", async () => {

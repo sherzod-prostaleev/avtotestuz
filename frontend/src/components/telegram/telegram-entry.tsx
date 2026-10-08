@@ -107,6 +107,22 @@ async function probeLinkedTelegramId(lifetime: AbortSignal): Promise<number | nu
   }
 }
 
+/**
+ * Ends the cookie session (tgp-mode cookies included). False when it could not
+ * be confirmed, so the caller never shows a welcome whose Kirish link would
+ * bounce into the stranger's account.
+ */
+async function dropSession(lifetime: AbortSignal): Promise<boolean> {
+  try {
+    return await withTimeout(lifetime, ME_PROBE_TIMEOUT_MS, async (signal) => {
+      const res = await fetch("/api/auth/logout", { method: "POST", signal });
+      return res.ok;
+    });
+  } catch {
+    return false;
+  }
+}
+
 type SignInBody = {
   data?: { need_phone?: boolean; first_name?: string; must_change_password?: boolean };
   error?: { code?: string };
@@ -145,6 +161,10 @@ export function TelegramEntry() {
   const [canContinue, setCanContinue] = useState(false);
   const started = useRef(false);
   const busy = useRef(false);
+  // Set when a cookie session linked to a DIFFERENT Telegram account is still
+  // present. It must not outlive a welcome screen: /login and /register
+  // redirect signed-in visitors to the dashboard, i.e. into that account.
+  const strangerSession = useRef(false);
   // A retry after "continue as" must not bounce the learner back to welcome.
   const explicitSignIn = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -166,6 +186,24 @@ export function TelegramEntry() {
     },
     [locale, router]
   );
+
+  // Shows the welcome screen; first ends a stranger's session if there is one.
+  // Not a deliberate sign-out, so autologin_off is left alone.
+  const showWelcome = useCallback(async (lifetime: AbortSignal, name: string, continuable: boolean) => {
+    if (strangerSession.current) {
+      setPhase("loading");
+      const dropped = await dropSession(lifetime);
+      if (lifetime.aborted) return;
+      if (!dropped) {
+        setPhase("error");
+        return;
+      }
+      strangerSession.current = false;
+    }
+    setFirstName(name);
+    setCanContinue(continuable);
+    setPhase("welcome");
+  }, []);
 
   const signIn = useCallback(
     async (app: TelegramWebApp, lifetime: AbortSignal) => {
@@ -192,9 +230,7 @@ export function TelegramEntry() {
         return;
       }
       if (json?.data?.need_phone) {
-        setFirstName(json.data.first_name || app.initDataUnsafe.user?.first_name || "");
-        setCanContinue(false);
-        setPhase("welcome");
+        await showWelcome(lifetime, json.data.first_name || app.initDataUnsafe.user?.first_name || "", false);
         return;
       }
       if (!json?.data) {
@@ -218,7 +254,7 @@ export function TelegramEntry() {
       if (lifetime.aborted) return;
       goIn(json.data.must_change_password === true || me.mustChangePassword);
     },
-    [goIn]
+    [goIn, showWelcome]
   );
 
   const enter = useCallback(
@@ -245,6 +281,7 @@ export function TelegramEntry() {
             goIn(me.mustChangePassword);
             return;
           }
+          strangerSession.current = true;
         }
         // "failed" falls through: the sign-in call reports the real error.
         if (!explicitSignIn.current) {
@@ -254,9 +291,7 @@ export function TelegramEntry() {
           // anyway would silently undo a deliberate sign-out (D6), so offer
           // the choice instead.
           if (flag.status === "unavailable" || flag.value === "1") {
-            setFirstName(app.initDataUnsafe.user?.first_name || "");
-            setCanContinue(true);
-            setPhase("welcome");
+            await showWelcome(lifetime, app.initDataUnsafe.user?.first_name || "", true);
             return;
           }
         }
@@ -267,7 +302,7 @@ export function TelegramEntry() {
         if (!lifetime.aborted) busy.current = false;
       }
     },
-    [goIn, signIn]
+    [goIn, signIn, showWelcome]
   );
 
   const continueAsTelegramUser = useCallback(async () => {

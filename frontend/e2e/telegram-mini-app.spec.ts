@@ -96,6 +96,31 @@ test.describe("Telegram Mini App", () => {
     });
   });
 
+  test("stranger's session is ended before the welcome, so Kirish reaches /login", async ({ page, context }) => {
+    await openInFakeTelegram(page);
+    await context.addCookies([{ name: "at", value: "x", url: "http://localhost:" + (process.env.PORT || 3000) }]);
+    let loggedOut = 0;
+    await page.route("**/api/auth/logout", async (r) => {
+      loggedOut++;
+      await context.clearCookies();
+      return r.fulfill({ json: { data: { ok: true } } });
+    });
+    await page.route("**/api/auth/telegram", (r) => r.fulfill({ json: needPhone }));
+    await page.route("**/api/proxy/**", (r) => {
+      const url = r.request().url();
+      if (url.endsWith("/api/proxy/me")) return r.fulfill({ json: meOk });
+      if (url.endsWith("/api/proxy/me/telegram")) {
+        return r.fulfill({ json: { data: { linked: true, username: "stranger", tg_user_id: 999 } } });
+      }
+      return r.fulfill({ json: { data: [] } });
+    });
+    await page.goto("/uz-Latn/tg");
+    await expect(page.getByRole("heading", { name: /Ali/ })).toBeVisible();
+    expect(loggedOut).toBe(1);
+    await page.getByRole("link", { name: "Kirish" }).click();
+    await expect(page).toHaveURL(/\/uz-Latn\/login/);
+  });
+
   test("linked user without a session signs in silently with the launch data", async ({ page, context }) => {
     await openInFakeTelegram(page);
     let meCalls = 0;
