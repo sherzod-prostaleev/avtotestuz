@@ -187,7 +187,12 @@ export default function RegisterPage() {
                   inputMode="numeric"
                   autoComplete="tel-national"
                   value={formatNationalPhone(phone)}
-                  onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                  onChange={(e) => {
+                    setPhone(normalizePhone(e.target.value));
+                    // The signed contact vouches for the number that was shared;
+                    // an edited number is no longer that one.
+                    setTgContact(null);
+                  }}
                   placeholder="90 123 45 67"
                   maxLength={NATIONAL_PHONE_INPUT_MAX_LENGTH}
                   className="w-full bg-transparent font-bold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"

@@ -203,6 +203,21 @@ describe("LoginPage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    it("drops the shared contact when the phone is edited afterwards", async () => {
+      currentWebApp = webApp();
+      const fetchMock = replies({ data: { ok: true, telegram_linked: false } }, { data: { linked: false } });
+      vi.stubGlobal("fetch", fetchMock);
+      renderWithIntl();
+      fireEvent.click(screen.getByRole("button", { name: "Raqamni Telegram'dan olish" }));
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112244" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Kirish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+      expect(body.phone).toBe("901112244");
+      expect(body.tg_contact).toBeUndefined();
+    });
+
     // Typed the number instead of sharing it: the server cannot link without
     // Telegram's signature, so Telegram's sheet is offered once afterwards.
     it("asks Telegram for the number after a typed-phone sign-in and links with it", async () => {
