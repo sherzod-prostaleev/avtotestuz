@@ -1,0 +1,223 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  :root {
+    --bg: #0b0f15;
+    --ink: #f3f6fa;
+    --muted: #9aa6b6;
+    --amber: #f8a312;
+    --amber-deep: #b46c06;
+    --teal: #2fd4a2;
+    --teal-deep: #0f8f6d;
+    --card: #141b25;
+    --line: rgba(255,255,255,.08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: var(--bg); }
+  body { font-family: "Manrope", sans-serif; color: var(--ink); position: relative; }
+
+  /* Atmosphere: teal glow behind the copy, amber glow behind the phone. */
+  .glow { position: absolute; border-radius: 50%; filter: blur(90px); }
+  .g1 { width: 620px; height: 620px; left: -200px; top: -180px; background: rgba(47,212,162,.20); }
+  .g2 { width: 560px; height: 560px; right: -120px; bottom: -220px; background: rgba(248,163,18,.22); }
+  .grid {
+    position: absolute; inset: 0;
+    background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size: 48px 48px;
+    mask-image: radial-gradient(ellipse 70% 60% at 30% 40%, #000 0%, transparent 75%);
+    opacity: .55;
+  }
+
+  /* The road: a perspective strip running out of the bottom edge. */
+  .road {
+    position: absolute; left: 640px; bottom: -60px; width: 1100px; height: 380px;
+    transform: translateX(-50%) perspective(600px) rotateX(62deg);
+    transform-origin: bottom center;
+    background: linear-gradient(180deg, rgba(30,38,50,0) 0%, rgba(30,38,50,.7) 35%, #1d2633 100%);
+    mask-image: linear-gradient(180deg, transparent 0%, #000 40%);
+    border-left: 6px solid rgba(255,255,255,.18);
+    border-right: 6px solid rgba(255,255,255,.18);
+  }
+  .road::after {
+    content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 14px; margin-left: -7px;
+    background: repeating-linear-gradient(180deg, var(--amber) 0 46px, transparent 46px 92px);
+    opacity: .9; mask-image: linear-gradient(180deg, transparent 0%, #000 45%);
+  }
+
+  .copy { position: absolute; left: 72px; top: 64px; width: 640px; }
+  .brand { display: flex; align-items: center; gap: 18px; }
+  .brand img { width: 76px; height: 76px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,.5), 0 0 0 1px rgba(255,255,255,.08); }
+  .brand .name { font-family: "Baloo 2", sans-serif; font-weight: 800; font-size: 44px; letter-spacing: -.5px; line-height: 1; }
+  .brand .name span { color: var(--teal); }
+  .brand .tag { font-size: 15px; font-weight: 700; color: var(--muted); letter-spacing: 2.4px; text-transform: uppercase; margin-top: 6px; }
+
+  h1 {
+    font-family: "Baloo 2", sans-serif; font-weight: 800;
+    font-size: 66px; line-height: .98; letter-spacing: -1.2px;
+    margin-top: 44px;
+  }
+  h1 em { font-style: normal; color: var(--amber); }
+  .sub { margin-top: 18px; font-size: 22px; line-height: 1.4; color: #c6cfdb; font-weight: 600; max-width: 560px; }
+
+  /* Baloo 2 has no Cyrillic: Russian headings use Manrope, a size down. */
+  html[lang=ru] h1 { font-family: "Manrope", sans-serif; font-size: 54px; line-height: 1.04; letter-spacing: -1.6px; }
+  html[lang=ru] .stat b { font-family: "Manrope", sans-serif; font-size: 30px; letter-spacing: -.5px; }
+  .stats { display: flex; gap: 12px; margin-top: 30px; }
+  .stat {
+    background: rgba(20,27,37,.85); border: 1px solid rgba(255,255,255,.10);
+    border-radius: 18px; padding: 12px 18px 10px; min-width: 128px;
+  }
+  .stat b { display: block; font-family: "Baloo 2", sans-serif; font-weight: 800; font-size: 34px; line-height: 1; color: var(--ink); }
+  .stat b i { font-style: normal; color: var(--teal); }
+  .stat small { display: block; margin-top: 4px; font-size: 15px; font-weight: 700; color: var(--muted); }
+
+  .cta {
+    position: absolute; left: 72px; bottom: 56px;
+    display: inline-flex; align-items: center; gap: 14px;
+    background: linear-gradient(180deg, #ffb52e, var(--amber));
+    color: #1a1204; font-weight: 700; font-size: 22px;
+    padding: 16px 28px; border-radius: 999px;
+    box-shadow: 0 6px 0 var(--amber-deep), 0 18px 40px rgba(248,163,18,.35);
+  }
+  .cta .gift { font-size: 28px; }
+  .cta b { font-weight: 800; }
+  .cta-note { position: absolute; left: 400px; bottom: 74px; font-size: 18px; font-weight: 700; color: var(--muted); }
+
+  /* Phone with a live exam screen. */
+  .phone {
+    position: absolute; right: 150px; top: 54px; width: 316px; height: 620px;
+    border-radius: 46px; padding: 12px;
+    background: linear-gradient(160deg, #3a4452, #1a2029 40%, #0d1117);
+    box-shadow: 0 40px 80px rgba(0,0,0,.6), 0 0 0 2px rgba(255,255,255,.08), inset 0 0 0 2px rgba(255,255,255,.05);
+    transform: rotate(4deg);
+  }
+  .screen { position: relative; width: 100%; height: 100%; border-radius: 36px; overflow: hidden; background: #0f141b; }
+  .notch { position: absolute; left: 50%; top: 10px; width: 92px; height: 24px; margin-left: -46px; border-radius: 14px; background: #05070a; }
+  .bar { display: flex; justify-content: space-between; align-items: center; padding: 46px 18px 12px; }
+  .pill { font-size: 13px; font-weight: 800; padding: 6px 11px; border-radius: 999px; }
+  .pill.q { background: rgba(255,255,255,.08); color: #dfe6ee; }
+  .pill.t { background: rgba(248,163,18,.16); color: var(--amber); }
+  .progress { margin: 0 18px; height: 6px; border-radius: 6px; background: rgba(255,255,255,.08); overflow: hidden; }
+  .progress i { display: block; width: 35%; height: 100%; background: var(--teal); }
+  .scene {
+    margin: 14px 18px 0; height: 150px; border-radius: 18px; position: relative; overflow: hidden;
+    background: linear-gradient(180deg, #5fa8d8 0%, #9ccbe6 55%, #4a5a3a 56%, #3b4a2e 100%);
+  }
+  .scene .asphalt { position: absolute; left: 50%; bottom: -10px; width: 230px; height: 90px; margin-left: -115px; background: #3a3f47;
+    clip-path: polygon(44% 0, 56% 0, 100% 100%, 0 100%); }
+  .scene .dash { position: absolute; left: 50%; bottom: 0; width: 6px; height: 80px; margin-left: -3px;
+    background: repeating-linear-gradient(180deg, #f5d36a 0 12px, transparent 12px 22px); clip-path: polygon(30% 0, 70% 0, 100% 100%, 0 100%); }
+  .sign { position: absolute; right: 26px; top: 22px; width: 64px; height: 58px; }
+  .sign-post { position: absolute; right: 56px; top: 74px; width: 4px; height: 60px; background: #c8ced6; }
+  .qtext { margin: 14px 18px 0; font-size: 15px; font-weight: 700; line-height: 1.35; color: #e8edf3; }
+  .opts { margin: 12px 14px 0; display: grid; gap: 8px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border-radius: 14px; font-size: 13.5px; font-weight: 700;
+    background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.07); color: #cfd7e1; }
+  .opt .k { width: 24px; height: 24px; border-radius: 8px; display: grid; place-items: center; font-size: 12px; background: rgba(255,255,255,.08); flex: none; }
+  .opt.ok { background: rgba(47,212,162,.14); border-color: rgba(47,212,162,.6); color: #e9fff7; }
+  .opt.ok .k { background: var(--teal); color: #04241a; }
+  .opt .tick { margin-left: auto; color: var(--teal); font-size: 18px; }
+
+  .next { position: absolute; left: 14px; right: 14px; bottom: 18px; height: 50px; border-radius: 16px;
+    background: linear-gradient(180deg, #ffb52e, var(--amber)); color: #1a1204; font-weight: 800; font-size: 16px;
+    display: grid; place-items: center; box-shadow: 0 4px 0 var(--amber-deep); }
+  /* Floating badges around the phone. */
+  .badge {
+    position: absolute; display: flex; align-items: center; gap: 10px;
+    background: rgba(20,27,37,.92); border: 1px solid rgba(255,255,255,.12);
+    border-radius: 18px; padding: 12px 16px; box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    font-weight: 800; font-size: 17px;
+  }
+  .badge .dot { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-size: 19px; }
+  .b1 { right: 404px; top: 132px; }
+  .b1 .dot { background: rgba(47,212,162,.18); }
+  .b2 { right: 22px; top: 532px; }
+  .b2 .dot { background: rgba(248,163,18,.18); }
+  .badge small { display: block; font-size: 12.5px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+</style>
+</head>
+<body>
+  <div class="glow g1"></div>
+  <div class="glow g2"></div>
+  <div class="grid"></div>
+  <div class="road"></div>
+
+  <div class="copy">
+    <div class="brand">
+      <img src="../../public/logo-512.png" alt="">
+      <div>
+        <div class="name">Driver <span>Go</span></div>
+        <div class="tag" data-t="tag"></div>
+      </div>
+    </div>
+    <h1 data-t="h1"></h1>
+    <p class="sub" data-t="sub"></p>
+    <div class="stats">
+      <div class="stat"><b>1270<i>+</i></b><small data-t="s1"></small></div>
+      <div class="stat"><b>64</b><small data-t="s2"></small></div>
+      <div class="stat"><b>285</b><small data-t="s3"></small></div>
+    </div>
+  </div>
+
+  <div class="cta"><span class="gift">🎁</span><span data-t="cta"></span></div>
+
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <div class="bar"><span class="pill q" data-t="qno"></span><span class="pill t">⏱ 18:42</span></div>
+      <div class="progress"><i></i></div>
+      <div class="scene">
+        <div class="asphalt"></div><div class="dash"></div>
+        <div class="sign-post"></div>
+        <svg class="sign" viewBox="0 0 64 58"><path d="M32 3 L61 54 L3 54 Z" fill="#fff" stroke="#d62d2d" stroke-width="7" stroke-linejoin="round"/><path d="M32 22 v16" stroke="#111" stroke-width="5" stroke-linecap="round"/><circle cx="32" cy="45" r="3" fill="#111"/></svg>
+      </div>
+      <p class="qtext" data-t="q"></p>
+      <div class="opts">
+        <div class="opt"><span class="k">F1</span><span data-t="o1"></span></div>
+        <div class="opt ok"><span class="k">F2</span><span data-t="o2"></span><span class="tick">✓</span></div>
+        <div class="opt"><span class="k">F3</span><span data-t="o3"></span></div>
+      </div>
+      <div class="next" data-t="next"></div>
+    </div>
+  </div>
+
+  <div class="badge b1"><span class="dot">✅</span><div><span data-t="b1"></span><small data-t="b1s"></small></div></div>
+  <div class="badge b2"><span class="dot">🎯</span><div><span data-t="b2"></span><small data-t="b2s"></small></div></div>
+
+<script>
+  const T = {
+    uz: {
+      tag: "Imtihonga tayyorgarlik",
+      h1: "Imtihonga <em>rasmiy formatda</em> tayyorlaning",
+      sub: "Biletlar, imtihon simulyatori va yo'l belgilari — hammasi Telegram ichida.",
+      s1: "rasmiy savol", s2: "bilet", s3: "yo'l belgisi",
+      cta: "Yangi foydalanuvchiga <b>24 soat bepul VIP</b>",
+      qno: "Savol 7 / 20",
+      q: "Bu belgi haydovchini nima haqida ogohlantiradi?",
+      o1: "Yo'l ishlari", o2: "Boshqa xavf", o3: "Tor yo'l",
+      b1: "20 savol · 25 daqiqa", b1s: "haqiqiy imtihon qoidasi",
+      b2: "Xatolar ustida ishlash", b2s: "zaif mavzular qaytadi",
+      next: "Keyingi savol →",
+    },
+    ru: {
+      tag: "Подготовка к экзамену",
+      h1: "Экзамен на права —<br><em>в официальном формате</em>",
+      sub: "Билеты, симулятор экзамена и дорожные знаки — прямо в Telegram.",
+      s1: "вопросов", s2: "билета", s3: "знаков",
+      cta: "Новым пользователям <b>24 часа VIP</b>",
+      qno: "Вопрос 7 / 20",
+      q: "О чём предупреждает этот знак?",
+      o1: "Дорожные работы", o2: "Прочие опасности", o3: "Сужение дороги",
+      b1: "20 вопросов · 25 мин", b1s: "как на настоящем экзамене",
+      b2: "Работа над ошибками", b2s: "слабые темы возвращаются",
+      next: "Следующий вопрос →",
+    },
+  };
+  const lang = new URLSearchParams(location.search).get("lang") === "ru" ? "ru" : "uz";
+  document.documentElement.lang = lang;
+  for (const el of document.querySelectorAll("[data-t]")) el.innerHTML = T[lang][el.dataset.t];
+</script>
+</body>
+</html>
