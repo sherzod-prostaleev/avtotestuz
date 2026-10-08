@@ -279,6 +279,9 @@ func TestNormalizeTelegramContactPhone(t *testing.T) {
 	for in, want := range map[string]string{
 		"998901234567":  "+998901234567",
 		"+998901234567": "+998901234567",
+		// Address-book contact cards carry the number as typed.
+		"+998 90 123 45 67":   "+998901234567",
+		"+998 (90) 123-45-67": "+998901234567",
 	} {
 		got, err := NormalizeTelegramContactPhone(in)
 		if err != nil || got != want {
@@ -286,7 +289,7 @@ func TestNormalizeTelegramContactPhone(t *testing.T) {
 		}
 	}
 	// A 9-digit foreign number must never be read as a national UZ number.
-	for _, in := range []string{"959012345", "901234567", "79001234567", "+7 900 123-45-67", "99890123456a", ""} {
+	for _, in := range []string{"959012345", "901234567", "79001234567", "+7 900 123-45-67", "99890123456a", "", "abc", "+7 912 345 67 89", "+998 90 123 45"} {
 		if _, err := NormalizeTelegramContactPhone(in); err == nil {
 			t.Fatalf("%q accepted", in)
 		}

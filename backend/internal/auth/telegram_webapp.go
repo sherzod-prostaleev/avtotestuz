@@ -152,20 +152,23 @@ func ValidateContact(raw, botToken string, now time.Time, maxAge time.Duration) 
 }
 
 // NormalizeTelegramContactPhone turns a phone number Telegram reports for an
-// account (always international, digits with an optional leading "+") into
-// our +998XXXXXXXXX form. It is stricter than NormalizePhone on purpose: that
-// one also accepts a bare 9-digit national number, and a 9-digit foreign
-// number (e.g. an old Myanmar +95 9xxxxxx) would then be read as a UZ phone
-// and could "prove" ownership of someone else's profile.
+// account into our +998XXXXXXXXX form. Telegram's own shares are bare digits,
+// but contact cards from an address book carry the number as typed
+// ("+998 (90) 123-45-67"), so every non-digit is dropped first. It is stricter
+// than NormalizePhone on purpose: that one also accepts a bare 9-digit
+// national number, and a 9-digit foreign number (e.g. an old Myanmar +95
+// 9xxxxxx) would then be read as a UZ phone and could "prove" ownership of
+// someone else's profile. Here exactly 12 digits starting with 998 are required.
 func NormalizeTelegramContactPhone(raw string) (string, error) {
-	d := strings.TrimPrefix(strings.TrimSpace(raw), "+")
+	var b strings.Builder
+	for _, r := range raw {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	d := b.String()
 	if len(d) != 12 || !strings.HasPrefix(d, "998") {
 		return "", ErrInvalidPhone
-	}
-	for _, r := range d {
-		if r < '0' || r > '9' {
-			return "", ErrInvalidPhone
-		}
 	}
 	return "+" + d, nil
 }
