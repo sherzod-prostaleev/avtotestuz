@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
+	"net/url"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -15,20 +15,23 @@ import (
 	"avtotest.uz/backend/internal/httpx"
 )
 
+// referralPage reads limit/offset for the payout list. Unparseable or
+// int32-overflowing values are ignored (defaults), limit is clamped to
+// [1, 200] and offset to >= 0 so neither can wrap or go negative.
+func referralPage(q url.Values) (limit, offset int32) {
+	limit, offset = 50, 0
+	if n, err := httpx.ParseInt32(q.Get("limit")); err == nil {
+		limit = min(max(n, 1), 200)
+	}
+	if n, err := httpx.ParseInt32(q.Get("offset")); err == nil {
+		offset = max(n, 0)
+	}
+	return limit, offset
+}
+
 func (h *Handler) listReferralPayouts(w http.ResponseWriter, r *http.Request) {
 	status := r.URL.Query().Get("status")
-	limit := int32(50)
-	offset := int32(0)
-	if v := r.URL.Query().Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			limit = int32(n)
-		}
-	}
-	if v := r.URL.Query().Get("offset"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			offset = int32(n)
-		}
-	}
+	limit, offset := referralPage(r.URL.Query())
 	out, err := h.Svc.Store.ListReferralPayouts(r.Context(), status, limit, offset)
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "list payouts failed")

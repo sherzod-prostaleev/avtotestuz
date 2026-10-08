@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -94,12 +93,12 @@ func (h *Handler) getVariant(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	num, err := strconv.Atoi(chi.URLParam(r, "number"))
+	num, err := httpx.ParseInt32(chi.URLParam(r, "number"))
 	if err != nil || num < 1 {
 		httpx.Error(w, http.StatusBadRequest, "invalid_id", "variant number must be a positive integer")
 		return
 	}
-	v, err := h.Q.GetVariantByNumber(r.Context(), int32(num))
+	v, err := h.Q.GetVariantByNumber(r.Context(), num)
 	if errors.Is(err, pgx.ErrNoRows) {
 		httpx.Error(w, http.StatusNotFound, "not_found", "variant not found")
 		return

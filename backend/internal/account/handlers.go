@@ -5,7 +5,6 @@ package account
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -218,6 +217,29 @@ type paymentHistoryDTO struct {
 	PaidAt     *time.Time `json:"paid_at"`
 }
 
+const (
+	defaultPaymentHistoryLimit = 20
+	// maxPaymentHistoryLimit: the UI asks for 20; 100 is generous headroom.
+	maxPaymentHistoryLimit = 100
+)
+
+// paymentHistoryLimit parses ?limit=: empty or non-positive means the
+// default, large values are clamped, and anything that is not an int32 is an
+// error (Atoi+int32() would silently wrap it).
+func paymentHistoryLimit(raw string) (int32, error) {
+	if raw == "" {
+		return defaultPaymentHistoryLimit, nil
+	}
+	n, err := httpx.ParseInt32(raw)
+	if err != nil {
+		return 0, err
+	}
+	if n <= 0 {
+		return defaultPaymentHistoryLimit, nil
+	}
+	return min(n, maxPaymentHistoryLimit), nil
+}
+
 func (h *Handler) listMyPayments(w http.ResponseWriter, r *http.Request) {
 	claims, ok := auth.FromContext(r.Context())
 	if !ok {
@@ -229,21 +251,15 @@ func (h *Handler) listMyPayments(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusBadRequest, "invalid_locale", "locale must be one of uz-Latn, uz-Cyrl, ru, kaa")
 		return
 	}
-	limit := 20
-	if s := r.URL.Query().Get("limit"); s != "" {
-		n, err := strconv.Atoi(s)
-		if err != nil {
-			httpx.Error(w, http.StatusBadRequest, "invalid_request", "limit must be an integer")
-			return
-		}
-		if n > 0 {
-			limit = n
-		}
+	limit, err := paymentHistoryLimit(r.URL.Query().Get("limit"))
+	if err != nil {
+		httpx.Error(w, http.StatusBadRequest, "invalid_request", "limit must be an integer")
+		return
 	}
 	rows, err := h.Q.ListMyPayments(r.Context(), sqlc.ListMyPaymentsParams{
 		ProfileID: claims.ProfileID,
 		Locale:    loc,
-		Limit:     int32(limit),
+		Limit:     limit,
 	})
 	if err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "payment history query failed")

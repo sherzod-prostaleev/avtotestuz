@@ -51,12 +51,16 @@ func (h *Handler) nextDue(w http.ResponseWriter, r *http.Request) {
 	}
 	limit := 0
 	if s := r.URL.Query().Get("limit"); s != "" {
-		n, err := strconv.Atoi(s)
+		n, err := httpx.ParseInt32(s)
 		if err != nil {
 			httpx.Error(w, http.StatusBadRequest, "invalid_request", "limit must be an integer")
 			return
 		}
-		limit = n
+		if n > MaxNextDueLimit {
+			httpx.Error(w, http.StatusBadRequest, "invalid_request", "limit must be at most "+strconv.Itoa(MaxNextDueLimit))
+			return
+		}
+		limit = int(n)
 	}
 	ids, err := h.Svc.NextDue(r.Context(), claims.ProfileID, limit)
 	if err != nil {

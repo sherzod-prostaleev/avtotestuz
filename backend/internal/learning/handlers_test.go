@@ -227,3 +227,27 @@ func TestLearnRoutesRequireAuth(t *testing.T) {
 		t.Fatalf("mistakes status=%d want 401", resp.StatusCode)
 	}
 }
+
+func TestNextDueRejectsLimitAboveMax(t *testing.T) {
+	ts, tok, _ := setupHandlerServer(t)
+	for limit, want := range map[string]int{
+		"1000000000": http.StatusBadRequest,
+		"101":        http.StatusBadRequest,
+		"100":        http.StatusOK,
+		"20":         http.StatusOK,
+	} {
+		req, err := http.NewRequest(http.MethodGet, ts.URL+"/learn/next?limit="+limit, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "Bearer "+tok)
+		resp, err := ts.Client().Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != want {
+			t.Errorf("limit=%s status=%d want %d", limit, resp.StatusCode, want)
+		}
+	}
+}

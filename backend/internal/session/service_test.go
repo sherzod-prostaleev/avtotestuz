@@ -1933,3 +1933,17 @@ func TestSubmitAnswerWorksWithNilLeaderboard(t *testing.T) {
 		t.Fatalf("SubmitAnswer with nil Leaderboard: %v", err)
 	}
 }
+
+func TestResolveVariantIDRejectsInt32Overflow(t *testing.T) {
+	_, svc, _ := seed(t)
+	ctx := context.Background()
+	// 4294967297 = 2^32+1 used to wrap to variant 1 and resolve.
+	for _, raw := range []string{"4294967297", "2147483648", "abc"} {
+		if _, err := svc.ResolveVariantID(ctx, raw); !errors.Is(err, session.ErrNotFound) {
+			t.Errorf("ResolveVariantID(%q) err=%v, want ErrNotFound", raw, err)
+		}
+	}
+	if _, err := svc.ResolveVariantID(ctx, "1"); err != nil {
+		t.Errorf("ResolveVariantID(1): %v", err)
+	}
+}

@@ -16,6 +16,12 @@ import (
 // defaultNextDueLimit is used by NextDue when the caller passes limit <= 0.
 const defaultNextDueLimit = 20
 
+// MaxNextDueLimit caps how many due questions one call may return. It sizes
+// the result slice and the SQL LIMIT (limit*3), so an unbounded caller-chosen
+// value would allocate gigabytes or overflow int32. 100 is five times the
+// largest real request (a 20-question session).
+const MaxNextDueLimit = 100
+
 // contentLocale is the locale used to fetch category code/name pairs for
 // Stats. Only Code is used from the result; the locale choice does not
 // affect correctness (Task 1's ListCategories falls back across locales
@@ -137,6 +143,7 @@ func (s *Service) NextDue(ctx context.Context, profileID uuid.UUID, limit int) (
 	if limit <= 0 {
 		limit = defaultNextDueLimit
 	}
+	limit = min(limit, MaxNextDueLimit)
 
 	rows, err := s.Q.ListDueQuestions(ctx, sqlc.ListDueQuestionsParams{
 		ProfileID:  profileID,

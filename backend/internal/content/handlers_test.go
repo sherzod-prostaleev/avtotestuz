@@ -174,3 +174,16 @@ func TestSignsAndQuestionDetail(t *testing.T) {
 		t.Fatal("public question detail must not expose answer-revealing explanation prose")
 	}
 }
+
+func TestGetVariantRejectsInt32Overflow(t *testing.T) {
+	ts := setup(t)
+	// 4294967297 = 2^32+1 used to wrap to variant 1 and return 200.
+	for _, n := range []string{"4294967297", "2147483648", "0", "-1", "abc"} {
+		if code := get(t, ts, "/api/v1/variants/"+n, nil); code != 400 {
+			t.Errorf("variant %s: code=%d want 400", n, code)
+		}
+	}
+	if code := get(t, ts, "/api/v1/variants/1", nil); code != 200 {
+		t.Errorf("variant 1: code=%d want 200", code)
+	}
+}

@@ -597,3 +597,16 @@ func TestStatsPassEstimateUsesModelUntilCalibrated(t *testing.T) {
 		t.Fatalf("bucket_lo=%d readiness=%d", stats.PassEstimate.BucketLo, stats.ReadinessPct)
 	}
 }
+
+// A service caller (session start passes req.Count straight through) must not
+// be able to make NextDue allocate or query by an attacker-chosen size.
+func TestNextDueClampsHugeLimit(t *testing.T) {
+	_, svc, profileID, _ := seed(t)
+	got, err := svc.NextDue(context.Background(), profileID, 1<<31)
+	if err != nil {
+		t.Fatalf("NextDue: %v", err)
+	}
+	if len(got) > learning.MaxNextDueLimit {
+		t.Fatalf("returned %d ids, cap is %d", len(got), learning.MaxNextDueLimit)
+	}
+}

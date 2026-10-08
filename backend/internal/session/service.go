@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,6 +14,7 @@ import (
 
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/db/sqlc"
+	"avtotest.uz/backend/internal/httpx"
 	"avtotest.uz/backend/internal/i18n"
 	"avtotest.uz/backend/internal/leaderboard"
 	"avtotest.uz/backend/internal/learning"
@@ -139,11 +139,12 @@ func (s *Service) ResolveVariantID(ctx context.Context, raw string) (uuid.UUID, 
 	if id, err := uuid.Parse(raw); err == nil {
 		return id, nil
 	}
-	num, err := strconv.Atoi(raw)
+	// ParseInt32, not Atoi+int32(): 4294967297 would wrap to variant 1.
+	num, err := httpx.ParseInt32(raw)
 	if err != nil {
 		return uuid.UUID{}, ErrNotFound
 	}
-	v, err := s.Q.GetVariantByNumber(ctx, int32(num))
+	v, err := s.Q.GetVariantByNumber(ctx, num)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return uuid.UUID{}, ErrNotFound
@@ -1100,15 +1101,29 @@ func (s *Service) GetPublicCertificate(ctx context.Context, shareCode string) (P
 	}, nil
 }
 
-// ListMySessions returns the profile's session history, most recent first,
-// capped at limit (defaulting to 20 when limit <= 0).
-func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit int) ([]SessionSummary, error) {
+const (
+	defaultMySessionsLimit = 20
+	// maxMySessionsLimit bounds the history query and the summaries slice
+	// sized from it; the UI asks for 20.
+	maxMySessionsLimit = 100
+)
+
+// clampMySessionsLimit maps a caller-supplied limit into [1, max] as int32,
+// so a huge value can neither wrap on conversion nor drive a huge allocation.
+func clampMySessionsLimit(limit int) int32 {
 	if limit <= 0 {
-		limit = 20
+		return defaultMySessionsLimit
 	}
+	return int32(min(limit, maxMySessionsLimit))
+}
+
+// ListMySessions returns the profile's session history, most recent first,
+// capped at limit (defaulting to 20 when limit <= 0, at most
+// maxMySessionsLimit).
+func (s *Service) ListMySessions(ctx context.Context, profileID uuid.UUID, limit int) ([]SessionSummary, error) {
 	rows, err := s.Q.ListMySessions(ctx, sqlc.ListMySessionsParams{
 		ProfileID:  profileID,
-		LimitCount: int32(limit),
+		LimitCount: clampMySessionsLimit(limit),
 	})
 	if err != nil {
 		return nil, err
