@@ -5,10 +5,22 @@ import { test, expect, type Page } from "@playwright/test";
 
 const SDK_URL = "https://telegram.org/js/telegram-web-app.js";
 
-const fakeTelegram = (opts: { autologinOff?: boolean }) => `
+// Non-zero, so a rule that ignores Telegram's insets actually fails.
+const SAFE_TOP = 24;
+const SAFE_BOTTOM = 18;
+
+const fakeTelegram = (opts: { autologinOff?: boolean; colorScheme?: "light" | "dark" }) => `
   (() => {
     const store = ${opts.autologinOff ? `{ autologin_off: "1" }` : `{}`};
     window.__tg = { calls: [] };
+    // What telegram-web-app.js publishes on <html> for the device safe area.
+    // Init scripts can run before <html> exists.
+    const setInsets = () => {
+      document.documentElement.style.setProperty("--tg-safe-area-inset-top", "${SAFE_TOP}px");
+      document.documentElement.style.setProperty("--tg-safe-area-inset-bottom", "${SAFE_BOTTOM}px");
+    };
+    if (document.documentElement) setInsets();
+    else document.addEventListener("DOMContentLoaded", setInsets);
     const rec = (name) => (...args) => window.__tg.calls.push([name, ...args]);
     // The bridge a real Telegram client injects: without a host the app
     // ignores launch data and the SDK object entirely.
@@ -17,7 +29,7 @@ const fakeTelegram = (opts: { autologinOff?: boolean }) => `
     window.Telegram = { WebApp: {
       initData: "query_id=x&user=%7B%22id%22%3A1%7D&auth_date=1&hash=00",
       initDataUnsafe: { user: { id: 1, first_name: "Ali", language_code: "uz" } },
-      colorScheme: "dark", version: "8.0", platform: "android",
+      colorScheme: "${opts.colorScheme ?? "dark"}", version: "8.0", platform: "android",
       ready: rec("ready"), expand: rec("expand"), close: rec("close"), isVersionAtLeast: () => true,
       disableVerticalSwipes: rec("disableVerticalSwipes"),
       enableClosingConfirmation: rec("enableClosingConfirmation"),
@@ -40,13 +52,21 @@ const fakeTelegram = (opts: { autologinOff?: boolean }) => `
   })();
 `;
 
-async function openInFakeTelegram(page: Page, opts: { autologinOff?: boolean } = {}) {
+async function openInFakeTelegram(page: Page, opts: { autologinOff?: boolean; colorScheme?: "light" | "dark" } = {}) {
   await page.route(SDK_URL, (r) => r.fulfill({ contentType: "text/javascript", body: "" }));
   await page.addInitScript(fakeTelegram(opts));
 }
 
 const tgCalls = (page: Page) =>
   page.evaluate(() => (window as unknown as { __tg: { calls: unknown[][] } }).__tg.calls.map((c) => c[0]));
+
+const tgCallArgs = (page: Page, name: string) =>
+  page.evaluate(
+    (n) => (window as unknown as { __tg: { calls: unknown[][] } }).__tg.calls.filter((c) => c[0] === n).map((c) => c[1]),
+    name,
+  );
+
+const BASE = "http://localhost:" + (process.env.PORT || 3000);
 
 const meOk = { data: { profile: { must_change_password: false, display_name: "Ali" }, vip: { active: false, until: null } } };
 const unauthorized = { error: { code: "unauthorized" } };
@@ -234,6 +254,13 @@ test.describe("Telegram Mini App", () => {
   test("payment return page is public and links back to the bot", async ({ page }) => {
     await page.goto("/uz-Latn/checkout/done/DriverGouzBot");
     await expect(page).toHaveURL(/\/checkout\/done\/DriverGouzBot$/);
+    // playwright.config sets TELEGRAM_BOT_USERNAME only for a server it
+    // starts; a reused local dev server may run without it. CI never reuses.
+    const configured = await page.locator('a[href="https://t.me/DriverGouzBot"]').count();
+    test.skip(
+      !process.env.CI && configured === 0,
+      "reused dev server without TELEGRAM_BOT_USERNAME=DriverGouzBot; restart it or run with CI=true",
+    );
     await expect(page.locator('a[href="https://t.me/DriverGouzBot"]')).toBeVisible();
     // Someone else's bot in the path: the page stays text-only.
     await page.goto("/uz-Latn/checkout/done/Evil_payment_bot");
@@ -262,5 +289,100 @@ test.describe("Telegram Mini App", () => {
       () => document.documentElement.scrollWidth - document.documentElement.clientWidth
     );
     expect(overflow).toBeLessThanOrEqual(0);
+    // Telegram's safe area is honoured, not just env() (0 in this browser).
+    // The tg-webapp class arrives with the SDK, after the first paint.
+    await expect(page.locator("html.tg-webapp")).toHaveCount(1);
+    const pads = await page.evaluate(() => ({
+      top: parseFloat(getComputedStyle(document.querySelector(".app-top-bar")!).paddingTop),
+      bottom: parseFloat(getComputedStyle(document.querySelector("nav.app-bottom-nav")!).paddingBottom),
+    }));
+    expect(pads.top).toBeGreaterThanOrEqual(SAFE_TOP);
+    expect(pads.bottom).toBeGreaterThanOrEqual(SAFE_BOTTOM);
+  });
+
+  // Audit-2 I2: each Back to /tg used to cost another sign-in call.
+  test("Back from login to the welcome does not sign in again", async ({ page }) => {
+    await openInFakeTelegram(page);
+    await page.route("**/api/proxy/me", (r) => r.fulfill({ status: 401, json: unauthorized }));
+    let signIns = 0;
+    await page.route("**/api/auth/telegram", (r) => {
+      signIns++;
+      return r.fulfill({ json: needPhone });
+    });
+    await page.goto("/uz-Latn/tg");
+    for (let i = 0; i < 3; i++) {
+      await page.getByRole("link", { name: "Kirish" }).click();
+      await expect(page).toHaveURL(/\/uz-Latn\/login/);
+      await page.goBack();
+      await expect(page.getByRole("heading", { name: /Ali/ })).toBeVisible();
+    }
+    expect(signIns).toBe(1);
+  });
+
+  // Audit-2 I1/I3: the form stays inside the app, and a deep link's target
+  // survives the phone sign-in.
+  test("deep link next survives the welcome and the phone login", async ({ page, context }) => {
+    await openInFakeTelegram(page);
+    let signedIn = false;
+    await page.route("**/api/proxy/**", (r) => {
+      const url = r.request().url();
+      if (url.endsWith("/api/proxy/me")) {
+        return signedIn ? r.fulfill({ json: meOk }) : r.fulfill({ status: 401, json: unauthorized });
+      }
+      return r.fulfill({ json: { data: [] } });
+    });
+    await page.route("**/api/auth/telegram", (r) => r.fulfill({ json: needPhone }));
+    await page.route("**/api/auth/login", async (r) => {
+      signedIn = true;
+      await context.addCookies([{ name: "at", value: "x", url: BASE }]);
+      return r.fulfill({ json: { data: { ok: true, telegram_linked: true } } });
+    });
+    await page.goto("/uz-Latn/tg?next=%2Fuz-Latn%2Fsigns");
+    await page.getByRole("link", { name: "Kirish" }).click();
+    await expect(page).toHaveURL(/\/uz-Latn\/login\?next=%2Fuz-Latn%2Fsigns/);
+    await expect(page.getByRole("link", { name: /Bosh sahifaga qaytish/ })).toHaveCount(0);
+    await expect(page.locator(`header a[href="/uz-Latn"]`)).toHaveCount(0);
+    await page.locator('input[type="tel"]').fill("901234567");
+    await page.locator('input[type="password"]').fill("secret123");
+    await page.locator("form button[type=submit]").click();
+    await expect(page).toHaveURL(/\/uz-Latn\/signs$/);
+  });
+
+  // Audit-2 I9: a light Telegram must not get a dark first frame or a dark
+  // bottom bar while the SDK and React catch up.
+  test("light Telegram theme: light from the first paint, never a dark frame colour", async ({ page }) => {
+    await openInFakeTelegram(page, { colorScheme: "light" });
+    await page.route("**/api/proxy/me", (r) => r.fulfill({ status: 401, json: unauthorized }));
+    await page.route("**/api/auth/telegram", (r) => r.fulfill({ json: needPhone }));
+    const launch =
+      "#tgWebAppData=" +
+      encodeURIComponent("query_id=x&user=%7B%22id%22%3A1%7D&auth_date=1&hash=00") +
+      "&tgWebAppThemeParams=" +
+      encodeURIComponent(JSON.stringify({ bg_color: "#ffffff" }));
+    // Record the <html> class as soon as the body starts parsing.
+    await page.addInitScript(() => {
+      document.addEventListener("DOMContentLoaded", () => {
+        (window as unknown as { __firstClass: string }).__firstClass = document.documentElement.className;
+      });
+    });
+    await page.goto("/uz-Latn/tg" + launch);
+    await expect(page.getByRole("heading", { name: /Ali/ })).toBeVisible();
+    expect(await page.evaluate(() => (window as unknown as { __firstClass: string }).__firstClass)).toContain("light");
+    // The chrome is a lazy chunk and paints a frame after it mounts.
+    await expect.poll(async () => (await tgCallArgs(page, "setBottomBarColor")).length).toBeGreaterThan(0);
+    const bars = (await tgCallArgs(page, "setBottomBarColor")) as string[];
+    for (const color of bars) expect(color).toBe("#f3f4f6");
+  });
+
+  test("website /tg is not a dead end: the bot and a website login", async ({ page }) => {
+    await page.goto("/uz-Latn/tg");
+    await expect(page.getByRole("heading", { name: "Botdan oching" })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole("link", { name: "Saytda kirish" })).toHaveAttribute("href", "/uz-Latn/login");
+    const bot = await page.getByRole("link", { name: "Botni ochish" }).count();
+    test.skip(
+      !process.env.CI && bot === 0,
+      "reused dev server without TELEGRAM_BOT_USERNAME=DriverGouzBot; restart it or run with CI=true",
+    );
+    await expect(page.getByRole("link", { name: "Botni ochish" })).toHaveAttribute("href", "https://t.me/DriverGouzBot");
   });
 });
