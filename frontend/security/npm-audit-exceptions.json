@@ -1,0 +1,17 @@
+{
+  "_comment": "Reviewed high/critical npm advisories with NO published fix. Enforced by security/npm-audit-gate.mjs: entries expire (max 90 days), stale entries fail CI, and production dependencies are gated separately with no exceptions (npm audit --omit=dev). Remove an entry as soon as a fixed version exists.",
+  "exceptions": [
+    {
+      "advisory": "GHSA-vfj7-8cjw-p6xm",
+      "package": "braces",
+      "severity": "high",
+      "cve": "CVE-2026-93687",
+      "scope": "devDependencies only: tailwindcss@3 (chokidar, micromatch, fast-glob) at build time and eslint-config-next -> @next/eslint-plugin-next -> fast-glob at lint time. Not in the production dependency tree (npm audit --omit=dev is clean) and not in the drivergo-web runtime image (Trivy clean).",
+      "reason": "Every published braces release (<=3.0.3, latest 3.0.3) is affected; the advisory lists no patched version. The vulnerable input is a glob pattern: here patterns come only from repository-controlled config (tailwind.config.ts content globs, eslint config), never from users, so the stack-exhaustion DoS needs a malicious commit to trigger and then only crashes a local/CI build.",
+      "owner": "Sherzod",
+      "added": "2026-10-08",
+      "expires": "2026-11-08",
+      "exit": "Upgrade to a braces release that fixes GHSA-vfj7-8cjw-p6xm (or to micromatch/fast-glob/tailwindcss/eslint-config-next releases that drop braces), then delete this entry."
+    }
+  ]
+}

@@ -1114,7 +1114,12 @@ func clampMySessionsLimit(limit int) int32 {
 	if limit <= 0 {
 		return defaultMySessionsLimit
 	}
-	return int32(min(limit, maxMySessionsLimit))
+	// Explicit range check at the conversion site: maxMySessionsLimit fits
+	// int32, so the cast below can never wrap.
+	if limit > maxMySessionsLimit {
+		return maxMySessionsLimit
+	}
+	return int32(limit)
 }
 
 // ListMySessions returns the profile's session history, most recent first,

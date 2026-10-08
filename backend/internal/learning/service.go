@@ -165,7 +165,9 @@ func (s *Service) NextDue(ctx context.Context, profileID uuid.UUID, limit int) (
 		groups[r.CategoryID] = append(groups[r.CategoryID], r.QuestionID)
 	}
 
-	result := make([]uuid.UUID, 0, limit)
+	// Each result is a distinct row, so len(rows) bounds the result; size the
+	// buffer from that and the constant cap, never from the caller's limit.
+	result := make([]uuid.UUID, 0, min(len(rows), MaxNextDueLimit))
 	for len(result) < limit {
 		progressedThisRound := false
 		for _, catID := range order {

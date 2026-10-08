@@ -323,11 +323,21 @@ jobs:
       - name: Install frontend deps
         working-directory: frontend
         run: npm ci
-      - name: npm audit (high/critical hard gate)
+      - name: npm audit, production dependencies (high/critical, no exceptions)
+        working-directory: frontend
+        run: npm audit --omit=dev --audit-level=high
+      - name: npm audit, full tree (high/critical, reviewed exceptions only)
         working-directory: frontend
         run: |
-          set -o pipefail
-          npm audit --audit-level=high --json | tee "${GITHUB_WORKSPACE}/npm-audit.json"
+          # npm audit exits non-zero whenever it reports anything (or fails to
+          # reach the registry); the gate decides, and it rejects any output
+          # that is not a well-formed audit report. Exceptions are only for
+          # advisories with no published fix, expire, and are listed with
+          # their justification in security/npm-audit-exceptions.json.
+          audit_status=0
+          npm audit --json > "${GITHUB_WORKSPACE}/npm-audit.json" || audit_status=$?
+          echo "npm audit exit status: ${audit_status}"
+          node security/npm-audit-gate.mjs "${GITHUB_WORKSPACE}/npm-audit.json" security/npm-audit-exceptions.json
       - name: Upload npm audit JSON
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

@@ -169,10 +169,17 @@ fe-check: fe-lint fe-typecheck fe-test fe-build
 # scans). Every high/critical advisory is a hard failure; callers must never
 # mistake a partial report for a green supply-chain gate. Requires
 # govulncheck and pip-audit on PATH/in the active Python environment.
+# npm: production dependencies take no exceptions; for the full tree npm
+# audit's own exit status is replaced by security/npm-audit-gate.mjs, which
+# rejects malformed reports and allows only the reviewed, expiring entries in
+# frontend/security/npm-audit-exceptions.json (advisories with no fix).
 dep-scan:
 	cd backend && govulncheck ./...
 	cd backend/station && govulncheck ./...
-	cd frontend && npm audit --audit-level=high
+	cd frontend && npm audit --omit=dev --audit-level=high
+	cd frontend && report="$$(mktemp)" && { npm audit --json > "$$report"; \
+	  node security/npm-audit-gate.mjs "$$report" security/npm-audit-exceptions.json; \
+	  status=$$?; rm -f "$$report"; exit $$status; }
 	python3 -m pip_audit -r services/humo-watcher/requirements.lock --require-hashes --disable-pip --strict
 
 # U-42 — k6 smoke against a running API (not a prod soak). Requires k6 on PATH.
