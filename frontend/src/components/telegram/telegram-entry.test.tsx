@@ -200,11 +200,34 @@ describe("TelegramEntry", () => {
     expect(screen.queryByRole("button", { name: "Ali sifatida davom etish" })).not.toBeInTheDocument();
   });
 
-  it("does not log out for an unlinked session or the same Telegram user", async () => {
+  it("does not log out a session linked to the same Telegram user", async () => {
     const same = mockFetch([{ status: 200, body: ME_OK }], [], [linkedTo(1)]);
     renderEntry();
     await waitFor(() => expect(replace).toHaveBeenCalled());
     expect(logoutCalls(same)).toHaveLength(0);
+  });
+
+  it("does not log out a session that is not linked to any Telegram account", async () => {
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }], [], [LINKED_NONE]);
+    renderEntry();
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(logoutCalls(fetchMock)).toHaveLength(0);
+    expect(telegramCalls(fetchMock)).toHaveLength(0);
+  });
+
+  // The stranger flag belongs to one enter() attempt. If the session is gone
+  // by the retry, the retry must not log out again (and fail again).
+  it("re-evaluates the stranger session on retry instead of reusing the old verdict", async () => {
+    cloud.set("autologin_off", "1");
+    const fetchMock = mockFetch([{ status: 200, body: ME_OK }, ME_401], [], [linkedTo(999)]);
+    const base = fetchMock.getMockImplementation()!;
+    fetchMock.mockImplementation(async (input, init) =>
+      String(input) === "/api/auth/logout" ? json(500) : base(input, init),
+    );
+    renderEntry();
+    fireEvent.click(await screen.findByRole("button", { name: "Qayta urinish" }));
+    await screen.findByRole("button", { name: "Ali sifatida davom etish" });
+    expect(logoutCalls(fetchMock)).toHaveLength(1);
   });
 
   it("does not log out when there is no session at all", async () => {

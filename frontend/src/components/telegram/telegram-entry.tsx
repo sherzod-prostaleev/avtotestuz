@@ -261,6 +261,10 @@ export function TelegramEntry() {
     async (app: TelegramWebApp, lifetime: AbortSignal) => {
       if (busy.current) return;
       busy.current = true;
+      // Each attempt re-probes the session: a verdict from a failed earlier
+      // attempt (whose logout may have half-worked) must not trigger a logout
+      // for whatever session, if any, is there now.
+      strangerSession.current = false;
       try {
         setPhase("loading");
         // A live session means they never signed out: go straight in, with no
