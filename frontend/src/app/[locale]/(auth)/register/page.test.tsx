@@ -143,7 +143,7 @@ describe("RegisterPage", () => {
       vi.stubGlobal("fetch", fetchMock);
       renderWithIntl();
       fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
-      fireEvent.click(screen.getByRole("button", { name: "Raqamni Telegram'dan olish" }));
+      fireEvent.click(screen.getByRole("button", { name: "Telegram raqamini olish" }));
       fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
       fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
       await waitFor(() => expect(pushMock).toHaveBeenCalled());
@@ -151,7 +151,7 @@ describe("RegisterPage", () => {
 
     it("shows no Telegram button on the website", () => {
       renderWithIntl();
-      expect(screen.queryByRole("button", { name: "Raqamni Telegram'dan olish" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Telegram raqamini olish" })).toBeNull();
     });
 
     it("pre-fills the phone, sends tg_init_data and re-enables auto-login after a link", async () => {
@@ -174,7 +174,7 @@ describe("RegisterPage", () => {
       const fetchMock = replies({ data: { ok: true, telegram_linked: false } }, { data: { linked: false } });
       vi.stubGlobal("fetch", fetchMock);
       renderWithIntl();
-      fireEvent.click(screen.getByRole("button", { name: "Raqamni Telegram'dan olish" }));
+      fireEvent.click(screen.getByRole("button", { name: "Telegram raqamini olish" }));
       fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112244" } });
       fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
       fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
@@ -269,5 +269,94 @@ describe("RegisterPage", () => {
       const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
       expect(body.tg_init_data).toBeUndefined();
     });
+  });
+
+  // Audit-2 I1/I3: inside the Mini App the form is not a page of the website.
+  describe("inside the Mini App", () => {
+    const miniApp = () =>
+      ({
+        initData: "signed",
+        initDataUnsafe: { user: { id: 1 } },
+        isVersionAtLeast: () => true,
+        requestContact: vi.fn(),
+      }) as unknown as TelegramWebApp;
+
+    afterEach(() => {
+      window.history.replaceState(null, "", "/");
+      sessionStorage.clear();
+    });
+
+    it("has no way back to the landing page", () => {
+      currentStatus = "ready";
+      currentWebApp = miniApp();
+      renderWithIntl();
+      expect(screen.queryByRole("link", { name: /Bosh sahifaga qaytish/ })).toBeNull();
+      expect(screen.queryByRole("link", { name: /Driver Go/ })).toBeNull();
+      expect(screen.getByText("Driver Go")).toBeInTheDocument();
+    });
+
+    it("hides the landing link while the SDK is still loading, too", () => {
+      currentStatus = "loading";
+      renderWithIntl();
+      expect(screen.queryByRole("link", { name: /Bosh sahifaga qaytish/ })).toBeNull();
+    });
+
+    it("keeps both on the website", () => {
+      renderWithIntl();
+      expect(screen.getByRole("link", { name: /Bosh sahifaga qaytish/ })).toHaveAttribute("href", "/uz-Latn");
+      expect(screen.getByRole("link", { name: /Driver Go/ })).toHaveAttribute("href", "/uz-Latn");
+    });
+
+    it("continues to a safe next after signing in", async () => {
+      currentStatus = "ready";
+      currentWebApp = miniApp();
+      window.history.replaceState(null, "", "/uz-Latn/register?next=%2Fuz-Latn%2Fpremium%3Fplan%3Dvip");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { telegram_linked: true } }), { status: 200 })));
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/premium?plan=vip"));
+    });
+
+    it("never follows a next to another site", async () => {
+      currentStatus = "ready";
+      currentWebApp = miniApp();
+      window.history.replaceState(null, "", "/uz-Latn/register?next=%2F%2Fevil.com");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { telegram_linked: true } }), { status: 200 })));
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    });
+
+    it("forgets /tg's need_phone verdict once signed in", async () => {
+      currentStatus = "ready";
+      currentWebApp = miniApp();
+      sessionStorage.setItem("tg-need-phone:1", JSON.stringify({ firstName: "Ali" }));
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: { telegram_linked: true } }), { status: 200 })));
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalled());
+      expect(sessionStorage.getItem("tg-need-phone:1")).toBeNull();
+    });
+
+    it("ignores next on the website, as before", async () => {
+      window.history.replaceState(null, "", "/uz-Latn/register?next=%2Fuz-Latn%2Fpremium");
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ data: {} }), { status: 200 })));
+      renderWithIntl();
+      fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
+      fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
+      fireEvent.change(screen.getByLabelText("Parolni tasdiqlang"), { target: { value: "secret123" } });
+      fireEvent.click(screen.getByRole("button", { name: "Ro'yxatdan o'tish" }));
+      await waitFor(() => expect(pushMock).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    });
+
   });
 });

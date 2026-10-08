@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { afterTelegramAuth, withTelegramInitData } from "./auth-body";
+import { afterTelegramAuth, linkTelegramInApp, withTelegramInitData } from "./auth-body";
+import { currentTelegramHint, dismissTelegramHint } from "./hint";
 import type { TelegramWebApp } from "./web-app";
 
 const cloudRemove = vi.fn();
@@ -8,7 +9,10 @@ vi.mock("./web-app", async (importOriginal) => {
   return { ...actual, cloudRemove: (key: string) => cloudRemove(key) };
 });
 
-beforeEach(() => cloudRemove.mockReset().mockResolvedValue(undefined));
+beforeEach(() => {
+  cloudRemove.mockReset().mockResolvedValue(undefined);
+  dismissTelegramHint();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("withTelegramInitData", () => {
@@ -109,5 +113,43 @@ describe("afterTelegramAuth", () => {
       afterTelegramAuth(false, { webApp: webAppSharing((cb) => cb(true, { response: "c" })), askForContact: true }),
     ).resolves.toBeUndefined();
     expect(cloudRemove).not.toHaveBeenCalled();
+  });
+});
+
+describe("afterTelegramAuth explanation", () => {
+  // The sheet opens over the dashboard, after the form is gone: say why first.
+  it("shows the explanation before Telegram's sheet opens", async () => {
+    vi.stubGlobal("fetch", linkReply(true));
+    let hintWhenAsked: string | null = null;
+    const requestContact = vi.fn((cb: ContactCb) => {
+      hintWhenAsked = currentTelegramHint()?.text ?? null;
+      cb(true, { response: "contact=signed" });
+    });
+    await afterTelegramAuth(false, { webApp: webAppSharing(requestContact), askForContact: true, explain: "Why" });
+    expect(hintWhenAsked).toBe("Why");
+  });
+  it("shows nothing when no sheet is going to open", async () => {
+    await afterTelegramAuth(true, { webApp: webAppSharing(vi.fn()), askForContact: true, explain: "Why" });
+    expect(currentTelegramHint()).toBeNull();
+  });
+});
+
+describe("linkTelegramInApp", () => {
+  it("links with the signed contact", async () => {
+    const fetchMock = linkReply(true);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(linkTelegramInApp(webAppSharing((cb) => cb(true, { response: "contact=signed" })))).resolves.toBe("linked");
+    expect(fetchMock).toHaveBeenCalledWith("/api/proxy/me/telegram/link-webapp", expect.objectContaining({ method: "POST" }));
+  });
+  it("tells a declined sheet apart from a refused link", async () => {
+    const fetchMock = linkReply(false);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(linkTelegramInApp(webAppSharing((cb) => cb(false)))).resolves.toBe("declined");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await expect(linkTelegramInApp(webAppSharing((cb) => cb(true, { response: "c" })))).resolves.toBe("failed");
+  });
+  it("reports a network failure as failed", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("Failed to fetch")));
+    await expect(linkTelegramInApp(webAppSharing((cb) => cb(true, { response: "c" })))).resolves.toBe("failed");
   });
 });

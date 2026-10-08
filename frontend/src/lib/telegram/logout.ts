@@ -1,3 +1,4 @@
+import { forgetNeedPhone } from "./need-phone-cache";
 import { AUTOLOGIN_OFF_KEY, cloudSet, isTelegramMiniApp } from "./web-app";
 
 /**
@@ -7,6 +8,8 @@ import { AUTOLOGIN_OFF_KEY, cloudSet, isTelegramMiniApp } from "./web-app";
  * gives up after 3 s, so a silent bridge never holds the logout hostage.
  */
 export async function markTelegramLogout(): Promise<void> {
+  // A remembered need_phone verdict belongs to the session that just ended.
+  forgetNeedPhone();
   await cloudSet(AUTOLOGIN_OFF_KEY, "1");
 }
 

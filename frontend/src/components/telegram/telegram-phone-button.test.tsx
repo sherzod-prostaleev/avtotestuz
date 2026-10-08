@@ -29,7 +29,7 @@ function renderButton(onPhone = vi.fn()) {
   );
   return { onPhone, ...view };
 }
-const click = () => fireEvent.click(screen.getByRole("button", { name: "Raqamni Telegram'dan olish" }));
+const click = () => fireEvent.click(screen.getByRole("button", { name: "Telegram raqamini olish" }));
 
 beforeEach(() => {
   pending = null;

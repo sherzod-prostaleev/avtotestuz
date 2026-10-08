@@ -78,4 +78,9 @@ describe("openExternalUrl", () => {
     expect(webApp.openLink).toHaveBeenCalledWith("https://checkout.paycom.uz/abc");
     expect(open).not.toHaveBeenCalled();
   });
+  it("markTelegramLogout forgets /tg's need_phone verdict", async () => {
+    sessionStorage.setItem("tg-need-phone:1", JSON.stringify({ firstName: "Ali" }));
+    await markTelegramLogout();
+    expect(sessionStorage.getItem("tg-need-phone:1")).toBeNull();
+  });
 });

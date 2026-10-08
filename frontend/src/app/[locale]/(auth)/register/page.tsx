@@ -14,6 +14,8 @@ import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
 import { useTelegram, useTelegramStatus } from "@/components/telegram/telegram-provider";
 import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-body";
+import { forgetNeedPhone } from "@/lib/telegram/need-phone-cache";
+import { safeNextPath } from "@/lib/telegram/safe-next";
 import {
   NATIONAL_PHONE_INPUT_MAX_LENGTH,
   formatNationalPhone,
@@ -29,6 +31,9 @@ const ERROR_MESSAGE_KEYS: Record<string, string> = {
   network_error: "errorNetwork",
 };
 
+const BRAND_CLASS =
+  "flex min-w-0 items-center gap-2 font-display text-lg font-black text-foreground sm:gap-2.5 sm:text-xl";
+
 /** National 9-digit UZ mobile (strips optional 998 country code). */
 function normalizePhone(input: string): string {
   return normalizeNationalPhone(input);
@@ -43,6 +48,9 @@ export default function RegisterPage() {
   const tgStatus = useTelegramStatus();
   const tgT = useTranslations("TelegramApp");
   const waitingForTelegram = tgStatus === "loading";
+  // "off" only on the website (and the server render); any other status
+  // means Telegram launched us, even before or without a working SDK.
+  const inMiniApp = tgStatus !== "off";
   const [phone, setPhone] = useState("");
   // Telegram's signed share of the phone (Mini App only): the link proof.
   const [tgContact, setTgContact] = useState<string | null>(null);
@@ -113,7 +121,12 @@ export default function RegisterPage() {
 
       // Fire and forget: CloudStorage and Telegram's phone sheet must never
       // hold up sign-up. No shared number yet → offer the sheet once.
-      void afterTelegramAuth(linked, { webApp, askForContact: !tgContact }).catch(() => {});
+      if (webApp) forgetNeedPhone();
+      void afterTelegramAuth(linked, {
+        webApp,
+        askForContact: !tgContact,
+        explain: tgT("shareAfterLogin"),
+      }).catch(() => {});
       try {
         await applyPendingReferralCode();
       } catch {
@@ -124,7 +137,10 @@ export default function RegisterPage() {
       } catch {
         /* best-effort */
       }
-      router.push(`/${locale}/dashboard`);
+      // A Mini App deep link (/tg?next=…) passed its target through the
+      // welcome screen. The website keeps its old landing: the dashboard.
+      const next = webApp ? new URLSearchParams(window.location.search).get("next") : null;
+      router.push(safeNextPath(next, locale));
     } finally {
       setSubmitting(false);
     }
@@ -137,13 +153,19 @@ export default function RegisterPage() {
       <header
         className="flex h-14 items-center justify-between border-b border-border px-3 sm:px-4 auth-safe-top"
       >
-        <Link
-          href={`/${locale}`}
-          className="flex min-w-0 items-center gap-2 font-display text-lg font-black text-foreground sm:gap-2.5 sm:text-xl"
-        >
-          <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
-          <span className="truncate">{loginT("brandName")}</span>
-        </Link>
+        {/* In the Mini App the landing page is a dead end with no way back to
+            the app: the logo is not a link there. */}
+        {inMiniApp ? (
+          <span className={BRAND_CLASS}>
+            <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
+            <span className="truncate">{loginT("brandName")}</span>
+          </span>
+        ) : (
+          <Link href={`/${locale}`} className={BRAND_CLASS}>
+            <BrandLogo size={36} className="h-8 w-8 shrink-0 rounded-2xl object-cover sm:h-9 sm:w-9" />
+            <span className="truncate">{loginT("brandName")}</span>
+          </Link>
+        )}
         <div className="flex shrink-0 items-center gap-1.5">
           <LocaleSwitcher compact />
           <ThemeToggle />
@@ -152,12 +174,15 @@ export default function RegisterPage() {
 
       <main className="flex flex-1 items-center justify-center p-3 sm:p-4">
         <div className="w-full max-w-sm animate-fade-in space-y-5 rounded-2xl border border-border bg-card p-5 sm:space-y-6 sm:p-8">
-          <Link
-            href={`/${locale}`}
-            className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" /> {loginT("backHome")}
-          </Link>
+          {/* Telegram's own Back is the way out inside the Mini App. */}
+          {!inMiniApp && (
+            <Link
+              href={`/${locale}`}
+              className="inline-flex min-h-11 items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" /> {loginT("backHome")}
+            </Link>
+          )}
 
           <div className="space-y-2">
             <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
@@ -165,12 +190,6 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <TelegramPhoneButton
-              onPhone={(national, signed) => {
-                setPhone(national);
-                setTgContact(signed);
-              }}
-            />
             <div className="space-y-1.5">
               <label
                 htmlFor="register-phone"
@@ -199,6 +218,13 @@ export default function RegisterPage() {
                   aria-label={t("phoneLabel")}
                 />
               </div>
+              {/* Part of the phone group: another way to fill the same field. */}
+              <TelegramPhoneButton
+                onPhone={(national, signed) => {
+                  setPhone(national);
+                  setTgContact(signed);
+                }}
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -278,7 +304,7 @@ export default function RegisterPage() {
 
             {waitingForTelegram && (
               <p role="status" className="flex items-center gap-2 text-xs font-semibold text-muted-foreground">
-                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin" /> {tgT("connecting")}
+                <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin motion-reduce:animate-none" /> {tgT("connecting")}
               </p>
             )}
 

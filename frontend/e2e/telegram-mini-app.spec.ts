@@ -85,7 +85,7 @@ test.describe("Telegram Mini App", () => {
     await expect(page.getByRole("heading", { name: /Ali/ })).toBeVisible();
     await page.getByRole("link", { name: "Kirish" }).click();
     await expect(page).toHaveURL(/\/uz-Latn\/login/);
-    await page.getByRole("button", { name: "Raqamni Telegram'dan olish" }).click();
+    await page.getByRole("button", { name: "Telegram raqamini olish" }).click();
     await expect(page.locator('input[type="tel"], input[inputmode="tel"]').first()).toHaveValue("90 123 45 67");
     await page.locator('input[type="password"]').fill("secret123");
     await page.locator("form button[type=submit]").click();
@@ -195,7 +195,7 @@ test.describe("Telegram Mini App", () => {
 
     await page.goto("/uz-Latn/login" + planted);
     await page.waitForLoadState("networkidle");
-    await expect(page.getByRole("button", { name: "Raqamni Telegram'dan olish" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Telegram raqamini olish" })).toHaveCount(0);
     await page.locator('input[type="tel"], input[inputmode="tel"]').first().fill("901234567");
     await page.locator('input[type="password"]').fill("victim-password");
     await page.locator("form button[type=submit]").click();
@@ -218,7 +218,7 @@ test.describe("Telegram Mini App", () => {
     await page.goto("/uz-Latn/login");
     await page.waitForLoadState("networkidle");
     expect(sdk).toEqual([]);
-    await expect(page.getByRole("button", { name: "Raqamni Telegram'dan olish" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Telegram raqamini olish" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: /mavzu|theme|tema/i }).first()).toBeVisible();
   });
 
