@@ -148,8 +148,9 @@ func TestBotResetContactLinkIsVerifiedAndSurvivesReset(t *testing.T) {
 	}
 }
 
-// linkedReset starts a reset for profile and has the linked tgID confirm it
-// through the linked-account path (no contact).
+// linkedReset starts a reset for profile and has tgID confirm it: through the
+// linked-account shortcut when its link is phone-verified, otherwise through
+// the contact step (which links tgID with the phone proven).
 func linkedReset(t *testing.T, svc *Service, phone string, tgID int64) string {
 	t.Helper()
 	ctx := context.Background()
@@ -168,6 +169,9 @@ func linkedReset(t *testing.T, svc *Service, phone string, tgID int64) string {
 	}
 	raw := parseResetRaw(t, start.BotURL)
 	begin, err := svc.BeginTelegramPasswordReset(ctx, raw, tgID)
+	if err == nil && begin.Outcome == TelegramResetNeedContact {
+		begin, err = svc.ConfirmTelegramPasswordResetContact(ctx, tgID, tgID, phone)
+	}
 	if err != nil || begin.Outcome != TelegramResetNeedConfirm {
 		t.Fatalf("begin=%+v %v", begin, err)
 	}
@@ -178,8 +182,9 @@ func linkedReset(t *testing.T, svc *Service, phone string, tgID int64) string {
 }
 
 // Audit scenario B: someone with brief access to a session links their own
-// Telegram the legacy way. A password reset is the owner taking the account
-// back, so it must not leave that link behind for the Mini App.
+// Telegram the legacy way, after the owner confirmed the reset. A password
+// reset is the owner taking the account back, so it must not leave that link
+// behind for the Mini App.
 func TestPasswordResetDropsUnverifiedLink(t *testing.T) {
 	svc, ctx := newWebAppService(t)
 	const phone = "+998901120005"
@@ -187,9 +192,9 @@ func TestPasswordResetDropsUnverifiedLink(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const intruderTg = 6006
+	const ownerTg, intruderTg = 6005, 6006
+	raw := linkedReset(t, svc, phone, ownerTg)
 	legacyLink(t, svc, reg.Profile.ID, intruderTg)
-	raw := linkedReset(t, svc, phone, intruderTg)
 	if err := svc.CompletePasswordReset(ctx, raw, "owner-new-pass-1", "5.5.5.5"); err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +249,6 @@ func TestPasswordResetDropsVerifiedLinkOfAnotherTelegramUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	legacyLink(t, svc, reg.Profile.ID, 6008)
 	resetRaw := linkedReset(t, svc, phone, 6008)
 	raw, contact := proof(t, 6009, phone)
 	if ok, err := svc.LinkTelegramWebApp(ctx, reg.Profile.ID, raw, contact); err != nil || !ok {

@@ -244,14 +244,15 @@ func (s *Service) beginTelegramPasswordReset(ctx context.Context, rawToken strin
 		return TelegramResetBegin{Outcome: TelegramResetVerified}, nil
 	}
 
+	// Only a phone-verified link to THIS profile is identity. A legacy
+	// /start <token> link carries no phone proof and an intruder can plant one
+	// on a victim's profile; a link to another profile proves nothing about
+	// this one. Both take the contact step (phone must match, then «Ha, men»).
 	account, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID)
 	linked := false
 	switch {
 	case err == nil:
-		if account.ProfileID != row.ProfileID {
-			return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
-		}
-		linked = true
+		linked = account.ProfileID == row.ProfileID && account.PhoneVerifiedAt.Valid
 	case errors.Is(err, pgx.ErrNoRows):
 	default:
 		return TelegramResetBegin{}, err
@@ -422,6 +423,18 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 	case err == nil:
 		if account.ProfileID != row.ProfileID {
 			return stale, nil
+		}
+		if !account.PhoneVerifiedAt.Valid {
+			// A legacy link that got here passed the contact step, so the
+			// phone is now proven for this very Telegram user.
+			if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
+				ProfileID:     row.ProfileID,
+				TgUserID:      tgUserID,
+				Username:      account.Username,
+				PhoneVerified: true,
+			}); err != nil {
+				return TelegramResetBegin{}, err
+			}
 		}
 	case errors.Is(err, pgx.ErrNoRows):
 		// Contact path: the confirmed contact also links this Telegram account.

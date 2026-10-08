@@ -109,6 +109,8 @@ func TestPasswordReset_LinkedTelegramThenComplete(t *testing.T) {
 		ProfileID: reg.Profile.ID,
 		TgUserID:  4242,
 		Username:  "alice",
+		// Only a phone-verified link earns the «Ha, men» shortcut.
+		PhoneVerified: true,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -255,9 +257,10 @@ func TestPasswordResetHTTP_StartStatusComplete(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
-		ProfileID: reg.Profile.ID,
-		TgUserID:  91,
-		Username:  "cara",
+		ProfileID:     reg.Profile.ID,
+		TgUserID:      91,
+		Username:      "cara",
+		PhoneVerified: true,
 	}); err != nil {
 		t.Fatal(err)
 	}
