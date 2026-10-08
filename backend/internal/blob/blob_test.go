@@ -78,3 +78,22 @@ func TestFallbackStoreDoesNotMaskPrimaryOutage(t *testing.T) {
 		t.Fatalf("Get error=%v want primary outage", err)
 	}
 }
+
+func TestLocalDirDeleteIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	s := NewLocalDir(t.TempDir())
+	if err := s.Put(ctx, "images/avatars/a.jpg", "image/jpeg", []byte{1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Delete(ctx, "images/avatars/a.jpg"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.Get(ctx, "images/avatars/a.jpg"); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("Get after Delete err=%v, want ErrNotFound", err)
+	}
+	// Deleting what is already gone is success: cleanup is best-effort and
+	// may run twice.
+	if err := s.Delete(ctx, "images/avatars/a.jpg"); err != nil {
+		t.Fatalf("second Delete: %v", err)
+	}
+}

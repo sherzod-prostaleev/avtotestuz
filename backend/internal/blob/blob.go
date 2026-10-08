@@ -46,6 +46,15 @@ func (l *LocalDir) Get(_ context.Context, key string) ([]byte, string, error) {
 	return data, "", nil
 }
 
+// Delete removes key; a key that is already gone is not an error.
+func (l *LocalDir) Delete(_ context.Context, key string) error {
+	err := os.Remove(filepath.Join(l.root, filepath.FromSlash(key)))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
+	}
+	return nil
+}
+
 func (l *LocalDir) Health(_ context.Context) error {
 	return os.MkdirAll(l.root, 0o755)
 }
