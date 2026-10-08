@@ -33,7 +33,11 @@ type fakeTelegram struct {
 	// edits holds editMessageText texts; answers holds answerCallbackQuery texts.
 	edits   []string
 	answers []string
-	srv     *httptest.Server
+	// editChats records the chat_id of each editMessageText.
+	editChats []int64
+	// failAnswer makes answerCallbackQuery return ok:false.
+	failAnswer bool
+	srv        *httptest.Server
 }
 
 func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
@@ -82,16 +86,24 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 		}
 		if strings.Contains(path, "editMessageText") || strings.Contains(path, "answerCallbackQuery") {
 			var body struct {
-				Text string `json:"text"`
+				Text   string `json:"text"`
+				ChatID int64  `json:"chat_id"`
 			}
 			_ = json.NewDecoder(r.Body).Decode(&body)
 			f.mu.Lock()
+			fail := false
 			if strings.Contains(path, "editMessageText") {
 				f.edits = append(f.edits, body.Text)
+				f.editChats = append(f.editChats, body.ChatID)
 			} else {
 				f.answers = append(f.answers, body.Text)
+				fail = f.failAnswer
 			}
 			f.mu.Unlock()
+			if fail {
+				_, _ = w.Write([]byte(`{"ok":false,"error_code":400,"description":"query is too old"}`))
+				return
+			}
 		}
 		_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))
 	}))
@@ -427,6 +439,9 @@ func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
 	if err := b.HandleUpdate(ctx, callback(2121, no)); err != nil {
 		t.Fatal(err)
 	}
+	if chats := fake.editChatIDs(); len(chats) == 0 || chats[len(chats)-1] != 2121+callbackChatOffset {
+		t.Fatalf("edit chats=%v want the callback message's chat", chats)
+	}
 	if got := fake.lastEdit(); !strings.Contains(got, "o'zgartirilmadi") {
 		t.Fatalf("«Yo'q» edit=%q", got)
 	}
@@ -447,6 +462,11 @@ func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
 	}
 }
 
+// callbackChatOffset keeps the callback's chat id distinct from From.ID, so a
+// regression that reads the user id from the message (or the chat id from the
+// user) is caught instead of passing because private chat id == user id.
+const callbackChatOffset = 7000
+
 // callback is a private-chat inline button tap by tgUserID.
 func callback(tgUserID int64, data string) Update {
 	return Update{
@@ -454,7 +474,7 @@ func callback(tgUserID int64, data string) Update {
 		CallbackQuery: &CallbackQuery{
 			ID:      "cq",
 			From:    User{ID: tgUserID},
-			Message: &Message{MessageID: 500, Chat: Chat{ID: tgUserID, Type: "private"}},
+			Message: &Message{MessageID: 500, Chat: Chat{ID: tgUserID + callbackChatOffset, Type: "private"}},
 			Data:    data,
 		},
 	}
@@ -583,5 +603,54 @@ func TestHandleUpdate_StartPayloadAndGroupGetNoWebAppButton(t *testing.T) {
 	}
 	if strings.Contains(fake.lastMarkup(), "web_app") {
 		t.Errorf("group /start markup = %q, want no web_app", fake.lastMarkup())
+	}
+}
+
+func (f *fakeTelegram) editChatIDs() []int64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]int64(nil), f.editChats...)
+}
+
+// A failed answerCallbackQuery after the verify committed must not fail the
+// update (Telegram would redeliver it), and the contact path's one-time
+// share-contact keyboard must be closed.
+func TestHandleUpdate_PasswordResetAckFailureAndKeyboardCleanup(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+
+	if _, err := svc.Register(ctx, auth.RegisterInput{Phone: "901000022", Password: "secret123", Name: "R"}); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, "901000022", "10.0.0.3", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := start.BotURL[strings.Index(start.BotURL, "pwr_")+4:]
+	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), 2222, "reset3")); err != nil {
+		t.Fatal(err)
+	}
+	contact := Update{UpdateID: 3, Message: &Message{
+		From:    &User{ID: 2222},
+		Chat:    Chat{ID: 2222, Type: "private"},
+		Contact: &Contact{PhoneNumber: "+998901000022", UserID: 2222},
+	}}
+	if err := b.HandleUpdate(ctx, contact); err != nil {
+		t.Fatal(err)
+	}
+	yes, _ := fake.confirmButtons(t)
+
+	fake.mu.Lock()
+	fake.failAnswer = true
+	fake.mu.Unlock()
+	if err := b.HandleUpdate(ctx, callback(2222, yes)); err != nil {
+		t.Fatalf("ack failure after commit must not fail the update: %v", err)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
+		t.Fatalf("status=%s want verified", st)
+	}
+	if !strings.Contains(fake.lastMarkup(), `"remove_keyboard":true`) {
+		t.Fatalf("last markup=%q want remove_keyboard", fake.lastMarkup())
 	}
 }

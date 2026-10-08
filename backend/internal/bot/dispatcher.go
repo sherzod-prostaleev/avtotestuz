@@ -40,8 +40,9 @@ const (
 	msgResetNeedContact  = "Parolni tiklash uchun shu Telegram akkauntning telefon raqamini yuboring. Raqam hisobdagi telefon bilan bir xil bo'lishi kerak."
 	msgResetShareContact = "Telefon raqamini yuborish"
 	msgResetVerified     = "Tasdiqlandi. Brauzerdagi Driver Go sahifasiga qayting va yangi parolni kiriting."
+	msgResetBackToSite   = "Brauzerdagi Driver Go sahifasiga qayting."
 	msgResetInvalid      = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi tiklash so'rang."
-	msgResetConfirmFmt   = "Parolni tiklash so'raldi: %s. Bu siz bo'lsangiz «Ha, men» ni bosing."
+	msgResetConfirmFmt   = "Parolni tiklash so'raldi: %s. Bu siz bo'lsangiz «Ha, men» ni bosing. Agar siz so'ramagan bo'lsangiz, «Yo'q» ni bosing — «Ha, men» boshqa qurilmada parolni o'zgartirishga ruxsat beradi."
 	msgResetConfirmYes   = "Ha, men"
 	msgResetConfirmNo    = "Yo'q"
 	msgResetCancelled    = "Parolni tiklash bekor qilindi. Parolingiz o'zgartirilmadi."
@@ -448,12 +449,30 @@ func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery)
 	default:
 		return b.TG.AnswerCallbackQuery(ctx, cq.ID, msgResetConfirmStale, false)
 	}
-	ackErr := b.TG.AnswerCallbackQuery(ctx, cq.ID, "", false)
-	// The state change is committed; a failed edit only leaves stale buttons,
-	// which the auth layer already treats as no-ops.
-	if err := b.TG.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, nil); err != nil {
-		b.logger().Warn("bot: password reset confirm edit failed", zap.Error(err))
-		return errors.Join(ackErr, b.TG.SendMessage(ctx, cq.Message.Chat.ID, text))
+	// The state change is committed, so a failed ack must not fail the update:
+	// Telegram would redeliver it and the replay only answers "stale".
+	if err := b.TG.AnswerCallbackQuery(ctx, cq.ID, "", false); err != nil {
+		b.logger().Warn("bot: password reset callback ack failed", zap.Error(err))
 	}
-	return ackErr
+	chatID := cq.Message.Chat.ID
+	// The one-time share-contact reply keyboard (contact path) outlives the
+	// inline question; an inline edit cannot carry a ReplyKeyboardRemove, so
+	// verification closes it with a follow-up message.
+	var remove any
+	if res.Outcome == auth.TelegramResetVerified {
+		remove = ReplyKeyboardRemove{RemoveKeyboard: true}
+	}
+	// A failed edit only leaves stale buttons, which the auth layer already
+	// treats as no-ops.
+	if err := b.TG.EditMessageText(ctx, chatID, cq.Message.MessageID, text, nil); err != nil {
+		b.logger().Warn("bot: password reset confirm edit failed", zap.Error(err))
+		_, sendErr := b.TG.SendChatText(ctx, chatID, text, remove)
+		return sendErr
+	}
+	if remove != nil {
+		if _, err := b.TG.SendChatText(ctx, chatID, msgResetBackToSite, remove); err != nil {
+			b.logger().Warn("bot: reply keyboard cleanup failed", zap.Error(err))
+		}
+	}
+	return nil
 }
