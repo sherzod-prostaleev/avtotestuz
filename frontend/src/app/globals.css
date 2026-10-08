@@ -50,7 +50,10 @@
        base colour is not readable on that tint in the light palette. */
     --success-ink: 152 70% 42%;
     --warning-ink: 32 92% 52%;
-    --danger-ink: 4 78% 56%;
+    /* Not --danger itself: at 56% the unlink text on --card was 4.33:1.
+       60% reaches 4.81:1 there (5.25 on --background) and is a barely
+       visible shift on the admin badges and checkout notes that share it. */
+    --danger-ink: 4 78% 60%;
     /* --accent as INK. The CTA amber is tuned to be a background with dark text
        on it; as text on a light card it lands at 2.26:1. This is the same colour
        darkened until it reads. */

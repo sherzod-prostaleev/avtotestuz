@@ -59,9 +59,15 @@ describe("TelegramLinkCard", () => {
 
     renderWithIntl();
 
-    expect(await screen.findByText("Telegram bog'langan")).toBeInTheDocument();
-    expect(screen.getByText(/@sherzod/)).toBeInTheDocument();
+    const label = await screen.findByText("Telegram bog'langan");
+    expect(screen.getByText("Bog'langan akkaunt: @sherzod")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Qayta bog'lash" })).toBeInTheDocument();
+    // Green text on the green tint read at ~3:1; the words are body text,
+    // only the tick carries the colour.
+    const box = label.closest('[role="status"]') as HTMLElement;
+    expect(box.className).not.toMatch(/text-success/);
+    expect(label.className).toMatch(/text-foreground/);
+    expect(box.querySelector("svg")?.getAttribute("class")).toMatch(/text-success/);
   });
 
   it("shows unconfigured message when bot username is missing", async () => {

@@ -122,12 +122,14 @@ export function TelegramLinkCard() {
       {!loading && mode === null && status?.linked && (
         <div
           role="status"
-          className="mb-4 flex items-start gap-3 rounded-xl border border-success/40 bg-success/10 p-3 text-sm text-success"
+          className="mb-4 flex items-start gap-3 rounded-xl border border-success/40 bg-success/10 p-3 text-sm"
         >
-          <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+          {/* Only the tick is green: green text on the green tint is below
+              4.5:1, so the words stay body text (as in the Mini App panel). */}
+          <Check aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-success" />
           <div>
-            <p className="font-bold">{t("linkedTitle")}</p>
-            <p className="mt-0.5 text-xs text-success/90">
+            <p className="font-bold text-foreground">{t("linkedTitle")}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {usernameLabel ? t("linkedAs", { username: usernameLabel }) : t("linkedAnonymous")}
             </p>
           </div>
