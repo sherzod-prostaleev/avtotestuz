@@ -1,8 +1,15 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { getWebApp, isTelegramMiniApp, TELEGRAM_SDK_URL, type TelegramWebApp } from "@/lib/telegram/web-app";
-import { TelegramChrome } from "./telegram-chrome";
+
+// Only a Telegram launch ever renders the chrome, so the website's shared
+// bundle must not carry it (BackButton, link interception, history depth,
+// frame colours, the hint). No SSR: it needs the SDK object anyway.
+const TelegramChrome = dynamic(() => import("./telegram-chrome").then((mod) => mod.TelegramChrome), {
+  ssr: false,
+});
 
 export type TelegramStatus = "off" | "loading" | "ready" | "failed";
 export type TelegramColorScheme = "light" | "dark";

@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { useReportSessionRunning, useSessionRunning } from "./session-running";
+import { useReportSessionRunning, useReportSessionSettled, useSessionRunning, useSessionSettled } from "./session-running";
 
 describe("session-running store", () => {
   it("is false until a runner reports, and follows the runner's state", () => {
@@ -36,5 +36,16 @@ describe("session-running store", () => {
     expect(watcher.result.current).toBe(true);
     act(() => incoming.unmount());
     expect(watcher.result.current).toBe(false);
+  });
+
+  it("tracks settled (result or error screen) separately from running", () => {
+    const settled = renderHook(() => useSessionSettled());
+    expect(settled.result.current).toBe(false);
+    const runner = renderHook(({ done }) => useReportSessionSettled(done), { initialProps: { done: false } });
+    expect(settled.result.current).toBe(false);
+    act(() => runner.rerender({ done: true }));
+    expect(settled.result.current).toBe(true);
+    act(() => runner.unmount());
+    expect(settled.result.current).toBe(false);
   });
 });

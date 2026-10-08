@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { NextIntlClientProvider } from "next-intl";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../../../../messages/uz-Latn.json";
+import { useTelegramFrameColor } from "@/lib/telegram/frame-color";
 import SessionPage from "./page";
 import { PROTECTED_SEGMENTS, matchesAny } from "@/lib/protected-segments";
 import {
@@ -13,7 +14,7 @@ import * as apiClient from "@/lib/api-client";
 import { trackEvent } from "@/lib/analytics-events";
 import { QUESTION_IMAGE_PLACEHOLDER } from "@/lib/question-image";
 import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
-import { useSessionRunning } from "@/lib/session-running";
+import { useSessionRunning, useSessionSettled } from "@/lib/session-running";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -1029,5 +1030,49 @@ describe("SessionPage keyboard navigation", () => {
     fireEvent.keyDown(window, { key: "ArrowRight" });
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(screen.getByRole("button", { name: "3-savol: joriy" })).toBeInTheDocument();
+  });
+
+  describe("Telegram chrome reports", () => {
+    function Watch() {
+      const settled = useSessionSettled();
+      const frame = useTelegramFrameColor();
+      return <output data-testid="chrome-state">{`${settled}|${frame ?? "none"}`}</output>;
+    }
+    function renderWatched() {
+      return render(
+        <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+          <Watch />
+          <SessionPage />
+        </NextIntlClientProvider>
+      );
+    }
+
+    it("is not settled while the session loads", () => {
+      mockEngine(null, { loading: true });
+      renderWatched();
+      expect(screen.getByTestId("chrome-state")).toHaveTextContent("false|none");
+    });
+
+    it("is not settled during an attempt", () => {
+      mockEngine(activeSession());
+      renderWatched();
+      expect(screen.getByTestId("chrome-state")).toHaveTextContent(/^false\|/);
+    });
+
+    it("settles on the result screen and on a load error", () => {
+      mockEngine(activeSession({ status: "completed", score: 1, total: 1, passed: true, completed_at: "2026-10-08T00:00:00Z" }));
+      const view = renderWatched();
+      expect(screen.getByTestId("chrome-state")).toHaveTextContent(/^true\|/);
+      view.unmount();
+      mockEngine(null, { error: { code: "network_error" } as never });
+      renderWatched();
+      expect(screen.getByTestId("chrome-state")).toHaveTextContent(/^true\|/);
+    });
+
+    it("asks for the exam's dark navy frame while the official exam view is up", async () => {
+      mockEngine(activeSession({ mode: "exam", time_limit_sec: 1500, remaining_sec: 1500, errors_allowed: 2 }));
+      renderWatched();
+      await waitFor(() => expect(screen.getByTestId("chrome-state")).toHaveTextContent("false|#081320"));
+    });
   });
 });

@@ -3,11 +3,13 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { TelegramWebApp } from "@/lib/telegram/web-app";
-import { useSessionRunning } from "@/lib/session-running";
+import { useSessionRunning, useSessionSettled } from "@/lib/session-running";
 import { cssColorToHex } from "@/lib/telegram/color";
+import { useTelegramFrameColor } from "@/lib/telegram/frame-color";
 import { canGoBackInApp, installHistoryDepth } from "@/lib/telegram/history-depth";
 import { telegramLinkKind } from "@/lib/telegram/links";
 import { isTabRoot, localeOf, needsClosingGuard } from "@/lib/telegram/routes";
+import { TelegramHint } from "./telegram-hint";
 
 // Telegram's own method calls throw on clients too old for them; the chrome is
 // decoration and must never take the page down with it.
@@ -25,6 +27,7 @@ function attempt(fn: () => void): void {
  * only when Telegram launched us, so none of this runs on the website. The
  * theme itself is not set here: the provider wiring forces next-themes to
  * Telegram's `colorScheme` (forcedTheme), which never writes localStorage.
+ * Loaded with next/dynamic, so none of this ships in the website's bundle.
  */
 export function TelegramChrome({
   webApp,
@@ -38,7 +41,15 @@ export function TelegramChrome({
   // The route alone cannot tell a running attempt from its result screen
   // (same /session/<id>), so the guard also needs the runner's own word.
   const sessionRunning = useSessionRunning();
-  const guarded = needsClosingGuard(pathname) && sessionRunning;
+  const sessionSettled = useSessionSettled();
+  const onRunner = needsClosingGuard(pathname);
+  const guarded = onRunner && sessionRunning;
+  // On a runner Back appears only once it settled on a result or error
+  // screen: shown during the load it would flash and vanish as the attempt
+  // starts.
+  const hideBack = isTabRoot(pathname) || guarded || (onRunner && !sessionSettled);
+  // A full-screen view with its own fixed palette (the exam) beats the theme.
+  const frameColor = useTelegramFrameColor();
 
   // Paint Telegram's header/background with our page colour so the frame and
   // the page read as one surface. next-themes swaps the <html> class in its
@@ -46,11 +57,13 @@ export function TelegramChrome({
   // after this sibling), so read the token a frame later.
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      let hex: string | null = null;
-      try {
-        hex = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue("--background"));
-      } catch {
-        hex = null;
+      let hex: string | null = frameColor ? cssColorToHex(frameColor) : null;
+      if (!hex) {
+        try {
+          hex = cssColorToHex(getComputedStyle(document.documentElement).getPropertyValue("--background"));
+        } catch {
+          hex = null;
+        }
       }
       if (!hex) return;
       const color = hex;
@@ -61,7 +74,7 @@ export function TelegramChrome({
       if (webApp.isVersionAtLeast("7.10")) attempt(() => webApp.setBottomBarColor?.(color));
     });
     return () => cancelAnimationFrame(frame);
-  }, [colorScheme, webApp]);
+  }, [colorScheme, frameColor, webApp]);
 
   useEffect(() => installHistoryDepth(), []);
 
@@ -72,7 +85,7 @@ export function TelegramChrome({
   // Android's back key tries to close the app and meets the closing guard.
   // A finished attempt's result screen gets Back again.
   useEffect(() => {
-    if (isTabRoot(pathname) || guarded) {
+    if (hideBack) {
       attempt(() => webApp.BackButton.hide());
       return;
     }
@@ -85,7 +98,7 @@ export function TelegramChrome({
     attempt(() => webApp.BackButton.onClick(onBack));
     attempt(() => webApp.BackButton.show());
     return () => attempt(() => webApp.BackButton.offClick(onBack));
-  }, [guarded, pathname, router, webApp]);
+  }, [hideBack, pathname, router, webApp]);
 
   useEffect(() => {
     if (guarded) attempt(() => webApp.enableClosingConfirmation());
@@ -121,5 +134,5 @@ export function TelegramChrome({
     return () => document.removeEventListener("click", onClick);
   }, [webApp]);
 
-  return null;
+  return <TelegramHint />;
 }

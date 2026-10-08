@@ -9,6 +9,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { CountdownTimer } from "@/components/shared/countdown-timer";
 import { useFitScale } from "@/hooks/use-fit-scale";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
+import { useReportTelegramFrameColor } from "@/lib/telegram/frame-color";
 import { AnimatePresence, motion } from "motion/react";
 
 
@@ -64,6 +65,9 @@ export function examVisual(
  * authentic exam vibe. Mobile-only overrides use `max-lg:` so lg+ rendering
  * stays identical to the original two-column navy exam UI.
  */
+// The exam's bar colour, for Telegram's header and background while it is up.
+const EXAM_FRAME_COLOR = "#081320";
+
 export function OfficialAvtotestExamView({
   session,
   currentIndex,
@@ -80,6 +84,9 @@ export function OfficialAvtotestExamView({
   const locale = useLocale();
   const router = useRouter();
   const t = useTranslations("Session");
+  // Inside the Mini App Telegram's header would otherwise keep the theme's
+  // light grey above this always-dark screen.
+  useReportTelegramFrameColor(EXAM_FRAME_COLOR);
 
   const questions = session.questions ?? [];
   const currentQuestion = questions[currentIndex];
@@ -190,7 +197,7 @@ export function OfficialAvtotestExamView({
       />
 
       {/* ═══ TOP HEADER BAR ═══ */}
-      <header className="exam-top-bar relative z-10 flex h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554] max-lg:h-10 max-lg:gap-1.5 max-lg:px-2 max-lg:pt-[max(0.2rem,env(safe-area-inset-top))]">
+      <header className="exam-top-bar relative z-10 flex min-h-[52px] shrink-0 items-center justify-between bg-[#081320]/95 px-5 border-b border-[#1c3554] max-lg:min-h-10 max-lg:gap-1.5 max-lg:px-2 max-lg:pt-[max(0.2rem,env(safe-area-inset-top))]">
         {/* Left: Driver Go logo */}
         <div className="flex items-center gap-3 max-lg:gap-1.5">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-black border border-emerald-500/50 shadow-[0_0_15px_rgba(34,197,94,0.4)] overflow-hidden max-lg:h-7 max-lg:w-7">

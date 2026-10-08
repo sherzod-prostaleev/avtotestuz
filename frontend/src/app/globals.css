@@ -1466,6 +1466,11 @@ html.tg-webapp .auth-safe-top {
 html.tg-webapp .auth-safe-bottom {
   padding-bottom: var(--tg-inset-bottom);
 }
+/* The chrome's one-line note (lib/telegram/hint): just under Telegram's
+   header and any fullscreen controls. */
+.tg-hint {
+  top: calc(var(--tg-inset-top, 0px) + 0.75rem);
+}
 @media (max-width: 767px) {
   html.tg-webapp .app-top-bar {
     padding-top: max(0.5rem, var(--tg-inset-top));
@@ -1506,8 +1511,11 @@ html.tg-webapp .auth-safe-bottom {
   }
 }
 @media (max-width: 1023px) {
+  /* The bar has a min-height, not a fixed one, so a tall inset grows it
+     instead of squeezing its controls into the question header below. */
   html.tg-webapp .exam-top-bar {
     padding-top: max(0.2rem, var(--tg-inset-top));
+    padding-bottom: 0.25rem;
   }
   html.tg-webapp .exam-bottom-bar {
     padding-bottom: max(0.35rem, var(--tg-inset-bottom));

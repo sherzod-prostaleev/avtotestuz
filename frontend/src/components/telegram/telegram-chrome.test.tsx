@@ -1,7 +1,9 @@
 import { act, render, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { TelegramWebApp } from "@/lib/telegram/web-app";
-import { useReportSessionRunning } from "@/lib/session-running";
+import { useReportSessionRunning, useReportSessionSettled } from "@/lib/session-running";
+import { useReportTelegramFrameColor } from "@/lib/telegram/frame-color";
+import { dismissTelegramHint, showTelegramHint } from "@/lib/telegram/hint";
 import { TelegramChrome } from "./telegram-chrome";
 
 const nav = vi.hoisted(() => ({
@@ -144,20 +146,76 @@ describe("TelegramChrome BackButton in a running test", () => {
   it("comes back on the finished session's result screen (same path)", () => {
     nav.pathname = "/uz-Latn/session/x";
     const attempt = runner();
+    const settled = renderHook(({ done }) => useReportSessionSettled(done), { initialProps: { done: false } });
     const { webApp, backHandlers } = fakeWebApp();
     mount(webApp);
     expect(backHandlers.size).toBe(0);
-    act(() => attempt.rerender({ running: false }));
+    act(() => {
+      attempt.rerender({ running: false });
+      settled.rerender({ done: true });
+    });
     expect(backHandlers.size).toBe(1);
     expect(webApp.BackButton.show).toHaveBeenCalled();
     attempt.unmount();
+    settled.unmount();
   });
 
-  it("is shown while the runner is still loading (nothing to lose yet)", () => {
+  // Audit-2: showing Back while the runner loads made it flash and vanish.
+  it("stays hidden while the runner is still loading", () => {
     nav.pathname = "/uz-Latn/session/x";
     const { webApp, backHandlers } = fakeWebApp();
     mount(webApp);
+    expect(backHandlers.size).toBe(0);
+    expect(webApp.BackButton.show).not.toHaveBeenCalled();
+  });
+
+  it("shows on a runner's error screen once it reports settled", () => {
+    nav.pathname = "/uz-Latn/practice/memorize/7";
+    const { webApp, backHandlers } = fakeWebApp();
+    mount(webApp);
+    const settled = renderHook(() => useReportSessionSettled(true));
     expect(backHandlers.size).toBe(1);
+    settled.unmount();
+  });
+});
+
+describe("TelegramChrome frame colour", () => {
+  // Audit-2 I4: a light-grey Telegram header above the always-dark exam.
+  it("prefers a screen's own frame colour and restores --background after it", async () => {
+    const { webApp } = fakeWebApp();
+    mount(webApp);
+    const exam = renderHook(() => useReportTelegramFrameColor("#081320"));
+    await act(async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    expect(webApp.setHeaderColor).toHaveBeenLastCalledWith("#081320");
+    expect(webApp.setBackgroundColor).toHaveBeenLastCalledWith("#081320");
+    expect(webApp.setBottomBarColor).toHaveBeenLastCalledWith("#081320");
+    act(() => exam.unmount());
+    await act(async () => {
+      await new Promise((r) => requestAnimationFrame(() => r(null)));
+    });
+    expect(webApp.setHeaderColor).toHaveBeenLastCalledWith("#0e1116");
+  });
+});
+
+describe("TelegramChrome hint", () => {
+  afterEach(() => {
+    dismissTelegramHint();
+    vi.useRealTimers();
+  });
+
+  it("shows a hint politely and dismisses it after a few seconds", () => {
+    vi.useFakeTimers();
+    const { webApp } = fakeWebApp();
+    const view = mount(webApp);
+    act(() => showTelegramHint("Why the sheet"));
+    const note = view.getByRole("status");
+    expect(note).toHaveTextContent("Why the sheet");
+    act(() => {
+      vi.advanceTimersByTime(6000);
+    });
+    expect(view.queryByRole("status")).toBeNull();
   });
 });
 

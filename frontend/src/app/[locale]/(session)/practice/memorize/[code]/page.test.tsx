@@ -6,7 +6,7 @@ import MemorizePage from "./page";
 import { useMemorize } from "@/hooks/use-memorize";
 import type { SessionQuestionItem } from "@/hooks/use-session-engine";
 import { SESSION_ORIGIN_KEY } from "@/lib/session-origin";
-import { useSessionRunning } from "@/lib/session-running";
+import { useSessionRunning, useSessionSettled } from "@/lib/session-running";
 
 const navigation = vi.hoisted(() => ({ push: vi.fn(), replace: vi.fn() }));
 
@@ -88,6 +88,34 @@ describe("MemorizePage", () => {
     fireEvent.click(screen.getByRole("button", { name: /Keyingisi/ }));
     expect(await screen.findByText(messages.Memorize.finishedTitle)).toBeInTheDocument();
     expect(screen.getByTestId("running")).toHaveTextContent("false");
+    view.unmount();
+  });
+
+  // Telegram's Back: hidden while loading and during the walk-through,
+  // offered on the finished screen.
+  it("reports settled only once the finished screen is up", async () => {
+    function SettledProbe() {
+      return <span data-testid="settled">{String(useSessionSettled())}</span>;
+    }
+    mockUseMemorize.mockReturnValue({ questions: [], loading: true, error: null });
+    const view = render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <MemorizePage />
+        <SettledProbe />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByTestId("settled")).toHaveTextContent("false");
+    mockUseMemorize.mockReturnValue({ questions: [question()], loading: false, error: null });
+    view.rerender(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <MemorizePage />
+        <SettledProbe />
+      </NextIntlClientProvider>
+    );
+    expect(screen.getByTestId("settled")).toHaveTextContent("false");
+    fireEvent.click(screen.getByRole("button", { name: /Keyingisi/ }));
+    expect(await screen.findByText(messages.Memorize.finishedTitle)).toBeInTheDocument();
+    expect(screen.getByTestId("settled")).toHaveTextContent("true");
     view.unmount();
   });
 

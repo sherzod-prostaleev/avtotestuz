@@ -13,7 +13,7 @@ import { ExplanationDialog } from "@/components/shared/explanation-dialog";
 import { QuestionStage } from "@/components/shared/question-stage";
 import { resolveQuestionImageUrl } from "@/lib/question-image";
 import { readSessionOrigin } from "@/lib/session-origin";
-import { useReportSessionRunning } from "@/lib/session-running";
+import { useReportSessionRunning, useReportSessionSettled } from "@/lib/session-running";
 
 export interface MemorizePageProps {
   // Reused as-is under the login-free kiosk
@@ -43,6 +43,8 @@ export default function MemorizePage({ kiosk = false }: MemorizePageProps = {}) 
   // Running only between the first question and the finished screen: the
   // Telegram chrome then guards closing and hides its Back (see session/[id]).
   useReportSessionRunning(!loading && !error && questions.length > 0 && currentIndex < questions.length);
+  // Finished screen or an error: Telegram's Back may appear (never mid-load).
+  useReportSessionSettled(!loading && (Boolean(error) || questions.length === 0 || currentIndex >= questions.length));
 
   const practiceHref = `/${locale}/${kiosk ? "station/practice" : "practice"}`;
   // Yodlash is opened from a topic card, but a learner can also reach the topic

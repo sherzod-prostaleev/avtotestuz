@@ -44,7 +44,7 @@ import {
 } from "@/lib/question-image";
 import { AUTO_ADVANCE_MS, hasAnswer, nextUnansweredIndex } from "@/lib/session-navigation";
 import { readSessionOrigin } from "@/lib/session-origin";
-import { useReportSessionRunning } from "@/lib/session-running";
+import { useReportSessionRunning, useReportSessionSettled } from "@/lib/session-running";
 
 function ExamChunkFallback() {
   return (
@@ -141,6 +141,9 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
   // Tells the Telegram chrome an attempt is in progress (closing guard, Back
   // hidden); the result screen keeps this URL but has nothing left to lose.
   useReportSessionRunning(session?.status === "active");
+  // Result, result-pending or a load error: Telegram's Back may appear. Not
+  // while the first load runs — it would flash and vanish as the test starts.
+  useReportSessionSettled(session ? session.status !== "active" : !loading);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [zoomImageUrl, setZoomImageUrl] = useState<string | null>(null);
