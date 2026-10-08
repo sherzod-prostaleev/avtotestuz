@@ -80,6 +80,22 @@ func (b *Bot) logger() *zap.Logger {
 	return zap.NewNop()
 }
 
+// replyErr is the tail of every message-path send. A permanent Telegram
+// rejection (user blocked the bot, chat gone) is logged and dropped: the
+// update's state changes are already committed, and returning it would make
+// the webhook answer 503 so Telegram redelivers the same update forever.
+// Transport failures, 429 and 5xx still return, since a retry can succeed.
+// DB/internal errors never pass through here.
+func (b *Bot) replyErr(err error) error {
+	var api *APIError
+	if errors.As(err, &api) && api.Permanent() {
+		b.logger().Warn("bot: reply not delivered",
+			zap.String("method", api.Method), zap.Int("code", api.Code), zap.Error(err))
+		return nil
+	}
+	return err
+}
+
 // HandleUpdate processes one Telegram update. Infra failures return an
 // error; bad user input always gets a reply so webhooks can stay 200.
 func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
@@ -136,38 +152,38 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	switch cmd {
 	case "/quiz":
 		if b.Quiz == nil {
-			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		if err := b.Quiz.StartGame(ctx, chatID, tgUserID, chatType); err != nil {
 			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)))
 		}
 		return nil
 	case "/next":
 		if b.Quiz == nil {
-			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
 			b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)))
 		}
 		return nil
 	case "/stop":
 		if b.Quiz == nil {
-			return b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)
+			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		if err := b.Quiz.Stop(ctx, chatID); err != nil {
 			b.logger().Error("bot: quiz stop failed", zap.Error(err))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 		}
 		return nil
 	case "/unlink":
 		reply, err := b.handleUnlink(ctx, tgUserID)
 		if err != nil {
 			b.logger().Error("bot: unlink failed", zap.Error(err))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 		}
-		return b.TG.SendMessage(ctx, chatID, reply)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
 	case "/start":
 		if IsGroupChat(chatType) && arg == "" {
 			markup := &InlineKeyboardMarkup{}
@@ -175,18 +191,18 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 				markup = b.Quiz.ctaMarkup()
 			}
 			_, err := b.TG.SendText(ctx, chatID, msgStartGroup, markup)
-			return err
+			return b.replyErr(err)
 		}
 		if raw, ok := auth.ParsePasswordResetStartPayload(arg); ok {
 			if IsGroupChat(chatType) {
-				return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+				return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 			}
 			return b.handlePasswordResetStart(ctx, chatID, tgUserID, raw)
 		}
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
 			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 		}
 		if reply == "" {
 			return nil
@@ -198,21 +214,21 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			_, err := b.TG.SendText(ctx, chatID, reply, &InlineKeyboardMarkup{InlineKeyboard: [][]InlineKeyboardButton{{
 				{Text: "📱 DriverGo'ni ochish", WebApp: &WebAppInfo{URL: b.WebAppURL}},
 			}}})
-			return err
+			return b.replyErr(err)
 		}
-		return b.TG.SendMessage(ctx, chatID, reply)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
 	case "/link", "/status":
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
 			b.logger().Error("bot: dispatch failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-			return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 		}
 		if reply == "" {
 			return nil
 		}
-		return b.TG.SendMessage(ctx, chatID, reply)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
 	default:
-		return b.TG.SendMessage(ctx, chatID, msgUnknown)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, msgUnknown))
 	}
 }
 
@@ -366,24 +382,24 @@ func contactRequestKeyboard() ReplyKeyboardMarkup {
 
 func (b *Bot) handlePasswordResetStart(ctx context.Context, chatID, tgUserID int64, rawToken string) error {
 	if b.Auth == nil {
-		return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 	}
 	res, err := b.Auth.BeginTelegramPasswordReset(ctx, rawToken, tgUserID)
 	if err != nil {
 		b.logger().Error("bot: password reset begin failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+		return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 	}
 	switch res.Outcome {
 	case auth.TelegramResetNeedContact:
 		_, err := b.TG.SendChatText(ctx, chatID, msgResetNeedContact, contactRequestKeyboard())
-		return err
+		return b.replyErr(err)
 	case auth.TelegramResetNeedConfirm:
 		return b.askPasswordResetConfirm(ctx, chatID, res)
 	case auth.TelegramResetVerified:
 		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
-		return err
+		return b.replyErr(err)
 	default:
-		return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 	}
 }
 
@@ -394,7 +410,7 @@ func (b *Bot) handlePasswordResetContact(ctx context.Context, chatID, tgUserID i
 	res, err := b.Auth.ConfirmTelegramPasswordResetContact(ctx, tgUserID, contact.UserID, contact.PhoneNumber)
 	if err != nil {
 		b.logger().Error("bot: password reset contact failed", zap.Error(err), zap.Int64("tg_user_id", tgUserID))
-		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
+		return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 	}
 	switch res.Outcome {
 	case auth.TelegramResetNeedConfirm:
@@ -404,7 +420,7 @@ func (b *Bot) handlePasswordResetContact(ctx context.Context, chatID, tgUserID i
 		// the contact here; nobody is waiting for a reset answer.
 		return nil
 	}
-	return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+	return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 }
 
 // askPasswordResetConfirm sends the explicit «Ha, men» / «Yo'q» question. A
@@ -417,7 +433,7 @@ func (b *Bot) askPasswordResetConfirm(ctx context.Context, chatID int64, res aut
 			{Text: msgResetConfirmNo, CallbackData: cbResetNo + res.ConfirmNonce},
 		}},
 	})
-	return err
+	return b.replyErr(err)
 }
 
 // handlePasswordResetCallback answers a «Ha, men» / «Yo'q» tap. The user id

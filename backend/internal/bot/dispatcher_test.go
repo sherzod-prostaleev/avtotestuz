@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/zap"
 
@@ -349,11 +351,10 @@ func TestHandleUpdate_PasswordResetLinkedAsksConfirm(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tok, err := b.Link.GenerateLinkToken(ctx, reg.Profile.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := b.Link.RedeemLinkToken(ctx, tok.Token, 2020, "resetu"); err != nil {
+	// Only a phone-verified link skips the contact step.
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
+		ProfileID: reg.Profile.ID, TgUserID: 2020, Username: "resetu", PhoneVerified: true,
+	}); err != nil {
 		t.Fatal(err)
 	}
 	start, err := svc.StartPasswordReset(ctx, "901000020", "10.0.0.1", "AvtoTestBot")
@@ -751,5 +752,78 @@ func TestHandleUpdate_PasswordResetCallbackFromGroupChatIsRefused(t *testing.T) 
 	}
 	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
 		t.Fatalf("private tap: status=%s want verified", st)
+	}
+}
+
+// A user who blocked the bot makes every sendMessage a permanent 403. The
+// update's state changes are committed by then, so HandleUpdate must answer
+// nil (webhook 200) instead of letting Telegram redeliver it forever.
+func TestHandleUpdate_BlockedBotNeverRetryStorms(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+	reg, err := svc.Register(ctx, auth.RegisterInput{Phone: "901000030", Password: "secret123", Name: "B"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
+		ProfileID: reg.Profile.ID, TgUserID: 3030, Username: "blocker",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, "901000030", "10.0.0.30", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := start.BotURL[strings.Index(start.BotURL, "pwr_")+4:]
+
+	fake.mu.Lock()
+	fake.failSend = true
+	fake.mu.Unlock()
+
+	// Reset deep link: the need-contact step is armed, then the reply 403s.
+	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), 3030, "blocker")); err != nil {
+		t.Fatalf("reset start: %v", err)
+	}
+	contact := Update{UpdateID: 4, Message: &Message{
+		From:    &User{ID: 3030},
+		Chat:    Chat{ID: 3030, Type: "private"},
+		Contact: &Contact{PhoneNumber: "+998901000030", UserID: 3030},
+	}}
+	if err := b.HandleUpdate(ctx, contact); err != nil {
+		t.Fatalf("contact: %v", err)
+	}
+	if got := len(fake.allMessages()); got < 2 {
+		t.Fatalf("expected both sends to be attempted, got %d", got)
+	}
+	// The contact step committed even though its reply failed.
+	if yes, _ := fake.confirmButtons(t); yes == "" {
+		t.Fatal("no confirm nonce was stored")
+	}
+	// A state change followed by a failing reply still commits.
+	if err := b.HandleUpdate(ctx, update("/unlink", 3030, "blocker")); err != nil {
+		t.Fatalf("unlink: %v", err)
+	}
+	if _, err := q.GetTelegramAccountByTgUserID(ctx, 3030); !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("link survived /unlink: %v", err)
+	}
+	if err := b.HandleUpdate(ctx, update("/whatever", 3030, "blocker")); err != nil {
+		t.Fatalf("unknown command: %v", err)
+	}
+}
+
+func TestReplyErrKeepsRetryableFailures(t *testing.T) {
+	b := &Bot{}
+	if err := b.replyErr(&APIError{Method: "sendMessage", Code: 429}); err == nil {
+		t.Fatal("429 must be retried")
+	}
+	if err := b.replyErr(&APIError{Method: "sendMessage", Code: 502}); err == nil {
+		t.Fatal("5xx must be retried")
+	}
+	if err := b.replyErr(errors.New("dial tcp: refused")); err == nil {
+		t.Fatal("transport errors must be retried")
+	}
+	if err := b.replyErr(&APIError{Method: "sendMessage", Code: 403}); err != nil {
+		t.Fatalf("403 must be swallowed: %v", err)
 	}
 }

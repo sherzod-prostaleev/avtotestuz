@@ -42,6 +42,24 @@ func (c *Client) redactToken(err error) error {
 	return fmt.Errorf("%s", strings.ReplaceAll(msg, c.Token, "<redacted>"))
 }
 
+// APIError is Telegram answering ok:false (as opposed to a transport failure).
+type APIError struct {
+	Method      string
+	Code        int
+	Description string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("telegram %s: %s", e.Method, e.Description)
+}
+
+// Permanent reports a client-side rejection (blocked bot, chat not found,
+// bad request) that resending the same update can never cure. 429 and 5xx
+// are excluded: those are worth a retry.
+func (e *APIError) Permanent() bool {
+	return e.Code >= 400 && e.Code < 500 && e.Code != 429
+}
+
 func (c *Client) call(ctx context.Context, method string, payload any, out any) error {
 	body, err := json.Marshal(payload)
 	if err != nil {
@@ -62,6 +80,7 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 
 	var envelope struct {
 		OK          bool            `json:"ok"`
+		ErrorCode   int             `json:"error_code"`
 		Description string          `json:"description"`
 		Result      json.RawMessage `json:"result"`
 	}
@@ -69,7 +88,7 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 		return fmt.Errorf("telegram %s: decode response: %w", method, err)
 	}
 	if !envelope.OK {
-		return fmt.Errorf("telegram %s: %s", method, envelope.Description)
+		return &APIError{Method: method, Code: envelope.ErrorCode, Description: envelope.Description}
 	}
 	if out != nil && len(envelope.Result) > 0 {
 		if err := json.Unmarshal(envelope.Result, out); err != nil {
