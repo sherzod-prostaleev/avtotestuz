@@ -109,8 +109,8 @@ func main() {
 		go broadcast.RunWorker(ctx, broadcastSvc, logger)
 	}
 
-	// Menu button sync is best-effort and off the startup path: a slow or
-	// unreachable Telegram API must never delay or fail boot.
+	// Menu button and command menu sync is best-effort and off the startup
+	// path: a slow or unreachable Telegram API must never delay or fail boot.
 	if menuButtonSyncWanted(cfg) {
 		go func() {
 			syncCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -118,6 +118,9 @@ func main() {
 			tg := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
 			if err := bot.SyncMenuButton(syncCtx, tg, cfg.TelegramWebAppURL); err != nil {
 				logger.Warn("telegram bot: menu button sync failed", zap.Error(err))
+			}
+			if err := bot.SyncCommands(syncCtx, tg); err != nil {
+				logger.Warn("telegram bot: command menu sync failed", zap.Error(err))
 			}
 		}()
 	}
@@ -149,6 +152,7 @@ func main() {
 		authSvc.Log = logger
 		botSvc := &bot.Bot{
 			WebAppURL:     cfg.TelegramWebAppURL,
+			BotUsername:   cfg.TelegramBotUsername,
 			Link:          linkSvc,
 			Quiz:          quizSvc,
 			Billing:       billing.Service{Q: q},

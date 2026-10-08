@@ -32,6 +32,9 @@ type User struct {
 	ID        int64  `json:"id"`
 	Username  string `json:"username"`
 	FirstName string `json:"first_name"`
+	// LanguageCode is the IETF tag of the user's Telegram interface (may be
+	// empty); it picks the /start and /help language.
+	LanguageCode string `json:"language_code"`
 }
 
 type Chat struct {

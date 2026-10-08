@@ -1,10 +1,12 @@
 package bot
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -43,7 +45,17 @@ type fakeTelegram struct {
 	failAnswer bool
 	failEdit   bool
 	failSend   bool
-	srv        *httptest.Server
+	// failPhotoCode, when non-zero, makes sendPhoto answer ok:false with
+	// that error_code (the call is still recorded).
+	failPhotoCode int
+	// calls records every request in order: method name plus decoded body.
+	calls []fakeCall
+	srv   *httptest.Server
+}
+
+type fakeCall struct {
+	Method string
+	Body   map[string]any
 }
 
 func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
@@ -53,6 +65,18 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 	pollSeq := 0
 	f.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
+		raw, _ := io.ReadAll(r.Body)
+		r.Body = io.NopCloser(bytes.NewReader(raw))
+		var decoded map[string]any
+		_ = json.Unmarshal(raw, &decoded)
+		f.mu.Lock()
+		f.calls = append(f.calls, fakeCall{Method: path[strings.LastIndexByte(path, '/')+1:], Body: decoded})
+		failPhotoCode := f.failPhotoCode
+		f.mu.Unlock()
+		if strings.Contains(path, "sendPhoto") && failPhotoCode != 0 {
+			_, _ = fmt.Fprintf(w, `{"ok":false,"error_code":%d,"description":"Bad Request: wrong file identifier/HTTP URL specified"}`, failPhotoCode)
+			return
+		}
 		if strings.Contains(path, "sendMessage") || strings.Contains(path, "sendPhoto") {
 			var body struct {
 				Text    string          `json:"text"`
@@ -183,8 +207,8 @@ func TestHandleUpdate_StartUnlinked(t *testing.T) {
 	if err := b.HandleUpdate(context.Background(), update("/start", 1, "u1")); err != nil {
 		t.Fatalf("HandleUpdate: %v", err)
 	}
-	if !strings.Contains(fake.lastMessage(), "Telegram bilan bog'lash") {
-		t.Errorf("reply = %q, want unlinked greeting", fake.lastMessage())
+	if !strings.Contains(fake.lastMessage(), "24 soat bepul VIP") {
+		t.Errorf("reply = %q, want the unlinked promo caption", fake.lastMessage())
 	}
 }
 
@@ -579,18 +603,19 @@ func TestHandleUpdate_StartPrivateShowsWebAppButton(t *testing.T) {
 		t.Fatalf("markup = %q: %v", fake.lastMarkup(), err)
 	}
 	btn := m.InlineKeyboard[0][0]
-	if btn.WebApp == nil || btn.WebApp.URL != "https://drivergo.uz/uz-Latn/tg" || btn.Text != "📱 DriverGo'ni ochish" {
+	if btn.WebApp == nil || btn.WebApp.URL != "https://drivergo.uz/uz-Latn/tg" || btn.Text != "📱 Driver Go'ni ochish" {
 		t.Fatalf("button = %+v", btn)
 	}
 }
 
-func TestHandleUpdate_StartWithoutWebAppURLHasNoMarkup(t *testing.T) {
+// The kill switch (TELEGRAM_WEBAPP_URL cleared) keeps the menu, as website links.
+func TestHandleUpdate_StartWithoutWebAppURLHasNoWebAppButton(t *testing.T) {
 	b, _, fake := newTestBot(t)
 	if err := b.HandleUpdate(context.Background(), update("/start", 302, "plain")); err != nil {
 		t.Fatalf("HandleUpdate: %v", err)
 	}
-	if mk := fake.lastMarkup(); mk != "" && mk != "null" {
-		t.Errorf("markup = %q, want none", mk)
+	if mk := fake.lastMarkup(); strings.Contains(mk, "web_app") || !strings.Contains(mk, "/uz-Latn/tickets") {
+		t.Errorf("markup = %q, want website links and no web_app", mk)
 	}
 }
 

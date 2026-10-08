@@ -359,6 +359,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 					quizSvc.Advance = bot.NewAdvanceScheduler(quizSvc, log)
 					botSvc := &bot.Bot{
 						WebAppURL:     cfg.TelegramWebAppURL,
+						BotUsername:   cfg.TelegramBotUsername,
 						Link:          linkSvc,
 						Quiz:          quizSvc,
 						Billing:       learnerBilling,

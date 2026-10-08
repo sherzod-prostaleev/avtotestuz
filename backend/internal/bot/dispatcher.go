@@ -16,12 +16,7 @@ import (
 )
 
 const (
-	msgStartUnlinked = "Salom! Bu Driver Go boti.\n\n" +
-		"Mashq: /quiz\nTo'xtatish: /stop\n\n" +
-		"Hisobingizni ulash uchun: saytda profilingizga kiring va " +
-		"\"Telegram bilan bog'lash\" tugmasini bosing."
-	msgStartLinkedFmt = "Salom, %s!\n\nMashq: /quiz\nHolat: /status\nUzish: /unlink"
-	msgStartGroup     = "Driver Go quiz boti guruhda.\n\n" +
+	msgStartGroup = "Driver Go quiz boti guruhda.\n\n" +
 		"Boshlash: /quiz\nKeyingi: /next\nTo'xtatish: /stop\n\n" +
 		"Rasmiy formatdagi savollar — bepul sinab ko'ring."
 	msgLinkUsage         = "Havoladagi token topilmadi. /link <token> ko'rinishida yozing yoki saytdan yangi havola oling."
@@ -35,7 +30,7 @@ const (
 	msgStatusUnlinked    = "Hisobingiz hali ulanmagan. Ulash uchun /start buyrug'ini bosing va ko'rsatmalarga amal qiling."
 	msgUnlinkOK          = "Telegram hisobi uzildi. Qayta ulash uchun saytdan yangi havola oling."
 	msgUnlinkNone        = "Bu Telegram hisobi hech qaysi profilga ulanmagan."
-	msgUnknown           = "Noma'lum buyruq. Mavjud: /quiz, /next, /stop, /start, /link, /status, /unlink"
+	msgUnknown           = "Noma'lum buyruq. Bot nimalar qila olishi: /help"
 	msgQuizUnavailable   = "Quiz hozircha ishlamayapti. Keyinroq qayta urinib ko'ring."
 	msgResetNeedContact  = "Parolni tiklash uchun shu Telegram akkauntning telefon raqamini yuboring. Raqam hisobdagi telefon bilan bir xil bo'lishi kerak."
 	msgResetShareContact = "Telefon raqamini yuborish"
@@ -61,8 +56,12 @@ const (
 // Bot dispatches inbound Telegram updates. Link redeem stays in-process
 // (M4-06); quiz sessions are handled by QuizService (M4-07).
 type Bot struct {
-	// WebAppURL is the Mini App entry point; empty means no launcher button.
-	WebAppURL     string
+	// WebAppURL is the Mini App entry point; empty means the /start and /help
+	// menus link to the website instead of opening the Mini App.
+	WebAppURL string
+	// BotUsername (no '@') builds the "play in a group" startgroup link;
+	// empty drops that button.
+	BotUsername   string
 	Link          *LinkService
 	Quiz          *QuizService
 	Billing       billing.Service
@@ -232,18 +231,19 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
 	case "/start":
 		if IsGroupChat(chatType) && arg == "" {
-			markup := &InlineKeyboardMarkup{}
-			if b.Quiz != nil {
-				markup = b.Quiz.ctaMarkup()
-			}
-			_, err := b.TG.SendText(ctx, chatID, msgStartGroup, markup)
-			return b.replyErr(err)
+			return b.sendGroupHelp(ctx, chatID)
 		}
 		if raw, ok := auth.ParsePasswordResetStartPayload(arg); ok {
 			if IsGroupChat(chatType) {
 				return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 			}
 			return b.handlePasswordResetStart(ctx, chatID, tgUserID, raw)
+		}
+		// Only the plain private /start gets the promo post and its menu; the
+		// group case returned above, because Telegram rejects web_app buttons
+		// outside private chats.
+		if arg == "" {
+			return b.sendStartPost(ctx, chatID, u.Message.From)
 		}
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
@@ -253,16 +253,12 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		if reply == "" {
 			return nil
 		}
-		// Only the plain /start (no link or reset payload) gets the launcher;
-		// the group case returned above, because Telegram rejects web_app
-		// buttons outside private chats.
-		if arg == "" && b.WebAppURL != "" {
-			_, err := b.TG.SendText(ctx, chatID, reply, &InlineKeyboardMarkup{InlineKeyboard: [][]InlineKeyboardButton{{
-				{Text: "📱 DriverGo'ni ochish", WebApp: &WebAppInfo{URL: b.WebAppURL}},
-			}}})
-			return b.replyErr(err)
-		}
 		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
+	case "/help":
+		if IsGroupChat(chatType) {
+			return b.sendGroupHelp(ctx, chatID)
+		}
+		return b.sendHelp(ctx, chatID, u.Message.From)
 	case "/link", "/status":
 		reply, err := b.dispatchLegacy(ctx, cmd, arg, tgUserID, username)
 		if err != nil {
@@ -274,16 +270,26 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		}
 		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
 	default:
-		return b.replyErr(b.TG.SendMessage(ctx, chatID, msgUnknown))
+		return b.replyErr(b.TG.SendMessage(ctx, chatID, unknownText(langOf(u.Message.From.LanguageCode))))
 	}
+}
+
+// sendGroupHelp answers /start and /help in a group: the quiz commands and a
+// plain link button (web_app buttons are private-chat only).
+func (b *Bot) sendGroupHelp(ctx context.Context, chatID int64) error {
+	markup := &InlineKeyboardMarkup{}
+	if b.Quiz != nil {
+		markup = b.Quiz.ctaMarkup()
+	}
+	_, err := b.TG.SendText(ctx, chatID, msgStartGroup, markup)
+	return b.replyErr(err)
 }
 
 func (b *Bot) dispatchLegacy(ctx context.Context, cmd, arg string, tgUserID int64, username string) (string, error) {
 	switch cmd {
 	case "/start":
-		if arg == "" {
-			return b.handleStart(ctx, tgUserID)
-		}
+		// A plain /start never reaches here (sendStartPost); the payload is a
+		// link token.
 		return b.handleLink(ctx, arg, tgUserID, username)
 	case "/link":
 		if arg == "" {
@@ -330,22 +336,6 @@ func normalizeCommand(cmd string) string {
 		cmd = cmd[:i]
 	}
 	return strings.ToLower(cmd)
-}
-
-func (b *Bot) handleStart(ctx context.Context, tgUserID int64) (string, error) {
-	account, err := b.Link.Q.GetTelegramAccountByTgUserID(ctx, tgUserID)
-	switch {
-	case err == nil:
-		name := account.Username
-		if name == "" {
-			name = "do'stim"
-		}
-		return fmt.Sprintf(msgStartLinkedFmt, name), nil
-	case errors.Is(err, pgx.ErrNoRows):
-		return msgStartUnlinked, nil
-	default:
-		return "", err
-	}
 }
 
 func (b *Bot) handleLink(ctx context.Context, token string, tgUserID int64, username string) (string, error) {

@@ -157,6 +157,64 @@ func (c *Client) SendPhoto(ctx context.Context, chatID int64, photoURL, caption 
 	return msg.MessageID, nil
 }
 
+// SendHTMLPhoto is SendPhoto with the caption parsed as Telegram HTML, so
+// callers must escape anything user-supplied (escapeTelegramHTML).
+func (c *Client) SendHTMLPhoto(ctx context.Context, chatID int64, photoURL, caption string, markup *InlineKeyboardMarkup) (int64, error) {
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"photo":      photoURL,
+		"caption":    caption,
+		"parse_mode": "HTML",
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	var msg Message
+	if err := c.call(ctx, "sendPhoto", payload, &msg); err != nil {
+		return 0, err
+	}
+	return msg.MessageID, nil
+}
+
+// SendHTMLText sends a Telegram-HTML message (same escaping rule as
+// SendHTMLPhoto) without a link preview.
+func (c *Client) SendHTMLText(ctx context.Context, chatID int64, text string, markup *InlineKeyboardMarkup) (int64, error) {
+	payload := map[string]any{
+		"chat_id":                  chatID,
+		"text":                     text,
+		"parse_mode":               "HTML",
+		"disable_web_page_preview": true,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	var msg Message
+	if err := c.call(ctx, "sendMessage", payload, &msg); err != nil {
+		return 0, err
+	}
+	return msg.MessageID, nil
+}
+
+// BotCommand is one entry of the "/" command menu Telegram shows.
+type BotCommand struct {
+	Command     string `json:"command"`
+	Description string `json:"description"`
+}
+
+// SetMyCommands replaces the command menu for one scope type (e.g.
+// "all_private_chats") and language; an empty languageCode is the fallback
+// for every language without its own list.
+func (c *Client) SetMyCommands(ctx context.Context, commands []BotCommand, scopeType, languageCode string) error {
+	payload := map[string]any{
+		"commands": commands,
+		"scope":    map[string]string{"type": scopeType},
+	}
+	if languageCode != "" {
+		payload["language_code"] = languageCode
+	}
+	return c.call(ctx, "setMyCommands", payload, nil)
+}
+
 // EditMessageReplyMarkup replaces or clears the inline keyboard on a message.
 // Pass nil markup to remove buttons after an answer is graded.
 func (c *Client) EditMessageReplyMarkup(ctx context.Context, chatID, messageID int64, markup *InlineKeyboardMarkup) error {
