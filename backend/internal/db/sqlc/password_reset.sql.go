@@ -12,6 +12,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const clearAllPasswordResetPendingForTg = `-- name: ClearAllPasswordResetPendingForTg :exec
+UPDATE password_reset_token
+SET pending_tg_user_id = NULL
+WHERE pending_tg_user_id = $1 AND used_at IS NULL
+`
+
+func (q *Queries) ClearAllPasswordResetPendingForTg(ctx context.Context, pendingTgUserID pgtype.Int8) error {
+	_, err := q.db.Exec(ctx, clearAllPasswordResetPendingForTg, pendingTgUserID)
+	return err
+}
+
 const clearPasswordResetPendingForTg = `-- name: ClearPasswordResetPendingForTg :exec
 UPDATE password_reset_token
 SET pending_tg_user_id = NULL

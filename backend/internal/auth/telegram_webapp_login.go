@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"go.uber.org/zap"
 
 	"avtotest.uz/backend/internal/db/sqlc"
@@ -182,6 +183,14 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		return false
 	}
 	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: u.ID, Username: u.Username}); err != nil {
+		s.logLinkSkipped(profile.ID, err)
+		return false
+	}
+	// A bot password reset waiting for this Telegram user's contact must not
+	// stay armed: the Mini App share that just linked them is not the
+	// deliberate contact share the reset flow asked for, and could otherwise
+	// complete a reset someone else started.
+	if err := q.ClearAllPasswordResetPendingForTg(ctx, pgtype.Int8{Int64: u.ID, Valid: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return false
 	}

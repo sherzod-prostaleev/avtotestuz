@@ -450,3 +450,67 @@ func TestLinkRequiresFresherInitDataThanSignIn(t *testing.T) {
 		t.Fatalf("30min-old init data: res=%+v err=%v", res, err)
 	}
 }
+
+// A bot password reset waits for "the contact of Telegram user N". If N then
+// links through the Mini App, the reset must not stay armed: a Mini App share
+// would otherwise complete a reset that someone else started.
+func TestMiniAppLinkClearsPendingBotPasswordReset(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	victim, err := svc.Register(ctx, RegisterInput{Phone: "+998901110071", Password: "victim-password-1", Name: "V"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	const tgID = 5071
+	pending := func() bool {
+		var n int
+		if err := svc.Pool.QueryRow(ctx, `SELECT count(*) FROM password_reset_token WHERE pending_tg_user_id=$1`, tgID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n > 0
+	}
+	arm := func() {
+		if _, err := svc.Pool.Exec(ctx, `DELETE FROM password_reset_token`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.Pool.Exec(ctx,
+			`INSERT INTO password_reset_token (profile_id, token_hash, expires_at, pending_tg_user_id) VALUES ($1, $2, now() + interval '1 hour', $3)`,
+			victim.Profile.ID, uuid.NewString(), tgID); err != nil {
+			t.Fatal(err)
+		}
+		if !pending() {
+			t.Fatal("reset not armed")
+		}
+	}
+
+	// A failed proof must not disturb the reset.
+	arm()
+	raw, wrong := proof(t, tgID, "+998901110099")
+	attacker, err := svc.Register(ctx, RegisterInput{Phone: "+998901110072", Password: "attacker-password-1", Name: "A", TgInitData: raw, TgContact: wrong})
+	if err != nil || attacker.TelegramLinked {
+		t.Fatalf("register: %+v %v", attacker, err)
+	}
+	if !pending() {
+		t.Fatal("a failed proof cleared the pending reset")
+	}
+
+	// A proven link clears it, via login...
+	raw, good := proof(t, tgID, "+998901110072")
+	if _, err := svc.Login(ctx, LoginInput{Phone: "+998901110072", Password: "attacker-password-1", TgInitData: raw, TgContact: good}); err != nil {
+		t.Fatal(err)
+	}
+	if pending() {
+		t.Fatal("login link left the pending reset armed")
+	}
+
+	// ...and via link-webapp.
+	arm()
+	if _, err := svc.Pool.Exec(ctx, `DELETE FROM telegram_account`); err != nil {
+		t.Fatal(err)
+	}
+	if linked, err := svc.LinkTelegramWebApp(ctx, attacker.Profile.ID, raw, good); err != nil || !linked {
+		t.Fatalf("link: %v %v", linked, err)
+	}
+	if pending() {
+		t.Fatal("link-webapp left the pending reset armed")
+	}
+}

@@ -31,6 +31,11 @@ UPDATE password_reset_token
 SET pending_tg_user_id = NULL
 WHERE pending_tg_user_id = $1 AND used_at IS NULL AND id <> $2;
 
+-- name: ClearAllPasswordResetPendingForTg :exec
+UPDATE password_reset_token
+SET pending_tg_user_id = NULL
+WHERE pending_tg_user_id = $1 AND used_at IS NULL;
+
 -- name: SetPasswordResetPendingTg :exec
 UPDATE password_reset_token
 SET pending_tg_user_id = $2
