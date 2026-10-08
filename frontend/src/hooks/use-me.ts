@@ -18,6 +18,8 @@ export type MeResponseDTO = {
     created_at: string;
     must_change_password?: boolean;
     kind?: string;
+    /** Telegram photo (phone-verified link only); absent = draw the initial. */
+    avatar_url?: string;
   };
   vip: {
     active: boolean;

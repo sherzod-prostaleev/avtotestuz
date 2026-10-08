@@ -15,6 +15,7 @@ export interface UserProfile {
   referral_code?: string;
   role?: string;
   created_at?: string;
+  avatar_url?: string;
 }
 
 export interface UserEntitlement {

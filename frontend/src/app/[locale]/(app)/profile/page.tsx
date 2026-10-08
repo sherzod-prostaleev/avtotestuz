@@ -29,6 +29,7 @@ interface UserProfileData {
   role: string;
   must_change_password?: boolean;
   created_at: string;
+  avatar_url?: string;
 }
 
 interface MeResponse {
@@ -133,6 +134,7 @@ export default function ProfilePage() {
           name={name}
           region={region}
           phone={profile?.phone ?? ""}
+          avatarUrl={profile?.avatar_url}
           referralCode={profile?.referral_code ?? ""}
           isVip={isVip}
           onNameChange={setName}

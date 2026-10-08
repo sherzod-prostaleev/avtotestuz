@@ -9,6 +9,7 @@ import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TrialCountdown } from "@/components/shared/trial-countdown";
 import { NotificationBell } from "@/components/notifications/notification-bell";
+import { LearnerAvatar } from "@/components/shared/learner-avatar";
 import { useUserStats } from "@/hooks/use-user-stats";
 import { useVariantCount } from "@/hooks/use-variant-count";
 import { supportUnreadCount } from "@/lib/badge-counts";
@@ -360,12 +361,11 @@ export function Sidebar() {
             // never had; cancel it there.
             className="mb-2 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.06] p-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden md:[&+*]:!mt-0"
           >
-            <span
-              suppressHydrationWarning
+            <LearnerAvatar
+              name={userName}
+              src={user?.avatar_url}
               className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-muted font-display text-lg font-black text-accent"
-            >
-              {userName.charAt(0).toUpperCase()}
-            </span>
+            />
             <span className="min-w-0 flex-1">
               <span suppressHydrationWarning className="block truncate font-display text-lg font-extrabold">
                 {userName}
@@ -420,9 +420,11 @@ export function Sidebar() {
               onClick={() => setMobileOpen(false)}
               className="flex items-center gap-2 p-2 transition-colors hover:bg-accent/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring max-md:hidden md:gap-2.5 md:p-2.5"
             >
-              <div suppressHydrationWarning className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm">
-                {userName.charAt(0).toUpperCase()}
-              </div>
+              <LearnerAvatar
+                name={userName}
+                src={user?.avatar_url}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent/20 text-xs font-black text-foreground shadow-raised-sm md:h-10 md:w-10 md:rounded-xl md:text-sm"
+              />
               <div className="flex min-w-0 flex-col truncate">
                 <span suppressHydrationWarning className="truncate text-sm font-bold text-foreground">{userName}</span>
                 <span className="text-[11px] text-muted-foreground md:text-xs">{t("viewProfile")}</span>

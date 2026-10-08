@@ -13,6 +13,7 @@ import {
   User,
 } from "lucide-react";
 import { ChangePasswordForm } from "@/components/profile/change-password-form";
+import { LearnerAvatar } from "@/components/shared/learner-avatar";
 import { MobilePayments } from "./mobile-payments";
 import { MobilePersonal } from "./mobile-personal";
 import { MobileReferral } from "./mobile-referral";
@@ -25,6 +26,8 @@ export interface ProfileMobileProps {
   name: string;
   region: string;
   phone: string;
+  /** `profile.avatar_url` from /me; absent = the initial letter. */
+  avatarUrl?: string | null;
   referralCode: string;
   isVip: boolean;
   onNameChange: (value: string) => void;
@@ -55,6 +58,7 @@ export function ProfileMobile({
   name,
   region,
   phone,
+  avatarUrl,
   referralCode,
   isVip,
   onNameChange,
@@ -163,9 +167,11 @@ export function ProfileMobile({
   return (
     <div className={`flex flex-col gap-2 ${className}`}>
       <div className="surface-raised flex items-center gap-3 rounded-2xl border border-border bg-card p-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 font-display text-lg font-extrabold text-accent">
-          {(name || phone).trim().charAt(0).toUpperCase()}
-        </span>
+        <LearnerAvatar
+          name={name || phone}
+          src={avatarUrl}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent/15 font-display text-lg font-extrabold text-accent"
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg font-extrabold">{name || t("noName")}</p>
           <p className="truncate text-xs text-muted-foreground">{phone}</p>
