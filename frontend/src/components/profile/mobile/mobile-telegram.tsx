@@ -35,8 +35,10 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
     return link.inMiniApp ? t("subtitleInApp") : t("subtitle");
   })();
   // The explainer under the actions. Gone once there is nothing to do, and
-  // the Mini App's never mentions the website's 10-minute bot link.
-  const hint = statusOnly ? null : mode === "other" ? t("linkedOtherHint") : link.inMiniApp ? t("subtitleInApp") : t("subtitle");
+  // the Mini App's never mentions the website's 10-minute bot link. Nor is it
+  // repeated when the status line above already says it (nothing linked yet).
+  const hintText = statusOnly ? null : mode === "other" ? t("linkedOtherHint") : link.inMiniApp ? t("subtitleInApp") : t("subtitle");
+  const hint = hintText === detail ? null : hintText;
 
   return (
     <MobileScreen title={t("title")} onBack={onBack}>

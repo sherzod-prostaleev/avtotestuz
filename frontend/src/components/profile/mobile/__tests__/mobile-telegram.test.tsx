@@ -43,6 +43,15 @@ describe("MobileTelegram", () => {
     );
   });
 
+  // The status line already carries the explainer when nothing is linked;
+  // the hint box under the actions must not print it a second time.
+  it("prints the website explainer once when nothing is linked", async () => {
+    vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: false });
+    renderPanel();
+    await screen.findByText(messages.TelegramLink.notLinked);
+    expect(screen.getAllByText(messages.TelegramLink.subtitle)).toHaveLength(1);
+  });
+
   describe("inside the Mini App", () => {
     function enterMiniApp(username: string | null = "sherzod", share: "yes" | "no" = "yes") {
       const webApp = {
@@ -85,6 +94,14 @@ describe("MobileTelegram", () => {
       expect(screen.queryByRole("button", { name: "Raqamni ulashib bog'lash" })).not.toBeInTheDocument();
       expect(screen.queryByText(/Havola 10 daqiqa/)).not.toBeInTheDocument();
       expect(screen.getByRole("button", { name: "Telegramni uzish" })).toBeInTheDocument();
+    });
+
+    it("prints the Mini App explainer once when nothing is linked", async () => {
+      enterMiniApp("sherzod");
+      vi.spyOn(apiClient, "apiGet").mockResolvedValue({ linked: false });
+      renderPanel();
+      await screen.findByRole("button", { name: messages.TelegramLink.linkInApp });
+      expect(screen.getAllByText(messages.TelegramLink.subtitleInApp)).toHaveLength(1);
     });
 
     // The linked Telegram id decides when the API sends it: usernames change
