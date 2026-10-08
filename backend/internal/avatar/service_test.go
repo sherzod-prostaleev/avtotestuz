@@ -42,6 +42,10 @@ type fakeTelegram struct {
 	status      int
 	// blockFile, when set, holds getFile until the channel is closed.
 	blockFile chan struct{}
+	// profileStatus/profileCode/profileDesc, when set, make
+	// getUserProfilePhotos answer ok:false.
+	profileCode int
+	profileDesc string
 
 	photoCalls atomic.Int32
 }
@@ -57,10 +61,16 @@ func (f *fakeTelegram) server(t *testing.T) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		noPhotos, fileSize, body, ct, status, block := f.noPhotos, f.fileSize, f.body, f.contentType, f.status, f.blockFile
+		pcode, pdesc := f.profileCode, f.profileDesc
 		f.mu.Unlock()
 		switch r.URL.Path {
 		case "/bot" + testToken + "/getUserProfilePhotos":
 			f.photoCalls.Add(1)
+			if pcode != 0 {
+				w.WriteHeader(pcode)
+				_, _ = fmt.Fprintf(w, `{"ok":false,"error_code":%d,"description":%q}`, pcode, pdesc)
+				return
+			}
 			if noPhotos {
 				_, _ = w.Write([]byte(`{"ok":true,"result":{"total_count":0,"photos":[]}}`))
 				return
@@ -471,4 +481,184 @@ func TestNilServiceIsInert(t *testing.T) {
 		t.Fatalf("nil service AvatarURL = %q", got)
 	}
 	s.Wait()
+}
+
+func waitPhotoCalls(t *testing.T, f *fixture, n int32) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for f.tg.photoCalls.Load() < n && time.Now().Before(deadline) {
+		time.Sleep(5 * time.Millisecond)
+	}
+	if f.tg.photoCalls.Load() < n {
+		t.Fatalf("Telegram was not called %d times in time", n)
+	}
+}
+
+// A new link is followed at once by GET /me (the row still has no check
+// time). That load must not start a second fetch: it would replace the key
+// the first one just handed out and delete its object.
+func TestNewLinkAndImmediateLoadFetchOnce(t *testing.T) {
+	f := newFixture(t)
+	id, _ := f.learner(t, true)
+	block := make(chan struct{})
+	f.tg.set(func(t *fakeTelegram) { t.blockFile = block })
+
+	f.svc.TelegramLinked(id)
+	waitPhotoCalls(t, f, 1)
+	midFlight := f.url(t, id)
+	close(block)
+	f.svc.Wait()
+
+	if n := f.tg.photoCalls.Load(); n != 1 {
+		t.Fatalf("Telegram asked %d times, want 1", n)
+	}
+	final := f.url(t, id)
+	f.svc.Wait()
+	if final == "" {
+		t.Fatal("no avatar after the fetch")
+	}
+	for _, u := range []string{midFlight, final} {
+		if u == "" {
+			continue
+		}
+		key := strings.TrimPrefix(u, mediaBase+"/")
+		if _, err := os.Stat(filepath.Join(f.root, filepath.FromSlash(key))); err != nil {
+			t.Fatalf("URL %s handed out does not resolve: %v", u, err)
+		}
+	}
+	if n := f.tg.photoCalls.Load(); n != 1 {
+		t.Fatalf("Telegram asked %d times after the reload, want 1", n)
+	}
+}
+
+// A queued lazy refresh whose row was meanwhile refreshed by someone else is
+// skipped, not repeated.
+func TestLazyFetchSkippedWhenRowIsFresh(t *testing.T) {
+	f := newFixture(t)
+	id, _ := f.learner(t, true)
+	f.svc.TelegramLinked(id)
+	f.svc.Wait()
+	f.svc.enqueue(id, jobLazy)
+	f.svc.Wait()
+	if n := f.tg.photoCalls.Load(); n != 1 {
+		t.Fatalf("lazy pass on a fresh row asked Telegram (%d calls)", n)
+	}
+}
+
+// A format this server cannot decode (WebP) says nothing about whether the
+// learner has a photo: the current one stays, and Telegram is not re-asked
+// on every page load.
+func TestUndecodableImageKeepsExistingAvatar(t *testing.T) {
+	f := newFixture(t)
+	id, _ := f.learner(t, true)
+	f.svc.TelegramLinked(id)
+	f.svc.Wait()
+	key := f.state(t, id).AvatarKey
+
+	f.tg.set(func(t *fakeTelegram) {
+		t.contentType = "image/webp"
+		t.body = append([]byte("RIFF\x24\x00\x00\x00WEBPVP8 "), make([]byte, 32)...)
+	})
+	later := time.Now().Add(8 * 24 * time.Hour)
+	f.clock.Store(&later)
+	f.url(t, id)
+	f.svc.Wait()
+	calls := f.tg.photoCalls.Load()
+	for range 3 {
+		f.url(t, id)
+	}
+	f.svc.Wait()
+
+	if got := f.state(t, id).AvatarKey; got != key {
+		t.Fatalf("WebP cleared the avatar: %+v -> %+v", key, got)
+	}
+	if len(f.objects(t)) != 1 {
+		t.Fatalf("objects = %v, want the original only", f.objects(t))
+	}
+	if n := f.tg.photoCalls.Load(); n != calls {
+		t.Fatalf("retried during back-off: %d -> %d", calls, n)
+	}
+}
+
+// Telegram answering 400 (user not found) is a final "no photo", recorded so
+// the weekly gate applies instead of an hourly warning loop.
+func TestPermanentTelegram400RecordsNoPhoto(t *testing.T) {
+	f := newFixture(t)
+	id, _ := f.learner(t, true)
+	f.tg.set(func(t *fakeTelegram) { t.profileCode = 400; t.profileDesc = "Bad Request: user not found" })
+
+	f.svc.TelegramLinked(id)
+	f.svc.Wait()
+
+	st := f.state(t, id)
+	if st.AvatarKey.Valid || !st.AvatarUpdatedAt.Valid {
+		t.Fatalf("state = %+v, want no key and a recorded check", st)
+	}
+	f.url(t, id)
+	f.svc.Wait()
+	if n := f.tg.photoCalls.Load(); n != 1 {
+		t.Fatalf("asked %d times, want 1", n)
+	}
+	for _, e := range f.logs.All() {
+		if e.Level >= zapcore.WarnLevel {
+			t.Fatalf("unexpected warning: %s", e.Message)
+		}
+	}
+}
+
+// A bad token (401) is ours to fix, not "no photo".
+func TestTelegram401IsNotRecordedAsNoPhoto(t *testing.T) {
+	f := newFixture(t)
+	id, _ := f.learner(t, true)
+	f.tg.set(func(t *fakeTelegram) { t.profileCode = 401; t.profileDesc = "Unauthorized" })
+	f.svc.TelegramLinked(id)
+	f.svc.Wait()
+	if st := f.state(t, id); st.AvatarUpdatedAt.Valid {
+		t.Fatalf("a 401 was recorded as a check: %+v", st)
+	}
+}
+
+// slowStore writes the object, then holds Put until the job is cancelled —
+// the shutdown that lands mid-upload.
+type slowStore struct {
+	ObjectStore
+	started chan struct{}
+}
+
+func (s slowStore) Put(ctx context.Context, key, ct string, data []byte) error {
+	if err := s.ObjectStore.Put(ctx, key, ct, data); err != nil {
+		return err
+	}
+	close(s.started)
+	<-ctx.Done()
+	return ctx.Err()
+}
+
+func TestShutdownCancelsInFlightJobAndDeletesFreshObject(t *testing.T) {
+	f := newFixture(t)
+	started := make(chan struct{})
+	f.svc.store = slowStore{ObjectStore: f.svc.store, started: started}
+	id, _ := f.learner(t, true)
+
+	f.svc.TelegramLinked(id)
+	select {
+	case <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("upload never started")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // grace period already over
+	f.svc.Shutdown(ctx)
+
+	if objs := f.objects(t); len(objs) != 0 {
+		t.Fatalf("object left behind by the cancelled job: %v", objs)
+	}
+	if st := f.state(t, id); st.AvatarKey.Valid {
+		t.Fatalf("cancelled job attached an avatar: %+v", st)
+	}
+	f.svc.TelegramLinked(id) // after shutdown: no new work
+	f.svc.Wait()
+	if n := f.tg.photoCalls.Load(); n != 1 {
+		t.Fatalf("work started after shutdown (%d calls)", n)
+	}
 }

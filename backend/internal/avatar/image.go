@@ -24,6 +24,11 @@ const maxSourceSide = 2048
 // ErrUnusablePhoto: the file is not a photo this server can decode safely.
 var ErrUnusablePhoto = errors.New("unusable profile photo")
 
+// errUndecodableImage: a genuine image in a format this server cannot read
+// (WebP). Unlike ErrUnusablePhoto it is not evidence that the learner has no
+// usable photo, so the caller keeps whatever avatar is stored.
+var errUndecodableImage = fmt.Errorf("%w: image format not decodable here", ErrUnusablePhoto)
+
 // normalize turns a downloaded profile photo into the stored form: a
 // centre-cropped, OutputPx square JPEG. Decoding and re-encoding (rather than
 // storing the bytes as received) is the point — only pixels survive, so EXIF
@@ -41,6 +46,8 @@ func normalize(data []byte, contentType string) ([]byte, error) {
 	// The label is the file host's claim; the bytes decide.
 	switch http.DetectContentType(data) {
 	case "image/jpeg", "image/png":
+	case "image/webp":
+		return nil, errUndecodableImage
 	default:
 		return nil, fmt.Errorf("%w: not a jpeg or png", ErrUnusablePhoto)
 	}

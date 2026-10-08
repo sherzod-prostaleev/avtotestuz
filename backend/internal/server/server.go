@@ -18,6 +18,7 @@ import (
 	"avtotest.uz/backend/internal/admin"
 	"avtotest.uz/backend/internal/arena"
 	"avtotest.uz/backend/internal/auth"
+	"avtotest.uz/backend/internal/avatar"
 	"avtotest.uz/backend/internal/b2b"
 	"avtotest.uz/backend/internal/billing"
 	"avtotest.uz/backend/internal/billing/click"
@@ -49,6 +50,9 @@ type Deps struct {
 	Pool    *pgxpool.Pool
 	Redis   *redis.Client
 	Log     *zap.Logger
+	// Avatars is the learners' Telegram-photo service; cmd/api owns it so it
+	// can Shutdown it. Nil: New builds one itself (tests, other callers).
+	Avatars *avatar.Service
 }
 
 // New wires HTTP routes. The optional *arena.Service is non-nil when Redis+DB
@@ -250,7 +254,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				svc.Log = log
 				svc.TelegramBotToken = cfg.TelegramBotToken
 				svc.TelegramWebAppURL = cfg.TelegramWebAppURL
-				avatars := NewAvatarService(cfg, deps.Queries, log)
+				avatars := deps.Avatars
+				if avatars == nil {
+					avatars = NewAvatarService(cfg, deps.Queries, log)
+				}
 				if avatars != nil {
 					svc.Avatars = avatars
 				}

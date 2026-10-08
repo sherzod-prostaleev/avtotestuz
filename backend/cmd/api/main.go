@@ -73,11 +73,15 @@ func main() {
 	}
 	defer func() { _ = redisClient.Close() }()
 
+	// One avatar service for the process (the dev long-poll bot shares it),
+	// so shutdown can drain it.
+	avatars := server.NewAvatarService(cfg, sqlc.New(pool), logger)
 	h, arenaSvc, broadcastSvc := server.New(cfg, server.Deps{
 		Queries: sqlc.New(pool),
 		Pool:    pool,
 		Redis:   redisClient,
 		Log:     logger,
+		Avatars: avatars,
 	})
 	srv := &http.Server{
 		Addr:              fmt.Sprintf(":%d", cfg.Port),
@@ -132,9 +136,8 @@ func main() {
 		q := sqlc.New(pool)
 		tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
 		linkSvc := bot.NewLinkService(pool, q)
-		longpollAvatars := server.NewAvatarService(cfg, q, logger)
-		if longpollAvatars != nil {
-			linkSvc.Avatars = longpollAvatars
+		if avatars != nil {
+			linkSvc.Avatars = avatars
 		}
 		quizSvc := &bot.QuizService{
 			Q:             q,
@@ -154,8 +157,8 @@ func main() {
 		}
 		authSvc := auth.NewService(q, pool, auth.Limiter{R: redisClient}, sender, []byte(cfg.JWTSecret), cfg.Env)
 		authSvc.Log = logger
-		if longpollAvatars != nil {
-			authSvc.Avatars = longpollAvatars
+		if avatars != nil {
+			authSvc.Avatars = avatars
 		}
 		botSvc := &bot.Bot{
 			WebAppURL:     cfg.TelegramWebAppURL,
@@ -187,6 +190,11 @@ func main() {
 		arenaSvc.Drain(shutdownCtx)
 	}
 	_ = srv.Shutdown(shutdownCtx)
+	// After the HTTP server: no handler can enqueue more work. In-flight
+	// photo jobs get a few seconds, then are cancelled and clean up.
+	avatarCtx, avatarCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer avatarCancel()
+	avatars.Shutdown(avatarCtx)
 	logger.Info("stopped")
 }
 

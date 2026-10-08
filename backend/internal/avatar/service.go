@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"encoding/base32"
 	"errors"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -39,6 +40,9 @@ const (
 	// retryAfter keeps a failing or just-started refresh from being asked
 	// again on every page load.
 	retryAfter = time.Hour
+	// cleanupTimeout bounds the best-effort delete of an upload that lost
+	// its job (shutdown, timeout); it runs detached from the dead context.
+	cleanupTimeout = 5 * time.Second
 	// jobTimeout bounds one profile's whole fetch-and-store.
 	jobTimeout = 30 * time.Second
 	// maxParallel caps concurrent Telegram fetches (Telegram rate-limits
@@ -66,7 +70,8 @@ type jobKind int
 const (
 	jobNone      jobKind = iota
 	jobReconcile         // drop the photo if the verified link is gone
-	jobFetch             // (re)fetch from Telegram if the link is verified, else drop
+	jobLazy              // GET /me found the check stale; skipped if someone refreshed it since
+	jobFetch             // a new link: (re)fetch from Telegram if the link is verified, else drop
 )
 
 type Service struct {
@@ -75,6 +80,8 @@ type Service struct {
 	photos       PhotoSource // nil: Telegram not configured, never fetch
 	mediaBaseURL string
 	log          *zap.Logger
+	root         context.Context // cancelled by Shutdown; every job derives from it
+	cancel       context.CancelFunc
 	now          func() time.Time
 
 	mu       sync.Mutex
@@ -90,7 +97,10 @@ func New(q *sqlc.Queries, store ObjectStore, photos PhotoSource, mediaBaseURL st
 	if log == nil {
 		log = zap.NewNop()
 	}
+	root, cancel := context.WithCancel(context.Background())
 	return &Service{
+		root:         root,
+		cancel:       cancel,
 		q:            q,
 		store:        store,
 		photos:       photos,
@@ -109,6 +119,11 @@ func (s *Service) TelegramLinked(profileID uuid.UUID) {
 	if s == nil {
 		return
 	}
+	// Same back-off as a lazy refresh: the GET /me right after sign-in still
+	// sees a row with no check time and must not start a second fetch.
+	s.mu.Lock()
+	s.notUntil[profileID] = s.now().Add(retryAfter)
+	s.mu.Unlock()
 	s.enqueue(profileID, jobFetch)
 }
 
@@ -151,12 +166,29 @@ func (s *Service) AvatarURL(ctx context.Context, profileID uuid.UUID, kind strin
 	return s.mediaBaseURL + "/" + st.AvatarKey.String
 }
 
-// Wait blocks until every queued job has finished (tests, shutdown).
+// Wait blocks until every queued job has finished (tests).
 func (s *Service) Wait() {
 	if s == nil {
 		return
 	}
 	s.wg.Wait()
+}
+
+// Shutdown stops accepting work and waits for running jobs until ctx ends;
+// jobs still running then are cancelled, and their half-finished uploads
+// deleted, before it returns.
+func (s *Service) Shutdown(ctx context.Context) {
+	if s == nil {
+		return
+	}
+	done := make(chan struct{})
+	go func() { s.wg.Wait(); close(done) }()
+	select {
+	case <-done:
+	case <-ctx.Done():
+	}
+	s.cancel()
+	<-done
 }
 
 func (s *Service) lazyRefresh(profileID uuid.UUID) {
@@ -177,7 +209,7 @@ func (s *Service) lazyRefresh(profileID uuid.UUID) {
 	// same stale row must not each start one.
 	s.notUntil[profileID] = now.Add(retryAfter)
 	s.mu.Unlock()
-	s.enqueue(profileID, jobFetch)
+	s.enqueue(profileID, jobLazy)
 }
 
 // enqueue coalesces work per profile: one goroutine per profile at a time,
@@ -186,6 +218,10 @@ func (s *Service) lazyRefresh(profileID uuid.UUID) {
 // pass always acts on the latest link state.
 func (s *Service) enqueue(profileID uuid.UUID, kind jobKind) {
 	s.mu.Lock()
+	if s.root.Err() != nil {
+		s.mu.Unlock()
+		return
+	}
 	if cur, ok := s.pending[profileID]; ok {
 		if kind > cur {
 			s.pending[profileID] = kind
@@ -212,8 +248,15 @@ func (s *Service) run(profileID uuid.UUID) {
 		s.pending[profileID] = jobNone
 		s.mu.Unlock()
 
-		s.sem <- struct{}{}
-		ctx, cancel := context.WithTimeout(context.Background(), jobTimeout)
+		select {
+		case s.sem <- struct{}{}:
+		case <-s.root.Done():
+			s.mu.Lock()
+			delete(s.pending, profileID)
+			s.mu.Unlock()
+			return
+		}
+		ctx, cancel := context.WithTimeout(s.root, jobTimeout)
 		s.sync(ctx, profileID, kind)
 		cancel()
 		<-s.sem
@@ -226,15 +269,20 @@ func (s *Service) sync(ctx context.Context, profileID uuid.UUID, kind jobKind) {
 		return
 	}
 	if err != nil {
-		s.log.Warn("avatar.state_query_failed", zap.String("profile_id", profileID.String()), zap.Error(err))
+		if ctx.Err() == nil {
+			s.log.Warn("avatar.state_query_failed", zap.String("profile_id", profileID.String()), zap.Error(err))
+		}
 		return
 	}
 	if st.Kind != learnerKind || !st.VerifiedTgUserID.Valid {
 		s.clear(ctx, profileID)
 		return
 	}
-	if kind != jobFetch || s.photos == nil {
+	if kind == jobReconcile || s.photos == nil {
 		return
+	}
+	if kind == jobLazy && st.AvatarUpdatedAt.Valid && s.now().Sub(st.AvatarUpdatedAt.Time) < RefreshAfter {
+		return // refreshed while this job waited its turn
 	}
 	s.fetch(ctx, profileID, st.VerifiedTgUserID.Int64)
 }
@@ -258,6 +306,13 @@ func (s *Service) fetch(ctx context.Context, profileID uuid.UUID, tgUserID int64
 		s.log.Info("avatar.photo_rejected", zap.String("profile_id", profileID.String()), zap.Error(err))
 		s.record(ctx, profileID, tgUserID, "")
 		return
+	case isTelegramBadRequest(err):
+		// 400 (user not found, ...) is Telegram's final answer for this
+		// user; recording it lets the weekly gate apply. 401/403/429/5xx
+		// are not (token, rate limit, outage) and fall through below.
+		s.log.Info("avatar.photo_unavailable", zap.String("profile_id", profileID.String()), zap.Error(err))
+		s.record(ctx, profileID, tgUserID, "")
+		return
 	case err != nil:
 		// Transient or ours to fix (token, network): keep what the learner
 		// has; lazyRefresh's back-off stops a retry on every page load.
@@ -271,6 +326,13 @@ func (s *Service) fetch(ctx context.Context, profileID uuid.UUID, tgUserID int64
 	}
 
 	jpg, err := normalize(data, contentType)
+	if errors.Is(err, errUndecodableImage) {
+		// A real photo in a format we cannot read says nothing about
+		// whether the learner has one: keep the current avatar.
+		s.backOff(profileID)
+		s.log.Info("avatar.photo_undecodable", zap.String("profile_id", profileID.String()), zap.Error(err))
+		return
+	}
 	if err != nil {
 		s.log.Info("avatar.photo_rejected", zap.String("profile_id", profileID.String()), zap.Error(err))
 		s.record(ctx, profileID, tgUserID, "")
@@ -283,11 +345,15 @@ func (s *Service) fetch(ctx context.Context, profileID uuid.UUID, tgUserID int64
 	}
 	if err := s.store.Put(ctx, key, "image/jpeg", jpg); err != nil {
 		s.backOff(profileID)
-		s.log.Warn("avatar.store_failed", zap.String("profile_id", profileID.String()), zap.Error(err))
+		if ctx.Err() == nil {
+			s.log.Warn("avatar.store_failed", zap.String("profile_id", profileID.String()), zap.Error(err))
+		}
+		// A cancelled upload may still have landed.
+		s.deleteFresh(ctx, key)
 		return
 	}
 	if !s.record(ctx, profileID, tgUserID, key) {
-		s.deleteObject(ctx, pgtype.Text{String: key, Valid: true})
+		s.deleteFresh(ctx, key)
 	}
 }
 
@@ -311,6 +377,20 @@ func (s *Service) record(ctx context.Context, profileID uuid.UUID, tgUserID int6
 		s.deleteObject(ctx, prev)
 	}
 	return true
+}
+
+// deleteFresh removes an object this job just wrote and will not reference.
+// It must work when ctx is already dead (shutdown, job timeout), so it runs
+// on a detached, short-lived context.
+func (s *Service) deleteFresh(ctx context.Context, key string) {
+	dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), cleanupTimeout)
+	defer cancel()
+	s.deleteObject(dctx, pgtype.Text{String: key, Valid: true})
+}
+
+func isTelegramBadRequest(err error) bool {
+	var api *bot.APIError
+	return errors.As(err, &api) && api.Code == http.StatusBadRequest
 }
 
 func (s *Service) backOff(profileID uuid.UUID) {
