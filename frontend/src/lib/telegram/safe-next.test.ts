@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { safeNextPath } from "./safe-next";
+import { carryNextQuery, miniAppNext, safeNextPath } from "./safe-next";
 
 describe("safeNextPath", () => {
   it.each([
@@ -20,5 +20,22 @@ describe("safeNextPath", () => {
     ["/uz-Latn/x/../../evil", "/uz-Latn/dashboard"],
   ])("%s → %s", (raw, want) => {
     expect(safeNextPath(raw, "uz-Latn")).toBe(want);
+  });
+});
+
+describe("miniAppNext / carryNextQuery", () => {
+  const webApp = {};
+  it("passes next through only with a live WebApp", () => {
+    expect(miniAppNext(webApp, "/uz-Latn/signs")).toBe("/uz-Latn/signs");
+    expect(miniAppNext(null, "/uz-Latn/signs")).toBeNull();
+  });
+
+  it("carries next exactly when the redirect would honour it", () => {
+    expect(carryNextQuery(webApp, "/uz-Latn/signs", "uz-Latn")).toBe("?next=%2Fuz-Latn%2Fsigns");
+    expect(carryNextQuery(null, "/uz-Latn/signs", "uz-Latn")).toBe("");
+    expect(carryNextQuery(webApp, null, "uz-Latn")).toBe("");
+    // Targets that fall back to the dashboard anyway are not worth a query.
+    expect(carryNextQuery(webApp, "https://evil.example/x", "uz-Latn")).toBe("");
+    expect(carryNextQuery(webApp, "/uz-Latn/tg", "uz-Latn")).toBe("");
   });
 });

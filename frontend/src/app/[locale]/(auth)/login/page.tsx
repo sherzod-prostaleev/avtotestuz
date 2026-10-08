@@ -15,7 +15,7 @@ import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button
 import { useTelegram, useTelegramStatus } from "@/components/telegram/telegram-provider";
 import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-body";
 import { forgetNeedPhone } from "@/lib/telegram/need-phone-cache";
-import { safeNextPath } from "@/lib/telegram/safe-next";
+import { carryNextQuery, miniAppNext, safeNextPath } from "@/lib/telegram/safe-next";
 import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
@@ -49,10 +49,9 @@ export default function LoginPage() {
   const inMiniApp = tgStatus !== "off";
   // Mini App only: a /tg deep link's target, carried across login ↔ register.
   const [nextParam, setNextParam] = useState<string | null>(null);
-  const carryNext =
-    inMiniApp && nextParam !== null && safeNextPath(nextParam, locale) !== `/${locale}/dashboard`
-      ? `?next=${encodeURIComponent(nextParam)}`
-      : "";
+  // Same condition as the redirect after sign-in (miniAppNext): a link must
+  // not promise a target the other form would then drop.
+  const carryNext = carryNextQuery(webApp, nextParam, locale);
   const [phone, setPhone] = useState("");
   // Telegram's signed share of the phone (Mini App only): the link proof.
   const [tgContact, setTgContact] = useState<string | null>(null);
@@ -93,7 +92,7 @@ export default function LoginPage() {
     }
     // A Mini App deep link (/tg?next=…) passed its target through the
     // welcome screen. The website keeps its old landing: the dashboard.
-    const next = webApp ? new URLSearchParams(window.location.search).get("next") : null;
+    const next = miniAppNext(webApp, new URLSearchParams(window.location.search).get("next"));
     router.push(safeNextPath(next, locale));
   }
 

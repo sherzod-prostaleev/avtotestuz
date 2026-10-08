@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -299,6 +299,17 @@ describe("RegisterPage", () => {
       currentStatus = "loading";
       renderWithIntl();
       expect(screen.queryByRole("link", { name: /Bosh sahifaga qaytish/ })).toBeNull();
+    });
+
+    // The post-sign-in redirect honours next only with a live WebApp, so
+    // the cross link must not promise it in any other state.
+    it.each(["loading", "failed"] as const)("does not carry next while the SDK is %s", async (status) => {
+      currentStatus = status;
+      currentWebApp = null;
+      window.history.replaceState(null, "", "/uz-Latn/register?next=%2Fuz-Latn%2Fsigns");
+      renderWithIntl();
+      await act(async () => {});
+      expect(screen.getByRole("link", { name: "Kirish" })).toHaveAttribute("href", "/uz-Latn/login");
     });
 
     it("carries next over to the login page", async () => {
