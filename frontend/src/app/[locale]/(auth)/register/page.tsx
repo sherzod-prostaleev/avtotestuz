@@ -51,6 +51,12 @@ export default function RegisterPage() {
   // "off" only on the website (and the server render); any other status
   // means Telegram launched us, even before or without a working SDK.
   const inMiniApp = tgStatus !== "off";
+  // Mini App only: a /tg deep link's target, carried across login ↔ register.
+  const [nextParam, setNextParam] = useState<string | null>(null);
+  const carryNext =
+    inMiniApp && nextParam !== null && safeNextPath(nextParam, locale) !== `/${locale}/dashboard`
+      ? `?next=${encodeURIComponent(nextParam)}`
+      : "";
   const [phone, setPhone] = useState("");
   // Telegram's signed share of the phone (Mini App only): the link proof.
   const [tgContact, setTgContact] = useState<string | null>(null);
@@ -62,6 +68,11 @@ export default function RegisterPage() {
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
+    try {
+      setNextParam(new URLSearchParams(window.location.search).get("next"));
+    } catch {
+      /* a malformed query string just means no next */
+    }
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -322,7 +333,7 @@ export default function RegisterPage() {
           <p className="text-center text-xs text-muted-foreground">
             {t("haveAccount")}{" "}
             <Link
-              href={`/${locale}/login`}
+              href={`/${locale}/login${carryNext}`}
               className="font-bold text-foreground underline-offset-2 hover:underline"
             >
               {t("loginLink")}

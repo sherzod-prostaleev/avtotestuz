@@ -333,6 +333,16 @@ describe("LoginPage", () => {
       expect(screen.queryByRole("link", { name: /Bosh sahifaga qaytish/ })).toBeNull();
     });
 
+    it("carries next over to the register page", async () => {
+      currentStatus = "ready";
+      currentWebApp = miniApp();
+      window.history.replaceState(null, "", "/uz-Latn/login?next=%2Fuz-Latn%2Fsigns");
+      renderWithIntl();
+      await waitFor(() =>
+        expect(screen.getByRole("link", { name: "Ro'yxatdan o'tish" })).toHaveAttribute("href", "/uz-Latn/register?next=%2Fuz-Latn%2Fsigns"),
+      );
+    });
+
     it("keeps both on the website", () => {
       renderWithIntl();
       expect(screen.getByRole("link", { name: /Bosh sahifaga qaytish/ })).toHaveAttribute("href", "/uz-Latn");
