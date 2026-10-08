@@ -102,6 +102,15 @@ from the whole `media` bucket, and grants anonymous download only to
 `media/images/*`. Existing `media/support/*` objects therefore become private
 immediately but remain readable by the authenticated API fallback.
 
+### Learner avatars and the Cloudflare cache
+
+Telegram profile photos live under `media/images/avatars/`. nginx serves that
+prefix with `max-age=3600` (the rest of `/media` keeps 7 days), because a
+refreshed or removed photo's old object is deleted. Manual step: the Cloudflare
+cache rule for `/media/images/*` must exclude `avatars/` or use an edge TTL of
+at most one hour; otherwise Cloudflare keeps serving a deleted photo for up to
+its own TTL.
+
 After backing up the MinIO volume and deploying the new policy/API contract:
 
 ```bash
