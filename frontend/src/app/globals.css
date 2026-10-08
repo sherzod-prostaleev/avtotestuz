@@ -1441,6 +1441,16 @@ aside.app-drawer {
 .auth-safe-top {
   padding-top: env(safe-area-inset-top);
 }
+/* The auth pages' headers are fixed-height (h-14) bars: the inset goes on
+   top of the 3.5rem instead of eating into it, which a Telegram fullscreen
+   inset (~93px) would overflow, pushing the logo under Telegram's controls. */
+header.auth-safe-top {
+  box-sizing: content-box;
+}
+/* Was inline on the landing header; a class so the Telegram rule can extend it. */
+.landing-header {
+  padding-top: env(safe-area-inset-top);
+}
 .auth-safe-bottom {
   padding-bottom: env(safe-area-inset-bottom);
 }
@@ -1469,6 +1479,16 @@ html.tg-webapp .auth-safe-top {
 html.tg-webapp .auth-safe-bottom {
   padding-bottom: var(--tg-inset-bottom);
 }
+html.tg-webapp .landing-header {
+  padding-top: var(--tg-inset-top);
+}
+/* The fixed bilet praise toast drops in from the top edge. */
+html.tg-webapp .bilet-praise-banner {
+  padding-top: max(0.75rem, var(--tg-inset-top));
+}
+/* Bottom sheets (confirm dialog, notifications, sign detail) cap their own
+   height with var(--tg-inset-top, 0px) inline, so a tall one stops below
+   Telegram's controls rather than under them. */
 /* The chrome's one-line note (lib/telegram/hint): just under Telegram's
    header and any fullscreen controls. */
 .tg-hint {

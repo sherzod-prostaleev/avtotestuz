@@ -289,7 +289,7 @@ export function NotificationPanel({
           role="dialog"
           aria-modal="true"
           aria-label={t("title")}
-          className="absolute inset-x-0 bottom-0 flex max-h-[min(92dvh,40rem)] flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.45)]"
+          className="absolute inset-x-0 bottom-0 flex max-h-[min(92dvh,40rem,calc(100dvh-var(--tg-inset-top,0px)-0.5rem))] flex-col overflow-hidden rounded-t-3xl border border-border bg-card shadow-[0_-12px_40px_-12px_rgba(0,0,0,0.45)]"
           style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
         >
           <div className="flex justify-center pb-1 pt-3" aria-hidden>

@@ -9,11 +9,16 @@ export interface TelegramWebApp {
   close(): void;
   isVersionAtLeast(v: string): boolean;
   disableVerticalSwipes?(): void;
+  // Bot API 8.0+; absent on older clients.
+  requestFullscreen?(): void;
+  isFullscreen?: boolean;
   enableClosingConfirmation(): void;
   disableClosingConfirmation(): void;
   setHeaderColor(color: string): void;
   setBackgroundColor(color: string): void;
   setBottomBarColor?(color: string): void;
+  // "fullscreenChanged" (8.0+) is one of the events: isFullscreen flips, and
+  // Telegram republishes the --tg-*safe-area-inset-* variables.
   onEvent(event: string, cb: () => void): void;
   offEvent(event: string, cb: () => void): void;
   openLink(url: string): void;

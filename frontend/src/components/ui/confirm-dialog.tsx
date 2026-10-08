@@ -154,7 +154,7 @@ export function ConfirmDialog({
                 screen, which on a phone with a home indicator is not a place a
                 thumb can reach. The centred variant from `sm:` up needs no
                 such allowance. */}
-            <Card className="max-h-[92dvh] w-full space-y-4 overflow-y-auto rounded-b-none rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-2xl sm:p-6 sm:pb-6">
+            <Card className="max-h-[min(92dvh,calc(100dvh-var(--tg-inset-top,0px)-0.5rem))] w-full space-y-4 overflow-y-auto rounded-b-none rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] sm:rounded-2xl sm:p-6 sm:pb-6">
               <div className="flex items-start gap-3">
                 {icon && (
                   <span

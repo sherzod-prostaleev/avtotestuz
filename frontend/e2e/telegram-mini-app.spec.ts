@@ -1,70 +1,14 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect } from "@playwright/test";
 
 // No backend: every /api/* call is stubbed. The real Telegram SDK is never
 // fetched; a fake window.Telegram.WebApp stands in for it.
 
-const SDK_URL = "https://telegram.org/js/telegram-web-app.js";
+import { openInFakeTelegram, tgCallArgs, tgCalls } from "./helpers/fake-telegram";
 
-// Non-zero, so a rule that ignores Telegram's insets actually fails.
+// Non-zero, so a rule that ignores Telegram's insets actually fails (the
+// fake's defaults).
 const SAFE_TOP = 24;
 const SAFE_BOTTOM = 18;
-
-const fakeTelegram = (opts: { autologinOff?: boolean; colorScheme?: "light" | "dark" }) => `
-  (() => {
-    const store = ${opts.autologinOff ? `{ autologin_off: "1" }` : `{}`};
-    window.__tg = { calls: [] };
-    // What telegram-web-app.js publishes on <html> for the device safe area.
-    // Init scripts can run before <html> exists.
-    const setInsets = () => {
-      document.documentElement.style.setProperty("--tg-safe-area-inset-top", "${SAFE_TOP}px");
-      document.documentElement.style.setProperty("--tg-safe-area-inset-bottom", "${SAFE_BOTTOM}px");
-    };
-    if (document.documentElement) setInsets();
-    else document.addEventListener("DOMContentLoaded", setInsets);
-    const rec = (name) => (...args) => window.__tg.calls.push([name, ...args]);
-    // The bridge a real Telegram client injects: without a host the app
-    // ignores launch data and the SDK object entirely.
-    window.TelegramWebviewProxy = { postEvent: rec("proxy") };
-    sessionStorage.setItem("tg-webapp", "1");
-    window.Telegram = { WebApp: {
-      initData: "query_id=x&user=%7B%22id%22%3A1%7D&auth_date=1&hash=00",
-      initDataUnsafe: { user: { id: 1, first_name: "Ali", language_code: "uz" } },
-      colorScheme: "${opts.colorScheme ?? "dark"}", version: "8.0", platform: "android",
-      ready: rec("ready"), expand: rec("expand"), close: rec("close"), isVersionAtLeast: () => true,
-      disableVerticalSwipes: rec("disableVerticalSwipes"),
-      enableClosingConfirmation: rec("enableClosingConfirmation"),
-      disableClosingConfirmation: rec("disableClosingConfirmation"),
-      setHeaderColor: rec("setHeaderColor"), setBackgroundColor: rec("setBackgroundColor"), setBottomBarColor: rec("setBottomBarColor"),
-      onEvent: () => {}, offEvent: () => {},
-      openLink: rec("openLink"), openTelegramLink: rec("openTelegramLink"),
-      requestContact: (cb) => cb(true, {
-        response: "contact=%7B%22user_id%22%3A1%2C%22phone_number%22%3A%22998901234567%22%7D&auth_date=1&hash=00",
-        responseUnsafe: { contact: { phone_number: "998901234567" } },
-      }),
-      BackButton: { show: rec("back.show"), hide: rec("back.hide"), onClick: () => {}, offClick: () => {} },
-      HapticFeedback: { impactOccurred: rec("impact"), notificationOccurred: rec("notify"), selectionChanged: rec("select") },
-      CloudStorage: {
-        getItem: (k, cb) => cb(null, store[k] || ""),
-        setItem: (k, v, cb) => { store[k] = v; cb && cb(null, true); },
-        removeItem: (k, cb) => { delete store[k]; cb && cb(null, true); },
-      },
-    } };
-  })();
-`;
-
-async function openInFakeTelegram(page: Page, opts: { autologinOff?: boolean; colorScheme?: "light" | "dark" } = {}) {
-  await page.route(SDK_URL, (r) => r.fulfill({ contentType: "text/javascript", body: "" }));
-  await page.addInitScript(fakeTelegram(opts));
-}
-
-const tgCalls = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __tg: { calls: unknown[][] } }).__tg.calls.map((c) => c[0]));
-
-const tgCallArgs = (page: Page, name: string) =>
-  page.evaluate(
-    (n) => (window as unknown as { __tg: { calls: unknown[][] } }).__tg.calls.filter((c) => c[0] === n).map((c) => c[1]),
-    name,
-  );
 
 const BASE = "http://localhost:" + (process.env.PORT || 3000);
 

@@ -66,6 +66,35 @@ describe("TelegramProvider", () => {
     expect(screen.queryByTestId("tg-chrome")).toBeNull();
   });
 
+  describe("launch", () => {
+    const launch = (platform: string) => {
+      const order: string[] = [];
+      installTelegramHost();
+      markTelegramMiniApp();
+      window.Telegram = {
+        WebApp: {
+          initData: "signed",
+          platform,
+          ready: vi.fn(() => order.push("ready")),
+          expand: vi.fn(() => order.push("expand")),
+          isVersionAtLeast: () => true,
+          disableVerticalSwipes: vi.fn(() => order.push("disableVerticalSwipes")),
+          requestFullscreen: vi.fn(() => order.push("requestFullscreen")),
+          onEvent: vi.fn(),
+          offEvent: vi.fn(),
+        } as never,
+      };
+      render(<TelegramProvider><p>tg</p></TelegramProvider>);
+      return order;
+    };
+    it("goes fullscreen on a phone after ready/expand, keeping vertical swipes off", () => {
+      expect(launch("ios")).toEqual(["ready", "expand", "disableVerticalSwipes", "requestFullscreen"]);
+    });
+    it("stays windowed on desktop clients", () => {
+      expect(launch("tdesktop")).toEqual(["ready", "expand", "disableVerticalSwipes"]);
+    });
+  });
+
   describe("SDK status", () => {
     function StatusProbe() {
       return <span data-testid="status">{useTelegramStatus()}</span>;

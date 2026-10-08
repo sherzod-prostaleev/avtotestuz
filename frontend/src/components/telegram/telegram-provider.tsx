@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { getWebApp, isTelegramMiniApp, TELEGRAM_SDK_URL, type TelegramWebApp } from "@/lib/telegram/web-app";
+import { requestPhoneFullscreen } from "@/lib/telegram/fullscreen";
 
 // Only a Telegram launch ever renders the chrome, so the website's shared
 // bundle must not carry it (BackButton, link interception, history depth,
@@ -109,6 +110,9 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     webApp.ready();
     webApp.expand();
     if (webApp.isVersionAtLeast("7.7")) webApp.disableVerticalSwipes?.();
+    // Edge to edge on phones; Telegram's overlaid controls are cleared by
+    // the --tg-inset-top padding in globals.css.
+    requestPhoneFullscreen(webApp);
   }, [webApp]);
 
   useEffect(() => {

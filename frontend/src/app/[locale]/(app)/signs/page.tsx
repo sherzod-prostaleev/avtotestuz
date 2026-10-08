@@ -305,7 +305,7 @@ export default function SignsPage({ kiosk = false }: SignsPageProps = {}) {
               transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
               className="w-full max-w-lg"
             >
-              <Card className="relative max-h-[92vh] w-full space-y-4 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:rounded-2xl sm:p-6">
+              <Card className="relative max-h-[min(92vh,calc(100dvh-var(--tg-inset-top,0px)-0.5rem))] w-full space-y-4 overflow-y-auto rounded-b-none rounded-t-3xl p-5 sm:rounded-2xl sm:p-6">
                 <button
                   type="button"
                   onClick={() => setActiveModalSign(null)}
