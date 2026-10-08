@@ -514,3 +514,25 @@ func TestMiniAppLinkClearsPendingBotPasswordReset(t *testing.T) {
 		t.Fatal("link-webapp left the pending reset armed")
 	}
 }
+
+// LinkTelegramWebApp must refuse a banned profile even when nothing is linked
+// yet and the proof is perfect (RejectBanned middleware is not the only gate).
+func TestLinkTelegramWebAppRefusesBannedProfile(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	const phone = "+998901160005"
+	reg, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: "bannedlink-pass-1", Name: "B"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Pool.Exec(ctx, `UPDATE profile SET status='banned' WHERE id=$1`, reg.Profile.ID); err != nil {
+		t.Fatal(err)
+	}
+	raw := signInitData(t, testBotToken, webAppFields(5160, time.Now()))
+	contact := signContact(t, testBotToken, 5160, "998901160005", time.Now())
+	if linked, err := svc.LinkTelegramWebApp(ctx, reg.Profile.ID, raw, contact); err == nil || linked {
+		t.Fatalf("banned profile: linked=%v err=%v", linked, err)
+	}
+	if _, ok := tgLinkOf(t, svc, reg.Profile.ID); ok {
+		t.Fatal("a banned profile got a Telegram link")
+	}
+}
