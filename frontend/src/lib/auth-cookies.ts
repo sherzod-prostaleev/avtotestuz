@@ -104,13 +104,45 @@ export function setAuthCookies(
   }
 }
 
-export function clearAuthCookies(res: NextResponse, mode: CookieMode = "site"): void {
+/**
+ * `endSitePair` (logout only): in Telegram mode also expire the website's lax
+ * pair, for a WebView that holds both (see expireSiteSessionFirst). Refresh
+ * failures in the proxy/refresh routes leave it off — they only drop the
+ * session they were rotating.
+ */
+export function clearAuthCookies(
+  res: NextResponse,
+  mode: CookieMode = "site",
+  { endSitePair = false }: { endSitePair?: boolean } = {}
+): void {
   const options = optionsFor(mode);
   res.cookies.set(AUTH_COOKIE, "", { ...options, maxAge: 0 });
   res.cookies.set(REFRESH_COOKIE, "", { ...options, maxAge: 0 });
   if (mode === "telegram") {
     res.cookies.set(TG_MODE_COOKIE, "", { ...options, maxAge: 0 });
+    if (endSitePair) expireSiteSessionFirst(res);
   }
+}
+
+/**
+ * Every value sent under `name`, in header order. Telegram's Android WebView
+ * can send a partitioned and an unpartitioned cookie of the same name at once;
+ * logout needs all of them, readCookie only returns the first.
+ */
+export function readCookieValues(request: Request, name: string): string[] {
+  const header = request.headers.get("cookie");
+  if (!header) return [];
+  const values: string[] = [];
+  for (const part of header.split(";")) {
+    const c = part.trim();
+    if (!c.startsWith(`${name}=`)) continue;
+    try {
+      values.push(decodeURIComponent(c.slice(name.length + 1)));
+    } catch {
+      // Malformed value: skipped, like readCookie treats it as missing.
+    }
+  }
+  return values;
 }
 
 // Reads a cookie directly from the request's Cookie header rather than via

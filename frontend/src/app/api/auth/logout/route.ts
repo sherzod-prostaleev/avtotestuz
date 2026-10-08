@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
-import { clearAuthCookies, cookieModeFor, readCookie, REFRESH_COOKIE } from "@/lib/auth-cookies";
+import { clearAuthCookies, cookieModeFor, readCookieValues, REFRESH_COOKIE } from "@/lib/auth-cookies";
 import { rejectCrossSite } from "@/lib/same-origin";
 
 // Cookies are cleared unconditionally — logout must never leave the client
@@ -11,20 +11,25 @@ export async function POST(request: Request) {
   const refused = rejectCrossSite(request);
   if (refused) return refused;
 
-  const refreshToken = readCookie(request, REFRESH_COOKIE);
-  if (refreshToken) {
-    try {
-      await backendFetch("/auth/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ refresh_token: refreshToken }),
-      });
-    } catch {
-      // Ignored deliberately — cookies are cleared below regardless.
-    }
-  }
+  // Usually one value; a Telegram WebView that also holds the website's lax
+  // pair sends two "rt" cookies, and both sessions must end. Capped so a
+  // crafted Cookie header cannot fan out into many backend calls.
+  const refreshTokens = [...new Set(readCookieValues(request, REFRESH_COOKIE).filter(Boolean))].slice(0, 2);
+  await Promise.all(
+    refreshTokens.map(async (refreshToken) => {
+      try {
+        await backendFetch("/auth/logout", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ refresh_token: refreshToken }),
+        });
+      } catch {
+        // Ignored deliberately — cookies are cleared below regardless.
+      }
+    })
+  );
 
   const response = NextResponse.json({ data: { ok: true } }, { status: 200 });
-  clearAuthCookies(response, cookieModeFor(request));
+  clearAuthCookies(response, cookieModeFor(request), { endSitePair: true });
   return response;
 }
