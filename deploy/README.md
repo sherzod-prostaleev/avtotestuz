@@ -309,6 +309,22 @@ safe ways back:
   containers are already running and do not migrate again, and the old code
   works on the expanded schema. Do not restart them until the database is
   rolled down or the new image is back.
+  **Before rolling forward again** (switching back to the new slot), run in
+  the postgres container:
+
+  ```sql
+  UPDATE telegram_account SET phone_verified_at = NULL WHERE linked_at > phone_verified_at;
+  ```
+
+  Why: the old code's link upsert (`/start <token>`) knows nothing about
+  `phone_verified_at`. Re-pointing a profile's link to a different Telegram
+  account during the rollback window bumps `linked_at` but keeps the previous
+  account's proof, so after the roll-forward that new Telegram account would
+  be signed in to the Mini App without ever proving the phone (the takeover
+  0076 exists to stop). New code always writes `linked_at` and
+  `phone_verified_at` in the same statement, so a link newer than its proof
+  can only come from the old code or from a same-account legacy re-link;
+  clearing the latter too costs that learner one phone share, nothing more.
 - **Roll the schema down first**, then start the older image: apply the down
   files newest first (`0076_*.down.sql`, then `0075_*.down.sql` for an image
   older than 0075) with `psql` in the postgres container and set
