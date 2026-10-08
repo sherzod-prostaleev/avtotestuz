@@ -388,6 +388,14 @@ func (s *QuizService) sendNextQuestion(ctx context.Context, session sqlc.Telegra
 
 	msgID, pollID, err := s.TG.SendPoll(ctx, session.ChatID, req)
 	if err != nil {
+		// No poll, so the number reserved above was never asked. Hand it
+		// back: otherwise every attempt (a redelivered /quiz, the next /next)
+		// burns a question when polls are forbidden in the chat.
+		if rerr := s.Q.RetreatQuizSessionQuestion(ctx, sqlc.RetreatQuizSessionQuestionParams{
+			ID: session.ID, QuestionNo: questionNo,
+		}); rerr != nil {
+			return errors.Join(err, rerr)
+		}
 		return err
 	}
 

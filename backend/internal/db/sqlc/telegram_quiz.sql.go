@@ -470,6 +470,26 @@ func (q *Queries) RandomPollableQuestionIDs(ctx context.Context, arg RandomPolla
 	return items, nil
 }
 
+const retreatQuizSessionQuestion = `-- name: RetreatQuizSessionQuestion :exec
+UPDATE telegram_quiz_session
+SET question_no = question_no - 1
+WHERE id = $1 AND question_no = $2
+`
+
+type RetreatQuizSessionQuestionParams struct {
+	ID         uuid.UUID `json:"id"`
+	QuestionNo int32     `json:"question_no"`
+}
+
+// Gives back the number AdvanceQuizSessionQuestion reserved when the poll
+// for it was never sent, so a failed send (and Telegram's redelivery of the
+// same update) does not walk the game forward unseen. Guarded on the number
+// so a concurrent advance is never undone.
+func (q *Queries) RetreatQuizSessionQuestion(ctx context.Context, arg RetreatQuizSessionQuestionParams) error {
+	_, err := q.db.Exec(ctx, retreatQuizSessionQuestion, arg.ID, arg.QuestionNo)
+	return err
+}
+
 const setQuizSessionMode = `-- name: SetQuizSessionMode :exec
 UPDATE telegram_quiz_session
 SET mode = $1, total_questions = $2

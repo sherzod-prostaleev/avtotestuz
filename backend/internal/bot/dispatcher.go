@@ -96,6 +96,48 @@ func (b *Bot) replyErr(err error) error {
 	return err
 }
 
+// quizErr is replyErr for the quiz paths, whose sends are buried in
+// QuizService and can come back joined with other errors. When every error
+// in the tree is a permanent Telegram rejection (bot muted in the group,
+// polls not allowed there, user blocked the bot) it is logged and dropped,
+// for the same reason as replyErr: a 503 makes Telegram redeliver an update
+// that can never succeed. Anything else in the tree — a DB failure, a 429,
+// a 5xx, a transport error — keeps the whole error, so it is retried.
+func (b *Bot) quizErr(err error) error {
+	if err == nil || !onlyPermanentTelegram(err) {
+		return err
+	}
+	var api *APIError
+	errors.As(err, &api)
+	b.logger().Warn("bot: quiz message not delivered",
+		zap.String("method", api.Method), zap.Int("code", api.Code))
+	return nil
+}
+
+func onlyPermanentTelegram(err error) bool {
+	if api, ok := err.(*APIError); ok {
+		return api.Permanent()
+	}
+	switch u := err.(type) {
+	case interface{ Unwrap() []error }:
+		errs := u.Unwrap()
+		if len(errs) == 0 {
+			return false
+		}
+		for _, e := range errs {
+			if e != nil && !onlyPermanentTelegram(e) {
+				return false
+			}
+		}
+		return true
+	case interface{ Unwrap() error }:
+		if inner := u.Unwrap(); inner != nil {
+			return onlyPermanentTelegram(inner)
+		}
+	}
+	return false
+}
+
 // HandleUpdate processes one Telegram update. Infra failures return an
 // error; bad user input always gets a reply so webhooks can stay 200.
 func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
@@ -119,7 +161,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		if b.Quiz == nil {
 			return nil
 		}
-		if err := b.Quiz.HandleCallback(ctx, *u.CallbackQuery); err != nil {
+		if err := b.quizErr(b.Quiz.HandleCallback(ctx, *u.CallbackQuery)); err != nil {
 			b.logger().Error("bot: quiz callback failed", zap.Error(err))
 			return err
 		}
@@ -155,7 +197,9 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		if err := b.Quiz.StartGame(ctx, chatID, tgUserID, chatType); err != nil {
-			b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			if err = b.quizErr(err); err != nil {
+				b.logger().Error("bot: quiz start failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			}
 			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)))
 		}
 		return nil
@@ -164,7 +208,9 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
 		if err := b.Quiz.StartOrNext(ctx, chatID, tgUserID); err != nil {
-			b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			if err = b.quizErr(err); err != nil {
+				b.logger().Error("bot: quiz next failed", zap.Error(err), zap.Int64("chat_id", chatID))
+			}
 			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable)))
 		}
 		return nil
@@ -172,7 +218,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		if b.Quiz == nil {
 			return b.replyErr(b.TG.SendMessage(ctx, chatID, msgQuizUnavailable))
 		}
-		if err := b.Quiz.Stop(ctx, chatID); err != nil {
+		if err := b.quizErr(b.Quiz.Stop(ctx, chatID)); err != nil {
 			b.logger().Error("bot: quiz stop failed", zap.Error(err))
 			return errors.Join(err, b.replyErr(b.TG.SendMessage(ctx, chatID, msgLinkInternal)))
 		}

@@ -106,6 +106,15 @@ SET question_no = question_no + 1, last_activity_at = now()
 WHERE id = $1 AND active = true
 RETURNING question_no;
 
+-- name: RetreatQuizSessionQuestion :exec
+-- Gives back the number AdvanceQuizSessionQuestion reserved when the poll
+-- for it was never sent, so a failed send (and Telegram's redelivery of the
+-- same update) does not walk the game forward unseen. Guarded on the number
+-- so a concurrent advance is never undone.
+UPDATE telegram_quiz_session
+SET question_no = question_no - 1
+WHERE id = sqlc.arg(id) AND question_no = sqlc.arg(question_no);
+
 -- name: CreateQuizPoll :exec
 INSERT INTO telegram_quiz_poll
   (poll_id, session_id, question_id, question_no, correct_idx)
