@@ -199,7 +199,18 @@ func (s *Service) BeginTelegramPasswordReset(ctx context.Context, rawToken strin
 	if strings.TrimSpace(rawToken) == "" || tgUserID == 0 {
 		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
 	}
+	res, err := s.beginTelegramPasswordReset(ctx, rawToken, tgUserID)
+	if isUniqueViolation(err) {
+		// Two /start pwr_ of the same Telegram user for different resets ran
+		// at once: each cleared the other's (not yet committed) pending mark,
+		// then one lost on the pending index. Once is enough: the retry sees
+		// the winner's committed row and clears it like any older reset.
+		res, err = s.beginTelegramPasswordReset(ctx, rawToken, tgUserID)
+	}
+	return res, err
+}
 
+func (s *Service) beginTelegramPasswordReset(ctx context.Context, rawToken string, tgUserID int64) (TelegramResetBegin, error) {
 	tx, err := s.Pool.Begin(ctx)
 	if err != nil {
 		return TelegramResetBegin{}, err
@@ -341,7 +352,9 @@ func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUse
 		return TelegramResetBegin{}, err
 	}
 	if !resetTokenLive(row) {
-		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
+		// Expired while waiting: for this contact nothing is waiting any more,
+		// and it may well be the Mini App's phone share rather than a reply.
+		return TelegramResetBegin{Outcome: TelegramResetNone}, nil
 	}
 	normalized, err := NormalizeTelegramContactPhone(contactPhone)
 	if err != nil {

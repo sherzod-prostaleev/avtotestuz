@@ -27,9 +27,10 @@ type WebAppLoginResult struct {
 // and go through the ordinary phone sign-in/registration (spec §1.2) — a
 // Telegram identity never creates a profile on its own.
 func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) (WebAppLoginResult, error) {
-	// The IP limit runs first so a flood of forged init data is throttled
-	// before we spend HMAC work on it; the per-user limit needs a valid id.
-	if err := s.rateLimitTelegramIP(ctx, ip); err != nil {
+	// The IP check runs first so an IP that already sent a flood of forged
+	// init data is refused before we spend HMAC work on it; the per-user
+	// limit needs a valid id.
+	if err := s.checkTelegramIPFailures(ctx, ip); err != nil {
 		return WebAppLoginResult{}, err
 	}
 	if !s.miniAppEnabled() {
@@ -37,6 +38,9 @@ func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) 
 	}
 	u, err := ValidateInitData(initData, s.TelegramBotToken, s.clock(), InitDataMaxAge)
 	if err != nil {
+		if limErr := s.noteTelegramIPFailure(ctx, ip); limErr != nil {
+			return WebAppLoginResult{}, limErr
+		}
 		return WebAppLoginResult{}, err
 	}
 	if err := s.rateLimitTelegramUser(ctx, u.ID); err != nil {
@@ -83,21 +87,37 @@ func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) 
 	return WebAppLoginResult{Tokens: toks, Profile: profile, FirstName: u.FirstName}, nil
 }
 
-func (s *Service) rateLimitTelegramIP(ctx context.Context, ip string) error {
+// telegramIPFailureLimit caps FAILED init data validations per IP per hour.
+// Only failures count: Uzbek mobile carriers put many phones behind one CGNAT
+// IP and a classroom shares one Wi-Fi IP, so successful sign-ins are limited
+// per Telegram user (30/h) only. This bucket just brakes forged-payload floods.
+const telegramIPFailureLimit = 300
+
+func telegramIPFailureKey(ip string) string { return "tgwebapp:ip:" + ip }
+
+// checkTelegramIPFailures refuses an IP whose failure budget is spent,
+// without counting this request.
+func (s *Service) checkTelegramIPFailures(ctx context.Context, ip string) error {
 	if ip == "" {
 		return nil
 	}
-	// Generous on purpose: Uzbek mobile carriers put many phones behind one
-	// CGNAT IP and a classroom shares one Wi-Fi IP. The per-Telegram-user limit
-	// (30/h) is the real per-person brake; this only caps garbage floods.
-	ok, err := s.Lim.Allow(ctx, "tgwebapp:ip:"+ip, 300, time.Hour)
+	n, err := s.Lim.Count(ctx, telegramIPFailureKey(ip))
 	if err != nil {
 		return err
 	}
-	if !ok {
+	if n >= telegramIPFailureLimit {
 		return ErrRateLimited
 	}
 	return nil
+}
+
+// noteTelegramIPFailure counts one failed validation against ip.
+func (s *Service) noteTelegramIPFailure(ctx context.Context, ip string) error {
+	if ip == "" {
+		return nil
+	}
+	_, err := s.Lim.Allow(ctx, telegramIPFailureKey(ip), telegramIPFailureLimit, time.Hour)
+	return err
 }
 
 func (s *Service) rateLimitTelegramUser(ctx context.Context, tgUserID int64) error {
@@ -125,8 +145,15 @@ var (
 	errLinkPhoneMismatch = errors.New("telegram phone is not the profile phone")
 )
 
+// logLinkSkipped is Warn for a proof that failed and Debug for no contact at
+// all, which is simply a learner who typed their phone (the Mini App then
+// asks for the share via link-webapp) and would otherwise flood the Warn log.
 func (s *Service) logLinkSkipped(profileID uuid.UUID, err error) {
-	s.logger().Warn("auth.telegram_link_skipped", zap.String("profile_id", profileID.String()), zap.Error(err))
+	level := zap.WarnLevel
+	if errors.Is(err, errLinkNoContact) {
+		level = zap.DebugLevel
+	}
+	s.logger().Log(level, "auth.telegram_link_skipped", zap.String("profile_id", profileID.String()), zap.Error(err))
 }
 
 // linkTelegramInTx links the Mini App's Telegram account to profile inside

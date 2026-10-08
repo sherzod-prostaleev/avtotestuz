@@ -54,7 +54,10 @@ Nothing outside the signed string is trusted. Empty bot token →
 
 `Service.TelegramWebAppLogin(ctx, initData, ip)`:
 
-- Rate limit: `tgwebapp:tg:<id>` 30/h and `tgwebapp:ip:<ip>` 60/h (same Limiter).
+- Rate limit: `tgwebapp:tg:<id>` 30/h per Telegram user, and
+  `tgwebapp:ip:<ip>` 300/h counting only **failed** init data validations
+  (checked before HMAC work; CGNAT and classroom Wi-Fi share one IP, so valid
+  sign-ins never spend it — audit-2 M3).
 - `GetTelegramAccountByTgUserID`:
   - found but `phone_verified_at IS NULL` (a legacy `/start <token>` link, which
     proves nothing about who owns the profile) → `200 {need_phone: true,
