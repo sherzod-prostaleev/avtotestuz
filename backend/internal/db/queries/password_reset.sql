@@ -8,18 +8,18 @@ DELETE FROM password_reset_token
 WHERE profile_id = $1 AND used_at IS NULL;
 
 -- name: GetPasswordResetTokenByHash :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE token_hash = $1;
 
 -- name: GetPasswordResetTokenByHashForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE token_hash = $1
 FOR UPDATE;
 
 -- name: GetLivePasswordResetByPendingTgForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE pending_tg_user_id = $1 AND used_at IS NULL
 ORDER BY created_at DESC
@@ -52,7 +52,7 @@ SET confirm_nonce_hash = $2
 WHERE id = $1 AND used_at IS NULL AND verified_at IS NULL;
 
 -- name: GetPasswordResetByConfirmNonceForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE confirm_nonce_hash = $1
 FOR UPDATE;
@@ -67,8 +67,12 @@ SET used_at = now(),
 WHERE id = $1 AND used_at IS NULL;
 
 -- name: MarkPasswordResetVerified :exec
+-- The right-hand side reads the pre-update row, so the confirming Telegram
+-- user moves from pending_tg_user_id (whose unique index must free up) into
+-- verified_tg_user_id for CompletePasswordReset.
 UPDATE password_reset_token
 SET verified_at = now(),
+    verified_tg_user_id = pending_tg_user_id,
     pending_tg_user_id = NULL,
     confirm_nonce_hash = NULL
 WHERE id = $1 AND used_at IS NULL;

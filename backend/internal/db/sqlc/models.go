@@ -535,6 +535,7 @@ type PasswordResetToken struct {
 	PendingTgUserID  pgtype.Int8        `json:"pending_tg_user_id"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	ConfirmNonceHash pgtype.Text        `json:"confirm_nonce_hash"`
+	VerifiedTgUserID pgtype.Int8        `json:"verified_tg_user_id"`
 }
 
 type PaymeTransaction struct {
@@ -850,10 +851,11 @@ type TariffTranslation struct {
 }
 
 type TelegramAccount struct {
-	ProfileID uuid.UUID          `json:"profile_id"`
-	TgUserID  int64              `json:"tg_user_id"`
-	Username  string             `json:"username"`
-	LinkedAt  pgtype.Timestamptz `json:"linked_at"`
+	ProfileID       uuid.UUID          `json:"profile_id"`
+	TgUserID        int64              `json:"tg_user_id"`
+	Username        string             `json:"username"`
+	LinkedAt        pgtype.Timestamptz `json:"linked_at"`
+	PhoneVerifiedAt pgtype.Timestamptz `json:"phone_verified_at"`
 }
 
 type TelegramChat struct {

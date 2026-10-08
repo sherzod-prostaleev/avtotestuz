@@ -26,12 +26,12 @@ FOR UPDATE;
 UPDATE telegram_link_token SET used_at = now() WHERE id = $1;
 
 -- name: GetTelegramAccountByTgUserID :one
-SELECT profile_id, tg_user_id, username, linked_at
+SELECT profile_id, tg_user_id, username, linked_at, phone_verified_at
 FROM telegram_account
 WHERE tg_user_id = $1;
 
 -- name: GetTelegramAccountByProfileID :one
-SELECT profile_id, tg_user_id, username, linked_at
+SELECT profile_id, tg_user_id, username, linked_at, phone_verified_at
 FROM telegram_account
 WHERE profile_id = $1;
 
@@ -44,15 +44,32 @@ WHERE profile_id = $1;
 -- and translate to ErrTelegramAccountLinkedElsewhere. That's deliberate: it
 -- is the atomic backstop against a race between two concurrent redemptions
 -- targeting the same Telegram account for two different profiles.
-INSERT INTO telegram_account (profile_id, tg_user_id, username, linked_at)
-VALUES ($1, $2, $3, now())
+--
+-- phone_verified: the caller holds Telegram's own proof of the profile phone
+-- for this Telegram user (signed Mini App contact, or the bot reset's contact
+-- + «Ha, men»). Without it an existing proof is kept only while the row still
+-- points at the same Telegram user; re-pointing it (legacy /start <token>)
+-- drops the proof, because the proof was about the previous account.
+INSERT INTO telegram_account (profile_id, tg_user_id, username, linked_at, phone_verified_at)
+VALUES (
+  sqlc.arg(profile_id), sqlc.arg(tg_user_id), sqlc.arg(username), now(),
+  CASE WHEN sqlc.arg(phone_verified)::boolean THEN now() END
+)
 ON CONFLICT (profile_id) DO UPDATE SET
   tg_user_id = EXCLUDED.tg_user_id,
   username   = EXCLUDED.username,
-  linked_at  = now();
+  linked_at  = now(),
+  phone_verified_at = CASE
+    WHEN EXCLUDED.phone_verified_at IS NOT NULL THEN EXCLUDED.phone_verified_at
+    WHEN telegram_account.tg_user_id = EXCLUDED.tg_user_id THEN telegram_account.phone_verified_at
+  END;
 
 -- name: DeleteTelegramAccountForOtherProfiles :exec
 -- Mini App phone sign-in moves a Telegram account to the profile the person
 -- just proved they own (spec D7). Runs in the same tx as the upsert, so the
 -- tg_user_id unique constraint is never transiently violated by us.
 DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2;
+
+-- name: DeleteTelegramAccountByProfileID :execrows
+-- Website unlink (DELETE /me/telegram) and the password-reset sweep.
+DELETE FROM telegram_account WHERE profile_id = $1;

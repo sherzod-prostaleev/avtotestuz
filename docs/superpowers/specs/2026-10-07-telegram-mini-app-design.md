@@ -56,7 +56,11 @@ Nothing outside the signed string is trusted. Empty bot token →
 
 - Rate limit: `tgwebapp:tg:<id>` 30/h and `tgwebapp:ip:<ip>` 60/h (same Limiter).
 - `GetTelegramAccountByTgUserID`:
-  - found → load profile → `issueSession` (inside a tx, like `Login`) →
+  - found but `phone_verified_at IS NULL` (a legacy `/start <token>` link, which
+    proves nothing about who owns the profile) → `200 {need_phone: true,
+    first_name}`, no session (revised 2026-10-08, audit-2 C1). One signed phone
+    share upgrades the link.
+  - found and phone-verified → load profile → `issueSession` (inside a tx, like `Login`) →
     `200 {access_token, refresh_token, must_change_password}`. A banned profile
     surfaces the existing `403 account_blocked`.
   - not found → `200 {need_phone: true, first_name}`.
@@ -113,8 +117,15 @@ is the kill switch; it also turns Mini App sign-in off
 (`503 telegram_bot_unconfigured`) and all Telegram linking. `/start` replies gain
 an inline `web_app` button with the same URL when configured.
 
-No migration. `telegram_account` already has `UNIQUE(tg_user_id)` and
-`PRIMARY KEY(profile_id)`.
+`telegram_account` already has `UNIQUE(tg_user_id)` and `PRIMARY KEY(profile_id)`.
+Migration 0076 (audit-2 C1, 2026-10-08) adds `telegram_account.phone_verified_at`
+— set only by a D7 link or the bot reset's contact + «Ha, men»; the legacy
+`/start <token>` redeem leaves it NULL and clears it when it re-points a row to
+another Telegram user — and `password_reset_token.verified_tg_user_id` (who
+confirmed the reset). `CompletePasswordReset` deletes the profile's link unless
+it is phone-verified and belongs to that confirming Telegram user.
+`DELETE /me/telegram` (learner auth, idempotent, `200 {unlinked: bool}`) is the
+website unlink; `GET /me/telegram` also returns `phone_verified`.
 
 ## 2. BFF (`frontend/src/app/api`, `frontend/src/lib`)
 
@@ -273,7 +284,9 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 | CloudStorage unavailable (old client) | Treated as auto-login on |
 | Several Telegram accounts in one app share the webview cookie jar | The launching identity wins when the session's profile is linked to another `tg_user_id`; otherwise the live session's fast path |
 | Kill switch (`TELEGRAM_WEBAPP_URL` empty) | `/tg` "vaqtincha mavjud emas", no linking, menu button reset |
-| Shared phone after logout | Advisory: "continue as" signs back in with one tap; real removal = bot `/unlink` |
+| Shared phone after logout | Advisory: "continue as" signs back in with one tap; real removal = bot `/unlink` or website `DELETE /me/telegram` |
+| Legacy `/start <token>` link (no phone proof) | Bot digests keep working; Mini App answers `need_phone` until one signed phone share (C1) |
+| Password reset | Link kept only if phone-verified and owned by the Telegram user who confirmed the reset; otherwise deleted |
 
 ## 6. Testing
 
@@ -302,6 +315,9 @@ buttons (to the existing pages), and «<first_name> sifatida davom etish» when
 
 ## 7. Rollout
 
-Backend + frontend deploy together; no migration. Set `TELEGRAM_WEBAPP_URL` in
+Backend + frontend deploy together; migration 0076 (additive, nullable
+columns). Existing links start unverified, so their Mini App auto-login asks
+for one phone share. Rolling back to an image older than 0076 needs the
+migrations rolled down first (see deploy/README.md). Set `TELEGRAM_WEBAPP_URL` in
 prod env to turn the menu button on; clear it to turn it off. Optional manual
 step in BotFather: "Configure Mini App" for `t.me/<bot>?startapp` links.

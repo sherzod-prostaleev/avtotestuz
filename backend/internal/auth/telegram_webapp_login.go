@@ -49,6 +49,15 @@ func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) 
 	if err != nil {
 		return WebAppLoginResult{}, err
 	}
+	// Only a link Telegram vouched for (a signed phone share, or the bot
+	// reset's contact + «Ha, men») stands in for the password. A legacy
+	// /start <token> link proves nothing about who owns the profile: a token
+	// minted on an attacker's profile binds the victim's Telegram to it, and
+	// an intruder's link would outlive the owner's password reset. Those
+	// learners share their phone once; the row itself stays for bot digests.
+	if !account.PhoneVerifiedAt.Valid {
+		return WebAppLoginResult{NeedPhone: true, FirstName: u.FirstName}, nil
+	}
 	profile, err := s.Q.GetProfileByID(ctx, account.ProfileID)
 	if err != nil {
 		return WebAppLoginResult{}, err
@@ -182,7 +191,7 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		s.logLinkSkipped(profile.ID, err)
 		return false
 	}
-	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: u.ID, Username: u.Username}); err != nil {
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: u.ID, Username: u.Username, PhoneVerified: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return false
 	}

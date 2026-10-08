@@ -91,7 +91,7 @@ func (q *Queries) DeleteUnusedPasswordResetTokensForProfile(ctx context.Context,
 }
 
 const getLivePasswordResetByPendingTgForUpdate = `-- name: GetLivePasswordResetByPendingTgForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE pending_tg_user_id = $1 AND used_at IS NULL
 ORDER BY created_at DESC
@@ -112,12 +112,13 @@ func (q *Queries) GetLivePasswordResetByPendingTgForUpdate(ctx context.Context, 
 		&i.PendingTgUserID,
 		&i.CreatedAt,
 		&i.ConfirmNonceHash,
+		&i.VerifiedTgUserID,
 	)
 	return i, err
 }
 
 const getPasswordResetByConfirmNonceForUpdate = `-- name: GetPasswordResetByConfirmNonceForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE confirm_nonce_hash = $1
 FOR UPDATE
@@ -136,12 +137,13 @@ func (q *Queries) GetPasswordResetByConfirmNonceForUpdate(ctx context.Context, c
 		&i.PendingTgUserID,
 		&i.CreatedAt,
 		&i.ConfirmNonceHash,
+		&i.VerifiedTgUserID,
 	)
 	return i, err
 }
 
 const getPasswordResetTokenByHash = `-- name: GetPasswordResetTokenByHash :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE token_hash = $1
 `
@@ -159,12 +161,13 @@ func (q *Queries) GetPasswordResetTokenByHash(ctx context.Context, tokenHash str
 		&i.PendingTgUserID,
 		&i.CreatedAt,
 		&i.ConfirmNonceHash,
+		&i.VerifiedTgUserID,
 	)
 	return i, err
 }
 
 const getPasswordResetTokenByHashForUpdate = `-- name: GetPasswordResetTokenByHashForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash, verified_tg_user_id
 FROM password_reset_token
 WHERE token_hash = $1
 FOR UPDATE
@@ -183,6 +186,7 @@ func (q *Queries) GetPasswordResetTokenByHashForUpdate(ctx context.Context, toke
 		&i.PendingTgUserID,
 		&i.CreatedAt,
 		&i.ConfirmNonceHash,
+		&i.VerifiedTgUserID,
 	)
 	return i, err
 }
@@ -203,11 +207,15 @@ func (q *Queries) MarkPasswordResetUsed(ctx context.Context, id uuid.UUID) error
 const markPasswordResetVerified = `-- name: MarkPasswordResetVerified :exec
 UPDATE password_reset_token
 SET verified_at = now(),
+    verified_tg_user_id = pending_tg_user_id,
     pending_tg_user_id = NULL,
     confirm_nonce_hash = NULL
 WHERE id = $1 AND used_at IS NULL
 `
 
+// The right-hand side reads the pre-update row, so the confirming Telegram
+// user moves from pending_tg_user_id (whose unique index must free up) into
+// verified_tg_user_id for CompletePasswordReset.
 func (q *Queries) MarkPasswordResetVerified(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markPasswordResetVerified, id)
 	return err

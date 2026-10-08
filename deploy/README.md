@@ -276,16 +276,45 @@ links (it can be copied into a phishing link). A learner who typed their
 number is asked once, after sign-in, to share it; declining just leaves the
 account unlinked (`auth.telegram_link_skipped` logs the reason).
 
+Auto-login needs a **phone-verified** link (`telegram_account.phone_verified_at`,
+migration 0076). Links made the old way (`/start <token>` from the website
+link card) prove nothing about who owns the profile, so the Mini App answers
+`need_phone` for them until the learner shares the phone once; bot digests and
+`/status` keep working off them. All links existing before 0076 start
+unverified, so every already-linked learner sees the phone sheet once after
+this deploy - expected. A password reset deletes the link unless it is
+phone-verified and belongs to the Telegram account that confirmed the reset
+(`auth.telegram_link_dropped_on_reset`).
+
 Shared phones: logout inside the Mini App is **advisory**. It turns
 auto-login off for that Telegram account (CloudStorage `autologin_off`) and
 clears the cookies, but the account stays linked (bot digests and the bot
 password reset rely on it) and "continue as" signs back in with one tap.
 Anyone holding the same unlocked Telegram account can do that. To really
-take a Telegram account off a profile, unlink it in the bot (`/unlink`).
+take a Telegram account off a profile, unlink it in the bot (`/unlink`) or on
+the website (`DELETE /me/telegram`, the profile's own link).
 
 Framing: learner pages send CSP `frame-ancestors 'self' https://web.telegram.org`
 and no `X-Frame-Options`; `/admin` keeps `frame-ancestors 'none'` + `DENY`
 and does not allow the Telegram SDK origin in `script-src`.
+
+Rollback: this feature adds migrations 0075 (`password_reset_token.confirm_nonce_hash`)
+and 0076 (`telegram_account.phone_verified_at`, `password_reset_token.verified_tg_user_id`),
+both additive. The API migrates up on every start, and golang-migrate refuses
+to start when the database is at a version its embedded files do not know, so
+an image older than 0076 **cannot (re)start** against a migrated database. Two
+safe ways back:
+
+- **Slot switch only** (`switch-app-slot.sh --to stable --apply`): the stable
+  containers are already running and do not migrate again, and the old code
+  works on the expanded schema. Do not restart them until the database is
+  rolled down or the new image is back.
+- **Roll the schema down first**, then start the older image: apply the down
+  files newest first (`0076_*.down.sql`, then `0075_*.down.sql` for an image
+  older than 0075) with `psql` in the postgres container and set
+  `UPDATE schema_migrations SET version = <target>, dirty = false` (75 or 74).
+  Down drops the columns: every link's phone proof and any open bot reset
+  question are lost - learners re-share the phone / restart the reset.
 
 ### Manual device checklist (before announcing)
 

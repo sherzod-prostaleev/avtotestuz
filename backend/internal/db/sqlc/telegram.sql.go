@@ -36,6 +36,19 @@ func (q *Queries) CreateLinkToken(ctx context.Context, arg CreateLinkTokenParams
 	return i, err
 }
 
+const deleteTelegramAccountByProfileID = `-- name: DeleteTelegramAccountByProfileID :execrows
+DELETE FROM telegram_account WHERE profile_id = $1
+`
+
+// Website unlink (DELETE /me/telegram) and the password-reset sweep.
+func (q *Queries) DeleteTelegramAccountByProfileID(ctx context.Context, profileID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTelegramAccountByProfileID, profileID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteTelegramAccountForOtherProfiles = `-- name: DeleteTelegramAccountForOtherProfiles :exec
 DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2
 `
@@ -99,7 +112,7 @@ func (q *Queries) GetLinkTokenByHashForUpdate(ctx context.Context, tokenHash str
 }
 
 const getTelegramAccountByProfileID = `-- name: GetTelegramAccountByProfileID :one
-SELECT profile_id, tg_user_id, username, linked_at
+SELECT profile_id, tg_user_id, username, linked_at, phone_verified_at
 FROM telegram_account
 WHERE profile_id = $1
 `
@@ -112,12 +125,13 @@ func (q *Queries) GetTelegramAccountByProfileID(ctx context.Context, profileID u
 		&i.TgUserID,
 		&i.Username,
 		&i.LinkedAt,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }
 
 const getTelegramAccountByTgUserID = `-- name: GetTelegramAccountByTgUserID :one
-SELECT profile_id, tg_user_id, username, linked_at
+SELECT profile_id, tg_user_id, username, linked_at, phone_verified_at
 FROM telegram_account
 WHERE tg_user_id = $1
 `
@@ -130,6 +144,7 @@ func (q *Queries) GetTelegramAccountByTgUserID(ctx context.Context, tgUserID int
 		&i.TgUserID,
 		&i.Username,
 		&i.LinkedAt,
+		&i.PhoneVerifiedAt,
 	)
 	return i, err
 }
@@ -144,18 +159,26 @@ func (q *Queries) MarkLinkTokenUsed(ctx context.Context, id uuid.UUID) error {
 }
 
 const upsertTelegramAccount = `-- name: UpsertTelegramAccount :exec
-INSERT INTO telegram_account (profile_id, tg_user_id, username, linked_at)
-VALUES ($1, $2, $3, now())
+INSERT INTO telegram_account (profile_id, tg_user_id, username, linked_at, phone_verified_at)
+VALUES (
+  $1, $2, $3, now(),
+  CASE WHEN $4::boolean THEN now() END
+)
 ON CONFLICT (profile_id) DO UPDATE SET
   tg_user_id = EXCLUDED.tg_user_id,
   username   = EXCLUDED.username,
-  linked_at  = now()
+  linked_at  = now(),
+  phone_verified_at = CASE
+    WHEN EXCLUDED.phone_verified_at IS NOT NULL THEN EXCLUDED.phone_verified_at
+    WHEN telegram_account.tg_user_id = EXCLUDED.tg_user_id THEN telegram_account.phone_verified_at
+  END
 `
 
 type UpsertTelegramAccountParams struct {
-	ProfileID uuid.UUID `json:"profile_id"`
-	TgUserID  int64     `json:"tg_user_id"`
-	Username  string    `json:"username"`
+	ProfileID     uuid.UUID `json:"profile_id"`
+	TgUserID      int64     `json:"tg_user_id"`
+	Username      string    `json:"username"`
+	PhoneVerified bool      `json:"phone_verified"`
 }
 
 // ON CONFLICT targets profile_id (the primary key) only: re-linking the same
@@ -166,7 +189,18 @@ type UpsertTelegramAccountParams struct {
 // and translate to ErrTelegramAccountLinkedElsewhere. That's deliberate: it
 // is the atomic backstop against a race between two concurrent redemptions
 // targeting the same Telegram account for two different profiles.
+//
+// phone_verified: the caller holds Telegram's own proof of the profile phone
+// for this Telegram user (signed Mini App contact, or the bot reset's contact
+// + «Ha, men»). Without it an existing proof is kept only while the row still
+// points at the same Telegram user; re-pointing it (legacy /start <token>)
+// drops the proof, because the proof was about the previous account.
 func (q *Queries) UpsertTelegramAccount(ctx context.Context, arg UpsertTelegramAccountParams) error {
-	_, err := q.db.Exec(ctx, upsertTelegramAccount, arg.ProfileID, arg.TgUserID, arg.Username)
+	_, err := q.db.Exec(ctx, upsertTelegramAccount,
+		arg.ProfileID,
+		arg.TgUserID,
+		arg.Username,
+		arg.PhoneVerified,
+	)
 	return err
 }

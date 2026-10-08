@@ -134,6 +134,10 @@ func (s *LinkService) RedeemLinkToken(ctx context.Context, rawToken string, tgUs
 		return RedeemResult{}, err
 	}
 
+	// No phone proof here (PhoneVerified false): the token only shows that
+	// someone signed in to the profile minted it, not that the person opening
+	// it owns the profile. Such a link serves bot digests but never Mini App
+	// sign-in (auth.TelegramWebAppLogin), and re-pointing drops an old proof.
 	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
 		ProfileID: tokenRow.ProfileID,
 		TgUserID:  tgUserID,
@@ -168,6 +172,11 @@ type TelegramStatus struct {
 	// which the Mini App compares with the launching user (usernames are
 	// optional and can change, ids cannot).
 	TgUserID int64 `json:"tg_user_id,omitempty"`
+	// PhoneVerified: Telegram vouched for the profile phone on this link, so
+	// the Mini App may sign in with it. A linked-but-unverified learner (old
+	// /start <token> link) gets need_phone there and must share the phone
+	// once (POST /me/telegram/link-webapp).
+	PhoneVerified bool `json:"phone_verified"`
 }
 
 // Unlink removes the telegram_account row for tgUserID. Idempotent: missing
@@ -183,6 +192,16 @@ func (s *LinkService) Unlink(ctx context.Context, tgUserID int64) error {
 	return nil
 }
 
+// UnlinkProfile removes profileID's own Telegram link (DELETE /me/telegram).
+// Idempotent: false means there was nothing to remove.
+func (s *LinkService) UnlinkProfile(ctx context.Context, profileID uuid.UUID) (bool, error) {
+	n, err := s.Q.DeleteTelegramAccountByProfileID(ctx, profileID)
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
 // Status reports whether profileID has a bound Telegram account.
 func (s *LinkService) Status(ctx context.Context, profileID uuid.UUID) (TelegramStatus, error) {
 	acc, err := s.Q.GetTelegramAccountByProfileID(ctx, profileID)
@@ -192,7 +211,7 @@ func (s *LinkService) Status(ctx context.Context, profileID uuid.UUID) (Telegram
 		}
 		return TelegramStatus{}, err
 	}
-	out := TelegramStatus{Linked: true, Username: acc.Username, TgUserID: acc.TgUserID}
+	out := TelegramStatus{Linked: true, Username: acc.Username, TgUserID: acc.TgUserID, PhoneVerified: acc.PhoneVerifiedAt.Valid}
 	if acc.LinkedAt.Valid {
 		out.LinkedAt = acc.LinkedAt.Time.UTC().Format(time.RFC3339)
 	}
