@@ -35,8 +35,12 @@ type fakeTelegram struct {
 	answers []string
 	// editChats records the chat_id of each editMessageText.
 	editChats []int64
-	// failAnswer makes answerCallbackQuery return ok:false.
+	// failAnswer makes answerCallbackQuery return ok:false; failEdit and
+	// failSend do the same for editMessageText and sendMessage (the call is
+	// still recorded).
 	failAnswer bool
+	failEdit   bool
+	failSend   bool
 	srv        *httptest.Server
 }
 
@@ -61,7 +65,12 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			f.mu.Lock()
 			f.sent = append(f.sent, text)
 			f.markups = append(f.markups, string(body.Markup))
+			failSend := f.failSend
 			f.mu.Unlock()
+			if failSend {
+				_, _ = w.Write([]byte(`{"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}`))
+				return
+			}
 			msgID++
 			_, _ = fmt.Fprintf(w, `{"ok":true,"result":{"message_id":%d}}`, msgID)
 			return
@@ -95,6 +104,7 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			if strings.Contains(path, "editMessageText") {
 				f.edits = append(f.edits, body.Text)
 				f.editChats = append(f.editChats, body.ChatID)
+				fail = f.failEdit
 			} else {
 				f.answers = append(f.answers, body.Text)
 				fail = f.failAnswer
@@ -652,5 +662,94 @@ func TestHandleUpdate_PasswordResetAckFailureAndKeyboardCleanup(t *testing.T) {
 	}
 	if !strings.Contains(fake.lastMarkup(), `"remove_keyboard":true`) {
 		t.Fatalf("last markup=%q want remove_keyboard", fake.lastMarkup())
+	}
+}
+
+// pendingConfirmReset registers phone, starts a reset and has tgUserID reach
+// the «Ha, men» question through the contact path. Returns the raw reset
+// token and the «Ha, men» callback data.
+func pendingConfirmReset(t *testing.T, b *Bot, svc *auth.Service, fake *fakeTelegram, phone string, tgUserID int64) (raw, yes string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := svc.Register(ctx, auth.RegisterInput{Phone: phone, Password: "secret123", Name: "R"}); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, phone, "10.0.0.9", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = start.BotURL[strings.Index(start.BotURL, "pwr_")+4:]
+	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), tgUserID, "")); err != nil {
+		t.Fatal(err)
+	}
+	contact := Update{UpdateID: 3, Message: &Message{
+		From:    &User{ID: tgUserID},
+		Chat:    Chat{ID: tgUserID, Type: "private"},
+		Contact: &Contact{PhoneNumber: "+998" + phone, UserID: tgUserID},
+	}}
+	if err := b.HandleUpdate(ctx, contact); err != nil {
+		t.Fatal(err)
+	}
+	yes, _ = fake.confirmButtons(t)
+	return raw, yes
+}
+
+// Audit-2 I2: after a committed verify, Telegram API failures (ack, edit,
+// fallback send) must not fail the update. A non-nil return makes the webhook
+// answer 503, Telegram redelivers, the replay is stale, and answering a query
+// that old is a permanent 400 — so it would 503 forever.
+func TestHandleUpdate_PasswordResetCallbackTelegramFailuresNeverRetryStorm(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+	raw, yes := pendingConfirmReset(t, b, svc, fake, "901000023", 2323)
+
+	fake.mu.Lock()
+	fake.failAnswer, fake.failEdit, fake.failSend = true, true, true
+	fake.mu.Unlock()
+	if err := b.HandleUpdate(ctx, callback(2323, yes)); err != nil {
+		t.Fatalf("first delivery: Telegram-side failures after commit must not fail the update: %v", err)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
+		t.Fatalf("status=%s want verified", st)
+	}
+	for i := 1; i <= 3; i++ {
+		if err := b.HandleUpdate(ctx, callback(2323, yes)); err != nil {
+			t.Fatalf("redelivery %d returned %v: Telegram would retry forever", i, err)
+		}
+		if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
+			t.Fatalf("redelivery %d changed state to %s", i, st)
+		}
+	}
+}
+
+// Audit-2 M8: the «Ha, men» question is only ever sent to the private chat;
+// a tap arriving from a group (a forwarded question) must change nothing,
+// even from the right user with the right nonce.
+func TestHandleUpdate_PasswordResetCallbackFromGroupChatIsRefused(t *testing.T) {
+	b, q, fake := newTestBot(t)
+	ctx := context.Background()
+	svc := attachAuth(t, b, q)
+	raw, yes := pendingConfirmReset(t, b, svc, fake, "901000024", 2424)
+
+	for _, chatType := range []string{"group", "supergroup"} {
+		u := callback(2424, yes)
+		u.CallbackQuery.Message.Chat = Chat{ID: -100777, Type: chatType}
+		if err := b.HandleUpdate(ctx, u); err != nil {
+			t.Fatal(err)
+		}
+		if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStatePending {
+			t.Fatalf("%s tap: status=%s want pending", chatType, st)
+		}
+		if got := fake.lastAnswer(); got != msgResetConfirmStale {
+			t.Fatalf("%s tap answer=%q want stale", chatType, got)
+		}
+	}
+	// The private-chat tap still works afterwards.
+	if err := b.HandleUpdate(ctx, callback(2424, yes)); err != nil {
+		t.Fatal(err)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
+		t.Fatalf("private tap: status=%s want verified", st)
 	}
 }

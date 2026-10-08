@@ -423,6 +423,12 @@ func (b *Bot) askPasswordResetConfirm(ctx context.Context, chatID int64, res aut
 // handlePasswordResetCallback answers a «Ha, men» / «Yo'q» tap. The user id
 // comes from Telegram's callback (not the message), so a forwarded question
 // tapped by someone else is rejected by the auth layer.
+//
+// Only a DB/internal failure returns an error (webhook 503, Telegram retries).
+// A Telegram API failure here (ack, edit, send) is logged and swallowed: the
+// auth state is either committed or untouched, a redelivery can only land on
+// the stale path, and answering a query that old is a permanent 400 — so
+// returning it would turn one hiccup into a retry storm.
 func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery) error {
 	var nonce string
 	accept := false
@@ -433,12 +439,14 @@ func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery)
 		nonce = strings.TrimPrefix(cq.Data, cbResetNo)
 	}
 	if b.Auth == nil || nonce == "" || cq.Message == nil || IsGroupChat(cq.Message.Chat.Type) {
-		return b.TG.AnswerCallbackQuery(ctx, cq.ID, msgResetConfirmStale, false)
+		b.ackResetCallback(ctx, cq.ID, msgResetConfirmStale)
+		return nil
 	}
 	res, err := b.Auth.AnswerTelegramPasswordResetConfirm(ctx, cq.From.ID, nonce, accept)
 	if err != nil {
 		b.logger().Error("bot: password reset confirm failed", zap.Error(err), zap.Int64("tg_user_id", cq.From.ID))
-		return errors.Join(err, b.TG.AnswerCallbackQuery(ctx, cq.ID, msgLinkInternal, false))
+		b.ackResetCallback(ctx, cq.ID, msgLinkInternal)
+		return err
 	}
 	var text string
 	switch res.Outcome {
@@ -447,13 +455,10 @@ func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery)
 	case auth.TelegramResetCancelled:
 		text = msgResetCancelled
 	default:
-		return b.TG.AnswerCallbackQuery(ctx, cq.ID, msgResetConfirmStale, false)
+		b.ackResetCallback(ctx, cq.ID, msgResetConfirmStale)
+		return nil
 	}
-	// The state change is committed, so a failed ack must not fail the update:
-	// Telegram would redeliver it and the replay only answers "stale".
-	if err := b.TG.AnswerCallbackQuery(ctx, cq.ID, "", false); err != nil {
-		b.logger().Warn("bot: password reset callback ack failed", zap.Error(err))
-	}
+	b.ackResetCallback(ctx, cq.ID, "")
 	chatID := cq.Message.Chat.ID
 	// The one-time share-contact reply keyboard (contact path) outlives the
 	// inline question; an inline edit cannot carry a ReplyKeyboardRemove, so
@@ -466,8 +471,10 @@ func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery)
 	// treats as no-ops.
 	if err := b.TG.EditMessageText(ctx, chatID, cq.Message.MessageID, text, nil); err != nil {
 		b.logger().Warn("bot: password reset confirm edit failed", zap.Error(err))
-		_, sendErr := b.TG.SendChatText(ctx, chatID, text, remove)
-		return sendErr
+		if _, err := b.TG.SendChatText(ctx, chatID, text, remove); err != nil {
+			b.logger().Warn("bot: password reset confirm send failed", zap.Error(err))
+		}
+		return nil
 	}
 	if remove != nil {
 		if _, err := b.TG.SendChatText(ctx, chatID, msgResetBackToSite, remove); err != nil {
@@ -475,4 +482,12 @@ func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery)
 		}
 	}
 	return nil
+}
+
+// ackResetCallback answers the callback query best-effort (see
+// handlePasswordResetCallback for why a failure is not returned).
+func (b *Bot) ackResetCallback(ctx context.Context, callbackID, text string) {
+	if err := b.TG.AnswerCallbackQuery(ctx, callbackID, text, false); err != nil {
+		b.logger().Warn("bot: password reset callback ack failed", zap.Error(err))
+	}
 }
