@@ -61,3 +61,25 @@ export function resolvePhonePair(
   if (!display && tel) return { phone: tel, phoneTel: tel };
   return { phone: phoneFallback, phoneTel: phoneTelFallback };
 }
+
+/** The public support account when the CMS has none (matches the landing footer). */
+export const SUPPORT_TELEGRAM_FALLBACK = "https://t.me/DriverGo";
+
+/**
+ * The support chat to offer a learner who cannot sign in (e.g. a blocked
+ * account). Only an https t.me link from the CMS is used: it is opened from
+ * inside the Mini App, where anything else would leave Telegram or could be
+ * a mistyped admin value. Anything else falls back to our own account.
+ */
+export function supportTelegramUrl(cmsValue: string | undefined | null): string {
+  const value = (cmsValue ?? "").trim();
+  try {
+    const url = new URL(value);
+    if (url.protocol === "https:" && (url.hostname === "t.me" || url.hostname === "telegram.me") && url.pathname.length > 1) {
+      return url.toString();
+    }
+  } catch {
+    /* not a URL: fall back */
+  }
+  return SUPPORT_TELEGRAM_FALLBACK;
+}

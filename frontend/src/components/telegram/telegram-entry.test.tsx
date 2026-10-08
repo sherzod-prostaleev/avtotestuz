@@ -101,10 +101,10 @@ function logoutCalls(fetchMock: ReturnType<typeof mockFetch>) {
   return fetchMock.mock.calls.filter(([url]) => String(url) === "/api/auth/logout");
 }
 
-function renderEntry() {
+function renderEntry(props: { botUsername?: string | null } = {}) {
   return render(
     <NextIntlClientProvider locale="uz-Latn" messages={messages}>
-      <TelegramEntry />
+      <TelegramEntry {...props} />
     </NextIntlClientProvider>
   );
 }
@@ -120,6 +120,7 @@ afterEach(() => {
   replace.mockClear();
   markSpy.mockClear();
   localStorage.clear();
+  sessionStorage.clear();
   window.history.replaceState(null, "", "/");
 });
 
@@ -264,6 +265,7 @@ describe("TelegramEntry", () => {
     const heading = await screen.findByRole("heading", { name: /Ali/ });
     expect(heading).toBeInTheDocument();
     await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.getByText(messages.TelegramApp.phoneConfirmNote)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Kirish" })).toHaveAttribute("href", "/uz-Latn/login");
     expect(screen.getByRole("link", { name: "Ro'yxatdan o'tish" })).toHaveAttribute("href", "/uz-Latn/register");
     expect(replace).not.toHaveBeenCalled();
@@ -273,7 +275,7 @@ describe("TelegramEntry", () => {
     mockFetch([ME_401], [{ status: 401, body: { error: { code: "invalid_init_data" } } }]);
     renderEntry();
     expect(await screen.findByRole("heading", { name: "Botdan oching" })).toBeInTheDocument();
-    expect(screen.getByText(/Botni qayta oching/)).toBeInTheDocument();
+    expect(screen.getByText(/Botni oching yoki saytda kiring/)).toBeInTheDocument();
   });
 
   it("waits for an explicit tap after a deliberate sign-out", async () => {
@@ -291,16 +293,34 @@ describe("TelegramEntry", () => {
   it("explains a refused cookie instead of opening a broken app", async () => {
     mockFetch([ME_401], [TOKENS_OK]);
     renderEntry();
-    expect(await screen.findByRole("heading", { name: "Telefoningizda oching" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Telegram ilovasida oching" })).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("shows a rate-limit state with a working retry", async () => {
+  it("shows a rate-limit state whose retry unlocks after a 30 s countdown", async () => {
+    vi.useFakeTimers();
     const fetchMock = mockFetch([ME_401], [{ status: 429, body: { error: { code: "rate_limited" } } }, TOKENS_OK]);
     renderEntry();
-    expect(await screen.findByRole("heading", { name: "Juda ko'p urinish" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Qayta urinish" }));
-    await waitFor(() => expect(telegramCalls(fetchMock)).toHaveLength(2));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(screen.getByRole("heading", { name: "Juda ko'p urinish" })).toBeInTheDocument();
+    const waiting = screen.getByRole("button", { name: "Qayta urinish (30)" });
+    expect(waiting).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(screen.getByRole("button", { name: "Qayta urinish (20)" })).toBeDisabled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    const retry = screen.getByRole("button", { name: "Qayta urinish" });
+    expect(retry).toBeEnabled();
+    fireEvent.click(retry);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(telegramCalls(fetchMock)).toHaveLength(2);
   });
 
   it("tells a blocked account to contact support", async () => {
@@ -556,15 +576,29 @@ describe("TelegramEntry", () => {
   });
 
   it("stays on sign-in when retrying after continue-as", async () => {
+    vi.useFakeTimers();
     cloud.set("autologin_off", "1");
     const fetchMock = mockFetch(
       [ME_401],
       [{ status: 429, body: { error: { code: "rate_limited" } } }, { status: 200, body: { data: { need_phone: true } } }]
     );
     renderEntry();
-    fireEvent.click(await screen.findByRole("button", { name: "Ali sifatida davom etish" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Qayta urinish" }));
-    await waitFor(() => expect(telegramCalls(fetchMock)).toHaveLength(2));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ali sifatida davom etish" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    // The rate-limit cool-down has to run out before the retry is offered.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Qayta urinish" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(50);
+    });
+    expect(telegramCalls(fetchMock)).toHaveLength(2);
     // Not bounced back to the "continue as" welcome.
     expect(screen.queryByRole("button", { name: "Ali sifatida davom etish" })).toBeNull();
   });
@@ -593,5 +627,164 @@ describe("TelegramEntry", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+  // Audit-2 I2: Back from /login remounts /tg; the need_phone answer cannot
+  // have changed, so it must not cost another rate-limited sign-in call.
+  it("reuses the need_phone verdict on remount instead of signing in again", async () => {
+    const fetchMock = mockFetch([ME_401], [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }]);
+    const first = renderEntry();
+    expect(await screen.findByRole("heading", { name: /Ali/ })).toBeInTheDocument();
+    first.unmount();
+    renderEntry();
+    expect(await screen.findByRole("heading", { name: /Ali/ })).toBeInTheDocument();
+    expect(telegramCalls(fetchMock)).toHaveLength(1);
+  });
+
+  it("does not reuse another Telegram user's need_phone verdict", async () => {
+    const fetchMock = mockFetch([ME_401], [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }]);
+    const first = renderEntry();
+    expect(await screen.findByRole("heading", { name: /Ali/ })).toBeInTheDocument();
+    first.unmount();
+    const other = fakeWebApp();
+    other.initDataUnsafe = { user: { id: 2, first_name: "Vali" } };
+    useWebApp(other);
+    renderEntry();
+    await waitFor(() => expect(telegramCalls(fetchMock)).toHaveLength(2));
+  });
+
+  it("forgets the need_phone verdict once a sign-in succeeds", async () => {
+    sessionStorage.setItem("tg-need-phone:1", JSON.stringify({ firstName: "Ali" }));
+    const fetchMock = mockFetch([ME_401, { status: 200, body: ME_OK }], [TOKENS_OK]);
+    cloud.set("autologin_off", "1");
+    renderEntry();
+    fireEvent.click(await screen.findByRole("button", { name: "Ali sifatida davom etish" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/uz-Latn/dashboard"));
+    expect(telegramCalls(fetchMock)).toHaveLength(1);
+    expect(sessionStorage.getItem("tg-need-phone:1")).toBeNull();
+  });
+
+  // Audit-2 I3: a deep link's next must survive the phone sign-in detour.
+  it("passes a safe next through the welcome's Kirish and Ro'yxatdan o'tish", async () => {
+    window.history.replaceState(null, "", "/uz-Latn/tg?next=%2Fuz-Latn%2Fpremium%3Fplan%3Dvip");
+    mockFetch([ME_401], [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }]);
+    renderEntry();
+    const login = await screen.findByRole("link", { name: "Kirish" });
+    expect(login).toHaveAttribute("href", "/uz-Latn/login?next=%2Fuz-Latn%2Fpremium%3Fplan%3Dvip");
+    expect(screen.getByRole("link", { name: "Ro'yxatdan o'tish" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/register?next=%2Fuz-Latn%2Fpremium%3Fplan%3Dvip"
+    );
+  });
+
+  it("drops an unsafe next from the welcome links", async () => {
+    window.history.replaceState(null, "", "/uz-Latn/tg?next=https%3A%2F%2Fevil.com");
+    mockFetch([ME_401], [{ status: 200, body: { data: { need_phone: true, first_name: "Ali" } } }]);
+    renderEntry();
+    expect(await screen.findByRole("link", { name: "Kirish" })).toHaveAttribute("href", "/uz-Latn/login");
+  });
+
+  it("puts only the first word of a long Telegram name on the continue button", async () => {
+    const app = fakeWebApp();
+    app.initDataUnsafe = { user: { id: 1, first_name: "Abdurahmonbekjonovich Karimov" } };
+    useWebApp(app);
+    cloud.set("autologin_off", "1");
+    mockFetch([ME_401]);
+    renderEntry();
+    expect(await screen.findByRole("button", { name: "Abdurahmonbekjon… sifatida davom etish" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Abdurahmonbekjonovich Karimov/ })).toBeInTheDocument();
+  });
+
+  it("says Davom etish when Telegram sent no first name", async () => {
+    const app = fakeWebApp();
+    app.initDataUnsafe = { user: { id: 1 } };
+    useWebApp(app);
+    cloud.set("autologin_off", "1");
+    mockFetch([ME_401]);
+    renderEntry();
+    expect(await screen.findByRole("button", { name: "Davom etish" })).toBeInTheDocument();
+  });
+
+  it("says it is connecting, not signing in, before any sign-in call", () => {
+    mockFetch(["hang"]);
+    renderEntry();
+    expect(screen.getByRole("status")).toHaveTextContent(messages.TelegramApp.connecting);
+  });
+
+  it("says it is signing in while the sign-in call runs", async () => {
+    mockFetch([ME_401], ["hang"]);
+    renderEntry();
+    await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(messages.TelegramApp.loading));
+  });
+
+  // Audit-2 I7: the website's /tg must not be a dead end.
+  it("offers the bot and a website login on the plain-browser outside screen", () => {
+    vi.useFakeTimers();
+    useWebApp(null);
+    mockFetch([ME_401]);
+    renderEntry({ botUsername: "DriverGouzBot" });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.getByRole("link", { name: "Botni ochish" })).toHaveAttribute("href", "https://t.me/DriverGouzBot");
+    expect(screen.getByRole("link", { name: "Saytda kirish" })).toHaveAttribute("href", "/uz-Latn/login");
+  });
+
+  it("never links to a malformed bot username", () => {
+    vi.useFakeTimers();
+    useWebApp(null);
+    mockFetch([ME_401]);
+    renderEntry({ botUsername: "evil.com/x" });
+    act(() => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(screen.queryByRole("link", { name: "Botni ochish" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Saytda kirish" })).toBeInTheDocument();
+  });
+
+  it("links a blocked account to the support chat", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url === "/api/proxy/me") return json(401, { error: { code: "unauthorized" } });
+      if (url === "/api/auth/telegram") return json(403, { error: { code: "account_blocked" } });
+      if (url === "/api/proxy/site/contacts") return json(200, { data: { telegramUrl: "https://t.me/DriverGoHelp" } });
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEntry();
+    expect(await screen.findByRole("link", { name: "Qo'llab-quvvatlashga yozish" })).toHaveAttribute(
+      "href",
+      "https://t.me/DriverGoHelp"
+    );
+  });
+
+  it("falls back to our own support account when the contacts cannot be read", async () => {
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url === "/api/proxy/me") return json(401, { error: { code: "unauthorized" } });
+      if (url === "/api/auth/telegram") return json(403, { error: { code: "account_blocked" } });
+      return json(500, {});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderEntry();
+    expect(await screen.findByRole("link", { name: "Qo'llab-quvvatlashga yozish" })).toHaveAttribute(
+      "href",
+      "https://t.me/DriverGo"
+    );
+  });
+
+  it("makes drivergo.uz a real link on the unavailable screen", async () => {
+    mockFetch([ME_401], [{ status: 503, body: { error: { code: "telegram_bot_unconfigured" } } }]);
+    renderEntry();
+    expect(await screen.findByRole("link", { name: "drivergo.uz" })).toHaveAttribute("href", "https://drivergo.uz/uz-Latn");
+  });
+
+  // A11y: focus moves to the heading; an assertive alert on top of it would
+  // make screen readers announce the same screen twice.
+  it("focuses a notice heading without also raising an alert", async () => {
+    mockFetch([ME_401], [{ status: 401, body: { error: { code: "invalid_init_data" } } }]);
+    renderEntry();
+    const heading = await screen.findByRole("heading", { name: "Botdan oching" });
+    await waitFor(() => expect(heading).toHaveFocus());
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

@@ -3,14 +3,11 @@ import { useTranslations } from "next-intl";
 import { Clock, Send } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BOT_USERNAME, configuredBotUsername } from "@/lib/telegram/bot-username";
 
 // A payment return screen: nothing to rank, and indexing it would only send
 // searchers to a "thanks for paying" page.
 export const doneMetadata: Metadata = { robots: { index: false, follow: false } };
-
-// Telegram's own username rule. The value arrives in the URL path, so it is
-// checked here before it is put into a link, whatever the backend sent.
-const BOT_USERNAME = /^[A-Za-z0-9_]{5,32}$/;
 
 /**
  * The bot to link back to: only OUR bot. The path segment is attacker-editable
@@ -21,8 +18,8 @@ const BOT_USERNAME = /^[A-Za-z0-9_]{5,32}$/;
  */
 export function botFrom(value: string | string[] | undefined): string | null {
   if (typeof value !== "string" || !BOT_USERNAME.test(value)) return null;
-  const configured = (process.env.TELEGRAM_BOT_USERNAME ?? "").trim().replace(/^@/, "");
-  if (!BOT_USERNAME.test(configured)) return null;
+  const configured = configuredBotUsername();
+  if (!configured) return null;
   return configured.toLowerCase() === value.toLowerCase() ? configured : null;
 }
 

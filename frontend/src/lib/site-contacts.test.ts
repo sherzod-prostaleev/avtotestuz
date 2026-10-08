@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { compactPhoneTel, contactOrFallback, resolvePhonePair } from "./site-contacts";
+import {
+  SUPPORT_TELEGRAM_FALLBACK,
+  compactPhoneTel,
+  contactOrFallback,
+  resolvePhonePair,
+  supportTelegramUrl,
+} from "./site-contacts";
 
 describe("contactOrFallback", () => {
   it("prefers non-empty API values", () => {
@@ -47,5 +53,16 @@ describe("resolvePhonePair", () => {
       phone: "fb",
       phoneTel: "fbTel",
     });
+  });
+});
+
+describe("supportTelegramUrl", () => {
+  it("uses an https t.me link from the CMS", () => {
+    expect(supportTelegramUrl(" https://t.me/DriverGoSupport ")).toBe("https://t.me/DriverGoSupport");
+  });
+  it("falls back for anything else", () => {
+    for (const value of ["", undefined, null, "http://t.me/x", "https://evil.com/x", "javascript:alert(1)", "https://t.me/"]) {
+      expect(supportTelegramUrl(value)).toBe(SUPPORT_TELEGRAM_FALLBACK);
+    }
   });
 });

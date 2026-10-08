@@ -44,6 +44,7 @@ function mount() {
 beforeEach(() => {
   localStorage.clear();
   document.documentElement.className = "";
+  document.documentElement.removeAttribute("data-tg-scheme");
 });
 afterEach(() => {
   delete window.Telegram;
@@ -72,5 +73,24 @@ describe("TelegramThemeProvider", () => {
     expect(screen.getByTestId("forced")).toHaveTextContent("none");
     expect(document.documentElement.classList.contains("light")).toBe(true);
     expect(localStorage.getItem("theme")).toBe("light");
+  });
+
+  // Audit-2 I9: the boot script already painted the launch scheme; the very
+  // first render must not swap the saved site theme back in while the SDK loads.
+  it("applies the boot script's scheme on the first render, before the SDK", () => {
+    installTelegramHost();
+    localStorage.setItem("theme", "dark");
+    document.documentElement.setAttribute("data-tg-scheme", "light");
+    mount();
+    expect(screen.getByTestId("forced")).toHaveTextContent("light");
+    expect(document.documentElement.classList.contains("light")).toBe(true);
+    expect(localStorage.getItem("theme")).toBe("dark");
+  });
+
+  it("ignores a planted scheme attribute without a Telegram host", () => {
+    localStorage.setItem("theme", "dark");
+    document.documentElement.setAttribute("data-tg-scheme", "light");
+    mount();
+    expect(screen.getByTestId("forced")).toHaveTextContent("none");
   });
 });

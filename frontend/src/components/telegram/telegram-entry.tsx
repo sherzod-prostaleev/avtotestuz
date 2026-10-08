@@ -4,7 +4,18 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from "react"
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Clock, Hourglass, Loader2, RotateCw, Send, ShieldAlert, Smartphone, WifiOff } from "lucide-react";
+import {
+  Clock,
+  Hourglass,
+  LifeBuoy,
+  Loader2,
+  RotateCw,
+  Send,
+  ShieldAlert,
+  ShieldCheck,
+  Smartphone,
+  WifiOff,
+} from "lucide-react";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { useTelegram } from "@/components/telegram/telegram-provider";
@@ -19,9 +30,16 @@ import {
 } from "@/lib/telegram/web-app";
 import { resolveTelegramLocale } from "@/lib/telegram/locale";
 import { safeNextPath } from "@/lib/telegram/safe-next";
+import { BOT_USERNAME } from "@/lib/telegram/bot-username";
+import { continueName } from "@/lib/telegram/continue-name";
+import { forgetNeedPhone, recallNeedPhone, rememberNeedPhone } from "@/lib/telegram/need-phone-cache";
+import { supportTelegramUrl } from "@/lib/site-contacts";
 
 type Phase =
+  // Probing the session / reading CloudStorage: nothing is signing in yet.
   | "loading"
+  // The Telegram sign-in call itself is in flight.
+  | "signing_in"
   | "welcome"
   | "outside"
   | "cookie_blocked"
@@ -44,6 +62,12 @@ const SIGN_IN_TIMEOUT_MS = 15000;
 // The probe only decides "already signed in?" and its failure falls through to
 // sign-in anyway, so it must not hold the spinner for the full sign-in budget.
 const ME_PROBE_TIMEOUT_MS = 8000;
+// The sign-in limiter counts per IP; retrying at once only burns another slot
+// and lands on the same screen.
+const RATE_LIMIT_COOLDOWN_S = 30;
+// The public website, for the "bot unavailable" screen. A real link, so a
+// learner stuck there has somewhere to go.
+const WEBSITE_ORIGIN = "https://drivergo.uz";
 
 /**
  * Runs `run` with a signal that aborts after `timeoutMs` (fake-timer friendly,
@@ -144,13 +168,37 @@ function phaseForError(status: number, code: string | undefined): Phase {
   return "error";
 }
 
+/** Our support chat for a blocked account, from the public CMS contacts. */
+async function loadSupportUrl(lifetime: AbortSignal): Promise<string> {
+  try {
+    return await withTimeout(lifetime, ME_PROBE_TIMEOUT_MS, async (signal) => {
+      const res = await fetch("/api/proxy/site/contacts", { cache: "no-store", signal });
+      if (!res.ok) return supportTelegramUrl(null);
+      const json = (await res.json().catch(() => null)) as { data?: { telegramUrl?: string } } | null;
+      return supportTelegramUrl(json?.data?.telegramUrl);
+    });
+  } catch {
+    return supportTelegramUrl(null);
+  }
+}
+
+/** `?next=…` for the welcome's links, only for a path /tg itself would honour. */
+function nextQueryFrom(search: string, locale: string): string {
+  const next = new URLSearchParams(search).get("next");
+  if (next === null || safeNextPath(next, locale) === `/${locale}/dashboard`) return "";
+  return `?next=${encodeURIComponent(next)}`;
+}
+
 /**
  * What a learner sees the moment the Mini App opens from the bot. A live
  * cookie session goes straight in; otherwise Telegram's signed launch data
  * signs a linked account in silently, and an unlinked one gets the ordinary
  * phone login/register. Every failure ends on a screen that says what to do.
+ *
+ * `botUsername` (server env, already validated) lets a plain-browser visitor
+ * open the bot instead of hitting a dead end.
  */
-export function TelegramEntry() {
+export function TelegramEntry({ botUsername = null }: { botUsername?: string | null } = {}) {
   const t = useTranslations("TelegramApp");
   const loginT = useTranslations("Login");
   const locale = useLocale() as Locale;
@@ -159,6 +207,14 @@ export function TelegramEntry() {
   const [phase, setPhase] = useState<Phase>("loading");
   const [firstName, setFirstName] = useState("");
   const [canContinue, setCanContinue] = useState(false);
+  // Read once on mount: the welcome only renders after effects, so this never
+  // differs between the server and the first client render.
+  const [nextQuery, setNextQuery] = useState("");
+  const [supportUrl, setSupportUrl] = useState<string | null>(null);
+  // Seconds left before a rate-limited retry is offered. One interval
+  // against a deadline, so a throttled timer (background tab) cannot stretch it.
+  const [cooldown, setCooldown] = useState(0);
+  const [retryAt, setRetryAt] = useState<number | null>(null);
   const started = useRef(false);
   const busy = useRef(false);
   // Set when a cookie session linked to a DIFFERENT Telegram account is still
@@ -207,7 +263,7 @@ export function TelegramEntry() {
 
   const signIn = useCallback(
     async (app: TelegramWebApp, lifetime: AbortSignal) => {
-      setPhase("loading");
+      setPhase("signing_in");
       let reply: { ok: boolean; status: number; json: SignInBody | null };
       try {
         reply = await withTimeout(lifetime, SIGN_IN_TIMEOUT_MS, async (signal) => {
@@ -226,11 +282,19 @@ export function TelegramEntry() {
       if (lifetime.aborted) return;
       const { json } = reply;
       if (!reply.ok) {
-        setPhase(phaseForError(reply.status, json?.error?.code));
+        const next = phaseForError(reply.status, json?.error?.code);
+        if (next === "rate_limited") {
+          setCooldown(RATE_LIMIT_COOLDOWN_S);
+          setRetryAt(Date.now() + RATE_LIMIT_COOLDOWN_S * 1000);
+        }
+        if (next === "blocked") void loadSupportUrl(lifetime).then((url) => !lifetime.aborted && setSupportUrl(url));
+        setPhase(next);
         return;
       }
       if (json?.data?.need_phone) {
-        await showWelcome(lifetime, json.data.first_name || app.initDataUnsafe.user?.first_name || "", false);
+        const name = json.data.first_name || app.initDataUnsafe.user?.first_name || "";
+        rememberNeedPhone(app.initDataUnsafe.user?.id, name);
+        await showWelcome(lifetime, name, false);
         return;
       }
       if (!json?.data) {
@@ -249,6 +313,7 @@ export function TelegramEntry() {
         setPhase("error");
         return;
       }
+      forgetNeedPhone();
       // cloudRemove has a 3s timeout, so await is safe: it will never hang.
       await cloudRemove(AUTOLOGIN_OFF_KEY);
       if (lifetime.aborted) return;
@@ -298,6 +363,14 @@ export function TelegramEntry() {
             await showWelcome(lifetime, app.initDataUnsafe.user?.first_name || "", true);
             return;
           }
+          // Back from /login remounts this page: the server already said this
+          // Telegram account needs a phone sign-in, and nothing since could
+          // have changed that (a successful sign-in clears the verdict).
+          const known = recallNeedPhone(app.initDataUnsafe.user?.id);
+          if (known) {
+            await showWelcome(lifetime, known.firstName, false);
+            return;
+          }
         }
         await signIn(app, lifetime);
       } finally {
@@ -320,6 +393,20 @@ export function TelegramEntry() {
       if (!lifetime.aborted) busy.current = false;
     }
   }, [signIn, webApp]);
+
+  useEffect(() => {
+    setNextQuery(nextQueryFrom(window.location.search, locale));
+  }, [locale]);
+
+  useEffect(() => {
+    if (retryAt === null) return;
+    const timer = window.setInterval(() => {
+      const left = Math.max(0, Math.ceil((retryAt - Date.now()) / 1000));
+      setCooldown(left);
+      if (left === 0) setRetryAt(null);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -375,14 +462,72 @@ export function TelegramEntry() {
   }, [enter, locale, router, webApp]);
 
   // Screen readers and keyboards land on the new state's heading, not on
-  // whatever the spinner left behind.
+  // whatever the spinner left behind. Focus alone announces it; the notices
+  // carry no role="alert", which would read the same screen out twice.
   useEffect(() => {
-    if (phase !== "loading") headingRef.current?.focus();
+    if (phase !== "loading" && phase !== "signing_in") headingRef.current?.focus();
   }, [phase]);
 
-  // Inside Telegram the learner can always close back to the chat; in a plain
-  // browser there is no bot to return to, so those states stay text-only.
+  // Inside Telegram the learner can always close back to the chat.
   const backToBot = webApp ? <BackToBotButton label={t("backToBot")} onClick={() => webApp.close()} /> : undefined;
+
+  // A plain browser has no chat to close back to: offer the bot itself (only
+  // our configured one, re-checked here) and the ordinary website login.
+  const safeBot = botUsername && BOT_USERNAME.test(botUsername) ? botUsername : null;
+  const outsideActions = webApp ? (
+    backToBot
+  ) : (
+    <div className="space-y-3">
+      {safeBot && (
+        <a
+          href={`https://t.me/${safeBot}`}
+          className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Button as="span" variant="game" size="lg" className="w-full text-sm font-extrabold">
+            <Send aria-hidden="true" className="mr-2 h-4 w-4" />
+            {t("openBot")}
+          </Button>
+        </a>
+      )}
+      <Link
+        href={`/${locale}/login`}
+        className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Button as="span" variant={safeBot ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
+          {t("loginOnSite")}
+        </Button>
+      </Link>
+    </div>
+  );
+
+  const websiteUrl = `${WEBSITE_ORIGIN}/${locale}`;
+  const unavailableBody = t.rich("unavailableBody", {
+    site: (chunks) => (
+      <a
+        href={websiteUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="font-semibold text-accent-ink underline underline-offset-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        onClick={(event) => {
+          // Inside Telegram the site opens in its browser, not over the app.
+          if (!webApp) return;
+          try {
+            webApp.openLink(websiteUrl);
+            event.preventDefault();
+          } catch {
+            /* old client: the plain link still works */
+          }
+        }}
+      >
+        {chunks}
+      </a>
+    ),
+  });
+
+  const continueLabel = (() => {
+    const short = continueName(firstName);
+    return short ? t("continueAs", { name: short }) : t("continueFallback");
+  })();
 
   const retry = () => {
     const lifetime = lifetimeRef.current?.signal;
@@ -393,20 +538,22 @@ export function TelegramEntry() {
     <div
       className="asphalt-hero auth-safe-top auth-safe-bottom flex min-h-[100dvh] flex-col bg-background"
     >
-      <main className="flex flex-1 items-center justify-center p-4">
+      {/* Top-aligned, not centred: loading → welcome grows the card, and a
+          centred card would jump up by half the difference. */}
+      <main className="flex flex-1 items-start justify-center px-4 pb-4 pt-[clamp(1rem,10dvh,6rem)]">
         <div className="w-full max-w-sm animate-fade-in space-y-6 rounded-2xl border border-border bg-card p-5 text-center sm:p-8">
           <div className="flex flex-col items-center gap-2">
             <BrandLogo size={64} priority className="h-16 w-16 rounded-3xl object-cover" />
             <span className="font-display text-lg font-black text-foreground">{loginT("brandName")}</span>
           </div>
 
-          {phase === "loading" && (
+          {(phase === "loading" || phase === "signing_in") && (
             <p
               role="status"
               className="flex min-h-12 items-center justify-center gap-2 text-sm font-semibold text-muted-foreground"
             >
               <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin motion-reduce:animate-none" />
-              {t("loading")}
+              {phase === "signing_in" ? t("loading") : t("connecting")}
             </p>
           )}
 
@@ -421,6 +568,14 @@ export function TelegramEntry() {
                   {firstName ? t("welcomeNamed", { name: firstName }) : t("welcome")}
                 </h1>
                 <p className="text-sm text-muted-foreground">{t("welcomeHint")}</p>
+                {/* need_phone also answers an account linked before phone
+                    verification existed: say once why a phone is asked for. */}
+                {!canContinue && (
+                  <p className="mx-auto flex max-w-[18rem] items-start justify-center gap-1.5 text-xs font-semibold text-foreground">
+                    <ShieldCheck aria-hidden="true" className="mt-px h-4 w-4 shrink-0 text-success" />
+                    <span>{t("phoneConfirmNote")}</span>
+                  </p>
+                )}
               </div>
               <div className="space-y-3">
                 {canContinue && (
@@ -433,17 +588,15 @@ export function TelegramEntry() {
                     onClick={() => void continueAsTelegramUser()}
                   >
                     <Send aria-hidden="true" className="mr-2 h-4 w-4 shrink-0" />
-                    <span className="min-w-0 break-words">
-                      {firstName ? t("continueAs", { name: firstName }) : t("continueAs", { name: "Telegram" })}
-                    </span>
+                    <span className="min-w-0 break-words">{continueLabel}</span>
                   </Button>
                 )}
-                <Link href={`/${locale}/login`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Link href={`/${locale}/login${nextQuery}`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Button as="span" variant={canContinue ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
                     {t("login")}
                   </Button>
                 </Link>
-                <Link href={`/${locale}/register`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Link href={`/${locale}/register${nextQuery}`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Button as="span" variant="outline" size="lg" className="w-full text-sm font-extrabold">
                     {t("register")}
                   </Button>
@@ -453,7 +606,13 @@ export function TelegramEntry() {
           )}
 
           {phase === "outside" && (
-            <Notice headingRef={headingRef} icon={<Send className="h-6 w-6" />} title={t("outsideTitle")} body={t("outsideBody")} action={backToBot} />
+            <Notice
+              headingRef={headingRef}
+              icon={<Send className="h-6 w-6" />}
+              title={t("outsideTitle")}
+              body={t("outsideBody")}
+              action={outsideActions}
+            />
           )}
           {phase === "cookie_blocked" && (
             <Notice
@@ -469,7 +628,7 @@ export function TelegramEntry() {
               headingRef={headingRef}
               icon={<Clock className="h-6 w-6" />}
               title={t("unavailableTitle")}
-              body={t("unavailableBody")}
+              body={unavailableBody}
               action={backToBot}
             />
           )}
@@ -480,7 +639,24 @@ export function TelegramEntry() {
               icon={<ShieldAlert className="h-6 w-6" />}
               title={t("blockedTitle")}
               body={loginT("errorAccountBlocked")}
-              action={backToBot}
+              action={
+                <div className="space-y-3">
+                  {supportUrl && (
+                    <a
+                      href={supportUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <Button as="span" variant={webApp ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
+                        <LifeBuoy aria-hidden="true" className="mr-2 h-4 w-4" />
+                        {t("contactSupport")}
+                      </Button>
+                    </a>
+                  )}
+                  {backToBot}
+                </div>
+              }
             />
           )}
           {phase === "rate_limited" && (
@@ -489,7 +665,13 @@ export function TelegramEntry() {
               icon={<Hourglass className="h-6 w-6" />}
               title={t("rateLimitedTitle")}
               body={t("rateLimitedBody")}
-              action={<RetryButton label={t("retry")} onClick={retry} />}
+              action={
+                <RetryButton
+                  label={cooldown > 0 ? t("retryIn", { seconds: cooldown }) : t("retry")}
+                  disabled={cooldown > 0}
+                  onClick={retry}
+                />
+              }
             />
           )}
           {phase === "error" && (
@@ -528,9 +710,9 @@ function BackToBotButton({ label, onClick }: { label: string; onClick: () => voi
   );
 }
 
-function RetryButton({ label, onClick }: { label: string; onClick: () => void }) {
+function RetryButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
   return (
-    <Button variant="game" size="lg" className="w-full text-sm font-extrabold" onClick={onClick}>
+    <Button variant="game" size="lg" className="w-full text-sm font-extrabold tabular-nums" disabled={disabled} onClick={onClick}>
       <RotateCw aria-hidden="true" className="mr-2 h-4 w-4" />
       {label}
     </Button>
@@ -548,17 +730,19 @@ function Notice({
   headingRef: React.RefObject<HTMLHeadingElement | null>;
   icon: ReactNode;
   title: string;
-  body: string;
+  body: ReactNode;
   action?: ReactNode;
   tone?: "accent" | "danger";
 }) {
   return (
     <div className="space-y-5">
-      <div role="alert" className="space-y-3">
+      <div className="space-y-3">
+        {/* accent-ink, not accent: the CTA amber on its own 10% tint is
+            ~2:1 in the light theme, under the 3:1 a meaningful icon needs. */}
         <div
           aria-hidden="true"
           className={`mx-auto flex h-12 w-12 items-center justify-center rounded-2xl ${
-            tone === "danger" ? "bg-danger/10 text-danger" : "bg-accent/10 text-accent"
+            tone === "danger" ? "bg-danger/10 text-danger" : "bg-accent/10 text-accent-ink"
           }`}
         >
           {icon}
