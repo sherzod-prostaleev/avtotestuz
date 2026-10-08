@@ -78,6 +78,37 @@ describe("POST /api/auth/logout", () => {
     expect(sent.sort()).toEqual(["site-rt", "tg-rt"]);
   });
 
+  it("skips a malformed rt value without a 500 and still clears the cookies", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(requestWithCookie("rt=%E0%A4%A; rt=good-rt; at=some-at"));
+
+    expect(response.status).toBe(200);
+    expect(response.cookies.get(REFRESH_COOKIE)?.value).toBe("");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string).refresh_token).toBe("good-rt");
+  });
+
+  it("revokes at most two distinct refresh tokens however many are sent", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(requestWithCookie("rt=a; rt=b; rt=c; rt=d; at=some-at"));
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("revokes a duplicated refresh token once", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await POST(requestWithCookie("rt=same; rt=same; at=some-at"));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("site-mode logout is unchanged: one lax pair, no Partitioned, one revoke", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);

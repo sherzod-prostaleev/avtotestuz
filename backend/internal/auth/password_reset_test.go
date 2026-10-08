@@ -512,3 +512,56 @@ func TestPasswordReset_ContactPhoneFormatsCompleteEndToEnd(t *testing.T) {
 		})
 	}
 }
+
+// An older confirm question must die the moment the reset is re-armed or
+// re-asked, otherwise a stale «Ha, men» tap on a forgotten message would
+// verify a reset the user has since restarted.
+func TestPasswordResetConfirm_OldNonceStaleAfterReask(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, n1 := contactMatchedReset(t, svc, "901000070", 701, "+998901000070")
+	r2, err := svc.ConfirmTelegramPasswordResetContact(ctx, 701, 701, "+998901000070")
+	if err != nil || r2.ConfirmNonce == "" || r2.ConfirmNonce == n1 {
+		t.Fatalf("reask=%+v err=%v", r2, err)
+	}
+	if res, _ := svc.AnswerTelegramPasswordResetConfirm(ctx, 701, n1, true); res.Outcome != TelegramResetStale {
+		t.Fatalf("old nonce=%s want stale", res.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStatePending)
+	if res, _ := svc.AnswerTelegramPasswordResetConfirm(ctx, 701, r2.ConfirmNonce, true); res.Outcome != TelegramResetVerified {
+		t.Fatalf("new nonce=%s want verified", res.Outcome)
+	}
+}
+
+func TestPasswordResetConfirm_OldNonceStaleAfterNewStart(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, n1 := contactMatchedReset(t, svc, "901000071", 711, "+998901000071")
+	if b, err := svc.BeginTelegramPasswordReset(ctx, raw, 711); err != nil || b.Outcome != TelegramResetNeedContact {
+		t.Fatalf("restart=%+v err=%v", b, err)
+	}
+	if res, _ := svc.AnswerTelegramPasswordResetConfirm(ctx, 711, n1, true); res.Outcome != TelegramResetStale {
+		t.Fatalf("old nonce after /start=%s want stale", res.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStatePending)
+}
+
+func TestPasswordResetConfirm_OldNonceStaleAfterSecondReset(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	_, n1 := contactMatchedReset(t, svc, "901000072", 721, "+998901000072")
+	// The second StartPasswordReset for one phone hits the per-phone limiter.
+	svc.Lim = Limiter{R: redisx.NewTest(t)}
+	start, err := svc.StartPasswordReset(ctx, "901000072", "5.5.5.5", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw2 := parseResetRaw(t, start.BotURL)
+	if _, err := svc.BeginTelegramPasswordReset(ctx, raw2, 721); err != nil {
+		t.Fatal(err)
+	}
+	if res, _ := svc.AnswerTelegramPasswordResetConfirm(ctx, 721, n1, true); res.Outcome != TelegramResetStale {
+		t.Fatalf("old nonce vs new reset=%s want stale", res.Outcome)
+	}
+	assertResetState(t, svc, raw2, ResetStatePending)
+}
