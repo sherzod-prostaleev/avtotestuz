@@ -463,7 +463,7 @@
     "submitting": "Havola tayyorlanmoqda...",
     "openTelegram": "Telegramda tasdiqlash",
     "waitingTitle": "Telegramda tasdiqlang",
-    "waitingHint": "Botni shu telefon raqamli Telegram akkauntdan oching. Ulangan bo'lsa darhol tasdiqlanadi, aks holda raqamni yuboring.",
+    "waitingHint": "Botni shu telefon raqamli Telegram akkauntdan oching. Ulanmagan bo'lsa raqamni yuboring. So'ng botdagi «Ha, men» tugmasini bosing.",
     "waitingStatus": "Tasdiq kutilmoqda...",
     "setPasswordHint": "Telegram tasdiqlandi. Yangi parolni kiriting.",
     "newPasswordLabel": "Yangi parol",

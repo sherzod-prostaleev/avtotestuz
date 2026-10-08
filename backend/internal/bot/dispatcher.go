@@ -41,6 +41,20 @@ const (
 	msgResetShareContact = "Telefon raqamini yuborish"
 	msgResetVerified     = "Tasdiqlandi. Brauzerdagi Driver Go sahifasiga qayting va yangi parolni kiriting."
 	msgResetInvalid      = "Havola noto'g'ri yoki muddati o'tgan. Saytdan yangi tiklash so'rang."
+	msgResetConfirmFmt   = "Parolni tiklash so'raldi: %s. Bu siz bo'lsangiz «Ha, men» ni bosing."
+	msgResetConfirmYes   = "Ha, men"
+	msgResetConfirmNo    = "Yo'q"
+	msgResetCancelled    = "Parolni tiklash bekor qilindi. Parolingiz o'zgartirilmadi."
+	msgResetConfirmStale = "Bu so'rov endi amal qilmaydi."
+)
+
+// Password-reset confirm buttons: "pwr:y:<nonce>" / "pwr:n:<nonce>". The
+// nonce is per reset question (auth.TelegramResetBegin.ConfirmNonce), never
+// the reset token itself.
+const (
+	cbResetPrefix = "pwr:"
+	cbResetYes    = cbResetPrefix + "y:"
+	cbResetNo     = cbResetPrefix + "n:"
 )
 
 // Bot dispatches inbound Telegram updates. Link redeem stays in-process
@@ -82,6 +96,9 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		return nil
 	}
 	if u.CallbackQuery != nil {
+		if strings.HasPrefix(u.CallbackQuery.Data, cbResetPrefix) {
+			return b.handlePasswordResetCallback(ctx, *u.CallbackQuery)
+		}
 		if b.Quiz == nil {
 			return nil
 		}
@@ -359,6 +376,8 @@ func (b *Bot) handlePasswordResetStart(ctx context.Context, chatID, tgUserID int
 	case auth.TelegramResetNeedContact:
 		_, err := b.TG.SendChatText(ctx, chatID, msgResetNeedContact, contactRequestKeyboard())
 		return err
+	case auth.TelegramResetNeedConfirm:
+		return b.askPasswordResetConfirm(ctx, chatID, res)
 	case auth.TelegramResetVerified:
 		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
 		return err
@@ -377,13 +396,64 @@ func (b *Bot) handlePasswordResetContact(ctx context.Context, chatID, tgUserID i
 		return errors.Join(err, b.TG.SendMessage(ctx, chatID, msgLinkInternal))
 	}
 	switch res.Outcome {
-	case auth.TelegramResetVerified:
-		_, err := b.TG.SendChatText(ctx, chatID, msgResetVerified, ReplyKeyboardRemove{RemoveKeyboard: true})
-		return err
+	case auth.TelegramResetNeedConfirm:
+		return b.askPasswordResetConfirm(ctx, chatID, res)
 	case auth.TelegramResetNone:
 		// Most likely the Mini App's "share phone" sheet, which also posts
 		// the contact here; nobody is waiting for a reset answer.
 		return nil
 	}
 	return b.TG.SendMessage(ctx, chatID, msgResetInvalid)
+}
+
+// askPasswordResetConfirm sends the explicit «Ha, men» / «Yo'q» question. A
+// linked account or a matching contact only proves who is in this chat; the
+// tap proves they asked for the reset.
+func (b *Bot) askPasswordResetConfirm(ctx context.Context, chatID int64, res auth.TelegramResetBegin) error {
+	_, err := b.TG.SendText(ctx, chatID, fmt.Sprintf(msgResetConfirmFmt, res.MaskedPhone), &InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{{
+			{Text: msgResetConfirmYes, CallbackData: cbResetYes + res.ConfirmNonce},
+			{Text: msgResetConfirmNo, CallbackData: cbResetNo + res.ConfirmNonce},
+		}},
+	})
+	return err
+}
+
+// handlePasswordResetCallback answers a «Ha, men» / «Yo'q» tap. The user id
+// comes from Telegram's callback (not the message), so a forwarded question
+// tapped by someone else is rejected by the auth layer.
+func (b *Bot) handlePasswordResetCallback(ctx context.Context, cq CallbackQuery) error {
+	var nonce string
+	accept := false
+	switch {
+	case strings.HasPrefix(cq.Data, cbResetYes):
+		nonce, accept = strings.TrimPrefix(cq.Data, cbResetYes), true
+	case strings.HasPrefix(cq.Data, cbResetNo):
+		nonce = strings.TrimPrefix(cq.Data, cbResetNo)
+	}
+	if b.Auth == nil || nonce == "" || cq.Message == nil || IsGroupChat(cq.Message.Chat.Type) {
+		return b.TG.AnswerCallbackQuery(ctx, cq.ID, msgResetConfirmStale, false)
+	}
+	res, err := b.Auth.AnswerTelegramPasswordResetConfirm(ctx, cq.From.ID, nonce, accept)
+	if err != nil {
+		b.logger().Error("bot: password reset confirm failed", zap.Error(err), zap.Int64("tg_user_id", cq.From.ID))
+		return errors.Join(err, b.TG.AnswerCallbackQuery(ctx, cq.ID, msgLinkInternal, false))
+	}
+	var text string
+	switch res.Outcome {
+	case auth.TelegramResetVerified:
+		text = msgResetVerified
+	case auth.TelegramResetCancelled:
+		text = msgResetCancelled
+	default:
+		return b.TG.AnswerCallbackQuery(ctx, cq.ID, msgResetConfirmStale, false)
+	}
+	ackErr := b.TG.AnswerCallbackQuery(ctx, cq.ID, "", false)
+	// The state change is committed; a failed edit only leaves stale buttons,
+	// which the auth layer already treats as no-ops.
+	if err := b.TG.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, nil); err != nil {
+		b.logger().Warn("bot: password reset confirm edit failed", zap.Error(err))
+		return errors.Join(ackErr, b.TG.SendMessage(ctx, cq.Message.Chat.ID, text))
+	}
+	return ackErr
 }

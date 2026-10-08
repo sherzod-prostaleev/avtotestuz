@@ -12,9 +12,25 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelPasswordReset = `-- name: CancelPasswordReset :exec
+UPDATE password_reset_token
+SET used_at = now(),
+    pending_tg_user_id = NULL,
+    confirm_nonce_hash = NULL
+WHERE id = $1 AND used_at IS NULL
+`
+
+// «Yo'q» in the bot: the reset is spent, so the website tab sees "invalid"
+// and CompletePasswordReset refuses it.
+func (q *Queries) CancelPasswordReset(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, cancelPasswordReset, id)
+	return err
+}
+
 const clearAllPasswordResetPendingForTg = `-- name: ClearAllPasswordResetPendingForTg :exec
 UPDATE password_reset_token
-SET pending_tg_user_id = NULL
+SET pending_tg_user_id = NULL,
+    confirm_nonce_hash = NULL
 WHERE pending_tg_user_id = $1 AND used_at IS NULL
 `
 
@@ -25,7 +41,8 @@ func (q *Queries) ClearAllPasswordResetPendingForTg(ctx context.Context, pending
 
 const clearPasswordResetPendingForTg = `-- name: ClearPasswordResetPendingForTg :exec
 UPDATE password_reset_token
-SET pending_tg_user_id = NULL
+SET pending_tg_user_id = NULL,
+    confirm_nonce_hash = NULL
 WHERE pending_tg_user_id = $1 AND used_at IS NULL AND id <> $2
 `
 
@@ -74,7 +91,7 @@ func (q *Queries) DeleteUnusedPasswordResetTokensForProfile(ctx context.Context,
 }
 
 const getLivePasswordResetByPendingTgForUpdate = `-- name: GetLivePasswordResetByPendingTgForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
 FROM password_reset_token
 WHERE pending_tg_user_id = $1 AND used_at IS NULL
 ORDER BY created_at DESC
@@ -94,12 +111,37 @@ func (q *Queries) GetLivePasswordResetByPendingTgForUpdate(ctx context.Context, 
 		&i.VerifiedAt,
 		&i.PendingTgUserID,
 		&i.CreatedAt,
+		&i.ConfirmNonceHash,
+	)
+	return i, err
+}
+
+const getPasswordResetByConfirmNonceForUpdate = `-- name: GetPasswordResetByConfirmNonceForUpdate :one
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
+FROM password_reset_token
+WHERE confirm_nonce_hash = $1
+FOR UPDATE
+`
+
+func (q *Queries) GetPasswordResetByConfirmNonceForUpdate(ctx context.Context, confirmNonceHash pgtype.Text) (PasswordResetToken, error) {
+	row := q.db.QueryRow(ctx, getPasswordResetByConfirmNonceForUpdate, confirmNonceHash)
+	var i PasswordResetToken
+	err := row.Scan(
+		&i.ID,
+		&i.ProfileID,
+		&i.TokenHash,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.VerifiedAt,
+		&i.PendingTgUserID,
+		&i.CreatedAt,
+		&i.ConfirmNonceHash,
 	)
 	return i, err
 }
 
 const getPasswordResetTokenByHash = `-- name: GetPasswordResetTokenByHash :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
 FROM password_reset_token
 WHERE token_hash = $1
 `
@@ -116,12 +158,13 @@ func (q *Queries) GetPasswordResetTokenByHash(ctx context.Context, tokenHash str
 		&i.VerifiedAt,
 		&i.PendingTgUserID,
 		&i.CreatedAt,
+		&i.ConfirmNonceHash,
 	)
 	return i, err
 }
 
 const getPasswordResetTokenByHashForUpdate = `-- name: GetPasswordResetTokenByHashForUpdate :one
-SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at
+SELECT id, profile_id, token_hash, expires_at, used_at, verified_at, pending_tg_user_id, created_at, confirm_nonce_hash
 FROM password_reset_token
 WHERE token_hash = $1
 FOR UPDATE
@@ -139,6 +182,7 @@ func (q *Queries) GetPasswordResetTokenByHashForUpdate(ctx context.Context, toke
 		&i.VerifiedAt,
 		&i.PendingTgUserID,
 		&i.CreatedAt,
+		&i.ConfirmNonceHash,
 	)
 	return i, err
 }
@@ -146,7 +190,8 @@ func (q *Queries) GetPasswordResetTokenByHashForUpdate(ctx context.Context, toke
 const markPasswordResetUsed = `-- name: MarkPasswordResetUsed :exec
 UPDATE password_reset_token
 SET used_at = now(),
-    pending_tg_user_id = NULL
+    pending_tg_user_id = NULL,
+    confirm_nonce_hash = NULL
 WHERE id = $1
 `
 
@@ -158,7 +203,8 @@ func (q *Queries) MarkPasswordResetUsed(ctx context.Context, id uuid.UUID) error
 const markPasswordResetVerified = `-- name: MarkPasswordResetVerified :exec
 UPDATE password_reset_token
 SET verified_at = now(),
-    pending_tg_user_id = NULL
+    pending_tg_user_id = NULL,
+    confirm_nonce_hash = NULL
 WHERE id = $1 AND used_at IS NULL
 `
 
@@ -167,9 +213,26 @@ func (q *Queries) MarkPasswordResetVerified(ctx context.Context, id uuid.UUID) e
 	return err
 }
 
+const setPasswordResetConfirmNonce = `-- name: SetPasswordResetConfirmNonce :exec
+UPDATE password_reset_token
+SET confirm_nonce_hash = $2
+WHERE id = $1 AND used_at IS NULL AND verified_at IS NULL
+`
+
+type SetPasswordResetConfirmNonceParams struct {
+	ID               uuid.UUID   `json:"id"`
+	ConfirmNonceHash pgtype.Text `json:"confirm_nonce_hash"`
+}
+
+func (q *Queries) SetPasswordResetConfirmNonce(ctx context.Context, arg SetPasswordResetConfirmNonceParams) error {
+	_, err := q.db.Exec(ctx, setPasswordResetConfirmNonce, arg.ID, arg.ConfirmNonceHash)
+	return err
+}
+
 const setPasswordResetPendingTg = `-- name: SetPasswordResetPendingTg :exec
 UPDATE password_reset_token
-SET pending_tg_user_id = $2
+SET pending_tg_user_id = $2,
+    confirm_nonce_hash = NULL
 WHERE id = $1 AND used_at IS NULL
 `
 
@@ -178,6 +241,8 @@ type SetPasswordResetPendingTgParams struct {
 	PendingTgUserID pgtype.Int8 `json:"pending_tg_user_id"`
 }
 
+// A new /start re-arms the reset for this Telegram user: any confirm question
+// asked before it is void.
 func (q *Queries) SetPasswordResetPendingTg(ctx context.Context, arg SetPasswordResetPendingTgParams) error {
 	_, err := q.db.Exec(ctx, setPasswordResetPendingTg, arg.ID, arg.PendingTgUserID)
 	return err

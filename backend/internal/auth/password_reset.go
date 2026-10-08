@@ -2,11 +2,15 @@ package auth
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -51,7 +55,16 @@ const (
 	ResetStateInvalid        = "invalid"
 	TelegramResetInvalid     = "invalid"
 	TelegramResetNeedContact = "need_contact"
+	// TelegramResetNeedConfirm: the Telegram identity matched; the bot must
+	// now ask «Ha, men» / «Yo'q» with ConfirmNonce in the buttons. Nothing is
+	// verified until AnswerTelegramPasswordResetConfirm gets a «Ha, men».
+	TelegramResetNeedConfirm = "need_confirm"
 	TelegramResetVerified    = "verified"
+	// TelegramResetCancelled: the learner answered «Yo'q»; the reset is spent.
+	TelegramResetCancelled = "cancelled"
+	// TelegramResetStale: a confirm tap that no longer applies (expired,
+	// already answered, re-armed by a newer /start, or from another user).
+	TelegramResetStale = "stale"
 	// TelegramResetNone: a contact arrived with no reset waiting for it (the
 	// Mini App's phone share lands in the bot chat too). Not an error.
 	TelegramResetNone = "none"
@@ -59,6 +72,11 @@ const (
 
 type TelegramResetBegin struct {
 	Outcome string
+	// ConfirmNonce and MaskedPhone are set only with TelegramResetNeedConfirm.
+	// The nonce is a fresh random value, never the reset token: callback_data
+	// is visible to Telegram clients and must not be able to complete a reset.
+	ConfirmNonce string
+	MaskedPhone  string
 }
 
 func FormatPasswordResetStartPayload(raw string) string {
@@ -215,43 +233,94 @@ func (s *Service) BeginTelegramPasswordReset(ctx context.Context, rawToken strin
 	}
 
 	account, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID)
+	linked := false
 	switch {
 	case err == nil:
 		if account.ProfileID != row.ProfileID {
 			return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
 		}
-		if err := q.MarkPasswordResetVerified(ctx, row.ID); err != nil {
-			return TelegramResetBegin{}, err
-		}
-		if err := tx.Commit(ctx); err != nil {
-			return TelegramResetBegin{}, err
-		}
-		return TelegramResetBegin{Outcome: TelegramResetVerified}, nil
+		linked = true
 	case errors.Is(err, pgx.ErrNoRows):
-		if err := q.ClearPasswordResetPendingForTg(ctx, sqlc.ClearPasswordResetPendingForTgParams{
-			PendingTgUserID: pgtype.Int8{Int64: tgUserID, Valid: true},
-			ID:              row.ID,
-		}); err != nil {
-			return TelegramResetBegin{}, err
-		}
-		if err := q.SetPasswordResetPendingTg(ctx, sqlc.SetPasswordResetPendingTgParams{
-			ID:              row.ID,
-			PendingTgUserID: pgtype.Int8{Int64: tgUserID, Valid: true},
-		}); err != nil {
-			return TelegramResetBegin{}, err
-		}
+	default:
+		return TelegramResetBegin{}, err
+	}
+
+	// Either way this Telegram user now owns the reset's next step; any other
+	// reset still armed for them is dropped (the pending index is unique).
+	if err := q.ClearPasswordResetPendingForTg(ctx, sqlc.ClearPasswordResetPendingForTgParams{
+		PendingTgUserID: pgtype.Int8{Int64: tgUserID, Valid: true},
+		ID:              row.ID,
+	}); err != nil {
+		return TelegramResetBegin{}, err
+	}
+	if err := q.SetPasswordResetPendingTg(ctx, sqlc.SetPasswordResetPendingTgParams{
+		ID:              row.ID,
+		PendingTgUserID: pgtype.Int8{Int64: tgUserID, Valid: true},
+	}); err != nil {
+		return TelegramResetBegin{}, err
+	}
+	if !linked {
 		if err := tx.Commit(ctx); err != nil {
 			return TelegramResetBegin{}, err
 		}
 		return TelegramResetBegin{Outcome: TelegramResetNeedContact}, nil
-	default:
+	}
+	// A linked account proves who is tapping, not that they asked for this
+	// reset: anyone can start a reset for their phone and send them the link.
+	return askTelegramResetConfirm(ctx, tx, q, row.ID, profile.Phone)
+}
+
+// askTelegramResetConfirm stores a fresh confirm nonce for the reset and
+// commits tx. A previous nonce (an older question message) stops working.
+func askTelegramResetConfirm(ctx context.Context, tx pgx.Tx, q *sqlc.Queries, resetID uuid.UUID, phone string) (TelegramResetBegin, error) {
+	nonce, err := newResetConfirmNonce()
+	if err != nil {
 		return TelegramResetBegin{}, err
 	}
+	if err := q.SetPasswordResetConfirmNonce(ctx, sqlc.SetPasswordResetConfirmNonceParams{
+		ID:               resetID,
+		ConfirmNonceHash: pgtype.Text{String: HashToken(nonce), Valid: true},
+	}); err != nil {
+		return TelegramResetBegin{}, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return TelegramResetBegin{}, err
+	}
+	return TelegramResetBegin{
+		Outcome:      TelegramResetNeedConfirm,
+		ConfirmNonce: nonce,
+		MaskedPhone:  MaskResetPhone(phone),
+	}, nil
+}
+
+// newResetConfirmNonce is 128 bits, base64url: 22 chars, so "pwr:y:" + nonce
+// stays well inside Telegram's 64-byte callback_data limit.
+func newResetConfirmNonce() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate reset confirm nonce: %w", err)
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// MaskResetPhone renders a stored "+998901234567" as "+998 90 ••• •• 67":
+// enough for the owner to recognise their number in the bot question, not
+// enough to leak it to whoever else sees the chat.
+func MaskResetPhone(phone string) string {
+	d := strings.TrimPrefix(phone, "+")
+	if len(d) != 12 || !strings.HasPrefix(d, "998") {
+		return "•••"
+	}
+	return "+998 " + d[3:5] + " ••• •• " + d[10:]
 }
 
 // ConfirmTelegramPasswordResetContact proves the Telegram user owns the
 // account phone via Telegram's request_contact keyboard. contactUserID must
 // equal tgUserID so a forwarded third-party contact cannot be used.
+//
+// A match only earns the «Ha, men» question (TelegramResetNeedConfirm): the
+// same contact message is also what the Mini App's phone share produces, so
+// it is not evidence that the learner wants this reset.
 func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUserID, contactUserID int64, contactPhone string) (TelegramResetBegin, error) {
 	if tgUserID == 0 || contactUserID != tgUserID {
 		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
@@ -285,18 +354,77 @@ func (s *Service) ConfirmTelegramPasswordResetContact(ctx context.Context, tgUse
 	if assertProfileActive(profile) != nil || profile.Phone != normalized {
 		return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
 	}
+	return askTelegramResetConfirm(ctx, tx, q, row.ID, profile.Phone)
+}
 
-	if err := q.MarkPasswordResetVerified(ctx, row.ID); err != nil {
+// AnswerTelegramPasswordResetConfirm handles a «Ha, men» (accept) or «Yo'q»
+// tap. Only the Telegram user the reset is pending for, with the current
+// nonce, on a live unverified reset, changes anything; every other tap is
+// TelegramResetStale and a no-op. «Ha, men» verifies (and links the account
+// if the contact path got here); «Yo'q» spends the reset.
+func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUserID int64, nonce string, accept bool) (TelegramResetBegin, error) {
+	stale := TelegramResetBegin{Outcome: TelegramResetStale}
+	if tgUserID == 0 || strings.TrimSpace(nonce) == "" {
+		return stale, nil
+	}
+	tx, err := s.Pool.Begin(ctx)
+	if err != nil {
 		return TelegramResetBegin{}, err
 	}
-	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
-		ProfileID: row.ProfileID,
-		TgUserID:  tgUserID,
-		Username:  "",
-	}); err != nil {
-		if isUniqueViolation(err) {
-			return TelegramResetBegin{Outcome: TelegramResetInvalid}, nil
+	defer func() { _ = tx.Rollback(ctx) }()
+	q := sqlc.New(tx)
+
+	row, err := q.GetPasswordResetByConfirmNonceForUpdate(ctx, pgtype.Text{String: HashToken(nonce), Valid: true})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return stale, nil
 		}
+		return TelegramResetBegin{}, err
+	}
+	if !resetTokenLive(row) || row.VerifiedAt.Valid ||
+		!row.PendingTgUserID.Valid || row.PendingTgUserID.Int64 != tgUserID {
+		return stale, nil
+	}
+	profile, err := q.GetProfileByID(ctx, row.ProfileID)
+	if err != nil {
+		return TelegramResetBegin{}, err
+	}
+	if assertProfileActive(profile) != nil {
+		return stale, nil
+	}
+
+	if !accept {
+		if err := q.CancelPasswordReset(ctx, row.ID); err != nil {
+			return TelegramResetBegin{}, err
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return TelegramResetBegin{}, err
+		}
+		return TelegramResetBegin{Outcome: TelegramResetCancelled}, nil
+	}
+
+	account, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID)
+	switch {
+	case err == nil:
+		if account.ProfileID != row.ProfileID {
+			return stale, nil
+		}
+	case errors.Is(err, pgx.ErrNoRows):
+		// Contact path: the confirmed contact also links this Telegram account.
+		if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
+			ProfileID: row.ProfileID,
+			TgUserID:  tgUserID,
+			Username:  "",
+		}); err != nil {
+			if isUniqueViolation(err) {
+				return stale, nil
+			}
+			return TelegramResetBegin{}, err
+		}
+	default:
+		return TelegramResetBegin{}, err
+	}
+	if err := q.MarkPasswordResetVerified(ctx, row.ID); err != nil {
 		return TelegramResetBegin{}, err
 	}
 	if err := tx.Commit(ctx); err != nil {

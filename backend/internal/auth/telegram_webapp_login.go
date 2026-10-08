@@ -186,10 +186,14 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		s.logLinkSkipped(profile.ID, err)
 		return false
 	}
-	// A bot password reset waiting for this Telegram user's contact must not
-	// stay armed: the Mini App share that just linked them is not the
-	// deliberate contact share the reset flow asked for, and could otherwise
-	// complete a reset someone else started.
+	// Defence in depth: disarm any bot password reset pending for this
+	// Telegram user, so a «Ha, men» question already sent for it stops
+	// working once the learner is in the Mini App. It does NOT stop the
+	// Mini App's phone share from reaching the bot first (the contact message
+	// and this request race) and does not run for shares that do not link.
+	// What actually keeps a stray contact from completing a reset is that a
+	// contact never verifies on its own — see
+	// AnswerTelegramPasswordResetConfirm.
 	if err := q.ClearAllPasswordResetPendingForTg(ctx, pgtype.Int8{Int64: u.ID, Valid: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return false

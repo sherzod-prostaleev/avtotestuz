@@ -30,6 +30,9 @@ type fakeTelegram struct {
 	sent []string
 	// markups holds the raw reply_markup JSON per sendMessage ("" when none).
 	markups []string
+	// edits holds editMessageText texts; answers holds answerCallbackQuery texts.
+	edits   []string
+	answers []string
 	srv     *httptest.Server
 }
 
@@ -76,6 +79,19 @@ func newFakeTelegram(t *testing.T) (*fakeTelegram, *Client) {
 			_, _ = fmt.Fprintf(w,
 				`{"ok":true,"result":{"message_id":%d,"poll":{"id":"fake-poll-%d"}}}`, msgID, pollSeq)
 			return
+		}
+		if strings.Contains(path, "editMessageText") || strings.Contains(path, "answerCallbackQuery") {
+			var body struct {
+				Text string `json:"text"`
+			}
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			f.mu.Lock()
+			if strings.Contains(path, "editMessageText") {
+				f.edits = append(f.edits, body.Text)
+			} else {
+				f.answers = append(f.answers, body.Text)
+			}
+			f.mu.Unlock()
 		}
 		_, _ = w.Write([]byte(`{"ok":true,"result":{}}`))
 	}))
@@ -302,7 +318,7 @@ func attachAuth(t *testing.T, b *Bot, q *sqlc.Queries) *auth.Service {
 	return svc
 }
 
-func TestHandleUpdate_PasswordResetLinkedSkipsContact(t *testing.T) {
+func TestHandleUpdate_PasswordResetLinkedAsksConfirm(t *testing.T) {
 	b, q, fake := newTestBot(t)
 	ctx := context.Background()
 	svc := attachAuth(t, b, q)
@@ -327,8 +343,22 @@ func TestHandleUpdate_PasswordResetLinkedSkipsContact(t *testing.T) {
 	if err := b.HandleUpdate(ctx, update("/start "+auth.FormatPasswordResetStartPayload(raw), 2020, "resetu")); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(fake.lastMessage(), "Tasdiqlandi") {
-		t.Fatalf("reply=%q", fake.lastMessage())
+	// Linked or not, opening the link only asks the question.
+	if want := "Parolni tiklash so'raldi: +998 90 ••• •• 20."; !strings.Contains(fake.lastMessage(), want) {
+		t.Fatalf("reply=%q want %q", fake.lastMessage(), want)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStatePending {
+		t.Fatalf("status after /start=%s want pending", st)
+	}
+	yes, _ := fake.confirmButtons(t)
+	if err := b.HandleUpdate(ctx, callback(2020, yes)); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.lastEdit(); !strings.Contains(got, "Tasdiqlandi") {
+		t.Fatalf("edit=%q", got)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateVerified {
+		t.Fatalf("status after «Ha, men»=%s want verified", st)
 	}
 }
 
@@ -367,9 +397,111 @@ func TestHandleUpdate_PasswordResetContactMatch(t *testing.T) {
 	if err := b.HandleUpdate(ctx, u); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(fake.lastMessage(), "Tasdiqlandi") {
-		t.Fatalf("contact reply=%q", fake.lastMessage())
+	// The contact alone (which the Mini App's phone share also produces)
+	// must only ask, never verify.
+	if got := fake.lastMessage(); !strings.Contains(got, "+998 90 ••• •• 21") || !strings.Contains(got, "«Ha, men»") {
+		t.Fatalf("contact reply=%q", got)
 	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStatePending {
+		t.Fatalf("status after contact=%s want pending", st)
+	}
+	yes, no := fake.confirmButtons(t)
+	if strings.Contains(yes, raw) || strings.Contains(no, raw) {
+		t.Fatal("callback_data carries the raw reset token")
+	}
+
+	// A tap from another Telegram user (e.g. the message forwarded) is a no-op.
+	if err := b.HandleUpdate(ctx, callback(9999, yes)); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.lastAnswer(); got == "" {
+		t.Fatal("foreign tap got no answerCallbackQuery text")
+	}
+	if fake.lastEdit() != "" {
+		t.Fatalf("foreign tap edited the message: %q", fake.lastEdit())
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStatePending {
+		t.Fatalf("status after foreign tap=%s want pending", st)
+	}
+
+	if err := b.HandleUpdate(ctx, callback(2121, no)); err != nil {
+		t.Fatal(err)
+	}
+	if got := fake.lastEdit(); !strings.Contains(got, "o'zgartirilmadi") {
+		t.Fatalf("«Yo'q» edit=%q", got)
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateInvalid {
+		t.Fatalf("status after «Yo'q»=%s want invalid", st)
+	}
+
+	// «Ha, men» replayed after the cancel changes nothing.
+	edits := len(fake.allEdits())
+	if err := b.HandleUpdate(ctx, callback(2121, yes)); err != nil {
+		t.Fatal(err)
+	}
+	if len(fake.allEdits()) != edits {
+		t.Fatal("stale tap edited the message")
+	}
+	if st := svc.PasswordResetStatus(ctx, raw).State; st != auth.ResetStateInvalid {
+		t.Fatalf("status after replay=%s want invalid", st)
+	}
+}
+
+// callback is a private-chat inline button tap by tgUserID.
+func callback(tgUserID int64, data string) Update {
+	return Update{
+		UpdateID: 9,
+		CallbackQuery: &CallbackQuery{
+			ID:      "cq",
+			From:    User{ID: tgUserID},
+			Message: &Message{MessageID: 500, Chat: Chat{ID: tgUserID, Type: "private"}},
+			Data:    data,
+		},
+	}
+}
+
+// confirmButtons returns the «Ha, men» / «Yo'q» callback_data of the last
+// message sent.
+func (f *fakeTelegram) confirmButtons(t *testing.T) (yes, no string) {
+	t.Helper()
+	var m InlineKeyboardMarkup
+	if err := json.Unmarshal([]byte(f.lastMarkup()), &m); err != nil {
+		t.Fatalf("markup=%q: %v", f.lastMarkup(), err)
+	}
+	if len(m.InlineKeyboard) != 1 || len(m.InlineKeyboard[0]) != 2 {
+		t.Fatalf("markup=%+v want one row of two buttons", m)
+	}
+	y, n := m.InlineKeyboard[0][0], m.InlineKeyboard[0][1]
+	if y.Text != "Ha, men" || n.Text != "Yo'q" {
+		t.Fatalf("buttons=%q/%q", y.Text, n.Text)
+	}
+	if len(y.CallbackData) > 64 || len(n.CallbackData) > 64 {
+		t.Fatal("callback_data over Telegram's 64-byte limit")
+	}
+	return y.CallbackData, n.CallbackData
+}
+
+func (f *fakeTelegram) allEdits() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.edits...)
+}
+
+func (f *fakeTelegram) lastEdit() string {
+	e := f.allEdits()
+	if len(e) == 0 {
+		return ""
+	}
+	return e[len(e)-1]
+}
+
+func (f *fakeTelegram) lastAnswer() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if len(f.answers) == 0 {
+		return ""
+	}
+	return f.answers[len(f.answers)-1]
 }
 
 // Sharing a phone from the Mini App (WebApp.requestContact) sends the contact

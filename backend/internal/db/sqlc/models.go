@@ -526,14 +526,15 @@ type OtpChallenge struct {
 }
 
 type PasswordResetToken struct {
-	ID              uuid.UUID          `json:"id"`
-	ProfileID       uuid.UUID          `json:"profile_id"`
-	TokenHash       string             `json:"token_hash"`
-	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
-	UsedAt          pgtype.Timestamptz `json:"used_at"`
-	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
-	PendingTgUserID pgtype.Int8        `json:"pending_tg_user_id"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	ID               uuid.UUID          `json:"id"`
+	ProfileID        uuid.UUID          `json:"profile_id"`
+	TokenHash        string             `json:"token_hash"`
+	ExpiresAt        pgtype.Timestamptz `json:"expires_at"`
+	UsedAt           pgtype.Timestamptz `json:"used_at"`
+	VerifiedAt       pgtype.Timestamptz `json:"verified_at"`
+	PendingTgUserID  pgtype.Int8        `json:"pending_tg_user_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	ConfirmNonceHash pgtype.Text        `json:"confirm_nonce_hash"`
 }
 
 type PaymeTransaction struct {

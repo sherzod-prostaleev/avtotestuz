@@ -127,12 +127,27 @@ func TestPasswordReset_LinkedTelegramThenComplete(t *testing.T) {
 		t.Fatalf("complete before verify err=%v", err)
 	}
 
+	// A linked account still has to answer the explicit «Ha, men» question:
+	// opening someone else's deep link must never verify on its own.
 	begin, err := svc.BeginTelegramPasswordReset(ctx, raw, 4242)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if begin.Outcome != TelegramResetVerified {
-		t.Fatalf("begin=%s want verified", begin.Outcome)
+	if begin.Outcome != TelegramResetNeedConfirm || begin.ConfirmNonce == "" {
+		t.Fatalf("begin=%+v want need_confirm with nonce", begin)
+	}
+	if begin.MaskedPhone != "+998 90 ••• •• 10" {
+		t.Fatalf("masked phone=%q", begin.MaskedPhone)
+	}
+	if svc.PasswordResetStatus(ctx, raw).State != ResetStatePending {
+		t.Fatal("linked /start alone must leave the reset pending")
+	}
+	yes, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 4242, begin.ConfirmNonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if yes.Outcome != TelegramResetVerified {
+		t.Fatalf("yes=%s want verified", yes.Outcome)
 	}
 	if svc.PasswordResetStatus(ctx, raw).State != ResetStateVerified {
 		t.Fatal("expected verified status")
@@ -202,8 +217,11 @@ func TestPasswordReset_ContactMustMatchAccountPhone(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if ok.Outcome != TelegramResetVerified {
-		t.Fatalf("matching contact=%s", ok.Outcome)
+	if ok.Outcome != TelegramResetNeedConfirm || ok.ConfirmNonce == "" {
+		t.Fatalf("matching contact=%+v want need_confirm", ok)
+	}
+	if svc.PasswordResetStatus(ctx, raw).State != ResetStatePending {
+		t.Fatal("a matching contact alone must not verify the reset")
 	}
 }
 
@@ -279,7 +297,11 @@ func TestPasswordResetHTTP_StartStatusComplete(t *testing.T) {
 		t.Fatalf("http status=%s", st.State)
 	}
 
-	if _, err := svc.BeginTelegramPasswordReset(ctx, raw, 91); err != nil {
+	begin, err := svc.BeginTelegramPasswordReset(ctx, raw, 91)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 91, begin.ConfirmNonce, true); err != nil {
 		t.Fatal(err)
 	}
 	status, env = postJSON(t, ts, "/auth/password-reset/complete", map[string]string{
@@ -291,5 +313,202 @@ func TestPasswordResetHTTP_StartStatusComplete(t *testing.T) {
 	}
 	if strings.Contains(string(env.Data), "brandnew1") {
 		t.Fatal("complete echoed password")
+	}
+}
+
+// contactMatchedReset registers phone, starts a reset, has tgUserID open the
+// deep link and share a matching contact. It returns the raw reset token and
+// the confirm nonce the «Ha, men» / «Yo'q» buttons carry.
+func contactMatchedReset(t *testing.T, svc *Service, phone string, tgUserID int64, contactPhone string) (raw, nonce string) {
+	t.Helper()
+	ctx := context.Background()
+	if _, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: "oldpass12", Name: "R"}); err != nil {
+		t.Fatal(err)
+	}
+	start, err := svc.StartPasswordReset(ctx, phone, "4.4.4.4", "AvtoTestBot")
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = parseResetRaw(t, start.BotURL)
+	begin, err := svc.BeginTelegramPasswordReset(ctx, raw, tgUserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if begin.Outcome != TelegramResetNeedContact {
+		t.Fatalf("begin=%s want need_contact", begin.Outcome)
+	}
+	res, err := svc.ConfirmTelegramPasswordResetContact(ctx, tgUserID, tgUserID, contactPhone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetNeedConfirm || res.ConfirmNonce == "" {
+		t.Fatalf("contact=%+v want need_confirm", res)
+	}
+	return raw, res.ConfirmNonce
+}
+
+func assertResetState(t *testing.T, svc *Service, raw, want string) {
+	t.Helper()
+	if got := svc.PasswordResetStatus(context.Background(), raw).State; got != want {
+		t.Fatalf("status=%s want %s", got, want)
+	}
+}
+
+func TestPasswordResetConfirm_YesFromSameUserVerifies(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, nonce := contactMatchedReset(t, svc, "901000030", 301, "+998901000030")
+	assertResetState(t, svc, raw, ResetStatePending)
+
+	res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 301, nonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetVerified {
+		t.Fatalf("yes=%s want verified", res.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStateVerified)
+
+	// Replay of the same «Ha, men» tap changes nothing and says so.
+	again, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 301, nonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Outcome != TelegramResetStale {
+		t.Fatalf("replay=%s want stale", again.Outcome)
+	}
+	// Replaying «Yo'q» after verification must not cancel it either.
+	no, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 301, nonce, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if no.Outcome != TelegramResetStale {
+		t.Fatalf("late no=%s want stale", no.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStateVerified)
+}
+
+func TestPasswordResetConfirm_YesFromAnotherUserChangesNothing(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, nonce := contactMatchedReset(t, svc, "901000031", 311, "+998901000031")
+
+	res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 999, nonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetStale {
+		t.Fatalf("foreign yes=%s want stale", res.Outcome)
+	}
+	if res, err = svc.AnswerTelegramPasswordResetConfirm(ctx, 999, nonce, false); err != nil || res.Outcome != TelegramResetStale {
+		t.Fatalf("foreign no=%+v err=%v want stale", res, err)
+	}
+	assertResetState(t, svc, raw, ResetStatePending)
+
+	// The rightful user can still confirm afterwards.
+	if res, err = svc.AnswerTelegramPasswordResetConfirm(ctx, 311, nonce, true); err != nil || res.Outcome != TelegramResetVerified {
+		t.Fatalf("owner yes=%+v err=%v", res, err)
+	}
+}
+
+func TestPasswordResetConfirm_NoCancelsReset(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, nonce := contactMatchedReset(t, svc, "901000032", 321, "+998901000032")
+
+	res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 321, nonce, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetCancelled {
+		t.Fatalf("no=%s want cancelled", res.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStateInvalid)
+	if err := svc.CompletePasswordReset(ctx, raw, "brandnew1", "4.4.4.4"); !errors.Is(err, ErrResetInvalid) {
+		t.Fatalf("complete after cancel err=%v", err)
+	}
+	if res, err = svc.AnswerTelegramPasswordResetConfirm(ctx, 321, nonce, true); err != nil || res.Outcome != TelegramResetStale {
+		t.Fatalf("yes after cancel=%+v err=%v want stale", res, err)
+	}
+	if _, err := svc.Login(ctx, LoginInput{Phone: "901000032", Password: "oldpass12"}); err != nil {
+		t.Fatalf("old password must still work: %v", err)
+	}
+}
+
+func TestPasswordResetConfirm_ExpiredChangesNothing(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, nonce := contactMatchedReset(t, svc, "901000033", 331, "+998901000033")
+	if _, err := svc.Pool.Exec(ctx, `UPDATE password_reset_token SET expires_at = now() - interval '1 second'`); err != nil {
+		t.Fatal(err)
+	}
+	for _, accept := range []bool{true, false} {
+		res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 331, nonce, accept)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if res.Outcome != TelegramResetStale {
+			t.Fatalf("expired accept=%v outcome=%s want stale", accept, res.Outcome)
+		}
+	}
+	var verified, used bool
+	if err := svc.Pool.QueryRow(ctx, `SELECT verified_at IS NOT NULL, used_at IS NOT NULL FROM password_reset_token`).Scan(&verified, &used); err != nil {
+		t.Fatal(err)
+	}
+	if verified || used {
+		t.Fatalf("expired reset changed: verified=%v used=%v", verified, used)
+	}
+	if res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, 331, "not-a-nonce", true); err != nil || res.Outcome != TelegramResetStale {
+		t.Fatalf("unknown nonce=%+v err=%v", res, err)
+	}
+	_ = raw
+}
+
+// The Mini App's «Raqamni Telegram'dan olish» posts the learner's own contact
+// into the bot chat. While a reset someone else started is pending for this
+// Telegram user, that contact must only produce the question, never verify.
+func TestPasswordResetConfirm_MiniAppShareAloneStaysUnverified(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	raw, _ := contactMatchedReset(t, svc, "901000034", 341, "+998901000034")
+	// A second share (the Mini App button pressed again) re-asks, still no verify.
+	res, err := svc.ConfirmTelegramPasswordResetContact(ctx, 341, 341, "+998901000034")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramResetNeedConfirm {
+		t.Fatalf("second share=%s", res.Outcome)
+	}
+	assertResetState(t, svc, raw, ResetStatePending)
+	if err := svc.CompletePasswordReset(ctx, raw, "brandnew1", "4.4.4.4"); !errors.Is(err, ErrResetNotVerified) {
+		t.Fatalf("complete without confirmation err=%v", err)
+	}
+}
+
+// Telegram reports contact phones in several shapes; each must complete the
+// whole reset, not just pass normalisation.
+func TestPasswordReset_ContactPhoneFormatsCompleteEndToEnd(t *testing.T) {
+	cases := []struct {
+		name, phone, contact string
+		tg                   int64
+	}{
+		{"plus prefix", "901000035", "+998901000035", 351},
+		{"formatted card", "901234567", "+998 (90) 123-45-67", 352},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, _ := resetTestService(t)
+			ctx := context.Background()
+			raw, nonce := contactMatchedReset(t, svc, tc.phone, tc.tg, tc.contact)
+			if res, err := svc.AnswerTelegramPasswordResetConfirm(ctx, tc.tg, nonce, true); err != nil || res.Outcome != TelegramResetVerified {
+				t.Fatalf("yes=%+v err=%v", res, err)
+			}
+			if err := svc.CompletePasswordReset(ctx, raw, "brandnew1", "4.4.4.4"); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := svc.Login(ctx, LoginInput{Phone: tc.phone, Password: "brandnew1"}); err != nil {
+				t.Fatalf("new password login: %v", err)
+			}
+		})
 	}
 }

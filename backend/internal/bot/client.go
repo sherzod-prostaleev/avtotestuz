@@ -153,6 +153,21 @@ func (c *Client) EditMessageReplyMarkup(ctx context.Context, chatID, messageID i
 	return c.call(ctx, "editMessageReplyMarkup", payload, nil)
 }
 
+// EditMessageText replaces a message's text; a nil markup also drops its
+// inline keyboard, so answered buttons cannot be tapped again.
+func (c *Client) EditMessageText(ctx context.Context, chatID, messageID int64, text string, markup *InlineKeyboardMarkup) error {
+	payload := map[string]any{
+		"chat_id":                  chatID,
+		"message_id":               messageID,
+		"text":                     text,
+		"disable_web_page_preview": true,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	return c.call(ctx, "editMessageText", payload, nil)
+}
+
 // AnswerCallbackQuery acknowledges a button tap (stops the client spinner).
 func (c *Client) AnswerCallbackQuery(ctx context.Context, callbackID, text string, showAlert bool) error {
 	payload := map[string]any{
