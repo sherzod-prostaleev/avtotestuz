@@ -72,8 +72,10 @@ LEFT JOIN answer_translation aft
 WHERE a.question_id = sqlc.arg(question_id)
 ORDER BY a.position;
 
--- name: DeleteTelegramAccountByTgUserID :execrows
-DELETE FROM telegram_account WHERE tg_user_id = $1;
+-- name: DeleteTelegramAccountByTgUserID :many
+-- Bot /unlink. Returns the profile it was linked to (none = was not linked),
+-- whose Telegram photo must go with the link.
+DELETE FROM telegram_account WHERE tg_user_id = $1 RETURNING profile_id;
 
 -- name: ListTelegramDigestCandidates :many
 -- Linked profiles with ≥1 due FSRS card, excluding recent telegram digests.

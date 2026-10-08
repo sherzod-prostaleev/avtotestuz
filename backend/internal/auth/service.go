@@ -75,6 +75,9 @@ type Service struct {
 	// TelegramWebAppURL is TELEGRAM_WEBAPP_URL, the Mini App kill switch:
 	// empty turns Mini App sign-in and linking off even with a bot token.
 	TelegramWebAppURL string
+	// Avatars follows Telegram link changes with the learner's photo.
+	// Optional — nil keeps avatars off.
+	Avatars TelegramAvatars
 	// now is injectable for initData age checks; nil means time.Now.
 	now func() time.Time
 }
@@ -333,11 +336,12 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	linked := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
+	link := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	return VerifyResult{Tokens: toks, Profile: profile, Created: true, TelegramLinked: linked}, nil
+	s.afterTelegramLink(link)
+	return VerifyResult{Tokens: toks, Profile: profile, Created: true, TelegramLinked: link.linked}, nil
 }
 
 type LoginInput struct {
@@ -388,11 +392,12 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error
 	if err != nil {
 		return VerifyResult{}, err
 	}
-	linked := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
+	link := s.linkTelegramInTx(ctx, tx, profile, in.TgInitData, in.TgContact)
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	return VerifyResult{Tokens: toks, Profile: profile, Created: false, TelegramLinked: linked}, nil
+	s.afterTelegramLink(link)
+	return VerifyResult{Tokens: toks, Profile: profile, Created: false, TelegramLinked: link.linked}, nil
 }
 
 func (s *Service) rateLimitAuth(ctx context.Context, action, phone, ip string) error {

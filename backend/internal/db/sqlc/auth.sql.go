@@ -100,7 +100,7 @@ func (q *Queries) CreateOTPChallenge(ctx context.Context, arg CreateOTPChallenge
 
 const createProfile = `-- name: CreateProfile :one
 INSERT INTO profile (phone, referral_code, password_hash, name)
-VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling
+VALUES ($1, $2, $3, $4) RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at
 `
 
 type CreateProfileParams struct {
@@ -138,6 +138,9 @@ func (q *Queries) CreateProfile(ctx context.Context, arg CreateProfileParams) (P
 		&i.Kind,
 		&i.MustChangePassword,
 		&i.VariantUnlockCeiling,
+		&i.AvatarKey,
+		&i.AvatarSource,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
@@ -217,7 +220,7 @@ func (q *Queries) GetLatestPurchaseEntitlement(ctx context.Context, profileID uu
 }
 
 const getProfileByID = `-- name: GetProfileByID :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling FROM profile WHERE id = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at FROM profile WHERE id = $1
 `
 
 func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, error) {
@@ -243,12 +246,15 @@ func (q *Queries) GetProfileByID(ctx context.Context, id uuid.UUID) (Profile, er
 		&i.Kind,
 		&i.MustChangePassword,
 		&i.VariantUnlockCeiling,
+		&i.AvatarKey,
+		&i.AvatarSource,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
 
 const getProfileByPhone = `-- name: GetProfileByPhone :one
-SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling FROM profile WHERE phone = $1
+SELECT id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at FROM profile WHERE phone = $1
 `
 
 func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile, error) {
@@ -274,6 +280,9 @@ func (q *Queries) GetProfileByPhone(ctx context.Context, phone string) (Profile,
 		&i.Kind,
 		&i.MustChangePassword,
 		&i.VariantUnlockCeiling,
+		&i.AvatarKey,
+		&i.AvatarSource,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
@@ -429,7 +438,7 @@ UPDATE profile
 SET password_hash = $2,
     must_change_password = $3
 WHERE id = $1
-RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling
+RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at
 `
 
 type SetProfilePasswordParams struct {
@@ -463,6 +472,9 @@ func (q *Queries) SetProfilePassword(ctx context.Context, arg SetProfilePassword
 		&i.Kind,
 		&i.MustChangePassword,
 		&i.VariantUnlockCeiling,
+		&i.AvatarKey,
+		&i.AvatarSource,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }
@@ -471,7 +483,7 @@ const updateProfileMe = `-- name: UpdateProfileMe :one
 UPDATE profile SET
   name = $2, region = $3, district = $4, birth_date = $5,
   locale_pref = $6, theme_pref = $7
-WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling
+WHERE id = $1 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at
 `
 
 type UpdateProfileMeParams struct {
@@ -515,6 +527,9 @@ func (q *Queries) UpdateProfileMe(ctx context.Context, arg UpdateProfileMeParams
 		&i.Kind,
 		&i.MustChangePassword,
 		&i.VariantUnlockCeiling,
+		&i.AvatarKey,
+		&i.AvatarSource,
+		&i.AvatarUpdatedAt,
 	)
 	return i, err
 }

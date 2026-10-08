@@ -609,6 +609,9 @@ type Profile struct {
 	Kind                      string             `json:"kind"`
 	MustChangePassword        bool               `json:"must_change_password"`
 	VariantUnlockCeiling      int32              `json:"variant_unlock_ceiling"`
+	AvatarKey                 pgtype.Text        `json:"avatar_key"`
+	AvatarSource              pgtype.Text        `json:"avatar_source"`
+	AvatarUpdatedAt           pgtype.Timestamptz `json:"avatar_updated_at"`
 }
 
 type PromoCode struct {

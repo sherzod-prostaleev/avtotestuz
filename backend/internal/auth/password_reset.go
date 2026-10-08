@@ -419,10 +419,13 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 		return TelegramResetBegin{Outcome: TelegramResetCancelled}, nil
 	}
 
+	// What «Ha, men» changed, for the avatar service after commit.
+	link := telegramLinkChange{profileID: row.ProfileID}
 	account, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID)
 	switch {
 	case err == nil && account.ProfileID == row.ProfileID:
 		if !account.PhoneVerifiedAt.Valid {
+			link.linked = true
 			// A legacy link that got here passed the contact step, so the
 			// phone is now proven for this very Telegram user.
 			if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{
@@ -450,6 +453,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 			s.logger().Info("auth.telegram_link_moved",
 				zap.String("from_profile_id", account.ProfileID.String()),
 				zap.String("to_profile_id", row.ProfileID.String()))
+			link.movedFrom = account.ProfileID
 			if err := q.DeleteTelegramAccountForOtherProfiles(ctx, sqlc.DeleteTelegramAccountForOtherProfilesParams{
 				TgUserID: tgUserID, ProfileID: row.ProfileID,
 			}); err != nil {
@@ -473,6 +477,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 			}
 			return TelegramResetBegin{}, err
 		}
+		link.linked = true
 	default:
 		return TelegramResetBegin{}, err
 	}
@@ -482,6 +487,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 	if err := tx.Commit(ctx); err != nil {
 		return TelegramResetBegin{}, err
 	}
+	s.afterTelegramLink(link)
 	return TelegramResetBegin{Outcome: TelegramResetVerified}, nil
 }
 
@@ -537,13 +543,20 @@ func (s *Service) CompletePasswordReset(ctx context.Context, rawToken, newPasswo
 	if err := q.MarkPasswordResetUsed(ctx, row.ID); err != nil {
 		return err
 	}
-	if err := s.dropUnattributedTelegramLink(ctx, q, row); err != nil {
+	dropped, err := s.dropUnattributedTelegramLink(ctx, q, row)
+	if err != nil {
 		return err
 	}
 	if err := q.RevokeAllRefreshTokens(ctx, row.ProfileID); err != nil {
 		return err
 	}
-	return tx.Commit(ctx)
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+	if dropped && s.Avatars != nil {
+		s.Avatars.TelegramUnlinked(row.ProfileID)
+	}
+	return nil
 }
 
 // dropUnattributedTelegramLink runs in the reset transaction. A reset is the
@@ -552,18 +565,19 @@ func (s *Service) CompletePasswordReset(ctx context.Context, rawToken, newPasswo
 // reset in the bot. Anything else — a legacy link an intruder planted, a link
 // written after the confirmation, a reset verified before the confirmer was
 // recorded — goes; the learner re-links with one phone share.
-func (s *Service) dropUnattributedTelegramLink(ctx context.Context, q *sqlc.Queries, row sqlc.PasswordResetToken) error {
+// It reports whether a link was dropped.
+func (s *Service) dropUnattributedTelegramLink(ctx context.Context, q *sqlc.Queries, row sqlc.PasswordResetToken) (bool, error) {
 	n, err := q.DeleteUnattributedTelegramAccount(ctx, sqlc.DeleteUnattributedTelegramAccountParams{
 		ProfileID:         row.ProfileID,
 		ConfirmedTgUserID: row.VerifiedTgUserID,
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if n > 0 {
 		s.logger().Info("auth.telegram_link_dropped_on_reset", zap.String("profile_id", row.ProfileID.String()))
 	}
-	return nil
+	return n > 0, nil
 }
 
 func resetTokenLive(row sqlc.PasswordResetToken) bool {

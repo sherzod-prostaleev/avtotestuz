@@ -116,16 +116,30 @@ func (q *Queries) DeactivateQuizSession(ctx context.Context, id uuid.UUID) error
 	return err
 }
 
-const deleteTelegramAccountByTgUserID = `-- name: DeleteTelegramAccountByTgUserID :execrows
-DELETE FROM telegram_account WHERE tg_user_id = $1
+const deleteTelegramAccountByTgUserID = `-- name: DeleteTelegramAccountByTgUserID :many
+DELETE FROM telegram_account WHERE tg_user_id = $1 RETURNING profile_id
 `
 
-func (q *Queries) DeleteTelegramAccountByTgUserID(ctx context.Context, tgUserID int64) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteTelegramAccountByTgUserID, tgUserID)
+// Bot /unlink. Returns the profile it was linked to (none = was not linked),
+// whose Telegram photo must go with the link.
+func (q *Queries) DeleteTelegramAccountByTgUserID(ctx context.Context, tgUserID int64) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, deleteTelegramAccountByTgUserID, tgUserID)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
-	return result.RowsAffected(), nil
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var profile_id uuid.UUID
+		if err := rows.Scan(&profile_id); err != nil {
+			return nil, err
+		}
+		items = append(items, profile_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getActiveQuizSessionByChat = `-- name: GetActiveQuizSessionByChat :one

@@ -167,32 +167,34 @@ func (s *Service) logLinkSkipped(profileID uuid.UUID, err error) {
 //
 // It never fails the sign-in: a person who typed the right phone and
 // password is signed in even if the Telegram half is unusable, they just are
-// not linked (logged for diagnosis).
-func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.Profile, initData, contact string) bool {
+// not linked (logged for diagnosis). The caller hands the result to
+// afterTelegramLink once its transaction has committed.
+func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.Profile, initData, contact string) telegramLinkChange {
+	none := telegramLinkChange{}
 	if initData == "" || !s.miniAppEnabled() {
-		return false
+		return none
 	}
 	u, err := ValidateInitData(initData, s.TelegramBotToken, s.clock(), InitDataLinkMaxAge)
 	if err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	if contact == "" {
 		s.logLinkSkipped(profile.ID, errLinkNoContact)
-		return false
+		return none
 	}
 	c, err := ValidateContact(contact, s.TelegramBotToken, s.clock(), InitDataLinkMaxAge)
 	if err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	if c.UserID != u.ID {
 		s.logLinkSkipped(profile.ID, errLinkOtherUser)
-		return false
+		return none
 	}
 	if phone, err := NormalizeTelegramContactPhone(c.Phone); err != nil || phone != profile.Phone {
 		s.logLinkSkipped(profile.ID, errLinkPhoneMismatch)
-		return false
+		return none
 	}
 	// A nested tx (SAVEPOINT) keeps a failed link — e.g. a concurrent link of
 	// the same Telegram account hitting the unique constraint — from aborting
@@ -200,27 +202,29 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 	sp, err := tx.Begin(ctx)
 	if err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	defer func() { _ = sp.Rollback(ctx) }()
 	q := sqlc.New(sp)
 
 	// Both re-pointings are the phone's proven owner acting on their own link.
+	movedFrom := uuid.Nil
 	if prev, err := q.GetTelegramAccountByTgUserID(ctx, u.ID); err == nil && prev.ProfileID != profile.ID {
 		s.logger().Info("auth.telegram_link_moved",
 			zap.String("from_profile_id", prev.ProfileID.String()),
 			zap.String("to_profile_id", profile.ID.String()))
+		movedFrom = prev.ProfileID
 	}
 	if prev, err := q.GetTelegramAccountByProfileID(ctx, profile.ID); err == nil && prev.TgUserID != u.ID {
 		s.logger().Info("auth.telegram_link_replaced", zap.String("profile_id", profile.ID.String()))
 	}
 	if err := q.DeleteTelegramAccountForOtherProfiles(ctx, sqlc.DeleteTelegramAccountForOtherProfilesParams{TgUserID: u.ID, ProfileID: profile.ID}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: u.ID, Username: u.Username, PhoneVerified: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	// Defence in depth: disarm any bot password reset pending for this
 	// Telegram user, so a «Ha, men» question already sent for it stops
@@ -232,13 +236,13 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 	// AnswerTelegramPasswordResetConfirm.
 	if err := q.ClearAllPasswordResetPendingForTg(ctx, pgtype.Int8{Int64: u.ID, Valid: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
 	if err := sp.Commit(ctx); err != nil {
 		s.logLinkSkipped(profile.ID, err)
-		return false
+		return none
 	}
-	return true
+	return telegramLinkChange{linked: true, profileID: profile.ID, movedFrom: movedFrom}
 }
 
 // linkWebAppPerProfileLimit caps POST /me/telegram/link-webapp per learner.
@@ -280,9 +284,10 @@ func (s *Service) LinkTelegramWebApp(ctx context.Context, profileID uuid.UUID, i
 		return false, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
-	linked := s.linkTelegramInTx(ctx, tx, profile, initData, contact)
+	link := s.linkTelegramInTx(ctx, tx, profile, initData, contact)
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
-	return linked, nil
+	s.afterTelegramLink(link)
+	return link.linked, nil
 }

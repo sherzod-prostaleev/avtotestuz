@@ -170,3 +170,71 @@ func TestGetTelegramStatusReportsPhoneVerified(t *testing.T) {
 		}
 	}
 }
+
+// recordingAvatars stands in for avatar.Service (auth.TelegramAvatars).
+type recordingAvatars struct {
+	linked, unlinked []uuid.UUID
+}
+
+func (r *recordingAvatars) TelegramLinked(id uuid.UUID)   { r.linked = append(r.linked, id) }
+func (r *recordingAvatars) TelegramUnlinked(id uuid.UUID) { r.unlinked = append(r.unlinked, id) }
+
+// Every way the bot package removes or downgrades a link tells the avatar
+// service, which drops the photo unless a verified link remains.
+func TestLinkChangesReachAvatars(t *testing.T) {
+	svc, q := newTestLinkService(t)
+	rec := &recordingAvatars{}
+	svc.Avatars = rec
+	ctx := context.Background()
+
+	web := createProfile(t, q, "+998901180001")
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: web, TgUserID: 8101, PhoneVerified: true}); err != nil {
+		t.Fatal(err)
+	}
+	if removed, err := svc.UnlinkProfile(ctx, web); err != nil || !removed {
+		t.Fatalf("UnlinkProfile: %v %v", removed, err)
+	}
+
+	botSide := createProfile(t, q, "+998901180002")
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: botSide, TgUserID: 8102, PhoneVerified: true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.Unlink(ctx, 8102); err != nil {
+		t.Fatal(err)
+	}
+
+	// A legacy token re-points a verified link to another Telegram user,
+	// which drops the proof (and so the photo).
+	repointed := createProfile(t, q, "+998901180003")
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: repointed, TgUserID: 8103, PhoneVerified: true}); err != nil {
+		t.Fatal(err)
+	}
+	tok, err := svc.GenerateLinkToken(ctx, repointed)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.RedeemLinkToken(ctx, tok.Token, 8104, "other"); err != nil {
+		t.Fatal(err)
+	}
+
+	want := []uuid.UUID{web, botSide, repointed}
+	if len(rec.unlinked) != len(want) {
+		t.Fatalf("unlinked = %v, want %v", rec.unlinked, want)
+	}
+	for i := range want {
+		if rec.unlinked[i] != want[i] {
+			t.Fatalf("unlinked = %v, want %v", rec.unlinked, want)
+		}
+	}
+	if len(rec.linked) != 0 {
+		t.Fatalf("legacy paths never fetch a photo, got linked=%v", rec.linked)
+	}
+
+	// Nothing to remove: no call.
+	if err := svc.Unlink(ctx, 9999); err == nil {
+		t.Fatal("want ErrNotLinked")
+	}
+	if removed, _ := svc.UnlinkProfile(ctx, web); removed || len(rec.unlinked) != 3 {
+		t.Fatalf("no-op unlink notified: %v", rec.unlinked)
+	}
+}

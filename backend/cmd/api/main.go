@@ -132,6 +132,10 @@ func main() {
 		q := sqlc.New(pool)
 		tgClient := bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil)
 		linkSvc := bot.NewLinkService(pool, q)
+		longpollAvatars := server.NewAvatarService(cfg, q, logger)
+		if longpollAvatars != nil {
+			linkSvc.Avatars = longpollAvatars
+		}
 		quizSvc := &bot.QuizService{
 			Q:             q,
 			Pool:          pool,
@@ -150,6 +154,9 @@ func main() {
 		}
 		authSvc := auth.NewService(q, pool, auth.Limiter{R: redisClient}, sender, []byte(cfg.JWTSecret), cfg.Env)
 		authSvc.Log = logger
+		if longpollAvatars != nil {
+			authSvc.Avatars = longpollAvatars
+		}
 		botSvc := &bot.Bot{
 			WebAppURL:     cfg.TelegramWebAppURL,
 			BotUsername:   cfg.TelegramBotUsername,

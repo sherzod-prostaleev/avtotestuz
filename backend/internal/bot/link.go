@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"avtotest.uz/backend/internal/auth"
 	"avtotest.uz/backend/internal/db/sqlc"
 )
 
@@ -34,6 +35,15 @@ var (
 type LinkService struct {
 	Q    *sqlc.Queries
 	Pool *pgxpool.Pool
+	// Avatars hears about links this service removes or downgrades, so the
+	// learner's Telegram photo goes with them. Optional.
+	Avatars auth.TelegramAvatars
+}
+
+func (s *LinkService) linkMayBeGone(profileID uuid.UUID) {
+	if s.Avatars != nil {
+		s.Avatars.TelegramUnlinked(profileID)
+	}
 }
 
 func NewLinkService(pool *pgxpool.Pool, q *sqlc.Queries) *LinkService {
@@ -160,6 +170,9 @@ func (s *LinkService) RedeemLinkToken(ctx context.Context, rawToken string, tgUs
 	if err := tx.Commit(ctx); err != nil {
 		return RedeemResult{}, err
 	}
+	// The upsert drops the phone proof when it re-points the row to another
+	// Telegram user; the avatar service re-checks and keeps a verified one.
+	s.linkMayBeGone(tokenRow.ProfileID)
 	return RedeemResult{ProfileID: tokenRow.ProfileID, AlreadyLinked: alreadyLinked}, nil
 }
 
@@ -182,12 +195,15 @@ type TelegramStatus struct {
 // Unlink removes the telegram_account row for tgUserID. Idempotent: missing
 // rows return ErrNotLinked so the bot can reply clearly.
 func (s *LinkService) Unlink(ctx context.Context, tgUserID int64) error {
-	n, err := s.Q.DeleteTelegramAccountByTgUserID(ctx, tgUserID)
+	profiles, err := s.Q.DeleteTelegramAccountByTgUserID(ctx, tgUserID)
 	if err != nil {
 		return err
 	}
-	if n == 0 {
+	if len(profiles) == 0 {
 		return ErrNotLinked
+	}
+	for _, id := range profiles {
+		s.linkMayBeGone(id)
 	}
 	return nil
 }
@@ -198,6 +214,9 @@ func (s *LinkService) UnlinkProfile(ctx context.Context, profileID uuid.UUID) (b
 	n, err := s.Q.DeleteTelegramAccountByProfileID(ctx, profileID)
 	if err != nil {
 		return false, err
+	}
+	if n > 0 {
+		s.linkMayBeGone(profileID)
 	}
 	return n > 0, nil
 }

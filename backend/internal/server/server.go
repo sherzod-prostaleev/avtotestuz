@@ -250,6 +250,10 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				svc.Log = log
 				svc.TelegramBotToken = cfg.TelegramBotToken
 				svc.TelegramWebAppURL = cfg.TelegramWebAppURL
+				avatars := NewAvatarService(cfg, deps.Queries, log)
+				if avatars != nil {
+					svc.Avatars = avatars
+				}
 				ah := &auth.Handler{
 					Svc:         svc,
 					ClientIPs:   auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
@@ -267,6 +271,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				)
 
 				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
+				if avatars != nil {
+					acc.Avatars = avatars
+				}
 				acc.Routes(learnerAuth)
 
 				ah.AuthedRoutes(learnerAuth)
@@ -322,6 +329,9 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				// bot consumer — mount whenever the API has DB+Redis. Webhook /
 				// longpoll still gate on TelegramBotMode.
 				linkSvc := bot.NewLinkService(deps.Pool, deps.Queries)
+				if avatars != nil {
+					linkSvc.Avatars = avatars
+				}
 				tbh := &bot.Handler{Link: linkSvc, BotUsername: cfg.TelegramBotUsername}
 				tbh.AuthedRoutes(learnerAuth)
 

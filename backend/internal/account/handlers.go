@@ -3,11 +3,13 @@
 package account
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"avtotest.uz/backend/internal/auth"
@@ -20,6 +22,14 @@ import (
 type Handler struct {
 	Q       *sqlc.Queries
 	Billing billing.Service
+	// Avatars resolves the learner's photo; nil = avatars off (no photo).
+	Avatars AvatarURLs
+}
+
+// AvatarURLs is avatar.Service as GET/PATCH /me see it.
+type AvatarURLs interface {
+	// AvatarURL is the public photo URL or "" — never an error.
+	AvatarURL(ctx context.Context, profileID uuid.UUID, kind string) string
 }
 
 func (h *Handler) Routes(r chi.Router) {
@@ -45,6 +55,9 @@ type profileDTO struct {
 	Kind               string  `json:"kind"`
 	MustChangePassword bool    `json:"must_change_password"`
 	CreatedAt          string  `json:"created_at"`
+	// AvatarURL: the learner's Telegram photo (phone-verified link only),
+	// omitted when there is none and the UI draws the initial letter.
+	AvatarURL string `json:"avatar_url,omitempty"`
 }
 
 func toProfileDTO(p sqlc.Profile) profileDTO {
@@ -68,6 +81,15 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 		MustChangePassword: p.MustChangePassword,
 		CreatedAt:          p.CreatedAt.Time.Format(time.RFC3339),
 	}
+}
+
+// profileDTO is toProfileDTO plus the avatar, for the learner's own /me.
+func (h *Handler) profileDTO(ctx context.Context, p sqlc.Profile) profileDTO {
+	dto := toProfileDTO(p)
+	if h.Avatars != nil {
+		dto.AvatarURL = h.Avatars.AvatarURL(ctx, p.ID, p.Kind)
+	}
+	return dto
 }
 
 type vipDTO struct {
@@ -123,7 +145,7 @@ func (h *Handler) getMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.Data(w, http.StatusOK, map[string]any{
-		"profile": toProfileDTO(profile),
+		"profile": h.profileDTO(r.Context(), profile),
 		"vip":     toVIPDTO(active, until),
 	})
 }
@@ -202,7 +224,7 @@ func (h *Handler) patchMe(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "profile update failed")
 		return
 	}
-	httpx.Data(w, http.StatusOK, toProfileDTO(updated))
+	httpx.Data(w, http.StatusOK, h.profileDTO(r.Context(), updated))
 }
 
 type paymentHistoryDTO struct {
