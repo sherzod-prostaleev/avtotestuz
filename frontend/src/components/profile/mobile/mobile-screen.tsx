@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { ChevronLeft } from "lucide-react";
+import { useTelegramBackButton } from "@/components/telegram/use-telegram-back-button";
 
 type Props = {
   title: string;
@@ -26,6 +27,9 @@ type Props = {
  */
 export function MobileScreen({ title, onBack, footer, gapClassName = "gap-3", children }: Props) {
   const t = useTranslations("Profile");
+  // Inside the Mini App, Telegram's Back (and Android's back key) closes the
+  // panel instead of the whole app.
+  useTelegramBackButton(onBack);
 
   return (
     <section className={`profile-screen-fit flex flex-col ${gapClassName}`}>

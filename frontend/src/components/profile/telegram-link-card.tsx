@@ -1,77 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { Card, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Check, Copy, ExternalLink, Loader2, RefreshCw, Send } from "lucide-react";
-import { useTelegram } from "@/components/telegram/telegram-provider";
-import { openExternalUrl } from "@/lib/telegram/links";
-import { isLinkedToCurrentUser } from "@/lib/telegram/linked-account";
-
-interface TelegramStatus {
-  linked: boolean;
-  username?: string;
-  tg_user_id?: number;
-  linked_at?: string;
-}
-
-interface LinkTokenResult {
-  token: string;
-  deep_link: string;
-  expires_at: string;
-}
+import { Check, Copy, ExternalLink, Loader2, RefreshCw, Send, Smartphone } from "lucide-react";
+import { TelegramUnlink } from "./telegram-unlink";
+import { useTelegramLink } from "./use-telegram-link";
 
 export function TelegramLinkCard() {
   const t = useTranslations("TelegramLink");
   const tApp = useTranslations("TelegramApp");
-  const webApp = useTelegram();
-  const [status, setStatus] = useState<TelegramStatus | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [linking, setLinking] = useState(false);
-  const [deepLink, setDeepLink] = useState<string | null>(null);
-  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const link = useTelegramLink();
+  const { status, loading, errorKey, mode, deepLink, expiresAt } = link;
   const [copied, setCopied] = useState(false);
-  const [errorKey, setErrorKey] = useState<"loadError" | "linkError" | "unconfigured" | null>(null);
-
-  const loadStatus = useCallback(async () => {
-    setLoading(true);
-    setErrorKey(null);
-    try {
-      const data = await apiGet<TelegramStatus>("me/telegram");
-      setStatus(data);
-    } catch {
-      setErrorKey("loadError");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadStatus();
-  }, [loadStatus]);
-
-  const handleLink = async () => {
-    setLinking(true);
-    setErrorKey(null);
-    setCopied(false);
-    try {
-      const result = await apiPost<LinkTokenResult>("me/telegram/link-token");
-      setDeepLink(result.deep_link);
-      setExpiresAt(result.expires_at);
-      // Inside Telegram the bot link opens natively instead of a blocked popup.
-      openExternalUrl(result.deep_link);
-    } catch (err) {
-      if (err instanceof ApiError && err.code === "telegram_bot_unconfigured") {
-        setErrorKey("unconfigured");
-      } else {
-        setErrorKey("linkError");
-      }
-    } finally {
-      setLinking(false);
-    }
-  };
 
   const handleCopy = async () => {
     if (!deepLink) return;
@@ -85,21 +27,42 @@ export function TelegramLinkCard() {
   };
 
   const usernameLabel = status?.username ? `@${status.username.replace(/^@/, "")}` : null;
+  const unlink = status?.linked ? (
+    <TelegramUnlink
+      confirming={link.confirmingUnlink}
+      unlinking={link.unlinking}
+      onAsk={link.askUnlink}
+      onCancel={link.cancelUnlink}
+      onConfirm={() => void link.unlink()}
+    />
+  ) : null;
+  const errorBox = errorKey && (
+    <div role="alert" className="mb-4 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
+      {t(errorKey)}
+      {errorKey === "loadError" && (
+        <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void link.load()}>
+          {t("retry")}
+        </Button>
+      )}
+    </div>
+  );
 
-  // Inside the Mini App an account linked to the Telegram user who opened it
-  // needs no actions. Unlinked (launch data too old to link on sign-in), or
-  // linked to another / an unidentifiable account, keeps the normal card so
-  // the learner can still (re)link.
-  if (webApp && status?.linked && isLinkedToCurrentUser(status, webApp)) {
+  // Inside the Mini App, an account linked to the Telegram user who opened it
+  // with a verified phone needs no link actions — only the way to undo it.
+  if (mode === "linked") {
     return (
       <Card className="border-success/40 bg-card p-5 sm:p-6">
-        <div role="status" className="flex items-center gap-3 text-success">
-          <Check aria-hidden="true" className="h-5 w-5 shrink-0" />
+        {/* Body-coloured label: the success green on white is 3.4:1, too
+            faint for text; the tick alone carries the colour. */}
+        <div role="status" className="flex items-center gap-3">
+          <Check aria-hidden="true" className="h-5 w-5 shrink-0 text-success" />
           <div className="min-w-0">
-            <p className="font-bold">{tApp("linkedStatus")}</p>
-            {usernameLabel && <p className="truncate text-xs text-success/90">{usernameLabel}</p>}
+            <p className="font-bold text-foreground">{tApp("linkedStatus")}</p>
+            {usernameLabel && <p className="truncate text-xs text-muted-foreground">{usernameLabel}</p>}
           </div>
         </div>
+        {errorKey && <div className="mt-4">{errorBox}</div>}
+        <div className="mt-3">{unlink}</div>
       </Card>
     );
   }
@@ -116,36 +79,47 @@ export function TelegramLinkCard() {
           variant="ghost"
           size="sm"
           className="min-h-11 gap-1.5"
-          onClick={() => void loadStatus()}
+          onClick={() => void link.load()}
           disabled={loading}
           aria-label={t("refresh")}
         >
-          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          <RefreshCw aria-hidden="true" className={`h-4 w-4 ${loading ? "animate-spin motion-reduce:animate-none" : ""}`} />
           <span className="hidden sm:inline">{t("refresh")}</span>
         </Button>
       </CardHeader>
 
-      <p className="mb-4 text-xs text-muted-foreground">{t("subtitle")}</p>
+      {/* The website links through a 10-minute bot link; the Mini App links
+          in place, so its hint says nothing about a link expiring. */}
+      <p className="mb-4 text-xs text-muted-foreground">{link.inMiniApp ? t("subtitleInApp") : t("subtitle")}</p>
 
       {loading && !status && (
         <div role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin" />
+          <Loader2 aria-hidden="true" className="h-4 w-4 animate-spin motion-reduce:animate-none" />
           {t("loading")}
         </div>
       )}
 
-      {errorKey && (
-        <div role="alert" className="mb-4 rounded-xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
-          {t(errorKey)}
-          {errorKey === "loadError" && (
-            <Button type="button" variant="outline" size="sm" className="mt-3" onClick={() => void loadStatus()}>
-              {t("retry")}
-            </Button>
-          )}
+      {errorBox}
+
+      {!loading && mode === "confirm" && (
+        <div role="status" className="mb-4 rounded-xl border border-accent/40 bg-accent/10 p-3 text-sm">
+          <p className="font-bold text-foreground">{t("confirmTitle")}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">{tApp("phoneConfirmNote")}</p>
         </div>
       )}
 
-      {!loading && status?.linked && (
+      {!loading && mode === "other" && (
+        <div role="status" className="mb-4 rounded-xl border border-accent/40 bg-accent/10 p-3 text-sm">
+          <p className="font-bold text-foreground">{t("linkedOtherTitle")}</p>
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            {usernameLabel ? `${usernameLabel} · ` : ""}
+            {t("linkedOtherHint")}
+          </p>
+        </div>
+      )}
+
+      {/* Website only: the Mini App's own states are above. */}
+      {!loading && mode === null && status?.linked && (
         <div
           role="status"
           className="mb-4 flex items-start gap-3 rounded-xl border border-success/40 bg-success/10 p-3 text-sm text-success"
@@ -165,27 +139,52 @@ export function TelegramLinkCard() {
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Button
-          type="button"
-          variant="game"
-          size="sm"
-          className="min-h-11 w-full sm:w-auto"
-          disabled={linking || loading}
-          onClick={() => void handleLink()}
-        >
-          {linking ? (
-            <>
-              <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin" />
-              {t("linking")}
-            </>
-          ) : (
-            <>
-              <ExternalLink aria-hidden="true" className="mr-2 h-4 w-4" />
-              {status?.linked ? t("relinkButton") : t("linkButton")}
-            </>
-          )}
-        </Button>
+        {link.inMiniApp ? (
+          <Button
+            type="button"
+            variant="game"
+            size="sm"
+            className="min-h-11 w-full sm:w-auto"
+            disabled={link.linking || loading}
+            onClick={() => void link.linkInApp()}
+          >
+            {link.linking ? (
+              <>
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+                {t("linkingInApp")}
+              </>
+            ) : (
+              <>
+                <Smartphone aria-hidden="true" className="mr-2 h-4 w-4" />
+                {t("linkInApp")}
+              </>
+            )}
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            variant="game"
+            size="sm"
+            className="min-h-11 w-full sm:w-auto"
+            disabled={link.linking || loading}
+            onClick={() => void link.startDeepLink()}
+          >
+            {link.linking ? (
+              <>
+                <Loader2 aria-hidden="true" className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" />
+                {t("linking")}
+              </>
+            ) : (
+              <>
+                <ExternalLink aria-hidden="true" className="mr-2 h-4 w-4" />
+                {status?.linked ? t("relinkButton") : t("linkButton")}
+              </>
+            )}
+          </Button>
+        )}
       </div>
+
+      {unlink && <div className="mt-3">{unlink}</div>}
 
       {deepLink && (
         <div className="mt-4 space-y-2 rounded-xl border border-border bg-background/60 p-3">
