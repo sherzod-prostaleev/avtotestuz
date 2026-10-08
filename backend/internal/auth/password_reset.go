@@ -523,20 +523,16 @@ func (s *Service) CompletePasswordReset(ctx context.Context, rawToken, newPasswo
 // written after the confirmation, a reset verified before the confirmer was
 // recorded — goes; the learner re-links with one phone share.
 func (s *Service) dropUnattributedTelegramLink(ctx context.Context, q *sqlc.Queries, row sqlc.PasswordResetToken) error {
-	account, err := q.GetTelegramAccountByProfileID(ctx, row.ProfileID)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return nil
-	}
+	n, err := q.DeleteUnattributedTelegramAccount(ctx, sqlc.DeleteUnattributedTelegramAccountParams{
+		ProfileID:         row.ProfileID,
+		ConfirmedTgUserID: row.VerifiedTgUserID,
+	})
 	if err != nil {
 		return err
 	}
-	if account.PhoneVerifiedAt.Valid && row.VerifiedTgUserID.Valid && account.TgUserID == row.VerifiedTgUserID.Int64 {
-		return nil
+	if n > 0 {
+		s.logger().Info("auth.telegram_link_dropped_on_reset", zap.String("profile_id", row.ProfileID.String()))
 	}
-	if _, err := q.DeleteTelegramAccountByProfileID(ctx, row.ProfileID); err != nil {
-		return err
-	}
-	s.logger().Info("auth.telegram_link_dropped_on_reset", zap.String("profile_id", row.ProfileID.String()))
 	return nil
 }
 

@@ -66,6 +66,30 @@ func (q *Queries) DeleteTelegramAccountForOtherProfiles(ctx context.Context, arg
 	return err
 }
 
+const deleteUnattributedTelegramAccount = `-- name: DeleteUnattributedTelegramAccount :execrows
+DELETE FROM telegram_account
+WHERE profile_id = $1
+  AND NOT (phone_verified_at IS NOT NULL
+           AND tg_user_id IS NOT DISTINCT FROM $2::bigint)
+`
+
+type DeleteUnattributedTelegramAccountParams struct {
+	ProfileID         uuid.UUID   `json:"profile_id"`
+	ConfirmedTgUserID pgtype.Int8 `json:"confirmed_tg_user_id"`
+}
+
+// Password-reset sweep (auth.CompletePasswordReset): one statement, so a link
+// written concurrently is judged on the row as it is at delete time. Keeps
+// only a phone-verified link of the Telegram user who confirmed the reset
+// (NULL confirmer: nothing is kept).
+func (q *Queries) DeleteUnattributedTelegramAccount(ctx context.Context, arg DeleteUnattributedTelegramAccountParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteUnattributedTelegramAccount, arg.ProfileID, arg.ConfirmedTgUserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteUnusedLinkTokensForProfile = `-- name: DeleteUnusedLinkTokensForProfile :exec
 DELETE FROM telegram_link_token WHERE profile_id = $1 AND used_at IS NULL
 `

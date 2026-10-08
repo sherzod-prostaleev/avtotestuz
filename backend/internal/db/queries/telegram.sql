@@ -73,3 +73,13 @@ DELETE FROM telegram_account WHERE tg_user_id = $1 AND profile_id <> $2;
 -- name: DeleteTelegramAccountByProfileID :execrows
 -- Website unlink (DELETE /me/telegram) and the password-reset sweep.
 DELETE FROM telegram_account WHERE profile_id = $1;
+
+-- name: DeleteUnattributedTelegramAccount :execrows
+-- Password-reset sweep (auth.CompletePasswordReset): one statement, so a link
+-- written concurrently is judged on the row as it is at delete time. Keeps
+-- only a phone-verified link of the Telegram user who confirmed the reset
+-- (NULL confirmer: nothing is kept).
+DELETE FROM telegram_account
+WHERE profile_id = sqlc.arg(profile_id)
+  AND NOT (phone_verified_at IS NOT NULL
+           AND tg_user_id IS NOT DISTINCT FROM sqlc.narg(confirmed_tg_user_id)::bigint);
