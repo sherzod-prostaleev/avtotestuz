@@ -2683,7 +2683,7 @@
     "continueFallback": "Davom etish",
     "openBot": "Botni ochish",
     "loginOnSite": "Saytda kirish",
-    "contactSupport": "Qo'llab-quvvatlashga yozish",
+    "contactSupport": "Yordamga yozish",
     "retryIn": "Qayta urinish ({seconds})",
     "shareAfterLogin": "Avtomatik kirish uchun Telegram raqamingizni ulashing."
   }

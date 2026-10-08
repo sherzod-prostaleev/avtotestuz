@@ -550,7 +550,7 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
           {(phase === "loading" || phase === "signing_in") && (
             <p
               role="status"
-              className="flex min-h-12 items-center justify-center gap-2 text-sm font-semibold text-muted-foreground"
+              className="flex min-h-12 flex-col items-center justify-center gap-2 text-sm font-semibold text-muted-foreground"
             >
               <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin motion-reduce:animate-none" />
               {phase === "signing_in" ? t("loading") : t("connecting")}
@@ -563,7 +563,8 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                 <h1
                   ref={headingRef}
                   tabIndex={-1}
-                  className="font-display text-2xl font-extrabold tracking-tight outline-none"
+                  // A long single-word Telegram name must wrap, not scroll the page.
+                  className="font-display text-2xl font-extrabold tracking-tight outline-none [overflow-wrap:anywhere]"
                 >
                   {firstName ? t("welcomeNamed", { name: firstName }) : t("welcome")}
                 </h1>
@@ -571,7 +572,7 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                 {/* need_phone also answers an account linked before phone
                     verification existed: say once why a phone is asked for. */}
                 {!canContinue && (
-                  <p className="mx-auto flex max-w-[18rem] items-start justify-center gap-1.5 text-xs font-semibold text-foreground">
+                  <p className="flex items-start gap-2 rounded-xl border border-border bg-background/60 px-3 py-2.5 text-left text-xs font-semibold leading-snug text-foreground">
                     <ShieldCheck aria-hidden="true" className="mt-px h-4 w-4 shrink-0 text-success" />
                     <span>{t("phoneConfirmNote")}</span>
                   </p>
@@ -648,7 +649,12 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                       rel="noopener noreferrer"
                       className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
-                      <Button as="span" variant={webApp ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
+                      <Button
+                        as="span"
+                        variant={webApp ? "outline" : "game"}
+                        size="lg"
+                        className="!h-auto min-h-12 w-full py-3 text-sm font-extrabold"
+                      >
                         <LifeBuoy aria-hidden="true" className="mr-2 h-4 w-4" />
                         {t("contactSupport")}
                       </Button>

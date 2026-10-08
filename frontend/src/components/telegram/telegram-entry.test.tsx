@@ -751,7 +751,7 @@ describe("TelegramEntry", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     renderEntry();
-    expect(await screen.findByRole("link", { name: "Qo'llab-quvvatlashga yozish" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Yordamga yozish" })).toHaveAttribute(
       "href",
       "https://t.me/DriverGoHelp"
     );
@@ -766,7 +766,7 @@ describe("TelegramEntry", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
     renderEntry();
-    expect(await screen.findByRole("link", { name: "Qo'llab-quvvatlashga yozish" })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: "Yordamga yozish" })).toHaveAttribute(
       "href",
       "https://t.me/DriverGo"
     );

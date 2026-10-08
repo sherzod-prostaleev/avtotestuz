@@ -57,8 +57,10 @@ export function MobileTelegram({ onBack }: { onBack: () => void }) {
             <span aria-hidden="true" className="block h-5 w-40 max-w-full animate-pulse rounded bg-border/60 motion-reduce:animate-none" />
           ) : (
             <>
-              <p className="truncate text-sm font-bold text-foreground">{title}</p>
-              <p className="truncate text-xs text-muted-foreground">{detail}</p>
+              {/* Wraps instead of truncating: the Mini App states are whole
+                  sentences, and "Boshqa Telegram akkau…" says nothing. */}
+              <p className="text-sm font-bold leading-snug text-foreground [overflow-wrap:anywhere]">{title}</p>
+              <p className="text-xs leading-snug text-muted-foreground [overflow-wrap:anywhere]">{detail}</p>
             </>
           )}
         </div>
