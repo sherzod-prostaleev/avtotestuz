@@ -65,9 +65,9 @@ type dailyCall struct {
 type dailyTG struct {
 	mu        sync.Mutex
 	calls     []dailyCall
-	failCode  map[int64]int    // chat -> permanent error code on every send
-	flood     map[int64]int    // chat -> 429s left to return
-	photoFail bool             // every sendPhoto answers 400
+	failCode  map[int64]int     // chat -> permanent error code on every send
+	flood     map[int64]int     // chat -> 429s left to return
+	photoFail bool              // every sendPhoto answers 400
 	after     func(c dailyCall) // runs after a call is recorded
 }
 
