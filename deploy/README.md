@@ -363,10 +363,17 @@ once** before announcing; the e2e suite stubs the backend and cannot prove it.
 
 Every day from **19:00 Asia/Tashkent** the api process DMs every bot user
 (table `telegram_bot_user`: anyone who wrote to the bot, tapped its buttons or
-started/unblocked it; seeded by migration 0078 from linked accounts and solo
-`/quiz` chats) one quiz poll plus a personal line (streak / due reviews /
-comeback / signup trial) and two buttons («📝 Bugungi mashq», «🔕 Eslatmalarni
+started/unblocked it, or signed in / linked through the Mini App with
+`allows_write_to_pm`; seeded by migration 0078 from linked accounts and solo
+`/quiz` chats) one quiz poll plus a personal line and two buttons («📝 Bugungi mashq», «🔕 Eslatmalarni
 o'chirish»). Users toggle it with `/eslatma`.
+
+- **Personal line:** phone-verified links get streak > due reviews >
+  welcome (never active) / comeback (idle 3+ days) > the day's neutral line;
+  an unverified link gets the neutral line. Unlinked users get the signup
+  pitch (24 h VIP trial, granted by every registration) at most once per 7
+  days (`last_signup_pitch_on`, migration 0079) and the neutral line on other
+  evenings.
 
 - **Enable:** admin → settings → flags → `telegram_daily_reminder` (seeded
   **off**). It also needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_MODE` =
@@ -375,7 +382,9 @@ o'chirish»). Users toggle it with `/eslatma`.
   the run within 25 recipients.
 - **Window:** a pass starts at the first minute tick at/after 19:00 and stops
   at 21:00 — it never sends between 21:00 and 09:00, even when catching up
-  after downtime. Whoever is not reached by 21:00 is skipped for that day.
+  after downtime. A user's two-message bundle is started only if both pacing
+  slots fit before 21:00. Whoever is not reached by 21:00 is skipped for that
+  day.
 - **Safety:** one pass at a time (Postgres advisory lock); each recipient is
   claimed by setting `last_reminder_on = today` in the same UPDATE, so a crash
   or redeploy mid-run resumes the rest and never sends twice (the one user
@@ -383,18 +392,27 @@ o'chirish»). Users toggle it with `/eslatma`.
 - **Rate limits:** 25 messages/s overall; a 429 waits Telegram's
   `retry_after`; 403 (blocked) and 400 "chat not found" set `blocked_at` and
   the user is skipped until they write to the bot again; other 4xx are logged
-  and skipped; 5xx/transport errors retry twice, then skip that user for today.
+  and skipped; 5xx/transport errors and timeouts (20 s per call) retry twice,
+  then skip that user for today.
 - **Log:** one `telegram daily reminder: run` line per pass with counts only
-  (eligible, pending, sent, blocked, opted_out, errors, interrupted, duration).
+  (eligible, pending, sent, partial, blocked, opted_out, errors, interrupted,
+  duration), at error level with the error when the pass failed early.
+  `partial` = the first message landed and the second did not.
+- **Question:** if today's recorded question stops fitting a poll mid-evening
+  it is replaced once (logged) and the rest of the evening gets the
+  replacement. If no question fits at all, the run logs once and stops for
+  the day.
 - **Dry run on prod** (sends and writes nothing):
   `docker exec <api container> /tgdigest --dry-run` — prints the audience by
-  segment (streak/due/inactive/unlinked/generic), opted-out and blocked
+  segment (streak/due/welcome/inactive/generic/signup/unlinked), opted-out and blocked
   counts, and today's question id with whether it fits poll limits.
   Locally: `make tg-digest`.
 - **Superseded:** the old linked-only due digest (`tgdigest -send`, flag
   `telegram_dm_digest`) is removed; migration 0078 deletes that flag.
-- **Rollback:** `0078_telegram_daily_brief.down.sql` drops `telegram_bot_user`
-  and `telegram_daily_question` (opt-outs are lost) and restores the old flag.
+- **Rollback:** `0079_telegram_daily_pitch_and_claim_index.down.sql` drops the
+  pitch date and the claim index; `0078_telegram_daily_brief.down.sql` drops
+  `telegram_bot_user` and `telegram_daily_question` (opt-outs are lost) and
+  restores the old flag.
 
 ## CI implications
 
