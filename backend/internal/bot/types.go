@@ -116,6 +116,6 @@ type PollRequest struct {
 	Options     []string
 	CorrectIdx  int
 	Explanation string
-	OpenPeriod  int   // seconds, 5..600
+	OpenPeriod  int   // seconds, 5..600; 0 = stays open
 	ReplyTo     int64 // photo message this poll belongs to; 0 = none
 }

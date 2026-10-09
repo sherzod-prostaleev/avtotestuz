@@ -47,6 +47,8 @@ type APIError struct {
 	Method      string
 	Code        int
 	Description string
+	// RetryAfter is Telegram's flood-control wait in seconds (429 only).
+	RetryAfter int
 }
 
 func (e *APIError) Error() string {
@@ -83,12 +85,16 @@ func (c *Client) call(ctx context.Context, method string, payload any, out any) 
 		ErrorCode   int             `json:"error_code"`
 		Description string          `json:"description"`
 		Result      json.RawMessage `json:"result"`
+		Parameters  struct {
+			RetryAfter int `json:"retry_after"`
+		} `json:"parameters"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
 		return fmt.Errorf("telegram %s: decode response: %w", method, err)
 	}
 	if !envelope.OK {
-		return &APIError{Method: method, Code: envelope.ErrorCode, Description: envelope.Description}
+		return &APIError{Method: method, Code: envelope.ErrorCode, Description: envelope.Description,
+			RetryAfter: envelope.Parameters.RetryAfter}
 	}
 	if out != nil && len(envelope.Result) > 0 {
 		if err := json.Unmarshal(envelope.Result, out); err != nil {
@@ -245,6 +251,20 @@ func (c *Client) EditMessageText(ctx context.Context, chatID, messageID int64, t
 	return c.call(ctx, "editMessageText", payload, nil)
 }
 
+// EditMessageCaption is EditMessageText for a photo message: a photo has a
+// caption, not text, and Telegram rejects editMessageText on it.
+func (c *Client) EditMessageCaption(ctx context.Context, chatID, messageID int64, caption string, markup *InlineKeyboardMarkup) error {
+	payload := map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"caption":    caption,
+	}
+	if markup != nil {
+		payload["reply_markup"] = markup
+	}
+	return c.call(ctx, "editMessageCaption", payload, nil)
+}
+
 // AnswerCallbackQuery acknowledges a button tap (stops the client spinner).
 func (c *Client) AnswerCallbackQuery(ctx context.Context, callbackID, text string, showAlert bool) error {
 	payload := map[string]any{
@@ -326,7 +346,9 @@ func (c *Client) SendPoll(ctx context.Context, chatID int64, req PollRequest) (i
 	if req.CorrectIdx < 0 || req.CorrectIdx >= len(req.Options) {
 		return 0, "", fmt.Errorf("correct index %d out of range", req.CorrectIdx)
 	}
-	if req.OpenPeriod < pollMinOpenPeriod || req.OpenPeriod > pollMaxOpenPeriod {
+	// 0 leaves the poll open until someone stops it (the daily poll);
+	// anything else must be inside Telegram's range.
+	if req.OpenPeriod != 0 && (req.OpenPeriod < pollMinOpenPeriod || req.OpenPeriod > pollMaxOpenPeriod) {
 		return 0, "", fmt.Errorf("open_period must be %d..%d, got %d", pollMinOpenPeriod, pollMaxOpenPeriod, req.OpenPeriod)
 	}
 
@@ -337,7 +359,9 @@ func (c *Client) SendPoll(ctx context.Context, chatID int64, req PollRequest) (i
 		"type":              "quiz",
 		"correct_option_id": req.CorrectIdx,
 		"is_anonymous":      false,
-		"open_period":       req.OpenPeriod,
+	}
+	if req.OpenPeriod != 0 {
+		payload["open_period"] = req.OpenPeriod
 	}
 	if req.Explanation != "" {
 		payload["explanation"] = truncateRunes(req.Explanation, pollExplanationMax)
