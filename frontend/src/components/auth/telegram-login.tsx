@@ -321,11 +321,16 @@ export function TelegramLogin({
             <p className="text-center text-xs font-semibold text-muted-foreground">{t("qrHint")}</p>
           </div>
         )}
-        <p role="status" aria-live="polite" className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground">
-          <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" />
-          {phase === "completing" ? t("completing") : t("waitingStatus")}
-          {phase === "waiting" && left && <span className="tabular-nums">· {t("expiresIn", { time: left })}</span>}
-        </p>
+        <div className="space-y-0.5 text-center">
+          <p role="status" aria-live="polite" className="flex items-center justify-center gap-2 text-xs font-semibold text-muted-foreground">
+            <Loader2 aria-hidden="true" className="h-3.5 w-3.5 shrink-0 animate-spin motion-reduce:animate-none" />
+            {phase === "completing" ? t("completing") : t("waitingStatus")}
+          </p>
+          {/* Outside the live region: a ticking clock must not be read out every second. */}
+          {phase === "waiting" && left && (
+            <p className="text-[11px] font-semibold tabular-nums text-muted-foreground">{t("expiresIn", { time: left })}</p>
+          )}
+        </div>
         {phase === "waiting" && (
           <button
             type="button"
