@@ -5,7 +5,7 @@
 # Build:  docker build -t avtotest-api:local -f backend/Dockerfile backend/
 # Run:    see deploy/README.md
 
-FROM golang:1.26-alpine@sha256:28d89ee9cc0ff9fec75c82ca201e6bf7fdf9a679d4b7b24dfa04f2bb766bb468 AS build
+FROM golang:1.26-alpine@sha256:c95332c2af86b6d89b91bd0500f4b9529ccbd090a0d1855c6d1ceaa142ae8615 AS build
 WORKDIR /src
 # Declared so the station build's ${STATION_VERSION} below has something to
 # expand: without an ARG of the same name the shell sees an unset variable.

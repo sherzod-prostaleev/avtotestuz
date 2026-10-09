@@ -55,7 +55,7 @@ jobs:
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9.3.0
         with:
           working-directory: backend
-          # go.mod is 1.26.5; action default v1.x binaries are built with older Go
+          # go.mod is go 1.26.x; action default v1.x binaries are built with older Go
           # and refuse to load. Pin a v2 release built with go1.26+.
           version: v2.12.2
       - name: Formatting gate
