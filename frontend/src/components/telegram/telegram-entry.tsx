@@ -16,6 +16,7 @@ import {
   Smartphone,
   WifiOff,
 } from "lucide-react";
+import { nationalPhoneFromShared } from "@/lib/phone-format";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { Button } from "@/components/ui/button";
 import { useTelegram } from "@/components/telegram/telegram-provider";
@@ -182,6 +183,21 @@ async function loadSupportUrl(lifetime: AbortSignal): Promise<string> {
   }
 }
 
+/**
+ * The invite code of a t.me/<bot>?startapp=ref_<CODE> launch, for the
+ * password registration link (the one-tap phone path gets it server-side,
+ * from the signed launch data). Same charset Telegram allows.
+ */
+export function referralFromStartParam(param: string | undefined): string | null {
+  const m = /^ref_([A-Za-z0-9_-]{1,60})$/.exec(param ?? "");
+  return m ? m[1] : null;
+}
+
+type PhoneSignInBody = {
+  data?: { must_change_password?: boolean };
+  error?: { code?: string };
+};
+
 /** `?next=…` for the welcome's links, only for a path /tg itself would honour. */
 function nextQueryFrom(search: string, locale: string): string {
   const next = new URLSearchParams(search).get("next");
@@ -211,6 +227,9 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
   // differs between the server and the first client render.
   const [nextQuery, setNextQuery] = useState("");
   const [supportUrl, setSupportUrl] = useState<string | null>(null);
+  // A one-line problem with the phone share, shown on the welcome screen.
+  const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  const [sharingPhone, setSharingPhone] = useState(false);
   // Seconds left before a rate-limited retry is offered. One interval
   // against a deadline, so a throttled timer (background tab) cannot stretch it.
   const [cooldown, setCooldown] = useState(0);
@@ -261,6 +280,30 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
     setPhase("welcome");
   }, []);
 
+  // After any Telegram sign-in set the cookies: prove they stuck (Safari on
+  // web.telegram.org refuses third-party cookies even when partitioned),
+  // forget the need-phone verdict and the sign-out flag, then go in.
+  const enterSignedIn = useCallback(
+    async (lifetime: AbortSignal, mustChangePassword: boolean) => {
+      const me = await probeMe(lifetime);
+      if (lifetime.aborted) return;
+      if (me.kind === "unauthorized") {
+        setPhase("cookie_blocked");
+        return;
+      }
+      if (me.kind === "failed") {
+        setPhase("error");
+        return;
+      }
+      forgetNeedPhone();
+      // cloudRemove has a 3s timeout, so await is safe: it will never hang.
+      await cloudRemove(AUTOLOGIN_OFF_KEY);
+      if (lifetime.aborted) return;
+      goIn(mustChangePassword || me.mustChangePassword);
+    },
+    [goIn]
+  );
+
   const signIn = useCallback(
     async (app: TelegramWebApp, lifetime: AbortSignal) => {
       setPhase("signing_in");
@@ -301,26 +344,87 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
         setPhase("error");
         return;
       }
-      // Safari on web.telegram.org refuses third-party cookies even when
-      // partitioned; prove the cookie stuck before handing over to the app.
-      const me = await probeMe(lifetime);
-      if (lifetime.aborted) return;
-      if (me.kind === "unauthorized") {
-        setPhase("cookie_blocked");
-        return;
-      }
-      if (me.kind === "failed") {
-        setPhase("error");
-        return;
-      }
-      forgetNeedPhone();
-      // cloudRemove has a 3s timeout, so await is safe: it will never hang.
-      await cloudRemove(AUTOLOGIN_OFF_KEY);
-      if (lifetime.aborted) return;
-      goIn(json.data.must_change_password === true || me.mustChangePassword);
+      await enterSignedIn(lifetime, json.data.must_change_password === true);
     },
-    [goIn, showWelcome]
+    [enterSignedIn, showWelcome]
   );
+
+  // One tap: Telegram's own "share your number" sheet, then the server finds
+  // the learner with that +998 number — or creates one, no password — links
+  // this Telegram account and signs in. Login/register stay for passwords.
+  const signInWithPhone = useCallback(() => {
+    const lifetime = lifetimeRef.current?.signal;
+    const app = webApp;
+    if (!app || !lifetime || busy.current || typeof app.requestContact !== "function") return;
+    busy.current = true;
+    setPhoneNotice(null);
+    setSharingPhone(true);
+    const release = () => {
+      if (!lifetime.aborted) {
+        busy.current = false;
+        setSharingPhone(false);
+      }
+    };
+    try {
+      app.requestContact((shared, res) => {
+        if (lifetime.aborted) return;
+        const contact = typeof res?.response === "string" ? res.response : "";
+        if (!shared || !contact) {
+          setPhoneNotice(t("phoneDeclined"));
+          release();
+          return;
+        }
+        const raw = res?.responseUnsafe?.contact?.phone_number;
+        if (raw && nationalPhoneFromShared(raw) === null) {
+          setPhoneNotice(t("phoneNotUzbek"));
+          release();
+          return;
+        }
+        void (async () => {
+          try {
+            setPhase("signing_in");
+            let reply: { ok: boolean; status: number; json: PhoneSignInBody | null };
+            try {
+              reply = await withTimeout(lifetime, SIGN_IN_TIMEOUT_MS, async (signal) => {
+                const r = await fetch("/api/auth/telegram/phone", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ init_data: app.initData, contact }),
+                  signal,
+                });
+                return { ok: r.ok, status: r.status, json: (await r.json().catch(() => null)) as PhoneSignInBody | null };
+              });
+            } catch {
+              if (!lifetime.aborted) setPhase("error");
+              return;
+            }
+            if (lifetime.aborted) return;
+            if (!reply.ok) {
+              if (reply.json?.error?.code === "invalid_phone") {
+                setPhoneNotice(t("phoneNotUzbek"));
+                setPhase("welcome");
+                return;
+              }
+              const next = phaseForError(reply.status, reply.json?.error?.code);
+              if (next === "rate_limited") {
+                setCooldown(RATE_LIMIT_COOLDOWN_S);
+                setRetryAt(Date.now() + RATE_LIMIT_COOLDOWN_S * 1000);
+              }
+              if (next === "blocked") void loadSupportUrl(lifetime).then((url) => !lifetime.aborted && setSupportUrl(url));
+              setPhase(next);
+              return;
+            }
+            await enterSignedIn(lifetime, reply.json?.data?.must_change_password === true);
+          } finally {
+            release();
+          }
+        })();
+      });
+    } catch {
+      // Old client without the sheet after all: the password paths remain.
+      release();
+    }
+  }, [enterSignedIn, t, webApp]);
 
   const enter = useCallback(
     async (app: TelegramWebApp, lifetime: AbortSignal) => {
@@ -529,6 +633,16 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
     return short ? t("continueAs", { name: short }) : t("continueFallback");
   })();
 
+  // The phone share needs Bot API 6.9+ (requestContact); a linked learner
+  // offered "continue as" does not need it.
+  const canPhoneSignIn = !canContinue && typeof webApp?.requestContact === "function";
+  // Password registration keeps a startapp=ref_<CODE> invite: /register
+  // stores ?ref= and applies it to the new account.
+  const referral = referralFromStartParam(webApp?.initDataUnsafe.start_param);
+  const registerQuery = referral
+    ? `${nextQuery ? `${nextQuery}&` : "?"}ref=${encodeURIComponent(referral)}`
+    : nextQuery;
+
   const retry = () => {
     const lifetime = lifetimeRef.current?.signal;
     if (webApp && lifetime) void enter(webApp, lifetime);
@@ -579,6 +693,31 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                 )}
               </div>
               <div className="space-y-3">
+                {canPhoneSignIn && (
+                  <div className="space-y-2">
+                    <Button
+                      variant="game"
+                      size="lg"
+                      className="!h-auto min-h-12 w-full !px-4 py-3 text-sm font-extrabold"
+                      disabled={sharingPhone}
+                      aria-busy={sharingPhone}
+                      onClick={signInWithPhone}
+                    >
+                      <span className="min-w-0 break-words">{t("continueWithPhone")}</span>
+                    </Button>
+                    <p className="text-xs font-semibold leading-snug text-muted-foreground">{t("continueWithPhoneHint")}</p>
+                    {phoneNotice && (
+                      <p role="alert" className="text-xs font-semibold text-danger">
+                        {phoneNotice}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-3 pt-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                      {t("orPassword")}
+                      <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                    </div>
+                  </div>
+                )}
                 {canContinue && (
                   <Button
                     variant="game"
@@ -593,11 +732,11 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                   </Button>
                 )}
                 <Link href={`/${locale}/login${nextQuery}`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Button as="span" variant={canContinue ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
+                  <Button as="span" variant={canContinue || canPhoneSignIn ? "outline" : "game"} size="lg" className="w-full text-sm font-extrabold">
                     {t("login")}
                   </Button>
                 </Link>
-                <Link href={`/${locale}/register${nextQuery}`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <Link href={`/${locale}/register${registerQuery}`} className="block rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <Button as="span" variant="outline" size="lg" className="w-full text-sm font-extrabold">
                     {t("register")}
                   </Button>

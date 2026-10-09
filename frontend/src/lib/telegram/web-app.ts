@@ -1,6 +1,11 @@
 export interface TelegramWebApp {
   initData: string;
-  initDataUnsafe: { user?: { id: number; first_name?: string; username?: string; language_code?: string } };
+  initDataUnsafe: {
+    user?: { id: number; first_name?: string; last_name?: string; username?: string; language_code?: string };
+    // t.me/<bot>?startapp=<param>; "ref_<CODE>" carries a referral. Unsigned
+    // copy for the UI only — the server reads the signed one from initData.
+    start_param?: string;
+  };
   colorScheme: "light" | "dark";
   version: string;
   platform: string;
