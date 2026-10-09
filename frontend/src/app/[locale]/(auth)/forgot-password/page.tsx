@@ -14,6 +14,7 @@ import {
   normalizeNationalPhone,
   parsePasswordResetTokenFromBotURL,
 } from "@/lib/phone-format";
+import { takeResetPhone } from "@/lib/reset-phone-handoff";
 
 const ERROR_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -31,15 +32,11 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // /login's "Parol o'rnatish" (passwordless account) passes the number it
-  // already knows, so setting a first password is one less thing to type.
+  // /login's "Parol o'rnatish" (passwordless account) hands over the number
+  // it already knows — through sessionStorage, read once (never the URL).
   useEffect(() => {
-    try {
-      const prefill = normalizeNationalPhone(new URLSearchParams(window.location.search).get("phone") ?? "");
-      if (prefill.length === 9) setPhone(prefill);
-    } catch {
-      /* a malformed query string just means no prefill */
-    }
+    const prefill = takeResetPhone();
+    if (prefill) setPhone(prefill);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {

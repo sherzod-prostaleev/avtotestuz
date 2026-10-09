@@ -1006,7 +1006,7 @@
     "passwordSetSection": "Парол ўрнатиш",
     "passwordSetHint": "Сиз Telegram орқали рўйхатдан ўтгансиз. Парол ўрнатсангиз, телефон рақам ва парол билан ҳам кира оласиз.",
     "passwordSetSubmit": "Паролни сақлаш",
-    "passwordSetSuccess": "Парол ўрнатилди. Энди телефон рақам ва парол билан ҳам кира оласиз.",
+    "passwordSetSuccess": "Парол ўрнатилди. Энди телефон рақам ва парол билан ҳам кира оласиз. Бошқа қурилмалардаги сеанслар ёпилди.",
     "passwordErrorAlreadySet": "Парол аллақачон ўрнатилган. Саҳифани янгиланг."
   },
   "TelegramLink": {
@@ -2170,7 +2170,12 @@
     "tip_arena_enabled_why": "Bug yoki yukda tez o'chirish.",
     "tip_arena_enabled_when": "Arena incident yoki mavsumiy o'chirish.",
     "tip_arena_enabled_risks": "Foydalanuvchilar arenadan mahrum.",
-    "tip_arena_enabled_recommend": "Ops/kontent bilan kelishing."
+    "tip_arena_enabled_recommend": "Ops/kontent bilan kelishing.",
+    "tip_telegram_login_what": "Telegram орқали кириш ва рўйхатдан ўтишни ёқади/ўчиради: сайтдаги «Telegram орқали кириш» тугмаси, ботдаги «✅ Kirish» тасдиғи ва Mini App'даги «📱 Рақам билан давом этиш».",
+    "tip_telegram_login_why": "Telegram орқали киришда муаммо ёки суиистеъмол аниқланса, парол тиклаш ва реферал ҳаволаларига тегмасдан фақат шу йўлни тўхтатиш учун.",
+    "tip_telegram_login_when": "Фақат ҳодиса пайтида ўчиринг; одатда ёқилган туради.",
+    "tip_telegram_login_risks": "Ўчирилганда пароли йўқ (Telegram орқали очилган) ҳисоблар ботдаги парол тиклаш орқали парол ўрнатмагунча кира олмайди.",
+    "tip_telegram_login_recommend": "Ўчиришдан олдин сабабни ёзиб қўйинг ва муаммо ҳал бўлиши билан қайта ёқинг."
   },
   "AdminB2B": {
     "title": "Автомактаблар",
@@ -2710,7 +2715,7 @@
     "oneTapHint": "Паролсиз, 1–2 босишда",
     "starting": "Telegram очилмоқда…",
     "waitingTitle": "Telegram'да тасдиқланг",
-    "waitingHint": "Ботда «✅ Kirish» ни босинг. Биринчи марта бўлса — «📱 Raqamni yuborish» ни босинг. Бу саҳифа ўзи давом этади.",
+    "waitingHint": "Ботда «✅ Kirish» ни босинг. Биринчи марта бўлса — аввал «📱 Raqamni yuborish» ни, сўнг «✅ Kirish» ни босинг. Бу саҳифа ўзи давом этади.",
     "openTelegram": "Telegram'ни очиш",
     "qrHint": "Ёки телефон камераси билан сканерланг",
     "qrAlt": "Telegram орқали кириш ҳаволасининг QR коди",
@@ -2729,5 +2734,10 @@
     "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
     "errorNetwork": "Сервер билан боғланиб бўлмади. Қайтадан уриниб кўринг.",
     "orDivider": "ёки телефон рақам ва парол билан"
+  },
+  "SignedInNotice": {
+    "message": "{phone} рақами билан кирдингиз",
+    "notYou": "Бу сизнинг рақамингиз эмасми? Чиқиш",
+    "dismiss": "Ёпиш"
   }
 }

@@ -1006,7 +1006,7 @@
     "passwordSetSection": "Parol o'rnatish",
     "passwordSetHint": "Siz Telegram orqali ro'yxatdan o'tgansiz. Parol o'rnatsangiz, telefon raqam va parol bilan ham kira olasiz.",
     "passwordSetSubmit": "Parolni saqlash",
-    "passwordSetSuccess": "Parol o'rnatildi. Endi telefon raqam va parol bilan ham kira olasiz.",
+    "passwordSetSuccess": "Parol o'rnatildi. Endi telefon raqam va parol bilan ham kira olasiz. Boshqa qurilmalardagi seanslar yopildi.",
     "passwordErrorAlreadySet": "Parol allaqachon o'rnatilgan. Sahifani yangilang."
   },
   "TelegramLink": {
@@ -2170,7 +2170,12 @@
     "tip_arena_enabled_why": "Bug yoki yukda tez o'chirish.",
     "tip_arena_enabled_when": "Arena incident yoki mavsumiy o'chirish.",
     "tip_arena_enabled_risks": "Foydalanuvchilar arenadan mahrum.",
-    "tip_arena_enabled_recommend": "Ops/kontent bilan kelishing."
+    "tip_arena_enabled_recommend": "Ops/kontent bilan kelishing.",
+    "tip_telegram_login_what": "Telegram orqali kirish va ro'yxatdan o'tishni yoqadi/o'chiradi: saytdagi «Telegram orqali kirish» tugmasi, botdagi «✅ Kirish» tasdig'i va Mini App'dagi «📱 Raqam bilan davom etish».",
+    "tip_telegram_login_why": "Telegram orqali kirishda muammo yoki suiiste'mol aniqlansa, parol tiklash va referal havolalariga tegmasdan faqat shu yo'lni to'xtatish uchun.",
+    "tip_telegram_login_when": "Faqat hodisa paytida o'chiring; odatda yoqilgan turadi.",
+    "tip_telegram_login_risks": "O'chirilganda paroli yo'q (Telegram orqali ochilgan) hisoblar botdagi parol tiklash orqali parol o'rnatmaguncha kira olmaydi.",
+    "tip_telegram_login_recommend": "O'chirishdan oldin sababni yozib qo'ying va muammo hal bo'lishi bilan qayta yoqing."
   },
   "AdminB2B": {
     "title": "Avtomaktablar",
@@ -2710,7 +2715,7 @@
     "oneTapHint": "Parolsiz, 1–2 bosishda",
     "starting": "Telegram ochilmoqda…",
     "waitingTitle": "Telegram'da tasdiqlang",
-    "waitingHint": "Botda «✅ Kirish» ni bosing. Birinchi marta bo'lsa — «📱 Raqamni yuborish» ni bosing. Bu sahifa o'zi davom etadi.",
+    "waitingHint": "Botda «✅ Kirish» ni bosing. Birinchi marta bo'lsa — avval «📱 Raqamni yuborish» ni, so'ng «✅ Kirish» ni bosing. Bu sahifa o'zi davom etadi.",
     "openTelegram": "Telegram'ni ochish",
     "qrHint": "Yoki telefon kamerasi bilan skanerlang",
     "qrAlt": "Telegram orqali kirish havolasining QR kodi",
@@ -2729,5 +2734,10 @@
     "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
     "errorNetwork": "Server bilan bog'lanib bo'lmadi. Qaytadan urinib ko'ring.",
     "orDivider": "yoki telefon raqam va parol bilan"
+  },
+  "SignedInNotice": {
+    "message": "{phone} raqami bilan kirdingiz",
+    "notYou": "Bu sizning raqamingiz emasmi? Chiqish",
+    "dismiss": "Yopish"
   }
 }

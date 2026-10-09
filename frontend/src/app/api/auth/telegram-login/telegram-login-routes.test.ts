@@ -102,7 +102,9 @@ describe("POST /api/auth/telegram-login/complete", () => {
   it("sets the website's lax session cookies, drops the login cookie, never echoes tokens", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(json({ data: { access_token: "abc.def", refresh_token: "xyz.123", created: true } }))
+      vi.fn().mockResolvedValue(
+        json({ data: { access_token: "abc.def", refresh_token: "xyz.123", created: true, phone_masked: "+998 90 ••• •• 67" } })
+      )
     );
     const res = await complete(
       new Request("http://localhost/api/auth/telegram-login/complete", {
@@ -112,13 +114,35 @@ describe("POST /api/auth/telegram-login/complete", () => {
       })
     );
     const body = await res.json();
-    expect(body).toEqual({ data: { ok: true, must_change_password: false, created: true } });
+    // The masked account goes to the page for the "signed in as" notice.
+    expect(body).toEqual({
+      data: { ok: true, must_change_password: false, created: true, phone_masked: "+998 90 ••• •• 67" },
+    });
     expect(JSON.stringify(body)).not.toContain("abc.def");
     expect(res.cookies.get(AUTH_COOKIE)?.value).toBe("abc.def");
     expect(res.cookies.get(AUTH_COOKIE)?.sameSite).toBe("lax");
     expect(res.cookies.get(REFRESH_COOKIE)?.value).toBe("xyz.123");
     expect(res.cookies.get(TG_MODE_COOKIE)).toBeUndefined();
     expect(res.cookies.get(TELEGRAM_LOGIN_COOKIE)?.value).toBe("");
+  });
+
+  it("never passes an unmasked phone on to the page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        json({ data: { access_token: "abc.def", refresh_token: "xyz.123", phone_masked: "+998901234567" } })
+      )
+    );
+    const res = await complete(
+      new Request("http://localhost/api/auth/telegram-login/complete", {
+        method: "POST",
+        headers: { cookie: `${TELEGRAM_LOGIN_COOKIE}=sec`, host: "drivergo.uz", origin: "https://drivergo.uz" },
+        body: JSON.stringify({ token: TOKEN }),
+      })
+    );
+    const body = await res.json();
+    expect(body.data.phone_masked).toBeNull();
+    expect(JSON.stringify(body)).not.toContain("998901234567");
   });
 
   it("without the browser cookie it refuses before reaching the backend", async () => {

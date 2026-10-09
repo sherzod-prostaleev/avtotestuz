@@ -1,11 +1,16 @@
 import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
+import { takeResetPhone } from "@/lib/reset-phone-handoff";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import type { TelegramWebApp } from "@/lib/telegram/web-app";
 import { currentTelegramHint } from "@/lib/telegram/hint";
 import messages from "../../../../../messages/uz-Latn.json";
 import LoginPage from "./page";
+
+// The kill-switch probe is its own request at mount; these tests count and
+// order the page's fetches, so it is answered here ("on") without one.
+vi.mock("@/lib/telegram-login-flag", () => ({ fetchTelegramLoginEnabled: () => Promise.resolve(true) }));
 
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -150,11 +155,14 @@ describe("LoginPage", () => {
     expect(alert).toHaveTextContent(
       "Siz Telegram orqali ro'yxatdan o'tgansiz. Telegram orqali kiring yoki parol o'rnating."
     );
-    // «Parol o'rnatish» is the bot reset flow, with the number carried over.
-    expect(screen.getByRole("link", { name: "Parol o'rnatish" })).toHaveAttribute(
-      "href",
-      "/uz-Latn/forgot-password?phone=901112233"
-    );
+    // «Parol o'rnatish» is the bot reset flow, with the number carried over —
+    // in sessionStorage, never in the URL (access logs, history, Referer).
+    const setPassword = screen.getByRole("link", { name: "Parol o'rnatish" });
+    expect(setPassword).toHaveAttribute("href", "/uz-Latn/forgot-password");
+    setPassword.addEventListener("click", (e) => e.preventDefault());
+    fireEvent.click(setPassword);
+    expect(takeResetPhone()).toBe("901112233");
+    expect(takeResetPhone()).toBeNull();
     // «Telegram orqali kirish» starts the Telegram login right away.
     fireEvent.click(within(alert).getByRole("button", { name: "Telegram orqali kirish" }));
     expect(await screen.findByRole("heading", { name: "Telegram'da tasdiqlang" })).toBeInTheDocument();

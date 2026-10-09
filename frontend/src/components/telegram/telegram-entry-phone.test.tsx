@@ -138,6 +138,19 @@ describe("TelegramEntry one-tap phone sign-in", () => {
     expect(await screen.findByRole("heading", { name: "Hisob bloklangan" })).toBeInTheDocument();
   });
 
+  it("drops the one-tap button and points to the password paths when the kill switch is off", async () => {
+    use(webApp());
+    backend({ status: 503, body: { error: { code: "telegram_login_disabled" } } });
+    renderEntry();
+    fireEvent.click(await screen.findByRole("button", { name: "📱 Raqam bilan davom etish" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Telegram orqali kirish hozircha ishlamayapti. Telefon raqam va parol bilan kiring."
+    );
+    expect(screen.queryByRole("button", { name: "📱 Raqam bilan davom etish" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Kirish" })).toHaveAttribute("href", "/uz-Latn/login");
+    expect(screen.getByRole("link", { name: "Ro'yxatdan o'tish" })).toHaveAttribute("href", "/uz-Latn/register");
+  });
+
   it("keeps a startapp=ref_ invite on the password registration link", async () => {
     use(webApp({ startParam: "ref_REF-AB23CD" }));
     backend({ status: 200, body: {} });

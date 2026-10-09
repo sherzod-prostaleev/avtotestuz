@@ -7,6 +7,7 @@ import { SupportBanner } from "@/components/support/support-banner";
 import { MaintenanceBanner } from "@/components/support/maintenance-banner";
 import { MustChangePasswordGate } from "@/components/auth/must-change-password-gate";
 import { SessionExpiredGate } from "@/components/auth/session-expired-gate";
+import { SignedInNotice } from "@/components/auth/signed-in-notice";
 import { PageTransition } from "@/components/layout/page-transition";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -21,6 +22,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <DemoProgressCapture />
         <Sidebar />
         <div className="app-shell-main relative min-w-0 flex-1 pb-[calc(4.25rem+env(safe-area-inset-bottom))] md:ml-64 md:pb-0">
+          <SignedInNotice />
           <MaintenanceBanner />
           <SupportBanner />
           <PageTransition>{children}</PageTransition>

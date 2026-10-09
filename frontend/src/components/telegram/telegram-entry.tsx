@@ -217,6 +217,7 @@ function nextQueryFrom(search: string, locale: string): string {
 export function TelegramEntry({ botUsername = null }: { botUsername?: string | null } = {}) {
   const t = useTranslations("TelegramApp");
   const loginT = useTranslations("Login");
+  const tgLoginT = useTranslations("TelegramLogin");
   const locale = useLocale() as Locale;
   const router = useRouter();
   const webApp = useTelegram();
@@ -229,6 +230,8 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
   const [supportUrl, setSupportUrl] = useState<string | null>(null);
   // A one-line problem with the phone share, shown on the welcome screen.
   const [phoneNotice, setPhoneNotice] = useState<string | null>(null);
+  // The server said the telegram_login kill switch is off (503).
+  const [phoneSwitchedOff, setPhoneSwitchedOff] = useState(false);
   const [sharingPhone, setSharingPhone] = useState(false);
   // Seconds left before a rate-limited retry is offered. One interval
   // against a deadline, so a throttled timer (background tab) cannot stretch it.
@@ -400,6 +403,13 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
             }
             if (lifetime.aborted) return;
             if (!reply.ok) {
+              if (reply.json?.error?.code === "telegram_login_disabled") {
+                // The telegram_login kill switch: the one-tap button goes,
+                // the password paths below it stay.
+                setPhoneSwitchedOff(true);
+                setPhase("welcome");
+                return;
+              }
               if (reply.json?.error?.code === "invalid_phone") {
                 setPhoneNotice(t("phoneNotUzbek"));
                 setPhase("welcome");
@@ -635,7 +645,7 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
 
   // The phone share needs Bot API 6.9+ (requestContact); a linked learner
   // offered "continue as" does not need it.
-  const canPhoneSignIn = !canContinue && typeof webApp?.requestContact === "function";
+  const canPhoneSignIn = !canContinue && !phoneSwitchedOff && typeof webApp?.requestContact === "function";
   // Password registration keeps a startapp=ref_<CODE> invite: /register
   // stores ?ref= and applies it to the new account.
   const referral = referralFromStartParam(webApp?.initDataUnsafe.start_param);
@@ -717,6 +727,11 @@ export function TelegramEntry({ botUsername = null }: { botUsername?: string | n
                       <span aria-hidden="true" className="h-px flex-1 bg-border" />
                     </div>
                   </div>
+                )}
+                {phoneSwitchedOff && (
+                  <p role="alert" className="text-xs font-semibold leading-snug text-foreground">
+                    {tgLoginT("errorUnavailable")}
+                  </p>
                 )}
                 {canContinue && (
                   <Button

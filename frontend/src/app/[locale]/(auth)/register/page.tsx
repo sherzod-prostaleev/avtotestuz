@@ -49,6 +49,8 @@ export default function RegisterPage() {
   const tgStatus = useTelegramStatus();
   const tgT = useTranslations("TelegramApp");
   const tgLoginT = useTranslations("TelegramLogin");
+  // False once the telegram_login kill switch hid the button and its divider.
+  const [telegramShown, setTelegramShown] = useState(true);
   const waitingForTelegram = tgStatus === "loading";
   // "off" only on the website (and the server render); any other status
   // means Telegram launched us, even before or without a working SDK.
@@ -222,8 +224,8 @@ export default function RegisterPage() {
           </div>
 
           {!inMiniApp && (
-            <div className="space-y-4">
-              <TelegramLogin mode="register" onSuccess={afterTelegramLogin} />
+            <div className={telegramShown ? "space-y-4" : "hidden"}>
+              <TelegramLogin mode="register" onSuccess={afterTelegramLogin} onAvailability={setTelegramShown} />
               <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 <span aria-hidden="true" className="h-px flex-1 bg-border" />
                 {tgLoginT("orDivider")}

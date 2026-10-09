@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { ExternalLink, Loader2, RotateCw, Send, ShieldAlert, TimerOff, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QrCode } from "@/components/auth/qr-code";
+import { rememberSignedInAs } from "@/lib/signed-in-notice";
+import { fetchTelegramLoginEnabled } from "@/lib/telegram-login-flag";
 
 /**
  * Website «Telegram orqali kirish» (also used on /register: the same request
@@ -31,6 +33,8 @@ const COMPLETE_GRACE_MS = 60_000;
 
 const START_ERRORS: Record<string, string> = {
   telegram_bot_unconfigured: "errorUnavailable",
+  // The telegram_login kill switch (admin → flags).
+  telegram_login_disabled: "errorUnavailable",
   rate_limited: "errorRateLimited",
 };
 
@@ -78,10 +82,13 @@ function formatLeft(ms: number): string {
 export function TelegramLogin({
   mode,
   onSuccess,
+  onAvailability,
   ref,
 }: {
   mode: "login" | "register";
   onSuccess: (result: TelegramLoginResult) => void | Promise<void>;
+  /** false once the kill switch is known to be off and nothing is shown. */
+  onAvailability?: (shown: boolean) => void;
   ref?: Ref<TelegramLoginHandle>;
 }) {
   const t = useTranslations("TelegramLogin");
@@ -90,6 +97,10 @@ export function TelegramLogin({
   const [errorKey, setErrorKey] = useState("errorNetwork");
   const [mobile, setMobile] = useState(false);
   const [now, setNow] = useState(() => Date.now());
+  // The telegram_login kill switch. Assumed on until the public flags say
+  // otherwise, so the button never flickers in for the usual case; a click
+  // that beats the answer gets the server's 503 and the same copy.
+  const [switchedOff, setSwitchedOff] = useState(false);
   const busy = useRef(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const onSuccessRef = useRef(onSuccess);
@@ -104,6 +115,16 @@ export function TelegramLogin({
       setPending(resumed);
       setPhase("waiting");
     }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchTelegramLoginEnabled().then((on) => {
+      if (!cancelled && !on) setSwitchedOff(true);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const finish = useCallback((next: Phase) => {
@@ -182,7 +203,7 @@ export function TelegramLogin({
         return;
       }
       const json = (await res.json().catch(() => null)) as
-        | { data?: { must_change_password?: boolean; created?: boolean }; error?: { code?: string } }
+        | { data?: { must_change_password?: boolean; created?: boolean; phone_masked?: unknown }; error?: { code?: string } }
         | null;
       if (res.status === 409) {
         setPhase("waiting");
@@ -195,6 +216,8 @@ export function TelegramLogin({
         return;
       }
       writePending(null);
+      // Shown once on the first learner screen (SignedInNotice).
+      rememberSignedInAs(json?.data?.phone_masked);
       await onSuccessRef.current({
         mustChangePassword: json?.data?.must_change_password === true,
         created: json?.data?.created === true,
@@ -264,7 +287,14 @@ export function TelegramLogin({
     }
   }, [phase]);
 
+  const hidden = phase === "idle" && switchedOff;
+  useEffect(() => {
+    onAvailability?.(!hidden);
+  }, [hidden, onAvailability]);
+
   const label = mode === "register" ? t("registerButton") : t("loginButton");
+
+  if (hidden) return null;
 
   if (phase === "idle" || phase === "starting") {
     return (

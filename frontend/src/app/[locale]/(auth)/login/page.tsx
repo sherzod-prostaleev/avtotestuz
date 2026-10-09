@@ -18,6 +18,7 @@ import { afterTelegramAuth, withTelegramInitData } from "@/lib/telegram/auth-bod
 import { forgetNeedPhone } from "@/lib/telegram/need-phone-cache";
 import { carryNextQuery, miniAppNext, safeNextPath } from "@/lib/telegram/safe-next";
 import { formatNationalPhone, normalizeNationalPhone } from "@/lib/phone-format";
+import { rememberResetPhone } from "@/lib/reset-phone-handoff";
 
 const ERROR_MESSAGE_KEYS: Record<string, string> = {
   invalid_phone: "errorInvalidPhone",
@@ -62,6 +63,9 @@ export default function LoginPage() {
   const [sessionExpired, setSessionExpired] = useState(false);
   const telegramLogin = useRef<TelegramLoginHandle>(null);
   const tgLoginT = useTranslations("TelegramLogin");
+  // False once the telegram_login kill switch hid the button: the "or"
+  // divider and the Telegram promise in the subtitle go with it.
+  const [telegramShown, setTelegramShown] = useState(true);
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
@@ -211,7 +215,7 @@ export default function LoginPage() {
               {t("title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {inMiniApp ? t("subtitle") : t("subtitleWithTelegram")}
+              {inMiniApp || !telegramShown ? t("subtitle") : t("subtitleWithTelegram")}
             </p>
           </div>
 
@@ -230,11 +234,14 @@ export default function LoginPage() {
           {/* Website only: inside Telegram the Mini App signs in with
               Telegram's own launch data and phone share instead. */}
           {!inMiniApp && (
-            <div className="space-y-4">
+            // Stays mounted while hidden: the passwordless panel below can
+            // still start it, and its answer (503 copy) then shows here.
+            <div className={telegramShown ? "space-y-4" : "hidden"}>
               <TelegramLogin
                 ref={telegramLogin}
                 mode="login"
                 onSuccess={(r) => finishAuth(r.mustChangePassword, true)}
+                onAvailability={setTelegramShown}
               />
               <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
                 <span aria-hidden="true" className="h-px flex-1 bg-border" />
@@ -335,7 +342,10 @@ export default function LoginPage() {
                     {t("passwordlessTelegram")}
                   </button>
                   <Link
-                    href={`/${locale}/forgot-password${phone ? `?phone=${encodeURIComponent(phone)}` : ""}`}
+                    // The number goes along in sessionStorage, not the URL
+                    // (access logs, history, Referer).
+                    href={`/${locale}/forgot-password`}
+                    onClick={() => rememberResetPhone(phone)}
                     className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-extrabold text-foreground hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <KeyRound aria-hidden="true" className="h-4 w-4" />

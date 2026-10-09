@@ -25,6 +25,7 @@ const DANGEROUS_FLAGS = new Set([
   "checkout_click",
   "web_push_digest",
   "arena_enabled",
+  "telegram_login",
 ]);
 
 export default function AdminSettingsFlagsPage() {

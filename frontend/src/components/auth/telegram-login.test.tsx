@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import messages from "../../../messages/uz-Latn.json";
 import ruMessages from "../../../messages/ru.json";
 import { TelegramLogin, TELEGRAM_LOGIN_STORAGE_KEY, isTelegramDeepLink } from "./telegram-login";
+import { takeSignedInAs } from "@/lib/signed-in-notice";
 
 const TOKEN = "T".repeat(43);
 const BOT_URL = `https://t.me/DriverGouzBot?start=login_${TOKEN}`;
@@ -32,7 +33,7 @@ function backend(states: string[], completeStatus = 200) {
     }
     if (url === "/api/auth/telegram-login/complete") {
       return completeStatus === 200
-        ? json({ data: { ok: true, must_change_password: false, created: true } })
+        ? json({ data: { ok: true, must_change_password: false, created: true, phone_masked: "+998 90 ••• •• 67" } })
         : json({ error: { code: "invalid_login_request" } }, completeStatus);
     }
     return json({}, 404);
@@ -141,5 +142,61 @@ describe("TelegramLogin", () => {
   it("speaks Russian on /ru", () => {
     renderLogin(vi.fn(), "ru");
     expect(screen.getByRole("button", { name: "Войти через Telegram" })).toBeInTheDocument();
+  });
+
+  it("hands the masked account to the first learner screen, once", async () => {
+    vi.stubGlobal("open", vi.fn(() => null));
+    vi.stubGlobal("fetch", backend(["approved"]));
+    const onSuccess = renderLogin();
+    fireEvent.click(screen.getByRole("button", { name: "Telegram orqali kirish" }));
+    await waitFor(() => expect(onSuccess).toHaveBeenCalled());
+    expect(takeSignedInAs()).toBe("+998 90 ••• •• 67");
+    expect(takeSignedInAs()).toBeNull();
+  });
+
+  it("tells a first-time learner to share the phone and then press «✅ Kirish»", async () => {
+    vi.stubGlobal("open", vi.fn(() => null));
+    vi.stubGlobal("fetch", backend(["pending"]));
+    renderLogin();
+    fireEvent.click(screen.getByRole("button", { name: "Telegram orqali kirish" }));
+    expect(
+      await screen.findByText(
+        "Botda «✅ Kirish» ni bosing. Birinchi marta bo'lsa — avval «📱 Raqamni yuborish» ni, so'ng «✅ Kirish» ni bosing. Bu sahifa o'zi davom etadi."
+      )
+    ).toBeInTheDocument();
+  });
+
+  it("hides the button when the telegram_login kill switch is off", async () => {
+    const fetchMock = vi.fn((url: string) =>
+      url === "/api/proxy/flags" ? json({ data: { telegram_login: false } }) : json({}, 404)
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const onAvailability = vi.fn();
+    render(
+      <NextIntlClientProvider locale="uz-Latn" messages={messages}>
+        <TelegramLogin mode="login" onSuccess={vi.fn()} onAvailability={onAvailability} />
+      </NextIntlClientProvider>
+    );
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Telegram orqali kirish" })).toBeNull());
+    expect(onAvailability).toHaveBeenLastCalledWith(false);
+    expect(fetchMock).not.toHaveBeenCalledWith("/api/auth/telegram-login/start", expect.anything());
+  });
+
+  it("keeps the button when the flags cannot be read, and explains a 503 from the switch", async () => {
+    vi.stubGlobal("open", vi.fn(() => null));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        url === "/api/auth/telegram-login/start"
+          ? json({ error: { code: "telegram_login_disabled" } }, 503)
+          : Promise.reject(new Error("offline"))
+      )
+    );
+    renderLogin();
+    fireEvent.click(await screen.findByRole("button", { name: "Telegram orqali kirish" }));
+    expect(
+      await screen.findByText("Telegram orqali kirish hozircha ishlamayapti. Telefon raqam va parol bilan kiring.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Qaytadan urinish" })).toBeNull();
   });
 });

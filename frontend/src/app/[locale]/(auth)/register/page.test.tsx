@@ -6,6 +6,10 @@ import type { TelegramWebApp } from "@/lib/telegram/web-app";
 import messages from "../../../../../messages/uz-Latn.json";
 import RegisterPage from "./page";
 
+// The kill-switch probe is its own request at mount; these tests count and
+// order the page's fetches, so it is answered here ("on") without one.
+vi.mock("@/lib/telegram-login-flag", () => ({ fetchTelegramLoginEnabled: () => Promise.resolve(true) }));
+
 const pushMock = vi.fn();
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: pushMock }),

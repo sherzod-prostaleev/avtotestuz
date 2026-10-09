@@ -4,6 +4,7 @@ import { extractTokenPair, readBackendJson } from "@/lib/backend-response";
 import { cookieModeFor, setAuthCookies } from "@/lib/auth-cookies";
 import { buildClientIPAssertionHeaders } from "@/lib/client-ip-assertion";
 import { rejectCrossSite } from "@/lib/same-origin";
+import { isMaskedPhone } from "@/lib/signed-in-notice";
 import {
   clearTelegramLoginCookie,
   isLoginToken,
@@ -72,9 +73,18 @@ export async function POST(request: Request) {
   } catch {
     return unavailableResponse();
   }
-  const payload = (data as { data?: { must_change_password?: unknown; created?: unknown } }).data;
+  const payload = (data as { data?: { must_change_password?: unknown; created?: unknown; phone_masked?: unknown } }).data;
   const response = NextResponse.json(
-    { data: { ok: true, must_change_password: payload?.must_change_password === true, created: payload?.created === true } },
+    {
+      data: {
+        ok: true,
+        must_change_password: payload?.must_change_password === true,
+        created: payload?.created === true,
+        // Which account this browser now holds, masked by the backend; the
+        // page shows it once. Anything not in the masked shape is dropped.
+        phone_masked: isMaskedPhone(payload?.phone_masked) ? payload.phone_masked : null,
+      },
+    },
     { status: 200 }
   );
   clearTelegramLoginCookie(response);

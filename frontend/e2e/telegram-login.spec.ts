@@ -49,7 +49,9 @@ async function stubLoginBackend(page: Page, context: BrowserContext, states: str
     expect(r.request().postDataJSON()).toEqual({ token: TOKEN });
     // The real route sets the site's at/rt; the middleware only checks presence.
     await context.addCookies([{ name: "at", value: "x", url: ORIGIN }]);
-    return r.fulfill({ json: { data: { ok: true, must_change_password: false, created: false } } });
+    return r.fulfill({
+      json: { data: { ok: true, must_change_password: false, created: false, phone_masked: "+998 90 ••• •• 33" } },
+    });
   });
   await page.route("**/api/proxy/**", (r) =>
     r.fulfill({ json: r.request().url().endsWith("/api/proxy/me") ? meOk() : { data: [] } })
@@ -68,8 +70,31 @@ test.describe("Telegram login on the website", () => {
     await expect.poll(() => popup.url()).toBe(BOT_URL);
     await expect(page.getByRole("heading", { name: "Telegram'da tasdiqlang" })).toBeVisible();
     await expect(page.getByRole("img", { name: "Telegram orqali kirish havolasining QR kodi" })).toBeVisible();
+    // First sign-in is two taps in the bot; the waiting screen says so.
+    await expect(
+      page.getByText("Birinchi marta bo'lsa — avval «📱 Raqamni yuborish» ni, so'ng «✅ Kirish» ni bosing.")
+    ).toBeVisible();
     await expect(page).toHaveURL(/\/uz-Latn\/dashboard/, { timeout: 15_000 });
     expect(completed()).toBe(1);
+    // Which account this browser ended up in: said once, clearly (a shared
+    // or classroom screen must notice a wrong account at once).
+    const notice = page.getByRole("status").filter({ hasText: "raqami bilan kirdingiz" });
+    // The number is kept on one line with no-break spaces, hence \s.
+    await expect(notice).toHaveText(/\+998\s90\s•••\s••\s33 raqami bilan kirdingiz/);
+    await expect(notice.getByRole("button", { name: "Bu sizning raqamingiz emasmi? Chiqish" })).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("heading").first()).toBeVisible();
+    await expect(page.getByText("raqami bilan kirdingiz")).toHaveCount(0);
+  });
+
+  test("the telegram_login kill switch hides the button and its divider; the password form stays", async ({ page }) => {
+    await page.route("**/api/proxy/flags", (r) => r.fulfill({ json: { data: { telegram_login: false } } }));
+    await page.goto("/uz-Latn/login");
+    await expect(page.locator('input[type="password"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: "Telegram orqali kirish" })).toHaveCount(0);
+    await expect(page.getByText("yoki telefon raqam va parol bilan")).toBeHidden();
+    await page.goto("/uz-Latn/register");
+    await expect(page.getByRole("button", { name: "Telegram orqali ro'yxatdan o'tish" })).toHaveCount(0);
   });
 
   test("phone: the page goes to t.me and resumes waiting when the learner comes back", async ({ browser }) => {
@@ -110,8 +135,12 @@ test.describe("Telegram login on the website", () => {
     await expect(panel).toContainText("Siz Telegram orqali ro'yxatdan o'tgansiz. Telegram orqali kiring yoki parol o'rnating.");
     await expect(panel.getByRole("button", { name: "Telegram orqali kirish" })).toBeVisible();
     await panel.getByRole("link", { name: "Parol o'rnatish" }).click();
-    await expect(page).toHaveURL(/\/uz-Latn\/forgot-password\?phone=901112233/);
+    // The number is carried over without ever appearing in a URL.
+    await expect(page).toHaveURL(/\/uz-Latn\/forgot-password$/);
     await expect(page.locator('input[type="tel"]')).toHaveValue("90 111 22 33");
+    // Read once: a reload starts with an empty field.
+    await page.reload();
+    await expect(page.locator('input[type="tel"]')).toHaveValue("");
   });
 });
 

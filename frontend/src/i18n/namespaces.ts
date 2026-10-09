@@ -43,6 +43,8 @@ const APP_EXTRA = [
   "Notifications",
   "SupportBanner",
   "MaintenanceBanner",
+  // "Signed in as +998 …" shown once after a Telegram login.
+  "SignedInNotice",
   "PublicSupport",
   "SupportChat",
   "SupportTicket",
