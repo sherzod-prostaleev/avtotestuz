@@ -18,6 +18,8 @@ export interface FakeTelegramOptions {
    * fake does the same from requestFullscreen().
    */
   fullscreenContentTop?: number;
+  /** initDataUnsafe.start_param, as a t.me/<bot>?startapp=<param> launch sets it. */
+  startParam?: string;
 }
 
 const script = (o: Required<FakeTelegramOptions>) => `
@@ -40,7 +42,7 @@ const script = (o: Required<FakeTelegramOptions>) => `
     sessionStorage.setItem("tg-webapp", "1");
     const webApp = {
       initData: "query_id=x&user=%7B%22id%22%3A1%7D&auth_date=1&hash=00",
-      initDataUnsafe: { user: { id: 1, first_name: "Ali", language_code: "uz" } },
+      initDataUnsafe: { user: { id: 1, first_name: "Ali", language_code: "uz" }${o.startParam ? `, start_param: ${JSON.stringify(o.startParam)}` : ""} },
       colorScheme: "${o.colorScheme}", version: "8.0", platform: "${o.platform}",
       isFullscreen: false,
       ready: rec("ready"), expand: rec("expand"), close: rec("close"), isVersionAtLeast: () => true,
@@ -88,6 +90,7 @@ export async function openInFakeTelegram(page: Page, opts: FakeTelegramOptions =
       safeTop: 24,
       safeBottom: 18,
       fullscreenContentTop: 0,
+      startParam: "",
       ...opts,
     })
   );
