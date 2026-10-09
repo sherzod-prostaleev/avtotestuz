@@ -28,6 +28,8 @@ interface UserProfileData {
   referral_code: string;
   role: string;
   must_change_password?: boolean;
+  /** False for an account created through Telegram (no password yet). */
+  has_password?: boolean;
   created_at: string;
   avatar_url?: string;
 }
@@ -137,6 +139,8 @@ export default function ProfilePage() {
           avatarUrl={profile?.avatar_url}
           referralCode={profile?.referral_code ?? ""}
           isVip={isVip}
+          hasPassword={profile?.has_password !== false}
+          onPasswordSet={() => void loadProfile()}
           onNameChange={setName}
           onRegionChange={setRegion}
           onSave={handleSave}
@@ -226,7 +230,14 @@ export default function ProfilePage() {
         </Card>
 
         <div className="max-md:hidden">
-          <ChangePasswordForm />
+          {/* Only once /me said whether a password exists: a Telegram-created
+              account must not flash the "current password" form. */}
+          {profile && (
+            <ChangePasswordForm
+              hasPassword={profile.has_password !== false}
+              onSuccess={profile.has_password === false ? () => void loadProfile() : undefined}
+            />
+          )}
         </div>
 
 

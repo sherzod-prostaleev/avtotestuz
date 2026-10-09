@@ -17,6 +17,12 @@ type Props = {
    * exactly the form they have today.
    */
   reveal?: boolean;
+  /**
+   * False for an account created through Telegram (GET /me has_password):
+   * the form then SETS a first password — no current-password field — via
+   * POST /me/password/set. Defaults to the ordinary change form.
+   */
+  hasPassword?: boolean;
   onSuccess?: () => void;
 };
 
@@ -28,6 +34,7 @@ const ERROR_KEYS: Record<string, string> = {
   weak_password: "passwordErrorWeak",
   password_unchanged: "passwordErrorUnchanged",
   password_not_set: "passwordErrorNotSet",
+  password_already_set: "passwordErrorAlreadySet",
   network_error: "passwordErrorNetwork",
 };
 
@@ -103,14 +110,17 @@ function PasswordRow({
   );
 }
 
-export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: Props) {
+export function ChangePasswordForm({ bare = false, reveal = false, hasPassword = true, onSuccess }: Props) {
+  const setting = !hasPassword;
   const t = useTranslations("Profile");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errorKey, setErrorKey] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  // The message key of the last success; kept across the switch from "set"
+  // to "change" that the parent's profile reload causes right after it.
+  const [success, setSuccess] = useState<string | null>(null);
   const [shown, setShown] = useState<Record<PasswordField, boolean>>({
     current: false,
     next: false,
@@ -120,13 +130,13 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
     setShown((prev) => ({ ...prev, [field]: !prev[field] }));
   const clearFeedback = () => {
     setErrorKey(null);
-    setSuccess(false);
+    setSuccess(null);
   };
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorKey(null);
-    setSuccess(false);
+    setSuccess(null);
 
     if (newPassword.length < 8) {
       setErrorKey("passwordErrorWeak");
@@ -139,15 +149,19 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
 
     setSubmitting(true);
     try {
-      await apiPost("me/password", {
-        current_password: currentPassword,
-        new_password: newPassword,
-        confirm_password: confirmPassword,
-      });
+      if (setting) {
+        await apiPost("me/password/set", { new_password: newPassword, confirm_password: confirmPassword });
+      } else {
+        await apiPost("me/password", {
+          current_password: currentPassword,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        });
+      }
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
-      setSuccess(true);
+      setSuccess(setting ? "passwordSetSuccess" : "passwordSuccess");
       onSuccess?.();
     } catch (err) {
       if (err instanceof ApiError) {
@@ -166,21 +180,23 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
       className={reveal ? "flex flex-1 flex-col gap-3" : "space-y-4"}
       autoComplete="off"
     >
-      <PasswordRow
-        id="current-password"
-        label={t("passwordCurrent")}
-        value={currentPassword}
-        onChange={(value) => {
-          setCurrentPassword(value);
-          clearFeedback();
-        }}
-        autoComplete="current-password"
-        reveal={reveal}
-        shown={shown.current}
-        onToggle={() => toggle("current")}
-        showLabel={t("passwordShow")}
-        hideLabel={t("passwordHide")}
-      />
+      {!setting && (
+        <PasswordRow
+          id="current-password"
+          label={t("passwordCurrent")}
+          value={currentPassword}
+          onChange={(value) => {
+            setCurrentPassword(value);
+            clearFeedback();
+          }}
+          autoComplete="current-password"
+          reveal={reveal}
+          shown={shown.current}
+          onToggle={() => toggle("current")}
+          showLabel={t("passwordShow")}
+          hideLabel={t("passwordHide")}
+        />
+      )}
       <PasswordRow
         id="new-password"
         label={t("passwordNew")}
@@ -225,7 +241,7 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
           role="status"
           className="flex items-center gap-2 rounded-xl border border-success/50 bg-success/10 p-3 text-sm font-medium text-success"
         >
-          <Check aria-hidden="true" className="h-4 w-4" /> {t("passwordSuccess")}
+          <Check aria-hidden="true" className="h-4 w-4" /> {t(success)}
         </div>
       )}
 
@@ -243,12 +259,12 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
             disabled={submitting}
             className="btn-3d-primary inline-flex min-h-[50px] w-full items-center justify-center rounded-xl px-4 font-display text-lg font-extrabold disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            {submitting ? t("passwordSaving") : t("passwordSubmit")}
+            {submitting ? t("passwordSaving") : t(setting ? "passwordSetSubmit" : "passwordSubmit")}
           </button>
         </>
       ) : (
         <Button type="submit" variant="game" size="sm" className="w-full sm:w-auto" disabled={submitting}>
-          {submitting ? t("passwordSaving") : t("passwordSubmit")}
+          {submitting ? t("passwordSaving") : t(setting ? "passwordSetSubmit" : "passwordSubmit")}
         </Button>
       )}
     </form>
@@ -262,9 +278,9 @@ export function ChangePasswordForm({ bare = false, reveal = false, onSuccess }: 
     <Card className="p-5 sm:p-6">
       <CardHeader className="mb-4 flex flex-row items-center gap-2 p-0">
         <Lock aria-hidden="true" className="h-5 w-5 text-accent" />
-        <CardTitle className="text-base font-bold">{t("passwordSection")}</CardTitle>
+        <CardTitle className="text-base font-bold">{t(setting ? "passwordSetSection" : "passwordSection")}</CardTitle>
       </CardHeader>
-      <p className="mb-4 text-xs text-muted-foreground">{t("passwordHint")}</p>
+      <p className="mb-4 text-xs text-muted-foreground">{t(setting ? "passwordSetHint" : "passwordHint")}</p>
       {form}
     </Card>
   );

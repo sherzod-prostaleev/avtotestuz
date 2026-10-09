@@ -30,6 +30,8 @@ export interface ProfileMobileProps {
   avatarUrl?: string | null;
   referralCode: string;
   isVip: boolean;
+  /** `profile.has_password` from /me; false = created through Telegram. */
+  hasPassword?: boolean;
   onNameChange: (value: string) => void;
   onRegionChange: (value: string) => void;
   onSave: (event: React.FormEvent) => void;
@@ -38,6 +40,8 @@ export interface ProfileMobileProps {
   errorKey: "loadError" | "saveError" | null;
   onRetry: () => void;
   onLogout: () => void;
+  /** After a first password was set: the parent reloads /me. */
+  onPasswordSet?: () => void;
   loading: boolean;
   className?: string;
 }
@@ -61,6 +65,8 @@ export function ProfileMobile({
   avatarUrl,
   referralCode,
   isVip,
+  hasPassword = true,
+  onPasswordSet,
   onNameChange,
   onRegionChange,
   onSave,
@@ -100,9 +106,17 @@ export function ProfileMobile({
   if (panel === "password") {
     return (
       <div className={className}>
-        <MobileScreen title={t("passwordTitle")} onBack={close} gapClassName="gap-2.5">
-          <p className="text-sm leading-snug text-muted-foreground">{t("passwordSubtitle")}</p>
-          <ChangePasswordForm bare reveal onSuccess={close} />
+        <MobileScreen title={t(hasPassword ? "passwordTitle" : "passwordSetSection")} onBack={close} gapClassName="gap-2.5">
+          <p className="text-sm leading-snug text-muted-foreground">{t(hasPassword ? "passwordSubtitle" : "passwordSetHint")}</p>
+          <ChangePasswordForm
+            bare
+            reveal
+            hasPassword={hasPassword}
+            onSuccess={() => {
+              if (!hasPassword) onPasswordSet?.();
+              close();
+            }}
+          />
         </MobileScreen>
       </div>
     );
@@ -188,7 +202,7 @@ export function ProfileMobile({
         <>
           {row("name", User, t("nameLabel"), name || null, () => setPanel("personal"), true)}
           {row("region", MapPin, t("regionLabel"), region || null, () => setPanel("personal"), false)}
-          {row("password", Lock, t("passwordTitle"), null, () => setPanel("password"), false)}
+          {row("password", Lock, t(hasPassword ? "passwordTitle" : "passwordSetSection"), null, () => setPanel("password"), false)}
         </>,
       )}
 
