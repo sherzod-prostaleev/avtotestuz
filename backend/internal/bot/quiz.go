@@ -58,12 +58,16 @@ func (s *QuizService) ctaURL() string {
 	return base + "/uz-Latn"
 }
 
-func (s *QuizService) mediaURL(key string) string {
+func (s *QuizService) mediaURL(key string) string { return mediaURLFor(s.MediaBaseURL, key) }
+
+// mediaURLFor joins an image storage key onto the public media base; ""
+// when either is missing.
+func mediaURLFor(base, key string) string {
 	key = strings.TrimSpace(key)
-	if key == "" || s.MediaBaseURL == "" {
+	if key == "" || base == "" {
 		return ""
 	}
-	return strings.TrimRight(s.MediaBaseURL, "/") + "/" + strings.TrimLeft(key, "/")
+	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(key, "/")
 }
 
 // StartOrNext begins a session (or continues one) and sends the next question.

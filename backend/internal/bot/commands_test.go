@@ -51,8 +51,8 @@ func TestSyncCommandsSetsPrivateAndGroupMenusInBothLanguages(t *testing.T) {
 		}
 	}
 	want := map[key]string{
-		{"all_private_chats", ""}:   "start quiz status help",
-		{"all_private_chats", "ru"}: "start quiz status help",
+		{"all_private_chats", ""}:   "start quiz status eslatma help",
+		{"all_private_chats", "ru"}: "start quiz status eslatma help",
 		{"all_group_chats", ""}:     "quiz next stop",
 		{"all_group_chats", "ru"}:   "quiz next stop",
 	}

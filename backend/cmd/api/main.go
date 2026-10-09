@@ -129,6 +129,21 @@ func main() {
 		}()
 	}
 
+	// The daily «Kun savoli» reminder runs on its own goroutine so a slow
+	// Telegram never touches request handling. It also needs the flag
+	// telegram_daily_reminder (default off), checked on every tick.
+	if dailyReminderWanted(cfg) {
+		go bot.RunDailyReminderScheduler(ctx, &bot.DailyReminder{
+			Q:             sqlc.New(pool),
+			Pool:          pool,
+			TG:            bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil),
+			MediaBaseURL:  cfg.MediaBaseURL,
+			PublicBaseURL: cfg.PublicBaseURL,
+			WebAppURL:     cfg.TelegramWebAppURL,
+			Log:           logger,
+		})
+	}
+
 	// Long-poll is the dev-only alternative to the webhook route server.New
 	// registers — see docs/superpowers/specs/2026-07-25-m4-06-telegram-bot-design.md
 	// §5.1. config.validate() already rejects this mode when ENV=prod.
@@ -171,6 +186,7 @@ func main() {
 			Auth:          authSvc,
 			PublicBaseURL: cfg.PublicBaseURL,
 			Log:           logger,
+			BotUsers:      q,
 		}
 		go bot.RunLongPoll(ctx, tgClient, botSvc, logger)
 		logger.Info("telegram bot: long-poll started")
@@ -204,6 +220,14 @@ func main() {
 // token is enough to reset it to match TELEGRAM_WEBAPP_URL (the kill switch).
 func menuButtonSyncWanted(cfg config.Config) bool {
 	return strings.TrimSpace(cfg.TelegramBotToken) != ""
+}
+
+// dailyReminderWanted needs a live bot, not just a token: the reminder's
+// opt-out button and /eslatma are answered by the webhook or long-poll
+// dispatcher, and sending buttons nobody handles would strand them.
+func dailyReminderWanted(cfg config.Config) bool {
+	return strings.TrimSpace(cfg.TelegramBotToken) != "" &&
+		(cfg.TelegramBotMode == "webhook" || cfg.TelegramBotMode == "longpoll")
 }
 
 // newExpirySessionService builds the session service the expiry worker runs

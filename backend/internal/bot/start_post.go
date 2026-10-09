@@ -101,6 +101,7 @@ const (
 		"/start — bosh menyu\n" +
 		"/quiz — shu yerda tezkor test\n" +
 		"/status — VIP va streak holati\n" +
+		"/eslatma — kunlik «Kun savoli» (19:00) yoqish/o'chirish\n" +
 		"/unlink — Telegramni hisobdan uzish\n\n" +
 		"👥 Guruhda: botni qo'shing va /quiz yozing."
 	helpRu = "<b>Driver Go — что где?</b>\n\n" +
@@ -114,6 +115,7 @@ const (
 		"/start — главное меню\n" +
 		"/quiz — быстрый тест прямо здесь\n" +
 		"/status — статус VIP и серии\n" +
+		"/eslatma — ежедневный «Вопрос дня» (19:00): вкл/выкл\n" +
 		"/unlink — отвязать Telegram от аккаунта\n\n" +
 		"👥 В группе: добавьте бота и напишите /quiz."
 
@@ -195,14 +197,11 @@ func (b *Bot) menuKeyboard(l lang) *InlineKeyboardMarkup {
 	}
 	var open InlineKeyboardButton
 	var section func(text, page string) InlineKeyboardButton
-	if entry, loc, ok := b.miniAppEntry(l); ok {
+	if entry, _, ok := b.miniAppEntry(l); ok {
 		open = InlineKeyboardButton{Text: labels.open, WebApp: &WebAppInfo{URL: entry.String()}}
 		section = func(text, page string) InlineKeyboardButton {
-			u := *entry
-			q := u.Query()
-			q.Set("next", "/"+loc+"/"+page)
-			u.RawQuery = q.Encode()
-			return InlineKeyboardButton{Text: text, WebApp: &WebAppInfo{URL: u.String()}}
+			link, _ := sectionURL(b.WebAppURL, b.PublicBaseURL, l, page)
+			return InlineKeyboardButton{Text: text, WebApp: &WebAppInfo{URL: link}}
 		}
 	} else {
 		site := b.siteURL() + "/" + l.appLocale()
@@ -231,10 +230,16 @@ func (b *Bot) menuKeyboard(l lang) *InlineKeyboardMarkup {
 // TELEGRAM_WEBAPP_URL names one locale (…/uz-Latn/tg); Russian swaps that
 // segment. A URL without a locale segment is used as is with uz-Latn.
 func (b *Bot) miniAppEntry(l lang) (*url.URL, string, bool) {
-	if strings.TrimSpace(b.WebAppURL) == "" {
+	return miniAppEntryFor(b.WebAppURL, l)
+}
+
+// miniAppEntryFor is miniAppEntry for callers without a Bot (the daily
+// reminder runs outside the update path).
+func miniAppEntryFor(webAppURL string, l lang) (*url.URL, string, bool) {
+	if strings.TrimSpace(webAppURL) == "" {
 		return nil, "", false
 	}
-	u, err := url.Parse(b.WebAppURL)
+	u, err := url.Parse(webAppURL)
 	if err != nil || u.Host == "" {
 		return nil, "", false
 	}
@@ -258,11 +263,28 @@ func isAppLocale(s string) bool {
 	return false
 }
 
-func (b *Bot) siteURL() string {
-	if base := strings.TrimRight(strings.TrimSpace(b.PublicBaseURL), "/"); base != "" {
+func (b *Bot) siteURL() string { return siteBaseURL(b.PublicBaseURL) }
+
+func siteBaseURL(publicBaseURL string) string {
+	if base := strings.TrimRight(strings.TrimSpace(publicBaseURL), "/"); base != "" {
 		return base
 	}
 	return defaultSiteURL
+}
+
+// sectionURL is a Mini App link that opens on page (via /tg?next=), or the
+// same page on the website when the Mini App is switched off; webApp says
+// which, since Telegram needs a web_app button for the first and a url
+// button for the second.
+func sectionURL(webAppURL, publicBaseURL string, l lang, page string) (link string, webApp bool) {
+	if entry, loc, ok := miniAppEntryFor(webAppURL, l); ok {
+		u := *entry
+		q := u.Query()
+		q.Set("next", "/"+loc+"/"+page)
+		u.RawQuery = q.Encode()
+		return u.String(), true
+	}
+	return siteBaseURL(publicBaseURL) + "/" + l.appLocale() + "/" + page, false
 }
 
 func (b *Bot) isLinked(ctx context.Context, tgUserID int64) (bool, error) {

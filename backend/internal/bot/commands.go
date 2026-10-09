@@ -28,12 +28,14 @@ func commandSets() []commandSet {
 			{Command: "start", Description: "Bosh menyu"},
 			{Command: "quiz", Description: "Tezkor test"},
 			{Command: "status", Description: "Hisob holati"},
+			{Command: "eslatma", Description: "Kunlik eslatma"},
 			{Command: "help", Description: "Yordam"},
 		}},
 		{Scope: scopeAllPrivateChats, LanguageCode: "ru", Commands: []BotCommand{
 			{Command: "start", Description: "Главное меню"},
 			{Command: "quiz", Description: "Быстрый тест"},
 			{Command: "status", Description: "Статус аккаунта"},
+			{Command: "eslatma", Description: "Ежедневные напоминания"},
 			{Command: "help", Description: "Помощь"},
 		}},
 		{Scope: scopeAllGroupChats, Commands: []BotCommand{

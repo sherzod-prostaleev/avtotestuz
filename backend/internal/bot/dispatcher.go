@@ -70,6 +70,9 @@ type Bot struct {
 	Auth          *auth.Service
 	PublicBaseURL string
 	Log           *zap.Logger
+	// BotUsers is the daily reminder's audience registry (telegram_bot_user).
+	// nil turns off the registry, /eslatma and the opt-out button.
+	BotUsers *sqlc.Queries
 }
 
 func (b *Bot) logger() *zap.Logger {
@@ -140,6 +143,7 @@ func onlyPermanentTelegram(err error) bool {
 // HandleUpdate processes one Telegram update. Infra failures return an
 // error; bad user input always gets a reply so webhooks can stay 200.
 func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
+	b.trackPrivateUser(ctx, u)
 	if u.MyChatMember != nil {
 		return b.handleMyChatMember(ctx, u.MyChatMember)
 	}
@@ -156,6 +160,9 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	if u.CallbackQuery != nil {
 		if strings.HasPrefix(u.CallbackQuery.Data, cbResetPrefix) {
 			return b.handlePasswordResetCallback(ctx, *u.CallbackQuery)
+		}
+		if u.CallbackQuery.Data == cbReminderOff {
+			return b.handleReminderOff(ctx, *u.CallbackQuery)
 		}
 		if b.Quiz == nil {
 			return nil
@@ -254,6 +261,8 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			return nil
 		}
 		return b.replyErr(b.TG.SendMessage(ctx, chatID, reply))
+	case "/eslatma":
+		return b.handleEslatma(ctx, chatID, u.Message.From, chatType)
 	case "/help":
 		if IsGroupChat(chatType) {
 			return b.sendGroupHelp(ctx, chatID)
@@ -304,7 +313,13 @@ func (b *Bot) dispatchLegacy(ctx context.Context, cmd, arg string, tgUserID int6
 }
 
 func (b *Bot) handleMyChatMember(ctx context.Context, upd *ChatMemberUpd) error {
-	if b.Quiz == nil || b.Quiz.Q == nil || upd == nil {
+	if upd == nil {
+		return nil
+	}
+	if err := b.trackPrivateMembership(ctx, upd); err != nil {
+		return err
+	}
+	if b.Quiz == nil || b.Quiz.Q == nil {
 		return nil
 	}
 	status := upd.NewChatMember.Status

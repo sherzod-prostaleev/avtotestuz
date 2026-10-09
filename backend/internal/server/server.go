@@ -385,6 +385,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 						Auth:          svc,
 						PublicBaseURL: cfg.PublicBaseURL,
 						Log:           log,
+						BotUsers:      deps.Queries,
 					}
 					wh := &bot.WebhookHandler{Bot: botSvc, Secret: cfg.TelegramWebhookSecret, Log: log}
 					api.Post("/telegram/webhook", wh.ServeHTTP)

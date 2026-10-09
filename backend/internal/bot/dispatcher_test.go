@@ -188,6 +188,7 @@ func wireTestBot(pool *pgxpool.Pool, q *sqlc.Queries, client *Client) *Bot {
 		Progress:      progress.NewService(q),
 		TG:            client,
 		PublicBaseURL: "http://localhost:3000",
+		BotUsers:      q,
 	}
 }
 
