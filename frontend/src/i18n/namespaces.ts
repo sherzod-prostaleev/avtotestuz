@@ -13,7 +13,8 @@ const PUBLIC_EXTRA = [
 ] as const;
 
 // TelegramApp: the /tg Mini App entry screen lives in the (auth) group.
-const AUTH_EXTRA = ["Login", "Register", "PasswordReset", "Verify", "Profile", "TelegramApp"] as const;
+// TelegramLogin: the website «Telegram orqali kirish» on /login and /register.
+const AUTH_EXTRA = ["Login", "Register", "PasswordReset", "Verify", "Profile", "TelegramApp", "TelegramLogin"] as const;
 
 const APP_EXTRA = [
   "Dashboard",
