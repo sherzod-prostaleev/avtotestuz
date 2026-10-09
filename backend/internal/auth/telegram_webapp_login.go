@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -46,6 +47,9 @@ func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) 
 	if err := s.rateLimitTelegramUser(ctx, u.ID); err != nil {
 		return WebAppLoginResult{}, err
 	}
+	// Linked or not, a validated launch is a reachable Telegram user: the
+	// unlinked ones are exactly who the reminder's signup pitch is for.
+	s.joinBotAudience(ctx, u)
 	account, err := s.Q.GetTelegramAccountByTgUserID(ctx, u.ID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return WebAppLoginResult{NeedPhone: true, FirstName: u.FirstName}, nil
@@ -242,7 +246,37 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		s.logLinkSkipped(profile.ID, err)
 		return none
 	}
-	return telegramLinkChange{linked: true, profileID: profile.ID, movedFrom: movedFrom}
+	return telegramLinkChange{linked: true, profileID: profile.ID, movedFrom: movedFrom, webAppUser: &u}
+}
+
+// joinBotAudience adds a Mini App user to the daily reminder's audience
+// (telegram_bot_user) when their signed launch data says the bot may message
+// them (allows_write_to_pm). Without it a learner who only ever uses the
+// Mini App would never get the reminder: the registry otherwise learns
+// about people from messages they type to the bot. It never fails the
+// caller — a missed row only means a missed reminder — and the query skips
+// the write when the row was touched within the last minute.
+func (s *Service) joinBotAudience(ctx context.Context, u WebAppUser) {
+	if !u.AllowsWriteToPM {
+		return
+	}
+	if err := s.Q.UpsertTelegramBotUserFromWebApp(ctx, sqlc.UpsertTelegramBotUserFromWebAppParams{
+		TgUserID:     u.ID,
+		FirstName:    clipRunes(u.FirstName, 64),
+		Username:     clipRunes(u.Username, 64),
+		LanguageCode: clipRunes(u.LanguageCode, 16),
+	}); err != nil {
+		s.logger().Warn("auth.telegram_bot_user_upsert_failed", zap.Error(err))
+	}
+}
+
+// clipRunes bounds a Telegram-supplied string to the same lengths the bot's
+// own registry upsert uses (bot.truncateRunes; auth cannot import bot).
+func clipRunes(s string, n int) string {
+	if utf8.RuneCountInString(s) <= n {
+		return s
+	}
+	return string([]rune(s)[:n])
 }
 
 // linkWebAppPerProfileLimit caps POST /me/telegram/link-webapp per learner.
@@ -288,6 +322,6 @@ func (s *Service) LinkTelegramWebApp(ctx context.Context, profileID uuid.UUID, i
 	if err := tx.Commit(ctx); err != nil {
 		return false, err
 	}
-	s.afterTelegramLink(link)
+	s.afterTelegramLink(ctx, link)
 	return link.linked, nil
 }

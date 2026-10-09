@@ -536,3 +536,113 @@ func TestLinkTelegramWebAppRefusesBannedProfile(t *testing.T) {
 		t.Fatal("a banned profile got a Telegram link")
 	}
 }
+
+func webAppFieldsWritable(tgID int64, now time.Time, allowsWrite bool) map[string]string {
+	f := webAppFields(tgID, now)
+	f["user"] = `{"id":` + strconv.FormatInt(tgID, 10) + `,"first_name":"Ali","username":"ali_uz","language_code":"ru","allows_write_to_pm":` + strconv.FormatBool(allowsWrite) + `}`
+	return f
+}
+
+func botUserRow(t *testing.T, svc *Service, tgID int64) (firstName, lang string, blocked bool, ok bool) {
+	t.Helper()
+	err := svc.Pool.QueryRow(context.Background(),
+		`SELECT first_name, language_code, blocked_at IS NOT NULL FROM telegram_bot_user WHERE tg_user_id = $1`, tgID).
+		Scan(&firstName, &lang, &blocked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", false, false
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	return firstName, lang, blocked, true
+}
+
+// A Mini App user whose signed launch data says the bot may write to them
+// joins the daily reminder's audience even if they never typed in the chat;
+// one who did not allow it does not.
+func TestMiniAppSignInJoinsReminderAudienceOnlyWhenBotMayWrite(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	allowed := signInitData(t, testBotToken, webAppFieldsWritable(5101, time.Now(), true))
+	if _, err := svc.TelegramWebAppLogin(ctx, allowed, ""); err != nil {
+		t.Fatal(err)
+	}
+	if name, lang, _, ok := botUserRow(t, svc, 5101); !ok || name != "Ali" || lang != "ru" {
+		t.Fatalf("audience row = %q %q %v, want the Mini App user registered", name, lang, ok)
+	}
+	denied := signInitData(t, testBotToken, webAppFieldsWritable(5102, time.Now(), false))
+	if _, err := svc.TelegramWebAppLogin(ctx, denied, ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, _, ok := botUserRow(t, svc, 5102); ok {
+		t.Fatal("a user who did not allow messages must not join the audience")
+	}
+	// Forged launch data never reaches the registry.
+	if _, err := svc.TelegramWebAppLogin(ctx, allowed+"x", ""); err == nil {
+		t.Fatal("forged init data accepted")
+	}
+}
+
+// Opening the Mini App does not prove the user unblocked the bot: a row
+// marked blocked stays blocked (my_chat_member or a DM clears it).
+func TestMiniAppSignInKeepsBlockedUserBlocked(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	if _, err := svc.Pool.Exec(ctx, `INSERT INTO telegram_bot_user (tg_user_id, blocked_at, last_seen_at) VALUES (5103, now(), now() - interval '1 hour')`); err != nil {
+		t.Fatal(err)
+	}
+	raw := signInitData(t, testBotToken, webAppFieldsWritable(5103, time.Now(), true))
+	if _, err := svc.TelegramWebAppLogin(ctx, raw, ""); err != nil {
+		t.Fatal(err)
+	}
+	if name, _, blocked, ok := botUserRow(t, svc, 5103); !ok || !blocked || name != "Ali" {
+		t.Fatalf("row = %q blocked=%v ok=%v, want refreshed but still blocked", name, blocked, ok)
+	}
+}
+
+// The reminder's signup pitch promises the welcome trial to whoever
+// registers through the Mini App: pin that the Mini App register path
+// (tg_init_data present) grants it and registers the bot user.
+func TestMiniAppRegisterGrantsTrialAndJoinsAudience(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	const phone = "+998901110104"
+	raw := signInitData(t, testBotToken, webAppFieldsWritable(5104, time.Now(), true))
+	contact := signContact(t, testBotToken, 5104, strings.TrimPrefix(phone, "+"), time.Now())
+	reg, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: "register-password-1", Name: "A", TgInitData: raw, TgContact: contact})
+	if err != nil || !reg.TelegramLinked {
+		t.Fatalf("register: %+v %v", reg, err)
+	}
+	var source string
+	var startsAt, endsAt time.Time
+	if err := svc.Pool.QueryRow(ctx, `SELECT source, starts_at, ends_at FROM entitlement WHERE profile_id = $1`, reg.Profile.ID).
+		Scan(&source, &startsAt, &endsAt); err != nil {
+		t.Fatalf("no trial entitlement after a Mini App registration: %v", err)
+	}
+	if source != "trial" || endsAt.Sub(startsAt) != SignupTrialDuration || SignupTrialDuration != 24*time.Hour {
+		t.Fatalf("trial = %s %v (const %v), want a 24 h trial", source, endsAt.Sub(startsAt), SignupTrialDuration)
+	}
+	if !endsAt.After(time.Now()) {
+		t.Fatal("the trial must be active right after registering")
+	}
+	if _, _, _, ok := botUserRow(t, svc, 5104); !ok {
+		t.Fatal("a Mini App registration that may be messaged must join the audience")
+	}
+}
+
+// Linking from inside the Mini App (POST /me/telegram/link-webapp) registers
+// the bot user the same way.
+func TestLinkTelegramWebAppJoinsReminderAudience(t *testing.T) {
+	svc, ctx := newWebAppService(t)
+	const phone = "+998901110105"
+	reg, err := svc.Register(ctx, RegisterInput{Phone: phone, Password: "register-password-1", Name: "A"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := signInitData(t, testBotToken, webAppFieldsWritable(5105, time.Now(), true))
+	contact := signContact(t, testBotToken, 5105, strings.TrimPrefix(phone, "+"), time.Now())
+	linked, err := svc.LinkTelegramWebApp(ctx, reg.Profile.ID, raw, contact)
+	if err != nil || !linked {
+		t.Fatalf("link: %v %v", linked, err)
+	}
+	if _, _, _, ok := botUserRow(t, svc, 5105); !ok {
+		t.Fatal("a Mini App link that may be messaged must join the audience")
+	}
+}

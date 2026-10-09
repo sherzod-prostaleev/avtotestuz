@@ -41,6 +41,9 @@ type WebAppUser struct {
 	FirstName    string
 	Username     string
 	LanguageCode string
+	// AllowsWriteToPM: the user allowed the bot to message them (signed,
+	// part of the user object Telegram puts in initData).
+	AllowsWriteToPM bool
 }
 
 // verifyWebAppSignature checks a Telegram-signed query string (Mini App
@@ -115,11 +118,13 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 		FirstName    string `json:"first_name"`
 		Username     string `json:"username"`
 		LanguageCode string `json:"language_code"`
+		AllowsWrite  bool   `json:"allows_write_to_pm"`
 	}
 	if err := json.Unmarshal([]byte(values.Get("user")), &u); err != nil || u.ID <= 0 {
 		return WebAppUser{}, ErrInitDataInvalid
 	}
-	return WebAppUser{ID: u.ID, FirstName: u.FirstName, Username: u.Username, LanguageCode: u.LanguageCode}, nil
+	return WebAppUser{ID: u.ID, FirstName: u.FirstName, Username: u.Username, LanguageCode: u.LanguageCode,
+		AllowsWriteToPM: u.AllowsWrite}, nil
 }
 
 // WebAppContact is the phone number a Telegram user shared with the bot

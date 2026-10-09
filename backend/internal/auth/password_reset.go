@@ -487,7 +487,7 @@ func (s *Service) AnswerTelegramPasswordResetConfirm(ctx context.Context, tgUser
 	if err := tx.Commit(ctx); err != nil {
 		return TelegramResetBegin{}, err
 	}
-	s.afterTelegramLink(link)
+	s.afterTelegramLink(ctx, link)
 	return TelegramResetBegin{Outcome: TelegramResetVerified}, nil
 }
 

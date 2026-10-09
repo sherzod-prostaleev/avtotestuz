@@ -340,7 +340,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (VerifyResult,
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	s.afterTelegramLink(link)
+	s.afterTelegramLink(ctx, link)
 	return VerifyResult{Tokens: toks, Profile: profile, Created: true, TelegramLinked: link.linked}, nil
 }
 
@@ -396,7 +396,7 @@ func (s *Service) Login(ctx context.Context, in LoginInput) (VerifyResult, error
 	if err := tx.Commit(ctx); err != nil {
 		return VerifyResult{}, err
 	}
-	s.afterTelegramLink(link)
+	s.afterTelegramLink(ctx, link)
 	return VerifyResult{Tokens: toks, Profile: profile, Created: false, TelegramLinked: link.linked}, nil
 }
 

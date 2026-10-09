@@ -1,6 +1,10 @@
 package auth
 
-import "github.com/google/uuid"
+import (
+	"context"
+
+	"github.com/google/uuid"
+)
 
 // TelegramAvatars is told about every committed change to a profile's
 // phone-verified Telegram link, so the learner's Telegram photo follows it
@@ -23,10 +27,19 @@ type telegramLinkChange struct {
 	linked    bool
 	profileID uuid.UUID
 	movedFrom uuid.UUID // profile the Telegram account was taken off, or Nil
+	// webAppUser is the Mini App user that linked (nil for bot-side links,
+	// whose chat already registers them with the bot).
+	webAppUser *WebAppUser
 }
 
-func (s *Service) afterTelegramLink(c telegramLinkChange) {
-	if s.Avatars == nil || !c.linked {
+func (s *Service) afterTelegramLink(ctx context.Context, c telegramLinkChange) {
+	if !c.linked {
+		return
+	}
+	if c.webAppUser != nil {
+		s.joinBotAudience(ctx, *c.webAppUser)
+	}
+	if s.Avatars == nil {
 		return
 	}
 	if c.movedFrom != uuid.Nil {
