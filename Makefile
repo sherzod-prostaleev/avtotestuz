@@ -5,7 +5,7 @@ TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?s
 	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
 	backup-pg backup-restore-drill backup-full backup-verify backup-full-restore-drill backup-static-check \
-	tg-digest tg-digest-send station-check
+	tg-digest station-check
 
 up:
 	$(COMPOSE) up -d --wait
@@ -108,12 +108,10 @@ AAA_SRC ?= /home/sher/Рабочий стол/aaa
 run:
 	cd backend && go run ./cmd/api
 
-# M4-07: soft due digests to linked Telegram DMs (not groups). Groups use /quiz.
+# Daily «Kun savoli» Telegram reminder: read-only preview. The api process
+# sends it at 19:00 Tashkent when feature flag telegram_daily_reminder is on.
 tg-digest:
-	cd backend && go run ./cmd/tgdigest
-
-tg-digest-send:
-	cd backend && go run ./cmd/tgdigest -send
+	cd backend && go run ./cmd/tgdigest --dry-run
 
 broadcast-worker:
 	cd backend && go run ./cmd/broadcastworker

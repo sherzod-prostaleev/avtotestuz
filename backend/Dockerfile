@@ -18,7 +18,8 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api \
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/encryptpan ./cmd/encryptpan \
- && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/healthcheck ./cmd/healthcheck
+ && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/healthcheck ./cmd/healthcheck \
+ && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/tgdigest ./cmd/tgdigest
 
 # The classroom agent ships to school PCs from the admin panel, so the API
 # image carries a ready-to-serve Windows build. Cross-compiled here rather than
@@ -84,6 +85,8 @@ WORKDIR /
 COPY --from=build /out/api /api
 COPY --from=build /out/encryptpan /encryptpan
 COPY --from=build /out/healthcheck /healthcheck
+# Read-only preview of the daily Telegram reminder: docker exec <api> /tgdigest --dry-run
+COPY --from=build /out/tgdigest /tgdigest
 COPY --from=station /out/avtotest-station.exe /station/avtotest-station.exe
 # Read by the agent-manifest route, so the version an installed classroom PC is
 # told to upgrade to always describes the bytes served next to it.

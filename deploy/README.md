@@ -359,6 +359,43 @@ Run on Android, iOS, Telegram Desktop and web.telegram.org:
 A real **staging Payme/Click payment from inside the Mini App must be done
 once** before announcing; the e2e suite stubs the backend and cannot prove it.
 
+## Telegram daily reminder («Kun savoli»)
+
+Every day from **19:00 Asia/Tashkent** the api process DMs every bot user
+(table `telegram_bot_user`: anyone who wrote to the bot, tapped its buttons or
+started/unblocked it; seeded by migration 0078 from linked accounts and solo
+`/quiz` chats) one quiz poll plus a personal line (streak / due reviews /
+comeback / signup trial) and two buttons («📝 Bugungi mashq», «🔕 Eslatmalarni
+o'chirish»). Users toggle it with `/eslatma`.
+
+- **Enable:** admin → settings → flags → `telegram_daily_reminder` (seeded
+  **off**). It also needs `TELEGRAM_BOT_TOKEN` and `TELEGRAM_BOT_MODE` =
+  `webhook` (prod) or `longpoll`; with mode `off` nothing is sent, because
+  nobody would answer the opt-out button. Turning the flag off mid-run stops
+  the run within 25 recipients.
+- **Window:** a pass starts at the first minute tick at/after 19:00 and stops
+  at 21:00 — it never sends between 21:00 and 09:00, even when catching up
+  after downtime. Whoever is not reached by 21:00 is skipped for that day.
+- **Safety:** one pass at a time (Postgres advisory lock); each recipient is
+  claimed by setting `last_reminder_on = today` in the same UPDATE, so a crash
+  or redeploy mid-run resumes the rest and never sends twice (the one user
+  being sent to at the crash instant may miss that day).
+- **Rate limits:** 25 messages/s overall; a 429 waits Telegram's
+  `retry_after`; 403 (blocked) and 400 "chat not found" set `blocked_at` and
+  the user is skipped until they write to the bot again; other 4xx are logged
+  and skipped; 5xx/transport errors retry twice, then skip that user for today.
+- **Log:** one `telegram daily reminder: run` line per pass with counts only
+  (eligible, pending, sent, blocked, opted_out, errors, interrupted, duration).
+- **Dry run on prod** (sends and writes nothing):
+  `docker exec <api container> /tgdigest --dry-run` — prints the audience by
+  segment (streak/due/inactive/unlinked/generic), opted-out and blocked
+  counts, and today's question id with whether it fits poll limits.
+  Locally: `make tg-digest`.
+- **Superseded:** the old linked-only due digest (`tgdigest -send`, flag
+  `telegram_dm_digest`) is removed; migration 0078 deletes that flag.
+- **Rollback:** `0078_telegram_daily_brief.down.sql` drops `telegram_bot_user`
+  and `telegram_daily_question` (opt-outs are lost) and restores the old flag.
+
 ## CI implications
 
 - Image builds are not yet a required CI job (keep PRs light). Operators build

@@ -77,26 +77,6 @@ ORDER BY a.position;
 -- whose Telegram photo must go with the link.
 DELETE FROM telegram_account WHERE tg_user_id = $1 RETURNING profile_id;
 
--- name: ListTelegramDigestCandidates :many
--- Linked profiles with ≥1 due FSRS card, excluding recent telegram digests.
-SELECT ta.tg_user_id, p.id AS profile_id, p.locale_pref,
-       COUNT(qm.question_id)::int AS due_count
-FROM telegram_account ta
-JOIN profile p ON p.id = ta.profile_id AND p.status = 'active'
-JOIN question_memory qm ON qm.profile_id = p.id AND qm.due_at <= now()
-JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
-WHERE NOT EXISTS (
-  SELECT 1 FROM notification n
-  WHERE n.profile_id = p.id
-    AND n.kind = sqlc.arg(kind)
-    AND n.channel = 'telegram'
-    AND n.created_at > now() - (sqlc.arg(cooldown)::text)::interval
-)
-GROUP BY ta.tg_user_id, p.id, p.locale_pref
-HAVING COUNT(qm.question_id) > 0
-ORDER BY due_count DESC, p.id
-LIMIT sqlc.arg(limit_count);
-
 -- name: SetQuizSessionMode :exec
 UPDATE telegram_quiz_session
 SET mode = sqlc.arg(mode), total_questions = sqlc.arg(total_questions)

@@ -328,65 +328,6 @@ func (q *Queries) ListQuizRanking(ctx context.Context, sessionID uuid.UUID) ([]L
 	return items, nil
 }
 
-const listTelegramDigestCandidates = `-- name: ListTelegramDigestCandidates :many
-SELECT ta.tg_user_id, p.id AS profile_id, p.locale_pref,
-       COUNT(qm.question_id)::int AS due_count
-FROM telegram_account ta
-JOIN profile p ON p.id = ta.profile_id AND p.status = 'active'
-JOIN question_memory qm ON qm.profile_id = p.id AND qm.due_at <= now()
-JOIN question q ON q.id = qm.question_id AND q.validation_status = 'valid'
-WHERE NOT EXISTS (
-  SELECT 1 FROM notification n
-  WHERE n.profile_id = p.id
-    AND n.kind = $1
-    AND n.channel = 'telegram'
-    AND n.created_at > now() - ($2::text)::interval
-)
-GROUP BY ta.tg_user_id, p.id, p.locale_pref
-HAVING COUNT(qm.question_id) > 0
-ORDER BY due_count DESC, p.id
-LIMIT $3
-`
-
-type ListTelegramDigestCandidatesParams struct {
-	Kind       string `json:"kind"`
-	Cooldown   string `json:"cooldown"`
-	LimitCount int32  `json:"limit_count"`
-}
-
-type ListTelegramDigestCandidatesRow struct {
-	TgUserID   int64     `json:"tg_user_id"`
-	ProfileID  uuid.UUID `json:"profile_id"`
-	LocalePref string    `json:"locale_pref"`
-	DueCount   int32     `json:"due_count"`
-}
-
-// Linked profiles with ≥1 due FSRS card, excluding recent telegram digests.
-func (q *Queries) ListTelegramDigestCandidates(ctx context.Context, arg ListTelegramDigestCandidatesParams) ([]ListTelegramDigestCandidatesRow, error) {
-	rows, err := q.db.Query(ctx, listTelegramDigestCandidates, arg.Kind, arg.Cooldown, arg.LimitCount)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTelegramDigestCandidatesRow
-	for rows.Next() {
-		var i ListTelegramDigestCandidatesRow
-		if err := rows.Scan(
-			&i.TgUserID,
-			&i.ProfileID,
-			&i.LocalePref,
-			&i.DueCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const markQuizSessionAnswered = `-- name: MarkQuizSessionAnswered :execrows
 UPDATE telegram_quiz_session
 SET awaiting_answer = false,

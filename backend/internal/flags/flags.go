@@ -11,14 +11,13 @@ import (
 )
 
 const (
-	KeyMaintenanceMode  = "maintenance_mode"
-	KeyArenaEnabled     = "arena_enabled"
-	KeyWebPushDigest    = "web_push_digest"
-	KeyCheckoutPayme    = "checkout_payme"
-	KeyCheckoutClick    = "checkout_click"
-	KeyCheckoutManual   = "checkout_manual"
-	KeyTelegramQuiz     = "telegram_quiz"
-	KeyTelegramDMDigest = "telegram_dm_digest"
+	KeyMaintenanceMode = "maintenance_mode"
+	KeyArenaEnabled    = "arena_enabled"
+	KeyWebPushDigest   = "web_push_digest"
+	KeyCheckoutPayme   = "checkout_payme"
+	KeyCheckoutClick   = "checkout_click"
+	KeyCheckoutManual  = "checkout_manual"
+	KeyTelegramQuiz    = "telegram_quiz"
 	// KeyTelegramDailyReminder gates the 19:00 «Kun savoli» DM. Read with
 	// default false: no row means no broadcast.
 	KeyTelegramDailyReminder = "telegram_daily_reminder"
