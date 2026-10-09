@@ -17,6 +17,25 @@ WHERE telegram_bot_user.blocked_at IS NOT NULL
    OR telegram_bot_user.username      IS DISTINCT FROM EXCLUDED.username
    OR telegram_bot_user.language_code IS DISTINCT FROM EXCLUDED.language_code;
 
+-- name: UpsertTelegramBotUserFromWebApp :exec
+-- A Mini App sign-in or link whose signed launch data says the user allows
+-- the bot to message them (allows_write_to_pm): they join the audience even
+-- if they never typed in the chat. Unlike UpsertTelegramBotUser it leaves
+-- blocked_at alone — launching the Mini App does not prove the user
+-- unblocked the bot; my_chat_member or a private message does. Same
+-- once-a-minute write guard.
+INSERT INTO telegram_bot_user (tg_user_id, first_name, username, language_code)
+VALUES (sqlc.arg(tg_user_id), sqlc.arg(first_name), sqlc.arg(username), sqlc.arg(language_code))
+ON CONFLICT (tg_user_id) DO UPDATE SET
+  first_name    = EXCLUDED.first_name,
+  username      = EXCLUDED.username,
+  language_code = EXCLUDED.language_code,
+  last_seen_at  = now()
+WHERE telegram_bot_user.last_seen_at < now() - interval '1 minute'
+   OR telegram_bot_user.first_name    IS DISTINCT FROM EXCLUDED.first_name
+   OR telegram_bot_user.username      IS DISTINCT FROM EXCLUDED.username
+   OR telegram_bot_user.language_code IS DISTINCT FROM EXCLUDED.language_code;
+
 -- name: MarkTelegramBotUserBlocked :exec
 -- my_chat_member kicked in the private chat, or a 403 on send.
 INSERT INTO telegram_bot_user (tg_user_id, blocked_at)
@@ -38,21 +57,24 @@ ON CONFLICT (tg_user_id) DO UPDATE SET reminders_enabled = false;
 
 -- name: GetTelegramBotUser :one
 SELECT tg_user_id, first_name, username, language_code, first_seen_at, last_seen_at,
-       reminders_enabled, blocked_at, last_reminder_on
+       reminders_enabled, blocked_at, last_reminder_on, last_signup_pitch_on
 FROM telegram_bot_user WHERE tg_user_id = $1;
 
 -- name: ClaimTelegramReminderRecipient :one
 -- Claims one recipient for the day and records the claim in the same
 -- statement: a crash after this never sends to them twice, and SKIP LOCKED
--- lets a second pass (another replica) take a different user.
+-- lets a second pass (another replica) take a different user. The order
+-- matches telegram_bot_user_reminder_claim_idx (migration 0079): unclaimed
+-- users come first in it, so one claim reads one index entry rather than
+-- walking past everyone claimed earlier today.
 UPDATE telegram_bot_user u
 SET last_reminder_on = sqlc.arg(day)::date
 WHERE u.tg_user_id = (
   SELECT c.tg_user_id FROM telegram_bot_user c
   WHERE c.reminders_enabled
     AND c.blocked_at IS NULL
-    AND c.last_reminder_on IS DISTINCT FROM sqlc.arg(day)::date
-  ORDER BY c.tg_user_id
+    AND (c.last_reminder_on IS NULL OR c.last_reminder_on < sqlc.arg(day)::date)
+  ORDER BY c.last_reminder_on NULLS FIRST, c.tg_user_id
   LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
@@ -64,14 +86,14 @@ SELECT COUNT(*)::int AS total,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NOT NULL)::int AS blocked,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NULL)::int AS eligible,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NULL
-                          AND last_reminder_on IS DISTINCT FROM sqlc.arg(day)::date)::int AS pending
+                          AND (last_reminder_on IS NULL OR last_reminder_on < sqlc.arg(day)::date))::int AS pending
 FROM telegram_bot_user;
 
 -- name: ListTelegramReminderAudience :many
 -- Personal-line inputs for eligible users: one user (after a claim) or all
 -- of them (dry-run). Profile numbers come only from an active profile; a
 -- link to a banned profile counts as linked with nothing to report.
-SELECT u.tg_user_id, u.first_name, u.language_code,
+SELECT u.tg_user_id, u.first_name, u.language_code, u.last_signup_pitch_on,
        (ta.tg_user_id IS NOT NULL)::bool AS linked,
        (ta.phone_verified_at IS NOT NULL)::bool AS phone_verified,
        COALESCE(s.current, 0)::int AS streak_current,
@@ -155,6 +177,19 @@ LIMIT sqlc.arg(limit_count);
 -- name: InsertDailyQuestion :exec
 INSERT INTO telegram_daily_question (day, question_id) VALUES ($1, $2)
 ON CONFLICT (day) DO NOTHING;
+
+-- name: ReplaceDailyQuestion :exec
+-- The day's stored question stopped fitting a poll (edited mid-evening).
+-- Conditional on the broken id, so replicas that both notice agree on one
+-- replacement: the loser's UPDATE matches nothing and it re-reads the row.
+UPDATE telegram_daily_question
+SET question_id = sqlc.arg(new_question_id), created_at = now()
+WHERE day = sqlc.arg(day) AND question_id = sqlc.arg(old_question_id);
+
+-- name: MarkTelegramSignupPitch :exec
+-- The signup pitch reached this user today; the next one waits 7 days.
+UPDATE telegram_bot_user SET last_signup_pitch_on = sqlc.arg(day)::date
+WHERE tg_user_id = sqlc.arg(tg_user_id);
 
 -- name: GetDailyQuestion :one
 SELECT question_id FROM telegram_daily_question WHERE day = $1;

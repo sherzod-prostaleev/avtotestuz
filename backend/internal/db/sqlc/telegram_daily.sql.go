@@ -19,8 +19,8 @@ WHERE u.tg_user_id = (
   SELECT c.tg_user_id FROM telegram_bot_user c
   WHERE c.reminders_enabled
     AND c.blocked_at IS NULL
-    AND c.last_reminder_on IS DISTINCT FROM $1::date
-  ORDER BY c.tg_user_id
+    AND (c.last_reminder_on IS NULL OR c.last_reminder_on < $1::date)
+  ORDER BY c.last_reminder_on NULLS FIRST, c.tg_user_id
   LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
@@ -29,7 +29,10 @@ RETURNING u.tg_user_id
 
 // Claims one recipient for the day and records the claim in the same
 // statement: a crash after this never sends to them twice, and SKIP LOCKED
-// lets a second pass (another replica) take a different user.
+// lets a second pass (another replica) take a different user. The order
+// matches telegram_bot_user_reminder_claim_idx (migration 0079): unclaimed
+// users come first in it, so one claim reads one index entry rather than
+// walking past everyone claimed earlier today.
 func (q *Queries) ClaimTelegramReminderRecipient(ctx context.Context, day pgtype.Date) (int64, error) {
 	row := q.db.QueryRow(ctx, claimTelegramReminderRecipient, day)
 	var tg_user_id int64
@@ -43,7 +46,7 @@ SELECT COUNT(*)::int AS total,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NOT NULL)::int AS blocked,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NULL)::int AS eligible,
        COUNT(*) FILTER (WHERE reminders_enabled AND blocked_at IS NULL
-                          AND last_reminder_on IS DISTINCT FROM $1::date)::int AS pending
+                          AND (last_reminder_on IS NULL OR last_reminder_on < $1::date))::int AS pending
 FROM telegram_bot_user
 `
 
@@ -92,7 +95,7 @@ func (q *Queries) GetDailyQuestion(ctx context.Context, day pgtype.Date) (uuid.U
 
 const getTelegramBotUser = `-- name: GetTelegramBotUser :one
 SELECT tg_user_id, first_name, username, language_code, first_seen_at, last_seen_at,
-       reminders_enabled, blocked_at, last_reminder_on
+       reminders_enabled, blocked_at, last_reminder_on, last_signup_pitch_on
 FROM telegram_bot_user WHERE tg_user_id = $1
 `
 
@@ -109,6 +112,7 @@ func (q *Queries) GetTelegramBotUser(ctx context.Context, tgUserID int64) (Teleg
 		&i.RemindersEnabled,
 		&i.BlockedAt,
 		&i.LastReminderOn,
+		&i.LastSignupPitchOn,
 	)
 	return i, err
 }
@@ -226,7 +230,7 @@ func (q *Queries) ListDailyQuestionCandidates(ctx context.Context, arg ListDaily
 }
 
 const listTelegramReminderAudience = `-- name: ListTelegramReminderAudience :many
-SELECT u.tg_user_id, u.first_name, u.language_code,
+SELECT u.tg_user_id, u.first_name, u.language_code, u.last_signup_pitch_on,
        (ta.tg_user_id IS NOT NULL)::bool AS linked,
        (ta.phone_verified_at IS NOT NULL)::bool AS phone_verified,
        COALESCE(s.current, 0)::int AS streak_current,
@@ -254,15 +258,16 @@ ORDER BY u.tg_user_id
 `
 
 type ListTelegramReminderAudienceRow struct {
-	TgUserID         int64       `json:"tg_user_id"`
-	FirstName        string      `json:"first_name"`
-	LanguageCode     string      `json:"language_code"`
-	Linked           bool        `json:"linked"`
-	PhoneVerified    bool        `json:"phone_verified"`
-	StreakCurrent    int32       `json:"streak_current"`
-	LastActiveDate   pgtype.Date `json:"last_active_date"`
-	DueCount         int32       `json:"due_count"`
-	TicketsCompleted int32       `json:"tickets_completed"`
+	TgUserID          int64       `json:"tg_user_id"`
+	FirstName         string      `json:"first_name"`
+	LanguageCode      string      `json:"language_code"`
+	LastSignupPitchOn pgtype.Date `json:"last_signup_pitch_on"`
+	Linked            bool        `json:"linked"`
+	PhoneVerified     bool        `json:"phone_verified"`
+	StreakCurrent     int32       `json:"streak_current"`
+	LastActiveDate    pgtype.Date `json:"last_active_date"`
+	DueCount          int32       `json:"due_count"`
+	TicketsCompleted  int32       `json:"tickets_completed"`
 }
 
 // Personal-line inputs for eligible users: one user (after a claim) or all
@@ -281,6 +286,7 @@ func (q *Queries) ListTelegramReminderAudience(ctx context.Context, onlyTgUserID
 			&i.TgUserID,
 			&i.FirstName,
 			&i.LanguageCode,
+			&i.LastSignupPitchOn,
 			&i.Linked,
 			&i.PhoneVerified,
 			&i.StreakCurrent,
@@ -307,6 +313,42 @@ ON CONFLICT (tg_user_id) DO UPDATE SET blocked_at = now()
 // my_chat_member kicked in the private chat, or a 403 on send.
 func (q *Queries) MarkTelegramBotUserBlocked(ctx context.Context, tgUserID int64) error {
 	_, err := q.db.Exec(ctx, markTelegramBotUserBlocked, tgUserID)
+	return err
+}
+
+const markTelegramSignupPitch = `-- name: MarkTelegramSignupPitch :exec
+UPDATE telegram_bot_user SET last_signup_pitch_on = $1::date
+WHERE tg_user_id = $2
+`
+
+type MarkTelegramSignupPitchParams struct {
+	Day      pgtype.Date `json:"day"`
+	TgUserID int64       `json:"tg_user_id"`
+}
+
+// The signup pitch reached this user today; the next one waits 7 days.
+func (q *Queries) MarkTelegramSignupPitch(ctx context.Context, arg MarkTelegramSignupPitchParams) error {
+	_, err := q.db.Exec(ctx, markTelegramSignupPitch, arg.Day, arg.TgUserID)
+	return err
+}
+
+const replaceDailyQuestion = `-- name: ReplaceDailyQuestion :exec
+UPDATE telegram_daily_question
+SET question_id = $1, created_at = now()
+WHERE day = $2 AND question_id = $3
+`
+
+type ReplaceDailyQuestionParams struct {
+	NewQuestionID uuid.UUID   `json:"new_question_id"`
+	Day           pgtype.Date `json:"day"`
+	OldQuestionID uuid.UUID   `json:"old_question_id"`
+}
+
+// The day's stored question stopped fitting a poll (edited mid-evening).
+// Conditional on the broken id, so replicas that both notice agree on one
+// replacement: the loser's UPDATE matches nothing and it re-reads the row.
+func (q *Queries) ReplaceDailyQuestion(ctx context.Context, arg ReplaceDailyQuestionParams) error {
+	_, err := q.db.Exec(ctx, replaceDailyQuestion, arg.NewQuestionID, arg.Day, arg.OldQuestionID)
 	return err
 }
 
@@ -355,6 +397,43 @@ type UpsertTelegramBotUserParams struct {
 // chat does not turn into one row rewrite per message.
 func (q *Queries) UpsertTelegramBotUser(ctx context.Context, arg UpsertTelegramBotUserParams) error {
 	_, err := q.db.Exec(ctx, upsertTelegramBotUser,
+		arg.TgUserID,
+		arg.FirstName,
+		arg.Username,
+		arg.LanguageCode,
+	)
+	return err
+}
+
+const upsertTelegramBotUserFromWebApp = `-- name: UpsertTelegramBotUserFromWebApp :exec
+INSERT INTO telegram_bot_user (tg_user_id, first_name, username, language_code)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (tg_user_id) DO UPDATE SET
+  first_name    = EXCLUDED.first_name,
+  username      = EXCLUDED.username,
+  language_code = EXCLUDED.language_code,
+  last_seen_at  = now()
+WHERE telegram_bot_user.last_seen_at < now() - interval '1 minute'
+   OR telegram_bot_user.first_name    IS DISTINCT FROM EXCLUDED.first_name
+   OR telegram_bot_user.username      IS DISTINCT FROM EXCLUDED.username
+   OR telegram_bot_user.language_code IS DISTINCT FROM EXCLUDED.language_code
+`
+
+type UpsertTelegramBotUserFromWebAppParams struct {
+	TgUserID     int64  `json:"tg_user_id"`
+	FirstName    string `json:"first_name"`
+	Username     string `json:"username"`
+	LanguageCode string `json:"language_code"`
+}
+
+// A Mini App sign-in or link whose signed launch data says the user allows
+// the bot to message them (allows_write_to_pm): they join the audience even
+// if they never typed in the chat. Unlike UpsertTelegramBotUser it leaves
+// blocked_at alone — launching the Mini App does not prove the user
+// unblocked the bot; my_chat_member or a private message does. Same
+// once-a-minute write guard.
+func (q *Queries) UpsertTelegramBotUserFromWebApp(ctx context.Context, arg UpsertTelegramBotUserFromWebAppParams) error {
+	_, err := q.db.Exec(ctx, upsertTelegramBotUserFromWebApp,
 		arg.TgUserID,
 		arg.FirstName,
 		arg.Username,

@@ -862,15 +862,16 @@ type TelegramAccount struct {
 }
 
 type TelegramBotUser struct {
-	TgUserID         int64              `json:"tg_user_id"`
-	FirstName        string             `json:"first_name"`
-	Username         string             `json:"username"`
-	LanguageCode     string             `json:"language_code"`
-	FirstSeenAt      pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt       pgtype.Timestamptz `json:"last_seen_at"`
-	RemindersEnabled bool               `json:"reminders_enabled"`
-	BlockedAt        pgtype.Timestamptz `json:"blocked_at"`
-	LastReminderOn   pgtype.Date        `json:"last_reminder_on"`
+	TgUserID          int64              `json:"tg_user_id"`
+	FirstName         string             `json:"first_name"`
+	Username          string             `json:"username"`
+	LanguageCode      string             `json:"language_code"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	RemindersEnabled  bool               `json:"reminders_enabled"`
+	BlockedAt         pgtype.Timestamptz `json:"blocked_at"`
+	LastReminderOn    pgtype.Date        `json:"last_reminder_on"`
+	LastSignupPitchOn pgtype.Date        `json:"last_signup_pitch_on"`
 }
 
 type TelegramChat struct {
