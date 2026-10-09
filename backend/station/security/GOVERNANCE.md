@@ -9,7 +9,7 @@ does not represent a long-term security claim.
 Every ID in `win7-govuln-allowlist.txt` is covered by this record:
 
 - **Owner:** Sherzod, station maintainer
-- **Last review:** 2026-08-22 (agent 1.1.0 release review)
+- **Last review:** 2026-10-09 (advisory review; previous release review 2026-08-22, agent 1.1.0)
 - **Next review:** 2026-11-22, and before every station release
 - **Evidence:** the CI `station-vulnerability-scan` job retains the exact
   Windows/386 binary build metadata and `govulncheck -mode=binary` report.
@@ -55,6 +55,35 @@ restating rather than assuming: the listener is bound to `127.0.0.1` and its
 only client is the browser on the same machine, and the update download goes to
 the same single owned origin the agent already used, over the same bounded
 transport, with a SHA-256 checked before anything is written into place.
+
+## What the 2026-10-09 review added
+
+Thirteen standard-library IDs — `GO-2026-6599`, `6600`, `6603`, `6604`, `6605`,
+`6607`, `6608`, `6609`, `6610`, `6611`, `6612`, `6613`, `6617` — were published
+on 2026-10-08. Every one is fixed only in Go 1.26.9 / 1.27.2, so all thirteen
+fall under the first exception class above. No agent code changed and no agent
+was released; this review exists because the scanner's database moved. The
+per-ID reasoning is inline in `win7-govuln-allowlist.txt`.
+
+Eleven of them cannot be driven in this binary: two concern features Go 1.20
+does not have (`os.Root`, ECH), four concern code the agent does not use
+(`html/template`, file serving, multipart forms), and five are HTTP/2-only
+while the agent speaks HTTP/1.1 in both directions. `GO-2026-6610` deserves the
+emphasis: it describes a reverse proxy with an HTTP/2 upstream and an HTTP/1
+client, which is exactly what the agent would be if `netclient.NewTransport`
+ever enabled HTTP/2. That setting is therefore a security control, not a
+tuning choice, and `transport_test.go` guards it.
+
+Two have a real code path. `GO-2026-6605` and `GO-2026-6613` both involve
+`CONNECT`, and the loopback handler forwards any method to the upstream through
+the shared transport. Only a process already running on the classroom PC can
+send one — page script cannot issue `CONNECT`, and the listener is bound to
+`127.0.0.1` — and that process can already call the proxy directly, so the
+exposure is a wrong response on the same PC's kiosk rather than new access.
+The accepted follow-up is to answer `405` to `CONNECT` in `internal/proxy` in
+the next agent release; it is a behaviour change to the shipped binary, so it
+takes a `VERSION` bump and the release evidence below rather than riding along
+with an allowlist edit.
 
 This is an accepted exception, not a remediation. The exit condition is
 unchanged: retire Windows 7 (or ship a separately supported Win7 client) and

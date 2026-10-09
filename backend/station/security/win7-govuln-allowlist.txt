@@ -85,3 +85,74 @@ GO-2026-6089
 GO-2026-6090
 GO-2026-6091
 GO-2026-6218
+# Reviewed 2026-10-09 (advisory review, no agent release; shipped agent
+# unchanged). Thirteen standard-library IDs published 2026-10-08, every one
+# fixed only in Go 1.26.9 / 1.27.2, i.e. outside the Go 1.20 family that
+# Windows 7 requires. Reachability below is from govulncheck source mode run
+# with the go1.20.14 toolchain for windows/386, then checked against the code;
+# "called" there mostly means the advisory lists generic entry points such as
+# Client.Do or Server.Serve, so each line says whether the vulnerable
+# behaviour itself can be driven.
+#   Not present in this binary's toolchain at all:
+#   GO-2026-6604  os.Root.Mkdir/MkdirAll junction escape (Windows) - os.Root
+#                 was added in Go 1.24; the API does not exist in 1.20.
+#   GO-2026-6607  crypto/tls ECH outer-extension memory exhaustion - a TLS
+#                 *server* bug in ECH, which Go 1.20 does not implement; the
+#                 agent never accepts TLS, it only dials out.
+#   Code not used by the agent:
+#   GO-2026-6599  html/template JS template-literal context - module-level
+#   GO-2026-6600  html/template 'yield' keyword escaping     finding only; the
+#                 agent imports no template package, it proxies bytes.
+#   GO-2026-6609  net/http Range header CPU - only ServeContent / ServeFile /
+#                 FileServer; the agent calls none (package-level finding).
+#   GO-2026-6608  net/textproto + mime/multipart memory-limit bypass - the
+#                 flaw is in multipart part-header accounting; the agent never
+#                 parses a form (no ParseMultipartForm/FormFile/MultipartReader),
+#                 bodies are streamed through. Plain HTTP header reads stay
+#                 capped at 1 MiB on both sides.
+#   HTTP/2 only, and the agent speaks no HTTP/2 in either direction:
+#   GO-2026-6603  HTTP/2 server Trailer memory exhaustion
+#   GO-2026-6612  HTTP/2 server double flow-control refund
+#   GO-2026-6617  HTTP/2 server HPACK encoder race (crash)
+#                 - the listener is cleartext on 127.0.0.1 via Server.Serve;
+#                 Go 1.20 net/http negotiates h2 only through TLS ALPN.
+#   GO-2026-6610  HTTP/2 transport forwards malformed framing headers to an
+#                 HTTP/1 client (response smuggling through a reverse proxy).
+#                 This is the agent's exact topology, so the mitigation is
+#                 load-bearing: netclient.NewTransport sets ForceAttemptHTTP2
+#                 false with a custom TLSClientConfig, which keeps the upstream
+#                 leg on HTTP/1.1; transport_test.go fails if that changes.
+#   GO-2026-6611  HTTP/2 SETTINGS_INITIAL_WINDOW_SIZE CPU (client or server) -
+#                 same: no h2 client, no h2 server. The one default-transport
+#                 client (agentAnswersOn) dials http://127.0.0.1 in cleartext.
+#   Reachable code path, bounded to a local attacker:
+#   GO-2026-6605  HTTP/1 client desync after a rejected CONNECT with a body.
+#                 The loopback handler hands any method, CONNECT included, to
+#                 httputil.ReverseProxy over the shared transport (confirmed
+#                 by probe 2026-10-09: the upstream receives the CONNECT). The
+#                 sender must be a process already running on the classroom PC:
+#                 browsers cannot issue CONNECT from page script, and nothing
+#                 off-host can reach 127.0.0.1. Such a process can already call
+#                 the proxy directly, so it gains no access; the residual harm
+#                 is a wrong response shown to the same PC's kiosk.
+#   GO-2026-6613  HTTP/1 server keeps serving after a 2xx reply to CONNECT.
+#                 Needs our own origin to answer CONNECT with 2xx and an
+#                 intermediary between client and agent; on loopback there is
+#                 none.
+#                 Follow-up for both, next agent release: answer 405 to CONNECT
+#                 in internal/proxy before either ReverseProxy sees it.
+# None of the thirteen is a client-side flaw in TLS or in parsing responses
+# from the owned origin. Standing mitigations (GOVERNANCE.md) are unchanged.
+GO-2026-6599
+GO-2026-6600
+GO-2026-6603
+GO-2026-6604
+GO-2026-6605
+GO-2026-6607
+GO-2026-6608
+GO-2026-6609
+GO-2026-6610
+GO-2026-6611
+GO-2026-6612
+GO-2026-6613
+GO-2026-6617
