@@ -158,6 +158,9 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 		return nil
 	}
 	if u.CallbackQuery != nil {
+		if strings.HasPrefix(u.CallbackQuery.Data, cbLoginPrefix) {
+			return b.handleTelegramLoginCallback(ctx, *u.CallbackQuery)
+		}
 		if strings.HasPrefix(u.CallbackQuery.Data, cbResetPrefix) {
 			return b.handlePasswordResetCallback(ctx, *u.CallbackQuery)
 		}
@@ -184,6 +187,11 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	if u.Message.Contact != nil {
 		if IsGroupChat(chatType) {
 			return nil
+		}
+		// A waiting Telegram login gets the contact first; only a contact no
+		// login was waiting for goes on to the password reset.
+		if handled, err := b.handleTelegramLoginContact(ctx, chatID, u.Message.From, u.Message.Contact); handled || err != nil {
+			return err
 		}
 		return b.handlePasswordResetContact(ctx, chatID, tgUserID, u.Message.Contact)
 	}
@@ -245,6 +253,20 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 				return b.replyErr(b.TG.SendMessage(ctx, chatID, msgResetInvalid))
 			}
 			return b.handlePasswordResetStart(ctx, chatID, tgUserID, raw)
+		}
+		if raw, ok := auth.ParseTelegramLoginStartPayload(arg); ok {
+			if IsGroupChat(chatType) {
+				return b.replyErr(b.TG.SendMessage(ctx, chatID, loginTextsFor(u.Message.From.LanguageCode).groupOnly))
+			}
+			return b.handleTelegramLoginStart(ctx, chatID, u.Message.From, raw)
+		}
+		// t.me/<bot>?start=ref_<CODE>: remember the invite for this user's
+		// first profile, then the ordinary welcome. Never a link token.
+		if strings.HasPrefix(arg, auth.ReferralStartPrefix) && !IsGroupChat(chatType) {
+			if code, ok := auth.ParseReferralStartParam(arg); ok {
+				b.rememberReferral(ctx, tgUserID, code)
+			}
+			return b.sendStartPost(ctx, chatID, u.Message.From)
 		}
 		// Only the plain private /start gets the promo post and its menu; the
 		// group case returned above, because Telegram rejects web_app buttons
