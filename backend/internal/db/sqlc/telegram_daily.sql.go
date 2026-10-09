@@ -332,6 +332,26 @@ func (q *Queries) MarkTelegramSignupPitch(ctx context.Context, arg MarkTelegramS
 	return err
 }
 
+const releaseTelegramReminderClaim = `-- name: ReleaseTelegramReminderClaim :exec
+UPDATE telegram_bot_user
+SET last_reminder_on = NULL
+WHERE tg_user_id = $1 AND last_reminder_on = $2::date
+`
+
+type ReleaseTelegramReminderClaimParams struct {
+	TgUserID int64       `json:"tg_user_id"`
+	Day      pgtype.Date `json:"day"`
+}
+
+// Gives today's claim back when the send provably never left this host
+// (connect-phase failure), so the next tick tries the user again. NULL puts
+// them first in the claim order. Guarded on the day: a user claimed for a
+// later day is untouched.
+func (q *Queries) ReleaseTelegramReminderClaim(ctx context.Context, arg ReleaseTelegramReminderClaimParams) error {
+	_, err := q.db.Exec(ctx, releaseTelegramReminderClaim, arg.TgUserID, arg.Day)
+	return err
+}
+
 const replaceDailyQuestion = `-- name: ReplaceDailyQuestion :exec
 UPDATE telegram_daily_question
 SET question_id = $1, created_at = now()

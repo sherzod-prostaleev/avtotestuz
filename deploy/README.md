@@ -392,12 +392,23 @@ o'chirish»). Users toggle it with `/eslatma`.
 - **Rate limits:** 25 messages/s overall; a 429 waits Telegram's
   `retry_after`; 403 (blocked) and 400 "chat not found" set `blocked_at` and
   the user is skipped until they write to the bot again; other 4xx are logged
-  and skipped; 5xx/transport errors and timeouts (20 s per call) retry twice,
-  then skip that user for today.
+  and skipped; 5xx and connect failures (dial refused, DNS; nothing was sent)
+  retry twice. **Timeouts (20 s per call) are NOT retried**: Telegram may have
+  delivered the call and a retry could post a second poll, so the user is
+  counted `uncertain` and skipped for today.
+- **Outage breaker:** after 3 consecutive `uncertain` results the pass stops
+  without claiming anyone else (one Warn, `telegram unreachable, pausing
+  pass`; `interrupted=telegram_unreachable`). A connect failure that
+  survives its retries releases that user's claim (`deferred`) and pauses the
+  pass the same way. The pass is not marked done, so the next minute's tick
+  resumes the unclaimed remainder until 21:00; users already counted
+  `uncertain` stay skipped for the day.
 - **Log:** one `telegram daily reminder: run` line per pass with counts only
-  (eligible, pending, sent, partial, blocked, opted_out, errors, interrupted,
-  duration), at error level with the error when the pass failed early.
+  (eligible, pending, sent, partial, uncertain, deferred, blocked, opted_out,
+  errors, interrupted, duration), at error level with the error when the pass failed early.
   `partial` = the first message landed and the second did not.
+  `uncertain` = a send timed out, delivery unknown. `deferred` = could not
+  connect, claim released, retried on a later tick.
 - **Question:** if today's recorded question stops fitting a poll mid-evening
   it is replaced once (logged) and the rest of the evening gets the
   replacement. If no question fits at all, the run logs once and stops for

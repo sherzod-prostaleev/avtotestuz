@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -878,5 +879,109 @@ func TestDailyReminderDryRunCountsSegmentsAndSendsNothing(t *testing.T) {
 	}
 	if _, err := f.q.GetDailyQuestion(ctx, dayOf(f.clock.Now())); err == nil {
 		t.Fatal("dry-run must not record the day's question")
+	}
+}
+
+// setHang flips the stalled-connection switch for chats mid-test.
+func (f *dailyTG) setHang(on bool, chats ...int64) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range chats {
+		f.hang[c] = on
+	}
+}
+
+func pendingAudience(t *testing.T, f *reminderFixture) int {
+	t.Helper()
+	c, err := f.q.CountTelegramReminderAudience(context.Background(), dayOf(f.clock.Now()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return int(c.Pending)
+}
+
+// During an outage every send would wait out its timeout. After
+// breakerUncertain in a row the pass stops without claiming anyone else, and
+// the next tick (still inside the window) sends the unclaimed rest.
+func TestDailyReminderBreakerStopsPassAndNextTickResumes(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	seedQuizQuestion(t, f.pool, false)
+	addBotUsers(t, f.q, "", 60, 61, 62, 63, 64)
+	f.tg.setHang(true, 60, 61, 62, 63, 64)
+	f.r.SendTimeout = 30 * time.Millisecond
+
+	res, err := f.r.Tick(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Uncertain != breakerUncertain || res.Sent != 0 || res.Interrupted != "telegram_unreachable" {
+		t.Fatalf("result = %+v, want %d uncertain and the pass interrupted", res, breakerUncertain)
+	}
+	if n := f.tg.total(); n != breakerUncertain {
+		t.Fatalf("telegram calls = %d, want %d (no more users contacted)", n, breakerUncertain)
+	}
+	if got := pendingAudience(t, f); got != 2 {
+		t.Fatalf("pending = %d, want the 2 unclaimed users", got)
+	}
+	if n := f.logs.FilterMessage("telegram daily reminder: telegram unreachable, pausing pass").Len(); n != 1 {
+		t.Fatalf("breaker warn logs = %d, want 1", n)
+	}
+
+	// Recovery: the next tick finishes the remainder and the day is done.
+	f.tg.setHang(false, 60, 61, 62, 63, 64)
+	res, err = f.r.Tick(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sent != 2 || res.Uncertain != 0 || res.Interrupted != "" {
+		t.Fatalf("second tick = %+v, want the 2 remaining sent", res)
+	}
+	polls := f.tg.byChat("sendPoll")
+	if polls[63] != 1 || polls[64] != 1 {
+		t.Fatalf("polls = %v, want the remaining users once each", polls)
+	}
+	if res, _ = f.r.Tick(ctx); res.Skipped != "done" {
+		t.Fatalf("third tick = %+v, want done", res)
+	}
+}
+
+// A refused connection proves nothing was sent: the user is released, not
+// counted uncertain, and the pass pauses; the next tick delivers.
+func TestDailyReminderConnectFailureIsRetryableNotUncertain(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	seedQuizQuestion(t, f.pool, false)
+	addBotUsers(t, f.q, "", 70, 71)
+	healthy := f.r.TG
+
+	dead := httptest.NewServer(http.NotFoundHandler())
+	url := dead.URL
+	dead.Close() // nothing listens there any more: dial is refused
+	f.r.TG = NewClient(url, "test-token", &http.Client{Transport: &http.Transport{
+		DialContext: (&net.Dialer{}).DialContext,
+	}})
+
+	res, err := f.r.Tick(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Uncertain != 0 || res.Sent != 0 || res.Errors != 0 || res.Deferred != 1 || res.Interrupted != "telegram_unreachable" {
+		t.Fatalf("result = %+v, want 1 deferred, 0 uncertain, pass paused", res)
+	}
+	if got := pendingAudience(t, f); got != 2 {
+		t.Fatalf("pending = %d, want both users still unclaimed", got)
+	}
+
+	f.r.TG = healthy
+	res, err = f.r.Tick(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sent != 2 || res.Interrupted != "" {
+		t.Fatalf("second tick = %+v, want both sent", res)
+	}
+	if f.tg.byChat("sendPoll")[70] != 1 {
+		t.Fatalf("polls = %v", f.tg.byChat("sendPoll"))
 	}
 }

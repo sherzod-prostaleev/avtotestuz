@@ -80,6 +80,15 @@ WHERE u.tg_user_id = (
 )
 RETURNING u.tg_user_id;
 
+-- name: ReleaseTelegramReminderClaim :exec
+-- Gives today's claim back when the send provably never left this host
+-- (connect-phase failure), so the next tick tries the user again. NULL puts
+-- them first in the claim order. Guarded on the day: a user claimed for a
+-- later day is untouched.
+UPDATE telegram_bot_user
+SET last_reminder_on = NULL
+WHERE tg_user_id = sqlc.arg(tg_user_id) AND last_reminder_on = sqlc.arg(day)::date;
+
 -- name: CountTelegramReminderAudience :one
 SELECT COUNT(*)::int AS total,
        COUNT(*) FILTER (WHERE NOT reminders_enabled)::int AS opted_out,

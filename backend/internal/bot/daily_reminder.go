@@ -64,10 +64,16 @@ const (
 	// bundleMessages is how many pacing slots one recipient's bundle needs.
 	bundleMessages = 2
 
-	maxTransientRetries = 2 // 5xx / transport / timeout, then skip the user for today
-	maxFloodRetries     = 5 // 429s honoured for one message before giving up
-	flagRecheckEvery    = 25
-	candidatePoolSize   = 20
+	// maxTransientRetries counts retries of 5xx and connect-phase failures
+	// (nothing was delivered). A timeout is never retried: it may have been.
+	maxTransientRetries = 2
+	// breakerUncertain consecutive timeouts mean Telegram or the network is
+	// down, not that three users are unlucky: stop the pass rather than let
+	// each remaining user wait out a timeout and be dropped for the day.
+	breakerUncertain  = 3
+	maxFloodRetries   = 5 // 429s honoured for one message before giving up
+	flagRecheckEvery  = 25
+	candidatePoolSize = 20
 )
 
 var errWindowClosed = errors.New("daily reminder: send window closed")
@@ -106,6 +112,7 @@ type ReminderRunResult struct {
 	Sent        int
 	Partial     int // first message landed, the second did not
 	Uncertain   int // a send timed out: Telegram may or may not have delivered it
+	Deferred    int // could not even connect: claim released, retried next tick
 	Blocked     int
 	OptedOut    int
 	Errors      int
@@ -261,6 +268,7 @@ func (r *DailyReminder) runPass(ctx context.Context, day pgtype.Date) (res Remin
 	res.Eligible, res.Pending, res.OptedOut = int(counts.Eligible), int(counts.Pending), int(counts.OptedOut)
 
 	p := &pass{imageOK: true}
+	uncertainRun := 0 // consecutive timeouts; any other result resets it
 	if res.Pending > 0 {
 		pick, err := r.dailyQuestion(ctx, day)
 		if err != nil {
@@ -321,6 +329,13 @@ func (r *DailyReminder) runPass(ctx context.Context, day pgtype.Date) (res Remin
 			res.Partial++
 		case outcomeUncertain:
 			res.Uncertain++
+		case outcomeDeferred:
+			// Nothing left this host, so the user goes back in the queue. The
+			// pass stops here: the same user would be claimed again at once.
+			res.Deferred++
+			if err := r.Q.ReleaseTelegramReminderClaim(ctx, sqlc.ReleaseTelegramReminderClaimParams{TgUserID: tgUserID, Day: day}); err != nil {
+				r.logger().Warn("telegram daily reminder: release claim failed", zap.Error(err))
+			}
 		case outcomeBlocked:
 			res.Blocked++
 			if err := r.Q.MarkTelegramBotUserBlocked(ctx, tgUserID); err != nil {
@@ -338,6 +353,18 @@ func (r *DailyReminder) runPass(ctx context.Context, day pgtype.Date) (res Remin
 		}
 		if d.windowClosed {
 			res.Interrupted = "window_closed"
+			break
+		}
+		if d.outcome == outcomeUncertain {
+			uncertainRun++
+		} else {
+			uncertainRun = 0
+		}
+		if d.outcome == outcomeDeferred || uncertainRun >= breakerUncertain {
+			// Interrupted passes are not marked done, so the next minute's
+			// tick resumes the users still unclaimed (until 21:00).
+			res.Interrupted = "telegram_unreachable"
+			r.logger().Warn("telegram daily reminder: telegram unreachable, pausing pass")
 			break
 		}
 	}
@@ -376,6 +403,7 @@ const (
 	outcomePartial    // the first message landed, the second did not
 	outcomeNotStarted // the window closed before the first message
 	outcomeUncertain  // a send timed out; delivery unknown, never retried
+	outcomeDeferred   // could not connect: nothing sent, claim released
 )
 
 // delivery is one recipient's result. lineDelivered says whether the
@@ -407,6 +435,20 @@ func timedOut(err error) bool {
 	return errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &ne) && ne.Timeout())
 }
 
+// connectFailed is a failure before any request left this host: the dial was
+// refused, timed out or could not resolve the name. Nothing can have been
+// delivered, so unlike timedOut it is safe to retry. A dial that hit the
+// per-call deadline is also a net.Error timeout, which is why callers must
+// ask this first.
+func connectFailed(err error) bool {
+	var op *net.OpError
+	if errors.As(err, &op) && op.Op == "dial" {
+		return true
+	}
+	var dns *net.DNSError
+	return errors.As(err, &dns)
+}
+
 func permanent(err error) bool {
 	var api *APIError
 	return errors.As(err, &api) && api.Permanent()
@@ -430,6 +472,11 @@ func (r *DailyReminder) deliver(ctx context.Context, p *pass, a sqlc.ListTelegra
 		switch {
 		case unreachable(err):
 			d.outcome = outcomeBlocked
+			return d
+		case landed == 0 && connectFailed(err):
+			d.outcome = outcomeDeferred
+			r.logger().Warn("telegram daily reminder: could not reach telegram, will retry",
+				zap.String("step", step), zap.Error(err))
 			return d
 		case timedOut(err):
 			// Telegram may have delivered it; the user stays claimed for
@@ -498,8 +545,9 @@ func (r *DailyReminder) deliver(ctx context.Context, p *pass, a sqlc.ListTelegra
 }
 
 // send paces one Telegram call and retries it: 429 waits retry_after,
-// transport errors that prove non-delivery and 5xx back off up to maxTransientRetries, permanent
-// 4xx return at once.
+// connect-phase failures (nothing was sent) and 5xx back off up to
+// maxTransientRetries, permanent 4xx return at once. A timeout is returned
+// at once too: it may have been delivered.
 func (r *DailyReminder) send(ctx context.Context, p *pass, call func(context.Context) error) error {
 	transient, flood := 0, 0
 	for {
@@ -515,7 +563,7 @@ func (r *DailyReminder) send(ctx context.Context, p *pass, call func(context.Con
 		if err == nil {
 			return nil
 		}
-		if ctx.Err() != nil || timedOut(err) {
+		if ctx.Err() != nil || (timedOut(err) && !connectFailed(err)) {
 			return err
 		}
 		var api *APIError
