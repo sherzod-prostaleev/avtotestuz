@@ -405,4 +405,47 @@ describe("proxy route", () => {
     expect(cookies.slice(0, 2).map((c) => c.split(";")[0])).toEqual(["at=", "rt="]);
     for (const c of cookies.slice(2)) expect(c.toLowerCase()).toContain("partitioned");
   });
+
+  // POST /me/password/set ends every other session and keeps the caller's;
+  // only the BFF knows the caller's refresh token (HttpOnly cookie).
+  it("names the caller's refresh token to /me/password/set and to nothing else", async () => {
+    const fetchMock = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }))
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const post = (path: string[]) =>
+      POST(
+        requestWithCookies("at=good-token; rt=my-refresh", {
+          method: "POST",
+          body: JSON.stringify({ new_password: "goodpass12", confirm_password: "goodpass12" }),
+          headers: { "Content-Type": "application/json" },
+        }),
+        routeContext(path)
+      );
+
+    await post(["me", "password", "set"]);
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8090/api/v1/me/password/set");
+    expect(fetchMock.mock.calls[0][1].headers["X-Avtotest-Refresh-Token"]).toBe("my-refresh");
+
+    await post(["me", "password"]);
+    await GET(requestWithCookies("at=good-token; rt=my-refresh"), routeContext(["me", "password", "set"]));
+    for (const call of fetchMock.mock.calls.slice(1)) {
+      expect(call[1].headers["X-Avtotest-Refresh-Token"]).toBeUndefined();
+    }
+  });
+
+  it("names the rotated refresh token when the access token had to be refreshed first", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ data: { access_token: "fresh-at", refresh_token: "fresh-rt" } }), { status: 200 })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ data: { ok: true } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await POST(
+      requestWithCookies("rt=old-rt", { method: "POST", body: "{}", headers: { "Content-Type": "application/json" } }),
+      routeContext(["me", "password", "set"])
+    );
+    expect(fetchMock.mock.calls[1][1].headers["X-Avtotest-Refresh-Token"]).toBe("fresh-rt");
+  });
 });

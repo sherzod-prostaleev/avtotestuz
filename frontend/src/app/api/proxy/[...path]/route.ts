@@ -57,11 +57,24 @@ function unavailableResponse(mode: CookieMode, tokens?: TokenPair | null) {
   return response;
 }
 
+/**
+ * POST /me/password/set ends every other session of the profile and keeps the
+ * caller's — which the backend can only tell apart by its refresh token. That
+ * lives in our HttpOnly cookie, so it is named here, server to server, and
+ * for this one endpoint only.
+ */
+const REFRESH_TOKEN_HEADER = "X-Avtotest-Refresh-Token";
+
+function namesOwnSession(request: Request, path: string[]): boolean {
+  return request.method === "POST" && path.length === 3 && path[0] === "me" && path[1] === "password" && path[2] === "set";
+}
+
 async function forward(
   request: Request,
   path: string[],
   accessToken: string | null | undefined,
-  body: string | undefined
+  body: string | undefined,
+  refreshToken?: string | null
 ): Promise<Response> {
   const url = new URL(request.url);
   const encodedPath = safePath(path);
@@ -74,6 +87,9 @@ async function forward(
   };
   if (accessToken) {
     headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+  if (refreshToken && namesOwnSession(request, path)) {
+    headers[REFRESH_TOKEN_HEADER] = refreshToken;
   }
   const init: RequestInit = {
     method: request.method,
@@ -135,7 +151,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
 
   if (accessToken || isPublicPath(path)) {
     try {
-      backendRes = await forward(request, path, accessToken, body);
+      backendRes = await forward(request, path, accessToken, body, newTokens?.refreshToken ?? refreshToken);
     } catch {
       return unavailableResponse(mode, newTokens);
     }
@@ -151,7 +167,7 @@ async function handle(request: Request, context: { params: Promise<{ path: strin
     if (newTokens) {
       accessToken = newTokens.accessToken;
       try {
-        backendRes = await forward(request, path, accessToken, body);
+        backendRes = await forward(request, path, accessToken, body, newTokens?.refreshToken ?? refreshToken);
       } catch {
         return unavailableResponse(mode, newTokens);
       }

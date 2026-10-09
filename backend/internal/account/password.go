@@ -140,6 +140,11 @@ func (h *Handler) setFirstPassword(w http.ResponseWriter, r *http.Request) {
 		httpx.Error(w, http.StatusForbidden, "forbidden", "only a learner account can have a password")
 		return
 	}
+	if h.Lim.R == nil {
+		// Never unlimited: a handler wired without a limiter refuses.
+		httpx.Error(w, http.StatusInternalServerError, "internal", "rate limiter unavailable")
+		return
+	}
 	if allowed, err := h.Lim.Allow(r.Context(), "pwset:profile:"+claims.ProfileID.String(), setFirstPasswordPerHour, time.Hour); err != nil {
 		httpx.Error(w, http.StatusInternalServerError, "internal", "rate limiter unavailable")
 		return
