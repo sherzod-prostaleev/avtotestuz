@@ -9,6 +9,7 @@ import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
 import { ArrowLeft, Loader2, Lock, Phone, User } from "lucide-react";
+import { TelegramLogin, type TelegramLoginResult } from "@/components/auth/telegram-login";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
@@ -47,6 +48,7 @@ export default function RegisterPage() {
   const webApp = useTelegram();
   const tgStatus = useTelegramStatus();
   const tgT = useTranslations("TelegramApp");
+  const tgLoginT = useTranslations("TelegramLogin");
   const waitingForTelegram = tgStatus === "loading";
   // "off" only on the website (and the server render); any other status
   // means Telegram launched us, even before or without a working SDK.
@@ -73,6 +75,26 @@ export default function RegisterPage() {
       /* a malformed query string just means no next */
     }
   }, []);
+
+  // Website Telegram sign-up: the same request signs in an existing learner
+  // with that phone or creates one; then the usual post-auth steps.
+  async function afterTelegramLogin(result: TelegramLoginResult) {
+    try {
+      await applyPendingReferralCode();
+    } catch {
+      /* best-effort */
+    }
+    try {
+      await migrateDemoProgressOnLogin();
+    } catch {
+      /* best-effort */
+    }
+    if (result.mustChangePassword) {
+      router.push(`/${locale}/change-password`);
+      return;
+    }
+    router.push(safeNextPath(new URLSearchParams(window.location.search).get("next"), locale));
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -196,8 +218,19 @@ export default function RegisterPage() {
 
           <div className="space-y-2">
             <h1 className="font-display text-2xl font-extrabold tracking-tight">{t("title")}</h1>
-            <p className="text-sm text-muted-foreground">{t("subtitle")}</p>
+            <p className="text-sm text-muted-foreground">{inMiniApp ? t("subtitle") : t("subtitleWithTelegram")}</p>
           </div>
+
+          {!inMiniApp && (
+            <div className="space-y-4">
+              <TelegramLogin mode="register" onSuccess={afterTelegramLogin} />
+              <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                {tgLoginT("orDivider")}
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              </div>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">

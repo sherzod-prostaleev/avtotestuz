@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { BrandLogo } from "@/components/brand/brand-logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { LocaleSwitcher } from "@/components/locale-switcher";
-import { ArrowLeft, Loader2, Lock, Phone, ShieldCheck } from "lucide-react";
+import { ArrowLeft, KeyRound, Loader2, Lock, Phone, Send, ShieldCheck } from "lucide-react";
+import { TelegramLogin, type TelegramLoginHandle } from "@/components/auth/telegram-login";
 import { applyPendingReferralCode, capturePendingReferralCodeFromUrl } from "@/lib/referral-storage";
 import { migrateDemoProgressOnLogin } from "@/lib/demo-progress-storage";
 import { TelegramPhoneButton } from "@/components/telegram/telegram-phone-button";
@@ -59,6 +60,8 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const telegramLogin = useRef<TelegramLoginHandle>(null);
+  const tgLoginT = useTranslations("TelegramLogin");
 
   useEffect(() => {
     capturePendingReferralCodeFromUrl();
@@ -74,7 +77,9 @@ export default function LoginPage() {
     }
   }, []);
 
-  async function finishAuth(mustChangePassword: boolean) {
+  // honourNext: the website Telegram login returns to `?next=` (validated by
+  // safeNextPath) like the Mini App does; the password form keeps its landing.
+  async function finishAuth(mustChangePassword: boolean, honourNext = false) {
     // Side-effects must never block a successful login — cookies are already set.
     try {
       await applyPendingReferralCode();
@@ -92,7 +97,8 @@ export default function LoginPage() {
     }
     // A Mini App deep link (/tg?next=…) passed its target through the
     // welcome screen. The website keeps its old landing: the dashboard.
-    const next = miniAppNext(webApp, new URLSearchParams(window.location.search).get("next"));
+    const rawNext = new URLSearchParams(window.location.search).get("next");
+    const next = honourNext ? rawNext : miniAppNext(webApp, rawNext);
     router.push(safeNextPath(next, locale));
   }
 
@@ -205,7 +211,7 @@ export default function LoginPage() {
               {t("title")}
             </h1>
             <p className="text-sm text-muted-foreground">
-              {t("subtitle")}
+              {inMiniApp ? t("subtitle") : t("subtitleWithTelegram")}
             </p>
           </div>
 
@@ -218,6 +224,23 @@ export default function LoginPage() {
               className="rounded-xl border border-accent/40 bg-accent/10 p-3 text-xs font-semibold text-foreground"
             >
               {t("sessionExpiredNotice")}
+            </div>
+          )}
+
+          {/* Website only: inside Telegram the Mini App signs in with
+              Telegram's own launch data and phone share instead. */}
+          {!inMiniApp && (
+            <div className="space-y-4">
+              <TelegramLogin
+                ref={telegramLogin}
+                mode="login"
+                onSuccess={(r) => finishAuth(r.mustChangePassword, true)}
+              />
+              <div className="flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+                {tgLoginT("orDivider")}
+                <span aria-hidden="true" className="h-px flex-1 bg-border" />
+              </div>
             </div>
           )}
 
@@ -289,13 +312,46 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            {error && (
-              <div
-                role="alert"
-                className="rounded-xl border border-danger/50 bg-danger/10 p-3 text-xs font-semibold text-danger"
-              >
-                {t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}
+            {error === "password_not_set" ? (
+              // An account made through Telegram has no password: say so and
+              // offer both ways forward instead of a dead-end error.
+              <div role="alert" className="space-y-3 rounded-xl border border-accent/40 bg-accent/10 p-3">
+                <p className="text-sm font-extrabold text-foreground">{t("passwordlessTitle")}</p>
+                <p className="text-xs font-semibold leading-snug text-foreground">{t("passwordlessBody")}</p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (inMiniApp) {
+                        router.push(`/${locale}/tg`);
+                        return;
+                      }
+                      setError(null);
+                      telegramLogin.current?.start();
+                    }}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[#1f75bc] px-3 text-sm font-extrabold text-white hover:bg-[#1a66a5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <Send aria-hidden="true" className="h-4 w-4" />
+                    {t("passwordlessTelegram")}
+                  </button>
+                  <Link
+                    href={`/${locale}/forgot-password${phone ? `?phone=${encodeURIComponent(phone)}` : ""}`}
+                    className="flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-extrabold text-foreground hover:border-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <KeyRound aria-hidden="true" className="h-4 w-4" />
+                    {t("passwordlessSetPassword")}
+                  </Link>
+                </div>
               </div>
+            ) : (
+              error && (
+                <div
+                  role="alert"
+                  className="rounded-xl border border-danger/50 bg-danger/10 p-3 text-xs font-semibold text-danger"
+                >
+                  {t(ERROR_MESSAGE_KEYS[error] ?? "errorUnknown")}
+                </div>
+              )
             )}
 
             {waitingForTelegram && (

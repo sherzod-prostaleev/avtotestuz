@@ -1,4 +1,4 @@
-import { act, render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { act, render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { NextIntlClientProvider } from "next-intl";
 import { describe, it, expect, vi, afterEach } from "vitest";
@@ -40,6 +40,7 @@ vi.mock("@/lib/telegram/web-app", async (importOriginal) => {
 });
 
 afterEach(() => {
+  window.sessionStorage.clear();
   currentWebApp = null;
   currentStatus = "off";
   cloudRemove.mockClear();
@@ -126,23 +127,50 @@ describe("LoginPage", () => {
     expect(pushMock).not.toHaveBeenCalled();
   });
 
-  it("does not expose the removed set-password flow", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({ error: { code: "password_not_set" } }), { status: 409 })
-      )
-    );
+  it("explains a passwordless (Telegram-created) account and offers both ways forward", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url === "/api/auth/login") {
+        return Promise.resolve(new Response(JSON.stringify({ error: { code: "password_not_set" } }), { status: 409 }));
+      }
+      return Promise.resolve(
+        new Response(
+          JSON.stringify({ data: { bot_url: `https://t.me/DriverGouzBot?start=login_${"a".repeat(43)}`, token: "a".repeat(43), expires_in_sec: 300 } }),
+          { status: 200 }
+        )
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    vi.stubGlobal("open", vi.fn(() => null));
     renderWithIntl();
     fireEvent.change(screen.getByLabelText("Telefon raqam"), { target: { value: "901112233" } });
     fireEvent.change(screen.getByLabelText("Parol"), { target: { value: "secret123" } });
     fireEvent.click(screen.getByRole("button", { name: "Kirish" }));
 
-    await waitFor(() =>
-      expect(screen.getByText("Parol o'rnatilmagan. Pastdagi parolni tiklash orqali yangi parol qo'ying.")).toBeInTheDocument()
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      "Siz Telegram orqali ro'yxatdan o'tgansiz. Telegram orqali kiring yoki parol o'rnating."
     );
-    expect(screen.getByRole("heading", { name: "Kirish" })).toBeInTheDocument();
-    expect(fetch).toHaveBeenCalledTimes(1);
+    // «Parol o'rnatish» is the bot reset flow, with the number carried over.
+    expect(screen.getByRole("link", { name: "Parol o'rnatish" })).toHaveAttribute(
+      "href",
+      "/uz-Latn/forgot-password?phone=901112233"
+    );
+    // «Telegram orqali kirish» starts the Telegram login right away.
+    fireEvent.click(within(alert).getByRole("button", { name: "Telegram orqali kirish" }));
+    expect(await screen.findByRole("heading", { name: "Telegram'da tasdiqlang" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/auth/telegram-login/start", { method: "POST" });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("offers Telegram login above the password form on the website only", () => {
+    const { unmount } = renderWithIntl();
+    expect(screen.getByRole("button", { name: "Telegram orqali kirish" })).toBeInTheDocument();
+    expect(screen.getByText("yoki telefon raqam va parol bilan")).toBeInTheDocument();
+    unmount();
+    currentStatus = "ready";
+    currentWebApp = { initData: "signed", isVersionAtLeast: () => true } as unknown as TelegramWebApp;
+    renderWithIntl();
+    expect(screen.queryByRole("button", { name: "Telegram orqali kirish" })).toBeNull();
   });
 
   it("shows a full-size register CTA and a forgot-password link", () => {

@@ -431,7 +431,12 @@
     "errorWeakPassword": "Парол камида 8 та белгидан иборат бўлиши керак",
     "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
     "errorNetwork": "Сервер билан боғланиб бўлмади",
-    "errorUnknown": "Хатолик юз берди. Қайта уриниб кўринг"
+    "errorUnknown": "Хатолик юз берди. Қайта уриниб кўринг",
+    "passwordlessTitle": "Парол ўрнатилмаган",
+    "passwordlessBody": "Сиз Telegram орқали рўйхатдан ўтгансиз. Telegram орқали киринг ёки парол ўрнатинг.",
+    "passwordlessTelegram": "Telegram орқали кириш",
+    "passwordlessSetPassword": "Парол ўрнатиш",
+    "subtitleWithTelegram": "Telegram ёки телефон рақам ва парол билан киринг"
   },
   "Register": {
     "title": "Рўйхатдан ўтиш",
@@ -453,7 +458,8 @@
     "errorPasswordMismatch": "Пароллар мос келмади",
     "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
     "errorNetwork": "Сервер билан боғланиб бўлмади",
-    "errorUnknown": "Хатолик юз берди. Қайта уриниб кўринг"
+    "errorUnknown": "Хатолик юз берди. Қайта уриниб кўринг",
+    "subtitleWithTelegram": "Telegram орқали бир босишда ёки телефон рақам ва парол билан ҳисоб яратинг"
   },
   "PasswordReset": {
     "title": "Паролни тиклаш",
@@ -996,7 +1002,12 @@
     "passwordShow": "Паролни кўрсатиш",
     "passwordHide": "Паролни яшириш",
     "passwordNeverStored": "Асл парол ҳеч қачон сақланмайди — фақат сиз биласиз.",
-    "passwordSubtitle": "Жорий паролингизни киритинг, кейин янги паролни тасдиқланг (камида 8 белги)."
+    "passwordSubtitle": "Жорий паролингизни киритинг, кейин янги паролни тасдиқланг (камида 8 белги).",
+    "passwordSetSection": "Парол ўрнатиш",
+    "passwordSetHint": "Сиз Telegram орқали рўйхатдан ўтгансиз. Парол ўрнатсангиз, телефон рақам ва парол билан ҳам кира оласиз.",
+    "passwordSetSubmit": "Паролни сақлаш",
+    "passwordSetSuccess": "Парол ўрнатилди. Энди телефон рақам ва парол билан ҳам кира оласиз.",
+    "passwordErrorAlreadySet": "Парол аллақачон ўрнатилган. Саҳифани янгиланг."
   },
   "TelegramLink": {
     "title": "Telegram боғлаш",
@@ -1095,7 +1106,9 @@
     "noteShort": "Дўстингиз код орқали бириктирилиб биринчи пуллик тарифни олса, комиссия балансингизга тушади.",
     "payoutCardLength": "Карта рақами 16 та рақамдан иборат бўлиши керак",
     "payoutPickNetwork": "Карта турини танланг",
-    "payoutCardHint": "Uzcard ёки Humo карта рақамини киритинг"
+    "payoutCardHint": "Uzcard ёки Humo карта рақамини киритинг",
+    "shareTelegram": "Telegram'да улашиш",
+    "shareText": "Driver Go'да ҳайдовчилик имтиҳонига бирга тайёрланайлик!"
   },
   "PaymentHistory": {
     "title": "Тўловлар Тарихи",
@@ -2685,6 +2698,36 @@
     "loginOnSite": "Сайтда кириш",
     "contactSupport": "Ёрдамга ёзиш",
     "retryIn": "Қайта уриниш ({seconds})",
-    "shareAfterLogin": "Автоматик кириш учун Telegram рақамингизни улашинг."
+    "shareAfterLogin": "Автоматик кириш учун Telegram рақамингизни улашинг.",
+    "continueWithPhone": "📱 Рақам билан давом этиш",
+    "continueWithPhoneHint": "Telegram рақамингиз билан бир босишда кирасиз ёки ҳисоб очасиз. Парол шарт эмас.",
+    "orPassword": "ёки парол билан",
+    "phoneDeclined": "Рақам юборилмади. Қайтадан босинг ёки парол билан киринг."
+  },
+  "TelegramLogin": {
+    "loginButton": "Telegram орқали кириш",
+    "registerButton": "Telegram орқали рўйхатдан ўтиш",
+    "oneTapHint": "Паролсиз, 1–2 босишда",
+    "starting": "Telegram очилмоқда…",
+    "waitingTitle": "Telegram'да тасдиқланг",
+    "waitingHint": "Ботда «✅ Kirish» ни босинг. Биринчи марта бўлса — «📱 Raqamni yuborish» ни босинг. Бу саҳифа ўзи давом этади.",
+    "openTelegram": "Telegram'ни очиш",
+    "qrHint": "Ёки телефон камераси билан сканерланг",
+    "qrAlt": "Telegram орқали кириш ҳаволасининг QR коди",
+    "expiresIn": "Ҳавола яна {time} амал қилади",
+    "waitingStatus": "Тасдиқ кутилмоқда…",
+    "completing": "Кирилмоқда…",
+    "cancel": "Бекор қилиш",
+    "retry": "Қайтадан уриниш",
+    "cancelledTitle": "Кириш бекор қилинди",
+    "cancelledBody": "Telegram'да «Бекор қилиш» босилди. Хоҳласангиз, қайтадан уриниб кўринг.",
+    "expiredTitle": "Вақт тугади",
+    "expiredBody": "Ҳавола 5 дақиқа амал қилади. Қайтадан уриниб кўринг.",
+    "blockedTitle": "Ҳисоб блокланган",
+    "blockedBody": "Ҳисобингиз блокланган. Ёрдам учун support билан боғланинг.",
+    "errorUnavailable": "Telegram орқали кириш ҳозирча ишламаяпти. Телефон рақам ва парол билан киринг.",
+    "errorRateLimited": "Жуда кўп уриниш. Бироздан кейин қайта уриниб кўринг",
+    "errorNetwork": "Сервер билан боғланиб бўлмади. Қайтадан уриниб кўринг.",
+    "orDivider": "ёки телефон рақам ва парол билан"
   }
 }

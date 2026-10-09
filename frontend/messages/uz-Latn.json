@@ -431,7 +431,12 @@
     "errorWeakPassword": "Parol kamida 8 ta belgidan iborat bo'lishi kerak",
     "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
     "errorNetwork": "Server bilan bog'lanib bo'lmadi",
-    "errorUnknown": "Xatolik yuz berdi. Qayta urinib ko'ring"
+    "errorUnknown": "Xatolik yuz berdi. Qayta urinib ko'ring",
+    "passwordlessTitle": "Parol o'rnatilmagan",
+    "passwordlessBody": "Siz Telegram orqali ro'yxatdan o'tgansiz. Telegram orqali kiring yoki parol o'rnating.",
+    "passwordlessTelegram": "Telegram orqali kirish",
+    "passwordlessSetPassword": "Parol o'rnatish",
+    "subtitleWithTelegram": "Telegram yoki telefon raqam va parol bilan kiring"
   },
   "Register": {
     "title": "Ro'yxatdan o'tish",
@@ -453,7 +458,8 @@
     "errorPasswordMismatch": "Parollar mos kelmadi",
     "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
     "errorNetwork": "Server bilan bog'lanib bo'lmadi",
-    "errorUnknown": "Xatolik yuz berdi. Qayta urinib ko'ring"
+    "errorUnknown": "Xatolik yuz berdi. Qayta urinib ko'ring",
+    "subtitleWithTelegram": "Telegram orqali bir bosishda yoki telefon raqam va parol bilan hisob yarating"
   },
   "PasswordReset": {
     "title": "Parolni tiklash",
@@ -996,7 +1002,12 @@
     "passwordShow": "Parolni ko'rsatish",
     "passwordHide": "Parolni yashirish",
     "passwordNeverStored": "Asl parol hech qachon saqlanmaydi — faqat siz bilasiz.",
-    "passwordSubtitle": "Joriy parolingizni kiriting, keyin yangi parolni tasdiqlang (kamida 8 belgi)."
+    "passwordSubtitle": "Joriy parolingizni kiriting, keyin yangi parolni tasdiqlang (kamida 8 belgi).",
+    "passwordSetSection": "Parol o'rnatish",
+    "passwordSetHint": "Siz Telegram orqali ro'yxatdan o'tgansiz. Parol o'rnatsangiz, telefon raqam va parol bilan ham kira olasiz.",
+    "passwordSetSubmit": "Parolni saqlash",
+    "passwordSetSuccess": "Parol o'rnatildi. Endi telefon raqam va parol bilan ham kira olasiz.",
+    "passwordErrorAlreadySet": "Parol allaqachon o'rnatilgan. Sahifani yangilang."
   },
   "TelegramLink": {
     "title": "Telegram bog'lash",
@@ -1095,7 +1106,9 @@
     "noteShort": "Do'stingiz kod orqali biriktirilib birinchi pullik tarifni olsa, komissiya balansingizga tushadi.",
     "payoutCardLength": "Karta raqami 16 ta raqamdan iborat bo'lishi kerak",
     "payoutPickNetwork": "Karta turini tanlang",
-    "payoutCardHint": "Uzcard yoki Humo karta raqamini kiriting"
+    "payoutCardHint": "Uzcard yoki Humo karta raqamini kiriting",
+    "shareTelegram": "Telegram'da ulashish",
+    "shareText": "Driver Go'da haydovchilik imtihoniga birga tayyorlanaylik!"
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",
@@ -2685,6 +2698,36 @@
     "loginOnSite": "Saytda kirish",
     "contactSupport": "Yordamga yozish",
     "retryIn": "Qayta urinish ({seconds})",
-    "shareAfterLogin": "Avtomatik kirish uchun Telegram raqamingizni ulashing."
+    "shareAfterLogin": "Avtomatik kirish uchun Telegram raqamingizni ulashing.",
+    "continueWithPhone": "📱 Raqam bilan davom etish",
+    "continueWithPhoneHint": "Telegram raqamingiz bilan bir bosishda kirasiz yoki hisob ochasiz. Parol shart emas.",
+    "orPassword": "yoki parol bilan",
+    "phoneDeclined": "Raqam yuborilmadi. Qaytadan bosing yoki parol bilan kiring."
+  },
+  "TelegramLogin": {
+    "loginButton": "Telegram orqali kirish",
+    "registerButton": "Telegram orqali ro'yxatdan o'tish",
+    "oneTapHint": "Parolsiz, 1–2 bosishda",
+    "starting": "Telegram ochilmoqda…",
+    "waitingTitle": "Telegram'da tasdiqlang",
+    "waitingHint": "Botda «✅ Kirish» ni bosing. Birinchi marta bo'lsa — «📱 Raqamni yuborish» ni bosing. Bu sahifa o'zi davom etadi.",
+    "openTelegram": "Telegram'ni ochish",
+    "qrHint": "Yoki telefon kamerasi bilan skanerlang",
+    "qrAlt": "Telegram orqali kirish havolasining QR kodi",
+    "expiresIn": "Havola yana {time} amal qiladi",
+    "waitingStatus": "Tasdiq kutilmoqda…",
+    "completing": "Kirilmoqda…",
+    "cancel": "Bekor qilish",
+    "retry": "Qaytadan urinish",
+    "cancelledTitle": "Kirish bekor qilindi",
+    "cancelledBody": "Telegram'da «Bekor qilish» bosildi. Xohlasangiz, qaytadan urinib ko'ring.",
+    "expiredTitle": "Vaqt tugadi",
+    "expiredBody": "Havola 5 daqiqa amal qiladi. Qaytadan urinib ko'ring.",
+    "blockedTitle": "Hisob bloklangan",
+    "blockedBody": "Hisobingiz bloklangan. Yordam uchun support bilan bog'laning.",
+    "errorUnavailable": "Telegram orqali kirish hozircha ishlamayapti. Telefon raqam va parol bilan kiring.",
+    "errorRateLimited": "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring",
+    "errorNetwork": "Server bilan bog'lanib bo'lmadi. Qaytadan urinib ko'ring.",
+    "orDivider": "yoki telefon raqam va parol bilan"
   }
 }

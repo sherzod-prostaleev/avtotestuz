@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import Link from "next/link";
@@ -30,6 +30,17 @@ export default function ForgotPasswordPage() {
   const [phone, setPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // /login's "Parol o'rnatish" (passwordless account) passes the number it
+  // already knows, so setting a first password is one less thing to type.
+  useEffect(() => {
+    try {
+      const prefill = normalizeNationalPhone(new URLSearchParams(window.location.search).get("phone") ?? "");
+      if (prefill.length === 9) setPhone(prefill);
+    } catch {
+      /* a malformed query string just means no prefill */
+    }
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

@@ -431,7 +431,12 @@
     "errorWeakPassword": "Пароль должен содержать не менее 8 символов",
     "errorRateLimited": "Слишком много попыток. Повторите позже",
     "errorNetwork": "Не удалось связаться с сервером",
-    "errorUnknown": "Произошла ошибка. Попробуйте снова"
+    "errorUnknown": "Произошла ошибка. Попробуйте снова",
+    "passwordlessTitle": "Пароль не установлен",
+    "passwordlessBody": "Вы зарегистрировались через Telegram. Войдите через Telegram или установите пароль.",
+    "passwordlessTelegram": "Войти через Telegram",
+    "passwordlessSetPassword": "Установить пароль",
+    "subtitleWithTelegram": "Войдите через Telegram или по номеру и паролю"
   },
   "Register": {
     "title": "Регистрация",
@@ -453,7 +458,8 @@
     "errorPasswordMismatch": "Пароли не совпадают",
     "errorRateLimited": "Слишком много попыток. Повторите позже",
     "errorNetwork": "Не удалось связаться с сервером",
-    "errorUnknown": "Произошла ошибка. Попробуйте снова"
+    "errorUnknown": "Произошла ошибка. Попробуйте снова",
+    "subtitleWithTelegram": "Создайте аккаунт через Telegram в одно нажатие или по номеру и паролю"
   },
   "PasswordReset": {
     "title": "Восстановление пароля",
@@ -996,7 +1002,12 @@
     "passwordShow": "Показать пароль",
     "passwordHide": "Скрыть пароль",
     "passwordNeverStored": "Исходный пароль никогда не сохраняется — его знаете только вы.",
-    "passwordSubtitle": "Введите текущий пароль, затем подтвердите новый (не менее 8 символов)."
+    "passwordSubtitle": "Введите текущий пароль, затем подтвердите новый (не менее 8 символов).",
+    "passwordSetSection": "Установить пароль",
+    "passwordSetHint": "Вы зарегистрировались через Telegram. Установите пароль, чтобы входить и по номеру с паролем.",
+    "passwordSetSubmit": "Сохранить пароль",
+    "passwordSetSuccess": "Пароль установлен. Теперь можно входить и по номеру с паролем.",
+    "passwordErrorAlreadySet": "Пароль уже установлен. Обновите страницу."
   },
   "TelegramLink": {
     "title": "Привязка Telegram",
@@ -1095,7 +1106,9 @@
     "noteShort": "Когда друг привяжется по коду и купит первый платный тариф, комиссия придёт на ваш баланс.",
     "payoutCardLength": "Номер карты должен состоять из 16 цифр",
     "payoutPickNetwork": "Выберите тип карты",
-    "payoutCardHint": "Введите номер карты Uzcard или Humo"
+    "payoutCardHint": "Введите номер карты Uzcard или Humo",
+    "shareTelegram": "Поделиться в Telegram",
+    "shareText": "Давай вместе готовиться к экзамену на права в Driver Go!"
   },
   "PaymentHistory": {
     "title": "История платежей",
@@ -2685,6 +2698,36 @@
     "loginOnSite": "Войти на сайте",
     "contactSupport": "Написать в поддержку",
     "retryIn": "Повторить ({seconds})",
-    "shareAfterLogin": "Поделитесь номером из Telegram, чтобы входить автоматически."
+    "shareAfterLogin": "Поделитесь номером из Telegram, чтобы входить автоматически.",
+    "continueWithPhone": "📱 Продолжить с номером",
+    "continueWithPhoneHint": "Войдите или создайте аккаунт по номеру Telegram в одно нажатие. Пароль не нужен.",
+    "orPassword": "или с паролем",
+    "phoneDeclined": "Номер не отправлен. Нажмите ещё раз или войдите с паролем."
+  },
+  "TelegramLogin": {
+    "loginButton": "Войти через Telegram",
+    "registerButton": "Регистрация через Telegram",
+    "oneTapHint": "Без пароля, в 1–2 нажатия",
+    "starting": "Открываем Telegram…",
+    "waitingTitle": "Подтвердите в Telegram",
+    "waitingHint": "В боте нажмите «✅ Войти». Если входите впервые — «📱 Отправить номер». Эта страница продолжит сама.",
+    "openTelegram": "Открыть Telegram",
+    "qrHint": "Или отсканируйте камерой телефона",
+    "qrAlt": "QR-код ссылки для входа через Telegram",
+    "expiresIn": "Ссылка действует ещё {time}",
+    "waitingStatus": "Ждём подтверждения…",
+    "completing": "Входим…",
+    "cancel": "Отмена",
+    "retry": "Попробовать снова",
+    "cancelledTitle": "Вход отменён",
+    "cancelledBody": "В Telegram нажали «Отмена». Можно попробовать снова.",
+    "expiredTitle": "Время вышло",
+    "expiredBody": "Ссылка действует 5 минут. Попробуйте снова.",
+    "blockedTitle": "Аккаунт заблокирован",
+    "blockedBody": "Ваш аккаунт заблокирован. Обратитесь в поддержку.",
+    "errorUnavailable": "Вход через Telegram сейчас недоступен. Войдите по номеру и паролю.",
+    "errorRateLimited": "Слишком много попыток. Попробуйте позже",
+    "errorNetwork": "Не удалось связаться с сервером. Попробуйте снова.",
+    "orDivider": "или по номеру и паролю"
   }
 }
