@@ -729,3 +729,22 @@ func TestTelegramLoginNameIsTrimmedAndCapped(t *testing.T) {
 }
 
 func textOf(s string) pgtype.Text { return pgtype.Text{String: s, Valid: true} }
+
+func TestTelegramLoginCompleteIsLimitedPerRequest(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	st := startLogin(t, svc, "1.1.1.1")
+	for i := 0; i < telegramLoginCompletePerToken; i++ {
+		if _, err := svc.CompleteTelegramLogin(ctx, st.Token, "guess", "1.1.1.1"); !errors.Is(err, ErrTelegramLoginInvalid) {
+			t.Fatalf("attempt %d err = %v", i, err)
+		}
+	}
+	if _, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("err = %v, want rate limited", err)
+	}
+	// Another request from the same IP (a classroom) is not affected.
+	other := startLogin(t, svc, "1.1.1.1")
+	if _, err := svc.CompleteTelegramLogin(ctx, other.Token, other.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrTelegramLoginNotApproved) {
+		t.Fatalf("other request err = %v", err)
+	}
+}

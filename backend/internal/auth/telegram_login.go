@@ -48,13 +48,18 @@ const (
 
 	telegramLoginExpiresSec = int(TelegramLoginTTL / time.Second)
 
-	// Abuse limits. Start is per IP (CGNAT and classrooms share one) with a
-	// global ceiling; status is polled every 2 s so it is bounded per request
-	// and generously per IP; complete reuses the auth limiter.
-	telegramLoginStartPerIP     = 30
-	telegramLoginStartGlobal    = 3000
-	telegramLoginStatusPerToken = 300
-	telegramLoginStatusPerIP    = 6000
+	// Abuse limits. Start writes a row, so it is bounded per IP — generously:
+	// Uzbek carriers put many phones behind one CGNAT IP and a classroom
+	// shares one Wi-Fi IP — with a global ceiling on top. Status is polled
+	// every 2 s, so it is bounded per request and generously per IP. Complete
+	// needs a 256-bit token plus the browser secret and an approval, so it is
+	// limited per request only: an IP limit there would only lock a classroom
+	// out of sign-ins it already approved.
+	telegramLoginStartPerIP       = 120
+	telegramLoginStartGlobal      = 5000
+	telegramLoginStatusPerToken   = 300
+	telegramLoginStatusPerIP      = 6000
+	telegramLoginCompletePerToken = 10
 	// Bot-side steps (open link, share phone, tap) per Telegram user.
 	telegramLoginBotPerUser = 30
 
@@ -253,12 +258,13 @@ func (s *Service) TelegramLoginStatus(ctx context.Context, token, secret, ip str
 }
 
 // CompleteTelegramLogin trades an approved request for a session, once, and
-// only for the browser that started it.
-func (s *Service) CompleteTelegramLogin(ctx context.Context, token, secret, ip string) (VerifyResult, error) {
+// only for the browser that started it. The client IP (last argument) is not
+// limited on purpose; see telegramLoginCompletePerToken.
+func (s *Service) CompleteTelegramLogin(ctx context.Context, token, secret, _ string) (VerifyResult, error) {
 	if strings.TrimSpace(token) == "" {
 		return VerifyResult{}, ErrTelegramLoginInvalid
 	}
-	if err := s.rateLimitAuth(ctx, "tglogin_complete", HashToken(token), ip); err != nil {
+	if err := s.allow(ctx, "tglogin:complete:"+HashToken(token), telegramLoginCompletePerToken, 10*time.Minute); err != nil {
 		return VerifyResult{}, err
 	}
 	tx, err := s.Pool.Begin(ctx)
