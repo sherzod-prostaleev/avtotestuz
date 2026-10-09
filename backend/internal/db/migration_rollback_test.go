@@ -85,6 +85,24 @@ func TestEveryMigrationDownAndUp(t *testing.T) {
 	if version != want || dirty {
 		t.Fatalf("schema version=%d dirty=%v, want %d/false", version, dirty, want)
 	}
+
+	// After a full down/up cycle the daily Telegram reminder must come back
+	// switched off (prod starts disabled until the owner enables it), and the
+	// superseded digest flag must not reappear.
+	var reminder string
+	if err := pool.QueryRow(ctx, `SELECT value_json::text FROM feature_flag WHERE key = 'telegram_daily_reminder'`).Scan(&reminder); err != nil {
+		t.Fatalf("telegram_daily_reminder flag: %v", err)
+	}
+	if reminder != "false" {
+		t.Fatalf("telegram_daily_reminder seeded %s, want false", reminder)
+	}
+	var legacy int
+	if err := pool.QueryRow(ctx, `SELECT COUNT(*) FROM feature_flag WHERE key = 'telegram_dm_digest'`).Scan(&legacy); err != nil {
+		t.Fatal(err)
+	}
+	if legacy != 0 {
+		t.Fatal("telegram_dm_digest flag is back; its sender was removed")
+	}
 }
 
 // latestMigrationVersion is the highest NNNN prefix under migrations/.
