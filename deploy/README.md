@@ -359,6 +359,29 @@ Run on Android, iOS, Telegram Desktop and web.telegram.org:
 A real **staging Payme/Click payment from inside the Mini App must be done
 once** before announcing; the e2e suite stubs the backend and cannot prove it.
 
+## Telegram login («Telegram orqali kirish»)
+
+Website / bot / Mini App sign-in through Telegram (migrations 0080 + 0081).
+
+- **Deploy order: API first, then web.** A new web on an old API shows a
+  Telegram button whose start call fails, and treats a missing
+  `has_password` as "has a password". The reverse order is harmless: an old
+  web simply has no button.
+- **Kill switch:** admin → Settings → Flags → `telegram_login` (seeded ON).
+  OFF hides the website button, makes the bot answer «Telegram orqali kirish
+  vaqtincha o'chirilgan», and stops the Mini App one-tap phone sign-in.
+  Password login, password reset through the bot, referral links and the Mini
+  App's silent sign-in of already linked accounts keep working. Accounts made
+  through Telegram have no password: while the switch is off they get in only
+  after setting one through the bot reset («Parolni unutdingizmi?»).
+- **What to watch:** `auth.telegram_login_start_flood` (Warn) means more than
+  50 000 login starts in an hour — nobody is refused by it, look at who is
+  starting them. `auth.telegram_login_phone_not_learner` means a phone
+  collided with a non-learner row and was refused.
+- A first password on a Telegram-made account (`POST /me/password/set`) ends
+  the profile's other sessions and messages its Telegram chat; that needs
+  `TELEGRAM_BOT_TOKEN` on the API (it has it wherever the bot runs).
+
 ## Telegram daily reminder («Kun savoli»)
 
 Every day from **19:00 Asia/Tashkent** the api process DMs every bot user
