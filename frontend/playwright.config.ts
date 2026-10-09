@@ -11,12 +11,18 @@ const AUTH_SECRETS_PRESENT = Boolean(
 //   E2E_REFRESH_TOKEN  → optional `rt` cookie
 // Never commit real tokens; GHA maps secrets when present, else specs skip.
 
+// Spec files run in parallel (tests inside one file stay serial): every spec
+// stubs its own /api routes and gets its own browser context, so files share
+// nothing but the dev server. One worker made the suite take ~2.5 minutes for
+// no isolation benefit. PW_WORKERS overrides; GitHub's runners have 4 cores.
+const WORKERS = Number(process.env.PW_WORKERS) || (process.env.GITHUB_ACTIONS ? 4 : 8);
+
 export default defineConfig({
   testDir: "./e2e",
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: 1,
+  workers: WORKERS,
   reporter: "list",
   use: {
     baseURL: BASE_URL,

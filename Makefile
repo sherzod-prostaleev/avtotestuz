@@ -1,7 +1,7 @@
 COMPOSE := docker compose
 TEST_DATABASE_URL ?= postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
 
-.PHONY: up down test test-parallel test-db-reset lint generate seed seed-real seed-admin validate-real run check \
+.PHONY: up down test test-parallel test-fast verify-fast test-db-reset lint generate seed seed-real seed-admin validate-real run check \
 	seed-verify extract-legal-refs seed-sync-legal-refs seed-import seed-signs seed-link-signs seed-reset-content seed-dev \
 	fe-install fe-lint fe-typecheck fe-test fe-build fe-e2e fe-check dep-scan load-test \
 	backup-pg backup-restore-drill backup-full backup-verify backup-full-restore-drill backup-static-check \
@@ -22,6 +22,17 @@ test:
 
 test-parallel:
 	cd backend && TEST_DATABASE_URL="$(TEST_DATABASE_URL)" go test ./... -count=1
+
+# Fastest loop: a throwaway tmpfs Postgres (port 5433, fsync off) instead of the
+# durable dev database. ~27 min serial on the dev DB became ~1 min here. The
+# script creates/starts the container on demand.
+test-fast:
+	./scripts/verify-fast.sh backend
+
+# Every gate (Go tests + lint, tsc, eslint, vitest, Playwright) in parallel
+# with a timing table: ~90 s for what used to be half an hour.
+verify-fast:
+	./scripts/verify-fast.sh
 
 # Per-package test databases are reused across runs (re-migrating from scratch
 # is the slow part). Drop them after changing a migration in place, or to

@@ -62,11 +62,23 @@ jobs:
         run: |
           unformatted="$(gofmt -l .)"
           test -z "$unformatted" || { echo "$unformatted"; exit 1; }
+      # The service database exists only for this job, so durability buys
+      # nothing: every test TRUNCATEs ~60 tables and waiting on fsync for each
+      # was most of the suite's wall time. All three settings reload live.
+      - name: Make the test database throwaway-fast
+        run: |
+          docker exec "${{ job.services.postgres.id }}" psql -U avtotest -d postgres \
+            -c "ALTER SYSTEM SET fsync = off" \
+            -c "ALTER SYSTEM SET synchronous_commit = off" \
+            -c "ALTER SYSTEM SET full_page_writes = off" \
+            -c "SELECT pg_reload_conf()"
       - name: Test
         env:
           TEST_DATABASE_URL: postgres://avtotest:avtotest@localhost:5432/avtotest_test?sslmode=disable
           TEST_REDIS_URL: redis://localhost:6379/0
-        run: go test -p 1 ./... -count=1
+        # internal/testdb gives each package its own database, so packages are
+        # independent; the hosted runner has 4 cores.
+        run: go test -p 4 ./... -count=1
       - name: Select production station toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:

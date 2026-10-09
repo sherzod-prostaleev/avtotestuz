@@ -31,6 +31,8 @@ majburiy qiladi — faylning o'zida yozilgan.
 ```bash
 make test          # -p 1 (bitta migratsiya/pool navbatda; kamroq resurs)
 make test-parallel # to'liq parallel (~2.5x tezroq)
+make test-fast     # tmpfs test bazasi (port 5433), ~1 daqiqa
+make verify-fast   # backend + frontend + e2e hammasi parallel, ~90 s
 make test-db-reset # paketga xos test bazalarini o'chirish
 make fe-check      # frontend lint + typecheck + vitest + build (CI frontend job)
 make fe-e2e        # Playwright Chromium smoke (ixtiyoriy E2E_AUTH_TOKEN)
