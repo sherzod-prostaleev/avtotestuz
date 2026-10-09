@@ -80,10 +80,10 @@ func TestPersonalLineTextUzAndRu(t *testing.T) {
 		t.Fatalf("ru due = %q, want «21 вопрос»", got)
 	}
 	none := sqlc.ListTelegramReminderAudienceRow{}
-	if got := personalLineText(lineSignup, langUz, none, dailyToday); got != "🎁 Hisobingiz yo'qmi? Ro'yxatdan o'ting — 24 soat VIP bepul. Hisobingiz bo'lsa, ilovada kiring — Telegram avtomatik ulanadi." {
+	if got := personalLineText(lineSignup, langUz, none, dailyToday); got != "🎁 Hisobingiz yo'qmi? Ro'yxatdan o'ting — 24 soat VIP bepul. Hisobingiz bo'lsa, ilovada kiring va raqamingizni tasdiqlang." {
 		t.Fatalf("uz signup = %q", got)
 	}
-	if got := personalLineText(lineSignup, langRu, none, dailyToday); got != "🎁 Ещё нет аккаунта? Зарегистрируйтесь — 24 часа VIP бесплатно. Если аккаунт есть — войдите в приложении, Telegram привяжется автоматически." {
+	if got := personalLineText(lineSignup, langRu, none, dailyToday); got != "🎁 Ещё нет аккаунта? Зарегистрируйтесь — 24 часа VIP бесплатно. Если аккаунт есть — войдите в приложении и подтвердите номер." {
 		t.Fatalf("ru signup = %q", got)
 	}
 	for _, l := range []lang{langUz, langRu} {

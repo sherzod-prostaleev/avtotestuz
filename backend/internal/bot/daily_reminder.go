@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
@@ -104,6 +105,7 @@ type ReminderRunResult struct {
 	Pending     int
 	Sent        int
 	Partial     int // first message landed, the second did not
+	Uncertain   int // a send timed out: Telegram may or may not have delivered it
 	Blocked     int
 	OptedOut    int
 	Errors      int
@@ -317,6 +319,8 @@ func (r *DailyReminder) runPass(ctx context.Context, day pgtype.Date) (res Remin
 			res.Sent++
 		case outcomePartial:
 			res.Partial++
+		case outcomeUncertain:
+			res.Uncertain++
 		case outcomeBlocked:
 			res.Blocked++
 			if err := r.Q.MarkTelegramBotUserBlocked(ctx, tgUserID); err != nil {
@@ -349,6 +353,7 @@ func (r *DailyReminder) logRun(res ReminderRunResult, err error) {
 		zap.Int("pending", res.Pending),
 		zap.Int("sent", res.Sent),
 		zap.Int("partial", res.Partial),
+		zap.Int("uncertain", res.Uncertain),
 		zap.Int("blocked", res.Blocked),
 		zap.Int("opted_out", res.OptedOut),
 		zap.Int("errors", res.Errors),
@@ -370,6 +375,7 @@ const (
 	outcomeFailed
 	outcomePartial    // the first message landed, the second did not
 	outcomeNotStarted // the window closed before the first message
+	outcomeUncertain  // a send timed out; delivery unknown, never retried
 )
 
 // delivery is one recipient's result. lineDelivered says whether the
@@ -392,6 +398,13 @@ func unreachable(err error) bool {
 	}
 	return api.Code == 403 ||
 		(api.Code == 400 && strings.Contains(strings.ToLower(api.Description), "chat not found"))
+}
+
+// timedOut is a send whose outcome is unknown: the deadline passed or the
+// client timed out, possibly after Telegram had already accepted the call.
+func timedOut(err error) bool {
+	var ne net.Error
+	return errors.Is(err, context.DeadlineExceeded) || (errors.As(err, &ne) && ne.Timeout())
 }
 
 func permanent(err error) bool {
@@ -417,6 +430,13 @@ func (r *DailyReminder) deliver(ctx context.Context, p *pass, a sqlc.ListTelegra
 		switch {
 		case unreachable(err):
 			d.outcome = outcomeBlocked
+			return d
+		case timedOut(err):
+			// Telegram may have delivered it; the user stays claimed for
+			// today because a retry could post a second poll.
+			d.outcome = outcomeUncertain
+			r.logger().Warn("telegram daily reminder: send timed out, delivery uncertain",
+				zap.String("step", step), zap.Error(err))
 			return d
 		case landed > 0:
 			d.outcome = outcomePartial
@@ -478,7 +498,7 @@ func (r *DailyReminder) deliver(ctx context.Context, p *pass, a sqlc.ListTelegra
 }
 
 // send paces one Telegram call and retries it: 429 waits retry_after,
-// transport errors and 5xx back off up to maxTransientRetries, permanent
+// transport errors that prove non-delivery and 5xx back off up to maxTransientRetries, permanent
 // 4xx return at once.
 func (r *DailyReminder) send(ctx context.Context, p *pass, call func(context.Context) error) error {
 	transient, flood := 0, 0
@@ -487,15 +507,15 @@ func (r *DailyReminder) send(ctx context.Context, p *pass, call func(context.Con
 			return err
 		}
 		// Each call gets its own deadline (see defaultReminderSendTimeout).
-		// A timeout surfaces as a transport error and is retried like one;
-		// only the pass's own ctx ending stops the retries.
+		// A timeout is NOT retried: sendPoll/sendPhoto/sendMessage are not
+		// idempotent and Telegram may have delivered the call.
 		cctx, cancel := context.WithTimeout(ctx, r.sendTimeout())
 		err := call(cctx)
 		cancel()
 		if err == nil {
 			return nil
 		}
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || timedOut(err) {
 			return err
 		}
 		var api *APIError

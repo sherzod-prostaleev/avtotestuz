@@ -39,8 +39,18 @@ func (c *Client) redactToken(err error) error {
 	if !strings.Contains(msg, c.Token) {
 		return err
 	}
-	return fmt.Errorf("%s", strings.ReplaceAll(msg, c.Token, "<redacted>"))
+	return &redactedError{msg: strings.ReplaceAll(msg, c.Token, "<redacted>"), err: err}
 }
+
+// redactedError carries the token-free text but keeps the original chain
+// reachable, so callers can still tell a timeout from a refused connection.
+type redactedError struct {
+	msg string
+	err error
+}
+
+func (e *redactedError) Error() string { return e.msg }
+func (e *redactedError) Unwrap() error { return e.err }
 
 // APIError is Telegram answering ok:false (as opposed to a transport failure).
 type APIError struct {

@@ -416,8 +416,9 @@ func TestDailyReminderCountsHalfDeliveredBundle(t *testing.T) {
 }
 
 // A stalled connection must not hang the pass (and the advisory lock with
-// it): every call has its own deadline, a timeout is transient, and after
-// the retries the user is skipped for today.
+// it): every call has its own deadline. A timeout is "uncertain" (Telegram
+// may have delivered it), so it is never retried, the user stays claimed,
+// and the run line counts it.
 func TestDailyReminderStalledTelegramTimesOutAndSkipsUser(t *testing.T) {
 	f := newReminderFixture(t)
 	ctx := context.Background()
@@ -441,11 +442,21 @@ func TestDailyReminderStalledTelegramTimesOutAndSkipsUser(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Sent != 1 || res.Errors != 1 {
-		t.Fatalf("result = %+v, want the stalled user skipped and the other sent", res)
+	if res.Sent != 1 || res.Uncertain != 1 || res.Errors != 0 {
+		t.Fatalf("result = %+v, want the stalled user uncertain and the other sent", res)
 	}
-	if n := len(f.tg.callsFor(48)); n != 1+maxTransientRetries {
-		t.Fatalf("stalled chat attempts = %d, want %d", n, 1+maxTransientRetries)
+	// The fake records the poll, then stalls: delivered but unanswered.
+	if got := f.tg.byChat("sendPoll")[48]; got != 1 {
+		t.Fatalf("stalled chat polls = %d, want exactly 1 (no retry)", got)
+	}
+	if n := len(f.tg.callsFor(48)); n != 1 {
+		t.Fatalf("stalled chat calls = %d, want 1", n)
+	}
+	if n := f.logs.FilterMessage("telegram daily reminder: send timed out, delivery uncertain").Len(); n != 1 {
+		t.Fatalf("timeout warn logs = %d, want 1", n)
+	}
+	if n := f.logs.FilterMessage("telegram daily reminder: run").All()[0].ContextMap()["uncertain"]; n != int64(1) {
+		t.Fatalf("run line uncertain = %v", n)
 	}
 	if got := len(f.tg.callsFor(49)); got != 2 {
 		t.Fatalf("healthy chat calls = %d", got)

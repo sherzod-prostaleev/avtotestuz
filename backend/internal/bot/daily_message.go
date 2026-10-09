@@ -185,11 +185,11 @@ func personalLineText(p personalLine, l lang, a sqlc.ListTelegramReminderAudienc
 		if h := signupTrialHours(); h > 0 {
 			if ru {
 				return fmt.Sprintf("🎁 Ещё нет аккаунта? Зарегистрируйтесь — %d %s VIP бесплатно. "+
-					"Если аккаунт есть — войдите в приложении, Telegram привяжется автоматически.",
+					"Если аккаунт есть — войдите в приложении и подтвердите номер.",
 					h, ruPlural(h, "час", "часа", "часов"))
 			}
 			return fmt.Sprintf("🎁 Hisobingiz yo'qmi? Ro'yxatdan o'ting — %d soat VIP bepul. "+
-				"Hisobingiz bo'lsa, ilovada kiring — Telegram avtomatik ulanadi.", h)
+				"Hisobingiz bo'lsa, ilovada kiring va raqamingizni tasdiqlang.", h)
 		}
 		// No trial to promise: the neutral line, never a stale offer.
 	}
