@@ -69,8 +69,8 @@ describe("GET /api/auth/telegram-login/status", () => {
     const fetchMock = vi.fn().mockResolvedValue(json({ data: { state: "approved" } }));
     vi.stubGlobal("fetch", fetchMock);
     const res = await status(
-      new Request(`http://localhost/api/auth/telegram-login/status?token=${TOKEN}`, {
-        headers: { cookie: `${TELEGRAM_LOGIN_COOKIE}=sec` },
+      new Request("http://localhost/api/auth/telegram-login/status", {
+        headers: { cookie: `${TELEGRAM_LOGIN_COOKIE}=sec`, "x-telegram-login-token": TOKEN },
       })
     );
     expect(await res.json()).toEqual({ data: { state: "approved" } });
@@ -79,13 +79,16 @@ describe("GET /api/auth/telegram-login/status", () => {
     expect(JSON.parse(init.body as string)).toEqual({ token: TOKEN, browser_secret: "sec" });
   });
 
-  it("answers invalid without a cookie or with a malformed token, never calling the backend", async () => {
+  it("answers invalid without a cookie, with the token only in the URL, or a malformed one — never calling the backend", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     for (const req of [
-      new Request(`http://localhost/api/auth/telegram-login/status?token=${TOKEN}`),
-      new Request(`http://localhost/api/auth/telegram-login/status?token=bad%20token`, {
+      new Request("http://localhost/api/auth/telegram-login/status", { headers: { "x-telegram-login-token": TOKEN } }),
+      new Request(`http://localhost/api/auth/telegram-login/status?token=${TOKEN}`, {
         headers: { cookie: `${TELEGRAM_LOGIN_COOKIE}=sec` },
+      }),
+      new Request("http://localhost/api/auth/telegram-login/status", {
+        headers: { cookie: `${TELEGRAM_LOGIN_COOKIE}=sec`, "x-telegram-login-token": "bad token" },
       }),
     ]) {
       const res = await status(req);

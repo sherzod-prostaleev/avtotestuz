@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { backendFetch } from "@/lib/backend";
 import { readBackendJson } from "@/lib/backend-response";
 import { buildClientIPAssertionHeaders } from "@/lib/client-ip-assertion";
-import { isLoginToken, readTelegramLoginSecret } from "@/lib/telegram-login-cookie";
+import { TELEGRAM_LOGIN_TOKEN_HEADER, isLoginToken, readTelegramLoginSecret } from "@/lib/telegram-login-cookie";
 
 export const runtime = "nodejs";
 
@@ -12,7 +12,9 @@ export const runtime = "nodejs";
  * and it never carries the phone or the name.
  */
 export async function GET(request: Request) {
-  const token = new URL(request.url).searchParams.get("token") ?? "";
+  // A header, not ?token=: request URLs end up in access logs, and the token
+  // is stored nowhere else in clear.
+  const token = request.headers.get(TELEGRAM_LOGIN_TOKEN_HEADER) ?? "";
   const secret = readTelegramLoginSecret(request);
   const noStore = { "Cache-Control": "no-store" };
   if (!isLoginToken(token) || !secret) {

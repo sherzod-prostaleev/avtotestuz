@@ -9,6 +9,8 @@ import { readCookie } from "@/lib/auth-cookies";
  * never sees it — and scoped to the three BFF routes that use it.
  */
 export const TELEGRAM_LOGIN_COOKIE = "tgl";
+/** The status poll carries the token in this header (never the URL). */
+export const TELEGRAM_LOGIN_TOKEN_HEADER = "x-telegram-login-token";
 const TELEGRAM_LOGIN_PATH = "/api/auth/telegram-login";
 // The request lives 5 minutes; an approval near the end may be completed for
 // two more (backend telegramLoginCompleteGrace).

@@ -219,8 +219,9 @@ export function TelegramLogin({
       }
       inFlight = true;
       try {
-        const res = await fetch(`/api/auth/telegram-login/status?token=${encodeURIComponent(pending.token)}`, {
+        const res = await fetch("/api/auth/telegram-login/status", {
           cache: "no-store",
+          headers: { "X-Telegram-Login-Token": pending.token },
         });
         const json = (await res.json().catch(() => null)) as { data?: { state?: string } } | null;
         if (stopped) return;
