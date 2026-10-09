@@ -17,32 +17,43 @@ func activeOn(daysAgo int) pgtype.Date {
 	return pgtype.Date{Time: dailyToday.AddDate(0, 0, -daysAgo), Valid: true}
 }
 
+func pitchedOn(daysAgo int) pgtype.Date {
+	return pgtype.Date{Time: dailyToday.AddDate(0, 0, -daysAgo), Valid: true}
+}
+
 func TestPickPersonalLinePriority(t *testing.T) {
+	type row = sqlc.ListTelegramReminderAudienceRow
 	cases := []struct {
 		name string
-		row  sqlc.ListTelegramReminderAudienceRow
+		row  row
 		want personalLine
 	}{
-		{"unlinked gets the signup pitch",
-			sqlc.ListTelegramReminderAudienceRow{}, lineSignup},
+		{"unlinked, never pitched, gets the signup pitch", row{}, lineSignup},
+		{"unlinked, pitched 7 days ago, gets it again", row{LastSignupPitchOn: pitchedOn(7)}, lineSignup},
+		{"unlinked, pitched 6 days ago, gets a neutral line", row{LastSignupPitchOn: pitchedOn(6)}, lineUnlinked},
+		{"unlinked, pitched today, gets a neutral line", row{LastSignupPitchOn: pitchedOn(0)}, lineUnlinked},
 		{"streak beats due",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, PhoneVerified: true, StreakCurrent: 5, LastActiveDate: activeOn(1), DueCount: 7}, lineStreak},
+			row{Linked: true, PhoneVerified: true, StreakCurrent: 5, LastActiveDate: activeOn(1), DueCount: 7}, lineStreak},
 		{"streak counts when active today too",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, PhoneVerified: true, StreakCurrent: 2, LastActiveDate: activeOn(0)}, lineStreak},
-		{"streak needs a verified phone",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, StreakCurrent: 5, LastActiveDate: activeOn(1), DueCount: 3}, lineDue},
+			row{Linked: true, PhoneVerified: true, StreakCurrent: 2, LastActiveDate: activeOn(0)}, lineStreak},
+		{"an unverified link gets no personal numbers at all",
+			row{Linked: true, StreakCurrent: 5, LastActiveDate: activeOn(1), DueCount: 3}, lineGeneric},
+		{"an unverified idle link is not told it was missed",
+			row{Linked: true, LastActiveDate: activeOn(10)}, lineGeneric},
 		{"a one-day streak is not worth a line",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, PhoneVerified: true, StreakCurrent: 1, LastActiveDate: activeOn(0)}, lineGeneric},
+			row{Linked: true, PhoneVerified: true, StreakCurrent: 1, LastActiveDate: activeOn(0)}, lineGeneric},
 		{"a broken streak is not a streak",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, PhoneVerified: true, StreakCurrent: 9, LastActiveDate: activeOn(2)}, lineGeneric},
+			row{Linked: true, PhoneVerified: true, StreakCurrent: 9, LastActiveDate: activeOn(2)}, lineGeneric},
 		{"due beats inactive",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, DueCount: 4, LastActiveDate: activeOn(10)}, lineDue},
+			row{Linked: true, PhoneVerified: true, DueCount: 4, LastActiveDate: activeOn(10)}, lineDue},
 		{"inactive three days",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, LastActiveDate: activeOn(3)}, lineInactive},
-		{"never active linked learner is inactive",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true}, lineInactive},
+			row{Linked: true, PhoneVerified: true, LastActiveDate: activeOn(3)}, lineInactive},
+		{"never active and nothing solved: welcome, not «we missed you»",
+			row{Linked: true, PhoneVerified: true}, lineWelcome},
+		{"never active streak-wise but has solved tickets: comeback with the real count",
+			row{Linked: true, PhoneVerified: true, TicketsCompleted: 2}, lineInactive},
 		{"two days off is still generic",
-			sqlc.ListTelegramReminderAudienceRow{Linked: true, LastActiveDate: activeOn(2)}, lineGeneric},
+			row{Linked: true, PhoneVerified: true, LastActiveDate: activeOn(2)}, lineGeneric},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -55,40 +66,83 @@ func TestPickPersonalLinePriority(t *testing.T) {
 
 func TestPersonalLineTextUzAndRu(t *testing.T) {
 	streak := sqlc.ListTelegramReminderAudienceRow{StreakCurrent: 5}
-	if got := personalLineText(lineStreak, langUz, streak); got != "🔥 5 kunlik seriyangiz bor — bugun uzib qo'ymang!" {
+	if got := personalLineText(lineStreak, langUz, streak, dailyToday); got != "🔥 5 kunlik seriyangiz bor — bugun uzib qo'ymang!" {
 		t.Fatalf("uz streak = %q", got)
 	}
-	if got := personalLineText(lineStreak, langRu, streak); !strings.Contains(got, "5 дней") {
+	if got := personalLineText(lineStreak, langRu, streak, dailyToday); !strings.Contains(got, "5 дней") {
 		t.Fatalf("ru streak = %q, want plural «5 дней»", got)
 	}
 	due := sqlc.ListTelegramReminderAudienceRow{DueCount: 3}
-	if got := personalLineText(lineDue, langUz, due); got != "📚 Bugun 3 ta savolni takrorlash navbati" {
+	if got := personalLineText(lineDue, langUz, due, dailyToday); got != "📚 Bugun 3 ta savol takrorlash navbatida" {
 		t.Fatalf("uz due = %q", got)
 	}
-	if got := personalLineText(lineDue, langRu, sqlc.ListTelegramReminderAudienceRow{DueCount: 21}); !strings.HasSuffix(got, " 21 вопрос") {
+	if got := personalLineText(lineDue, langRu, sqlc.ListTelegramReminderAudienceRow{DueCount: 21}, dailyToday); !strings.HasSuffix(got, " 21 вопрос") {
 		t.Fatalf("ru due = %q, want «21 вопрос»", got)
 	}
-	if got := personalLineText(lineSignup, langUz, sqlc.ListTelegramReminderAudienceRow{}); got != "🎁 Ro'yxatdan o'ting — 24 soat bepul VIP" {
+	none := sqlc.ListTelegramReminderAudienceRow{}
+	if got := personalLineText(lineSignup, langUz, none, dailyToday); got != "🎁 Hisobingiz yo'qmi? Ro'yxatdan o'ting — 24 soat VIP bepul. Hisobingiz bo'lsa, ilovada kiring — Telegram avtomatik ulanadi." {
 		t.Fatalf("uz signup = %q", got)
 	}
-	if got := personalLineText(lineSignup, langRu, sqlc.ListTelegramReminderAudienceRow{}); !strings.Contains(got, "24 часа") {
+	if got := personalLineText(lineSignup, langRu, none, dailyToday); got != "🎁 Ещё нет аккаунта? Зарегистрируйтесь — 24 часа VIP бесплатно. Если аккаунт есть — войдите в приложении, Telegram привяжется автоматически." {
 		t.Fatalf("ru signup = %q", got)
+	}
+	for _, l := range []lang{langUz, langRu} {
+		w := personalLineText(lineWelcome, l, none, dailyToday)
+		if !strings.HasPrefix(w, "👋") || strings.Contains(w, "Ancha bo'ldi") || strings.Contains(w, "Давно") {
+			t.Fatalf("welcome (%v) = %q", l, w)
+		}
+	}
+}
+
+// The neutral line rotates by date only: everyone gets the same one on a
+// given day, consecutive days differ, it never quotes a number and it is
+// the same line for an unlinked user and a linked one with nothing to say.
+func TestMotivationalLineRotatesByDate(t *testing.T) {
+	for _, l := range []lang{langUz, langRu} {
+		seen := map[string]bool{}
+		prev := ""
+		n := len(motivationalLines(l))
+		if n < 5 || n > 7 {
+			t.Fatalf("%v: %d variants, want 5–7", l, n)
+		}
+		for d := 0; d < n; d++ {
+			day := dailyToday.AddDate(0, 0, d)
+			got := personalLineText(lineGeneric, l, sqlc.ListTelegramReminderAudienceRow{}, day)
+			if got != personalLineText(lineUnlinked, l, sqlc.ListTelegramReminderAudienceRow{}, day) {
+				t.Fatal("unlinked and generic must share the day's neutral line")
+			}
+			if got != personalLineText(lineGeneric, l, sqlc.ListTelegramReminderAudienceRow{Linked: true}, day) {
+				t.Fatal("the neutral line must not depend on the user")
+			}
+			if got == prev {
+				t.Fatalf("%v: day %d repeats the previous day's line %q", l, d, got)
+			}
+			for _, r := range got {
+				if r >= '0' && r <= '9' {
+					t.Fatalf("%v: neutral line quotes a number: %q", l, got)
+				}
+			}
+			seen[got], prev = true, got
+		}
+		if len(seen) != n {
+			t.Fatalf("%v: %d distinct lines over %d days", l, len(seen), n)
+		}
 	}
 }
 
 // The comeback line quotes real progress or none at all.
 func TestInactiveLineNeverInventsNumbers(t *testing.T) {
-	with := personalLineText(lineInactive, langUz, sqlc.ListTelegramReminderAudienceRow{TicketsCompleted: 7})
+	with := personalLineText(lineInactive, langUz, sqlc.ListTelegramReminderAudienceRow{TicketsCompleted: 7}, dailyToday)
 	if !strings.Contains(with, "7 ta bilet") {
 		t.Fatalf("uz inactive with tickets = %q", with)
 	}
-	without := personalLineText(lineInactive, langUz, sqlc.ListTelegramReminderAudienceRow{})
+	without := personalLineText(lineInactive, langUz, sqlc.ListTelegramReminderAudienceRow{}, dailyToday)
 	for _, r := range without {
 		if r >= '0' && r <= '9' {
 			t.Fatalf("uz inactive without progress quotes a number: %q", without)
 		}
 	}
-	ru := personalLineText(lineInactive, langRu, sqlc.ListTelegramReminderAudienceRow{TicketsCompleted: 2})
+	ru := personalLineText(lineInactive, langRu, sqlc.ListTelegramReminderAudienceRow{TicketsCompleted: 2}, dailyToday)
 	if !strings.Contains(ru, "2 билета") {
 		t.Fatalf("ru inactive = %q", ru)
 	}

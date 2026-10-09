@@ -14,6 +14,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	"avtotest.uz/backend/internal/db/sqlc"
 	"avtotest.uz/backend/internal/testdb"
@@ -69,12 +71,20 @@ type dailyTG struct {
 	flood     map[int64]int     // chat -> 429s left to return
 	photoFail bool              // every sendPhoto answers 400
 	after     func(c dailyCall) // runs after a call is recorded
+	// hang: chat -> the request is recorded and never answered (until the
+	// client gives up), like a stalled connection to api.telegram.org.
+	hang map[int64]bool
+	// methodFail: chat -> method -> error code returned for that method only.
+	methodFail map[int64]map[string]int
 }
 
 func newDailyTG(t *testing.T) (*dailyTG, *Client) {
 	t.Helper()
-	f := &dailyTG{failCode: map[int64]int{}, flood: map[int64]int{}}
+	f := &dailyTG{failCode: map[int64]int{}, flood: map[int64]int{}, hang: map[int64]bool{}, methodFail: map[int64]map[string]int{}}
 	var msgID int64 = 1000
+	// release frees hung handlers at cleanup, so a test whose pass really
+	// does hang fails instead of blocking forever in srv.Close.
+	release := make(chan struct{})
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		method := r.URL.Path[strings.LastIndexByte(r.URL.Path, '/')+1:]
 		raw, _ := io.ReadAll(r.Body)
@@ -90,17 +100,30 @@ func newDailyTG(t *testing.T) (*dailyTG, *Client) {
 			return
 		}
 		code := f.failCode[c.ChatID]
+		if mc := f.methodFail[c.ChatID][method]; mc != 0 {
+			code = mc
+		}
 		photoFail := f.photoFail && method == "sendPhoto"
+		hang := f.hang[c.ChatID]
 		f.calls = append(f.calls, c)
 		msgID++
 		id := msgID
 		hook := f.after
 		f.mu.Unlock()
+		if hang {
+			select {
+			case <-r.Context().Done():
+			case <-release:
+			}
+			return
+		}
 		switch {
 		case code == 403:
 			_, _ = w.Write([]byte(`{"ok":false,"error_code":403,"description":"Forbidden: bot was blocked by the user"}`))
 		case code == 400:
 			_, _ = w.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: chat not found"}`))
+		case code >= 500:
+			_, _ = fmt.Fprintf(w, `{"ok":false,"error_code":%d,"description":"Internal Server Error"}`, code)
 		case photoFail:
 			_, _ = w.Write([]byte(`{"ok":false,"error_code":400,"description":"Bad Request: wrong file identifier/HTTP URL specified"}`))
 		case method == "sendPoll":
@@ -113,6 +136,7 @@ func newDailyTG(t *testing.T) (*dailyTG, *Client) {
 		}
 	}))
 	t.Cleanup(srv.Close)
+	t.Cleanup(func() { close(release) }) // runs before srv.Close (LIFO)
 	return f, NewClient(srv.URL, "test-token", srv.Client())
 }
 
@@ -171,6 +195,7 @@ type reminderFixture struct {
 	tg    *dailyTG
 	clock *fakeClock
 	r     *DailyReminder
+	logs  *observer.ObservedLogs
 }
 
 func newReminderFixture(t *testing.T) *reminderFixture {
@@ -182,8 +207,9 @@ func newReminderFixture(t *testing.T) *reminderFixture {
 	setDailyFlag(t, pool, true)
 	// feature_flag survives testdb truncation; leave it as the migration did.
 	t.Cleanup(func() { setDailyFlag(t, pool, false) })
-	return &reminderFixture{pool: pool, q: q, tg: tg, clock: clock, r: &DailyReminder{
-		Q: q, Pool: pool, TG: client, Clock: clock,
+	core, logs := observer.New(zap.DebugLevel)
+	return &reminderFixture{pool: pool, q: q, tg: tg, clock: clock, logs: logs, r: &DailyReminder{
+		Q: q, Pool: pool, TG: client, Clock: clock, Log: zap.New(core),
 		MediaBaseURL:  "http://media.test",
 		PublicBaseURL: "https://drivergo.test",
 		WebAppURL:     "https://drivergo.test/uz-Latn/tg",
@@ -334,15 +360,23 @@ func TestDailyReminderStopsAt21(t *testing.T) {
 	seedQuizQuestion(t, f.pool, false)
 	addBotUsers(t, f.q, "", 41, 42, 43, 44)
 	f.r.MinInterval = 30 * time.Second // two messages per user = one minute each
-	f.clock.set(tashkentAt(9, 20, 59))
+	// 20:58 fits one whole bundle (20:58:00, 20:58:30). The second user's
+	// bundle would need 20:59:00 and 20:59:30 — its end slot reaches 21:00,
+	// so it is not started at all rather than cut in half.
+	f.clock.set(tashkentAt(9, 20, 58))
 	res, err := f.r.Tick(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Sent != 1 {
-		t.Fatalf("sent = %d, want 1 before the 21:00 cut-off", res.Sent)
+	if res.Sent != 1 || res.Partial != 0 || res.Interrupted != "window_closed" {
+		t.Fatalf("result = %+v, want 1 whole bundle before the 21:00 cut-off", res)
 	}
-	if f.clock.Now().After(tashkentAt(9, 21, 1)) {
+	for _, id := range []int64{41, 42, 43, 44} {
+		if n := len(f.tg.callsFor(id)); n != 0 && n != 2 {
+			t.Fatalf("chat %d got %d messages — a half bundle", id, n)
+		}
+	}
+	if f.clock.Now().After(tashkentAt(9, 21, 0)) {
 		t.Fatalf("still sending at %s", f.clock.Now())
 	}
 	counts, err := f.q.CountTelegramReminderAudience(context.Background(),
@@ -352,6 +386,200 @@ func TestDailyReminderStopsAt21(t *testing.T) {
 	}
 	if counts.Pending != 3 {
 		t.Fatalf("pending = %d, want 3 left unclaimed", counts.Pending)
+	}
+}
+
+// The second message failing after the first landed is its own count, not
+// «sent» and not a plain error, and it is logged with the step.
+func TestDailyReminderCountsHalfDeliveredBundle(t *testing.T) {
+	f := newReminderFixture(t)
+	seedQuizQuestion(t, f.pool, false)
+	addBotUsers(t, f.q, "", 46, 47)
+	f.tg.methodFail[46] = map[string]int{"sendMessage": 502}
+	res, err := f.r.Tick(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sent != 1 || res.Partial != 1 || res.Errors != 0 {
+		t.Fatalf("result = %+v, want 1 sent + 1 partial", res)
+	}
+	if n := f.tg.byChat("sendMessage")[46]; n != 1+maxTransientRetries {
+		t.Fatalf("follow-up attempts = %d, want %d", n, 1+maxTransientRetries)
+	}
+	if f.logs.FilterMessage("telegram daily reminder: bundle half delivered").Len() != 1 {
+		t.Fatalf("logs = %v", f.logs.All())
+	}
+	run := f.logs.FilterMessage("telegram daily reminder: run").All()
+	if len(run) != 1 || run[0].ContextMap()["partial"] != int64(1) {
+		t.Fatalf("run line = %+v", run)
+	}
+}
+
+// A stalled connection must not hang the pass (and the advisory lock with
+// it): every call has its own deadline, a timeout is transient, and after
+// the retries the user is skipped for today.
+func TestDailyReminderStalledTelegramTimesOutAndSkipsUser(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	seedQuizQuestion(t, f.pool, false)
+	addBotUsers(t, f.q, "", 48, 49)
+	f.tg.hang[48] = true
+	f.r.SendTimeout = 50 * time.Millisecond
+
+	done := make(chan struct{})
+	var res ReminderRunResult
+	var err error
+	go func() {
+		defer close(done)
+		res, err = f.r.Tick(ctx)
+	}()
+	select {
+	case <-done:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the pass hung on a Telegram call that never answers")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sent != 1 || res.Errors != 1 {
+		t.Fatalf("result = %+v, want the stalled user skipped and the other sent", res)
+	}
+	if n := len(f.tg.callsFor(48)); n != 1+maxTransientRetries {
+		t.Fatalf("stalled chat attempts = %d, want %d", n, 1+maxTransientRetries)
+	}
+	if got := len(f.tg.callsFor(49)); got != 2 {
+		t.Fatalf("healthy chat calls = %d", got)
+	}
+	var free bool
+	if err := f.pool.QueryRow(ctx, `SELECT pg_try_advisory_lock($1)`, dailyReminderLockKey).Scan(&free); err != nil {
+		t.Fatal(err)
+	}
+	if !free {
+		t.Fatal("the advisory lock is still held after the pass")
+	}
+	_, _ = f.pool.Exec(ctx, `SELECT pg_advisory_unlock($1)`, dailyReminderLockKey)
+	if f.logs.FilterMessage("telegram daily reminder: run").Len() != 1 {
+		t.Fatalf("want exactly one run line, logs = %v", f.logs.All())
+	}
+}
+
+// A question recorded for today that stops fitting a poll is replaced once
+// and the evening goes on with the replacement; it does not error every
+// minute.
+func TestDailyReminderReplacesStoredQuestionThatNoLongerFits(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	broken := seedQuizQuestion(t, f.pool, false)
+	good := seedQuizQuestion(t, f.pool, false)
+	day := dayOf(f.clock.Now())
+	if err := f.q.InsertDailyQuestion(ctx, sqlc.InsertDailyQuestionParams{Day: day, QuestionID: broken}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.pool.Exec(ctx,
+		`UPDATE question_translation SET text = $2 WHERE question_id = $1`, broken, strings.Repeat("s", 301)); err != nil {
+		t.Fatal(err)
+	}
+	addBotUsers(t, f.q, "", 161)
+	res, err := f.r.Tick(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Sent != 1 || res.QuestionID != good {
+		t.Fatalf("result = %+v, want sent with the replacement %v", res, good)
+	}
+	if stored, err := f.q.GetDailyQuestion(ctx, day); err != nil || stored != good {
+		t.Fatalf("stored = %v (%v), want the day's row overwritten with %v", stored, err, good)
+	}
+	if f.logs.FilterMessage("telegram daily reminder: stored question unusable, replacing").Len() != 1 {
+		t.Fatalf("logs = %v", f.logs.All())
+	}
+	// The next minute (new user arrived) uses the replacement without noise.
+	addBotUsers(t, f.q, "", 162)
+	fresh := *f.r
+	fresh.doneDay = ""
+	if res, err := fresh.Tick(ctx); err != nil || res.Sent != 1 || res.QuestionID != good {
+		t.Fatalf("second pass: %+v %v", res, err)
+	}
+	if f.logs.FilterMessage("telegram daily reminder: stored question unusable, replacing").Len() != 1 {
+		t.Fatal("the replacement must be logged once, not on every pass")
+	}
+}
+
+// With no usable question at all the run logs its line (with the error)
+// once and gives up for the day instead of failing every minute.
+func TestDailyReminderNoQuestionLogsOnceAndStopsForTheDay(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	addBotUsers(t, f.q, "", 171)
+	if _, err := f.r.Tick(ctx); err == nil {
+		t.Fatal("want the no-question error surfaced")
+	}
+	run := f.logs.FilterMessage("telegram daily reminder: run").All()
+	if len(run) != 1 || run[0].ContextMap()["error"] == nil || run[0].ContextMap()["pending"] != int64(1) {
+		t.Fatalf("run line = %+v", run)
+	}
+	f.clock.set(tashkentAt(9, 19, 1))
+	if res, err := f.r.Tick(ctx); err != nil || res.Skipped != "done" {
+		t.Fatalf("next minute: %+v %v, want skipped for the day", res, err)
+	}
+	if f.tg.total() != 0 {
+		t.Fatal("nothing may be sent without a question")
+	}
+}
+
+// Unlinked users get the signup pitch at most once every 7 days; the other
+// evenings they get the day's neutral line.
+func TestDailyReminderSignupPitchAtMostWeekly(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	for i := 0; i < 10; i++ {
+		seedQuizQuestion(t, f.pool, false)
+	}
+	addBotUsers(t, f.q, "", 181)
+	lineOn := func(day int) string {
+		t.Helper()
+		f.clock.set(tashkentAt(day, 19, 0))
+		before := len(f.tg.callsFor(181))
+		if res, err := f.r.Tick(ctx); err != nil || res.Sent != 1 {
+			t.Fatalf("day %d: %+v %v", day, res, err)
+		}
+		calls := f.tg.callsFor(181)[before:]
+		text, _ := calls[len(calls)-1].Body["text"].(string)
+		return text
+	}
+	if got := lineOn(9); !strings.Contains(got, "Hisobingiz yo'qmi?") {
+		t.Fatalf("day 1 = %q, want the pitch", got)
+	}
+	for day := 10; day <= 15; day++ {
+		if got := lineOn(day); strings.Contains(got, "Ro'yxatdan") {
+			t.Fatalf("day %d repeated the pitch within 7 days: %q", day, got)
+		}
+	}
+	if got := lineOn(16); !strings.Contains(got, "Hisobingiz yo'qmi?") {
+		t.Fatalf("day 8 = %q, want the pitch again", got)
+	}
+}
+
+// A pitch that never reached the user (blocked) is not recorded as given.
+func TestDailyReminderSignupPitchRecordedOnlyWhenDelivered(t *testing.T) {
+	f := newReminderFixture(t)
+	ctx := context.Background()
+	seedQuizQuestion(t, f.pool, false)
+	addBotUsers(t, f.q, "", 191, 192)
+	f.tg.failCode[191] = 403
+	if _, err := f.r.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	blocked, err := f.q.GetTelegramBotUser(ctx, 191)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sent, err := f.q.GetTelegramBotUser(ctx, 192)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if blocked.LastSignupPitchOn.Valid || !sent.LastSignupPitchOn.Valid {
+		t.Fatalf("pitch dates: blocked=%v sent=%v", blocked.LastSignupPitchOn, sent.LastSignupPitchOn)
 	}
 }
 
@@ -506,7 +734,7 @@ func TestDailyReminderImageQuestionIsPhotoThenPoll(t *testing.T) {
 		t.Fatalf("calls = %+v, want photo then poll (2 messages max)", calls)
 	}
 	caption, _ := calls[0].Body["caption"].(string)
-	if !strings.HasPrefix(caption, "🧠 Kun savoli") || !strings.Contains(caption, "Ro'yxatdan o'ting") {
+	if !strings.HasPrefix(caption, "🧠 Kun savoli") || !strings.Contains(caption, "Hisobingiz yo'qmi?") {
 		t.Fatalf("caption = %q", caption)
 	}
 	if calls[0].Body["reply_markup"] == nil {
@@ -621,7 +849,7 @@ func TestDailyReminderDryRunCountsSegmentsAndSendsNothing(t *testing.T) {
 		t.Fatal(err)
 	}
 	p := createProfile(t, f.q, "+998901234501")
-	if _, err := f.pool.Exec(ctx, `INSERT INTO telegram_account (profile_id, tg_user_id, username) VALUES ($1, 152, 'x')`, p); err != nil {
+	if _, err := f.pool.Exec(ctx, `INSERT INTO telegram_account (profile_id, tg_user_id, username, phone_verified_at) VALUES ($1, 152, 'x', now())`, p); err != nil {
 		t.Fatal(err)
 	}
 	rep, err := f.r.DryRun(ctx)
@@ -631,7 +859,7 @@ func TestDailyReminderDryRunCountsSegmentsAndSendsNothing(t *testing.T) {
 	if f.tg.total() != 0 {
 		t.Fatal("dry-run must not call Telegram")
 	}
-	if rep.Eligible != 2 || rep.OptedOut != 1 || rep.Segments["unlinked"] != 1 || rep.Segments["inactive"] != 1 {
+	if rep.Eligible != 2 || rep.OptedOut != 1 || rep.Segments["signup"] != 1 || rep.Segments["welcome"] != 1 {
 		t.Fatalf("report = %+v", rep)
 	}
 	if rep.QuestionID != qID || !rep.QuestionFits {
