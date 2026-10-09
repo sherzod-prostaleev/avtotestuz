@@ -13,6 +13,7 @@ import {
   type CardNetwork,
 } from "@/lib/card-network";
 import { MobileScreen } from "./mobile-screen";
+import { ReferralShareLink } from "@/components/profile/referral-share";
 
 function groupDigits(value: number): string {
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, " ");
@@ -307,6 +308,9 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
               )}
               {copied ? t("linkCopied") : t("copyLink")}
             </button>
+            <div className="mt-2.5">
+              <ReferralShareLink url={data.invite_url} />
+            </div>
           </div>
 
           <button

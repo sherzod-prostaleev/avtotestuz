@@ -111,6 +111,26 @@ describe("ReferralCard", () => {
     });
   });
 
+  it("shows the Telegram invite link and shares it through Telegram", async () => {
+    const tgLink = "https://t.me/DriverGouzBot?startapp=ref_REF123";
+    mockReferralApis({ ...baseStats, invite_url: tgLink, total_invited: 0, total_rewarded: 0, earned_uzs: 0, available_balance_uzs: 0 });
+    const open = vi.fn();
+    vi.stubGlobal("open", open);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    renderWithIntl();
+
+    expect(await screen.findByText(tgLink)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Havolani nusxalash" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith(tgLink));
+    fireEvent.click(screen.getByRole("button", { name: "Telegram'da ulashish" }));
+    const [shareUrl] = open.mock.calls[0] as [string];
+    expect(shareUrl.startsWith("https://t.me/share/url?url=")).toBe(true);
+    expect(new URL(shareUrl).searchParams.get("url")).toBe(tgLink);
+    vi.unstubAllGlobals();
+  });
+
   it("handles referral code application", async () => {
     mockReferralApis({ ...baseStats, total_invited: 0, total_rewarded: 0, earned_uzs: 0, available_balance_uzs: 0 });
     const postSpy = vi.spyOn(apiClient, "apiPost").mockResolvedValue({ applied: true });

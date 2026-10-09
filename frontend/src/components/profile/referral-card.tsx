@@ -11,6 +11,7 @@ import {
 } from "@/lib/card-network";
 import { Button } from "@/components/ui/button";
 import { formatDateWithTime } from "@/lib/date-format";
+import { ReferralShareLink } from "@/components/profile/referral-share";
 import {
   Users,
   Copy,
@@ -303,6 +304,9 @@ export function ReferralCard() {
                   </>
                 )}
               </Button>
+            </div>
+            <div className="mt-3 border-t border-border pt-3">
+              <ReferralShareLink url={data.invite_url} />
             </div>
           </div>
 
