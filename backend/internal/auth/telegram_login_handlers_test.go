@@ -52,8 +52,8 @@ func TestTelegramLoginOverHTTP(t *testing.T) {
 	if _, err := svc.BeginTelegramLogin(ctx, st.Token, tgWho(8800)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := svc.ConfirmTelegramLoginContact(ctx, tgWho(8800), 8800, "998901119900"); err != nil {
-		t.Fatal(err)
+	if r := shareAndApprove(t, svc, tgWho(8800), "998901119900"); r.Outcome != TelegramLoginApproved {
+		t.Fatalf("approve = %+v", r)
 	}
 	// The approved status says only "approved": no phone, no name.
 	_, env = postJSON(t, ts, "/auth/telegram-login/status", body)
@@ -68,9 +68,13 @@ func TestTelegramLoginOverHTTP(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("complete = %d %+v", status, env.Error)
 	}
-	var toks tokensResponse
+	var toks telegramLoginCompleteResponse
 	if err := json.Unmarshal(env.Data, &toks); err != nil || toks.AccessToken == "" || toks.RefreshToken == "" || !toks.Created {
 		t.Fatalf("tokens = %+v %v", toks, err)
+	}
+	// Which account the browser now holds, masked: shown once on the website.
+	if toks.PhoneMasked != "+998 90 ••• •• 00" || strings.Contains(string(env.Data), "998901119900") {
+		t.Fatalf("phone_masked = %q in %s", toks.PhoneMasked, env.Data)
 	}
 	status, _ = postJSON(t, ts, "/auth/telegram-login/complete", body)
 	if status != http.StatusBadRequest {

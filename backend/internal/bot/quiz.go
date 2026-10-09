@@ -455,6 +455,11 @@ func truncateRunes(s string, max int) string {
 	return string(runes[:max-1]) + "…"
 }
 
+// IsPrivateChat reports the bot's one-to-one chat with a user. Anything that
+// decides who a person is (login, password reset, phone shares) asks for this
+// rather than "not a group": a channel-typed chat is neither.
+func IsPrivateChat(chatType string) bool { return chatType == "private" }
+
 // IsGroupChat reports Telegram group-like chats.
 func IsGroupChat(chatType string) bool {
 	switch chatType {

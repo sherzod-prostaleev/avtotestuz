@@ -46,6 +46,25 @@ func profilesWithPhone(t *testing.T, svc *Service, phone string) int {
 	return n
 }
 
+// shareAndApprove is the first-time bot flow: share your own number, get the
+// «✅ Kirish» question for it, tap it. It returns the tap's result.
+func shareAndApprove(t *testing.T, svc *Service, who TelegramLoginUser, phone string) TelegramLoginBegin {
+	t.Helper()
+	ctx := context.Background()
+	asked, err := svc.ConfirmTelegramLoginContact(ctx, who, who.ID, phone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asked.Outcome != TelegramLoginNeedConfirm || asked.ConfirmNonce == "" || !asked.ViaContact {
+		t.Fatalf("a phone share must only earn the question, got %+v", asked)
+	}
+	res, err := svc.AnswerTelegramLoginConfirm(ctx, who, asked.ConfirmNonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return res
+}
+
 func tgWho(id int64) TelegramLoginUser {
 	return TelegramLoginUser{ID: id, FirstName: "Ali", LastName: "Valiyev", Username: "ali_uz"}
 }
@@ -147,12 +166,29 @@ func TestTelegramLoginNewUserSharesPhoneThenCompletes(t *testing.T) {
 		t.Fatalf("early complete err = %v", err)
 	}
 
-	res, err := svc.ConfirmTelegramLoginContact(ctx, tgWho(7001), 7001, "998901112233")
+	// Sharing the number is not consent: it earns the question, naming the
+	// device and the (masked) account, and changes nothing else.
+	asked, err := svc.ConfirmTelegramLoginContact(ctx, tgWho(7001), 7001, "998901112233")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Outcome != TelegramLoginApproved || !res.Created {
-		t.Fatalf("contact = %+v", res)
+	if asked.Outcome != TelegramLoginNeedConfirm || asked.ConfirmNonce == "" ||
+		asked.MaskedPhone != "+998 90 ••• •• 33" || asked.Device != "Chrome · Android" {
+		t.Fatalf("contact = %+v", asked)
+	}
+	if loginState(t, svc, st, st.BrowserSecret) != TelegramLoginStatePending || profilesWithPhone(t, svc, "+998901112233") != 0 {
+		t.Fatal("nothing may be approved or created before the tap")
+	}
+	res, err := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7001), asked.ConfirmNonce, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Outcome != TelegramLoginApproved || !res.Created || !res.ViaContact {
+		t.Fatalf("tap = %+v", res)
+	}
+	var kept *string
+	if err := svc.Pool.QueryRow(ctx, `SELECT contact_phone FROM telegram_login_request`).Scan(&kept); err != nil || kept != nil {
+		t.Fatalf("the shared number must not outlive the approval: %v %v", kept, err)
 	}
 	if loginState(t, svc, st, st.BrowserSecret) != TelegramLoginStateApproved {
 		t.Fatal("status must say approved")
@@ -200,9 +236,9 @@ func TestTelegramLoginExistingAccountMatchedByPhone(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Address-book formatting is normalised to the stored +998 form.
-	res, err := svc.ConfirmTelegramLoginContact(ctx, tgWho(7002), 7002, "+998 (90) 111-22-44")
-	if err != nil || res.Outcome != TelegramLoginApproved || res.Created {
-		t.Fatalf("contact = %+v err=%v", res, err)
+	res := shareAndApprove(t, svc, tgWho(7002), "+998 (90) 111-22-44")
+	if res.Outcome != TelegramLoginApproved || res.Created {
+		t.Fatalf("tap = %+v", res)
 	}
 	done, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1")
 	if err != nil {
@@ -242,13 +278,13 @@ func TestTelegramLoginLinkedUserConfirmsWithOneTap(t *testing.T) {
 		t.Fatal("nonce must be independent of the token and fit callback_data")
 	}
 	// Someone else tapping a forwarded question changes nothing.
-	if r, err := svc.AnswerTelegramLoginConfirm(ctx, 9999, begin.ConfirmNonce, true); err != nil || r.Outcome != TelegramLoginStale {
+	if r, err := svc.AnswerTelegramLoginConfirm(ctx, tgWho(9999), begin.ConfirmNonce, true); err != nil || r.Outcome != TelegramLoginStale {
 		t.Fatalf("other user = %+v %v", r, err)
 	}
-	if r, err := svc.AnswerTelegramLoginConfirm(ctx, 7003, begin.ConfirmNonce, true); err != nil || r.Outcome != TelegramLoginApproved {
+	if r, err := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7003), begin.ConfirmNonce, true); err != nil || r.Outcome != TelegramLoginApproved {
 		t.Fatalf("accept = %+v %v", r, err)
 	}
-	if r, _ := svc.AnswerTelegramLoginConfirm(ctx, 7003, begin.ConfirmNonce, true); r.Outcome != TelegramLoginStale {
+	if r, _ := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7003), begin.ConfirmNonce, true); r.Outcome != TelegramLoginStale {
 		t.Fatalf("second tap = %+v", r)
 	}
 	done, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1")
@@ -289,7 +325,7 @@ func TestTelegramLoginCancelAndWrongCookie(t *testing.T) {
 		t.Fatal("wrong cookie must read invalid")
 	}
 	begin, _ := svc.BeginTelegramLogin(ctx, st.Token, tgWho(7005))
-	if r, err := svc.AnswerTelegramLoginConfirm(ctx, 7005, begin.ConfirmNonce, false); err != nil || r.Outcome != TelegramLoginCancelled {
+	if r, err := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7005), begin.ConfirmNonce, false); err != nil || r.Outcome != TelegramLoginCancelled {
 		t.Fatalf("cancel = %+v %v", r, err)
 	}
 	if loginState(t, svc, st, st.BrowserSecret) != TelegramLoginStateCancelled {
@@ -302,7 +338,7 @@ func TestTelegramLoginCancelAndWrongCookie(t *testing.T) {
 	// An approved request still needs the browser that started it.
 	st2 := startLogin(t, svc, "1.1.1.1")
 	b2, _ := svc.BeginTelegramLogin(ctx, st2.Token, tgWho(7005))
-	if r, _ := svc.AnswerTelegramLoginConfirm(ctx, 7005, b2.ConfirmNonce, true); r.Outcome != TelegramLoginApproved {
+	if r, _ := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7005), b2.ConfirmNonce, true); r.Outcome != TelegramLoginApproved {
 		t.Fatal("approve failed")
 	}
 	if _, err := svc.CompleteTelegramLogin(ctx, st2.Token, other.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrTelegramLoginInvalid) {
@@ -436,7 +472,13 @@ func TestTelegramLoginConcurrentCreationYieldsOneProfile(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			r, err := svc.ConfirmTelegramLoginContact(ctx, tgWho(int64(7100+i)), int64(7100+i), "998901114400")
+			who := tgWho(int64(7100 + i))
+			asked, err := svc.ConfirmTelegramLoginContact(ctx, who, who.ID, "998901114400")
+			if err != nil {
+				errs[i] = err
+				return
+			}
+			r, err := svc.AnswerTelegramLoginConfirm(ctx, who, asked.ConfirmNonce, true)
 			outcomes[i], errs[i] = r.Outcome, err
 		}(i)
 	}
@@ -483,7 +525,7 @@ func TestTelegramLoginDoubleApprovalOnce(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			r, err := svc.AnswerTelegramLoginConfirm(ctx, 7200, begin.ConfirmNonce, true)
+			r, err := svc.AnswerTelegramLoginConfirm(ctx, tgWho(7200), begin.ConfirmNonce, true)
 			if err != nil {
 				t.Error(err)
 				return
@@ -553,7 +595,7 @@ func TestTelegramLoginAppliesBotReferralToNewProfileOnly(t *testing.T) {
 	if _, err := svc.BeginTelegramLogin(ctx, st.Token, tgWho(7300)); err != nil {
 		t.Fatal(err)
 	}
-	if r, _ := svc.ConfirmTelegramLoginContact(ctx, tgWho(7300), 7300, "998901115511"); r.Outcome != TelegramLoginApproved {
+	if r := shareAndApprove(t, svc, tgWho(7300), "998901115511"); r.Outcome != TelegramLoginApproved {
 		t.Fatal("approve")
 	}
 	done, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1")
@@ -575,7 +617,7 @@ func TestTelegramLoginAppliesBotReferralToNewProfileOnly(t *testing.T) {
 	_ = q.SetTelegramBotUserPendingReferral(ctx, sqlc.SetTelegramBotUserPendingReferralParams{TgUserID: 7301, PendingReferralCode: textOf("REF-AB23CD")})
 	st2 := startLogin(t, svc, "1.1.1.1")
 	_, _ = svc.BeginTelegramLogin(ctx, st2.Token, tgWho(7301))
-	if r, _ := svc.ConfirmTelegramLoginContact(ctx, tgWho(7301), 7301, "998901115522"); r.Outcome != TelegramLoginApproved {
+	if r := shareAndApprove(t, svc, tgWho(7301), "998901115522"); r.Outcome != TelegramLoginApproved {
 		t.Fatal("approve existing")
 	}
 	if _, ok := referrerOf(t, svc, existing.Profile.ID); ok {
@@ -730,21 +772,61 @@ func TestTelegramLoginNameIsTrimmedAndCapped(t *testing.T) {
 
 func textOf(s string) pgtype.Text { return pgtype.Text{String: s, Valid: true} }
 
+// Audit F4 (B7): whoever merely holds the link must not be able to spend the
+// rightful browser's completion budget.
+func TestTelegramLoginCompleteBudgetIsTheOwningBrowsers(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	st := startLogin(t, svc, "1.1.1.1")
+	if _, err := svc.BeginTelegramLogin(ctx, st.Token, tgWho(7700)); err != nil {
+		t.Fatal(err)
+	}
+	if r := shareAndApprove(t, svc, tgWho(7700), "998901117711"); r.Outcome != TelegramLoginApproved {
+		t.Fatalf("approve = %+v", r)
+	}
+	for i := 0; i < 3*telegramLoginCompletePerToken; i++ {
+		if _, err := svc.CompleteTelegramLogin(ctx, st.Token, "guess", "6.6.6.6"); !errors.Is(err, ErrTelegramLoginInvalid) {
+			t.Fatalf("cookie-less attempt %d err = %v", i, err)
+		}
+	}
+	if _, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1"); err != nil {
+		t.Fatalf("the rightful browser was locked out: %v", err)
+	}
+}
+
+// The owning browser itself is still bounded per request, and one request's
+// budget is not another's (a classroom shares an IP).
 func TestTelegramLoginCompleteIsLimitedPerRequest(t *testing.T) {
 	svc, _ := resetTestService(t)
 	ctx := context.Background()
 	st := startLogin(t, svc, "1.1.1.1")
 	for i := 0; i < telegramLoginCompletePerToken; i++ {
-		if _, err := svc.CompleteTelegramLogin(ctx, st.Token, "guess", "1.1.1.1"); !errors.Is(err, ErrTelegramLoginInvalid) {
+		if _, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrTelegramLoginNotApproved) {
 			t.Fatalf("attempt %d err = %v", i, err)
 		}
 	}
 	if _, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrRateLimited) {
 		t.Fatalf("err = %v, want rate limited", err)
 	}
-	// Another request from the same IP (a classroom) is not affected.
 	other := startLogin(t, svc, "1.1.1.1")
 	if _, err := svc.CompleteTelegramLogin(ctx, other.Token, other.BrowserSecret, "1.1.1.1"); !errors.Is(err, ErrTelegramLoginNotApproved) {
 		t.Fatalf("other request err = %v", err)
+	}
+}
+
+// Completes that never prove the browser secret are bounded per client
+// address instead (IPv6 per /64).
+func TestTelegramLoginCompleteMissesAreLimitedPerIP(t *testing.T) {
+	svc, _ := resetTestService(t)
+	ctx := context.Background()
+	st := startLogin(t, svc, "1.1.1.1")
+	if err := svc.Lim.R.Set(ctx, "tglogin:complete:miss:ip:2001:db8:1:2::/64", telegramLoginCompleteMissPerIP, time.Hour).Err(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.CompleteTelegramLogin(ctx, st.Token, "guess", "2001:db8:1:2::99"); !errors.Is(err, ErrRateLimited) {
+		t.Fatalf("err = %v, want rate limited", err)
+	}
+	if _, err := svc.CompleteTelegramLogin(ctx, st.Token, st.BrowserSecret, "2001:db8:1:2::99"); !errors.Is(err, ErrTelegramLoginNotApproved) {
+		t.Fatalf("the owning browser behind the same prefix: %v", err)
 	}
 }

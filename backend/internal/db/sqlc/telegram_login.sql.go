@@ -15,7 +15,7 @@ import (
 const approveTelegramLoginRequest = `-- name: ApproveTelegramLoginRequest :execrows
 UPDATE telegram_login_request
 SET status = 'approved', profile_id = $2, approved_tg_user_id = $3, approved_at = now(),
-    pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+    pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE id = $1 AND status = 'pending'
 `
 
@@ -35,7 +35,8 @@ func (q *Queries) ApproveTelegramLoginRequest(ctx context.Context, arg ApproveTe
 
 const armTelegramLoginForTg = `-- name: ArmTelegramLoginForTg :exec
 UPDATE telegram_login_request
-SET pending_tg_user_id = $2, confirm_nonce_hash = $3
+SET pending_tg_user_id = $2, confirm_nonce_hash = $3, contact_phone = NULL,
+    opened_tg_user_id = COALESCE(opened_tg_user_id, $2)
 WHERE id = $1
 `
 
@@ -45,20 +46,46 @@ type ArmTelegramLoginForTgParams struct {
 	ConfirmNonceHash pgtype.Text `json:"confirm_nonce_hash"`
 }
 
+// /start login_ by the request's (first) opener. A re-open starts the bot
+// step over: any shared phone waiting for its tap is dropped.
 func (q *Queries) ArmTelegramLoginForTg(ctx context.Context, arg ArmTelegramLoginForTgParams) error {
 	_, err := q.db.Exec(ctx, armTelegramLoginForTg, arg.ID, arg.PendingTgUserID, arg.ConfirmNonceHash)
 	return err
 }
 
+const askTelegramLoginConfirmAfterContact = `-- name: AskTelegramLoginConfirmAfterContact :execrows
+UPDATE telegram_login_request
+SET confirm_nonce_hash = $2, contact_phone = $3
+WHERE id = $1 AND status = 'pending'
+`
+
+type AskTelegramLoginConfirmAfterContactParams struct {
+	ID               uuid.UUID   `json:"id"`
+	ConfirmNonceHash pgtype.Text `json:"confirm_nonce_hash"`
+	ContactPhone     pgtype.Text `json:"contact_phone"`
+}
+
+// The opener shared their own number: remember it and open the «✅ Kirish»
+// question. Only that tap approves.
+func (q *Queries) AskTelegramLoginConfirmAfterContact(ctx context.Context, arg AskTelegramLoginConfirmAfterContactParams) (int64, error) {
+	result, err := q.db.Exec(ctx, askTelegramLoginConfirmAfterContact, arg.ID, arg.ConfirmNonceHash, arg.ContactPhone)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const clearAllTelegramLoginPendingForTg = `-- name: ClearAllTelegramLoginPendingForTg :exec
 UPDATE telegram_login_request
-SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE pending_tg_user_id = $1 AND status = 'pending'
 `
 
-// The Mini App phone share also posts a contact into the bot chat; once that
-// share has been used for the Mini App, it must not double as consent to a
-// website login the same user opened in the bot earlier.
+// Disarm: this Telegram user moved on to something else in the bot chat — a
+// password reset (/start pwr_) or the Mini App's phone share — so a website
+// login they opened earlier must not be answered by what they do next. The
+// question already sent stops working; opened_tg_user_id stays, so only they
+// can open the link again.
 func (q *Queries) ClearAllTelegramLoginPendingForTg(ctx context.Context, pendingTgUserID pgtype.Int8) error {
 	_, err := q.db.Exec(ctx, clearAllTelegramLoginPendingForTg, pendingTgUserID)
 	return err
@@ -77,7 +104,7 @@ func (q *Queries) ClearTelegramBotUserPendingReferral(ctx context.Context, tgUse
 
 const clearTelegramLoginPendingForTg = `-- name: ClearTelegramLoginPendingForTg :exec
 UPDATE telegram_login_request
-SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE pending_tg_user_id = $1 AND id <> $2
 `
 
@@ -110,7 +137,7 @@ func (q *Queries) ConsumeTelegramLoginRequest(ctx context.Context, id uuid.UUID)
 const createTelegramLoginRequest = `-- name: CreateTelegramLoginRequest :one
 INSERT INTO telegram_login_request (token_hash, browser_secret_hash, device, expires_at)
 VALUES ($1, $2, $3, $4)
-RETURNING id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at
+RETURNING id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at, opened_tg_user_id, contact_phone
 `
 
 type CreateTelegramLoginRequestParams struct {
@@ -142,8 +169,33 @@ func (q *Queries) CreateTelegramLoginRequest(ctx context.Context, arg CreateTele
 		&i.ApprovedAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
+		&i.OpenedTgUserID,
+		&i.ContactPhone,
 	)
 	return i, err
+}
+
+const deleteOtherRefreshTokens = `-- name: DeleteOtherRefreshTokens :execrows
+DELETE FROM refresh_token
+WHERE profile_id = $1 AND token_hash <> $2
+`
+
+type DeleteOtherRefreshTokensParams struct {
+	ProfileID     uuid.UUID `json:"profile_id"`
+	KeepTokenHash string    `json:"keep_token_hash"`
+}
+
+// A first password was set: every other session of the profile ends, the
+// caller's (keep_token_hash; ” keeps none) stays. Deleted rather than
+// revoked on purpose: a revoked refresh token presented later is treated as
+// reuse and revokes the whole profile — which would sign the keeper out the
+// next time any other device woke up.
+func (q *Queries) DeleteOtherRefreshTokens(ctx context.Context, arg DeleteOtherRefreshTokensParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteOtherRefreshTokens, arg.ProfileID, arg.KeepTokenHash)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const deleteStaleTelegramLoginRequests = `-- name: DeleteStaleTelegramLoginRequests :exec
@@ -164,7 +216,7 @@ func (q *Queries) DeleteStaleTelegramLoginRequests(ctx context.Context) error {
 
 const endTelegramLoginRequest = `-- name: EndTelegramLoginRequest :execrows
 UPDATE telegram_login_request
-SET status = $2, pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET status = $2, pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE id = $1 AND status = 'pending'
 `
 
@@ -183,7 +235,7 @@ func (q *Queries) EndTelegramLoginRequest(ctx context.Context, arg EndTelegramLo
 }
 
 const getLiveTelegramLoginByPendingTgForUpdate = `-- name: GetLiveTelegramLoginByPendingTgForUpdate :one
-SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at FROM telegram_login_request
+SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at, opened_tg_user_id, contact_phone FROM telegram_login_request
 WHERE pending_tg_user_id = $1 AND status = 'pending' AND expires_at > now()
 FOR UPDATE
 `
@@ -205,6 +257,8 @@ func (q *Queries) GetLiveTelegramLoginByPendingTgForUpdate(ctx context.Context, 
 		&i.ApprovedAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
+		&i.OpenedTgUserID,
+		&i.ContactPhone,
 	)
 	return i, err
 }
@@ -224,7 +278,7 @@ func (q *Queries) GetTelegramBotUserPendingReferral(ctx context.Context, tgUserI
 }
 
 const getTelegramLoginByConfirmNonceForUpdate = `-- name: GetTelegramLoginByConfirmNonceForUpdate :one
-SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at FROM telegram_login_request WHERE confirm_nonce_hash = $1 FOR UPDATE
+SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at, opened_tg_user_id, contact_phone FROM telegram_login_request WHERE confirm_nonce_hash = $1 FOR UPDATE
 `
 
 func (q *Queries) GetTelegramLoginByConfirmNonceForUpdate(ctx context.Context, confirmNonceHash pgtype.Text) (TelegramLoginRequest, error) {
@@ -244,12 +298,14 @@ func (q *Queries) GetTelegramLoginByConfirmNonceForUpdate(ctx context.Context, c
 		&i.ApprovedAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
+		&i.OpenedTgUserID,
+		&i.ContactPhone,
 	)
 	return i, err
 }
 
 const getTelegramLoginRequestByTokenHash = `-- name: GetTelegramLoginRequestByTokenHash :one
-SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at FROM telegram_login_request WHERE token_hash = $1
+SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at, opened_tg_user_id, contact_phone FROM telegram_login_request WHERE token_hash = $1
 `
 
 func (q *Queries) GetTelegramLoginRequestByTokenHash(ctx context.Context, tokenHash string) (TelegramLoginRequest, error) {
@@ -269,12 +325,14 @@ func (q *Queries) GetTelegramLoginRequestByTokenHash(ctx context.Context, tokenH
 		&i.ApprovedAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
+		&i.OpenedTgUserID,
+		&i.ContactPhone,
 	)
 	return i, err
 }
 
 const getTelegramLoginRequestByTokenHashForUpdate = `-- name: GetTelegramLoginRequestByTokenHashForUpdate :one
-SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at FROM telegram_login_request WHERE token_hash = $1 FOR UPDATE
+SELECT id, token_hash, browser_secret_hash, device, status, pending_tg_user_id, confirm_nonce_hash, profile_id, approved_tg_user_id, expires_at, approved_at, consumed_at, created_at, opened_tg_user_id, contact_phone FROM telegram_login_request WHERE token_hash = $1 FOR UPDATE
 `
 
 func (q *Queries) GetTelegramLoginRequestByTokenHashForUpdate(ctx context.Context, tokenHash string) (TelegramLoginRequest, error) {
@@ -294,6 +352,8 @@ func (q *Queries) GetTelegramLoginRequestByTokenHashForUpdate(ctx context.Contex
 		&i.ApprovedAt,
 		&i.ConsumedAt,
 		&i.CreatedAt,
+		&i.OpenedTgUserID,
+		&i.ContactPhone,
 	)
 	return i, err
 }
@@ -338,7 +398,7 @@ func (q *Queries) GetUserProfileByPhone(ctx context.Context, phone string) (Prof
 const setProfilePasswordIfUnset = `-- name: SetProfilePasswordIfUnset :one
 UPDATE profile
 SET password_hash = $2, must_change_password = false
-WHERE id = $1 AND (password_hash IS NULL OR password_hash = '')
+WHERE id = $1 AND kind = 'user' AND (password_hash IS NULL OR password_hash = '')
 RETURNING id, phone, name, region, district, birth_date, locale_pref, theme_pref, role, referral_code, referred_by, status, created_at, password_hash, referral_commission_percent, bypass_variant_progress, kind, must_change_password, variant_unlock_ceiling, avatar_key, avatar_source, avatar_updated_at
 `
 
@@ -350,6 +410,7 @@ type SetProfilePasswordIfUnsetParams struct {
 // First password for an account created through Telegram. The WHERE makes it
 // a no-op (no row) once any password exists: that one is changed with the
 // current password instead (POST /me/password).
+// Learners only: a B2B station's shadow profile never gets a password.
 func (q *Queries) SetProfilePasswordIfUnset(ctx context.Context, arg SetProfilePasswordIfUnsetParams) (Profile, error) {
 	row := q.db.QueryRow(ctx, setProfilePasswordIfUnset, arg.ID, arg.PasswordHash)
 	var i Profile

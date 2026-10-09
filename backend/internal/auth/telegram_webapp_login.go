@@ -97,7 +97,7 @@ func (s *Service) TelegramWebAppLogin(ctx context.Context, initData, ip string) 
 // per Telegram user (30/h) only. This bucket just brakes forged-payload floods.
 const telegramIPFailureLimit = 300
 
-func telegramIPFailureKey(ip string) string { return "tgwebapp:ip:" + ip }
+func telegramIPFailureKey(ip string) string { return "tgwebapp:ip:" + limiterIP(ip) }
 
 // checkTelegramIPFailures refuses an IP whose failure budget is spent,
 // without counting this request.

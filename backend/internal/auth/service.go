@@ -138,7 +138,7 @@ func (s *Service) RequestOTP(ctx context.Context, rawPhone, ip string) (OTPReque
 		return OTPRequestResult{}, ErrRateLimited
 	}
 	if ip != "" {
-		if ok, err := s.Lim.Allow(ctx, "otp:ip:"+ip, 20, time.Hour); err != nil {
+		if ok, err := s.Lim.Allow(ctx, "otp:ip:"+limiterIP(ip), 20, time.Hour); err != nil {
 			return OTPRequestResult{}, err
 		} else if !ok {
 			return OTPRequestResult{}, ErrRateLimited
@@ -407,7 +407,7 @@ func (s *Service) rateLimitAuth(ctx context.Context, action, phone, ip string) e
 		return ErrRateLimited
 	}
 	if ip != "" {
-		if ok, err := s.Lim.Allow(ctx, action+":ip:"+ip, 30, time.Hour); err != nil {
+		if ok, err := s.Lim.Allow(ctx, action+":ip:"+limiterIP(ip), 30, time.Hour); err != nil {
 			return err
 		} else if !ok {
 			return ErrRateLimited

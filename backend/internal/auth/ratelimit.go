@@ -3,6 +3,8 @@ package auth
 import (
 	"context"
 	"errors"
+	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -46,17 +48,44 @@ return n
 // sends, login attempts and other spend-money/spend-trust actions, so an
 // unavailable limiter must not turn into an unlimited one.
 func (l Limiter) Allow(ctx context.Context, key string, limit int, window time.Duration) (bool, error) {
+	n, err := l.Hit(ctx, key, window)
+	if err != nil {
+		return false, err
+	}
+	return n <= int64(limit), nil
+}
+
+// Hit counts one event in key's fixed window and returns the window's total
+// so far. For counters that are watched rather than enforced.
+func (l Limiter) Hit(ctx context.Context, key string, window time.Duration) (int64, error) {
 	ms := window.Milliseconds()
 	if ms < 1 {
 		// PEXPIRE rejects a non-positive TTL; a sub-millisecond window is
 		// nonsense anyway, so clamp instead of failing the caller closed.
 		ms = 1
 	}
-	n, err := allowScript.Run(ctx, l.R, []string{key}, ms).Int64()
+	return allowScript.Run(ctx, l.R, []string{key}, ms).Int64()
+}
+
+// limiterIP is the form of a client address used in rate-limit keys. IPv4 is
+// kept whole. IPv6 is folded to its /64: that prefix is what one subscriber
+// is handed, so keying by the full address gives a single home connection
+// 2^64 separate budgets (the audit drained a global ceiling from one /64).
+// Anything that is not an address is returned unchanged.
+func limiterIP(ip string) string {
+	addr, err := netip.ParseAddr(strings.TrimSpace(ip))
 	if err != nil {
-		return false, err
+		return ip
 	}
-	return n <= int64(limit), nil
+	addr = addr.Unmap().WithZone("")
+	if addr.Is4() {
+		return addr.String()
+	}
+	prefix, err := addr.Prefix(64)
+	if err != nil {
+		return ip
+	}
+	return prefix.String()
 }
 
 // Cooldown returns true if the key was free (and sets it for d).

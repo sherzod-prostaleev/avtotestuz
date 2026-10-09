@@ -266,6 +266,13 @@ func (s *Service) beginTelegramPasswordReset(ctx context.Context, rawToken strin
 	}); err != nil {
 		return TelegramResetBegin{}, err
 	}
+	// The same goes for a website login this Telegram user opened in the bot
+	// (/start login_) and left waiting: from here on their phone share and
+	// taps are about the reset. Without this, the share meant for the reset
+	// answered the login instead (audit F1, scenario A1).
+	if err := q.ClearAllTelegramLoginPendingForTg(ctx, pgtype.Int8{Int64: tgUserID, Valid: true}); err != nil {
+		return TelegramResetBegin{}, err
+	}
 	if err := q.SetPasswordResetPendingTg(ctx, sqlc.SetPasswordResetPendingTgParams{
 		ID:              row.ID,
 		PendingTgUserID: pgtype.Int8{Int64: tgUserID, Valid: true},

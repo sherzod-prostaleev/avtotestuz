@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -61,5 +62,19 @@ func TestPublicHandler(t *testing.T) {
 	}
 	if !env.Data.ArenaEnabled {
 		t.Fatal("expected seeded arena_enabled true")
+	} // telegram_login (migration 0081) is seeded ON and is part of the public
+	// snapshot: the website hides «Telegram orqali kirish» when it is off.
+	if !env.Data.TelegramLogin || !strings.Contains(w.Body.String(), `"telegram_login":true`) {
+		t.Fatalf("expected seeded telegram_login true in %s", w.Body.String())
+	}
+	if _, err := pool.Exec(context.Background(), `UPDATE feature_flag SET value_json = 'false'::jsonb WHERE key = $1`, KeyTelegramLogin); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_, _ = pool.Exec(context.Background(), `UPDATE feature_flag SET value_json = 'true'::jsonb WHERE key = $1`, KeyTelegramLogin)
+	})
+	snap, err := Public(context.Background(), pool)
+	if err != nil || snap.TelegramLogin {
+		t.Fatalf("public snapshot must follow the switch: %+v %v", snap, err)
 	}
 }

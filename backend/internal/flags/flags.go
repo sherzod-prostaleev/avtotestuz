@@ -21,6 +21,10 @@ const (
 	// KeyTelegramDailyReminder gates the 19:00 «Kun savoli» DM. Read with
 	// default false: no row means no broadcast.
 	KeyTelegramDailyReminder = "telegram_daily_reminder"
+	// KeyTelegramLogin is the kill switch of sign-in/sign-up through Telegram
+	// (website button, bot approvals, Mini App one-tap phone). Seeded ON by
+	// migration 0081 and read with default true.
+	KeyTelegramLogin = "telegram_login"
 )
 
 // Bool returns a boolean feature flag. Missing rows / wrong type → defaultVal
@@ -56,6 +60,7 @@ type PublicSnapshot struct {
 	CheckoutPayme   bool `json:"checkout_payme"`
 	CheckoutClick   bool `json:"checkout_click"`
 	CheckoutManual  bool `json:"checkout_manual"`
+	TelegramLogin   bool `json:"telegram_login"`
 }
 
 // Public returns learner-visible boolean gates (defaults match seed).
@@ -66,6 +71,7 @@ func Public(ctx context.Context, pool *pgxpool.Pool) (PublicSnapshot, error) {
 		CheckoutPayme:   true,
 		CheckoutClick:   true,
 		CheckoutManual:  true,
+		TelegramLogin:   true,
 	}
 	var err error
 	if out.MaintenanceMode, err = Bool(ctx, pool, KeyMaintenanceMode, false); err != nil {
@@ -81,6 +87,9 @@ func Public(ctx context.Context, pool *pgxpool.Pool) (PublicSnapshot, error) {
 		return out, err
 	}
 	if out.CheckoutManual, err = Bool(ctx, pool, KeyCheckoutManual, true); err != nil {
+		return out, err
+	}
+	if out.TelegramLogin, err = Bool(ctx, pool, KeyTelegramLogin, true); err != nil {
 		return out, err
 	}
 	return out, nil

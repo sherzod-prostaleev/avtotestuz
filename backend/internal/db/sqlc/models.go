@@ -913,6 +913,8 @@ type TelegramLoginRequest struct {
 	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
 	ConsumedAt        pgtype.Timestamptz `json:"consumed_at"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	OpenedTgUserID    pgtype.Int8        `json:"opened_tg_user_id"`
+	ContactPhone      pgtype.Text        `json:"contact_phone"`
 }
 
 type TelegramQuizParticipant struct {

@@ -47,6 +47,16 @@ func TestAdminFeatureFlags(t *testing.T) {
 		if len(env.Data) < 3 {
 			t.Fatalf("expected seeded flags, got %d", len(env.Data))
 		}
+		// The Telegram login kill switch is on the admin flags page, ON.
+		found := false
+		for _, row := range env.Data {
+			if row.Key == "telegram_login" {
+				found = row.Type == "boolean" && string(row.Value) == "true" && row.Description != ""
+			}
+		}
+		if !found {
+			t.Fatalf("telegram_login flag missing from the admin list: %+v", env.Data)
+		}
 	})
 
 	t.Run("patch boolean + audit", func(t *testing.T) {

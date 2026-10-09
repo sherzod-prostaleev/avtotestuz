@@ -23,21 +23,33 @@ SELECT * FROM telegram_login_request WHERE token_hash = $1 FOR UPDATE;
 -- A newer /start login_ of the same Telegram user owns their next contact
 -- share; older requests drop their claim (and any open «✅ Kirish» question).
 UPDATE telegram_login_request
-SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE pending_tg_user_id = $1 AND id <> $2;
 
 -- name: ClearAllTelegramLoginPendingForTg :exec
--- The Mini App phone share also posts a contact into the bot chat; once that
--- share has been used for the Mini App, it must not double as consent to a
--- website login the same user opened in the bot earlier.
+-- Disarm: this Telegram user moved on to something else in the bot chat — a
+-- password reset (/start pwr_) or the Mini App's phone share — so a website
+-- login they opened earlier must not be answered by what they do next. The
+-- question already sent stops working; opened_tg_user_id stays, so only they
+-- can open the link again.
 UPDATE telegram_login_request
-SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE pending_tg_user_id = $1 AND status = 'pending';
 
 -- name: ArmTelegramLoginForTg :exec
+-- /start login_ by the request's (first) opener. A re-open starts the bot
+-- step over: any shared phone waiting for its tap is dropped.
 UPDATE telegram_login_request
-SET pending_tg_user_id = $2, confirm_nonce_hash = $3
+SET pending_tg_user_id = $2, confirm_nonce_hash = $3, contact_phone = NULL,
+    opened_tg_user_id = COALESCE(opened_tg_user_id, $2)
 WHERE id = $1;
+
+-- name: AskTelegramLoginConfirmAfterContact :execrows
+-- The opener shared their own number: remember it and open the «✅ Kirish»
+-- question. Only that tap approves.
+UPDATE telegram_login_request
+SET confirm_nonce_hash = $2, contact_phone = $3
+WHERE id = $1 AND status = 'pending';
 
 -- name: GetLiveTelegramLoginByPendingTgForUpdate :one
 SELECT * FROM telegram_login_request
@@ -50,13 +62,13 @@ SELECT * FROM telegram_login_request WHERE confirm_nonce_hash = $1 FOR UPDATE;
 -- name: ApproveTelegramLoginRequest :execrows
 UPDATE telegram_login_request
 SET status = 'approved', profile_id = $2, approved_tg_user_id = $3, approved_at = now(),
-    pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+    pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE id = $1 AND status = 'pending';
 
 -- name: EndTelegramLoginRequest :execrows
 -- 'cancelled' (the learner said no) or 'blocked' (the account is banned).
 UPDATE telegram_login_request
-SET status = $2, pending_tg_user_id = NULL, confirm_nonce_hash = NULL
+SET status = $2, pending_tg_user_id = NULL, confirm_nonce_hash = NULL, contact_phone = NULL
 WHERE id = $1 AND status = 'pending';
 
 -- name: ConsumeTelegramLoginRequest :execrows
@@ -74,9 +86,10 @@ SELECT * FROM profile WHERE phone = $1 AND kind = 'user';
 -- First password for an account created through Telegram. The WHERE makes it
 -- a no-op (no row) once any password exists: that one is changed with the
 -- current password instead (POST /me/password).
+-- Learners only: a B2B station's shadow profile never gets a password.
 UPDATE profile
 SET password_hash = $2, must_change_password = false
-WHERE id = $1 AND (password_hash IS NULL OR password_hash = '')
+WHERE id = $1 AND kind = 'user' AND (password_hash IS NULL OR password_hash = '')
 RETURNING *;
 
 -- name: SetTelegramBotUserPendingReferral :exec
@@ -96,3 +109,12 @@ WHERE tg_user_id = $1
 UPDATE telegram_bot_user
 SET pending_referral_code = NULL, pending_referral_at = NULL
 WHERE tg_user_id = $1;
+
+-- name: DeleteOtherRefreshTokens :execrows
+-- A first password was set: every other session of the profile ends, the
+-- caller's (keep_token_hash; '' keeps none) stays. Deleted rather than
+-- revoked on purpose: a revoked refresh token presented later is treated as
+-- reuse and revokes the whole profile — which would sign the keeper out the
+-- next time any other device woke up.
+DELETE FROM refresh_token
+WHERE profile_id = sqlc.arg(profile_id) AND token_hash <> sqlc.arg(keep_token_hash);

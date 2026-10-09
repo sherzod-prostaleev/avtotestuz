@@ -257,12 +257,25 @@ func (h *Handler) telegramLoginComplete(w http.ResponseWriter, r *http.Request) 
 		writeAuthError(w, err)
 		return
 	}
-	httpx.Data(w, http.StatusOK, tokensResponse{
-		AccessToken:        res.Access,
-		RefreshToken:       res.Refresh,
-		MustChangePassword: res.Profile.MustChangePassword,
-		Created:            res.Created,
+	httpx.Data(w, http.StatusOK, telegramLoginCompleteResponse{
+		tokensResponse: tokensResponse{
+			AccessToken:        res.Access,
+			RefreshToken:       res.Refresh,
+			MustChangePassword: res.Profile.MustChangePassword,
+			Created:            res.Created,
+		},
+		PhoneMasked: MaskResetPhone(res.Profile.Phone),
 	})
+}
+
+// telegramLoginCompleteResponse adds which account the browser now holds.
+// The website shows it once («+998 90 ••• •• 67 raqami bilan kirdingiz»): the
+// person at the screen is not necessarily the one who approved in Telegram
+// (a shared or classroom screen), and a wrong account must be noticed at
+// once. Masked — the full number never leaves in a response.
+type telegramLoginCompleteResponse struct {
+	tokensResponse
+	PhoneMasked string `json:"phone_masked"`
 }
 
 type linkWebAppBody struct {
@@ -427,6 +440,8 @@ func writeAuthError(w http.ResponseWriter, err error) {
 		httpx.Error(w, http.StatusUnauthorized, "invalid_refresh", "refresh token is invalid or expired")
 	case errors.Is(err, ErrTelegramBotUnconfigured):
 		httpx.Error(w, http.StatusServiceUnavailable, "telegram_bot_unconfigured", "telegram bot is not configured")
+	case errors.Is(err, ErrTelegramLoginDisabled):
+		httpx.Error(w, http.StatusServiceUnavailable, "telegram_login_disabled", "sign-in through Telegram is switched off")
 	case errors.Is(err, ErrInitDataInvalid), errors.Is(err, ErrInitDataExpired):
 		httpx.Error(w, http.StatusUnauthorized, "invalid_init_data", "telegram launch data is invalid or expired")
 	case errors.Is(err, ErrResetNotVerified):

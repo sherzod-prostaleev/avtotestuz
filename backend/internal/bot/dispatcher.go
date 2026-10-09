@@ -185,11 +185,14 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 	chatType := u.Message.Chat.Type
 
 	if u.Message.Contact != nil {
-		if IsGroupChat(chatType) {
+		// Private chat only — not merely "not a group": a phone share proves
+		// who someone is only in their own chat with the bot.
+		if !IsPrivateChat(chatType) {
 			return nil
 		}
 		// A waiting Telegram login gets the contact first; only a contact no
-		// login was waiting for goes on to the password reset.
+		// login was waiting for goes on to the password reset. Neither is
+		// approved by the contact itself: both then ask their own question.
 		if handled, err := b.handleTelegramLoginContact(ctx, chatID, u.Message.From, u.Message.Contact); handled || err != nil {
 			return err
 		}
@@ -255,7 +258,7 @@ func (b *Bot) HandleUpdate(ctx context.Context, u Update) error {
 			return b.handlePasswordResetStart(ctx, chatID, tgUserID, raw)
 		}
 		if raw, ok := auth.ParseTelegramLoginStartPayload(arg); ok {
-			if IsGroupChat(chatType) {
+			if !IsPrivateChat(chatType) {
 				return b.replyErr(b.TG.SendMessage(ctx, chatID, loginTextsFor(u.Message.From.LanguageCode).groupOnly))
 			}
 			return b.handleTelegramLoginStart(ctx, chatID, u.Message.From, raw)

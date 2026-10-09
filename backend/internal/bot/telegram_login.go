@@ -25,24 +25,29 @@ const (
 )
 
 type loginTexts struct {
-	header, unknownDevice                string
-	askedFmt                             string // device
-	confirmHint, accountFmt              string
+	header, unknownDevice string
+	askedFmt              string // %s = device; the phone-share prompt
+	// askedAccountFmt is the «✅ Kirish» question: {device} asks to sign in to
+	// {phone} (masked). Naming the account is what lets a learner with two
+	// numbers, or one who opened somebody else's link, see what they approve.
+	askedAccountFmt                      string
+	confirmHint                          string
 	contactHint, shareButton             string
 	yes, no                              string
 	done, cancelled, invalid, blocked    string
 	notOwn, foreign, rateLimited, failed string
 	stale, groupOnly                     string
+	taken, disabled, answered            string
 }
 
 var loginCopy = map[lang]loginTexts{
 	langUz: {
-		header:        "🔐 Driver Go'ga kirish",
-		unknownDevice: "Noma'lum qurilma",
-		askedFmt:      "%s orqali kirish so'raldi.",
-		confirmHint:   "Siz bo'lsangiz «✅ Kirish» ni bosing. Siz so'ramagan bo'lsangiz — e'tibor bermang.",
-		accountFmt:    "Hisob: %s",
-		contactHint: "Siz bo'lsangiz, pastdagi «📱 Raqamni yuborish» tugmasini bosing — raqamingiz kirishni tasdiqlaydi. " +
+		header:          "🔐 Driver Go'ga kirish",
+		unknownDevice:   "Noma'lum qurilma",
+		askedFmt:        "%s orqali kirish so'raldi.",
+		askedAccountFmt: "{device} orqali {phone} hisobiga kirish so'raldi.",
+		confirmHint:     "Siz bo'lsangiz «✅ Kirish» ni bosing. Siz so'ramagan bo'lsangiz — «✖️ Bekor qilish» ni bosing.",
+		contactHint: "Siz bo'lsangiz, pastdagi «📱 Raqamni yuborish» tugmasini bosing, so'ng «✅ Kirish» ni bosing. " +
 			"Siz so'ramagan bo'lsangiz — hech narsa yubormang.",
 		shareButton: "📱 Raqamni yuborish",
 		yes:         "✅ Kirish",
@@ -57,14 +62,17 @@ var loginCopy = map[lang]loginTexts{
 		failed:      "Bu raqam bilan kirib bo'lmadi. Qo'llab-quvvatlash xizmatiga yozing.",
 		stale:       "Bu so'rov endi amal qilmaydi.",
 		groupOnly:   "Kirish faqat bot bilan shaxsiy chatda tasdiqlanadi.",
+		taken:       "Bu havola boshqa foydalanuvchi tomonidan ochilgan. O'zingiz kirmoqchi bo'lsangiz, saytda «Telegram orqali kirish» ni bosing.",
+		disabled:    "Telegram orqali kirish vaqtincha o'chirilgan. Saytda telefon raqam va parol bilan kiring.",
+		answered:    "Javobingiz qabul qilindi.",
 	},
 	langRu: {
-		header:        "🔐 Вход в Driver Go",
-		unknownDevice: "Неизвестное устройство",
-		askedFmt:      "Запрошен вход: %s.",
-		confirmHint:   "Если это вы — нажмите «✅ Войти». Если вы не запрашивали вход — просто проигнорируйте.",
-		accountFmt:    "Аккаунт: %s",
-		contactHint: "Если это вы — нажмите кнопку «📱 Отправить номер» ниже: номер подтвердит вход. " +
+		header:          "🔐 Вход в Driver Go",
+		unknownDevice:   "Неизвестное устройство",
+		askedFmt:        "Запрошен вход: %s.",
+		askedAccountFmt: "Запрошен вход в аккаунт {phone}: {device}.",
+		confirmHint:     "Если это вы — нажмите «✅ Войти». Если вы не запрашивали вход — нажмите «✖️ Отмена».",
+		contactHint: "Если это вы — нажмите кнопку «📱 Отправить номер» ниже, а затем «✅ Войти». " +
 			"Если вы не запрашивали вход — ничего не отправляйте.",
 		shareButton: "📱 Отправить номер",
 		yes:         "✅ Войти",
@@ -79,16 +87,30 @@ var loginCopy = map[lang]loginTexts{
 		failed:      "Не удалось войти с этим номером. Напишите в поддержку.",
 		stale:       "Этот запрос больше не действует.",
 		groupOnly:   "Вход подтверждается только в личном чате с ботом.",
+		taken:       "Эта ссылка уже открыта другим пользователем. Чтобы войти самому, нажмите «Войти через Telegram» на сайте.",
+		disabled:    "Вход через Telegram временно отключён. Войдите на сайте по номеру телефона и паролю.",
+		answered:    "Ответ принят.",
 	},
 }
 
 func loginTextsFor(code string) loginTexts { return loginCopy[langOf(code)] }
 
-func (t loginTexts) asked(device string) string {
+func (t loginTexts) device(device string) string {
 	if strings.TrimSpace(device) == "" {
-		device = t.unknownDevice
+		return t.unknownDevice
 	}
-	return t.header + "\n" + strings.Replace(t.askedFmt, "%s", device, 1)
+	return device
+}
+
+func (t loginTexts) asked(device string) string {
+	return t.header + "\n" + strings.Replace(t.askedFmt, "%s", t.device(device), 1)
+}
+
+// question is the «✅ Kirish» message, the same for a linked account and
+// after a phone share: which device asks, which account it would open.
+func (t loginTexts) question(device, maskedPhone string) string {
+	line := strings.NewReplacer("{device}", t.device(device), "{phone}", maskedPhone).Replace(t.askedAccountFmt)
+	return t.header + "\n" + line + "\n\n" + t.confirmHint
 }
 
 func (t loginTexts) shareKeyboard() ReplyKeyboardMarkup {
@@ -100,7 +122,9 @@ func (t loginTexts) shareKeyboard() ReplyKeyboardMarkup {
 }
 
 func telegramLoginUser(u *User) auth.TelegramLoginUser {
-	return auth.TelegramLoginUser{ID: u.ID, Username: u.Username, FirstName: u.FirstName, LanguageCode: u.LanguageCode}
+	return auth.TelegramLoginUser{
+		ID: u.ID, Username: u.Username, FirstName: u.FirstName, LastName: u.LastName, LanguageCode: u.LanguageCode,
+	}
 }
 
 // handleTelegramLoginStart answers /start login_<token>. The private-chat
@@ -120,16 +144,21 @@ func (b *Bot) handleTelegramLoginStart(ctx context.Context, chatID int64, from *
 		_, err := b.TG.SendChatText(ctx, chatID, t.asked(res.Device)+"\n\n"+t.contactHint, t.shareKeyboard())
 		return b.replyErr(err)
 	case auth.TelegramLoginNeedConfirm:
-		text := t.asked(res.Device) + "\n" + strings.Replace(t.accountFmt, "%s", res.MaskedPhone, 1) + "\n\n" + t.confirmHint
-		_, err := b.TG.SendText(ctx, chatID, text, &InlineKeyboardMarkup{
-			InlineKeyboard: [][]InlineKeyboardButton{{
-				{Text: t.yes, CallbackData: cbLoginYes + res.ConfirmNonce},
-				{Text: t.no, CallbackData: cbLoginNo + res.ConfirmNonce},
-			}},
-		})
-		return b.replyErr(err)
+		return b.askTelegramLoginConfirm(ctx, chatID, t, res)
 	}
 	return b.replyErr(b.TG.SendMessage(ctx, chatID, loginOutcomeText(t, res.Outcome)))
+}
+
+// askTelegramLoginConfirm sends the «✅ Kirish» / «✖️ Bekor qilish» question.
+// Only a tap on it approves a login — never a phone share by itself.
+func (b *Bot) askTelegramLoginConfirm(ctx context.Context, chatID int64, t loginTexts, res auth.TelegramLoginBegin) error {
+	_, err := b.TG.SendText(ctx, chatID, t.question(res.Device, res.MaskedPhone), &InlineKeyboardMarkup{
+		InlineKeyboard: [][]InlineKeyboardButton{{
+			{Text: t.yes, CallbackData: cbLoginYes + res.ConfirmNonce},
+			{Text: t.no, CallbackData: cbLoginNo + res.ConfirmNonce},
+		}},
+	})
+	return b.replyErr(err)
 }
 
 func loginOutcomeText(t loginTexts, outcome string) string {
@@ -150,15 +179,20 @@ func loginOutcomeText(t loginTexts, outcome string) string {
 		return t.failed
 	case auth.TelegramLoginStale:
 		return t.stale
+	case auth.TelegramLoginTaken:
+		return t.taken
+	case auth.TelegramLoginDisabled:
+		return t.disabled
 	default:
 		return t.invalid
 	}
 }
 
 // handleTelegramLoginContact offers a shared contact to a waiting login
-// request. handled=false means no login was waiting for this user: the
-// contact belongs to someone else (the password reset, or the Mini App's
-// own phone share) and the caller passes it on.
+// request. handled=false means no login was waiting for a contact from this
+// user: it belongs to someone else (the password reset, or the Mini App's
+// own phone share) and the caller passes it on. The user's own number earns
+// the «✅ Kirish» question and nothing more.
 func (b *Bot) handleTelegramLoginContact(ctx context.Context, chatID int64, from *User, contact *Contact) (handled bool, err error) {
 	if b.Auth == nil || contact == nil {
 		return false, nil
@@ -172,6 +206,8 @@ func (b *Bot) handleTelegramLoginContact(ctx context.Context, chatID int64, from
 	switch res.Outcome {
 	case auth.TelegramLoginNone:
 		return false, nil
+	case auth.TelegramLoginNeedConfirm:
+		return true, b.askTelegramLoginConfirm(ctx, chatID, t, res)
 	case auth.TelegramLoginNotOwnContact, auth.TelegramLoginForeignPhone:
 		// Still waiting: keep the share button up.
 		_, err := b.TG.SendChatText(ctx, chatID, loginOutcomeText(t, res.Outcome), t.shareKeyboard())
@@ -195,27 +231,42 @@ func (b *Bot) handleTelegramLoginCallback(ctx context.Context, cq CallbackQuery)
 	case strings.HasPrefix(cq.Data, cbLoginNo):
 		nonce = strings.TrimPrefix(cq.Data, cbLoginNo)
 	}
-	if b.Auth == nil || nonce == "" || cq.Message == nil || IsGroupChat(cq.Message.Chat.Type) {
+	// Private chat only: a question forwarded or posted anywhere else is dead.
+	if b.Auth == nil || nonce == "" || cq.Message == nil || !IsPrivateChat(cq.Message.Chat.Type) {
 		b.ackResetCallback(ctx, cq.ID, t.stale)
 		return nil
 	}
-	res, err := b.Auth.AnswerTelegramLoginConfirm(ctx, cq.From.ID, nonce, accept)
+	res, err := b.Auth.AnswerTelegramLoginConfirm(ctx, telegramLoginUser(&cq.From), nonce, accept)
 	if err != nil {
 		b.logger().Error("bot: telegram login confirm failed", zap.Error(err), zap.Int64("tg_user_id", cq.From.ID))
 		b.ackResetCallback(ctx, cq.ID, msgLinkInternal)
 		return err
 	}
-	if res.Outcome == auth.TelegramLoginStale {
-		b.ackResetCallback(ctx, cq.ID, t.stale)
+	switch res.Outcome {
+	case auth.TelegramLoginStale, auth.TelegramLoginRateLimited, auth.TelegramLoginDisabled:
+		// Nothing changed; the answer is a toast and the question stays as it is.
+		b.ackResetCallback(ctx, cq.ID, loginOutcomeText(t, res.Outcome))
 		return nil
 	}
 	b.ackResetCallback(ctx, cq.ID, "")
-	text := loginOutcomeText(t, res.Outcome)
-	if err := b.TG.EditMessageText(ctx, cq.Message.Chat.ID, cq.Message.MessageID, text, nil); err != nil {
-		b.logger().Warn("bot: telegram login edit failed", zap.Error(err))
-		if err := b.TG.SendMessage(ctx, cq.Message.Chat.ID, text); err != nil {
-			b.logger().Warn("bot: telegram login send failed", zap.Error(err))
+	chatID, text := cq.Message.Chat.ID, loginOutcomeText(t, res.Outcome)
+	if !res.ViaContact {
+		if err := b.TG.EditMessageText(ctx, chatID, cq.Message.MessageID, text, nil); err != nil {
+			b.logger().Warn("bot: telegram login edit failed", zap.Error(err))
+			if err := b.TG.SendMessage(ctx, chatID, text); err != nil {
+				b.logger().Warn("bot: telegram login send failed", zap.Error(err))
+			}
 		}
+		return nil
+	}
+	// The phone-share step left its one-time reply keyboard up, and an inline
+	// edit cannot carry a ReplyKeyboardRemove: the question is closed in place
+	// and the outcome goes out as a message that takes the keyboard down.
+	if err := b.TG.EditMessageText(ctx, chatID, cq.Message.MessageID, t.answered, nil); err != nil {
+		b.logger().Warn("bot: telegram login edit failed", zap.Error(err))
+	}
+	if _, err := b.TG.SendChatText(ctx, chatID, text, ReplyKeyboardRemove{RemoveKeyboard: true}); err != nil {
+		b.logger().Warn("bot: telegram login send failed", zap.Error(err))
 	}
 	return nil
 }
