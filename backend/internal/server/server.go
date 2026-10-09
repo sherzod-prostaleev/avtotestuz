@@ -193,6 +193,8 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 				Secret:        []byte(cfg.JWTSecret),
 				DataSecret:    dataKey,
 				StationVIP:    stationVIP,
+				// The learner's referral invite becomes the Mini App link.
+				TelegramBotUsername: cfg.TelegramBotUsername,
 			}
 
 			ch := &content.Handler{Q: deps.Queries, MediaBase: cfg.MediaBaseURL}

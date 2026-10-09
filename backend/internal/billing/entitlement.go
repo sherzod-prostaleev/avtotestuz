@@ -46,6 +46,11 @@ type Service struct {
 	// a link to nowhere.
 	PublicBaseURL string
 
+	// TelegramBotUsername (no '@') turns the learner's referral invite into a
+	// t.me/<bot>?startapp=ref_<CODE> link that opens the Mini App with the
+	// code. Empty keeps the website /r/<CODE> link (admin, tx-bound copies).
+	TelegramBotUsername string
+
 	// Secret is the deployment's JWT secret. It is only the FALLBACK data key
 	// now (see DataSecret); nothing in billing signs tokens with it.
 	Secret []byte

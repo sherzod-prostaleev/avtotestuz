@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"strings"
 	"time"
 
@@ -152,7 +153,25 @@ func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, raw
 	return nil
 }
 
+// referralStartParamCode is what Telegram allows in a start parameter
+// (64 bytes of [A-Za-z0-9_-], "ref_" included).
+var referralStartParamCode = regexp.MustCompile(`^[A-Za-z0-9_-]{1,60}$`)
+
+// ReferralInviteURL is the link a learner shares. With the bot configured it
+// opens the Mini App straight from the chat it was shared in, carrying the
+// code as start_param (auth applies it to the new account); otherwise, or
+// for a code Telegram would not carry, the website /r/<CODE> link.
 func (s Service) ReferralInviteURL(code string) string {
+	bot := strings.TrimSpace(s.TelegramBotUsername)
+	if telegramBotUsername.MatchString(bot) && referralStartParamCode.MatchString(code) {
+		return "https://t.me/" + bot + "?startapp=ref_" + code
+	}
+	return s.WebReferralInviteURL(code)
+}
+
+// WebReferralInviteURL is the website invite (/r/<CODE> -> /login?ref=CODE),
+// which keeps working for links shared before the Telegram one.
+func (s Service) WebReferralInviteURL(code string) string {
 	return fmt.Sprintf("%s/r/%s", strings.TrimRight(s.publicBaseURL(), "/"), code)
 }
 
