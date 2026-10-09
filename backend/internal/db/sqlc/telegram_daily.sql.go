@@ -99,9 +99,22 @@ SELECT tg_user_id, first_name, username, language_code, first_seen_at, last_seen
 FROM telegram_bot_user WHERE tg_user_id = $1
 `
 
-func (q *Queries) GetTelegramBotUser(ctx context.Context, tgUserID int64) (TelegramBotUser, error) {
+type GetTelegramBotUserRow struct {
+	TgUserID          int64              `json:"tg_user_id"`
+	FirstName         string             `json:"first_name"`
+	Username          string             `json:"username"`
+	LanguageCode      string             `json:"language_code"`
+	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
+	RemindersEnabled  bool               `json:"reminders_enabled"`
+	BlockedAt         pgtype.Timestamptz `json:"blocked_at"`
+	LastReminderOn    pgtype.Date        `json:"last_reminder_on"`
+	LastSignupPitchOn pgtype.Date        `json:"last_signup_pitch_on"`
+}
+
+func (q *Queries) GetTelegramBotUser(ctx context.Context, tgUserID int64) (GetTelegramBotUserRow, error) {
 	row := q.db.QueryRow(ctx, getTelegramBotUser, tgUserID)
-	var i TelegramBotUser
+	var i GetTelegramBotUserRow
 	err := row.Scan(
 		&i.TgUserID,
 		&i.FirstName,

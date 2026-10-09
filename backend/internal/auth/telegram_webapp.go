@@ -39,8 +39,12 @@ const initDataClockSkew = time.Minute
 type WebAppUser struct {
 	ID           int64
 	FirstName    string
+	LastName     string
 	Username     string
 	LanguageCode string
+	// StartParam is the signed start_param of a t.me/<bot>?startapp=<param>
+	// launch ("" otherwise); ref_<CODE> carries a referral.
+	StartParam string
 	// AllowsWriteToPM: the user allowed the bot to message them (signed,
 	// part of the user object Telegram puts in initData).
 	AllowsWriteToPM bool
@@ -116,6 +120,7 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 	var u struct {
 		ID           int64  `json:"id"`
 		FirstName    string `json:"first_name"`
+		LastName     string `json:"last_name"`
 		Username     string `json:"username"`
 		LanguageCode string `json:"language_code"`
 		AllowsWrite  bool   `json:"allows_write_to_pm"`
@@ -123,8 +128,8 @@ func ValidateInitData(raw, botToken string, now time.Time, maxAge time.Duration)
 	if err := json.Unmarshal([]byte(values.Get("user")), &u); err != nil || u.ID <= 0 {
 		return WebAppUser{}, ErrInitDataInvalid
 	}
-	return WebAppUser{ID: u.ID, FirstName: u.FirstName, Username: u.Username, LanguageCode: u.LanguageCode,
-		AllowsWriteToPM: u.AllowsWrite}, nil
+	return WebAppUser{ID: u.ID, FirstName: u.FirstName, LastName: u.LastName, Username: u.Username,
+		LanguageCode: u.LanguageCode, StartParam: values.Get("start_param"), AllowsWriteToPM: u.AllowsWrite}, nil
 }
 
 // WebAppContact is the phone number a Telegram user shared with the bot

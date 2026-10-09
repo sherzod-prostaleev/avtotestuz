@@ -36,6 +36,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me", h.getMe)
 	r.Get("/me/mobile-promo", h.getMobilePromo)
 	r.Post("/me/password", h.changePassword)
+	r.Post("/me/password/set", h.setFirstPassword)
 	r.Patch("/me", h.patchMe)
 	r.Get("/me/entitlement", h.getEntitlement)
 	r.Get("/me/payments", h.listMyPayments)
@@ -54,7 +55,10 @@ type profileDTO struct {
 	Role               string  `json:"role"`
 	Kind               string  `json:"kind"`
 	MustChangePassword bool    `json:"must_change_password"`
-	CreatedAt          string  `json:"created_at"`
+	// HasPassword is false for an account created through Telegram: the
+	// profile then offers «Parol o'rnatish» (POST /me/password/set).
+	HasPassword bool   `json:"has_password"`
+	CreatedAt   string `json:"created_at"`
 	// AvatarURL: the learner's Telegram photo (phone-verified link only),
 	// omitted when there is none and the UI draws the initial letter.
 	AvatarURL string `json:"avatar_url,omitempty"`
@@ -79,6 +83,7 @@ func toProfileDTO(p sqlc.Profile) profileDTO {
 		Role:               p.Role,
 		Kind:               p.Kind,
 		MustChangePassword: p.MustChangePassword,
+		HasPassword:        p.PasswordHash.Valid && p.PasswordHash.String != "",
 		CreatedAt:          p.CreatedAt.Time.Format(time.RFC3339),
 	}
 }

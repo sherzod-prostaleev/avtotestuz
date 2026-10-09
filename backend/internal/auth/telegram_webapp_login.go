@@ -200,6 +200,18 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		s.logLinkSkipped(profile.ID, errLinkPhoneMismatch)
 		return none
 	}
+	return s.linkVerifiedTelegramInTx(ctx, tx, profile, u.ID, u.Username, &u)
+}
+
+// linkVerifiedTelegramInTx writes a phone-verified link from Telegram user
+// tgUserID to profile inside the caller's transaction. The caller must hold
+// Telegram's own proof that this Telegram user owns profile.Phone (a signed
+// Mini App contact, or a contact the bot received from the user themselves).
+// It is the one place that moves and replaces links, shared by the Mini App
+// sign-in/link paths and the Telegram login (website + Mini App phone share).
+// webAppUser is the signed Mini App user, when there is one (bot audience).
+func (s *Service) linkVerifiedTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.Profile, tgUserID int64, username string, webAppUser *WebAppUser) telegramLinkChange {
+	none := telegramLinkChange{}
 	// A nested tx (SAVEPOINT) keeps a failed link — e.g. a concurrent link of
 	// the same Telegram account hitting the unique constraint — from aborting
 	// the sign-in transaction around it.
@@ -213,20 +225,20 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 
 	// Both re-pointings are the phone's proven owner acting on their own link.
 	movedFrom := uuid.Nil
-	if prev, err := q.GetTelegramAccountByTgUserID(ctx, u.ID); err == nil && prev.ProfileID != profile.ID {
+	if prev, err := q.GetTelegramAccountByTgUserID(ctx, tgUserID); err == nil && prev.ProfileID != profile.ID {
 		s.logger().Info("auth.telegram_link_moved",
 			zap.String("from_profile_id", prev.ProfileID.String()),
 			zap.String("to_profile_id", profile.ID.String()))
 		movedFrom = prev.ProfileID
 	}
-	if prev, err := q.GetTelegramAccountByProfileID(ctx, profile.ID); err == nil && prev.TgUserID != u.ID {
+	if prev, err := q.GetTelegramAccountByProfileID(ctx, profile.ID); err == nil && prev.TgUserID != tgUserID {
 		s.logger().Info("auth.telegram_link_replaced", zap.String("profile_id", profile.ID.String()))
 	}
-	if err := q.DeleteTelegramAccountForOtherProfiles(ctx, sqlc.DeleteTelegramAccountForOtherProfilesParams{TgUserID: u.ID, ProfileID: profile.ID}); err != nil {
+	if err := q.DeleteTelegramAccountForOtherProfiles(ctx, sqlc.DeleteTelegramAccountForOtherProfilesParams{TgUserID: tgUserID, ProfileID: profile.ID}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return none
 	}
-	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: u.ID, Username: u.Username, PhoneVerified: true}); err != nil {
+	if err := q.UpsertTelegramAccount(ctx, sqlc.UpsertTelegramAccountParams{ProfileID: profile.ID, TgUserID: tgUserID, Username: username, PhoneVerified: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return none
 	}
@@ -238,7 +250,13 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 	// What actually keeps a stray contact from completing a reset is that a
 	// contact never verifies on its own — see
 	// AnswerTelegramPasswordResetConfirm.
-	if err := q.ClearAllPasswordResetPendingForTg(ctx, pgtype.Int8{Int64: u.ID, Valid: true}); err != nil {
+	if err := q.ClearAllPasswordResetPendingForTg(ctx, pgtype.Int8{Int64: tgUserID, Valid: true}); err != nil {
+		s.logLinkSkipped(profile.ID, err)
+		return none
+	}
+	// Same for a website Telegram login opened in the bot: a phone share
+	// that already served the Mini App is not consent to that login.
+	if err := q.ClearAllTelegramLoginPendingForTg(ctx, pgtype.Int8{Int64: tgUserID, Valid: true}); err != nil {
 		s.logLinkSkipped(profile.ID, err)
 		return none
 	}
@@ -246,7 +264,7 @@ func (s *Service) linkTelegramInTx(ctx context.Context, tx pgx.Tx, profile sqlc.
 		s.logLinkSkipped(profile.ID, err)
 		return none
 	}
-	return telegramLinkChange{linked: true, profileID: profile.ID, movedFrom: movedFrom, webAppUser: &u}
+	return telegramLinkChange{linked: true, profileID: profile.ID, movedFrom: movedFrom, webAppUser: webAppUser}
 }
 
 // joinBotAudience adds a Mini App user to the daily reminder's audience

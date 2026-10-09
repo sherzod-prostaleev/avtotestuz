@@ -862,16 +862,18 @@ type TelegramAccount struct {
 }
 
 type TelegramBotUser struct {
-	TgUserID          int64              `json:"tg_user_id"`
-	FirstName         string             `json:"first_name"`
-	Username          string             `json:"username"`
-	LanguageCode      string             `json:"language_code"`
-	FirstSeenAt       pgtype.Timestamptz `json:"first_seen_at"`
-	LastSeenAt        pgtype.Timestamptz `json:"last_seen_at"`
-	RemindersEnabled  bool               `json:"reminders_enabled"`
-	BlockedAt         pgtype.Timestamptz `json:"blocked_at"`
-	LastReminderOn    pgtype.Date        `json:"last_reminder_on"`
-	LastSignupPitchOn pgtype.Date        `json:"last_signup_pitch_on"`
+	TgUserID            int64              `json:"tg_user_id"`
+	FirstName           string             `json:"first_name"`
+	Username            string             `json:"username"`
+	LanguageCode        string             `json:"language_code"`
+	FirstSeenAt         pgtype.Timestamptz `json:"first_seen_at"`
+	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
+	RemindersEnabled    bool               `json:"reminders_enabled"`
+	BlockedAt           pgtype.Timestamptz `json:"blocked_at"`
+	LastReminderOn      pgtype.Date        `json:"last_reminder_on"`
+	LastSignupPitchOn   pgtype.Date        `json:"last_signup_pitch_on"`
+	PendingReferralCode pgtype.Text        `json:"pending_referral_code"`
+	PendingReferralAt   pgtype.Timestamptz `json:"pending_referral_at"`
 }
 
 type TelegramChat struct {
@@ -895,6 +897,22 @@ type TelegramLinkToken struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	UsedAt    pgtype.Timestamptz `json:"used_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type TelegramLoginRequest struct {
+	ID                uuid.UUID          `json:"id"`
+	TokenHash         string             `json:"token_hash"`
+	BrowserSecretHash string             `json:"browser_secret_hash"`
+	Device            string             `json:"device"`
+	Status            string             `json:"status"`
+	PendingTgUserID   pgtype.Int8        `json:"pending_tg_user_id"`
+	ConfirmNonceHash  pgtype.Text        `json:"confirm_nonce_hash"`
+	ProfileID         uuid.NullUUID      `json:"profile_id"`
+	ApprovedTgUserID  pgtype.Int8        `json:"approved_tg_user_id"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	ApprovedAt        pgtype.Timestamptz `json:"approved_at"`
+	ConsumedAt        pgtype.Timestamptz `json:"consumed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 }
 
 type TelegramQuizParticipant struct {

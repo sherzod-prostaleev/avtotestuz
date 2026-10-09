@@ -18,7 +18,7 @@ func dmUpdate(text string, from User) Update {
 	}}
 }
 
-func botUser(t *testing.T, q *sqlc.Queries, id int64) (sqlc.TelegramBotUser, bool) {
+func botUser(t *testing.T, q *sqlc.Queries, id int64) (sqlc.GetTelegramBotUserRow, bool) {
 	t.Helper()
 	u, err := q.GetTelegramBotUser(context.Background(), id)
 	if errors.Is(err, pgx.ErrNoRows) {
