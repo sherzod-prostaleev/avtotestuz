@@ -279,7 +279,17 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 					auth.RequirePasswordChanged(deps.Queries),
 				)
 
-				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling}
+				acc := &account.Handler{Q: deps.Queries, Billing: learnerBilling, Lim: auth.Limiter{R: deps.Redis}}
+				if cfg.TelegramBotToken != "" {
+					// Whatever runs the bot's updates (webhook here, or the
+					// long-poll worker), the API can always send: a first
+					// password is announced in the learner's Telegram chat.
+					acc.PasswordNotices = &bot.PasswordNotifier{
+						Q:   deps.Queries,
+						TG:  bot.NewClient(cfg.TelegramBotAPIBaseURL, cfg.TelegramBotToken, nil),
+						Log: log,
+					}
+				}
 				if avatars != nil {
 					acc.Avatars = avatars
 				}

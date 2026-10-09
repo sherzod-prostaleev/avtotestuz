@@ -24,6 +24,17 @@ type Handler struct {
 	Billing billing.Service
 	// Avatars resolves the learner's photo; nil = avatars off (no photo).
 	Avatars AvatarURLs
+	// Lim bounds POST /me/password/set per profile.
+	Lim auth.Limiter
+	// PasswordNotices tells the learner, outside the website, that their
+	// account just got its first password; nil = nobody to tell (no bot).
+	PasswordNotices PasswordNotifier
+}
+
+// PasswordNotifier is the bot as setFirstPassword sees it.
+type PasswordNotifier interface {
+	// FirstPasswordSet is best-effort and never fails the caller.
+	FirstPasswordSet(ctx context.Context, profileID uuid.UUID)
 }
 
 // AvatarURLs is avatar.Service as GET/PATCH /me see it.

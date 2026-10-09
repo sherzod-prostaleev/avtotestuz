@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,27 @@ import (
 	"avtotest.uz/backend/internal/testdb"
 )
 
+// passwordNotices records account.PasswordNotifier calls.
+type passwordNotices struct {
+	mu  sync.Mutex
+	ids []uuid.UUID
+}
+
+func (n *passwordNotices) FirstPasswordSet(_ context.Context, profileID uuid.UUID) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.ids = append(n.ids, profileID)
+}
+
+func (n *passwordNotices) all() []uuid.UUID {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	return append([]uuid.UUID(nil), n.ids...)
+}
+
+// lastPasswordNotices is the recorder of the most recent setupPasswordServer.
+var lastPasswordNotices *passwordNotices
+
 func setupPasswordServer(t *testing.T) (*httptest.Server, *auth.Service, *sqlc.Queries, *pgxpool.Pool) {
 	t.Helper()
 	pool := testdb.New(t)
@@ -33,7 +55,11 @@ func setupPasswordServer(t *testing.T) (*httptest.Server, *auth.Service, *sqlc.Q
 	svc := auth.NewService(q, pool, auth.Limiter{R: c}, auth.SandboxSender{Log: zap.NewNop()}, []byte(testSecret), "test")
 
 	r := chi.NewRouter()
-	h := &account.Handler{Q: q, Billing: billing.Service{Q: q, Pool: pool}}
+	lastPasswordNotices = &passwordNotices{}
+	h := &account.Handler{
+		Q: q, Billing: billing.Service{Q: q, Pool: pool},
+		Lim: auth.Limiter{R: c}, PasswordNotices: lastPasswordNotices,
+	}
 	authed := r.With(
 		auth.Required([]byte(testSecret)),
 		auth.RejectBanned(q),
