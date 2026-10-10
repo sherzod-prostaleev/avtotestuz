@@ -2,9 +2,9 @@
 """Verify committed content seeds match the live product counts.
 
 Canonical numbers (1260-question export + 17 hand-added questions, 42 topics):
-  - questions: 1277
+  - questions: 1279
   - variants: 64 (bilet 64 is still filling)
-  - explanations: 1232
+  - explanations: 1234
   - sign groups: 7
   - signs: 285
 
@@ -24,9 +24,9 @@ SIGNS = ROOT / "backend" / "seed" / "signs" / "data.json"
 QUESTION_SIGNS = ROOT / "backend" / "seed" / "avtoimtihon" / "question_signs.json"
 
 EXPECT = {
-    "questions": 1277,
+    "questions": 1279,
     "variants": 64,
-    "explanations": 1232,  # 1215 original + 17 hand-added; the 4 orphans are gone
+    "explanations": 1234,  # 1215 original + 19 hand-added; the 4 orphans are gone
     "sign_groups": 7,
     "signs": 285,
     "categories": 42,

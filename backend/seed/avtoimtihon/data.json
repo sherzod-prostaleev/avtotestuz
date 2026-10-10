@@ -51603,7 +51603,7 @@
    "answers": [
     {
      "position": 1,
-     "correct": false,
+     "correct": true,
      "texts": {
       "ru": "Только прямо",
       "uz-Cyrl": "Фақат тўғрига",
@@ -51630,7 +51630,7 @@
     },
     {
      "position": 4,
-     "correct": true,
+     "correct": false,
      "texts": {
       "ru": "Во всех направлениях, кроме поворота направо и разворота",
       "uz-Cyrl": "Барча йўналишларга ўнгга бурилиш ва қайрилишдан ташқари",
@@ -53936,6 +53936,84 @@
     }
    ],
    "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1282",
+   "category": "traffic_controller",
+   "texts": {
+    "ru": "Сколько основных сигналов имеет регулировщик?",
+    "uz-Cyrl": "Тартибга солувчининг нечта ишораси мавжуд?",
+    "uz-Latn": "Tartibga soluvchining nechta ishorasi mavjud?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "2",
+      "uz-Cyrl": "2 та",
+      "uz-Latn": "2 ta"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "3",
+      "uz-Cyrl": "3 та",
+      "uz-Latn": "3 ta"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "4",
+      "uz-Cyrl": "4 та",
+      "uz-Latn": "4 ta"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1283",
+   "category": "signs_warning",
+   "texts": {
+    "ru": "На каком расстоянии до начала опасного участка устанавливаются предупреждающие знаки вне населенных пунктов?",
+    "uz-Cyrl": "Аҳоли яшаш жойларидан ташқари жойларда хавфли йўл қисми бошлангунга қадар қанча масофа оралиғида огоҳлантириш белгилари ўрнатилади?",
+    "uz-Latn": "Aholi yashash joylaridan tashqari joylarda xavfli yo'l qismi boshlangunga qadar qancha masofa oralig'ida ogohlantirish belgilari o'rnatiladi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "50-100 м",
+      "uz-Cyrl": "50-100 м",
+      "uz-Latn": "50-100 m"
+     }
+    },
+    {
+     "position": 2,
+     "correct": true,
+     "texts": {
+      "ru": "150-300 м",
+      "uz-Cyrl": "150-300 м",
+      "uz-Latn": "150-300 m"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "400-500 м",
+      "uz-Cyrl": "400-500 м",
+      "uz-Latn": "400-500 m"
+     }
+    }
+   ],
+   "source": "ptest"
   }
  ],
  "variants": [
@@ -55533,7 +55611,9 @@
     "avtoimtihon-1278",
     "avtoimtihon-1279",
     "avtoimtihon-1280",
-    "avtoimtihon-1281"
+    "avtoimtihon-1281",
+    "avtoimtihon-1282",
+    "avtoimtihon-1283"
    ]
   }
  ],
@@ -92420,6 +92500,76 @@
      {
       "type": "muhim",
       "text": "YHQ 16-bobi 105-bandi: Teng ahamiyatga ega boʻlgan yoʻllar kesishgan chorrahada relssiz transport vositasining haydovchisi oʻngdan yaqinlashayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nYHQ 16-bobi 107-bandi: Chapga burilishda yoki qayrilib olishda relssiz transport vositasining haydovchisi teng ahamiyatli yoʻldan qarama-qarshi yoʻnalishdan toʻgʻriga yoki oʻngga harakatlanayotgan transport vositalariga yoʻl berishi shart. Bu qoidaga tramvay haydovchilari ham oʻzaro amal qilishlari kerak.\nChapga burilayotgan yengil avtomobil oʻng tomondan yaqinlashayotgan yuk avtomobiliga (105-band) va qarama-qarshi yoʻnalishdan kelayotgan avtobusga (107-band) yoʻl berishi kerak, shuning uchun u oxirgi boʻlib harakatlanadi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1282",
+   "legal_refs": [
+    {
+     "code": "YHQ 7-bob 38-band",
+     "title": "YHQ 7-bobi 38-bandi"
+    },
+    {
+     "code": "YHQ 7-bob 40-band",
+     "title": "YHQ 7-bobi 40-bandi"
+    },
+    {
+     "code": "ПДД гл.7 п.38",
+     "title": "Пункт 38 главы 7 ПДД"
+    },
+    {
+     "code": "ПДД гл.7 п.40",
+     "title": "Пункт 40 главы 7 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 38 главы 7 ПДД гласит: Сигналы регулировщика имеют следующие значения:\nРуки вытянуты в стороны или опущены:\nсо стороны левого и правого бока — разрешено движение трамваю прямо, безрельсовым транспортным средствам — прямо и направо, пешеходам разрешено переходить проезжую часть;\nсо стороны груди и спины — движение всех транспортных средств и пешеходов запрещено.\nПравая рука вытянута вперед:\nсо стороны левого бока — разрешено движение трамваю налево, безрельсовым транспортным средствам — во всех направлениях;\nсо стороны груди — всем транспортным средствам разрешено движение только направо;\nсо стороны правого бока и спины — движение всех транспортных средств запрещено;\nпешеходам разрешено переходить проезжую часть за спиной регулировщика.\nРука поднята вверх:\nдвижение всех транспортных средств и пешеходов запрещено во всех направлениях, кроме случаев, предусмотренных пунктом 42 настоящих Правил.\nРегулировщик может подавать и другие сигналы, понятные водителям и пешеходам. Для лучшей видимости сигналов регулировщик может применять жезл или диск с красным сигналом световозвращателем. Регулировщик также может осуществлять свою деятельность стоя на специальном устройстве (тумбе).\nПункт 40 главы 7 ПДД гласит: Для привлечения внимания участников движения может подаваться дополнительный сигнал при помощи свистка.\nПункт 38 устанавливает три сигнала регулировщика: руки вытянуты в стороны или опущены; правая рука вытянута вперед; рука поднята вверх. Поэтому правильный ответ — 3. Свисток по пункту 40 — дополнительный сигнал для привлечения внимания, в это число он не входит."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 7-боби 38-банди: Тартибга солувчининг ишоралари қуйидаги маънони билдиради:\nҚўллари ён томонга узатилганда ёки туширилганда:\nчап ва ўнг ён томонидан трамвайга тўғрига, рельссиз транспорт воситаларига тўғрига ва ўнгга ҳаракатланишга, пиёдаларга қатнов қисмини кесиб ўтишга рухсат берилади;\nолд ва орқа томонидан барча транспорт воситалари ва пиёдаларнинг ҳаракатланиши тақиқланади.\nЎнг қўли олдинга узатилганда:\nчап ёнидан трамвайга чапга, рельссиз транспорт воситаларига барча йўналишларда;\nолди томонидан барча транспорт воситаларига фақат ўнгга ҳаракатланишга рухсат берилади;\nорқа томонидан ва ўнг ёнидан барча транспорт воситаларининг ҳаракатланиши тақиқланади;\nпиёдаларга тартибга солувчининг орқа томонида қатнов қисмини кесиб ўтишга рухсат этилади.\nҚўлини юқорига кўтарганда:\nушбу Қоидаларнинг 42-бандида кўрсатилганидан бошқа ҳолларда транспорт воситалари ва пиёдаларнинг барча йўналишларда ҳаракатланиши тақиқланади;\nтартибга солувчи ҳайдовчи ва пиёдаларга тушунарли бўлган бошқа ишораларни ҳам бериши мумкин. Ишоралар яхши кўриниши учун тартибга солувчи жезл ёки ёруғлик қайтарадиган қизил рангли мосламаларни қўллаши мумкин. Шунингдек, тартибга солувчи ўз фаолиятини махсус мослама (тумба) устида туриб олиб бориши мумкин.\nЙҲҚ 7-боби 40-банди: Йўл ҳаракати иштирокчиларининг эътиборини жалб этиш учун ҳуштак билан қўшимча ишора берилади.\n38-бандда тартибга солувчининг учта ишораси белгиланган: қўллари ён томонга узатилган ёки туширилган; ўнг қўли олдинга узатилган; қўли юқорига кўтарилган. Шунинг учун тўғри жавоб — 3 та. 40-банддаги ҳуштак эътиборни жалб этиш учун бериладиган қўшимча ишора бўлиб, бу саноққа кирмайди."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 7-bobi 38-bandi: Tartibga soluvchining ishoralari quyidagi maʼnoni bildiradi:\nQoʻllari yon tomonga uzatilganda yoki tushirilganda:\nchap va oʻng yon tomonidan tramvayga toʻgʻriga, relssiz transport vositalariga toʻgʻriga va oʻngga harakatlanishga, piyodalarga qatnov qismini kesib oʻtishga ruxsat beriladi;\nold va orqa tomonidan barcha transport vositalari va piyodalarning harakatlanishi taqiqlanadi.\nOʻng qoʻli oldinga uzatilganda:\nchap yonidan tramvayga chapga, relssiz transport vositalariga barcha yoʻnalishlarda;\noldi tomonidan barcha transport vositalariga faqat oʻngga harakatlanishga ruxsat beriladi;\norqa tomonidan va oʻng yonidan barcha transport vositalarining harakatlanishi taqiqlanadi;\npiyodalarga tartibga soluvchining orqa tomonida qatnov qismini kesib oʻtishga ruxsat etiladi.\nQoʻlini yuqoriga koʻtarganda:\nushbu Qoidalarning 42-bandida koʻrsatilganidan boshqa hollarda transport vositalari va piyodalarning barcha yoʻnalishlarda harakatlanishi taqiqlanadi;\ntartibga soluvchi haydovchi va piyodalarga tushunarli boʻlgan boshqa ishoralarni ham berishi mumkin. Ishoralar yaxshi koʻrinishi uchun tartibga soluvchi jezl yoki yorugʻlik qaytaradigan qizil rangli moslamalarni qoʻllashi mumkin. Shuningdek, tartibga soluvchi oʻz faoliyatini maxsus moslama (tumba) ustida turib olib borishi mumkin.\nYHQ 7-bobi 40-bandi: Yoʻl harakati ishtirokchilarining eʼtiborini jalb etish uchun hushtak bilan qoʻshimcha ishora beriladi.\n38-bandda tartibga soluvchining uchta ishorasi belgilangan: qoʻllari yon tomonga uzatilgan yoki tushirilgan; oʻng qoʻli oldinga uzatilgan; qoʻli yuqoriga koʻtarilgan. Shuning uchun toʻgʻri javob — 3 ta. 40-banddagi hushtak eʼtiborni jalb etish uchun beriladigan qoʻshimcha ishora boʻlib, bu sanoqqa kirmaydi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1283",
+   "legal_refs": [
+    {
+     "code": "ПДД Прил.№1",
+     "title": "Приложение № 1 к ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 1 к ПДД (дорожные знаки), раздел 1 «Предупреждающие знаки»: Предупреждающие знаки 1.1, 1.2, 1.5 — 1.32 устанавливаются в населенных пунктах на расстоянии 50 — 100 м, а вне населенных пунктов — на расстоянии 150 — 300 м до начала опасного участка. При необходимости знаки могут устанавливаться и на ином расстоянии, которое в этом случае указывается на знаке дополнительной информации 7.1.1.\nВ вопросе речь идет о дороге вне населенных пунктов, поэтому правильный ответ — 150 — 300 м. Расстояние 50 — 100 м установлено для населенных пунктов."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 1-иловаси (йўл белгилари), 1-бўлим «Огоҳлантирувчи белгилар»: 1.1, 1.2, 1.5 — 1.32 огоҳлантирувчи белгилари аҳоли пунктларида хавфли жойдан 50 — 100 метр, аҳоли пунктларидан ташқарида эса 150 — 300 метр олдин ўрнатилади. Зарурият бўлганда, бу белгилар 7.1.1 қўшимча ахборот белгисида кўрсатилган бошқа масофада ҳам ўрнатилиши мумкин.\nСаволда аҳоли пунктларидан ташқаридаги йўл сўралган, шунинг учун тўғри жавоб — 150 — 300 метр. 50 — 100 метр эса аҳоли пунктлари учун белгиланган масофа."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 1-ilovasi (yoʻl belgilari), 1-boʻlim “Ogohlantiruvchi belgilar”: 1.1, 1.2, 1.5 — 1.32 ogohlantiruvchi belgilari aholi punktlarida xavfli joydan 50 — 100 metr, aholi punktlaridan tashqarida esa 150 — 300 metr oldin oʻrnatiladi. Zaruriyat boʻlganda, bu belgilar 7.1.1 qoʻshimcha axborot belgisida koʻrsatilgan boshqa masofada ham oʻrnatilishi mumkin.\nSavolda aholi punktlaridan tashqaridagi yoʻl soʻralgan, shuning uchun toʻgʻri javob — 150 — 300 metr. 50 — 100 metr esa aholi punktlari uchun belgilangan masofa."
      }
     ]
    }

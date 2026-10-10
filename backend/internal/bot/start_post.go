@@ -55,7 +55,7 @@ const defaultSiteURL = "https://drivergo.uz"
 const startNameMaxRunes = 40
 
 // The catalog numbers below are the live prod catalog when this copy was
-// written (GET /api/v1/variants: 64 tickets, 1277 questions; 285 signs) and
+// written (GET /api/v1/variants: 64 tickets, 1279 questions; 285 signs) and
 // the official exam rule (20 questions, 25 minutes). "1270+" stays true as
 // questions are added; the ticket count needs a touch when a ticket is.
 const (
