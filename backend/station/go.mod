@@ -8,7 +8,7 @@ module avtotest.uz/station
 go 1.20
 
 require (
-	github.com/tc-hib/winres v0.2.1
+	github.com/tc-hib/winres v0.3.1
 	golang.org/x/sys v0.30.0
 )
 
