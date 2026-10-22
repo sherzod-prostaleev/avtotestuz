@@ -156,3 +156,37 @@ GO-2026-6611
 GO-2026-6612
 GO-2026-6613
 GO-2026-6617
+# Reviewed 2026-10-22 (advisory review, no agent release; shipped agent
+# unchanged). One standard-library ID published 2026-10-21, fixed only in
+# Go 1.26.10 / 1.27.3, i.e. outside the Go 1.20 family that Windows 7
+# requires. Unlike the 2026-10-09 batch, none of which could be driven from
+# off the PC, this one sits on the check every outbound connection relies on.
+#   GO-2026-6809  crypto/x509 Certificate.Verify (CVE-2026-111943). The fix
+#                 (go.dev/cl/851047) drops any chain containing one of eight
+#                 SPKI SHA-256 hashes, on the Windows platform verifier too:
+#                 eMudhra's EM DV / OV / EV TLS CA - G3B and - G3C and
+#                 EM OV CS CA - G3B / - G3C (crt.sh, 2026-10-22). All eight
+#                 are cross-signed by Sectigo's "AAA Certificate Services",
+#                 which Microsoft's root programme includes for Server
+#                 Authentication (CCADB, 2026-10-22). netclient sets no
+#                 RootCAs, so Go 1.20 hands every chain to the Windows chain
+#                 engine (systemVerify), where only Windows' own Disallowed
+#                 list would reject these; whether Microsoft lists them, and
+#                 whether a given Win7 PC still fetches that list, is outside
+#                 our control. Everything rides netclient: the kiosk proxy
+#                 (pages and API calls, station token attached), enrolment
+#                 and token refresh, diagnostics,
+#                 and the updater, which takes both the manifest SHA-256 and
+#                 the binary over that same TLS (README, "integrity story"),
+#                 so origin authentication is the only control on the next
+#                 agent binary. Exploitation needs a certificate for
+#                 drivergo.uz issued under one of these intermediates AND an
+#                 on-path position between the classroom PC and Cloudflare.
+#                 drivergo.uz chains WE1 -> GTS Root R4 -> GlobalSign Root
+#                 CA, none of the eight (checked 2026-10-22).
+#                 Follow-up, next agent release: apply the same eight-hash
+#                 filter in netclient through tls.Config.VerifyConnection
+#                 (Go 1.15+, so it builds on 1.20). That closes the exposure
+#                 on every PC whatever its Windows update state; the scanner
+#                 keeps reporting the ID because it keys on the Go version.
+GO-2026-6809

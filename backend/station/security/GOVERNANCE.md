@@ -9,7 +9,7 @@ does not represent a long-term security claim.
 Every ID in `win7-govuln-allowlist.txt` is covered by this record:
 
 - **Owner:** Sherzod, station maintainer
-- **Last review:** 2026-10-09 (advisory review; previous release review 2026-08-22, agent 1.1.0)
+- **Last review:** 2026-10-22 (advisory review; previous advisory review 2026-10-09; release review 2026-08-22, agent 1.1.0)
 - **Next review:** 2026-11-22, and before every station release
 - **Evidence:** the CI `station-vulnerability-scan` job retains the exact
   Windows/386 binary build metadata and `govulncheck -mode=binary` report.
@@ -84,6 +84,45 @@ The accepted follow-up is to answer `405` to `CONNECT` in `internal/proxy` in
 the next agent release; it is a behaviour change to the shipped binary, so it
 takes a `VERSION` bump and the release evidence below rather than riding along
 with an allowlist edit.
+
+## What the 2026-10-22 review added
+
+One standard-library ID, `GO-2026-6809` (CVE-2026-111943), was published on
+2026-10-21 and is fixed only in Go 1.26.10 / 1.27.3, so it falls under the
+first exception class above. No agent code changed and no agent was released.
+
+Unlike the 2026-10-09 batch, none of which could be driven from off the PC,
+this one sits on the check every outbound connection relies on. Go 1.26.10
+drops any chain through eight eMudhra intermediates (EM DV / OV / EV TLS CA -
+G3B and - G3C, EM OV CS CA - G3B and - G3C), all cross-signed by Sectigo's
+"AAA Certificate Services", which Microsoft's root programme includes for
+Server Authentication. The agent sets no `RootCAs`, so Go 1.20 hands every
+chain to the Windows chain engine, and there only Windows' own Disallowed list
+would reject these intermediates. Whether Microsoft lists them, and whether a
+given Windows 7 PC still fetches that list, is outside our control. Every
+outbound connection depends on that check:
+the kiosk proxy, enrolment and token refresh, diagnostics and the updater. The
+updater matters most. As the station README says, its integrity is a SHA-256
+over TLS: the manifest and the binary come from the same origin, so TLS
+origin authentication is the only control on the code a classroom PC runs
+next.
+
+Exploiting it needs two things at once: a certificate for `drivergo.uz` issued
+under one of these intermediates, and an on-path position between the
+classroom PC and Cloudflare. `drivergo.uz` itself chains through Google Trust
+Services (WE1 → GTS Root R4 → GlobalSign Root CA), not through any of the
+eight.
+
+The accepted follow-up, in the next agent release, is to apply the same
+eight-hash filter in `netclient` through `tls.Config.VerifyConnection`, which
+Go 1.20 supports. That removes the exposure on every PC whatever its Windows
+update state. The scanner will still report the ID, because it keys on the
+toolchain version, so the allowlist entry stays until the exit condition above
+is met. Like the `CONNECT` fix, the filter changes the shipped binary, so it
+takes a `VERSION` bump and the release evidence below. Signing releases with a
+key held offline, already named as the updater's next step, would take the Web
+PKI out of its trust path entirely, provided the agent checks that signature
+against a key it carries itself.
 
 This is an accepted exception, not a remediation. The exit condition is
 unchanged: retire Windows 7 (or ship a separately supported Win7 client) and
