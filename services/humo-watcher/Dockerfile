@@ -1,4 +1,4 @@
-FROM python:3.12-alpine@sha256:6d43704baacd1bfbe7c295d7f13079d5d8104ed33568873133f8fc69980419df
+FROM python:3.15-alpine@sha256:d44b1254cb92329418d164b22b20d86bbd3869d48e80e09e476531a409a728bb
 ARG VCS_REF=unknown
 LABEL org.opencontainers.image.source="https://github.com/sherzod-prostaleev/avtotestuz" \
       org.opencontainers.image.revision="$VCS_REF"
