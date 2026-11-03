@@ -42,17 +42,30 @@ if (!Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 
-// @tanstack/react-virtual measures its scroll container via offsetHeight, which
-// jsdom always reports as 0 (it has no layout engine). Without a nonzero size the
-// virtualizer's range calculation short-circuits to `null` and renders zero rows,
-// which has nothing to do with component correctness — it's purely a test-env gap.
-// Stub a generous constant so virtualized lists actually mount their rows under test.
+// @tanstack/react-virtual sizes its scroll container through @tanstack/virtual-core, and
+// jsdom (no layout engine) reports every element size as 0. Without a nonzero size the
+// virtualizer's range calculation short-circuits to `null` and renders zero rows, which
+// has nothing to do with component correctness — it's purely a test-env gap.
+// The property read depends on the virtual-core version: 3.17.6 (react-virtual 3.14.8,
+// what package-lock.json resolves today) reads offsetHeight/offsetWidth, while 3.19.7
+// (react-virtual 3.14.22) reads clientHeight/clientWidth. Both pairs are stubbed so an
+// upgrade cannot silently empty every virtualized table under test. A test that needs a
+// specific size still sets it on the element itself: an own property shadows these
+// prototype getters (see use-fit-scale.test.ts).
 if (!Object.getOwnPropertyDescriptor(HTMLElement.prototype, "__mockedOffsetSize")) {
   Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
     configurable: true,
     get: () => 600,
   });
   Object.defineProperty(HTMLElement.prototype, "offsetWidth", {
+    configurable: true,
+    get: () => 800,
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientHeight", {
+    configurable: true,
+    get: () => 600,
+  });
+  Object.defineProperty(HTMLElement.prototype, "clientWidth", {
     configurable: true,
     get: () => 800,
   });
