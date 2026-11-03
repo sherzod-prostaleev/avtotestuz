@@ -8074,8 +8074,8 @@
      "correct": false,
      "texts": {
       "ru": "В тоннелях",
-      "uz-Cyrl": "Тонелларда",
-      "uz-Latn": "Tonellarda"
+      "uz-Cyrl": "Туннелларда",
+      "uz-Latn": "Tunnellarda"
      }
     },
     {
@@ -9385,7 +9385,7 @@
      "correct": false,
      "texts": {
       "ru": "При движении в колонне в темное время суток",
-      "uz-Cyrl": "Куннинг қоронғи вактида сафда ҳаракатланишда",
+      "uz-Cyrl": "Куннинг қоронғи вақтида сафда ҳаракатланишда",
       "uz-Latn": "Kunning qorong'i vaqtida safda harakatlanishda"
      }
     },
@@ -9394,8 +9394,8 @@
      "correct": false,
      "texts": {
       "ru": "При движении в тоннелях",
-      "uz-Cyrl": "Тонелларда ҳаракатланишда",
-      "uz-Latn": "Tonellarda harakatlanishda"
+      "uz-Cyrl": "Туннелларда ҳаракатланишда",
+      "uz-Latn": "Tunnellarda harakatlanishda"
      }
     },
     {
@@ -23842,7 +23842,7 @@
      "position": 1,
      "correct": false,
      "texts": {
-      "ru": "Не работают предусмотренные конструкцией транспортных средств стеклоочистители",
+      "ru": "Не работают предусмотренные конструкцией транспортного средства стеклоомыватели",
       "uz-Cyrl": "Транспорт воситаларининг тузилишида кўзда тутилган ойна ювгичлари ишламаса",
       "uz-Latn": "Transport vositalarining tuzilishida ko'zda tutilgan oyna yuvgichlari ishlamasa"
      }
@@ -23852,7 +23852,7 @@
      "correct": false,
      "texts": {
       "ru": "Не работают в установленном режиме или загрязнены внешние световые приборы и светоотражатели",
-      "uz-Cyrl": "Ташқи ёритиш асбоблари ва нур қайтаргичлар белгиланган тартибда ишламаса ëки ифлосланган",
+      "uz-Cyrl": "Ташқи ёритиш асбоблари ва нур қайтаргичлар белгиланган тартибда ишламаса ёки ифлосланган",
       "uz-Latn": "Tashqi yoritish asboblari va nur qaytargichlar belgilangan tartibda ishlamasa yoki ifloslangan"
      }
     },
@@ -54014,6 +54014,135 @@
     }
    ],
    "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1284",
+   "category": "starting_manoeuvring",
+   "image": "images/i1284_1.webp",
+   "texts": {
+    "ru": "Разрешён ли разворот?",
+    "uz-Cyrl": "Қайрилиб олишга рухсат этиладими?",
+    "uz-Latn": "Qayrilib olishga ruxsat etiladimi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "Разрешён",
+      "uz-Cyrl": "Рухсат этилади",
+      "uz-Latn": "Ruxsat etiladi"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Запрещён",
+      "uz-Cyrl": "Тақиқланади",
+      "uz-Latn": "Taqiqlanadi"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1285",
+   "category": "stopping_and_parking",
+   "image": "images/i1285_1.webp",
+   "texts": {
+    "ru": "Какие автомобили нарушили правила стоянки в населённом пункте?",
+    "uz-Cyrl": "Аҳоли пунктида қайси автомобиллар тўхтаб туриш қоидасини бузган?",
+    "uz-Latn": "Aholi punktida qaysi avtomobillar to'xtab turish qoidasini buzgan?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": false,
+     "texts": {
+      "ru": "Красный автомобиль",
+      "uz-Cyrl": "Қизил автомобиль",
+      "uz-Latn": "Qizil avtomobil"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "Синий автомобиль",
+      "uz-Cyrl": "Кўк автомобиль",
+      "uz-Latn": "Ko'k avtomobil"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "Все автомобили нарушили правила стоянки",
+      "uz-Cyrl": "Барча автомобиллар тўхтаб туриш қоидасини бузган",
+      "uz-Latn": "Barcha avtomobillar to'xtab turish qoidasini buzgan"
+     }
+    },
+    {
+     "position": 4,
+     "correct": true,
+     "texts": {
+      "ru": "Зелёный и синий автомобили",
+      "uz-Cyrl": "Яшил ва кўк автомобиллар",
+      "uz-Latn": "Yashil va ko'k avtomobillar"
+     }
+    }
+   ],
+   "source": "ptest"
+  },
+  {
+   "ext_id": "avtoimtihon-1286",
+   "category": "signs_information",
+   "image": "images/i1286_1.webp",
+   "texts": {
+    "ru": "Какие из следующих знаков относятся к информационно-указательным знакам?",
+    "uz-Cyrl": "Қуйидаги белгилардан қайсилари ахборот-кўрсаткич белгилари ҳисобланади?",
+    "uz-Latn": "Quyidagi belgilardan qaysilari axborot-ko'rsatkich belgilari hisoblanadi?"
+   },
+   "answers": [
+    {
+     "position": 1,
+     "correct": true,
+     "texts": {
+      "ru": "1 и 4",
+      "uz-Cyrl": "1 ва 4",
+      "uz-Latn": "1 va 4"
+     }
+    },
+    {
+     "position": 2,
+     "correct": false,
+     "texts": {
+      "ru": "1 и 2",
+      "uz-Cyrl": "1 ва 2",
+      "uz-Latn": "1 va 2"
+     }
+    },
+    {
+     "position": 3,
+     "correct": false,
+     "texts": {
+      "ru": "2 и 3",
+      "uz-Cyrl": "2 ва 3",
+      "uz-Latn": "2 va 3"
+     }
+    },
+    {
+     "position": 4,
+     "correct": false,
+     "texts": {
+      "ru": "3 и 4",
+      "uz-Cyrl": "3 ва 4",
+      "uz-Latn": "3 va 4"
+     }
+    }
+   ],
+   "source": "ptest"
   }
  ],
  "variants": [
@@ -55613,7 +55742,15 @@
     "avtoimtihon-1280",
     "avtoimtihon-1281",
     "avtoimtihon-1282",
-    "avtoimtihon-1283"
+    "avtoimtihon-1283",
+    "avtoimtihon-1284"
+   ]
+  },
+  {
+   "number": 65,
+   "questions": [
+    "avtoimtihon-1285",
+    "avtoimtihon-1286"
    ]
   }
  ],
@@ -72472,24 +72609,37 @@
   },
   {
    "question": "avtoimtihon-550",
-   "legal_refs": [],
+   "legal_refs": [
+    {
+     "code": "YHQ 2-bob 12-band",
+     "title": "YHQ 2-bobi 12-bandi"
+    },
+    {
+     "code": "ПДД гл.2 п.12",
+     "title": "Пункт 12 главы 2 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№3",
+     "title": "Приложение № 3 к ПДД"
+    }
+   ],
    "blocks": {
     "ru": [
      {
-      "text": "ПДД приложение № 3: 3.3. Если внешние осветительные приборы и световозвращатели не работают в установленном порядке или загрязнены.\n4.1. Если стеклоочиститель не работает в установленном порядке.\n4.2. Если предусмотренный конструкцией транспортного средства стеклоомыватель не работает.",
-      "type": "muhim"
+      "type": "muhim",
+      "text": "Пункт 12 главы 2 ПДД: водителю запрещается управлять транспортным средством, если на транспортном средстве не работает тормозная система, рулевое управление, неисправно сцепное устройство (в составе автопоезда), не горят или отсутствуют фары и задние габаритные огни в темное время суток или в условиях ограниченной видимости, не работает стеклоочиститель во время дождя или снегопада;\nПоследний абзац этого пункта: При возникновении в пути условий, при которых запрещается эксплуатация транспортных средств, указанных в приложении № 3 к настоящим Правилам, водитель должен устранить их, а если это невозможно, он может с соблюдением необходимых мер предосторожности доставить транспортное средство к месту ремонта или стоянки с использованием эвакуатора или методом буксировки.\nПриложение № 3 к ПДД (условия, при которых запрещается эксплуатация транспортных средств):\n3.3. Не работают в установленном режиме или загрязнены внешние световые приборы и световозвращатели.\n4.1. Не работают в установленном режиме стеклоочистители.\n4.2. Не работают предусмотренные конструкцией транспортного средства стеклоомыватели.\nВсе три неисправности из вопроса есть в приложении № 3: внешние световые приборы и световозвращатели — 3.3, стеклоочистители — 4.1, стеклоомыватели — 4.2. Управлять транспортным средством с неработающим во время дождя или снегопада стеклоочистителем пункт 12 запрещает и отдельно. Если неисправность нельзя устранить на месте, транспортное средство доставляют к месту ремонта или стоянки только эвакуатором или буксировкой, то есть продолжать движение своим ходом нельзя. Поэтому правильный ответ — во всех перечисленных случаях."
      }
     ],
     "uz-Cyrl": [
      {
-      "text": "ЙҲҚ 3 илова: 3.3. Агар ташқи ёритгичлар ва нур қайтаргичлар белгиланган тартибда ишламаётган ёки ифлосланган бўлса.\n4.1. Ойна тозалагич белгиланган тартибда ишламаётган бўлса.\n4.2. Транспорт воситасининг конструкциясида кўзда тутилган ойна ювгич ишламаётган бўлса.",
-      "type": "muhim"
+      "type": "muhim",
+      "text": "ЙҲҚ 2-боби 12-бандига кўра ҳайдовчига қуйидагилар тақиқланади: тормоз тизими, руль бошқаруви ишламаётган, улагич мосламаси (автопоезд таркибида) носоз бўлган, сутканинг қоронғи вақтида ёки кўриниш чекланган вазиятларда ёнмайдиган фара чироқлари ва орқа габарит фара чироқлари, ёмғир ёки қор ёғаётган вақтда ойна тозалагич ишламайдиган транспорт воситасини бошқариш;\nШу банднинг охирги хатбошиси: Ҳаракатланиш вақтида ушбу Қоидаларга 3-иловада кўрсатилган транспорт воситаларидан фойдаланишни тақиқловчи шартлар юзага келганда, ҳайдовчи уларни бартараф этиши, агар бунинг иложи бўлмаса, зарур бўлган эҳтиёт чораларини кўрган ҳолда таъмирлаш ёки тўхтаб туриш жойига эвакуатор ёки шатакка олиш орқали транспорт воситасини олиб бориш чораларини кўриши мумкин.\nЙҲҚ 3-иловаси (транспорт воситаларидан фойдаланишни тақиқловчи шартлар):\n3.3. Агар ташқи ёритгичлар ва нур қайтаргичлар белгиланган тартибда ишламаётган ёки ифлосланган бўлса.\n4.1. Ойна тозалагич белгиланган тартибда ишламаётган бўлса.\n4.2. Транспорт воситасининг конструкциясида кўзда тутилган ойна ювгич ишламаётган бўлса.\nСаволдаги учала носозлик ҳам 3-иловада бор: ташқи ёритгичлар ва нур қайтаргичлар — 3.3, ойна тозалагич — 4.1, ойна ювгич — 4.2. Ёмғир ёки қор ёғаётганда ойна тозалагич ишламайдиган транспорт воситасини бошқариш 12-бандда алоҳида ҳам тақиқланган. Носозликни жойида бартараф этиб бўлмаса, транспорт воситаси таъмирлаш ёки тўхтаб туриш жойига фақат эвакуатор ёки шатакка олиш орқали олиб борилади, яъни ўз кучи билан ҳаракатни давом эттириб бўлмайди. Шунинг учун тўғри жавоб — санаб ўтилган барча ҳолларда."
      }
     ],
     "uz-Latn": [
      {
-      "text": "YHQ 3 ilova: 3.3. Agar tashqi yoritgichlar va nur qaytargichlar belgilangan tartibda ishlamayotgan yoki ifloslangan bo'lsa.\n4.1. Oyna tozalagich belgilangan tartibda ishlamayotgan bo'lsa.\n4.2. Transport vositasining konstruksiyasida ko'zda tutilgan oyna yuvgich ishlamayotgan bo'lsa.",
-      "type": "muhim"
+      "type": "muhim",
+      "text": "YHQ 2-bobi 12-bandiga koʻra haydovchiga quyidagilar taqiqlanadi: tormoz tizimi, rul boshqaruvi ishlamayotgan, ulagich moslamasi (avtopoyezd tarkibida) nosoz boʻlgan, sutkaning qorongʻi vaqtida yoki koʻrinish cheklangan vaziyatlarda yonmaydigan fara chiroqlari va orqa gabarit fara chiroqlari, yomgʻir yoki qor yogʻayotgan vaqtda oyna tozalagich ishlamaydigan transport vositasini boshqarish;\nShu bandning oxirgi xatboshisi: Harakatlanish vaqtida ushbu Qoidalarga 3-ilovada koʻrsatilgan transport vositalaridan foydalanishni taqiqlovchi shartlar yuzaga kelganda, haydovchi ularni bartaraf etishi, agar buning iloji boʻlmasa, zarur boʻlgan ehtiyot choralarini koʻrgan holda taʼmirlash yoki toʻxtab turish joyiga evakuator yoki shatakka olish orqali transport vositasini olib borish choralarini koʻrishi mumkin.\nYHQ 3-ilovasi (transport vositalaridan foydalanishni taqiqlovchi shartlar):\n3.3. Agar tashqi yoritgichlar va nur qaytargichlar belgilangan tartibda ishlamayotgan yoki ifloslangan boʻlsa.\n4.1. Oyna tozalagich belgilangan tartibda ishlamayotgan boʻlsa.\n4.2. Transport vositasining konstruksiyasida koʻzda tutilgan oyna yuvgich ishlamayotgan boʻlsa.\nSavoldagi uchala nosozlik ham 3-ilovada bor: tashqi yoritgichlar va nur qaytargichlar — 3.3, oyna tozalagich — 4.1, oyna yuvgich — 4.2. Yomgʻir yoki qor yogʻayotganda oyna tozalagich ishlamaydigan transport vositasini boshqarish 12-bandda alohida ham taqiqlangan. Nosozlikni joyida bartaraf etib boʻlmasa, transport vositasi taʼmirlash yoki toʻxtab turish joyiga faqat evakuator yoki shatakka olish orqali olib boriladi, yaʼni oʻz kuchi bilan harakatni davom ettirib boʻlmaydi. Shuning uchun toʻgʻri javob — sanab oʻtilgan barcha hollarda."
      }
     ]
    }
@@ -92570,6 +92720,125 @@
      {
       "type": "muhim",
       "text": "YHQ 1-ilovasi (yoʻl belgilari), 1-boʻlim “Ogohlantiruvchi belgilar”: 1.1, 1.2, 1.5 — 1.32 ogohlantiruvchi belgilari aholi punktlarida xavfli joydan 50 — 100 metr, aholi punktlaridan tashqarida esa 150 — 300 metr oldin oʻrnatiladi. Zaruriyat boʻlganda, bu belgilar 7.1.1 qoʻshimcha axborot belgisida koʻrsatilgan boshqa masofada ham oʻrnatilishi mumkin.\nSavolda aholi punktlaridan tashqaridagi yoʻl soʻralgan, shuning uchun toʻgʻri javob — 150 — 300 metr. 50 — 100 metr esa aholi punktlari uchun belgilangan masofa."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1284",
+   "legal_refs": [
+    {
+     "code": "YHQ 9-bob 62-band",
+     "title": "YHQ 9-bobi 62-bandi"
+    },
+    {
+     "code": "ПДД гл.9 п.62",
+     "title": "Пункт 62 главы 9 ПДД"
+    },
+    {
+     "code": "ПДД Прил.№1",
+     "title": "Приложение № 1 к ПДД"
+    },
+    {
+     "code": "Belgi 1.4.3",
+     "title": "знак 1.4.3"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 62 главы 9 ПДД гласит: 62. Разворот запрещается:\nна пешеходных переходах;\nв тоннелях;\nна мостах, путепроводах, эстакадах и под ними (за исключением участков дорог, где соответствующие дорожные знаки разрешают такой маневр);\nна железнодорожных переездах;\nв местах с видимостью дороги хотя бы в одном направлении менее 100 м.\nПриложение № 1 к ПДД (дорожные знаки), раздел 1 «Предупреждающие знаки», знак 1.4.3: 1.4.1 — 1.4.6. «Приближение к железнодорожному переезду».\nДополнительное предупреждение о приближении к железнодорожному переезду вне населенных пунктов.\nНа рисунке автомобиль разворачивается не на самом железнодорожном переезде, а перед ним, у знака 1.4.3. В пункте 62 запрет, связанный с железной дорогой, касается только самого переезда: участка дороги перед переездом в этом перечне нет, а видимость дороги здесь не ограничена. Поэтому разворот разрешён."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 9-боби 62-банди: 62. Қуйидаги жойларда қайрилиб олиш тақиқланади:\nпиёдаларнинг ўтиш жойларида;\nтуннелларда;\nкўприклар, йўл ўтказгичлар, эстакадалар ва уларнинг остида (тегишли йўл белгилари билан бундай манёврни бажариш рухсат берилган йўл қисмлари бундан мустасно);\nтемир йўл кесишмаларида;\nйўлнинг кўриниши бирор-бир йўналишда 100 метрдан кам бўлган жойларда.\nЙҲҚ 1-иловаси (йўл белгилари), 1-бўлим «Огоҳлантирувчи белгилар», 1.4.3 белгиси: 1.4.1 — 1.4.6. «Темир йўл кесишмасига яқинлашув».\nАҳоли пунктларидан ташқарида темир йўл кесишмасига яқинлашаётганлик ҳақида қўшимча огоҳлантириш беради.\nРасмда автомобиль темир йўл кесишмасининг ўзида эмас, ундан олдин, 1.4.3 белгиси ёнида қайрилиб олмоқда. 62-бандда темир йўл билан боғлиқ тақиқ фақат кесишманинг ўзига тегишли: кесишма олдидаги йўл қисми бу рўйхатда йўқ, йўлнинг кўриниши ҳам бу ерда чекланмаган. Шунинг учун қайрилиб олишга рухсат этилади."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 9-bobi 62-bandi: 62. Quyidagi joylarda qayrilib olish taqiqlanadi:\npiyodalarning oʻtish joylarida;\ntunnellarda;\nkoʻpriklar, yoʻl oʻtkazgichlar, estakadalar va ularning ostida (tegishli yoʻl belgilari bilan bunday manyovrni bajarish ruxsat berilgan yoʻl qismlari bundan mustasno);\ntemir yoʻl kesishmalarida;\nyoʻlning koʻrinishi biror-bir yoʻnalishda 100 metrdan kam boʻlgan joylarda.\nYHQ 1-ilovasi (yoʻl belgilari), 1-boʻlim “Ogohlantiruvchi belgilar”, 1.4.3 belgisi: 1.4.1 — 1.4.6. “Temir yoʻl kesishmasiga yaqinlashuv”.\nAholi punktlaridan tashqarida temir yoʻl kesishmasiga yaqinlashayotganlik haqida qoʻshimcha ogohlantirish beradi.\nRasmda avtomobil temir yoʻl kesishmasining oʻzida emas, undan oldin, 1.4.3 belgisi yonida qayrilib olmoqda. 62-bandda temir yoʻl bilan bogʻliq taqiq faqat kesishmaning oʻziga tegishli: kesishma oldidagi yoʻl qismi bu roʻyxatda yoʻq, yoʻlning koʻrinishi ham bu yerda cheklanmagan. Shuning uchun qayrilib olishga ruxsat etiladi."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1285",
+   "legal_refs": [
+    {
+     "code": "YHQ 13-bob 88-band",
+     "title": "YHQ 13-bobi 88-bandi"
+    },
+    {
+     "code": "ПДД гл.13 п.88",
+     "title": "Пункт 88 главы 13 ПДД"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Пункт 88 главы 13 ПДД гласит: 88. Остановка и стоянка транспортных средств разрешается как можно правее на обочине, а при ее отсутствии — у края проезжей части, и в случаях, указанных в пункте 89 Правил — на тротуаре.\nНа рисунке у дороги есть обочина. Красный автомобиль стоит полностью на обочине — это правильно. Зелёный автомобиль стоит на проезжей части, а синий — частично на проезжей части. По пункту 88 стоянка у края проезжей части допускается только при отсутствии обочины, поэтому правила стоянки нарушили зелёный и синий автомобили."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 13-боби 88-банди: 88. Транспорт воситаларига йўлнинг ўнг томонида йўл ёқасида, у бўлмаганда эса қатнов қисмининг четида ва Қоидаларнинг 89-бандида кўрсатилган ҳолларда тротуарда тўхташ ва тўхтаб туришга рухсат этилади.\nРасмдаги йўлда йўл ёқаси бор. Қизил автомобиль бутунлай йўл ёқасида турибди — бу тўғри. Яшил автомобиль қатнов қисмида, кўк автомобиль эса қисман қатнов қисмида турибди. 88-бандга кўра қатнов қисмининг четида фақат йўл ёқаси бўлмаганда тўхтаб туриш мумкин, шунинг учун яшил ва кўк автомобиллар тўхтаб туриш қоидасини бузган."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 13-bobi 88-bandi: 88. Transport vositalariga yoʻlning oʻng tomonida yoʻl yoqasida, u boʻlmaganda esa qatnov qismining chetida va Qoidalarning 89-bandida koʻrsatilgan hollarda trotuarda toʻxtash va toʻxtab turishga ruxsat etiladi.\nRasmdagi yoʻlda yoʻl yoqasi bor. Qizil avtomobil butunlay yoʻl yoqasida turibdi — bu toʻgʻri. Yashil avtomobil qatnov qismida, koʻk avtomobil esa qisman qatnov qismida turibdi. 88-bandga koʻra qatnov qismining chetida faqat yoʻl yoqasi boʻlmaganda toʻxtab turish mumkin, shuning uchun yashil va koʻk avtomobillar toʻxtab turish qoidasini buzgan."
+     }
+    ]
+   }
+  },
+  {
+   "question": "avtoimtihon-1286",
+   "legal_refs": [
+    {
+     "code": "ПДД Прил.№1",
+     "title": "Приложение № 1 к ПДД"
+    },
+    {
+     "code": "Belgi 5.33",
+     "title": "знак 5.33"
+    },
+    {
+     "code": "Belgi 5.22",
+     "title": "знак 5.22"
+    },
+    {
+     "code": "Belgi 7.5.4",
+     "title": "знак 7.5.4"
+    },
+    {
+     "code": "Belgi 7.2.1",
+     "title": "знак 7.2.1"
+    }
+   ],
+   "blocks": {
+    "ru": [
+     {
+      "type": "muhim",
+      "text": "Приложение № 1 к ПДД (дорожные знаки), раздел 5 «Информационно-указательные знаки»: Информационно-указательные знаки вводят или отменяют определенные режимы движения, а также информируют о расположении населенных пунктов и других объектов.\n5.33. «Стоп-линия». Место остановки транспортных средств при запрещающем сигнале светофора (регулировщика).\n5.22. «Начало населенного пункта». Наименование и начало населенного пункта, в котором действуют требования настоящих Правил, устанавливающие порядок движения в населенных пунктах.\nРаздел 7 «Знаки дополнительной информации»: Знаки дополнительной информации уточняют или ограничивают действие знаков, с которыми они применены.\n7.5.4. «Время действия». Указывает время суток, в течение которого действует знак.\n7.2.1. «Зона действия». Указывает протяженность опасного участка, обозначенного предупреждающими знаками, или зону действия запрещающих и информационно-указательных знаков.\nНа рисунке 1 — знак 5.33 (STOP), 4 — знак 5.22 (название населённого пункта); оба относятся к информационно-указательным знакам. 2 — знак 7.5.4 (8.00–17.30), 3 — знак 7.2.1 (↑100 m↑); это знаки дополнительной информации. Поэтому правильный ответ — 1 и 4."
+     }
+    ],
+    "uz-Cyrl": [
+     {
+      "type": "muhim",
+      "text": "ЙҲҚ 1-иловаси (йўл белгилари), 5-бўлим «Ахборот-кўрсатгич белгилари»: Ахборот-кўрсатгич белгилари маълум ҳаракат тартибларини киритади ёки уларни бекор қилади ҳамда аҳоли пунктлари ва бошқа манзилларнинг жойлашуви ҳақида маълумот беради.\n5.33. «Тўхташ чизиғи». Светофорнинг (тартибга солувчининг) тақиқловчи ишорасида транспорт воситалари тўхтайдиган йўналишини билдиради.\n5.22. «Аҳоли пунктининг бошланиши». Ушбу Қоидаларнинг аҳоли пунктларида ҳаракатланиш тартибини белгиловчи талабларига амал қилинадиган жойларнинг номи ҳамда унинг бошланишини билдиради.\nЙҲҚ 1-иловаси, 7-бўлим «Қўшимча ахборот белгилари»: Қўшимча ахборот белгилари улар билан биргаликда қўлланган белгиларга аниқлик киритиш ёки уларнинг таъсирини чеклаш учун қўлланилади.\n7.5.4. «Амал қилиш вақти». Белгига куннинг қайси вақтида амал қилишни кўрсатади.\n7.2.1. «Таъсир оралиғи». Огоҳлантирувчи белгилар билан белгиланган хавфли жойнинг узунлигини ёки тақиқловчи ва ахборот-кўрсаткич белгиларининг таъсир оралиғини кўрсатади.\nРасмдаги 1-белги (STOP) — 5.33, 4-белги (аҳоли пункти номи) — 5.22; иккаласи ахборот-кўрсаткич белгилари. 2-белги (8.00–17.30) — 7.5.4, 3-белги (↑100 m↑) — 7.2.1; улар қўшимча ахборот белгилари. Шунинг учун тўғри жавоб — 1 ва 4."
+     }
+    ],
+    "uz-Latn": [
+     {
+      "type": "muhim",
+      "text": "YHQ 1-ilovasi (yoʻl belgilari), 5-boʻlim “Axborot-koʻrsatgich belgilari”: Axborot-koʻrsatgich belgilari maʼlum harakat tartiblarini kiritadi yoki ularni bekor qiladi hamda aholi punktlari va boshqa manzillarning joylashuvi haqida maʼlumot beradi.\n5.33. “Toʻxtash chizigʻi”. Svetoforning (tartibga soluvchining) taqiqlovchi ishorasida transport vositalari toʻxtaydigan yoʻnalishini bildiradi.\n5.22. “Aholi punktining boshlanishi”. Ushbu Qoidalarning aholi punktlarida harakatlanish tartibini belgilovchi talablariga amal qilinadigan joylarning nomi hamda uning boshlanishini bildiradi.\nYHQ 1-ilovasi, 7-boʻlim “Qoʻshimcha axborot belgilari”: Qoʻshimcha axborot belgilari ular bilan birgalikda qoʻllangan belgilarga aniqlik kiritish yoki ularning taʼsirini cheklash uchun qoʻllaniladi.\n7.5.4. “Amal qilish vaqti”. Belgiga kunning qaysi vaqtida amal qilishni koʻrsatadi.\n7.2.1. “Taʼsir oraligʻi”. Ogohlantiruvchi belgilar bilan belgilangan xavfli joyning uzunligini yoki taqiqlovchi va axborot-koʻrsatkich belgilarining taʼsir oraligʻini koʻrsatadi.\nRasmdagi 1-belgi (STOP) — 5.33, 4-belgi (aholi punkti nomi) — 5.22; ikkalasi axborot-koʻrsatkich belgilari. 2-belgi (8.00–17.30) — 7.5.4, 3-belgi (↑100 m↑) — 7.2.1; ular qoʻshimcha axborot belgilari. Shuning uchun toʻgʻri javob — 1 va 4."
      }
     ]
    }

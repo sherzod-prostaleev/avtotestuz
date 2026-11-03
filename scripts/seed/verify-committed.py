@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Verify committed content seeds match the live product counts.
 
-Canonical numbers (1260-question export + 17 hand-added questions, 42 topics):
-  - questions: 1279
-  - variants: 64 (bilet 64 is still filling)
-  - explanations: 1234
+Canonical numbers (1260-question export + 22 hand-added questions, 42 topics):
+  - questions: 1282
+  - variants: 65 (bilet 65 is still filling)
+  - explanations: 1237
   - sign groups: 7
   - signs: 285
 
@@ -24,9 +24,9 @@ SIGNS = ROOT / "backend" / "seed" / "signs" / "data.json"
 QUESTION_SIGNS = ROOT / "backend" / "seed" / "avtoimtihon" / "question_signs.json"
 
 EXPECT = {
-    "questions": 1279,
-    "variants": 64,
-    "explanations": 1234,  # 1215 original + 19 hand-added; the 4 orphans are gone
+    "questions": 1282,
+    "variants": 65,
+    "explanations": 1237,  # 1215 original + 22 hand-added; the 4 orphans are gone
     "sign_groups": 7,
     "signs": 285,
     "categories": 42,

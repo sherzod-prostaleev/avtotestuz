@@ -1277,5 +1277,8 @@
   "avtoimtihon-1280": "intersections_equal",
   "avtoimtihon-1281": "intersections_equal",
   "avtoimtihon-1282": "traffic_controller",
-  "avtoimtihon-1283": "signs_warning"
+  "avtoimtihon-1283": "signs_warning",
+  "avtoimtihon-1284": "starting_manoeuvring",
+  "avtoimtihon-1285": "stopping_and_parking",
+  "avtoimtihon-1286": "signs_information"
 }
