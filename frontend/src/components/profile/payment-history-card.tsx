@@ -83,14 +83,14 @@ export function PaymentHistoryCard() {
     setLoading(true);
     setError(false);
     try {
-      const res = await apiGet<PaymentItem[]>("me/payments?limit=20");
+      const res = await apiGet<PaymentItem[]>(`me/payments?limit=20&locale=${encodeURIComponent(locale)}`);
       setPayments(res || []);
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void loadPayments();

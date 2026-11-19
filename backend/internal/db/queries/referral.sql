@@ -17,6 +17,7 @@ RETURNING user_id, code, created_at;
 -- name: CreateReferral :one
 INSERT INTO referral (referrer_id, referee_id, referral_code, status)
 VALUES ($1, $2, $3, 'pending')
+ON CONFLICT (referee_id) DO NOTHING
 RETURNING id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at;
 
 -- name: ClaimPendingReferralForReferee :one

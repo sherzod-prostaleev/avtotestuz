@@ -1303,7 +1303,7 @@
   height: 92vh;
   height: 92dvh;
   max-height: 96vh;
-  max-height: 96dvh;
+  max-height: min(96dvh, calc(100dvh - var(--tg-inset-top, 0px) - 0.5rem));
 }
 .exam-shell {
   height: 100vh;
@@ -1525,13 +1525,11 @@ html.tg-webapp .bilet-praise-banner {
     );
   }
 }
-/* Full-screen runners: the practice/memorize shell below `sm`, the official
+/* Full-screen runners: the practice/memorize shell and the official
    exam view's bars below `lg` — where their env() paddings apply. */
-@media (max-width: 639px) {
-  html.tg-webapp .session-shell {
-    padding-top: max(0.35rem, var(--tg-inset-top));
-    padding-bottom: max(0.35rem, var(--tg-inset-bottom));
-  }
+html.tg-webapp .session-shell {
+  padding-top: max(0.35rem, var(--tg-inset-top));
+  padding-bottom: max(0.35rem, var(--tg-inset-bottom));
 }
 @media (max-width: 1023px) {
   /* The bar has a min-height, not a fixed one, so a tall inset grows it

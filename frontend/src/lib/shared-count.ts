@@ -37,6 +37,7 @@ export function createSharedCount(
   let fetchedAt = 0;
   let inFlight: Promise<number> | null = null;
   let timer: ReturnType<typeof setInterval> | null = null;
+  let gen = 0;
   const listeners = new Set<(value: number) => void>();
 
   const publish = (next: number) => {
@@ -50,16 +51,21 @@ export function createSharedCount(
       if (inFlight) return inFlight;
       if (!force && Date.now() - fetchedAt < ttlMs) return Promise.resolve(value);
 
+      const requestGen = gen;
       const request = fetcher()
         .then((next) => {
-          publish(next);
+          if (requestGen === gen) {
+            publish(next);
+          }
           return next;
         })
         // The badge is best-effort: a failed poll keeps the last known value
         // rather than blanking the badge or surfacing an error.
         .catch(() => value)
         .finally(() => {
-          inFlight = null;
+          if (inFlight === request) {
+            inFlight = null;
+          }
         });
 
       inFlight = request;
@@ -67,6 +73,8 @@ export function createSharedCount(
     },
 
     set(next) {
+      gen += 1;
+      inFlight = null;
       publish(next);
     },
 
@@ -89,8 +97,11 @@ export function createSharedCount(
     },
 
     reset() {
+      gen += 1;
       value = 0;
       fetchedAt = 0;
+      inFlight = null;
+      for (const listener of listeners) listener(0);
     },
   };
 

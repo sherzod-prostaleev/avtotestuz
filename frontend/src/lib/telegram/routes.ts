@@ -9,6 +9,7 @@ import { defaultLocale, locales, type Locale } from "@/i18n/config";
  * Arena is not a tab (it lives in the menu), so it shows Back.
  */
 const TAB_ROOTS = new Set(["dashboard", "tickets", "practice", "exam", "profile", "tg"]);
+const AUTH_ROUTES = new Set(["login", "register", "forgot-password", "reset-password", "change-password"]);
 
 function segments(pathname: string): string[] {
   return pathname.split("/").filter(Boolean); // [locale, ...rest]
@@ -17,6 +18,12 @@ function segments(pathname: string): string[] {
 export function localeOf(pathname: string): Locale {
   const first = segments(pathname)[0];
   return (locales as readonly string[]).includes(first ?? "") ? (first as Locale) : defaultLocale;
+}
+
+/** True for unauthenticated / pre-app auth screens. */
+export function isAuthRoute(pathname: string): boolean {
+  const [, first] = segments(pathname);
+  return first !== undefined && AUTH_ROUTES.has(first);
 }
 
 /** Telegram's BackButton is hidden on the tab roots, shown elsewhere. */

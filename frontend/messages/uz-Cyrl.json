@@ -1007,7 +1007,8 @@
     "passwordSetHint": "Сиз Telegram орқали рўйхатдан ўтгансиз. Парол ўрнатсангиз, телефон рақам ва парол билан ҳам кира оласиз.",
     "passwordSetSubmit": "Паролни сақлаш",
     "passwordSetSuccess": "Парол ўрнатилди. Энди телефон рақам ва парол билан ҳам кира оласиз. Бошқа қурилмалардаги сеанслар ёпилди.",
-    "passwordErrorAlreadySet": "Парол аллақачон ўрнатилган. Саҳифани янгиланг."
+    "passwordErrorAlreadySet": "Парол аллақачон ўрнатилган. Саҳифани янгиланг.",
+    "passwordErrorRateLimited": "Уринишлар жуда кўп. Бироздан сўнг қайта уриниб кўринг."
   },
   "TelegramLink": {
     "title": "Telegram боғлаш",
@@ -1108,7 +1109,8 @@
     "payoutPickNetwork": "Карта турини танланг",
     "payoutCardHint": "Uzcard ёки Humo карта рақамини киритинг",
     "shareTelegram": "Telegram'да улашиш",
-    "shareText": "Driver Go'да ҳайдовчилик имтиҳонига бирга тайёрланайлик!"
+    "shareText": "Driver Go'да ҳайдовчилик имтиҳонига бирга тайёрланайлик!",
+    "retry": "Қайта уриниш"
   },
   "PaymentHistory": {
     "title": "Тўловлар Тарихи",
@@ -2538,20 +2540,20 @@
     "tipRecommend": "Барча superadminларда ёқинг."
   },
   "ManualPay": {
-    "title": "Kartaga o'tkazma",
+    "title": "Картага ўтказма",
     "subtitle": "Қуйидаги картага айнан кўрсатилган суммани ўтказинг — бошқа сумма тасдиқланмайди.",
-    "exactAmount": "Aniq summa",
+    "exactAmount": "Аниқ сумма",
     "holdEnded": "Вақт тугади",
     "claim": "Тўлов қилдим",
-    "claiming": "Yuborilmoqda...",
-    "claimed": "Tekshiruvda",
-    "claimError": "Tasdiqlashni yuborib bo'lmadi",
-    "statusPaid": "To'lov tasdiqlandi — VIP faollashtirilmoqda",
+    "claiming": "Юборилмоқда...",
+    "claimed": "Текширувда",
+    "claimError": "Тасдиқлашни юбориб бўлмади",
+    "statusPaid": "Тўлов тасдиқланди — VIP фаоллаштирилмоқда",
     "statusReview": "Тўловингизни текширяпмиз. Пул ўтказган бўлсангиз, шу ерда кутиб туринг.",
-    "loading": "Yuklanmoqda...",
-    "loadError": "To'lov ma'lumotini yuklab bo'lmadi",
-    "missingPayment": "To'lov topilmadi",
-    "refresh": "Yangilash",
+    "loading": "Юкланмоқда...",
+    "loadError": "Тўлов маълумотини юклаб бўлмади",
+    "missingPayment": "Тўлов топилмади",
+    "refresh": "Янгилаш",
     "autoActivateNote": "Тасдиқлангач VIP автоматик фаоллашади.",
     "copyAmountLabel": "Суммани нусхалаш",
     "copyPanLabel": "Карта рақамини нусхалаш",

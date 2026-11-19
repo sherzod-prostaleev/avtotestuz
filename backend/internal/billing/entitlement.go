@@ -376,12 +376,7 @@ func (s Service) RevokeEntitlementForPayment(ctx context.Context, paymentID uuid
 	if _, err := s.Q.LockProfileForGrant(ctx, ent.ProfileID); err != nil {
 		return fmt.Errorf("lock profile %s for revoke: %w", ent.ProfileID, err)
 	}
-	now := time.Now().UTC()
-	// CHECK (ends_at > starts_at): collapse not-yet-started grants to a 1s stub.
-	clampTo := now
-	if ent.StartsAt.Valid && !clampTo.After(ent.StartsAt.Time) {
-		clampTo = ent.StartsAt.Time.Add(time.Second)
-	}
+	clampTo := time.Now().UTC()
 	if err := s.Q.ClampAllEntitlementsForPayment(ctx, sqlc.ClampAllEntitlementsForPaymentParams{
 		PaymentID:  uuid.NullUUID{UUID: paymentID, Valid: true},
 		ClampTo:    pgtype.Timestamptz{Time: clampTo, Valid: true},

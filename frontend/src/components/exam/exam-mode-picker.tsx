@@ -76,6 +76,17 @@ export function ExamModePicker({ kiosk = false }: ExamModePickerProps) {
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
       const mode = MODES.find((item) => item.shortcut === event.key);
       if (!mode) return;
       event.preventDefault();

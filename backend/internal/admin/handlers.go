@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -34,6 +35,7 @@ type Handler struct {
 	MetricsSnapshot MetricsSnapshot
 	Push            *push.Service
 	Broadcast       *broadcast.Service
+	ClientIPs       auth.ClientIPResolver
 
 	// StationBinaryPath is the Windows agent binary served by
 	// GET /b2b/orgs/{id}/installer.exe. See config.Config.StationBinaryPath.
@@ -56,6 +58,16 @@ type SupportChatRoutes interface {
 // Routes mounts public auth + protected admin routes under the given router
 // (caller should mount at /admin/v1).
 func (h *Handler) Routes(r chi.Router) {
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if raw := h.ClientIPs.Resolve(req); raw != "" {
+				if ip := net.ParseIP(strings.TrimSpace(raw)); ip != nil {
+					req = req.WithContext(context.WithValue(req.Context(), resolvedClientIPKey{}, ip))
+				}
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
 	store := Store{Pool: h.Pool}
 	r.Post("/auth/login", h.login)
 	r.Post("/auth/totp/verify", h.verifyTOTPLogin)
@@ -409,6 +421,8 @@ func (h *Handler) verifyTOTPLogin(w http.ResponseWriter, r *http.Request) {
 		switch err {
 		case ErrTOTPInvalid, ErrInvalidCreds:
 			httpx.Error(w, http.StatusUnauthorized, "invalid_totp", "invalid TOTP code")
+		case ErrLoginThrottled:
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again later")
 		default:
 			httpx.Error(w, http.StatusInternalServerError, "internal", "totp verify failed")
 		}
@@ -465,6 +479,10 @@ func (h *Handler) confirmTOTP(w http.ResponseWriter, r *http.Request) {
 			httpx.Error(w, http.StatusBadRequest, "invalid_totp", "invalid TOTP code")
 			return
 		}
+		if err == ErrLoginThrottled {
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again later")
+			return
+		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "totp confirm failed")
 		return
 	}
@@ -489,6 +507,10 @@ func (h *Handler) disableTOTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.Svc.DisableTOTP(r.Context(), claims.AdminUserID, body.Code); err != nil {
 		if err == ErrTOTPInvalid {
 			httpx.Error(w, http.StatusBadRequest, "invalid_totp", "invalid TOTP code")
+			return
+		}
+		if err == ErrLoginThrottled {
+			httpx.Error(w, http.StatusTooManyRequests, "rate_limited", "too many attempts, try again later")
 			return
 		}
 		httpx.Error(w, http.StatusInternalServerError, "internal", "totp disable failed")
@@ -1526,7 +1548,12 @@ func parseUUIDParam(w http.ResponseWriter, r *http.Request, name string) (uuid.U
 	return id, true
 }
 
+type resolvedClientIPKey struct{}
+
 func clientIP(r *http.Request) *net.IP {
+	if ip, ok := r.Context().Value(resolvedClientIPKey{}).(net.IP); ok && ip != nil {
+		return &ip
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		host = r.RemoteAddr

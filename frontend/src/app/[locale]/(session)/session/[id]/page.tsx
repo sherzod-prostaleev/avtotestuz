@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { locales } from "@/i18n/config";
 import { apiDelete, apiGet, apiPost } from "@/lib/api-client";
+import { savedQuestionsStore } from "@/lib/dashboard-stores";
 import { trackEvent, type SafeAnalyticsProps } from "@/lib/analytics-events";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -418,6 +419,18 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         return;
       }
       if (!session || session.status !== "active" || !currentQuestion) return;
+      if (explanationOpen || exitConfirmOpen || zoomImageUrl) return;
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
+      const target = event.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.tagName === "SELECT" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
 
       // Both arrows walk the question list freely, in both directions. The
       // numbered chips already jump anywhere without answering first, so
@@ -448,6 +461,8 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
     currentAnswered,
     currentIndex,
     currentQuestion,
+    exitConfirmOpen,
+    explanationOpen,
     goToQuestion,
     handleSelectAnswer,
     questions.length,
@@ -473,6 +488,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
         else next.add(questionId);
         return next;
       });
+      savedQuestionsStore.reset();
     } catch {
       setBookmarkError(true);
     } finally {
@@ -887,7 +903,7 @@ export default function TestSessionPage({ kiosk = false }: TestSessionPageProps 
           <Button
             variant="outline"
             size="sm"
-            className="hidden sm:inline-flex"
+            className="h-9 px-2.5 text-xs sm:h-9 sm:px-3.5"
             onClick={() => void handleFinish()}
             disabled={finishing || submitting}
           >

@@ -277,7 +277,7 @@ export function OfficialAvtotestExamView({
           </motion.div>
         ) : (
           <div className="exam-question-banner w-full border-y border-[#204a75] bg-[#0d2e4d] px-8 py-3.5 text-center text-lg font-extrabold leading-relaxed tracking-wide text-white shadow-md max-lg:px-2.5 max-lg:py-1.5 max-lg:text-[13px] max-lg:leading-snug">
-            {currentQuestion ? currentQuestion.question : "Yuklanmoqda..."}
+            {currentQuestion ? currentQuestion.question : t("loading")}
           </div>
         )}
       </div>

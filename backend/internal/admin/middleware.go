@@ -51,7 +51,15 @@ func Required(secret []byte, store Store) func(http.Handler) http.Handler {
 				return
 			}
 			u, err := store.GetUserByID(r.Context(), claims.AdminUserID)
-			if err != nil || u.Status != "active" {
+			if err != nil {
+				if IsNoRows(err) {
+					httpx.Error(w, http.StatusUnauthorized, "unauthorized", "admin account inactive")
+					return
+				}
+				httpx.Error(w, http.StatusServiceUnavailable, "unavailable", "service temporarily unavailable")
+				return
+			}
+			if u.Status != "active" {
 				httpx.Error(w, http.StatusUnauthorized, "unauthorized", "admin account inactive")
 				return
 			}

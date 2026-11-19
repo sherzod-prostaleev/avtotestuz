@@ -51,6 +51,36 @@ func adminLoginFailKey(email string) string {
 	return "admin:login:fail:" + strings.ToLower(strings.TrimSpace(email))
 }
 
+func adminTOTPFailKey(adminID uuid.UUID) string {
+	return "admin:totp:fail:" + adminID.String()
+}
+
+func (s Service) checkTOTPThrottle(ctx context.Context, adminID uuid.UUID) error {
+	if s.Lim.R == nil {
+		return nil
+	}
+	n, err := s.Lim.Count(ctx, adminTOTPFailKey(adminID))
+	if err != nil {
+		return err
+	}
+	if n >= adminLoginFailLimit {
+		return ErrLoginThrottled
+	}
+	return nil
+}
+
+func (s Service) recordTOTPOutcome(ctx context.Context, adminID uuid.UUID, ok bool) {
+	if s.Lim.R == nil {
+		return
+	}
+	key := adminTOTPFailKey(adminID)
+	if ok {
+		_ = s.Lim.Reset(ctx, key)
+		return
+	}
+	_, _ = s.Lim.Allow(ctx, key, adminLoginFailLimit, adminLoginFailWindow)
+}
+
 // TokenPair is returned on login/refresh.
 type TokenPair struct {
 	AccessToken  string `json:"access_token"`
@@ -178,6 +208,9 @@ func (s Service) VerifyTOTPLogin(ctx context.Context, challengeToken, code, ua s
 	if err != nil {
 		return TokenPair{}, MeResponse{}, ErrInvalidCreds
 	}
+	if err := s.checkTOTPThrottle(ctx, claims.AdminUserID); err != nil {
+		return TokenPair{}, MeResponse{}, err
+	}
 	u, err := s.Store.GetUserByID(ctx, claims.AdminUserID)
 	if err != nil || u.Status != "active" {
 		return TokenPair{}, MeResponse{}, ErrInvalidCreds
@@ -190,8 +223,10 @@ func (s Service) VerifyTOTPLogin(ctx context.Context, challengeToken, code, ua s
 		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
 	}
 	if !validateTOTP(string(plain), code) {
+		s.recordTOTPOutcome(ctx, u.ID, false)
 		return TokenPair{}, MeResponse{}, ErrTOTPInvalid
 	}
+	s.recordTOTPOutcome(ctx, u.ID, true)
 	pair, err := s.issuePair(ctx, u, ua, ip)
 	if err != nil {
 		return TokenPair{}, MeResponse{}, err
@@ -224,14 +259,19 @@ func (s Service) BeginTOTPEnroll(ctx context.Context, adminID uuid.UUID) (secret
 // the enrolled authenticator was not provably the one this server issued —
 // anyone able to reach the endpoint could bind a secret of their own choosing.
 func (s Service) ConfirmTOTPEnroll(ctx context.Context, adminID uuid.UUID, code string) error {
+	if err := s.checkTOTPThrottle(ctx, adminID); err != nil {
+		return err
+	}
 	u, err := s.Store.GetUserByID(ctx, adminID)
 	if err != nil {
 		return err
 	}
 	secret, ok := s.pendingTOTPSecret(u.ID, code)
 	if !ok {
+		s.recordTOTPOutcome(ctx, u.ID, false)
 		return ErrTOTPInvalid
 	}
+	s.recordTOTPOutcome(ctx, u.ID, true)
 	enc, err := encryptSecret(s.dataKEK(), []byte(secret))
 	if err != nil {
 		return err
@@ -241,6 +281,9 @@ func (s Service) ConfirmTOTPEnroll(ctx context.Context, adminID uuid.UUID, code 
 
 // DisableTOTP clears enrolled TOTP after verifying a current code.
 func (s Service) DisableTOTP(ctx context.Context, adminID uuid.UUID, code string) error {
+	if err := s.checkTOTPThrottle(ctx, adminID); err != nil {
+		return err
+	}
 	u, err := s.Store.GetUserByID(ctx, adminID)
 	if err != nil {
 		return err
@@ -253,8 +296,10 @@ func (s Service) DisableTOTP(ctx context.Context, adminID uuid.UUID, code string
 		return ErrTOTPInvalid
 	}
 	if !validateTOTP(string(plain), code) {
+		s.recordTOTPOutcome(ctx, u.ID, false)
 		return ErrTOTPInvalid
 	}
+	s.recordTOTPOutcome(ctx, u.ID, true)
 	return s.Store.SetUserTOTPSecret(ctx, adminID, "")
 }
 

@@ -54,7 +54,9 @@ func (c Card) IsNew() bool { return c.LastReviewedAt.IsZero() }
 // like brand-new ones: scheduled from s0/d0 using only the current rating,
 // discarding whatever (possibly also corrupted) Difficulty was stored.
 func needsReset(c Card) bool {
-	return c.IsNew() || math.IsNaN(c.Stability) || math.IsInf(c.Stability, 0) || c.Stability <= 0
+	return c.IsNew() ||
+		math.IsNaN(c.Stability) || math.IsInf(c.Stability, 0) || c.Stability <= 0 ||
+		math.IsNaN(c.Difficulty) || math.IsInf(c.Difficulty, 0) || c.Difficulty < 1 || c.Difficulty > 10
 }
 
 func clamp(x, lo, hi float64) float64 {
@@ -119,6 +121,9 @@ func Review(c Card, rating Rating, now time.Time, desiredRetention float64) Card
 		newDifficulty = d0(rating)
 	} else {
 		t := now.Sub(c.LastReviewedAt).Hours() / 24
+		if t < 0 {
+			t = 0
+		}
 		r := retrievability(t, c.Stability)
 		if rating == Again {
 			newStability = stabilityFail(c.Stability, c.Difficulty, r)
@@ -139,6 +144,9 @@ func Review(c Card, rating Rating, now time.Time, desiredRetention float64) Card
 	days := interval(desiredRetention, newStability)
 	if days < 1 {
 		days = 1
+	}
+	if math.IsNaN(days) || math.IsInf(days, 0) || days > 36500 {
+		days = 36500
 	}
 	state := int16(1)
 	lapses := c.Lapses

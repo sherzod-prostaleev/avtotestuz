@@ -79,6 +79,10 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     }
     setStatus("loading");
     let script = document.querySelector<HTMLScriptElement>(`script[src="${TELEGRAM_SDK_URL}"]`);
+    if (script && script.dataset.dgSettled === "1") {
+      resolve(getWebApp());
+      return;
+    }
     if (!script) {
       script = document.createElement("script");
       script.src = TELEGRAM_SDK_URL;
@@ -88,11 +92,13 @@ export function TelegramProvider({ children }: { children: React.ReactNode }) {
     const timer = window.setTimeout(() => setStatus((s) => (s === "loading" ? "failed" : s)), SDK_TIMEOUT_MS);
     const onLoad = () => {
       window.clearTimeout(timer);
+      if (script) script.dataset.dgSettled = "1";
       resolve(getWebApp());
     };
     // A blocked/failed SDK leaves webApp null: the app stays a normal web page.
     const onError = () => {
       window.clearTimeout(timer);
+      if (script) script.dataset.dgSettled = "1";
       setStatus("failed");
     };
     script.addEventListener("load", onLoad);

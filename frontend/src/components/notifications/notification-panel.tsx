@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { Bell, Loader2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { notificationUnreadCount } from "@/lib/badge-counts";
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -72,7 +73,10 @@ export function NotificationPanel({
     try {
       const rows = await listNotifications({ limit: 20 });
       setItems(rows);
-      onUnreadChange(rows.filter((r) => !r.read_at).length);
+      const unreadInPage = rows.filter((r) => !r.read_at).length;
+      if (rows.length < 20 || unreadInPage > notificationUnreadCount.get()) {
+        onUnreadChange(unreadInPage);
+      }
     } catch {
       setError(true);
     } finally {
@@ -133,7 +137,11 @@ export function NotificationPanel({
             r.id === item.id ? { ...r, read_at: new Date().toISOString() } : r,
           ),
         );
-        onUnreadChange(Math.max(0, items.filter((r) => !r.read_at && r.id !== item.id).length));
+        const nextCount =
+          items.length < 20
+            ? Math.max(0, items.filter((r) => !r.read_at && r.id !== item.id).length)
+            : Math.max(0, notificationUnreadCount.get() - 1);
+        onUnreadChange(nextCount);
       }
       if (item.url?.startsWith("/")) {
         onClose();

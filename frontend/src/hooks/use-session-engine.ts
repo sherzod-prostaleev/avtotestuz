@@ -1,7 +1,17 @@
 import { useCallback, useRef, useState } from "react";
+import { clearSessionHistoryCache } from "@/hooks/use-session-history";
 import { apiGet, apiPost, ApiError } from "@/lib/api-client";
 import { defaultLocale } from "@/i18n/config";
+import { mistakesCountStore, mockEligibilityStore } from "@/lib/dashboard-stores";
+import { getQueryClient } from "@/lib/query-client";
 import { haptics } from "@/lib/telegram/haptics";
+
+function invalidateLearnerProgressCaches(): void {
+  clearSessionHistoryCache();
+  mistakesCountStore.reset();
+  mockEligibilityStore.reset();
+  void getQueryClient().invalidateQueries({ queryKey: ["user-stats-rest"] });
+}
 
 export type SessionMode =
   | "variant"
@@ -529,6 +539,7 @@ export function useSessionEngine(initialSessionId?: string) {
           variant_number: created.variant_number ?? null,
         };
         stashWarmSession(state, locale, created.started_at);
+        clearSessionHistoryCache();
         commitSession(state);
         return state;
       } catch (err: unknown) {
@@ -628,6 +639,7 @@ export function useSessionEngine(initialSessionId?: string) {
         });
 
         if (response.recorded) {
+          invalidateLearnerProgressCaches();
           const current = sessionRef.current;
           // The backend returns `correct` in exam-like modes too, but the UI
           // withholds it until finish; a success/error buzz would leak every
@@ -663,6 +675,7 @@ export function useSessionEngine(initialSessionId?: string) {
         // A stopped exam is already finalized server-side. Reload its detail
         // and every scoped question so withheld feedback becomes available.
         if (response.stopped) {
+          invalidateLearnerProgressCaches();
           try {
             commitSession(await fetchSessionState(sessionId, localeRef.current));
           } catch (reloadError: unknown) {
@@ -724,6 +737,7 @@ export function useSessionEngine(initialSessionId?: string) {
 
         // Render the completed result screen immediately without blocking on secondary full-batch reloads
         commitSession(completed);
+        invalidateLearnerProgressCaches();
 
         // Background reload to populate any unrevealed explanations/keys for the review section
         void fetchSessionState(sessionId, localeRef.current)

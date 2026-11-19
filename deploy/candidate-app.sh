@@ -11,10 +11,11 @@ ACTIVE_INCLUDE="${DRIVERGO_NGINX_UPSTREAM_INCLUDE:-/etc/nginx/snippets/drivergo-
 SLOT_LOCK_FILE="${DRIVERGO_SLOT_LOCK_FILE:-/run/lock/drivergo-app-slot.lock}"
 ENV_FILE="${DRIVERGO_CANDIDATE_ENV_FILE:-$ROOT/deploy/app.env}"
 BACKUP_HOST="${CANDIDATE_BACKUP_HOST:-root@89.117.59.137}"
+BACKUP_SSH_PORT="${CANDIDATE_BACKUP_SSH_PORT:-${DEPLOY_SSH_PORT:-2222}}"
 BACKUP_ALLOWED_HOSTS="${CANDIDATE_BACKUP_ALLOWED_HOSTS:-root@89.117.59.137}"
 BACKUP_ROOT="${CANDIDATE_BACKUP_ROOT:-/var/backups/drivergo/full}"
 BACKUP_MAX_AGE_SECONDS="${CANDIDATE_BACKUP_MAX_AGE_SECONDS:-93600}"
-SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
+SSH_OPTS=(-p "$BACKUP_SSH_PORT" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes)
 
 while (($#)); do
   case "$1" in

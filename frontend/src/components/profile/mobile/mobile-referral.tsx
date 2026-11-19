@@ -100,7 +100,11 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
             ? "errorSelf"
             : code === "referral_not_found"
               ? "errorNotFound"
-              : "applyError";
+              : code === "referral_not_eligible_paid"
+                ? "errorNotEligiblePaid"
+                : code === "referral_window_closed"
+                  ? "errorWindowClosed"
+                  : "applyError";
       setApplyMessage({ type: "error", text: t(key) });
     } finally {
       setApplying(false);
@@ -279,7 +283,7 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
         <div role="alert" className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive">
           <p>{t("loadError")}</p>
           <button type="button" onClick={() => void load()} className="mt-2 min-h-11 text-sm font-bold underline">
-            {t("applyButton")}
+            {t("retry")}
           </button>
         </div>
       ) : (
@@ -336,7 +340,11 @@ export function MobileReferral({ onBack }: { onBack: () => void }) {
             {[
               { key: "invited", value: data.total_invited, label: t("statInvitedShort") },
               { key: "rewarded", value: data.total_rewarded, label: t("statRewardedShort") },
-              { key: "days", value: data.bonus_days_earned ?? 0, label: t("statDaysShort") },
+              {
+                key: "earned",
+                value: groupDigits(data.earned_uzs ?? 0),
+                label: t("statEarned"),
+              },
             ].map((tile) => (
               <div key={tile.key} className="rounded-2xl border border-border bg-card p-2 text-center">
                 <p className="font-display text-xl font-extrabold tabular-nums">{tile.value}</p>

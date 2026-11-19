@@ -342,6 +342,11 @@ func (s Service) creditReferralCommission(ctx context.Context, referrerID, refer
 	if commission <= 0 {
 		return nil
 	}
+	if _, err := s.Q.GetCommissionByPaymentID(ctx, uuid.NullUUID{UUID: paymentID, Valid: true}); err == nil {
+		return nil
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
 	meta, _ := json.Marshal(map[string]any{
 		"referee_id":  refereeID.String(),
 		"percent":     percent,
@@ -357,7 +362,7 @@ func (s Service) creditReferralCommission(ctx context.Context, referrerID, refer
 		Meta:      meta,
 	})
 	if err != nil {
-		if isUniqueViolation(err) {
+		if errors.Is(err, pgx.ErrNoRows) || isUniqueViolation(err) {
 			return nil
 		}
 		return fmt.Errorf("insert commission: %w", err)
@@ -418,6 +423,9 @@ func (s Service) ClawbackReferralCommissionOnRefund(ctx context.Context, payment
 		Meta:      meta,
 	})
 	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 			return nil

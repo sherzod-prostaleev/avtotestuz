@@ -903,6 +903,8 @@ func (s *Service) OnDisconnect(profileID uuid.UUID, c *Conn) {
 		if !m.NotifyDisconnect(profileID) {
 			s.Log.Error("arena disconnect event could not be queued", zap.String("match_id", m.id.String()), zap.String("profile_id", profileID.String()))
 		}
+	} else if s.OpenInvite(ctx, profileID) == nil {
+		s.locales.Delete(profileID.String())
 	}
 }
 

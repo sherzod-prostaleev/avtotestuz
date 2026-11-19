@@ -26,6 +26,9 @@ func HashPassword(password string) (string, error) {
 	}
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcryptCost)
 	if err != nil {
+		if errors.Is(err, bcrypt.ErrPasswordTooLong) {
+			return "", ErrWeakPassword
+		}
 		return "", err
 	}
 	return string(hash), nil

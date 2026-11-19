@@ -371,7 +371,8 @@ func (q *Queries) GetPaymeTransactionForUpdate(ctx context.Context, paymeID stri
 const getPaymentForPayme = `-- name: GetPaymentForPayme :one
 SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id,
        p.tariff_days_snapshot AS tariff_days,
-       p.tariff_price_uzs_snapshot AS tariff_price_uzs
+       p.tariff_price_uzs_snapshot AS tariff_price_uzs,
+       p.provider
 FROM payment p
 WHERE p.id = $1
 `
@@ -385,6 +386,7 @@ type GetPaymentForPaymeRow struct {
 	PromoCodeID    uuid.NullUUID `json:"promo_code_id"`
 	TariffDays     int32         `json:"tariff_days"`
 	TariffPriceUzs int64         `json:"tariff_price_uzs"`
+	Provider       string        `json:"provider"`
 }
 
 // Both tariff figures come from the payment's own snapshot, NOT from a join on
@@ -406,6 +408,7 @@ func (q *Queries) GetPaymentForPayme(ctx context.Context, id uuid.UUID) (GetPaym
 		&i.PromoCodeID,
 		&i.TariffDays,
 		&i.TariffPriceUzs,
+		&i.Provider,
 	)
 	return i, err
 }

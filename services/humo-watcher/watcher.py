@@ -43,11 +43,14 @@ async def serve_health(
             + body
         )
         await writer.drain()
-    except (ConnectionError, asyncio.TimeoutError):
+    except (ConnectionError, OSError, asyncio.TimeoutError):
         pass
     finally:
         writer.close()
-        await writer.wait_closed()
+        try:
+            await writer.wait_closed()
+        except (ConnectionError, OSError):
+            pass
 
 
 class DurableSpool:
@@ -176,13 +179,15 @@ async def run_client(
     client = TelegramClient(StringSession(string_session), api_id, api_hash)
     callback_failure: asyncio.Future[None] = asyncio.get_running_loop().create_future()
 
-    @client.on(events.NewMessage(chats=bot_username))
+    @client.on(events.NewMessage(chats=bot_username, incoming=True))
     async def handler(event: events.NewMessage.Event) -> None:  # type: ignore[name-defined]
         text = (event.raw_text or "").strip()
         if not text:
             return
         # Only deposit notifications; parser on API is authoritative.
         lower = text.lower()
+        for ch in ("\u2018", "\u2019", "\u02bb", "\u02bc", "`", "\u00b4"):
+            lower = lower.replace(ch, "'")
         if "to'ldirish" not in lower and "toldirish" not in lower and "пополн" not in lower:
             return
         try:
@@ -194,13 +199,14 @@ async def run_client(
             return
         await drain_spool(session, spool, spool_lock)
 
-    await client.start()
-    me = await client.get_me()
-    LOG.info("connected as %s; watching @%s", getattr(me, "username", me.id), bot_username)
-    disconnected = asyncio.create_task(
-        client.run_until_disconnected(), name="telegram-disconnected"
-    )
+    disconnected: asyncio.Task[None] | None = None
     try:
+        await client.start()
+        me = await client.get_me()
+        LOG.info("connected as %s; watching @%s", getattr(me, "username", me.id), bot_username)
+        disconnected = asyncio.create_task(
+            client.run_until_disconnected(), name="telegram-disconnected"
+        )
         done, _ = await asyncio.wait(
             (disconnected, callback_failure), return_when=asyncio.FIRST_COMPLETED
         )
@@ -208,9 +214,10 @@ async def run_client(
             await callback_failure
         await disconnected
     finally:
-        if not disconnected.done():
-            disconnected.cancel()
-        await asyncio.gather(disconnected, return_exceptions=True)
+        if disconnected is not None:
+            if not disconnected.done():
+                disconnected.cancel()
+            await asyncio.gather(disconnected, return_exceptions=True)
         await client.disconnect()
 
 

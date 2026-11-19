@@ -13,6 +13,9 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Crown, CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
 import { ProviderPicker, PaymentProvider } from "@/components/checkout/provider-picker";
 import { PremiumMobile } from "@/components/premium/premium-mobile";
+import { ME_QUERY_KEY } from "@/hooks/use-me";
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
+import { getQueryClient } from "@/lib/query-client";
 
 interface TariffDTO {
   code: string;
@@ -162,6 +165,10 @@ export default function PremiumPage() {
       // is still the API's documented response, and a redirect is a cheaper
       // way to honour it than an error screen over a subscription we granted.
       if (result.free) {
+        mockEligibilityStore.reset();
+        const qc = getQueryClient();
+        void qc.invalidateQueries({ queryKey: ME_QUERY_KEY });
+        void qc.invalidateQueries({ queryKey: ["user-stats-rest"] });
         // Carry the plan through so the result screen can name it instead of
         // leaving its summary card empty.
         const tariff = tariffs?.find((row) => row.code === code);

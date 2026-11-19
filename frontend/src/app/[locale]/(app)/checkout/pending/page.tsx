@@ -9,6 +9,9 @@ import { Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { useTelegram } from "@/components/telegram/telegram-provider";
+import { ME_QUERY_KEY } from "@/hooks/use-me";
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
+import { getQueryClient } from "@/lib/query-client";
 import { openExternalUrl } from "@/lib/telegram/links";
 import { forgetCheckoutUrl, readCheckoutUrl } from "@/lib/telegram/checkout-handoff";
 
@@ -57,6 +60,10 @@ export default function CheckoutPendingPage() {
         if (ent.active) {
           stopped = true;
           forgetCheckoutUrl();
+          mockEligibilityStore.reset();
+          const qc = getQueryClient();
+          void qc.invalidateQueries({ queryKey: ME_QUERY_KEY });
+          void qc.invalidateQueries({ queryKey: ["user-stats-rest"] });
           const params = new URLSearchParams();
           if (ent.proration?.applied) {
             params.set("prorated", "1");

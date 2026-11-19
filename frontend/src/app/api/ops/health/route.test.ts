@@ -70,4 +70,20 @@ describe("GET /api/ops/health", () => {
     expect(body.data.status).toBe("degraded");
     expect(body.data.ready.ok).toBe(false);
   });
+
+  it("rejects unauthenticated requests without an admin session cookie", async () => {
+    const res = await GET(new Request("http://localhost/api/ops/health"));
+    expect(res.status).toBe(401);
+    expect(mockedFetch).not.toHaveBeenCalled();
+  });
+
+  it("allows requests carrying an admin session cookie", async () => {
+    mockedFetch.mockImplementation(async () => jsonResponse(200, { data: { status: "ok" } }));
+    const req = new Request("http://localhost/api/ops/health", {
+      headers: { Cookie: "aat=admin-access-token" },
+    });
+    const res = await GET(req);
+    expect(res.status).toBe(200);
+    expect(mockedFetch).toHaveBeenCalledTimes(3);
+  });
 });

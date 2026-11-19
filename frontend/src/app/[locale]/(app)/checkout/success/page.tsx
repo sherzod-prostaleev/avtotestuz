@@ -1,16 +1,27 @@
 "use client";
 
+import { useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { ME_QUERY_KEY } from "@/hooks/use-me";
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
+import { getQueryClient } from "@/lib/query-client";
 import { Crown, Check, CheckCircle2, ArrowRight, Info } from "lucide-react";
 
 export default function CheckoutSuccessPage() {
   const t = useTranslations("Premium");
   const locale = useLocale();
   const searchParams = useSearchParams();
+
+  useEffect(() => {
+    mockEligibilityStore.reset();
+    const qc = getQueryClient();
+    void qc.invalidateQueries({ queryKey: ME_QUERY_KEY });
+    void qc.invalidateQueries({ queryKey: ["user-stats-rest"] });
+  }, []);
   const isFree = searchParams.get("free") === "true";
   const prorated = searchParams.get("prorated") === "1";
   const granted = Number(searchParams.get("granted") || "0");
@@ -77,6 +88,23 @@ export default function CheckoutSuccessPage() {
                   </span>
                 </div>
               )}
+            </div>
+          )}
+
+          {showProration && (
+            <div
+              role="status"
+              className="w-full rounded-xl border border-gold/40 bg-gold/10 p-3 text-left text-sm text-foreground"
+            >
+              <div className="flex items-start gap-2">
+                <Info aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                <div className="space-y-1">
+                  <p className="font-bold">{t("checkoutProratedTitle")}</p>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    {t("checkoutProratedBody", { granted, tariff })}
+                  </p>
+                </div>
+              </div>
             </div>
           )}
         </div>

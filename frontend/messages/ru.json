@@ -1007,7 +1007,8 @@
     "passwordSetHint": "Вы зарегистрировались через Telegram. Установите пароль, чтобы входить и по номеру с паролем.",
     "passwordSetSubmit": "Сохранить пароль",
     "passwordSetSuccess": "Пароль установлен. Теперь можно входить и по номеру с паролем. Сеансы на других устройствах завершены.",
-    "passwordErrorAlreadySet": "Пароль уже установлен. Обновите страницу."
+    "passwordErrorAlreadySet": "Пароль уже установлен. Обновите страницу.",
+    "passwordErrorRateLimited": "Слишком много попыток. Попробуйте немного позже."
   },
   "TelegramLink": {
     "title": "Привязка Telegram",
@@ -1108,7 +1109,8 @@
     "payoutPickNetwork": "Выберите тип карты",
     "payoutCardHint": "Введите номер карты Uzcard или Humo",
     "shareTelegram": "Поделиться в Telegram",
-    "shareText": "Давай вместе готовиться к экзамену на права в Driver Go!"
+    "shareText": "Давай вместе готовиться к экзамену на права в Driver Go!",
+    "retry": "Повторить"
   },
   "PaymentHistory": {
     "title": "История платежей",

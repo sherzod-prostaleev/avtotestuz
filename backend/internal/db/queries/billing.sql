@@ -39,7 +39,8 @@ WHERE profile_id = $1 AND status = 'paid';
 -- grant when a promo is no longer redeemable at completion (see proRatedDays).
 SELECT p.id, p.profile_id, p.tariff_id, p.amount_uzs, p.status, p.promo_code_id,
        p.tariff_days_snapshot AS tariff_days,
-       p.tariff_price_uzs_snapshot AS tariff_price_uzs
+       p.tariff_price_uzs_snapshot AS tariff_price_uzs,
+       p.provider
 FROM payment p
 WHERE p.id = $1;
 

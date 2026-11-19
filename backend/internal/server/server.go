@@ -152,6 +152,7 @@ func New(cfg config.Config, deps Deps) (http.Handler, *arena.Service, *broadcast
 			MetricsSnapshot: metrics.Snapshot,
 			Push:            pushSvc,
 			Broadcast:       broadcastSvc,
+			ClientIPs:       auth.NewClientIPResolver([]byte(cfg.ClientIPAssertionSecret)).WithTrustedProxies(cfg.TrustedProxyCIDRs),
 
 			StationBinaryPath: cfg.StationBinaryPath,
 			PublicBaseURL:     cfg.PublicBaseURL,

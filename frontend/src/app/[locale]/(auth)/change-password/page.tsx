@@ -11,6 +11,7 @@ import { ApiError, apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
 import { postLogoutPath } from "@/lib/telegram/logout";
+import { resetAllLearnerCaches } from "@/lib/learner-cache";
 import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 type MeResponse = {
@@ -61,6 +62,7 @@ export default function ChangePasswordPage() {
     } catch {
       /* best-effort */
     }
+    resetAllLearnerCaches();
     // In the Mini App /tg signs the learner back in with the launch data —
     // the forced change is done, so there is no reason to type the new
     // password again. Not a deliberate logout: auto-login stays on.

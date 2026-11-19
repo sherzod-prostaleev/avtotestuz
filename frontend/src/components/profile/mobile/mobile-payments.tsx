@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { apiGet } from "@/lib/api-client";
 import { type PaymentItem } from "@/components/profile/payment-history-card";
 import { MobileScreen } from "./mobile-screen";
@@ -34,6 +34,7 @@ const PROVIDER_LABEL: Record<string, string> = {
  */
 export function MobilePayments({ onBack }: { onBack: () => void }) {
   const t = useTranslations("PaymentHistory");
+  const locale = useLocale();
   const [payments, setPayments] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -42,25 +43,29 @@ export function MobilePayments({ onBack }: { onBack: () => void }) {
     setLoading(true);
     setError(false);
     try {
-      setPayments(await apiGet<PaymentItem[]>("me/payments?limit=20"));
+      setPayments(await apiGet<PaymentItem[]>(`me/payments?limit=20&locale=${encodeURIComponent(locale)}`));
     } catch {
       setError(true);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
   const statusTone = (status: string) =>
-    status === "paid" ? "text-success" : status === "pending" ? "text-accent" : "text-muted-foreground";
+    status === "paid"
+      ? "text-success"
+      : status === "pending" || status === "created"
+        ? "text-accent"
+        : "text-muted-foreground";
 
   const statusLabel = (status: string) => {
     if (status === "paid") return t("statusPaid");
-    if (status === "pending") return t("statusPending");
-    if (status === "canceled") return t("statusCanceled");
+    if (status === "pending" || status === "created") return t("statusPending");
+    if (status === "canceled" || status === "cancelled") return t("statusCanceled");
     if (status === "refunded") return t("statusRefunded");
     return t("statusFailed");
   };

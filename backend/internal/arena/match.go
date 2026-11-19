@@ -624,9 +624,16 @@ func (m *Match) finish(ctx context.Context, reason string) {
 	da, db := 0, 0
 	ra, rb := a.card.Rating, b.card.Rating
 	backoff := 100 * time.Millisecond
-	for {
+	const maxFinishAttempts = 5
+	var persisted bool
+	for attempt := 0; attempt < maxFinishAttempts; attempt++ {
+		attemptCtx := ctx
+		var cancel context.CancelFunc
+		if attempt > 0 || attemptCtx == nil || attemptCtx.Err() != nil {
+			attemptCtx, cancel = opContext()
+		}
 		var persistErr error
-		if m.rated() && m.svc.Rating != nil {
+		if m.rated() && m.svc != nil && m.svc.Rating != nil {
 			// Forfeit: quitter scores as loss for ELO (score 0 vs opponent+1).
 			scoreA, scoreB := a.score, b.score
 			if reason == "forfeit" {
@@ -637,28 +644,42 @@ func (m *Match) finish(ctx context.Context, reason string) {
 					scoreA, scoreB = 1, 0
 				}
 			}
-			da, db, persistErr = m.svc.Rating.ApplyResult(ctx, m.id, a.id, b.id, scoreA, scoreB)
+			da, db, persistErr = m.svc.Rating.ApplyResult(attemptCtx, m.id, a.id, b.id, scoreA, scoreB)
 			if persistErr == nil {
-				ra, persistErr = m.svc.Rating.Rating(ctx, a.id)
+				ra, persistErr = m.svc.Rating.Rating(attemptCtx, a.id)
 			}
 			if persistErr == nil {
-				rb, persistErr = m.svc.Rating.Rating(ctx, b.id)
+				rb, persistErr = m.svc.Rating.Rating(attemptCtx, b.id)
 			}
 		}
-		if persistErr == nil {
-			persistErr = m.svc.FinishPersist(ctx, m, da, db)
+		if persistErr == nil && m.svc != nil {
+			persistErr = m.svc.FinishPersist(attemptCtx, m, da, db)
+		}
+		if cancel != nil {
+			cancel()
 		}
 		if persistErr == nil {
+			persisted = true
 			break
 		}
-		m.svc.Log.Error("arena finish persistence failed; retrying",
-			zap.String("match_id", m.id.String()),
-			zap.Error(persistErr),
-		)
-		time.Sleep(backoff)
-		if backoff < 5*time.Second {
-			backoff *= 2
+		if m.svc != nil && m.svc.Log != nil {
+			m.svc.Log.Error("arena finish persistence failed; retrying",
+				zap.String("match_id", m.id.String()),
+				zap.Int("attempt", attempt+1),
+				zap.Error(persistErr),
+			)
 		}
+		if attempt+1 < maxFinishAttempts {
+			time.Sleep(backoff)
+			if backoff < 5*time.Second {
+				backoff *= 2
+			}
+		}
+	}
+	if !persisted && m.svc != nil {
+		cleanupCtx, cancel := opContext()
+		_ = m.svc.cleanupFinishedMatch(cleanupCtx, m)
+		cancel()
 	}
 	m.send(a, "match.end", m.endFor(a, b, outA, ra, da))
 	m.send(b, "match.end", m.endFor(b, a, outB, rb, db))

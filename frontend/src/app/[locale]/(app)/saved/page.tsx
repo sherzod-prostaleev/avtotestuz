@@ -8,6 +8,7 @@ import { BackLink } from "@/components/layout/back-link";
 import { apiDelete, apiGet } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { savedQuestionsStore } from "@/lib/dashboard-stores";
 import { toBrowserMediaUrl } from "@/lib/question-image";
 
 interface SavedItemDTO {
@@ -97,7 +98,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
         `categories?locale=${encodeURIComponent(locale)}`
       );
       const namesByCode = new Map(categories.map((category) => [category.code, category.name]));
-      const loaded = await Promise.all(
+      const settled = await Promise.allSettled(
         saved.map(async (item) => {
           const question = await apiGet<QuestionDTO>(
             `questions/${encodeURIComponent(item.question_id)}?locale=${encodeURIComponent(locale)}`
@@ -110,6 +111,12 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
           };
         })
       );
+      const loaded = settled
+        .filter((res): res is PromiseFulfilledResult<SavedQuestion> => res.status === "fulfilled")
+        .map((res) => res.value);
+      if (saved.length > 0 && loaded.length === 0) {
+        throw new Error("failed to load saved questions");
+      }
       setItems(loaded);
       setStatus("ready");
     } catch {
@@ -132,6 +139,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
     try {
       await apiDelete<{ ok: boolean }>(`me/saved/${encodeURIComponent(questionId)}`);
       setItems((current) => current.filter((item) => item.questionId !== questionId));
+      savedQuestionsStore.reset();
     } catch {
       setDeleteErrors((current) => ({ ...current, [questionId]: true }));
     } finally {
@@ -315,7 +323,7 @@ export default function SavedPage({ kiosk = false }: SavedPageProps = {}) {
                     {/* Dynamic media URLs are served by the backend and intentionally stay unoptimized. */}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.question.image_url}
+                      src={toBrowserMediaUrl(item.question.image_url)}
                       alt={t("imageAlt", { number: index + 1 })}
                       className="mx-auto max-h-52 w-full rounded-xl object-contain"
                     />

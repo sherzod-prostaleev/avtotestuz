@@ -10,6 +10,7 @@ RETURNING id, referral_commission_percent;
 -- name: InsertReferralLedger :one
 INSERT INTO referral_ledger (profile_id, entry_type, amount_uzs, payment_id, payout_id, meta)
 VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT DO NOTHING
 RETURNING id, profile_id, entry_type, amount_uzs, payment_id, payout_id, meta, created_at;
 
 -- name: GetReferralBalance :one

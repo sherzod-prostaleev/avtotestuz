@@ -300,7 +300,7 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		if hasRange {
 			// A half-open or inverted span would silently widen or empty the
 			// draw, so reject it rather than guessing what was meant.
-			if req.VariantFrom <= 0 || req.VariantTo <= 0 || req.VariantFrom > req.VariantTo {
+			if req.VariantFrom <= 0 || req.VariantTo <= 0 || req.VariantFrom > req.VariantTo || req.VariantTo > 10000 {
 				return SessionView{}, ErrInvalidRequest
 			}
 			selectors++
@@ -347,6 +347,8 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		count := req.Count
 		if count <= 0 {
 			count = 10
+		} else if count > 10000 {
+			count = 10000
 		}
 		ids, err = s.Q.ListMistakeBankQuestionIDs(ctx, sqlc.ListMistakeBankQuestionIDsParams{
 			ProfileID: profileID, LimitCount: int32(count),
@@ -361,6 +363,8 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 		count := req.Count
 		if count <= 0 {
 			count = 20
+		} else if count > 10000 {
+			count = 10000
 		}
 		ids, err = s.Learning.NextDue(ctx, profileID, count)
 		if err == nil && len(ids) == 0 {
@@ -372,6 +376,9 @@ func (s *Service) StartSession(ctx context.Context, profileID uuid.UUID, req Sta
 	}
 	if err != nil {
 		return SessionView{}, err
+	}
+	if len(ids) == 0 && req.Mode != "mistakes" {
+		return SessionView{}, ErrInvalidRequest
 	}
 
 	row, err := s.Q.CreateExamSession(ctx, sqlc.CreateExamSessionParams{
@@ -468,6 +475,9 @@ func (s *Service) clampToDailyAllowance(ctx context.Context, profileID uuid.UUID
 	if limit == -1 {
 		if requested <= 0 {
 			return 10, nil
+		}
+		if requested > 10000 {
+			return 10000, nil
 		}
 		return requested, nil
 	}
@@ -1290,16 +1300,29 @@ func (s *Service) ResetVariantProgress(ctx context.Context, profileID uuid.UUID)
 		}
 	}
 
-	// Walk the chain from the first bilet and stop at the first one that was
-	// never completed: that bilet is the one the learner had open, so it is
-	// the ceiling. An unbroken run to the end leaves the last bilet's number,
-	// which is already every bilet there is.
-	ceiling := 0
+	p, err := q.GetProfileByID(ctx, profileID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return VariantResetResult{}, ErrNotFound
+		}
+		return VariantResetResult{}, err
+	}
+	prevCeiling := int(p.VariantUnlockCeiling)
+
+	// Walk the chain from the first bilet and stop at the first one whose
+	// sequential gate was not satisfied (either by previous completion or by
+	// an earlier reset's ceiling).
+	ceiling := prevCeiling
+	prevDone := true
 	for _, v := range variants {
-		ceiling = int(v.Number)
-		if !completed[v.ID] {
+		num := int(v.Number)
+		if !prevDone && num > prevCeiling {
 			break
 		}
+		if num > ceiling {
+			ceiling = num
+		}
+		prevDone = completed[v.ID]
 	}
 
 	// GREATEST in SQL, so a later reset — which necessarily sees a short chain,
@@ -1315,7 +1338,7 @@ func (s *Service) ResetVariantProgress(ctx context.Context, profileID uuid.UUID)
 		return VariantResetResult{}, err
 	}
 
-	p, err := q.GetProfileByID(ctx, profileID)
+	p, err = q.GetProfileByID(ctx, profileID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return VariantResetResult{}, ErrNotFound

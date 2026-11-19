@@ -35,6 +35,7 @@ const ERROR_KEYS: Record<string, string> = {
   password_unchanged: "passwordErrorUnchanged",
   password_not_set: "passwordErrorNotSet",
   password_already_set: "passwordErrorAlreadySet",
+  rate_limited: "passwordErrorRateLimited",
   network_error: "passwordErrorNetwork",
 };
 

@@ -44,6 +44,9 @@ func (h *Handler) prepare(ctx context.Context, req clickRequest) clickResponse {
 	if err != nil {
 		return errorResponse(req, errAccountNotFound)
 	}
+	if payment.Provider != "click" {
+		return errorResponse(req, errAccountNotFound)
+	}
 	if payment.Status == "paid" {
 		return errorResponse(req, errAlreadyPaid)
 	}
@@ -146,6 +149,9 @@ func (h *Handler) complete(ctx context.Context, req clickRequest) clickResponse 
 	if err != nil {
 		return errorResponse(req, errAccountNotFound)
 	}
+	if payment.Provider != "click" {
+		return errorResponse(req, errAccountNotFound)
+	}
 	if payment.Status == "paid" {
 		return errorResponse(req, errAlreadyPaid)
 	}
@@ -201,6 +207,19 @@ func (h *Handler) confirmAndGrant(ctx context.Context, transactionID, paymentID 
 	if locked.State == 1 {
 		return true, dbtx.Commit(ctx)
 	}
+	if locked.State != 0 {
+		return false, errors.New("click transaction already rejected")
+	}
+	pay, err := q.GetPaymentForPayme(ctx, paymentID)
+	if err != nil {
+		return false, err
+	}
+	if pay.Status == "paid" {
+		return true, dbtx.Commit(ctx)
+	}
+	if pay.Provider != "click" || pay.Status != "pending" {
+		return false, errors.New("payment not in pending state")
+	}
 
 	if err := q.ConfirmClickTransaction(ctx, transactionID); err != nil {
 		return false, err
@@ -228,6 +247,23 @@ func (h *Handler) rejectTransaction(ctx context.Context, transactionID, paymentI
 	}
 	defer func() { _ = dbtx.Rollback(ctx) }()
 	q := sqlc.New(dbtx)
+	locked, err := q.GetClickTransactionByIDForUpdate(ctx, transactionID)
+	if err != nil {
+		return err
+	}
+	if locked.State == -1 {
+		return dbtx.Commit(ctx)
+	}
+	if locked.State == 1 {
+		return errors.New("cannot reject confirmed click transaction")
+	}
+	pay, err := q.GetPaymentForPayme(ctx, paymentID)
+	if err != nil {
+		return err
+	}
+	if pay.Status == "paid" {
+		return errors.New("cannot reject paid payment")
+	}
 	if err := q.RejectClickTransaction(ctx, sqlc.RejectClickTransactionParams{
 		ID:     transactionID,
 		Reason: pgtype.Text{String: reason, Valid: reason != ""},

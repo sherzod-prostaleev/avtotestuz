@@ -3,7 +3,6 @@ package arena
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/coder/websocket"
@@ -25,7 +24,8 @@ type Conn struct {
 	ws        *websocket.Conn
 	out       chan []byte
 	svc       *Service
-	closed    atomic.Bool
+	mu        sync.Mutex
+	closed    bool
 	closeOnce sync.Once
 	onClose   func()
 }
@@ -41,13 +41,17 @@ func NewConn(profileID uuid.UUID, ws *websocket.Conn, svc *Service, onClose func
 }
 
 func (c *Conn) Enqueue(payload []byte) error {
-	if c.closed.Load() {
+	c.mu.Lock()
+	if c.closed {
+		c.mu.Unlock()
 		return nil
 	}
 	select {
 	case c.out <- payload:
+		c.mu.Unlock()
 		return nil
 	default:
+		c.mu.Unlock()
 		c.Close(websocket.StatusPolicyViolation, "slow_client")
 		return nil
 	}
@@ -55,9 +59,13 @@ func (c *Conn) Enqueue(payload []byte) error {
 
 func (c *Conn) Close(code websocket.StatusCode, reason string) {
 	c.closeOnce.Do(func() {
-		c.closed.Store(true)
-		_ = c.ws.Close(code, reason)
+		c.mu.Lock()
+		c.closed = true
 		close(c.out)
+		c.mu.Unlock()
+		if c.ws != nil {
+			_ = c.ws.Close(code, reason)
+		}
 		if c.onClose != nil {
 			c.onClose()
 		}

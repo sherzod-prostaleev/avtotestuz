@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"errors"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"avtotest.uz/backend/internal/httpx"
 )
@@ -39,10 +42,18 @@ func RequirePasswordChanged(q ProfileStatusReader) func(http.Handler) http.Handl
 				next.ServeHTTP(w, r)
 				return
 			}
-			profile, err := q.GetProfileByID(r.Context(), claims.ProfileID)
-			if err != nil {
-				httpx.Error(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
-				return
+			profile, ok := ProfileFromContext(r.Context())
+			if !ok {
+				var err error
+				profile, err = q.GetProfileByID(r.Context(), claims.ProfileID)
+				if err != nil {
+					if errors.Is(err, pgx.ErrNoRows) {
+						httpx.Error(w, http.StatusUnauthorized, "unauthorized", "invalid or expired token")
+						return
+					}
+					httpx.Error(w, http.StatusServiceUnavailable, "unavailable", "service temporarily unavailable")
+					return
+				}
 			}
 			if profile.MustChangePassword {
 				httpx.Error(w, http.StatusForbidden, "password_change_required", "password change required before continuing")

@@ -21,17 +21,21 @@ export function ChatComposer({
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function submit() {
     const body = text.trim();
     if ((!body && !file) || busy || disabled) return;
     setBusy(true);
+    setSendError(null);
     try {
       await onSend(body, file);
       setText("");
       setFile(null);
       if (inputRef.current) inputRef.current.value = "";
+    } catch (e) {
+      setSendError(e instanceof Error && e.message ? e.message : "Xatolik yuz berdi");
     } finally {
       setBusy(false);
     }
@@ -43,6 +47,11 @@ export function ChatComposer({
     // its own: the app shell already reserves 20px more under the column than
     // the tab bar occupies, and that reserve is the gap the artboard draws.
     <div className="border-t border-border bg-card/80 p-2 backdrop-blur max-md:border-t-0 max-md:bg-transparent max-md:p-0 max-md:px-3 max-md:backdrop-blur-none">
+      {sendError ? (
+        <p role="alert" className="mb-2 text-xs text-destructive">
+          {sendError}
+        </p>
+      ) : null}
       {file ? (
         <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-muted px-2 py-1 text-xs">
           <span className="truncate">{file.name}</span>

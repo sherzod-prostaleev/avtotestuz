@@ -639,6 +639,13 @@ func refreshClaimKey(raw string) string {
 	return "auth:rtclaim:" + HashToken(raw)
 }
 
+func (s *Service) releaseRefreshClaim(ctx context.Context, raw string) {
+	if s.Lim.R == nil {
+		return
+	}
+	_ = s.Lim.R.Del(ctx, refreshClaimKey(raw)).Err()
+}
+
 func (s *Service) refreshClaimHeld(ctx context.Context, raw string) bool {
 	if s.Lim.R == nil {
 		return false
@@ -741,6 +748,7 @@ func (s *Service) Refresh(ctx context.Context, raw string) (Tokens, error) {
 		// Winner vanished without writing grace — soft-fail without revoke-all.
 		return Tokens{}, ErrInvalidRefresh
 	}
+	defer s.releaseRefreshClaim(ctx, raw)
 
 	profile, err := s.Q.GetProfileByID(ctx, rt.ProfileID)
 	if err != nil {

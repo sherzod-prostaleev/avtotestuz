@@ -11,7 +11,12 @@ assets/branding/
 
 # Staging / Docker overlay secrets (template is deploy/app.env.example)
 deploy/app.env
+deploy/app.prod.env
 deploy/app.env.prod.generated
+deploy/backup.env
+deploy/monitoring/monitoring.env
+deploy/monitoring/webhook.env
+scripts/backup/offhost-pull.env
 
 # Go
 backend/bin/

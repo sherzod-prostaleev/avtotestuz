@@ -179,6 +179,10 @@ func (h *Handler) validateAccountAmount(ctx context.Context, orderID string, amo
 		return sqlc.GetPaymentForPaymeRow{}, errInternal
 	}
 
+	if payment.Provider != "payme" {
+		return sqlc.GetPaymentForPaymeRow{}, errAccountNotFound
+	}
+
 	payable := payment.Status == "created" || (allowPending && payment.Status == "pending")
 	if !payable {
 		return sqlc.GetPaymentForPaymeRow{}, errAccountNotFound
@@ -254,6 +258,14 @@ func (h *Handler) performTransaction(ctx context.Context, p performTransactionPa
 
 	if existing.State != 1 {
 		// -1 or -2: already cancelled, can never be performed.
+		return performTransactionResult{}, errTransactionState
+	}
+
+	payment, err := q.GetPaymentForPayme(ctx, existing.PaymentID)
+	if err != nil {
+		return performTransactionResult{}, errInternal
+	}
+	if payment.Provider != "payme" || (payment.Status != "created" && payment.Status != "pending") {
 		return performTransactionResult{}, errTransactionState
 	}
 

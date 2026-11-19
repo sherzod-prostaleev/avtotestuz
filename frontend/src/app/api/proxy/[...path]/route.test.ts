@@ -448,4 +448,94 @@ describe("proxy route", () => {
     );
     expect(fetchMock.mock.calls[1][1].headers["X-Avtotest-Refresh-Token"]).toBe("fresh-rt");
   });
+
+  it("forwards public grand-mock certificate lookup without auth cookies", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: { code: "GM-123" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      new Request("http://localhost/api/proxy/grand-mock/certificates/GM-123"),
+      routeContext(["grand-mock", "certificates", "GM-123"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://localhost:8090/api/v1/grand-mock/certificates/GM-123",
+      expect.objectContaining({ method: "GET" })
+    );
+  });
+
+  it("does not refresh or clear cookies on a 401 invalid_current_password domain error", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({ error: { code: "invalid_current_password", message: "current password is incorrect" } }),
+        { status: 401 },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await POST(
+      requestWithCookies("at=good-token; rt=valid-rt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ current_password: "wrong", new_password: "newpassword1", confirm_password: "newpassword1" }),
+      }),
+      routeContext(["me", "password"]),
+    );
+
+    expect(response.status).toBe(401);
+    expect((await response.json()).error.code).toBe("invalid_current_password");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.cookies.get(AUTH_COOKIE)).toBeUndefined();
+    expect(response.cookies.get(REFRESH_COOKIE)).toBeUndefined();
+  });
+
+  it("preserves raw non-UTF-8 binary bytes on multipart/form-data uploads", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ data: { key: "k1" } }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rawBytes = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x89, 0x50, 0x4e, 0x47]);
+    await POST(
+      requestWithCookies("at=good-token", {
+        method: "POST",
+        headers: { "Content-Type": "multipart/form-data; boundary=---test" },
+        body: rawBytes,
+      }),
+      routeContext(["me", "support", "attachments"]),
+    );
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const forwardedBody = fetchMock.mock.calls[0][1].body as ArrayBuffer;
+    expect(forwardedBody).toBeInstanceOf(ArrayBuffer);
+    expect(Array.from(new Uint8Array(forwardedBody))).toEqual(Array.from(rawBytes));
+  });
+
+  it("streams image and PDF attachment responses as binary instead of parsing JSON", async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(pngBytes, {
+        status: 200,
+        headers: {
+          "Content-Type": "image/png",
+          "Content-Disposition": 'inline; filename="screen.png"',
+        },
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await GET(
+      requestWithCookies("at=good-token"),
+      routeContext(["me", "support", "messages", "m1", "attachment"]),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(response.headers.get("content-disposition")).toBe('inline; filename="screen.png"');
+    expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(Array.from(new Uint8Array(await response.arrayBuffer()))).toEqual(Array.from(pngBytes));
+  });
 });

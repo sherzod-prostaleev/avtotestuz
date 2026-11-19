@@ -34,6 +34,7 @@ import { safeNextPath } from "@/lib/telegram/safe-next";
 import { BOT_USERNAME } from "@/lib/telegram/bot-username";
 import { continueName } from "@/lib/telegram/continue-name";
 import { forgetNeedPhone, recallNeedPhone, rememberNeedPhone } from "@/lib/telegram/need-phone-cache";
+import { resetAllLearnerCaches } from "@/lib/learner-cache";
 import { supportTelegramUrl } from "@/lib/site-contacts";
 
 type Phase =
@@ -141,6 +142,9 @@ async function dropSession(lifetime: AbortSignal): Promise<boolean> {
   try {
     return await withTimeout(lifetime, ME_PROBE_TIMEOUT_MS, async (signal) => {
       const res = await fetch("/api/auth/logout", { method: "POST", signal });
+      if (res.ok) {
+        resetAllLearnerCaches();
+      }
       return res.ok;
     });
   } catch {

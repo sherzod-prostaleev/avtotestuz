@@ -144,7 +144,7 @@ func (s Service) ApplyReferralCode(ctx context.Context, refereeID uuid.UUID, raw
 		// connection or a statement timeout all told a user who had never
 		// applied a code that they already had — with no path forward, and
 		// with the infrastructure error invisible to monitoring.
-		if isUniqueViolation(err) {
+		if errors.Is(err, pgx.ErrNoRows) || isUniqueViolation(err) {
 			return ErrReferralAlreadyApplied
 		}
 		return fmt.Errorf("create referral: %w", err)

@@ -42,7 +42,7 @@ export function SignedInNotice() {
   return (
     <div
       role="status"
-      className="fixed inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-50 mx-auto flex max-w-md md:left-[calc(16rem+0.75rem)] items-start gap-3 rounded-2xl border border-success/40 bg-card p-3 shadow-lg"
+      className="fixed inset-x-3 top-[calc(0.75rem+max(env(safe-area-inset-top),var(--tg-inset-top,0px)))] z-50 mx-auto flex max-w-md md:left-[calc(16rem+0.75rem)] items-start gap-3 rounded-2xl border border-success/40 bg-card p-3 shadow-lg"
     >
       <UserCheck aria-hidden="true" className="mt-0.5 h-5 w-5 shrink-0 text-success" />
       <div className="min-w-0 flex-1 space-y-1">

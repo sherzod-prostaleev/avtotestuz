@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { useQueryClient } from "@tanstack/react-query";
 import { onSessionExpired } from "@/lib/session-expiry";
-import { clearSessionHistoryCache } from "@/hooks/use-session-history";
-import { mistakesCountStore, mockEligibilityStore, savedQuestionsStore } from "@/lib/dashboard-stores";
+import { resetAllLearnerCaches } from "@/lib/learner-cache";
 import { isTelegramMiniApp } from "@/lib/telegram/web-app";
 
 /**
@@ -49,11 +48,7 @@ export function SessionExpiredGate() {
       // Everything below is per-learner and outlives a client-side
       // navigation. On a shared classroom PC the next person to sign in
       // would otherwise inherit this one's streak, mistakes and history.
-      queryClient.clear();
-      clearSessionHistoryCache();
-      mistakesCountStore.reset();
-      savedQuestionsStore.reset();
-      mockEligibilityStore.reset();
+      resetAllLearnerCaches(queryClient);
       try {
         if ("serviceWorker" in navigator) {
           const registration = await navigator.serviceWorker.getRegistration("/");

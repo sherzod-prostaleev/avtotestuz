@@ -7,6 +7,7 @@ import {
   ChatMessageList,
   learnerAttachmentUrl,
 } from "@/components/support-chat/chat-message-list";
+import { supportUnreadCount } from "@/lib/badge-counts";
 import {
   SupportSocket,
   getMyConversation,
@@ -43,6 +44,7 @@ export default function SupportChatPage() {
         setConversation(page.conversation ?? conv);
         setMessages(page.items ?? []);
         await markMySupportRead();
+        supportUnreadCount.set(0);
         // REST history is enough to use chat; WS is best-effort realtime.
         try {
           await sock.connect({
@@ -54,7 +56,7 @@ export default function SupportChatPage() {
                 };
                 if (d.message) mergeMessage(d.message);
                 if (d.conversation) setConversation(d.conversation);
-                void markMySupportRead();
+                void markMySupportRead().then(() => supportUnreadCount.set(0)).catch(() => {});
               }
               if (env.t === "conversation.updated" && env.d.conversation) {
                 setConversation(env.d.conversation as SupportConversation);
@@ -108,7 +110,7 @@ export default function SupportChatPage() {
     // shell's own `pb-[calc(4.25rem+env(safe-area-inset-bottom))]` adds — without
     // it the column is that inset too tall on a phone with a home indicator and
     // the page scrolls. `md:h-[calc(100dvh)]` still wins from 768px up.
-    <div className="flex h-[calc(100dvh-3.5rem-4.25rem)] flex-col max-md:h-[calc(100dvh-3.5rem-4.25rem-env(safe-area-inset-bottom))] md:h-[calc(100dvh)] md:min-h-[32rem]">
+    <div className="flex h-[calc(100dvh-3.75rem-4.25rem)] flex-col max-md:h-[calc(100dvh-3.75rem-max(env(safe-area-inset-top),var(--tg-inset-top,0px))-4.25rem-max(env(safe-area-inset-bottom),var(--tg-inset-bottom,0px)))] md:h-[calc(100dvh-var(--tg-inset-top,0px)-var(--tg-inset-bottom,0px))] md:min-h-[32rem]">
       <header className="flex items-center justify-between border-b border-border px-4 py-3 max-md:border-b-0 max-md:px-3 max-md:pb-0 max-md:pt-3">
         <div>
           <h1 className="font-display text-lg font-bold max-md:text-[24px] max-md:font-extrabold max-md:leading-[1.15]">

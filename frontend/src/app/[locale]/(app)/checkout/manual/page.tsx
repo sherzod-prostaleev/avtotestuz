@@ -8,6 +8,9 @@ import { ManualPayMobile } from "@/components/checkout/manual-pay-mobile";
 import { ManualPayCard } from "@/components/checkout/manual-pay-card";
 import type { ManualPayInfo } from "@/components/checkout/manual-pay-parts";
 import { Button } from "@/components/ui/button";
+import { ME_QUERY_KEY } from "@/hooks/use-me";
+import { mockEligibilityStore } from "@/lib/dashboard-stores";
+import { getQueryClient } from "@/lib/query-client";
 
 export default function ManualCheckoutPage() {
   const t = useTranslations("ManualPay");
@@ -27,6 +30,10 @@ export default function ManualCheckoutPage() {
       setInfo(data);
       setError(null);
       if (data.payment_status === "paid" || data.manual_state === "consumed") {
+        mockEligibilityStore.reset();
+        const qc = getQueryClient();
+        void qc.invalidateQueries({ queryKey: ME_QUERY_KEY });
+        void qc.invalidateQueries({ queryKey: ["user-stats-rest"] });
         router.replace(`/${locale}/checkout/success`);
       }
       return true;

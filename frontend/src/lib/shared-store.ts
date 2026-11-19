@@ -18,6 +18,7 @@ export function createSharedStore<T>(
   let value = initialValue;
   let fetchedAt = 0;
   let inFlight: Promise<T> | null = null;
+  let gen = 0;
   const listeners = new Set<(value: T) => void>();
 
   const publish = (next: T) => {
@@ -33,17 +34,22 @@ export function createSharedStore<T>(
         return Promise.resolve(value);
       }
 
+      const requestGen = gen;
       const request = fetcher()
         .then((next) => {
-          publish(next);
+          if (requestGen === gen) {
+            publish(next);
+          }
           return next;
         })
         .catch((err) => {
-          if (!force && fetchedAt > 0) return value;
+          if (requestGen === gen && !force && fetchedAt > 0) return value;
           throw err;
         })
         .finally(() => {
-          inFlight = null;
+          if (inFlight === request) {
+            inFlight = null;
+          }
         });
 
       inFlight = request;
@@ -51,6 +57,8 @@ export function createSharedStore<T>(
     },
 
     set(next) {
+      gen += 1;
+      inFlight = null;
       publish(next);
     },
 
@@ -66,9 +74,11 @@ export function createSharedStore<T>(
     },
 
     reset() {
+      gen += 1;
       value = initialValue;
       fetchedAt = 0;
       inFlight = null;
+      for (const listener of listeners) listener(initialValue);
     },
   };
 

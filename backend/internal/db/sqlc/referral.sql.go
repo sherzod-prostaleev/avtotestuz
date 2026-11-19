@@ -43,6 +43,7 @@ func (q *Queries) ClaimPendingReferralForReferee(ctx context.Context, refereeID 
 const createReferral = `-- name: CreateReferral :one
 INSERT INTO referral (referrer_id, referee_id, referral_code, status)
 VALUES ($1, $2, $3, 'pending')
+ON CONFLICT (referee_id) DO NOTHING
 RETURNING id, referrer_id, referee_id, referral_code, status, created_at, rewarded_at
 `
 

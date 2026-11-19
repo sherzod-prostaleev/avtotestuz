@@ -16,6 +16,7 @@ Environment="COMPOSE_ENV_FILE=/opt/drivergo/deploy/app.env"
 Environment="BACKUP_ROOT=/var/backups/drivergo/full"
 Environment="BACKUP_QUARANTINE_ROOT=/var/backups/drivergo/quarantine"
 Environment="BACKUP_LOCK_FILE=/run/drivergo-backup/backup.lock"
+Environment="DOCKER_CONFIG=/run/drivergo-backup/docker"
 Environment="ALLOW_PLAINTEXT_BACKUP=0"
 # Interim: home PC pulls snapshots. Replace with drivergo-backup.service
 # (REQUIRE_OFFSITE_BACKUP=1) once a real rclone remote is verified.

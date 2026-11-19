@@ -366,55 +366,10 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 		return nil, fmt.Errorf("billing: IngestHumoPush requires Pool")
 	}
 	fp := humoPushFingerprint(telegramMsgID, rawText)
+	var ev sqlc.ManualPayEvent
+	isDuplicate := false
 	if existing, err := s.Q.GetManualPayEventByFingerprint(ctx, fp); err == nil {
-		return map[string]any{
-			"event_id":           existing.ID,
-			"status":             existing.Status,
-			"matched_payment_id": nullUUID(existing.MatchedPaymentID),
-			"duplicate":          true,
-		}, nil
-	} else if !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
-	}
-
-	parsed, ok := ParseHumoCardBotPush(rawText)
-	var amount pgtype.Int8
-	var last4 pgtype.Text
-	var transferAt pgtype.Timestamptz
-	var balance pgtype.Int8
-	status := "unmatched"
-	if ok {
-		amount = pgtype.Int8{Int64: parsed.AmountUzs, Valid: true}
-		last4 = pgtype.Text{String: parsed.PanLast4, Valid: true}
-		transferAt = pgtype.Timestamptz{Time: parsed.TransferAt.UTC(), Valid: true}
-		if parsed.HasBalance {
-			balance = pgtype.Int8{Int64: parsed.BalanceUzs, Valid: true}
-		}
-	}
-
-	var msgID pgtype.Int8
-	if telegramMsgID != 0 {
-		msgID = pgtype.Int8{Int64: telegramMsgID, Valid: true}
-	}
-
-	ev, err := s.Q.InsertManualPayEvent(ctx, sqlc.InsertManualPayEventParams{
-		Fingerprint:      fp,
-		TelegramMsgID:    msgID,
-		RawText:          rawText,
-		AmountUzs:        amount,
-		PanLast4:         last4,
-		TransferAt:       transferAt,
-		BalanceUzs:       balance,
-		Status:           status,
-		MatchedPaymentID: uuid.NullUUID{},
-		ParseOk:          ok,
-	})
-	if err != nil {
-		if isUniqueViolation(err) {
-			existing, gerr := s.Q.GetManualPayEventByFingerprint(ctx, fp)
-			if gerr != nil {
-				return nil, gerr
-			}
+		if existing.Status != "unmatched" || !existing.ParseOk {
 			return map[string]any{
 				"event_id":           existing.ID,
 				"status":             existing.Status,
@@ -422,7 +377,61 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 				"duplicate":          true,
 			}, nil
 		}
+		ev = existing
+		isDuplicate = true
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return nil, err
+	}
+
+	parsed, ok := ParseHumoCardBotPush(rawText)
+	if !isDuplicate {
+		var amount pgtype.Int8
+		var last4 pgtype.Text
+		var transferAt pgtype.Timestamptz
+		var balance pgtype.Int8
+		status := "unmatched"
+		if ok {
+			amount = pgtype.Int8{Int64: parsed.AmountUzs, Valid: true}
+			last4 = pgtype.Text{String: parsed.PanLast4, Valid: true}
+			transferAt = pgtype.Timestamptz{Time: parsed.TransferAt.UTC(), Valid: true}
+			if parsed.HasBalance {
+				balance = pgtype.Int8{Int64: parsed.BalanceUzs, Valid: true}
+			}
+		}
+
+		var msgID pgtype.Int8
+		if telegramMsgID != 0 {
+			msgID = pgtype.Int8{Int64: telegramMsgID, Valid: true}
+		}
+
+		var err error
+		ev, err = s.Q.InsertManualPayEvent(ctx, sqlc.InsertManualPayEventParams{
+			Fingerprint:      fp,
+			TelegramMsgID:    msgID,
+			RawText:          rawText,
+			AmountUzs:        amount,
+			PanLast4:         last4,
+			TransferAt:       transferAt,
+			BalanceUzs:       balance,
+			Status:           status,
+			MatchedPaymentID: uuid.NullUUID{},
+			ParseOk:          ok,
+		})
+		if err != nil {
+			if isUniqueViolation(err) {
+				existing, gerr := s.Q.GetManualPayEventByFingerprint(ctx, fp)
+				if gerr != nil {
+					return nil, gerr
+				}
+				return map[string]any{
+					"event_id":           existing.ID,
+					"status":             existing.Status,
+					"matched_payment_id": nullUUID(existing.MatchedPaymentID),
+					"duplicate":          true,
+				}, nil
+			}
+			return nil, err
+		}
 	}
 	if !ok {
 		return map[string]any{"event_id": ev.ID, "status": "unmatched", "parse_ok": false}, nil
@@ -439,6 +448,14 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
+			if isDuplicate {
+				return map[string]any{
+					"event_id":           ev.ID,
+					"status":             ev.Status,
+					"matched_payment_id": nullUUID(ev.MatchedPaymentID),
+					"duplicate":          true,
+				}, nil
+			}
 			return map[string]any{"event_id": ev.ID, "status": "unmatched", "parse_ok": true}, nil
 		}
 		return nil, err
@@ -457,10 +474,12 @@ func (s Service) IngestHumoPush(ctx context.Context, rawText string, telegramMsg
 		}
 		return nil, cerr
 	}
-	_ = s.Q.MarkManualPayEventMatched(ctx, sqlc.MarkManualPayEventMatchedParams{
-		ID:               ev.ID,
-		MatchedPaymentID: uuid.NullUUID{UUID: cand.PaymentID, Valid: true},
-	})
+	if !already {
+		_ = s.Q.MarkManualPayEventMatched(ctx, sqlc.MarkManualPayEventMatchedParams{
+			ID:               ev.ID,
+			MatchedPaymentID: uuid.NullUUID{UUID: cand.PaymentID, Valid: true},
+		})
+	}
 	return map[string]any{
 		"event_id":           ev.ID,
 		"status":             "matched",

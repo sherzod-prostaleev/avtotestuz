@@ -1007,7 +1007,8 @@
     "passwordSetHint": "Siz Telegram orqali ro'yxatdan o'tgansiz. Parol o'rnatsangiz, telefon raqam va parol bilan ham kira olasiz.",
     "passwordSetSubmit": "Parolni saqlash",
     "passwordSetSuccess": "Parol o'rnatildi. Endi telefon raqam va parol bilan ham kira olasiz. Boshqa qurilmalardagi seanslar yopildi.",
-    "passwordErrorAlreadySet": "Parol allaqachon o'rnatilgan. Sahifani yangilang."
+    "passwordErrorAlreadySet": "Parol allaqachon o'rnatilgan. Sahifani yangilang.",
+    "passwordErrorRateLimited": "Urinishlar juda ko'p. Birozdan so'ng qayta urinib ko'ring."
   },
   "TelegramLink": {
     "title": "Telegram bog'lash",
@@ -1072,7 +1073,7 @@
     "errorAlreadyApplied": "Sizda allaqachon referal kod biriktirilgan",
     "errorNotEligiblePaid": "Sizda allaqachon to'lov tarixi bor — referal kodni biriktirib bo'lmaydi",
     "errorWindowClosed": "Havolani ro'yxatdan o'tganingizdan keyin 30 kun ichida qo'llash mumkin",
-    "note": "Do'stingiz havola yoki kod orqali biriktirilib, birinchi pullik tarifni olsа: sizga to'lovning foizi balansga tushadi; do'stingizga tarifga qarab +3 / +7 / +10 kun qo'shiladi (7 kun / 1 oy / 2.5 oy).",
+    "note": "Do'stingiz havola yoki kod orqali biriktirilib, birinchi pullik tarifni olsa: sizga to'lovning foizi balansga tushadi; do'stingizga tarifga qarab +3 / +7 / +10 kun qo'shiladi (7 kun / 1 oy / 2.5 oy).",
     "noteWithPercent": "Do'stingiz havola yoki kod orqali biriktirilib, birinchi pullik tarifni olsa: sizga to'lovning {percent}% i balansga tushadi; do'stingizga tarifga qarab +3 / +7 / +10 kun qo'shiladi (7 kun / 1 oy / 2.5 oy).",
     "payoutTitle": "Pulni chiqarish (Uzcard / Humo)",
     "payoutAmountPlaceholder": "Summa (so'm)",
@@ -1108,7 +1109,8 @@
     "payoutPickNetwork": "Karta turini tanlang",
     "payoutCardHint": "Uzcard yoki Humo karta raqamini kiriting",
     "shareTelegram": "Telegram'da ulashish",
-    "shareText": "Driver Go'da haydovchilik imtihoniga birga tayyorlanaylik!"
+    "shareText": "Driver Go'da haydovchilik imtihoniga birga tayyorlanaylik!",
+    "retry": "Qayta urinish"
   },
   "PaymentHistory": {
     "title": "To'lovlar Tarixi",

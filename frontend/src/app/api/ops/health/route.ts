@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { backendRootFetch } from "@/lib/backend";
 import { readBackendJson } from "@/lib/backend-response";
+import { ADMIN_AUTH_COOKIE, ADMIN_REFRESH_COOKIE } from "@/lib/admin-auth-cookies";
+import { readCookie } from "@/lib/auth-cookies";
 
 export const runtime = "nodejs";
 
@@ -31,10 +33,22 @@ async function probe(path: string): Promise<ProbeResult> {
 }
 
 /**
- * Aggregates public API liveness + readiness + process metrics for the thin
- * ops health stub (M3 monitoring). API `/metrics` defaults to Prometheus text; this probe requests JSON.
+ * Aggregates API liveness + readiness + process metrics for admin ops monitoring.
+ * Requires an active admin session cookie so internal metrics and live readiness
+ * probes cannot be triggered anonymously from the public internet.
  */
-export async function GET() {
+export async function GET(request?: Request) {
+  if (request) {
+    const hasAdminSession = Boolean(
+      readCookie(request, ADMIN_AUTH_COOKIE) || readCookie(request, ADMIN_REFRESH_COOKIE),
+    );
+    if (!hasAdminSession) {
+      return NextResponse.json(
+        { error: { code: "unauthorized", message: "admin authentication required" } },
+        { status: 401 },
+      );
+    }
+  }
   const [live, ready, metrics] = await Promise.all([
     probe("/healthz"),
     probe("/readyz"),

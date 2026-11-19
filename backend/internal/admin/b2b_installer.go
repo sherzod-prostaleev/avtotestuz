@@ -201,6 +201,7 @@ func (h *Handler) downloadB2BInstaller(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate, private, max-age=0")
 	w.Header().Set("Pragma", "no-cache")
 	w.Header().Set("Expires", "0")
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(5 * time.Minute))
 	// Streamed, so no Content-Length: the trailer's size is not known until the
 	// base has been copied, and buffering a 7 MB binary per download to learn it
 	// buys nothing.

@@ -24,6 +24,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { notificationUnreadCount } from "@/lib/badge-counts";
 import {
   listNotifications,
   markAllNotificationsRead,
@@ -102,6 +103,7 @@ export default function NotificationsPage() {
   const locale = useLocale();
   const router = useRouter();
   const [items, setItems] = useState<NotificationItem[]>([]);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
@@ -113,6 +115,7 @@ export default function NotificationsPage() {
     setError(false);
     try {
       const rows = await listNotifications({ before, limit: 30 });
+      setHasMore(rows.length === 30);
       setItems((prev) => (before ? [...prev, ...rows] : rows));
     } catch {
       setError(true);
@@ -130,12 +133,17 @@ export default function NotificationsPage() {
     setBusy(true);
     try {
       if (!item.read_at) {
-        await markNotificationRead(item.id);
-        setItems((prev) =>
-          prev.map((r) =>
-            r.id === item.id ? { ...r, read_at: new Date().toISOString() } : r,
-          ),
-        );
+        try {
+          await markNotificationRead(item.id);
+          setItems((prev) =>
+            prev.map((r) =>
+              r.id === item.id ? { ...r, read_at: new Date().toISOString() } : r,
+            ),
+          );
+          notificationUnreadCount.set(Math.max(0, notificationUnreadCount.get() - 1));
+        } catch {
+          /* best-effort: still allow navigation if destination URL exists */
+        }
       }
       if (item.url?.startsWith("/")) {
         router.push(item.url);
@@ -172,14 +180,18 @@ export default function NotificationsPage() {
           onClick={() => {
             setBusy(true);
             void markAllNotificationsRead()
-              .then(() =>
+              .then(() => {
                 setItems((prev) =>
                   prev.map((r) => ({
                     ...r,
                     read_at: r.read_at || new Date().toISOString(),
                   })),
-                ),
-              )
+                );
+                notificationUnreadCount.set(0);
+              })
+              .catch(() => {
+                setError(true);
+              })
               .finally(() => setBusy(false));
           }}
         >
@@ -285,7 +297,7 @@ export default function NotificationsPage() {
         })}
       </ul>
 
-      {items.length >= 30 ? (
+      {hasMore ? (
         <div className="flex justify-center max-md:block">
           <Button
             type="button"

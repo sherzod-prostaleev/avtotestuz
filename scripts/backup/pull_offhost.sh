@@ -29,6 +29,7 @@ fi
 
 # Same default host shape as deploy/sync-to-vps.sh; override via env/file.
 OFFHOST_SSH_HOST="${OFFHOST_SSH_HOST:-${DEPLOY_HOST:-root@89.117.59.137}}"
+OFFHOST_SSH_PORT="${OFFHOST_SSH_PORT:-${DEPLOY_SSH_PORT:-2222}}"
 REMOTE_BACKUP_ROOT="${REMOTE_BACKUP_ROOT:-/var/backups/drivergo/full}"
 LOCAL_OFFHOST_ROOT="${LOCAL_OFFHOST_ROOT:-${HOME}/drivergo-offhost/full}"
 OFFHOST_LOCK_FILE="${OFFHOST_LOCK_FILE:-${HOME}/drivergo-offhost/pull.lock}"
@@ -58,6 +59,7 @@ validate_remote_backup_root() {
 require_positive_uint OFFHOST_RETENTION_DAYS "$OFFHOST_RETENTION_DAYS"
 require_positive_uint OFFHOST_MIN_SNAPSHOTS "$OFFHOST_MIN_SNAPSHOTS"
 require_positive_uint SSH_CONNECT_TIMEOUT "$SSH_CONNECT_TIMEOUT"
+require_positive_uint OFFHOST_SSH_PORT "$OFFHOST_SSH_PORT"
 validate_ssh_host "$OFFHOST_SSH_HOST"
 validate_remote_backup_root "$REMOTE_BACKUP_ROOT"
 # install -d may create intermediate parents as 0755; tighten the offhost tree.
@@ -74,6 +76,7 @@ validate_backup_root "$LOCAL_OFFHOST_ROOT"
 validate_lock_file "$OFFHOST_LOCK_FILE"
 
 SSH_OPTS=(
+  -p "$OFFHOST_SSH_PORT"
   -o BatchMode=yes
   -o ConnectTimeout="$SSH_CONNECT_TIMEOUT"
   -o StrictHostKeyChecking=yes

@@ -27,10 +27,11 @@ func (q *Queries) ActiveEntitlementEnd(ctx context.Context, profileID uuid.UUID)
 
 const clampAllEntitlementsForPayment = `-- name: ClampAllEntitlementsForPayment :exec
 UPDATE entitlement
-SET ends_at = CASE
-      WHEN starts_at >= $1::timestamptz THEN starts_at + interval '1 second'
-      ELSE $1::timestamptz
+SET starts_at = CASE
+      WHEN starts_at >= $1::timestamptz THEN $1::timestamptz - interval '1 second'
+      ELSE starts_at
     END,
+    ends_at = $1::timestamptz,
     note = note || $2
 WHERE payment_id = $3 AND ends_at > $1::timestamptz
 `

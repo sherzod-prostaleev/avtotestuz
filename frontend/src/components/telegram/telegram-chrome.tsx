@@ -8,7 +8,7 @@ import { cssColorToHex } from "@/lib/telegram/color";
 import { useTelegramFrameColor } from "@/lib/telegram/frame-color";
 import { canGoBackInApp, installHistoryDepth } from "@/lib/telegram/history-depth";
 import { telegramLinkKind } from "@/lib/telegram/links";
-import { isTabRoot, localeOf, needsClosingGuard } from "@/lib/telegram/routes";
+import { isAuthRoute, isTabRoot, localeOf, needsClosingGuard } from "@/lib/telegram/routes";
 import { TelegramHint } from "./telegram-hint";
 
 // Telegram's own method calls throw on clients too old for them; the chrome is
@@ -93,6 +93,9 @@ export function TelegramChrome({
       if (canGoBackInApp()) router.back();
       // The launch screen (e.g. /tg?next=… replaced into it) has nothing
       // behind it inside the app; history.back() would leave the Mini App.
+      // On unauthenticated auth screens, return to /tg instead of /dashboard
+      // so the middleware does not bounce straight back to /login.
+      else if (isAuthRoute(pathname)) router.replace(`/${localeOf(pathname)}/tg`);
       else router.replace(`/${localeOf(pathname)}/dashboard`);
     };
     attempt(() => webApp.BackButton.onClick(onBack));

@@ -74,7 +74,7 @@ func (s Store) CountActiveStations(ctx context.Context, orgID uuid.UUID) (int64,
 
 // LicenseEndsAt returns the latest active license end for an org (UTC).
 func (s Store) LicenseEndsAt(ctx context.Context, orgID uuid.UUID) (*time.Time, error) {
-	var ends time.Time
+	var ends pgtype.Timestamptz
 	err := s.Pool.QueryRow(ctx, `
 		SELECT MAX(ends_at) FROM b2b_org_license
 		WHERE org_id=$1 AND starts_at <= now() AND ends_at > now()`, orgID).Scan(&ends)
@@ -84,10 +84,10 @@ func (s Store) LicenseEndsAt(ctx context.Context, orgID uuid.UUID) (*time.Time, 
 		}
 		return nil, err
 	}
-	if ends.IsZero() {
+	if !ends.Valid || ends.Time.IsZero() {
 		return nil, nil
 	}
-	t := ends.UTC()
+	t := ends.Time.UTC()
 	return &t, nil
 }
 
