@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -149,8 +149,14 @@ interface VariantItem {
   question_count?: number;
 }
 
+interface CategoryStatDTO {
+  category_code: string;
+  mastery: number;
+}
+
 interface StatsDTO {
   due_count: number;
+  categories?: CategoryStatDTO[];
 }
 
 interface MistakesDTO {
@@ -159,16 +165,35 @@ interface MistakesDTO {
   next_due_at: string | null;
 }
 
+function parseMasteryByCode(categories: CategoryStatDTO[] | undefined): Map<string, number> {
+  const map = new Map<string, number>();
+  if (!Array.isArray(categories)) return map;
+  for (const item of categories) {
+    if (
+      typeof item?.category_code !== "string" ||
+      typeof item.mastery !== "number" ||
+      !Number.isFinite(item.mastery)
+    ) {
+      continue;
+    }
+    map.set(item.category_code, Math.min(100, Math.max(0, Math.round(item.mastery * 100))));
+  }
+  return map;
+}
+
+// Catalog data (topics and bilet count) is shared across learners and safe to
+// memoize briefly across tab switches. Per-learner stats (`me/stats`,
+// `me/mistakes`) deliberately stay in component state so returning from a
+// practice session shows updated topic mastery immediately and logout never
+// leaks another learner's numbers.
 const categoriesModuleCache: Record<string, CategoryItem[]> = {};
 let variantsModuleCache: number | null = null;
-let statsModuleCache: { dueCount: number; bankCount: number; nextDueAt: string | null } | null = null;
 let practiceFetchedAt = 0;
 const practiceInFlight = new Map<string, Promise<void>>();
 
 export function clearPracticeCacheForTests(): void {
   for (const k in categoriesModuleCache) delete categoriesModuleCache[k];
   variantsModuleCache = null;
-  statsModuleCache = null;
   practiceFetchedAt = 0;
   practiceInFlight.clear();
 }
@@ -202,100 +227,107 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   const [withImage, setWithImage] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(() => !categoriesModuleCache[locale]);
   const [loadError, setLoadError] = useState<boolean>(false);
-  const [dueCount, setDueCount] = useState<number>(() => statsModuleCache?.dueCount ?? 0);
-  const [bankCount, setBankCount] = useState<number>(() => statsModuleCache?.bankCount ?? 0);
-  const [nextDueAt, setNextDueAt] = useState<string | null>(() => statsModuleCache?.nextDueAt ?? null);
+  const [dueCount, setDueCount] = useState<number>(0);
+  const [bankCount, setBankCount] = useState<number>(0);
+  const [nextDueAt, setNextDueAt] = useState<string | null>(null);
+  const [masteryByCode, setMasteryByCode] = useState<Map<string, number>>(() => new Map());
+  const mountedRef = useRef<boolean>(true);
+  const loadSeqRef = useRef<number>(0);
 
   const { allowance } = usePracticeAllowance();
   const { signs } = useSigns(locale);
   const signsAvailable = signs.length > 0;
 
   const loadContent = useCallback(async () => {
-    if (categoriesModuleCache[locale] && Date.now() - practiceFetchedAt < 30_000) {
-      setCategories(categoriesModuleCache[locale]);
-      if (variantsModuleCache !== null) setVariantCount(variantsModuleCache);
-      if (statsModuleCache) {
-        setDueCount(statsModuleCache.dueCount);
-        setBankCount(statsModuleCache.bankCount);
-        setNextDueAt(statsModuleCache.nextDueAt);
-      }
-      setLoading(false);
-      return;
-    }
+    const seq = ++loadSeqRef.current;
+    const isCurrent = () => mountedRef.current && loadSeqRef.current === seq;
 
-    const existingTask = practiceInFlight.get(locale);
-    if (existingTask) {
-      await existingTask;
-      if (categoriesModuleCache[locale]) {
+    const loadCatalog = async () => {
+      if (categoriesModuleCache[locale] && Date.now() - practiceFetchedAt < 30_000) {
+        if (!isCurrent()) return;
         setCategories(categoriesModuleCache[locale]);
         if (variantsModuleCache !== null) setVariantCount(variantsModuleCache);
-        if (statsModuleCache) {
-          setDueCount(statsModuleCache.dueCount);
-          setBankCount(statsModuleCache.bankCount);
-          setNextDueAt(statsModuleCache.nextDueAt);
-        }
-      }
-      setLoading(false);
-      return;
-    }
-
-    if (!categoriesModuleCache[locale]) {
-      setLoading(true);
-    }
-    setLoadError(false);
-
-    const task = (async () => {
-      try {
-        const [cats, variants, stats, mistakes] = await Promise.all([
-          apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
-          apiGet<VariantItem[]>("variants"),
-          apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0 })),
-          apiGet<MistakesDTO>("me/mistakes").catch(() => ({
-            due_count: 0,
-            total_bank_count: 0,
-            next_due_at: null,
-          })),
-        ]);
-        const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
-        categoriesModuleCache[locale] = ordered;
-        practiceFetchedAt = Date.now();
-        setCategories(ordered);
-
-        const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
-        const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
-        const calculatedDue = Math.max(dueFromMistakes, dueFromStats);
-        const calculatedBank = Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0;
-        const calculatedNextDue = typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null;
-
-        statsModuleCache = { dueCount: calculatedDue, bankCount: calculatedBank, nextDueAt: calculatedNextDue };
-        setDueCount(calculatedDue);
-        setBankCount(calculatedBank);
-        setNextDueAt(calculatedNextDue);
-
-        const maxVar = variants.reduce((max, item) => Math.max(max, item.number), 0);
-        variantsModuleCache = maxVar;
-        setVariantCount(maxVar);
-      } catch {
-        if (!categoriesModuleCache[locale]) {
-          setCategories([]);
-          setVariantCount(0);
-          setDueCount(0);
-          setBankCount(0);
-          setNextDueAt(null);
-          setLoadError(true);
-        }
-      } finally {
-        practiceInFlight.delete(locale);
         setLoading(false);
+        return;
       }
-    })();
 
-    practiceInFlight.set(locale, task);
-    await task;
+      const existingTask = practiceInFlight.get(locale);
+      if (existingTask) {
+        await existingTask;
+        if (!isCurrent()) return;
+        if (categoriesModuleCache[locale]) {
+          setCategories(categoriesModuleCache[locale]);
+          if (variantsModuleCache !== null) setVariantCount(variantsModuleCache);
+        }
+        setLoading(false);
+        return;
+      }
+
+      if (!categoriesModuleCache[locale]) {
+        setLoading(true);
+      }
+      setLoadError(false);
+
+      const task = (async () => {
+        try {
+          const [cats, variants] = await Promise.all([
+            apiGet<CategoryItem[]>(`categories?locale=${encodeURIComponent(locale)}`),
+            apiGet<VariantItem[]>("variants"),
+          ]);
+          const ordered = [...cats].sort((left, right) => left.sort_order - right.sort_order);
+          categoriesModuleCache[locale] = ordered;
+          practiceFetchedAt = Date.now();
+          const maxVar = variants.reduce((max, item) => Math.max(max, item.number), 0);
+          variantsModuleCache = maxVar;
+
+          if (isCurrent()) {
+            setCategories(ordered);
+            setVariantCount(maxVar);
+          }
+        } catch {
+          if (isCurrent() && !categoriesModuleCache[locale]) {
+            setCategories([]);
+            setVariantCount(0);
+            setLoadError(true);
+          }
+        } finally {
+          practiceInFlight.delete(locale);
+          if (isCurrent()) setLoading(false);
+        }
+      })();
+
+      practiceInFlight.set(locale, task);
+      await task;
+    };
+
+    const loadLearnerStats = async () => {
+      const [stats, mistakes] = await Promise.all([
+        apiGet<StatsDTO>("me/stats").catch(() => ({ due_count: 0, categories: [] })),
+        apiGet<MistakesDTO>("me/mistakes").catch(() => ({
+          due_count: 0,
+          total_bank_count: 0,
+          next_due_at: null,
+        })),
+      ]);
+      if (!isCurrent()) return;
+
+      const dueFromMistakes = Number.isInteger(mistakes.due_count) ? mistakes.due_count : 0;
+      const dueFromStats = Number.isInteger(stats.due_count) ? stats.due_count : 0;
+      setDueCount(Math.max(dueFromMistakes, dueFromStats));
+      setBankCount(Number.isInteger(mistakes.total_bank_count) ? mistakes.total_bank_count : 0);
+      setNextDueAt(typeof mistakes.next_due_at === "string" ? mistakes.next_due_at : null);
+      setMasteryByCode(parseMasteryByCode(stats.categories));
+    };
+
+    await Promise.all([loadCatalog(), loadLearnerStats()]);
   }, [locale]);
 
   useEffect(() => {
+    mountedRef.current = true;
     void loadContent();
+    return () => {
+      mountedRef.current = false;
+    };
   }, [loadContent]);
 
   const imageCounts = useMemo(() => {
@@ -383,26 +415,6 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
   // (canStart is false for it below). Drop it entirely on the kiosk instead
   // of leaving a tile that dead-ends at a login-gated route.
   const sources = kiosk ? allSources.filter((item) => item.value !== "sign") : allSources;
-
-  // Mastery per topic, for the phone card's progress bar. Fetched with the
-  // page's own apiGet rather than `useUserStats`, which is a react-query hook
-  // and would drag a QueryClientProvider into a page that has never needed one.
-  // A failure is not worth surfacing here: the bars simply read 0%.
-  const [masteryByCode, setMasteryByCode] = useState<Map<string, number>>(new Map());
-  useEffect(() => {
-    let cancelled = false;
-    void apiGet<{ category_mastery?: { code: string; mastery_pct: number }[] }>("me/stats")
-      .then((data) => {
-        if (cancelled) return;
-        setMasteryByCode(new Map((data.category_mastery ?? []).map((item) => [item.code, item.mastery_pct])));
-      })
-      .catch(() => {
-        /* optional decoration */
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   return (
     <main
@@ -590,6 +602,7 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
               : categories.map((cat) => {
                   const section = SECTION_BY_CODE.get(cat.code);
                   const SectionIcon = section?.icon;
+                  const masteryPct = masteryByCode.get(cat.code) ?? 0;
                   return (
                     <div
                       key={cat.code}
@@ -636,25 +649,25 @@ export default function PracticePage({ kiosk = false }: PracticePageProps = {}) 
                         <span className="h-1.5 w-full overflow-hidden rounded-full bg-border">
                           <span
                             className={`block h-full rounded-full ${
-                              (masteryByCode.get(cat.code) ?? 0) >= 60
+                              masteryPct >= 60
                                 ? "bg-success"
-                                : (masteryByCode.get(cat.code) ?? 0) > 0
+                                : masteryPct > 0
                                   ? "bg-accent"
                                   : "bg-muted-foreground/40"
                             }`}
-                            style={{ width: `${masteryByCode.get(cat.code) ?? 0}%` }}
+                            style={{ width: `${masteryPct}%` }}
                           />
                         </span>
                         <span
                           className={`text-xs font-bold tabular-nums ${
-                            (masteryByCode.get(cat.code) ?? 0) >= 60
+                            masteryPct >= 60
                               ? "text-success"
-                              : (masteryByCode.get(cat.code) ?? 0) > 0
+                              : masteryPct > 0
                                 ? "text-accent"
                                 : "text-muted-foreground"
                           }`}
                         >
-                          {masteryByCode.get(cat.code) ?? 0}%
+                          {masteryPct}%
                         </span>
                       </span>
 

@@ -239,6 +239,66 @@ describe("PracticePage", () => {
 
     expect(await screen.findByText(/Bugun 30 ta savol qoldi/)).toBeInTheDocument();
   });
+
+  it("renders per-topic mastery percentages from the real me/stats categories wire contract", async () => {
+    const spy = mockEndpoints({
+      stats: {
+        due_count: 2,
+        readiness_pct: 55,
+        categories: [
+          { category_code: "general_rules", mastery: 0.76, seen: 20, correct: 16, studied: 19, total: 20 },
+          { category_code: "driver_duties", mastery: 0.354, seen: 10, correct: 7, studied: 5, total: 10 },
+        ],
+      },
+    });
+    renderWithIntl();
+
+    const generalCard = (await screen.findByText("Umumiy qoidalar")).closest('[role="button"]') as HTMLElement;
+    const dutiesCard = screen.getByText("Haydovchilarning vazifalari").closest('[role="button"]') as HTMLElement;
+
+    expect(await within(generalCard).findByText("76%")).toBeInTheDocument();
+    expect(within(generalCard).getByText("76%").className).toContain("text-success");
+    expect(within(dutiesCard).getByText("35%")).toBeInTheDocument();
+    expect(within(dutiesCard).getByText("35%").className).toContain("text-accent");
+
+    // me/stats should be fetched once (no duplicate second fetch for mastery).
+    const statsCalls = spy.mock.calls.filter(([path]) => path === "me/stats");
+    expect(statsCalls).toHaveLength(1);
+  });
+
+  it("refreshes per-topic mastery on remount even while the catalog cache is warm", async () => {
+    let statsPayload = {
+      due_count: 0,
+      categories: [{ category_code: "general_rules", mastery: 0 }],
+    };
+    vi.spyOn(apiClient, "apiGet").mockImplementation(async (path: string) => {
+      if (path.startsWith("categories")) return CATEGORIES as never;
+      if (path.startsWith("variants")) return VARIANTS as never;
+      if (path.startsWith("me/practice-allowance")) return ALLOWANCE as never;
+      if (path.startsWith("me/stats")) return statsPayload as never;
+      if (path.startsWith("me/mistakes")) {
+        return { due_count: 0, total_bank_count: 0, next_due_at: null } as never;
+      }
+      return [] as never;
+    });
+
+    const first = renderWithIntl();
+    const firstCard = (await screen.findByText("Umumiy qoidalar")).closest('[role="button"]') as HTMLElement;
+    expect(within(firstCard).getByText("0%")).toBeInTheDocument();
+    first.unmount();
+
+    // Simulate returning from a practice session within the 30s catalog TTL.
+    statsPayload = {
+      due_count: 1,
+      categories: [{ category_code: "general_rules", mastery: 0.82 }],
+    };
+
+    renderWithIntl();
+    const secondCard = (await screen.findByText("Umumiy qoidalar")).closest('[role="button"]') as HTMLElement;
+    await waitFor(() => {
+      expect(within(secondCard).getByText("82%")).toBeInTheDocument();
+    });
+  });
 });
 
 describe("PracticePage kiosk mode", () => {
