@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { UserCheck, X } from "lucide-react";
 import { takeSignedInAs } from "@/lib/signed-in-notice";
+import { resetAllLearnerCaches } from "@/lib/learner-cache";
 
 const VISIBLE_MS = 20_000;
 
@@ -36,6 +37,8 @@ export function SignedInNotice() {
     } catch {
       /* the login page still asks who they are */
     }
+    resetAllLearnerCaches();
+    // eslint-disable-next-line @next/next/no-location-assign-relative-destination
     window.location.assign(`/${locale}/login`);
   }
 

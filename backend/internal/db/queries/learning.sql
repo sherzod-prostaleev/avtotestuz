@@ -76,6 +76,23 @@ ON CONFLICT (profile_id, category_id) DO UPDATE SET
   updated_at = now()
 RETURNING *;
 
+-- name: IncrementCategoryMastery :one
+INSERT INTO category_mastery (profile_id, category_id, mastery, seen, correct, updated_at)
+VALUES (
+  sqlc.arg(profile_id),
+  sqlc.arg(category_id),
+  (sqlc.arg(correct_delta)::int)::real,
+  1,
+  sqlc.arg(correct_delta)::int,
+  now()
+)
+ON CONFLICT (profile_id, category_id) DO UPDATE SET
+  seen       = category_mastery.seen + 1,
+  correct    = category_mastery.correct + EXCLUDED.correct,
+  mastery    = (category_mastery.correct + EXCLUDED.correct)::real / (category_mastery.seen + 1)::real,
+  updated_at = now()
+RETURNING *;
+
 -- name: GetCategoryMastery :one
 SELECT * FROM category_mastery
 WHERE profile_id = sqlc.arg(profile_id) AND category_id = sqlc.arg(category_id);

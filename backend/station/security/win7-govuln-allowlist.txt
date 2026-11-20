@@ -190,3 +190,12 @@ GO-2026-6617
 #                 on every PC whatever its Windows update state; the scanner
 #                 keeps reporting the ID because it keys on the Go version.
 GO-2026-6809
+# Reviewed 2026-11-20 (advisory review, no agent release; shipped agent
+# unchanged). One standard-library ID fixed only in Go 1.26.11 / 1.27.4, i.e.
+# outside the Go 1.20 family that Windows 7 requires:
+#   GO-2026-6859  net/http MaxBytesReader concurrent response header write race
+#                 when an oversized HTTP/1.1 request body triggers the reader's
+#                 limit while the handler is writing headers. The station
+#                 listener is bound to 127.0.0.1 and serves only the local
+#                 kiosk browser on the same classroom PC.
+GO-2026-6859

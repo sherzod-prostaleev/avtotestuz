@@ -104,29 +104,15 @@ func (s *Service) RecordReview(ctx context.Context, profileID, questionID uuid.U
 		return Card{}, err
 	}
 
-	var seen, correct int32
-	m, err := s.Q.GetCategoryMastery(ctx, sqlc.GetCategoryMasteryParams{ProfileID: profileID, CategoryID: catID})
-	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return Card{}, err
-		}
-		// No existing mastery row — start from zero.
-	} else {
-		seen = m.Seen
-		correct = m.Correct
-	}
-	seen++
+	var correctDelta int32
 	if rating != Again {
-		correct++
+		correctDelta = 1
 	}
-	mastery := float32(correct) / float32(seen)
 
-	if _, err := s.Q.UpsertCategoryMastery(ctx, sqlc.UpsertCategoryMasteryParams{
-		ProfileID:  profileID,
-		CategoryID: catID,
-		Mastery:    mastery,
-		Seen:       seen,
-		Correct:    correct,
+	if _, err := s.Q.IncrementCategoryMastery(ctx, sqlc.IncrementCategoryMasteryParams{
+		ProfileID:    profileID,
+		CategoryID:   catID,
+		CorrectDelta: correctDelta,
 	}); err != nil {
 		return Card{}, err
 	}

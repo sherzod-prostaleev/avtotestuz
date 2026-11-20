@@ -9,8 +9,8 @@ does not represent a long-term security claim.
 Every ID in `win7-govuln-allowlist.txt` is covered by this record:
 
 - **Owner:** Sherzod, station maintainer
-- **Last review:** 2026-10-22 (advisory review; previous advisory review 2026-10-09; release review 2026-08-22, agent 1.1.0)
-- **Next review:** 2026-11-22, and before every station release
+- **Last review:** 2026-11-20 (advisory review; previous advisory reviews 2026-10-22, 2026-10-09; release review 2026-08-22, agent 1.1.0)
+- **Next review:** 2026-12-20, and before every station release
 - **Evidence:** the CI `station-vulnerability-scan` job retains the exact
   Windows/386 binary build metadata and `govulncheck -mode=binary` report.
 
@@ -127,6 +127,15 @@ against a key it carries itself.
 This is an accepted exception, not a remediation. The exit condition is
 unchanged: retire Windows 7 (or ship a separately supported Win7 client) and
 rebuild on a maintained Go release.
+
+## What the 2026-11-20 review added
+
+One standard-library ID, `GO-2026-6859` (`net/http` `MaxBytesReader` response
+header race on oversized HTTP/1.1 bodies), is fixed only in Go 1.26.11 /
+1.27.4, so it falls under the first exception class above. The station's
+listener is bound to `127.0.0.1` and serves only the local kiosk browser on the
+classroom PC; the maintained backend API has already been upgraded to Go
+1.26.11.
 
 Authenticode signing and reputation work remain required before any claim of
 long-term operational compatibility. This repository does not perform live

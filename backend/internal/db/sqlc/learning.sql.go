@@ -360,6 +360,48 @@ func (q *Queries) UpsertCategoryMastery(ctx context.Context, arg UpsertCategoryM
 	return i, err
 }
 
+const incrementCategoryMastery = `-- name: IncrementCategoryMastery :one
+INSERT INTO category_mastery (profile_id, category_id, mastery, seen, correct, updated_at)
+VALUES (
+  $1,
+  $2,
+  ($3::int)::real,
+  1,
+  $3::int,
+  now()
+)
+ON CONFLICT (profile_id, category_id) DO UPDATE SET
+  seen       = category_mastery.seen + 1,
+  correct    = category_mastery.correct + EXCLUDED.correct,
+  mastery    = (category_mastery.correct + EXCLUDED.correct)::real / (category_mastery.seen + 1)::real,
+  updated_at = now()
+RETURNING profile_id, category_id, mastery, seen, correct, updated_at
+`
+
+type IncrementCategoryMasteryParams struct {
+	ProfileID    uuid.UUID `json:"profile_id"`
+	CategoryID   uuid.UUID `json:"category_id"`
+	CorrectDelta int32     `json:"correct_delta"`
+}
+
+func (q *Queries) IncrementCategoryMastery(ctx context.Context, arg IncrementCategoryMasteryParams) (CategoryMastery, error) {
+	row := q.db.QueryRow(ctx, incrementCategoryMastery,
+		arg.ProfileID,
+		arg.CategoryID,
+		arg.CorrectDelta,
+	)
+	var i CategoryMastery
+	err := row.Scan(
+		&i.ProfileID,
+		&i.CategoryID,
+		&i.Mastery,
+		&i.Seen,
+		&i.Correct,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const upsertQuestionMemory = `-- name: UpsertQuestionMemory :one
 INSERT INTO question_memory
   (profile_id, question_id, stability, difficulty, due_at, last_reviewed_at, reps, lapses, state)
